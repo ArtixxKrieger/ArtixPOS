@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type CartItem = {

@@ -73,68 +73,33 @@ export default function POS() {
     setCart(prev => prev.filter(item => item.cartId !== cartId));
   };
 
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
+
   const subtotal = cart.reduce((acc, item) => acc + (parseNumeric(item.product.price) * item.quantity), 0);
   const taxRate = parseNumeric(settings?.taxRate || 0);
   const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax - discount;
+  const changeAmount = Math.max(0, (Number(paymentAmount) || 0) - total);
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
     
-    // Finalize order directly to sales (Completed)
-    createSale.mutate({
-      items: cart,
-      subtotal: subtotal.toString(),
-      tax: tax.toString(),
-      discount: discount.toString(),
-      total: total.toString(),
-      paymentMethod,
-      paymentAmount: total.toString(),
-      changeAmount: "0",
-    }, {
-      onSuccess: () => {
-        setCart([]);
-        setDiscount(0);
-        toast({ title: "Sale Complete", description: "Receipt generated successfully." });
-      }
-    });
-  };
-
-  const handlePayLater = () => {
-    if (cart.length === 0) return;
-    
-    // Send to pending section first
+    // All orders go to pending first as per request
     createPending.mutate({
       items: cart,
       subtotal: subtotal.toString(),
       tax: tax.toString(),
       discount: discount.toString(),
       total: total.toString(),
-      status: "pending",
+      paymentAmount: paymentAmount.toString(),
+      changeAmount: changeAmount.toString(),
+      status: (Number(paymentAmount) || 0) >= total ? "paid" : "unpaid",
     }, {
       onSuccess: () => {
         setCart([]);
         setDiscount(0);
-        toast({ title: "Order Sent to Pending", description: "You can find this order in the Pending section." });
-      }
-    });
-  };
-
-  const handleParkOrder = () => {
-    if (cart.length === 0) return;
-    
-    createPending.mutate({
-      items: cart,
-      subtotal: subtotal.toString(),
-      tax: tax.toString(),
-      discount: discount.toString(),
-      total: total.toString(),
-      status: "parked",
-    }, {
-      onSuccess: () => {
-        setCart([]);
-        setDiscount(0);
-        toast({ title: "Order Parked", description: "You can resume it from the Pending Orders tab." });
+        setPaymentAmount("");
+        toast({ title: "Order Created", description: "Order has been sent to the Pending section." });
       }
     });
   };
@@ -177,7 +142,7 @@ export default function POS() {
         )}
       </div>
 
-      <div className="pt-4 border-t border-border mt-4 space-y-3">
+      <div className="pt-4 border-t border-border mt-4 space-y-3 pb-2">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>Subtotal</span>
           <span>{formatCurrency(subtotal, settings?.currency)}</span>
@@ -197,14 +162,31 @@ export default function POS() {
             onChange={(e) => setDiscount(Number(e.target.value) || 0)}
           />
         </div>
-        <div className="flex justify-between items-end pt-3 border-t border-border">
+        <div className="flex justify-between items-end pt-2 border-t border-border">
           <span className="text-lg font-bold">Total</span>
-          <span className="text-2xl font-bold text-primary">{formatCurrency(total, settings?.currency)}</span>
+          <span className="text-xl font-bold text-primary">{formatCurrency(total, settings?.currency)}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 pt-2">
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium">Amount Paid</span>
+            <Input 
+              type="number" 
+              placeholder="0.00"
+              className="w-32 h-10 text-right bg-secondary border-none font-bold" 
+              value={paymentAmount} 
+              onChange={(e) => setPaymentAmount(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-between text-sm font-bold text-green-600 dark:text-green-400">
+            <span>Change</span>
+            <span>{formatCurrency(changeAmount, settings?.currency)}</span>
+          </div>
+        </div>
+
+        <div className="pt-2">
           <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-            <SelectTrigger className="col-span-2 h-12 bg-secondary border-none rounded-xl font-medium">
+            <SelectTrigger className="w-full h-10 bg-secondary border-none rounded-xl font-medium mb-2">
               <SelectValue placeholder="Payment Method" />
             </SelectTrigger>
             <SelectContent>
@@ -215,27 +197,11 @@ export default function POS() {
           </Select>
           
           <Button 
-            variant="outline" 
-            className="rounded-xl font-bold border-2"
-            onClick={handleParkOrder}
-            disabled={cart.length === 0 || createPending.isPending}
-          >
-            Park
-          </Button>
-          <Button 
-            variant="outline"
-            className="rounded-xl font-bold border-2"
-            onClick={handlePayLater}
-            disabled={cart.length === 0 || createPending.isPending}
-          >
-            Pay Later
-          </Button>
-          <Button 
-            className="col-span-2 h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
+            className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
             onClick={handleCheckout}
-            disabled={cart.length === 0 || createSale.isPending}
+            disabled={cart.length === 0 || createPending.isPending}
           >
-            {createSale.isPending ? "Processing..." : "Finalize Order"}
+            {createPending.isPending ? "Processing..." : "Finalize Order"}
           </Button>
         </div>
       </div>

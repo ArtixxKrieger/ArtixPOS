@@ -81,6 +81,7 @@ export default function POS() {
   const handleCheckout = () => {
     if (cart.length === 0) return;
     
+    // Finalize order directly to sales (Completed)
     createSale.mutate({
       items: cart,
       subtotal: subtotal.toString(),
@@ -95,6 +96,26 @@ export default function POS() {
         setCart([]);
         setDiscount(0);
         toast({ title: "Sale Complete", description: "Receipt generated successfully." });
+      }
+    });
+  };
+
+  const handlePayLater = () => {
+    if (cart.length === 0) return;
+    
+    // Send to pending section first
+    createPending.mutate({
+      items: cart,
+      subtotal: subtotal.toString(),
+      tax: tax.toString(),
+      discount: discount.toString(),
+      total: total.toString(),
+      status: "pending",
+    }, {
+      onSuccess: () => {
+        setCart([]);
+        setDiscount(0);
+        toast({ title: "Order Sent to Pending", description: "You can find this order in the Pending section." });
       }
     });
   };
@@ -195,18 +216,26 @@ export default function POS() {
           
           <Button 
             variant="outline" 
-            className="h-12 rounded-xl font-bold border-2"
+            className="rounded-xl font-bold border-2"
             onClick={handleParkOrder}
             disabled={cart.length === 0 || createPending.isPending}
           >
-            Park Order
+            Park
           </Button>
           <Button 
-            className="h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
+            variant="outline"
+            className="rounded-xl font-bold border-2"
+            onClick={handlePayLater}
+            disabled={cart.length === 0 || createPending.isPending}
+          >
+            Pay Later
+          </Button>
+          <Button 
+            className="col-span-2 h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
             onClick={handleCheckout}
             disabled={cart.length === 0 || createSale.isPending}
           >
-            {createSale.isPending ? "Processing..." : "Pay Now"}
+            {createSale.isPending ? "Processing..." : "Finalize Order"}
           </Button>
         </div>
       </div>

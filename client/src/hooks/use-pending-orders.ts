@@ -44,3 +44,22 @@ export function useDeletePendingOrder() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.pendingOrders.list.path] }),
   });
 }
+
+export function useUpdatePendingOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: number } & Partial<InsertPendingOrder>) => {
+      const url = buildUrl(api.pendingOrders.update.path, { id });
+      const res = await fetch(url, {
+        method: api.pendingOrders.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update pending order");
+      const json = await res.json();
+      return api.pendingOrders.update.responses[200].parse(json);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.pendingOrders.list.path] }),
+  });
+}

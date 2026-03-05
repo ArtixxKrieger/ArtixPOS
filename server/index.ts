@@ -60,43 +60,73 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  try {
+    console.log("Starting server initialization...");
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    await registerRoutes(httpServer, app);
 
-    console.error("Internal Server Error:", err);
+    app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    if (res.headersSent) {
-      return next(err);
+      console.error("Internal Server Error:", err);
+
+      if (res.headersSent) {
+        return next(err);
+      }
+
+      return res.status(status).json({ message });
+    });
+
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (process.env.NODE_ENV === "production") {
+      serveStatic(app);
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
     }
 
-    return res.status(status).json({ message });
-  });
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = process.env.PORT || process.env.REPL_PORT || "5000";
+    const parsedPort = parseInt(port, 10);
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
+    // Add error handling for the server
+    httpServer.listen(parsedPort, "0.0.0.0", () => {
+      log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || 'development'} mode`);
+      console.log(`Server is ready and listening on port ${parsedPort}`);
+    });
+
+    httpServer.on('error', (error) => {
+      console.error('Server failed to start:', error);
+      process.exit(1);
+    });
+
+  } catch (error) {
+    console.error("Failed to initialize server:", error);
+    process.exit(1);
   }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
 })();
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  httpServer.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});

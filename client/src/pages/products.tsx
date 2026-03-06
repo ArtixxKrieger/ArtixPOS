@@ -31,7 +31,7 @@ export default function Products() {
   const onSubmit = (data: InsertProduct) => {
     // Ensure price is string to satisfy schema
     const payload = { ...data, price: data.price.toString() };
-    
+
     if (editingId) {
       updateProduct.mutate({ id: editingId, ...payload }, {
         onSuccess: () => { setIsDialogOpen(false); setEditingId(null); }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useProducts } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
 import { useCreateSale } from "@/hooks/use-sales";
@@ -31,6 +31,12 @@ export default function POS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
+
+  const paymentInputRef = useRef<HTMLInputElement>(null);
+  const [isPaymentFocused, setIsPaymentFocused] = useState(false);
+
+  const isOnlinePayment = paymentMethod === "online";
 
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category || "General"));
@@ -49,9 +55,9 @@ export default function POS() {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
-        return prev.map(item => 
-          item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 } 
+        return prev.map(item =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
@@ -60,53 +66,80 @@ export default function POS() {
   };
 
   const updateQuantity = (cartId: string, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.cartId === cartId) {
-        const newQ = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQ };
-      }
-      return item;
-    }));
+    setCart(prev =>
+      prev.map(item => {
+        if (item.cartId === cartId) {
+          const newQ = Math.max(1, item.quantity + delta);
+          return { ...item, quantity: newQ };
+        }
+        return item;
+      })
+    );
   };
 
   const removeFromCart = (cartId: string) => {
     setCart(prev => prev.filter(item => item.cartId !== cartId));
   };
 
-  const [paymentAmount, setPaymentAmount] = useState<string>("");
+  const subtotal = cart.reduce(
+    (acc, item) => acc + parseNumeric(item.product.price) * item.quantity,
+    0
+  );
 
-  const subtotal = cart.reduce((acc, item) => acc + (parseNumeric(item.product.price) * item.quantity), 0);
   const taxRate = parseNumeric(settings?.taxRate || 0);
   const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax - discount;
-  const changeAmount = Math.max(0, (Number(paymentAmount) || 0) - total);
+
+  const numericPayment = isOnlinePayment
+    ? total
+    : parseNumeric(paymentAmount || "0");
+
+  const changeAmount = isOnlinePayment
+    ? 0
+    : Math.max(0, numericPayment - total);
+
+  useEffect(() => {
+    if (isOnlinePayment) {
+      setPaymentAmount(total.toString());
+    }
+  }, [isOnlinePayment, total]);
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
-    
-    // All orders go to pending first as per request
-    createPending.mutate({
-      items: cart,
-      subtotal: subtotal.toString(),
-      tax: tax.toString(),
-      discount: discount.toString(),
-      total: total.toString(),
-      paymentAmount: paymentAmount.toString(),
-      changeAmount: changeAmount.toString(),
-      status: (Number(paymentAmount) || 0) >= total ? "paid" : "unpaid",
-    }, {
-      onSuccess: () => {
-        setCart([]);
-        setDiscount(0);
-        setPaymentAmount("");
-        toast({ title: "Order Created", description: "Order has been sent to the Pending section." });
+
+    createPending.mutate(
+      {
+        items: cart,
+        subtotal: subtotal.toString(),
+        tax: tax.toString(),
+        discount: discount.toString(),
+        total: total.toString(),
+        paymentAmount: numericPayment.toString(),
+        changeAmount: changeAmount.toString(),
+        status: isOnlinePayment || numericPayment >= total ? "paid" : "unpaid",
+        paymentMethod,
+      },
+      {
+        onSuccess: () => {
+          setCart([]);
+          setDiscount(0);
+          setPaymentAmount("");
+          toast({
+            title: "Order Created",
+            description: "Order has been sent to the Pending section.",
+          });
+        },
       }
-    });
+    );
   };
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading products...</div>;
+  useEffect(() => {
+    if (!isOnlinePayment && isPaymentFocused && paymentInputRef.current) {
+      paymentInputRef.current.focus({ preventScroll: true });
+    }
+  }, [cart, discount, isOnlinePayment]);
 
-  const CartContent = () => (
+  const CartContent = useMemo(() => (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-4 p-1">
         {cart.length === 0 ? (
@@ -118,7 +151,8 @@ export default function POS() {
           cart.map((item) => (
             <div key={item.cartId} className="flex items-center justify-between p-3 bg-card rounded-xl border border-border/50 shadow-sm">
               <div className="flex-1">
-                <p className="font-semibold text-sm line-clamp-1">{item.product.name}</p>
+                {/* Updated to show full product name */}
+                <p className="font-semibold text-sm break-words max-h-12 overflow-y-auto">{item.product.name}</p>
                 <p className="text-primary font-bold text-sm">
                   {formatCurrency(item.product.price, settings?.currency)}
                 </p>
@@ -151,52 +185,59 @@ export default function POS() {
           <span>Tax ({taxRate}%)</span>
           <span>{formatCurrency(tax, settings?.currency)}</span>
         </div>
+
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium flex items-center gap-2">
             <Tag className="h-4 w-4 text-primary" /> Discount
           </span>
-          <Input 
-            type="number" 
-            className="w-24 h-8 text-right bg-secondary border-none" 
-            value={discount || ""} 
+          <Input
+            type="number"
+            className="w-24 h-8 text-right bg-secondary border-none"
+            value={discount || ""}
             onChange={(e) => setDiscount(Number(e.target.value) || 0)}
           />
         </div>
+
         <div className="flex justify-between items-end pt-2 border-t border-border">
           <span className="text-lg font-bold">Total</span>
-          <span className="text-xl font-bold text-primary">{formatCurrency(total, settings?.currency)}</span>
+          <span className="text-xl font-bold text-primary">
+            {formatCurrency(total, settings?.currency)}
+          </span>
         </div>
 
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium">Amount Paid</span>
-            <Input 
-              type="number" 
-              placeholder="0.00"
-              className="w-32 h-10 text-right bg-secondary border-none font-bold" 
-              value={paymentAmount} 
-              onChange={(e) => setPaymentAmount(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-between text-sm font-bold text-green-600 dark:text-green-400">
-            <span>Change</span>
-            <span>{formatCurrency(changeAmount, settings?.currency)}</span>
-          </div>
-        </div>
+        {!isOnlinePayment && (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm font-medium">Amount Paid</span>
+              <Input
+                ref={paymentInputRef}
+                type="number"
+                className="w-32 h-10 text-right bg-secondary border-none font-bold"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                onFocus={() => setIsPaymentFocused(true)}
+                onBlur={() => setIsPaymentFocused(false)}
+              />
+            </div>
+            <div className="flex justify-between text-sm font-bold text-green-600 dark:text-green-400">
+              <span>Change</span>
+              <span>{formatCurrency(changeAmount, settings?.currency)}</span>
+            </div>
+          </>
+        )}
 
-        <div className="pt-2">
-          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-            <SelectTrigger className="w-full h-10 bg-secondary border-none rounded-xl font-medium mb-2">
-              <SelectValue placeholder="Payment Method" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="card">Credit Card</SelectItem>
-              <SelectItem value="mobile">Mobile Pay</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button 
+        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+          <SelectTrigger className="w-full h-10 bg-secondary border-none rounded-xl font-medium mb-2">
+            <SelectValue placeholder="Payment Method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cash">Cash</SelectItem>
+            <SelectItem value="online">Online Payment</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="pb-4">
+          <Button
             className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
             onClick={handleCheckout}
             disabled={cart.length === 0 || createPending.isPending}
@@ -206,7 +247,9 @@ export default function POS() {
         </div>
       </div>
     </div>
-  );
+  ), [cart, discount, paymentAmount, settings?.currency, taxRate, total, changeAmount, isOnlinePayment]);
+
+  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading products...</div>;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6 animate-in fade-in duration-500">
@@ -215,14 +258,14 @@ export default function POS() {
         <div className="flex gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input 
-              placeholder="Search products..." 
+            <Input
+              placeholder="Search products..."
               className="pl-10 h-12 rounded-2xl bg-card border-none shadow-sm text-base"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          
+
           <Sheet>
             <SheetTrigger asChild>
               <Button className="md:hidden h-12 px-4 rounded-2xl bg-primary text-white shadow-md relative">
@@ -230,16 +273,19 @@ export default function POS() {
                 Cart
                 {cart.length > 0 && (
                   <span className="absolute -top-2 -right-2 bg-destructive text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-background">
-                    {cart.reduce((a,b) => a+b.quantity, 0)}
+                    {cart.reduce((a, b) => a + b.quantity, 0)}
                   </span>
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-[90vw] sm:w-[400px] border-l-0 p-6">
+            <SheetContent className="w-[90vw] sm:w-[400px] border-l-0 p-6 flex flex-col h-full">
               <SheetHeader className="mb-6">
                 <SheetTitle>Current Order</SheetTitle>
               </SheetHeader>
-              <CartContent />
+              <div className="flex-1 overflow-y-auto">
+                {CartContent}
+                <div className="h-6" />
+              </div>
             </SheetContent>
           </Sheet>
         </div>
@@ -262,17 +308,16 @@ export default function POS() {
         <div className="flex-1 overflow-y-auto pb-20">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map(product => (
-              <Card 
-                key={product.id} 
+              <Card
+                key={product.id}
                 className="cursor-pointer group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-none bg-card shadow-md overflow-hidden rounded-2xl"
                 onClick={() => addToCart(product)}
               >
                 <div className="aspect-square bg-secondary/50 flex items-center justify-center p-4 relative">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                   <Package className="h-16 w-16 text-primary/40 group-hover:scale-110 transition-transform duration-500" />
                 </div>
                 <CardContent className="p-4 bg-card relative z-20">
-                  <h3 className="font-bold text-foreground line-clamp-1">{product.name}</h3>
+                  <h3 className="font-bold text-foreground">{product.name}</h3>
                   <p className="text-primary font-black mt-1 text-lg">
                     {formatCurrency(product.price, settings?.currency)}
                   </p>
@@ -289,7 +334,7 @@ export default function POS() {
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
           <ShoppingCart className="text-primary" /> Order
         </h2>
-        <CartContent />
+        {CartContent}
       </div>
     </div>
   );

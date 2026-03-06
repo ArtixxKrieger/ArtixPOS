@@ -29,9 +29,9 @@ export async function seed() {
   if (existingSettings.length === 0) {
     console.log("Seeding initial settings...");
     await db.insert(userSettings).values({
-      storeName: "Quick POS",
-      currency: "$",
-      taxRate: "8.5"
+      storeName: "Café Bara",
+      currency: "₱",
+      taxRate: "0"
     });
   }
 }

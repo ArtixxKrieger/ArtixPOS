@@ -1,71 +1,73 @@
 import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
+import { sqliteTable, text as sqliteText, integer as sqliteInteger, numeric as sqliteNumeric } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const products = pgTable("products", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  price: numeric("price").notNull(),
-  category: text("category").default("General"),
-  hasSizes: boolean("has_sizes").default(false),
-  hasModifiers: boolean("has_modifiers").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+// Shared logic for SQLite
+export const products = sqliteTable("products", {
+  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
+  name: sqliteText("name").notNull(),
+  price: sqliteNumeric("price").notNull(),
+  category: sqliteText("category").default("General"),
+  hasSizes: sqliteInteger("has_sizes", { mode: "boolean" }).default(false),
+  hasModifiers: sqliteInteger("has_modifiers", { mode: "boolean" }).default(false),
+  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
 });
 
-export const productSizes = pgTable("product_sizes", {
-  id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  sizeName: text("size_name").notNull(),
-  price: numeric("price").notNull(),
+export const productSizes = sqliteTable("product_sizes", {
+  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
+  productId: sqliteInteger("product_id").references(() => products.id).notNull(),
+  sizeName: sqliteText("size_name").notNull(),
+  price: sqliteNumeric("price").notNull(),
 });
 
-export const productModifiers = pgTable("product_modifiers", {
-  id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  modifierName: text("modifier_name").notNull(),
-  price: numeric("price").notNull(),
+export const productModifiers = sqliteTable("product_modifiers", {
+  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
+  productId: sqliteInteger("product_id").references(() => products.id).notNull(),
+  modifierName: sqliteText("modifier_name").notNull(),
+  price: sqliteNumeric("price").notNull(),
 });
 
-export const pendingOrders = pgTable("pending_orders", {
-  id: serial("id").primaryKey(),
-  items: jsonb("items").notNull(),
-  subtotal: numeric("subtotal").notNull(),
-  tax: numeric("tax").default("0"),
-  discount: numeric("discount").default("0"),
-  total: numeric("total").notNull(),
-  paymentMethod: text("payment_method").default("cash"),
-  paymentAmount: numeric("payment_amount").default("0"),
-  changeAmount: numeric("change_amount").default("0"),
-  status: text("status").default("unpaid"),
-  customerName: text("customer_name"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const pendingOrders = sqliteTable("pending_orders", {
+  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
+  items: sqliteText("items", { mode: "json" }).notNull(),
+  subtotal: sqliteNumeric("subtotal").notNull(),
+  tax: sqliteNumeric("tax").default("0"),
+  discount: sqliteNumeric("discount").default("0"),
+  total: sqliteNumeric("total").notNull(),
+  paymentMethod: sqliteText("payment_method").default("cash"),
+  paymentAmount: sqliteNumeric("payment_amount").default("0"),
+  changeAmount: sqliteNumeric("change_amount").default("0"),
+  status: sqliteText("status").default("unpaid"),
+  customerName: sqliteText("customer_name"),
+  notes: sqliteText("notes"),
+  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
 });
 
-export const sales = pgTable("sales", {
-  id: serial("id").primaryKey(),
-  items: jsonb("items").notNull(),
-  subtotal: numeric("subtotal").notNull(),
-  tax: numeric("tax").default("0"),
-  discount: numeric("discount").default("0"),
-  total: numeric("total").notNull(),
-  paymentMethod: text("payment_method").default("cash"),
-  paymentAmount: numeric("payment_amount").default("0"),
-  changeAmount: numeric("change_amount").default("0"),
-  customerName: text("customer_name"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const sales = sqliteTable("sales", {
+  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
+  items: sqliteText("items", { mode: "json" }).notNull(),
+  subtotal: sqliteNumeric("subtotal").notNull(),
+  tax: sqliteNumeric("tax").default("0"),
+  discount: sqliteNumeric("discount").default("0"),
+  total: sqliteNumeric("total").notNull(),
+  paymentMethod: sqliteText("payment_method").default("cash"),
+  paymentAmount: sqliteNumeric("payment_amount").default("0"),
+  changeAmount: sqliteNumeric("change_amount").default("0"),
+  customerName: sqliteText("customer_name"),
+  notes: sqliteText("notes"),
+  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
 });
 
-export const userSettings = pgTable("user_settings", {
-  id: serial("id").primaryKey(),
-  storeName: text("store_name").default("My Store"),
-  currency: text("currency").default("₱"),
-  taxRate: numeric("tax_rate").default("0"),
-  address: text("address"),
-  phone: text("phone"),
-  emailContact: text("email_contact"),
-  receiptFooter: text("receipt_footer").default("Thank you for your business!"),
+export const userSettings = sqliteTable("user_settings", {
+  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
+  storeName: sqliteText("store_name").default("My Store"),
+  currency: sqliteText("currency").default("₱"),
+  taxRate: sqliteNumeric("tax_rate").default("0"),
+  address: sqliteText("address"),
+  phone: sqliteText("phone"),
+  emailContact: sqliteText("email_contact"),
+  receiptFooter: sqliteText("receipt_footer").default("Thank you for your business!"),
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });

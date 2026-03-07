@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X } from "lucide-react";
 
 export default function Products() {
   const { data: products = [], isLoading } = useProducts();
@@ -23,14 +23,34 @@ export default function Products() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const form = useForm<InsertProduct>({
-    defaultValues: { name: "", price: "0", category: "General" }
+    defaultValues: { 
+      name: "", 
+      price: "0", 
+      category: "General",
+      sizes: [{ name: "Regular", price: "0" }],
+      modifiers: []
+    }
+  });
+
+  const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({
+    control: form.control,
+    name: "sizes"
+  });
+
+  const { fields: modifierFields, append: appendModifier, remove: removeModifier } = useFieldArray({
+    control: form.control,
+    name: "modifiers"
   });
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
   const onSubmit = (data: InsertProduct) => {
-    // Ensure price is string to satisfy schema
-    const payload = { ...data, price: data.price.toString() };
+    const payload = { 
+      ...data, 
+      price: data.price.toString(),
+      hasSizes: (data.sizes?.length || 0) > 0,
+      hasModifiers: (data.modifiers?.length || 0) > 0
+    };
 
     if (editingId) {
       updateProduct.mutate({ id: editingId, ...payload }, {
@@ -45,13 +65,25 @@ export default function Products() {
 
   const openEdit = (p: Product) => {
     setEditingId(p.id);
-    form.reset({ name: p.name, price: p.price, category: p.category || "General" });
+    form.reset({ 
+      name: p.name, 
+      price: p.price, 
+      category: p.category || "General",
+      sizes: p.sizes || [],
+      modifiers: p.modifiers || []
+    });
     setIsDialogOpen(true);
   };
 
   const openCreate = () => {
     setEditingId(null);
-    form.reset({ name: "", price: "", category: "General" });
+    form.reset({ 
+      name: "", 
+      price: "0", 
+      category: "General",
+      sizes: [{ name: "Regular", price: "0" }],
+      modifiers: []
+    });
     setIsDialogOpen(true);
   };
 
@@ -78,12 +110,12 @@ export default function Products() {
                 <Plus className="h-4 w-4 mr-2" /> Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] rounded-2xl">
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-2xl">
               <DialogHeader>
                 <DialogTitle className="text-xl">{editingId ? "Edit Product" : "New Product"}</DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Product Name</FormLabel>
@@ -94,7 +126,7 @@ export default function Products() {
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="price" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price ({settings?.currency})</FormLabel>
+                        <FormLabel>Base Price ({settings?.currency})</FormLabel>
                         <FormControl><Input type="number" step="0.01" {...field} className="rounded-xl bg-secondary border-none" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -107,6 +139,61 @@ export default function Products() {
                       </FormItem>
                     )} />
                   </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-base">Sizes (Mandatory)</FormLabel>
+                      <Button type="button" variant="outline" size="sm" onClick={() => appendSize({ name: "", price: "0" })} className="rounded-lg h-8">
+                        <Plus className="h-3 w-3 mr-1" /> Add Size
+                      </Button>
+                    </div>
+                    {sizeFields.map((field, index) => (
+                      <div key={field.id} className="flex gap-2 items-end">
+                        <FormField control={form.control} name={`sizes.${index}.name`} render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl><Input {...field} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9" /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name={`sizes.${index}.price`} render={({ field }) => (
+                          <FormItem className="w-24">
+                            <FormControl><Input type="number" step="0.01" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" /></FormControl>
+                          </FormItem>
+                        )} />
+                        {sizeFields.length > 1 && (
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeSize(index)} className="h-9 w-9 text-destructive">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-base">Add-ons / Modifiers (Optional)</FormLabel>
+                      <Button type="button" variant="outline" size="sm" onClick={() => appendModifier({ name: "", price: "0" })} className="rounded-lg h-8">
+                        <Plus className="h-3 w-3 mr-1" /> Add Modifier
+                      </Button>
+                    </div>
+                    {modifierFields.map((field, index) => (
+                      <div key={field.id} className="flex gap-2 items-end">
+                        <FormField control={form.control} name={`modifiers.${index}.name`} render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl><Input {...field} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9" /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name={`modifiers.${index}.price`} render={({ field }) => (
+                          <FormItem className="w-24">
+                            <FormControl><Input type="number" step="0.01" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" /></FormControl>
+                          </FormItem>
+                        )} />
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeModifier(index)} className="h-9 w-9 text-destructive">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
                   <Button type="submit" className="w-full rounded-xl h-12 font-bold text-white shadow-lg bg-gradient-to-r from-primary to-violet-500 mt-4" disabled={createProduct.isPending || updateProduct.isPending}>
                     {editingId ? "Save Changes" : "Create Product"}
                   </Button>

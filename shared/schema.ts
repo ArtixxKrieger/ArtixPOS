@@ -11,6 +11,8 @@ export const products = sqliteTable("products", {
   category: sqliteText("category").default("General"),
   hasSizes: sqliteInteger("has_sizes", { mode: "boolean" }).default(false),
   hasModifiers: sqliteInteger("has_modifiers", { mode: "boolean" }).default(false),
+  sizes: sqliteText("sizes", { mode: "json" }).$type<{ name: string; price: string }[]>().default([]),
+  modifiers: sqliteText("modifiers", { mode: "json" }).$type<{ name: string; price: string }[]>().default([]),
   createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
 });
 

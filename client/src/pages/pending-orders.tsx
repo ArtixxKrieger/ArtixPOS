@@ -209,18 +209,26 @@ export default function PendingOrders() {
 
                         {items.map((item, i) => (
 
-                          <li key={i} className="flex justify-between">
-
-                            <span>
-                              {item.quantity}x {item.product.name}
-                            </span>
-
-                            {item.size && (
-                              <span className="text-xs text-muted-foreground/70">
-                                {item.size}
+                          <li key={i} className="flex flex-col py-1 border-b border-border/20 last:border-0">
+                            <div className="flex justify-between">
+                              <span className="font-medium">
+                                {item.quantity}x {item.product.name}
                               </span>
+                              {item.size && (
+                                <span className="text-xs bg-primary/5 px-2 py-0.5 rounded-full">
+                                  {item.size.name}
+                                </span>
+                              )}
+                            </div>
+                            {item.modifiers && item.modifiers.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1 pl-4">
+                                {item.modifiers.map((m: any) => (
+                                  <span key={m.name} className="text-[10px] text-muted-foreground/70 italic">
+                                    + {m.name}
+                                  </span>
+                                ))}
+                              </div>
                             )}
-
                           </li>
 
                         ))}

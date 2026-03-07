@@ -17,6 +17,8 @@ type CartItem = {
   cartId: string;
   product: Product;
   quantity: number;
+  size?: { name: string; price: string };
+  modifiers?: { name: string; price: string }[];
 };
 
 export default function POS() {
@@ -32,6 +34,10 @@ export default function POS() {
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentAmount, setPaymentAmount] = useState<string>("");
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [tempSize, setTempSize] = useState<{ name: string; price: string } | null>(null);
+  const [tempModifiers, setTempModifiers] = useState<{ name: string; price: string }[]>([]);
 
   const paymentInputRef = useRef<HTMLInputElement>(null);
   const [isPaymentFocused, setIsPaymentFocused] = useState(false);
@@ -51,38 +57,57 @@ export default function POS() {
     });
   }, [products, search, category]);
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, size?: { name: string; price: string }, modifiers?: { name: string; price: string }[]) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const existing = prev.find(item => 
+        item.product.id === product.id && 
+        item.size?.name === size?.name && 
+        JSON.stringify(item.modifiers) === JSON.stringify(modifiers)
+      );
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id
+          item.cartId === existing.cartId
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { cartId: Math.random().toString(36), product, quantity: 1 }];
+      return [...prev, { 
+        cartId: Math.random().toString(36), 
+        product, 
+        quantity: 1,
+        size,
+        modifiers
+      }];
     });
+    setSelectedProduct(null);
+    setTempSize(null);
+    setTempModifiers([]);
   };
 
-  const updateQuantity = (cartId: string, delta: number) => {
-    setCart(prev =>
-      prev.map(item => {
-        if (item.cartId === cartId) {
-          const newQ = Math.max(1, item.quantity + delta);
-          return { ...item, quantity: newQ };
-        }
-        return item;
-      })
+  const handleProductClick = (product: Product) => {
+    if ((product.sizes && product.sizes.length > 0) || (product.modifiers && product.modifiers.length > 0)) {
+      setSelectedProduct(product);
+      setTempSize(product.sizes?.[0] || null);
+      setTempModifiers([]);
+    } else {
+      addToCart(product);
+    }
+  };
+
+  const toggleModifier = (mod: { name: string; price: string }) => {
+    setTempModifiers(prev => 
+      prev.find(m => m.name === mod.name)
+        ? prev.filter(m => m.name !== mod.name)
+        : [...prev, mod]
     );
   };
 
-  const removeFromCart = (cartId: string) => {
-    setCart(prev => prev.filter(item => item.cartId !== cartId));
-  };
-
   const subtotal = cart.reduce(
-    (acc, item) => acc + parseNumeric(item.product.price) * item.quantity,
+    (acc, item) => {
+      const basePrice = parseNumeric(item.size?.price || item.product.price);
+      const modsPrice = (item.modifiers || []).reduce((sum, m) => sum + parseNumeric(m.price), 0);
+      return acc + (basePrice + modsPrice) * item.quantity;
+    },
     0
   );
 
@@ -149,28 +174,45 @@ export default function POS() {
           </div>
         ) : (
           cart.map((item) => (
-            <div key={item.cartId} className="flex items-center justify-between p-3 bg-card rounded-xl border border-border/50 shadow-sm">
-              <div className="flex-1">
-                {/* Updated to show full product name */}
-                <p className="font-semibold text-sm break-words max-h-12 overflow-y-auto">{item.product.name}</p>
-                <p className="text-primary font-bold text-sm">
-                  {formatCurrency(item.product.price, settings?.currency)}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center bg-secondary rounded-lg p-1">
-                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md" onClick={() => updateQuantity(item.cartId, -1)}>
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md" onClick={() => updateQuantity(item.cartId, 1)}>
-                    <Plus className="h-3 w-3" />
+            <div key={item.cartId} className="flex flex-col p-3 bg-card rounded-xl border border-border/50 shadow-sm gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="font-semibold text-sm break-words max-h-12 overflow-y-auto">
+                    {item.product.name}
+                    {item.size && <span className="ml-1 text-xs opacity-60">({item.size.name})</span>}
+                  </p>
+                  <p className="text-primary font-bold text-sm">
+                    {formatCurrency(
+                      (parseNumeric(item.size?.price || item.product.price) + 
+                       (item.modifiers || []).reduce((sum, m) => sum + parseNumeric(m.price), 0)),
+                      settings?.currency
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-secondary rounded-lg p-1">
+                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md" onClick={() => updateQuantity(item.cartId, -1)}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md" onClick={() => updateQuantity(item.cartId, 1)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => removeFromCart(item.cartId)}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => removeFromCart(item.cartId)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
+              {item.modifiers && item.modifiers.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {item.modifiers.map(m => (
+                    <span key={m.name} className="text-[10px] bg-secondary px-2 py-0.5 rounded-full opacity-70">
+                      + {m.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -311,7 +353,7 @@ export default function POS() {
               <Card
                 key={product.id}
                 className="cursor-pointer group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-none bg-card shadow-md overflow-hidden rounded-2xl"
-                onClick={() => addToCart(product)}
+                onClick={() => handleProductClick(product)}
               >
                 <div className="aspect-square bg-secondary/50 flex items-center justify-center p-4 relative">
                   <Package className="h-16 w-16 text-primary/40 group-hover:scale-110 transition-transform duration-500" />
@@ -319,13 +361,74 @@ export default function POS() {
                 <CardContent className="p-4 bg-card relative z-20">
                   <h3 className="font-bold text-foreground">{product.name}</h3>
                   <p className="text-primary font-black mt-1 text-lg">
-                    {formatCurrency(product.price, settings?.currency)}
+                    {product.sizes && product.sizes.length > 0 
+                      ? `${formatCurrency(product.sizes[0].price, settings?.currency)}+`
+                      : formatCurrency(product.price, settings?.currency)
+                    }
                   </p>
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
+
+        {/* Product Customization Dialog */}
+        <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>{selectedProduct?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 pt-4">
+              {selectedProduct?.sizes && selectedProduct.sizes.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Select Size</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedProduct.sizes.map((s) => (
+                      <Button
+                        key={s.name}
+                        variant={tempSize?.name === s.name ? "default" : "secondary"}
+                        className="rounded-xl h-auto py-3 flex flex-col gap-1"
+                        onClick={() => setTempSize(s)}
+                      >
+                        <span className="font-bold">{s.name}</span>
+                        <span className="text-[10px] opacity-70">{formatCurrency(s.price, settings?.currency)}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedProduct?.modifiers && selectedProduct.modifiers.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Add-ons</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedProduct.modifiers.map((m) => {
+                      const isActive = tempModifiers.some(tm => tm.name === m.name);
+                      return (
+                        <Button
+                          key={m.name}
+                          variant={isActive ? "default" : "secondary"}
+                          className="rounded-xl h-auto py-3 justify-between px-3"
+                          onClick={() => toggleModifier(m)}
+                        >
+                          <span className="font-bold text-xs">{m.name}</span>
+                          <span className="text-[10px] opacity-70">+{formatCurrency(m.price, settings?.currency)}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <Button 
+                className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg"
+                onClick={() => selectedProduct && addToCart(selectedProduct, tempSize || undefined, tempModifiers)}
+              >
+                Add to Cart
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Desktop Cart Sidebar */}

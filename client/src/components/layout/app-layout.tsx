@@ -54,9 +54,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <div className="flex min-h-screen w-full bg-background/50">
         <Sidebar variant="inset" className="border-r border-border/50">
           <div className="p-6">
-            <h1 className="text-2xl font-bold text-gradient">POS Pro</h1>
+            <h1 className="text-2xl font-bold text-gradient">Artix POS</h1>
             <p className="text-sm text-muted-foreground mt-1 font-medium">
-              {settings?.storeName || "My Store"}
+              {settings?.storeName || "Artix's Store"}
             </p>
           </div>
           <SidebarContent>

@@ -13,18 +13,9 @@ export const db = drizzle(sqlite, { schema });
 
 // Auto-seed function
 export async function seed() {
-  const { products, userSettings } = schema;
-  
-  const existingProducts = await db.select().from(products).limit(1);
-  if (existingProducts.length === 0) {
-    console.log("Seeding initial products...");
-    await db.insert(products).values([
-      { name: "Coffee", price: "3.50", category: "Beverages" },
-      { name: "Sandwich", price: "6.00", category: "Food" },
-      { name: "Muffin", price: "4.50", category: "Food" }
-    ]);
-  }
+  const { userSettings } = schema;
 
+  // Seed user settings if none exist
   const existingSettings = await db.select().from(userSettings).limit(1);
   if (existingSettings.length === 0) {
     console.log("Seeding initial settings...");

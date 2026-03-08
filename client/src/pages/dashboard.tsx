@@ -9,12 +9,12 @@ import { Receipt, TrendingUp, CreditCard, DollarSign } from "lucide-react";
 export default function Dashboard() {
   const { data: sales = [], isLoading } = useSales();
   const { data: settings } = useSettings();
-  
+
   const todaySales = sales.filter(s => isToday(new Date(s.createdAt!)));
-  
+
   const totalRevenue = todaySales.reduce((acc, sale) => acc + parseNumeric(sale.total), 0);
   const totalTax = todaySales.reduce((acc, sale) => acc + parseNumeric(sale.tax), 0);
-  
+
   if (isLoading) {
     return <div className="animate-pulse space-y-4">
       <div className="h-32 bg-muted rounded-2xl w-full"></div>
@@ -35,7 +35,7 @@ export default function Dashboard() {
             <p className="text-xs text-white/70 mt-1">{todaySales.length} orders today</p>
           </CardContent>
         </Card>
-        
+
         <Card className="rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Average Order</CardTitle>
@@ -82,32 +82,34 @@ export default function Dashboard() {
               <p>No sales recorded yet.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[100px] px-6">ID</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="text-right px-6">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sales.slice(0, 10).map((sale) => (
-                  <TableRow key={sale.id} className="hover:bg-muted/50 transition-colors">
-                    <TableCell className="font-medium px-6">#{sale.id}</TableCell>
-                    <TableCell>{format(new Date(sale.createdAt!), "MMM d, h:mm a")}</TableCell>
-                    <TableCell className="capitalize">
-                      <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                        {sale.paymentMethod}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-bold px-6">
-                      {formatCurrency(sale.total, settings?.currency)}
-                    </TableCell>
+            <div className="max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[100px] px-6">ID</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead className="text-right px-6">Total</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {sales.slice(0, 50).map((sale) => (
+                    <TableRow key={sale.id} className="hover:bg-muted/50 transition-colors">
+                      <TableCell className="font-medium px-6">#{sale.id}</TableCell>
+                      <TableCell className="whitespace-nowrap">{format(new Date(sale.createdAt!), "MMM d, h:mm a")}</TableCell>
+                      <TableCell className="capitalize">
+                        <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                          {sale.paymentMethod}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-bold px-6">
+                        {formatCurrency(sale.total, settings?.currency)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

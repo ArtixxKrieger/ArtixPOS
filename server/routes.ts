@@ -16,9 +16,7 @@ export async function registerRoutes(
 
   app.get(api.products.get.path, async (req, res) => {
     const product = await storage.getProduct(Number(req.params.id));
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
+    if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   });
 
@@ -34,7 +32,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       throw err;
@@ -48,15 +46,13 @@ export async function registerRoutes(
       });
       const input = bodySchema.parse(req.body);
       const product = await storage.updateProduct(Number(req.params.id), input);
-      if (!product) {
-        return res.status(404).json({ message: "Product not found" });
-      }
+      if (!product) return res.status(404).json({ message: "Product not found" });
       res.json(product);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       throw err;
@@ -91,7 +87,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       throw err;
@@ -110,15 +106,13 @@ export async function registerRoutes(
       });
       const input = bodySchema.parse(req.body);
       const order = await storage.updatePendingOrder(Number(req.params.id), input);
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
+      if (!order) return res.status(404).json({ message: "Order not found" });
       res.json(order);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       throw err;
@@ -153,7 +147,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       throw err;
@@ -164,7 +158,6 @@ export async function registerRoutes(
   app.get(api.settings.get.path, async (req, res) => {
     const settings = await storage.getSettings();
     if (!settings) {
-      // Return default settings
       return res.json({
         id: 0,
         storeName: "My Store",
@@ -191,7 +184,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       throw err;
@@ -214,28 +207,9 @@ async function seedDatabase() {
     });
   }
 
+  // Removed pre-made product seeding
   const productsList = await storage.getProducts();
   if (productsList.length === 0) {
-    await storage.createProduct({
-      name: "Coffee",
-      price: "3.50",
-      category: "Beverages",
-      hasSizes: true,
-      hasModifiers: true,
-    });
-    await storage.createProduct({
-      name: "Sandwich",
-      price: "6.00",
-      category: "Food",
-      hasSizes: false,
-      hasModifiers: true,
-    });
-    await storage.createProduct({
-      name: "Muffin",
-      price: "4.50",
-      category: "Food",
-      hasSizes: false,
-      hasModifiers: false,
-    });
+    console.log("No pre-made products will be added. Start with empty catalog.");
   }
 }

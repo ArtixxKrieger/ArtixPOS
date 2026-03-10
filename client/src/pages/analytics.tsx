@@ -30,20 +30,23 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
         useEffect(() => {
                 let start = 0;
                 const end = value;
-                if (start === end) return;
+                if (start === end) {
+                        setDisplay(end);
+                        return;
+                }
 
                 const totalMiliseconds = 1000;
-                const incrementTime = (totalMiliseconds / end) * 5;
+                const step = Math.max(0.01, end / 60);
 
                 const timer = setInterval(() => {
-                        start += Math.max(1, end / 20);
+                        start += step;
                         if (start >= end) {
                                 setDisplay(end);
                                 clearInterval(timer);
                         } else {
                                 setDisplay(start);
                         }
-                }, 20);
+                }, 16);
 
                 return () => clearInterval(timer);
         }, [value]);
@@ -108,54 +111,51 @@ export default function Analytics() {
                 );
         }
 
-        const grouped: Record<string, number> = {};
         const hourly: Record<number, number> = {};
         const payment: Record<string, number> = {};
-        const products: Record<string, number> = {};
+        const productCounts: Record<string, number> = {};
+
+        // Use more efficient trend calculation for potentially big data
+        const trendData = useMemo(() => {
+                const grouped: Record<string, number> = {};
+                sales.forEach((sale: any) => {
+                        const dateStr = format(new Date(sale.createdAt), "yyyy-MM-dd");
+                        grouped[dateStr] = (grouped[dateStr] || 0) + parseNumeric(sale.total);
+                });
+                
+                return Object.entries(grouped)
+                        .map(([dateStr, amount]) => ({
+                                date: dateStr,
+                                label: format(new Date(dateStr), "MMM d"),
+                                amount,
+                        }))
+                        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                        .slice(-30); // Last 30 points only for chart clarity
+        }, [sales]);
 
         sales.forEach((sale: any) => {
-                const dateStr = format(new Date(sale.createdAt), "yyyy-MM-dd");
-
-                if (!grouped[dateStr]) grouped[dateStr] = 0;
-                grouped[dateStr] += parseNumeric(sale.total);
-
                 const hour = new Date(sale.createdAt).getHours();
-                if (!hourly[hour]) hourly[hour] = 0;
-                hourly[hour]++;
+                hourly[hour] = (hourly[hour] || 0) + 1;
 
-                if (!payment[sale.paymentMethod]) payment[sale.paymentMethod] = 0;
-                payment[sale.paymentMethod]++;
+                payment[sale.paymentMethod] = (payment[sale.paymentMethod] || 0) + 1;
 
                 sale.items?.forEach((i: any) => {
                         const name = i.product?.name || "Unknown";
-                        if (!products[name]) products[name] = 0;
-                        products[name] += i.quantity || 1;
+                        productCounts[name] = (productCounts[name] || 0) + (i.quantity || 1);
                 });
         });
-
-        const trendData = Object.entries(grouped)
-                .map(([dateStr, amount]) => ({
-                        date: dateStr,
-                        label: format(new Date(dateStr), "MMM d"),
-                        amount,
-                }))
-                .sort(
-                        (a, b) =>
-                                new Date(a.date).getTime() -
-                                new Date(b.date).getTime(),
-                );
 
         const hourlyData = Object.entries(hourly).map(([h, v]) => ({
                 hour: `${h}:00`,
                 sales: v,
-        }));
+        })).sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
 
         const paymentData = Object.entries(payment).map(([method, value]) => ({
                 name: method,
                 value,
         }));
 
-        const productData = Object.entries(products)
+        const productData = Object.entries(productCounts)
                 .map(([name, qty]) => ({ name, qty }))
                 .sort((a, b) => b.qty - a.qty)
                 .slice(0, 5);
@@ -170,8 +170,10 @@ export default function Analytics() {
         const tooltipStyle = {
                 background: "hsl(var(--card))",
                 border: "1px solid hsl(var(--border))",
-                borderRadius: "12px",
+                borderRadius: "16px",
                 color: "hsl(var(--foreground))",
+                boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+                padding: "12px",
         };
 
         return (
@@ -182,7 +184,7 @@ export default function Analytics() {
                                                 <BarChart3 className="h-6 w-6" />
                                         </div>
                                         <div>
-                                                <h2 className="text-2xl font-bold">Analytics Overview</h2>
+                                                <h2 className="text-2xl font-bold tracking-tight">Analytics Overview</h2>
                                                 <p className="text-sm text-muted-foreground">Business performance insights</p>
                                         </div>
                                 </div>
@@ -192,7 +194,7 @@ export default function Analytics() {
                                                 <Button
                                                         variant="outline"
                                                         className={cn(
-                                                                "w-[240px] justify-start text-left font-normal rounded-xl h-12 border-border/50 bg-card shadow-sm",
+                                                                "w-[240px] justify-start text-left font-normal rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:bg-secondary/50",
                                                                 !date && "text-muted-foreground",
                                                         )}
                                                 >
@@ -220,7 +222,7 @@ export default function Analytics() {
                         </div>
 
                         <div className="grid gap-6 md:grid-cols-4">
-                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-violet-500/10 to-transparent overflow-hidden relative">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-violet-500/10 to-transparent overflow-hidden relative border border-border/50">
                                         <div className="absolute top-0 right-0 p-4 opacity-10">
                                                 <DollarSign className="h-12 w-12" />
                                         </div>
@@ -251,7 +253,7 @@ export default function Analytics() {
                                         </CardContent>
                                 </Card>
 
-                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-pink-500/10 to-transparent overflow-hidden relative">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-pink-500/10 to-transparent overflow-hidden relative border border-border/50">
                                         <div className="absolute top-0 right-0 p-4 opacity-10">
                                                 <ShoppingBag className="h-12 w-12" />
                                         </div>
@@ -266,7 +268,7 @@ export default function Analytics() {
                                         </CardContent>
                                 </Card>
 
-                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-amber-500/10 to-transparent overflow-hidden relative">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-amber-500/10 to-transparent overflow-hidden relative border border-border/50">
                                         <div className="absolute top-0 right-0 p-4 opacity-10">
                                                 <TrendingUp className="h-12 w-12" />
                                         </div>
@@ -284,7 +286,7 @@ export default function Analytics() {
                                         </CardContent>
                                 </Card>
 
-                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-emerald-500/10 to-transparent overflow-hidden relative">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-emerald-500/10 to-transparent overflow-hidden relative border border-border/50">
                                         <div className="absolute top-0 right-0 p-4 opacity-10">
                                                 <Clock className="h-12 w-12" />
                                         </div>
@@ -301,14 +303,14 @@ export default function Analytics() {
                         </div>
 
                         <Card className="rounded-3xl shadow-xl overflow-hidden border-none bg-card">
-                                <CardHeader className="border-b border-border/50 bg-muted/20">
+                                <CardHeader className="border-b border-border/50 bg-muted/20 py-6 px-8">
                                         <CardTitle className="text-lg font-bold flex items-center gap-2">
                                                 <TrendingUp className="h-5 w-5 text-primary" />
-                                                Revenue Trend
+                                                Revenue Trend (Last 30 Days)
                                         </CardTitle>
                                 </CardHeader>
 
-                                <CardContent className="p-6">
+                                <CardContent className="p-8">
                                         <ResponsiveContainer width="100%" height={320}>
                                                 <AreaChart data={trendData}>
                                                         <defs>
@@ -344,8 +346,9 @@ export default function Analytics() {
                                                                 tickLine={false}
                                                                 tick={{
                                                                         fill: "hsl(var(--muted-foreground))",
-                                                                        fontSize: 12,
+                                                                        fontSize: 11,
                                                                 }}
+                                                                interval="preserveStartEnd"
                                                         />
 
                                                         <YAxis
@@ -353,7 +356,7 @@ export default function Analytics() {
                                                                 tickLine={false}
                                                                 tick={{
                                                                         fill: "hsl(var(--muted-foreground))",
-                                                                        fontSize: 12,
+                                                                        fontSize: 11,
                                                                 }}
                                                                 tickFormatter={(v) =>
                                                                         `${settings?.currency || "₱"}${v}`
@@ -362,6 +365,7 @@ export default function Analytics() {
 
                                                         <Tooltip
                                                                 contentStyle={tooltipStyle}
+                                                                itemStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold" }}
                                                                 cursor={{
                                                                         stroke: "#6366f1",
                                                                         strokeWidth: 2,
@@ -383,51 +387,48 @@ export default function Analytics() {
 
                         <div className="grid gap-6 md:grid-cols-2">
                                 <Card className="rounded-3xl shadow-xl border-none bg-card overflow-hidden">
-                                        <CardHeader className="border-b border-border/50 bg-muted/20">
+                                        <CardHeader className="border-b border-border/50 bg-muted/20 py-6 px-8">
                                                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                                                         <Package className="h-5 w-5 text-primary" />
                                                         Top Products
                                                 </CardTitle>
                                         </CardHeader>
 
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-8">
                                                 <ResponsiveContainer width="100%" height={260}>
-                                                        <BarChart data={productData}>
+                                                        <BarChart data={productData} layout="vertical">
                                                                 <CartesianGrid
                                                                         strokeDasharray="3 3"
                                                                         strokeOpacity={0.1}
-                                                                        vertical={false}
+                                                                        horizontal={false}
                                                                 />
 
-                                                                <XAxis
-                                                                        dataKey="name"
-                                                                        axisLine={false}
-                                                                        tickLine={false}
-                                                                        tick={{
-                                                                                fill: "hsl(var(--muted-foreground))",
-                                                                                fontSize: 12,
-                                                                        }}
-                                                                />
-
+                                                                <XAxis type="number" hide />
                                                                 <YAxis
+                                                                        dataKey="name"
+                                                                        type="category"
                                                                         axisLine={false}
                                                                         tickLine={false}
                                                                         tick={{
-                                                                                fill: "hsl(var(--muted-foreground))",
+                                                                                fill: "hsl(var(--foreground))",
                                                                                 fontSize: 12,
+                                                                                fontWeight: "bold"
                                                                         }}
+                                                                        width={100}
                                                                 />
 
                                                                 <Tooltip
                                                                         contentStyle={tooltipStyle}
+                                                                        itemStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold" }}
                                                                         cursor={{ fill: "transparent" }}
                                                                 />
 
                                                                 <Bar
                                                                         dataKey="qty"
                                                                         fill="#6366f1"
-                                                                        radius={[8, 8, 0, 0]}
+                                                                        radius={[0, 8, 8, 0]}
                                                                         isAnimationActive
+                                                                        barSize={20}
                                                                 />
                                                         </BarChart>
                                                 </ResponsiveContainer>
@@ -435,14 +436,14 @@ export default function Analytics() {
                                 </Card>
 
                                 <Card className="rounded-3xl shadow-xl border-none bg-card overflow-hidden">
-                                        <CardHeader className="border-b border-border/50 bg-muted/20">
+                                        <CardHeader className="border-b border-border/50 bg-muted/20 py-6 px-8">
                                                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                                                         <DollarSign className="h-5 w-5 text-primary" />
                                                         Payment Methods
                                                 </CardTitle>
                                         </CardHeader>
 
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-8">
                                                 <ResponsiveContainer width="100%" height={260}>
                                                         <PieChart>
                                                                 <Pie
@@ -450,24 +451,23 @@ export default function Analytics() {
                                                                         dataKey="value"
                                                                         nameKey="name"
                                                                         outerRadius={90}
-                                                                        innerRadius={60}
-                                                                        paddingAngle={5}
+                                                                        innerRadius={65}
+                                                                        paddingAngle={8}
                                                                         stroke="none"
                                                                         isAnimationActive
                                                                 >
                                                                         {paymentData.map((entry, index) => (
                                                                                 <Cell
                                                                                         key={index}
-                                                                                        fill={
-                                                                                                COLORS[
-                                                                                                        index % COLORS.length
-                                                                                                ]
-                                                                                        }
+                                                                                        fill={COLORS[index % COLORS.length]}
                                                                                 />
                                                                         ))}
                                                                 </Pie>
 
-                                                                <Tooltip contentStyle={tooltipStyle} />
+                                                                <Tooltip 
+                                                                        contentStyle={tooltipStyle} 
+                                                                        itemStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold" }}
+                                                                />
                                                         </PieChart>
                                                 </ResponsiveContainer>
                                         </CardContent>

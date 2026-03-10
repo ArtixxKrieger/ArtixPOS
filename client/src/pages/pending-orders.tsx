@@ -5,7 +5,7 @@ import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, User, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -66,39 +66,46 @@ export default function PendingOrders() {
 
   if (isLoading) {
     return (
-      <div className="p-8 text-center animate-pulse">
-        Loading pending orders...
+      <div className="space-y-8 animate-pulse">
+        <div className="h-12 w-64 bg-muted rounded-2xl"></div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-96 bg-muted rounded-[2.5rem]"></div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-700 pb-10">
 
-      <div className="flex items-center gap-3 mb-6">
-        <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center text-foreground shadow-sm">
-          <Clock className="h-6 w-6" />
+      <div className="flex items-center gap-4 mb-8">
+        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white shadow-xl">
+          <Clock className="h-7 w-7" />
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold">Pending Orders</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-3xl font-black tracking-tight">Pending Orders</h2>
+          <p className="text-sm text-muted-foreground font-medium">
             Manage unpaid or parked transactions
           </p>
         </div>
       </div>
 
       {orders.length === 0 ? (
-        <div className="bg-card rounded-3xl p-16 text-center text-muted-foreground flex flex-col items-center border border-border/50 shadow-sm">
-          <Clock className="h-16 w-16 mb-4 opacity-20" />
-          <p className="text-lg font-medium text-foreground">
+        <div className="bg-card rounded-[3rem] p-24 text-center text-muted-foreground flex flex-col items-center border border-border/50 shadow-sm">
+          <div className="h-24 w-24 rounded-full bg-muted/30 flex items-center justify-center mb-6">
+            <Clock className="h-12 w-12 opacity-20" />
+          </div>
+          <p className="text-xl font-bold text-foreground">
             No pending orders
           </p>
-          <p>Orders you save will appear here.</p>
+          <p className="mt-2">Orders you save will appear here for processing.</p>
         </div>
       ) : (
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
 
           {orders.map((order) => {
 
@@ -113,45 +120,44 @@ export default function PendingOrders() {
 
               <Card
                 key={order.id}
-                className="rounded-3xl border border-border/50 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col"
+                className="rounded-[2.5rem] border-none shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col bg-card group"
               >
 
                 <CardContent className="p-0 flex-1 flex flex-col">
 
-                  <div className="p-5 flex-1">
+                  <div className="p-8 flex-1">
 
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex justify-between items-start mb-6">
 
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-2">
 
-                        <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold tracking-wide w-fit">
-                          {format(new Date(order.createdAt!), "MMMM d, h:mm a")}
+                        <div className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest w-fit uppercase">
+                          {format(new Date(order.createdAt!), "MMM d, h:mm a")}
                         </div>
 
-                        <div className={`flex items-center gap-1 text-xs font-bold ${isPaid ? "text-green-500" : "text-amber-500"}`}>
-                          {isPaid ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                          {isPaid ? "PAID" : "UNPAID"}
+                        <div className={`flex items-center gap-1.5 text-xs font-black tracking-tight ${isPaid ? "text-emerald-500" : "text-amber-500"}`}>
+                          {isPaid ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                          {isPaid ? "FULLY PAID" : "UNPAID"}
                         </div>
 
-                        {/* Payment Method */}
-                        <div className="text-xs font-semibold text-muted-foreground">
-                          Method: {order.paymentMethod?.toUpperCase() || "CASH"}
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <CreditCard className="h-3 w-3" /> {order.paymentMethod || "CASH"}
                         </div>
 
                       </div>
 
-                      <span className="font-black text-xl">
+                      <span className="font-black text-2xl text-primary">
                         {formatCurrency(order.total, settings?.currency)}
                       </span>
 
                     </div>
 
-                    <div className="space-y-3 mb-4">
+                    <div className="space-y-4 mb-8 bg-secondary/30 p-5 rounded-3xl border border-border/50">
 
                       <div className="flex items-center justify-between gap-2">
 
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Amount Paid
+                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.1em]">
+                          Payment
                         </span>
 
                         <div className="flex gap-2">
@@ -159,7 +165,7 @@ export default function PendingOrders() {
                           <Input
                             type="number"
                             placeholder="0.00"
-                            className="w-24 h-8 text-right bg-secondary border-none text-xs font-bold"
+                            className="w-28 h-9 text-right bg-background border-none text-xs font-black rounded-xl shadow-sm focus-visible:ring-primary/20"
                             value={payments[order.id] ?? order.paymentAmount ?? ""}
                             onChange={(e) =>
                               setPayments(prev => ({
@@ -171,11 +177,10 @@ export default function PendingOrders() {
 
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="h-8 px-2 text-[10px]"
+                            className="h-9 px-4 text-[10px] font-black rounded-xl shadow-md"
                             onClick={() => handleUpdatePayment(order)}
                           >
-                            Update
+                            SET
                           </Button>
 
                         </div>
@@ -183,9 +188,9 @@ export default function PendingOrders() {
                       </div>
 
                       {Number(payments[order.id] || order.paymentAmount) > total && (
-                        <div className="flex justify-between text-xs font-bold text-green-600">
-                          <span>Change</span>
-                          <span>
+                        <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                          <span className="text-[10px] font-black text-emerald-600 uppercase">Change</span>
+                          <span className="font-black text-emerald-600 text-sm">
                             {formatCurrency(
                               Math.max(
                                 0,
@@ -199,31 +204,46 @@ export default function PendingOrders() {
 
                     </div>
 
-                    <p className="text-sm font-medium mb-2">
-                      {itemCount} items:
+                    {(order.customerName || order.notes) && (
+                      <div className="mb-6 space-y-2">
+                        {order.customerName && (
+                          <div className="flex items-center gap-2 text-xs font-bold">
+                            <User className="h-3 w-3 text-primary" /> {order.customerName}
+                          </div>
+                        )}
+                        {order.notes && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-lg italic">
+                            <FileText className="h-3 w-3" /> {order.notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">
+                      {itemCount} ITEMS
                     </p>
 
-                    <div className="max-h-32 overflow-y-auto pr-1 mb-4 rounded-xl bg-secondary/30 p-2">
+                    <div className="max-h-48 overflow-y-auto pr-2 scrollbar-hide">
 
-                      <ul className="text-sm text-muted-foreground space-y-1">
+                      <ul className="space-y-3">
 
                         {items.map((item, i) => (
 
-                          <li key={i} className="flex flex-col py-1 border-b border-border/20 last:border-0">
-                            <div className="flex justify-between">
-                              <span className="font-medium">
+                          <li key={i} className="flex flex-col py-3 border-b border-border/30 last:border-0">
+                            <div className="flex justify-between items-start">
+                              <span className="font-black text-sm leading-tight max-w-[70%]">
                                 {item.quantity}x {item.product.name}
                               </span>
                               {item.size && (
-                                <span className="text-xs bg-primary/5 px-2 py-0.5 rounded-full">
+                                <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-tighter">
                                   {item.size.name}
                                 </span>
                               )}
                             </div>
                             {item.modifiers && item.modifiers.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1 pl-4">
+                              <div className="flex flex-wrap gap-1.5 mt-2">
                                 {item.modifiers.map((m: any) => (
-                                  <span key={m.name} className="text-[10px] text-muted-foreground/70 italic">
+                                  <span key={m.name} className="text-[9px] font-bold text-muted-foreground/80 bg-muted/50 px-2 py-0.5 rounded-md italic">
                                     + {m.name}
                                   </span>
                                 ))}
@@ -239,11 +259,11 @@ export default function PendingOrders() {
 
                   </div>
 
-                  <div className="grid grid-cols-2 border-t border-border/50 bg-muted/20">
+                  <div className="grid grid-cols-2 bg-muted/20 border-t border-border/50 h-20">
 
                     <Button
                       variant="ghost"
-                      className="h-14 rounded-none hover:bg-destructive/10 hover:text-destructive font-semibold border-r border-border/50"
+                      className="h-full rounded-none hover:bg-destructive/10 hover:text-destructive font-black text-xs tracking-widest uppercase border-r border-border/50"
                       onClick={() => {
                         if (confirm("Discard this order?")) {
                           deleteOrder.mutate(order.id);
@@ -256,7 +276,7 @@ export default function PendingOrders() {
 
                     <Button
                       variant="ghost"
-                      className="h-14 rounded-none text-primary hover:bg-primary/10 font-bold"
+                      className="h-full rounded-none text-primary hover:bg-primary/10 font-black text-xs tracking-widest uppercase"
                       onClick={() => handleComplete(order)}
                       disabled={createSale.isPending}
                     >

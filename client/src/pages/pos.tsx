@@ -313,15 +313,15 @@ export default function POS() {
   if (isLoading) return <div className="p-8 text-center animate-pulse">Loading products...</div>;
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 animate-in fade-in duration-500">
+    <div className="h-[calc(100vh-8rem)] flex gap-6 animate-in fade-in duration-700">
       <div className="flex-1 flex flex-col min-w-0">
 
         <div className="flex gap-4 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               placeholder="Search products..."
-              className="pl-10 h-12 rounded-2xl bg-card border-none shadow-sm text-base"
+              className="pl-12 h-14 rounded-2xl bg-card border-none shadow-sm text-base focus-visible:ring-primary/20"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -329,36 +329,39 @@ export default function POS() {
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button className="md:hidden h-12 px-4 rounded-2xl bg-primary text-white shadow-md relative">
+              <Button className="md:hidden h-14 px-6 rounded-2xl bg-primary text-white shadow-lg relative font-bold">
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Cart
                 {cart.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-destructive text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-background">
+                  <span className="absolute -top-2 -right-2 bg-destructive text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-background shadow-lg">
                     {cart.reduce((a, b) => a + b.quantity, 0)}
                   </span>
                 )}
               </Button>
             </SheetTrigger>
 
-            <SheetContent className="w-[90vw] sm:w-[400px] border-l-0 p-6 flex flex-col h-full">
-              <SheetHeader className="mb-6">
-                <SheetTitle>Current Order</SheetTitle>
+            <SheetContent className="w-[90vw] sm:w-[400px] border-l-0 p-0 flex flex-col h-full rounded-l-3xl overflow-hidden">
+              <SheetHeader className="p-6 bg-muted/20 border-b border-border/50">
+                <SheetTitle className="text-2xl font-bold flex items-center gap-2">
+                  <ShoppingCart className="text-primary" /> Current Order
+                </SheetTitle>
               </SheetHeader>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
                 {CartContent}
-                <div className="h-6" />
               </div>
             </SheetContent>
           </Sheet>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
           {categories.map(cat => (
             <Button
               key={cat}
               variant={category === cat ? "default" : "secondary"}
-              className={`rounded-full px-6 capitalize font-semibold tracking-wide transition-all ${
-                category === cat ? "shadow-md shadow-primary/20" : ""
+              className={`rounded-full px-8 h-11 capitalize font-bold tracking-tight transition-all border border-border/50 ${
+                category === cat 
+                  ? "shadow-lg shadow-primary/20 bg-gradient-to-r from-primary to-violet-600 border-none" 
+                  : "bg-card hover:bg-secondary/80"
               }`}
               onClick={() => setCategory(cat)}
             >
@@ -367,24 +370,30 @@ export default function POS() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto pb-20">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredProducts.map(product => (
               <Card
                 key={product.id}
-                className="cursor-pointer group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-none bg-card shadow-md overflow-hidden rounded-2xl"
+                className="cursor-pointer group hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 border-none bg-card shadow-md overflow-hidden rounded-[2rem] relative"
                 onClick={() => handleProductClick(product)}
               >
-                <div className="aspect-square bg-secondary/50 flex items-center justify-center p-4 relative">
-                  <Package className="h-16 w-16 text-primary/40 group-hover:scale-110 transition-transform duration-500" />
+                <div className="aspect-square bg-gradient-to-br from-secondary/50 to-muted/30 flex items-center justify-center p-8 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <Package className="h-20 w-20 text-primary/30 group-hover:scale-110 transition-transform duration-700 ease-out" />
                 </div>
-                <CardContent className="p-4 bg-card relative z-20">
-                  <h3 className="font-bold text-foreground">{product.name}</h3>
-                  <p className="text-primary font-black mt-1 text-lg">
-                    {product.sizes && product.sizes.length > 0
-                      ? `${formatCurrency(product.sizes[0].price, settings?.currency)}+`
-                      : formatCurrency(product.price, settings?.currency)}
-                  </p>
+                <CardContent className="p-6 bg-card relative z-20">
+                  <h3 className="font-black text-foreground text-lg leading-tight mb-1 group-hover:text-primary transition-colors">{product.name}</h3>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-primary font-black text-xl">
+                      {product.sizes && product.sizes.length > 0
+                        ? `${formatCurrency(product.sizes[0].price, settings?.currency)}+`
+                        : formatCurrency(product.price, settings?.currency)}
+                    </p>
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                      <Plus className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -392,26 +401,30 @@ export default function POS() {
         </div>
 
         <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-          <DialogContent className="sm:max-w-[425px] rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>{selectedProduct?.name}</DialogTitle>
+          <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+            <DialogHeader className="p-8 bg-gradient-to-br from-primary to-violet-600 text-white">
+              <DialogTitle className="text-2xl font-black">{selectedProduct?.name}</DialogTitle>
+              <p className="text-white/70 text-sm font-medium">Customize your selection</p>
             </DialogHeader>
 
-            <div className="space-y-6 pt-4">
-
+            <div className="p-8 space-y-8">
               {selectedProduct?.sizes && selectedProduct.sizes.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Select Size</h4>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-4">
+                  <h4 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground/70">Select Size</h4>
+                  <div className="grid grid-cols-3 gap-3">
                     {selectedProduct.sizes.map((s) => (
                       <Button
                         key={s.name}
                         variant={tempSize?.name === s.name ? "default" : "secondary"}
-                        className="rounded-xl h-auto py-3 flex flex-col gap-1"
+                        className={`rounded-2xl h-auto py-4 flex flex-col gap-1 border-2 transition-all duration-300 ${
+                          tempSize?.name === s.name 
+                            ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10 hover:bg-primary/10" 
+                            : "border-transparent bg-secondary/50 hover:bg-secondary"
+                        }`}
                         onClick={() => setTempSize(s)}
                       >
-                        <span className="font-bold">{s.name}</span>
-                        <span className="text-[10px] opacity-70">{formatCurrency(s.price, settings?.currency)}</span>
+                        <span className="font-black text-sm">{s.name}</span>
+                        <span className="text-[10px] font-bold opacity-60">{formatCurrency(s.price, settings?.currency)}</span>
                       </Button>
                     ))}
                   </div>
@@ -419,20 +432,24 @@ export default function POS() {
               )}
 
               {selectedProduct?.modifiers && selectedProduct.modifiers.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Add-ons</h4>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-4">
+                  <h4 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground/70">Add-ons</h4>
+                  <div className="grid grid-cols-2 gap-3">
                     {selectedProduct.modifiers.map((m) => {
                       const isActive = tempModifiers.some(tm => tm.name === m.name);
                       return (
                         <Button
                           key={m.name}
                           variant={isActive ? "default" : "secondary"}
-                          className="rounded-xl h-auto py-3 justify-between px-3"
+                          className={`rounded-2xl h-auto py-4 justify-between px-5 border-2 transition-all duration-300 ${
+                            isActive 
+                              ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10 hover:bg-primary/10" 
+                              : "border-transparent bg-secondary/50 hover:bg-secondary"
+                          }`}
                           onClick={() => toggleModifier(m)}
                         >
-                          <span className="font-bold text-xs">{m.name}</span>
-                          <span className="text-[10px] opacity-70">+{formatCurrency(m.price, settings?.currency)}</span>
+                          <span className="font-black text-xs">{m.name}</span>
+                          <span className="text-[10px] font-bold opacity-60">+{formatCurrency(m.price, settings?.currency)}</span>
                         </Button>
                       );
                     })}
@@ -441,22 +458,21 @@ export default function POS() {
               )}
 
               <Button
-                className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg"
+                className="w-full h-16 rounded-2xl font-black text-lg bg-gradient-to-r from-primary to-violet-600 shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98] mt-4"
                 onClick={() => selectedProduct && addToCart(selectedProduct, tempSize || undefined, tempModifiers)}
               >
                 Add to Cart
               </Button>
-
             </div>
           </DialogContent>
         </Dialog>
 
       </div>
 
-      <div className="hidden md:flex w-[380px] flex-col bg-card rounded-3xl shadow-xl border border-border/50 p-6 overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -z-10" />
-        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-          <ShoppingCart className="text-primary" /> Order
+      <div className="hidden md:flex w-[400px] flex-col bg-card rounded-[2.5rem] shadow-2xl border border-border/50 p-8 overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl -z-10" />
+        <h2 className="text-3xl font-black mb-8 flex items-center gap-3">
+          <ShoppingCart className="text-primary h-8 w-8" /> Order
         </h2>
         {CartContent}
       </div>

@@ -1,10 +1,8 @@
 import { useSales } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
-import { format } from "date-fns";
-
+import { format, startOfDay, endOfDay, subDays, isWithinInterval } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import {
         ResponsiveContainer,
         AreaChart,
@@ -19,36 +17,88 @@ import {
         Pie,
         Cell,
 } from "recharts";
+import { BarChart3, TrendingUp, Clock, Calendar as CalendarIcon, DollarSign, ShoppingBag, Package, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
-import { BarChart3, TrendingUp, Clock, Sparkles } from "lucide-react";
-
-import { useEffect, useState } from "react";
-
-function Counter({ value }: { value: number }) {
+function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
         const [display, setDisplay] = useState(0);
 
         useEffect(() => {
                 let start = 0;
-                const step = value / 30;
+                const end = value;
+                if (start === end) return;
+
+                const totalMiliseconds = 1000;
+                const incrementTime = (totalMiliseconds / end) * 5;
 
                 const timer = setInterval(() => {
-                        start += step;
-                        if (start >= value) {
-                                start = value;
+                        start += Math.max(1, end / 20);
+                        if (start >= end) {
+                                setDisplay(end);
                                 clearInterval(timer);
+                        } else {
+                                setDisplay(start);
                         }
-                        setDisplay(start);
                 }, 20);
 
                 return () => clearInterval(timer);
         }, [value]);
 
-        return <>{Math.round(display)}</>;
+        return (
+                <>
+                        {prefix}
+                        {display.toLocaleString(undefined, {
+                                minimumFractionDigits: value % 1 !== 0 ? 2 : 0,
+                                maximumFractionDigits: 2,
+                        })}
+                </>
+        );
 }
 
 export default function Analytics() {
         const { data: sales = [], isLoading } = useSales();
         const { data: settings } = useSettings();
+        const [date, setDate] = useState<Date | undefined>(new Date());
+
+        const stats = useMemo(() => {
+                const filteredSales = date
+                        ? sales.filter((s) =>
+                                        isWithinInterval(new Date(s.createdAt!), {
+                                                start: startOfDay(date),
+                                                end: endOfDay(date),
+                                        }),
+                          )
+                        : sales;
+
+                const totalRevenue = filteredSales.reduce(
+                        (acc, s) => acc + parseNumeric(s.total),
+                        0,
+                );
+                const totalOrders = filteredSales.length;
+                const avgOrderValue =
+                        totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+                const prevDaySales = sales.filter((s) =>
+                        isWithinInterval(new Date(s.createdAt!), {
+                                start: startOfDay(subDays(date || new Date(), 1)),
+                                end: endOfDay(subDays(date || new Date(), 1)),
+                        }),
+                );
+                const prevRevenue = prevDaySales.reduce(
+                        (acc, s) => acc + parseNumeric(s.total),
+                        0,
+                );
+                const revenueGrowth =
+                        prevRevenue > 0
+                                ? ((totalRevenue - prevRevenue) / prevRevenue) * 100
+                                : 0;
+
+                return { totalRevenue, totalOrders, avgOrderValue, revenueGrowth };
+        }, [sales, date]);
 
         if (isLoading) {
                 return (
@@ -64,17 +114,16 @@ export default function Analytics() {
         const products: Record<string, number> = {};
 
         sales.forEach((sale: any) => {
-                const date = format(new Date(sale.createdAt), "yyyy-MM-dd");
+                const dateStr = format(new Date(sale.createdAt), "yyyy-MM-dd");
 
-                if (!grouped[date]) grouped[date] = 0;
-                grouped[date] += parseNumeric(sale.total);
+                if (!grouped[dateStr]) grouped[dateStr] = 0;
+                grouped[dateStr] += parseNumeric(sale.total);
 
                 const hour = new Date(sale.createdAt).getHours();
                 if (!hourly[hour]) hourly[hour] = 0;
                 hourly[hour]++;
 
-                if (!payment[sale.paymentMethod])
-                        payment[sale.paymentMethod] = 0;
+                if (!payment[sale.paymentMethod]) payment[sale.paymentMethod] = 0;
                 payment[sale.paymentMethod]++;
 
                 sale.items?.forEach((i: any) => {
@@ -85,9 +134,9 @@ export default function Analytics() {
         });
 
         const trendData = Object.entries(grouped)
-                .map(([date, amount]) => ({
-                        date,
-                        label: format(new Date(date), "MMM d"),
+                .map(([dateStr, amount]) => ({
+                        date: dateStr,
+                        label: format(new Date(dateStr), "MMM d"),
                         amount,
                 }))
                 .sort(
@@ -111,8 +160,6 @@ export default function Analytics() {
                 .sort((a, b) => b.qty - a.qty)
                 .slice(0, 5);
 
-        const totalRevenue = trendData.reduce((a, b) => a + b.amount, 0);
-
         const bestHour = hourlyData.reduce(
                 (a, b) => (b.sales > (a?.sales || 0) ? b : a),
                 hourlyData[0],
@@ -127,100 +174,142 @@ export default function Analytics() {
                 color: "hsl(var(--foreground))",
         };
 
-        const today = trendData[trendData.length - 1]?.amount || 0;
-        const yesterday = trendData[trendData.length - 2]?.amount || 0;
-
-        const growth =
-                yesterday > 0 ? ((today - yesterday) / yesterday) * 100 : 0;
-
         return (
-                <div className="space-y-8">
-                        <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
-                                        <BarChart3 className="h-6 w-6" />
+                <div className="space-y-8 animate-in fade-in duration-700 pb-10">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+                                                <BarChart3 className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                                <h2 className="text-2xl font-bold">Analytics Overview</h2>
+                                                <p className="text-sm text-muted-foreground">Business performance insights</p>
+                                        </div>
                                 </div>
 
-                                <div>
-                                        <h2 className="text-2xl font-bold">
-                                                Analytics Overview
-                                        </h2>
-                                        <p className="text-sm text-muted-foreground">
-                                                Business performance insights
-                                        </p>
-                                </div>
+                                <Popover>
+                                        <PopoverTrigger asChild>
+                                                <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                                "w-[240px] justify-start text-left font-normal rounded-xl h-12 border-border/50 bg-card shadow-sm",
+                                                                !date && "text-muted-foreground",
+                                                        )}
+                                                >
+                                                        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                                                        {date ? (
+                                                                format(date, "PPP")
+                                                        ) : (
+                                                                <span>Pick a date</span>
+                                                        )}
+                                                </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                                className="w-auto p-0 rounded-2xl border-none shadow-2xl"
+                                                align="end"
+                                        >
+                                                <Calendar
+                                                        mode="single"
+                                                        selected={date}
+                                                        onSelect={setDate}
+                                                        initialFocus
+                                                        className="rounded-2xl"
+                                                />
+                                        </PopoverContent>
+                                </Popover>
                         </div>
 
                         <div className="grid gap-6 md:grid-cols-4">
-                                <Card className="rounded-3xl shadow-xl backdrop-blur bg-card/70">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-violet-500/10 to-transparent overflow-hidden relative">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <DollarSign className="h-12 w-12" />
+                                        </div>
                                         <CardContent className="p-6">
-                                                <p className="text-sm text-muted-foreground">
-                                                        Lifetime Revenue
-                                                </p>
-
-                                                <h3 className="text-3xl font-black">
-                                                        {settings?.currency}
+                                                <p className="text-sm text-muted-foreground">Daily Revenue</p>
+                                                <h3 className="text-3xl font-black mt-1">
                                                         <Counter
-                                                                value={
-                                                                        totalRevenue
-                                                                }
+                                                                value={stats.totalRevenue}
+                                                                prefix={settings?.currency || "₱"}
                                                         />
                                                 </h3>
+                                                <div
+                                                        className={cn(
+                                                                "flex items-center mt-2 text-xs font-medium",
+                                                                stats.revenueGrowth >= 0
+                                                                        ? "text-emerald-500"
+                                                                        : "text-rose-500",
+                                                        )}
+                                                >
+                                                        {stats.revenueGrowth >= 0 ? (
+                                                                <ArrowUpRight className="h-3 w-3 mr-1" />
+                                                        ) : (
+                                                                <ArrowDownRight className="h-3 w-3 mr-1" />
+                                                        )}
+                                                        {Math.abs(stats.revenueGrowth).toFixed(1)}% from
+                                                        yesterday
+                                                </div>
                                         </CardContent>
                                 </Card>
 
-                                <Card className="rounded-3xl shadow-xl bg-card/70">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-pink-500/10 to-transparent overflow-hidden relative">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <ShoppingBag className="h-12 w-12" />
+                                        </div>
                                         <CardContent className="p-6">
-                                                <p className="text-sm text-muted-foreground">
-                                                        Orders
+                                                <p className="text-sm text-muted-foreground">Daily Orders</p>
+                                                <h3 className="text-3xl font-black mt-1">
+                                                        <Counter value={stats.totalOrders} />
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                        Processed transactions
                                                 </p>
+                                        </CardContent>
+                                </Card>
 
-                                                <h3 className="text-3xl font-black">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-amber-500/10 to-transparent overflow-hidden relative">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <TrendingUp className="h-12 w-12" />
+                                        </div>
+                                        <CardContent className="p-6">
+                                                <p className="text-sm text-muted-foreground">Avg. Order Value</p>
+                                                <h3 className="text-3xl font-black mt-1">
                                                         <Counter
-                                                                value={
-                                                                        sales.length
-                                                                }
+                                                                value={stats.avgOrderValue}
+                                                                prefix={settings?.currency || "₱"}
                                                         />
                                                 </h3>
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                        Revenue per customer
+                                                </p>
                                         </CardContent>
                                 </Card>
 
-                                <Card className="rounded-3xl shadow-xl bg-card/70">
+                                <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-emerald-500/10 to-transparent overflow-hidden relative">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <Clock className="h-12 w-12" />
+                                        </div>
                                         <CardContent className="p-6">
-                                                <p className="text-sm flex items-center gap-1 text-muted-foreground">
-                                                        <TrendingUp className="h-4 w-4" />{" "}
-                                                        Growth
-                                                </p>
-
-                                                <h3 className="text-3xl font-black">
-                                                        {growth.toFixed(1)}%
+                                                <p className="text-sm text-muted-foreground">Peak Activity</p>
+                                                <h3 className="text-3xl font-black mt-1">
+                                                        {bestHour?.hour || "N/A"}
                                                 </h3>
-                                        </CardContent>
-                                </Card>
-
-                                <Card className="rounded-3xl shadow-xl bg-card/70">
-                                        <CardContent className="p-6">
-                                                <p className="text-sm flex items-center gap-1 text-muted-foreground">
-                                                        <Clock className="h-4 w-4" />{" "}
-                                                        Peak Hour
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                        Highest sales volume hour
                                                 </p>
-
-                                                <h3 className="text-3xl font-black">
-                                                        {bestHour?.hour}
-                                                </h3>
                                         </CardContent>
                                 </Card>
                         </div>
 
-                        <Card className="rounded-3xl shadow-xl">
-                                <CardHeader>
-                                        <CardTitle>Revenue Trend</CardTitle>
+                        <Card className="rounded-3xl shadow-xl overflow-hidden border-none bg-card">
+                                <CardHeader className="border-b border-border/50 bg-muted/20">
+                                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                                <TrendingUp className="h-5 w-5 text-primary" />
+                                                Revenue Trend
+                                        </CardTitle>
                                 </CardHeader>
 
-                                <CardContent>
-                                        <ResponsiveContainer
-                                                width="100%"
-                                                height={320}
-                                        >
+                                <CardContent className="p-6">
+                                        <ResponsiveContainer width="100%" height={320}>
                                                 <AreaChart data={trendData}>
                                                         <defs>
                                                                 <linearGradient
@@ -233,51 +322,49 @@ export default function Analytics() {
                                                                         <stop
                                                                                 offset="5%"
                                                                                 stopColor="#6366f1"
-                                                                                stopOpacity={
-                                                                                        0.4
-                                                                                }
+                                                                                stopOpacity={0.4}
                                                                         />
                                                                         <stop
                                                                                 offset="95%"
                                                                                 stopColor="#6366f1"
-                                                                                stopOpacity={
-                                                                                        0
-                                                                                }
+                                                                                stopOpacity={0}
                                                                         />
                                                                 </linearGradient>
                                                         </defs>
 
                                                         <CartesianGrid
                                                                 strokeDasharray="3 3"
-                                                                strokeOpacity={
-                                                                        0.15
-                                                                }
+                                                                strokeOpacity={0.1}
+                                                                vertical={false}
                                                         />
 
                                                         <XAxis
                                                                 dataKey="label"
+                                                                axisLine={false}
+                                                                tickLine={false}
                                                                 tick={{
                                                                         fill: "hsl(var(--muted-foreground))",
+                                                                        fontSize: 12,
                                                                 }}
                                                         />
 
                                                         <YAxis
+                                                                axisLine={false}
+                                                                tickLine={false}
                                                                 tick={{
                                                                         fill: "hsl(var(--muted-foreground))",
+                                                                        fontSize: 12,
                                                                 }}
-                                                                tickFormatter={(
-                                                                        v,
-                                                                ) =>
+                                                                tickFormatter={(v) =>
                                                                         `${settings?.currency || "₱"}${v}`
                                                                 }
                                                         />
 
                                                         <Tooltip
-                                                                contentStyle={
-                                                                        tooltipStyle
-                                                                }
+                                                                contentStyle={tooltipStyle}
                                                                 cursor={{
-                                                                        fill: "transparent",
+                                                                        stroke: "#6366f1",
+                                                                        strokeWidth: 2,
                                                                 }}
                                                         />
 
@@ -295,61 +382,51 @@ export default function Analytics() {
                         </Card>
 
                         <div className="grid gap-6 md:grid-cols-2">
-                                <Card className="rounded-3xl shadow-xl">
-                                        <CardHeader>
-                                                <CardTitle>
+                                <Card className="rounded-3xl shadow-xl border-none bg-card overflow-hidden">
+                                        <CardHeader className="border-b border-border/50 bg-muted/20">
+                                                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                                        <Package className="h-5 w-5 text-primary" />
                                                         Top Products
                                                 </CardTitle>
                                         </CardHeader>
 
-                                        <CardContent>
-                                                <ResponsiveContainer
-                                                        width="100%"
-                                                        height={260}
-                                                >
-                                                        <BarChart
-                                                                data={
-                                                                        productData
-                                                                }
-                                                        >
+                                        <CardContent className="p-6">
+                                                <ResponsiveContainer width="100%" height={260}>
+                                                        <BarChart data={productData}>
                                                                 <CartesianGrid
                                                                         strokeDasharray="3 3"
-                                                                        strokeOpacity={
-                                                                                0.15
-                                                                        }
+                                                                        strokeOpacity={0.1}
+                                                                        vertical={false}
                                                                 />
 
                                                                 <XAxis
                                                                         dataKey="name"
+                                                                        axisLine={false}
+                                                                        tickLine={false}
                                                                         tick={{
                                                                                 fill: "hsl(var(--muted-foreground))",
+                                                                                fontSize: 12,
                                                                         }}
                                                                 />
 
                                                                 <YAxis
+                                                                        axisLine={false}
+                                                                        tickLine={false}
                                                                         tick={{
                                                                                 fill: "hsl(var(--muted-foreground))",
+                                                                                fontSize: 12,
                                                                         }}
                                                                 />
 
                                                                 <Tooltip
-                                                                        contentStyle={
-                                                                                tooltipStyle
-                                                                        }
-                                                                        cursor={{
-                                                                                fill: "transparent",
-                                                                        }}
+                                                                        contentStyle={tooltipStyle}
+                                                                        cursor={{ fill: "transparent" }}
                                                                 />
 
                                                                 <Bar
                                                                         dataKey="qty"
                                                                         fill="#6366f1"
-                                                                        radius={[
-                                                                                8,
-                                                                                8,
-                                                                                0,
-                                                                                0,
-                                                                        ]}
+                                                                        radius={[8, 8, 0, 0]}
                                                                         isAnimationActive
                                                                 />
                                                         </BarChart>
@@ -357,151 +434,45 @@ export default function Analytics() {
                                         </CardContent>
                                 </Card>
 
-                                <Card className="rounded-3xl shadow-xl">
-                                        <CardHeader>
-                                                <CardTitle>
+                                <Card className="rounded-3xl shadow-xl border-none bg-card overflow-hidden">
+                                        <CardHeader className="border-b border-border/50 bg-muted/20">
+                                                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                                        <DollarSign className="h-5 w-5 text-primary" />
                                                         Payment Methods
                                                 </CardTitle>
                                         </CardHeader>
 
-                                        <CardContent>
-                                                <ResponsiveContainer
-                                                        width="100%"
-                                                        height={260}
-                                                >
+                                        <CardContent className="p-6">
+                                                <ResponsiveContainer width="100%" height={260}>
                                                         <PieChart>
                                                                 <Pie
-                                                                        data={
-                                                                                paymentData
-                                                                        }
+                                                                        data={paymentData}
                                                                         dataKey="value"
                                                                         nameKey="name"
-                                                                        outerRadius={
-                                                                                90
-                                                                        }
-                                                                        innerRadius={
-                                                                                50
-                                                                        }
-                                                                        paddingAngle={
-                                                                                3
-                                                                        }
+                                                                        outerRadius={90}
+                                                                        innerRadius={60}
+                                                                        paddingAngle={5}
                                                                         stroke="none"
                                                                         isAnimationActive
                                                                 >
-                                                                        {paymentData.map(
-                                                                                (
-                                                                                        entry,
-                                                                                        index,
-                                                                                ) => (
-                                                                                        <Cell
-                                                                                                key={
-                                                                                                        index
-                                                                                                }
-                                                                                                fill={
-                                                                                                        COLORS[
-                                                                                                                index %
-                                                                                                                        COLORS.length
-                                                                                                        ]
-                                                                                                }
-                                                                                        />
-                                                                                ),
-                                                                        )}
+                                                                        {paymentData.map((entry, index) => (
+                                                                                <Cell
+                                                                                        key={index}
+                                                                                        fill={
+                                                                                                COLORS[
+                                                                                                        index % COLORS.length
+                                                                                                ]
+                                                                                        }
+                                                                                />
+                                                                        ))}
                                                                 </Pie>
 
-                                                                <Tooltip
-                                                                        contentStyle={
-                                                                                tooltipStyle
-                                                                        }
-                                                                />
+                                                                <Tooltip contentStyle={tooltipStyle} />
                                                         </PieChart>
                                                 </ResponsiveContainer>
                                         </CardContent>
                                 </Card>
                         </div>
-
-                        <Card className="rounded-3xl shadow-xl">
-                                <CardHeader>
-                                        <CardTitle>
-                                                Hourly Sales Activity
-                                        </CardTitle>
-                                </CardHeader>
-
-                                <CardContent>
-                                        <ResponsiveContainer
-                                                width="100%"
-                                                height={260}
-                                        >
-                                                <BarChart data={hourlyData}>
-                                                        <CartesianGrid
-                                                                strokeDasharray="3 3"
-                                                                strokeOpacity={
-                                                                        0.15
-                                                                }
-                                                        />
-
-                                                        <XAxis
-                                                                dataKey="hour"
-                                                                tick={{
-                                                                        fill: "hsl(var(--muted-foreground))",
-                                                                }}
-                                                        />
-
-                                                        <YAxis
-                                                                tick={{
-                                                                        fill: "hsl(var(--muted-foreground))",
-                                                                }}
-                                                        />
-
-                                                        <Tooltip
-                                                                contentStyle={
-                                                                        tooltipStyle
-                                                                }
-                                                                cursor={{
-                                                                        fill: "transparent",
-                                                                }}
-                                                        />
-
-                                                        <Bar
-                                                                dataKey="sales"
-                                                                fill="#6366f1"
-                                                                radius={[
-                                                                        8, 8, 0,
-                                                                        0,
-                                                                ]}
-                                                                isAnimationActive
-                                                        />
-                                                </BarChart>
-                                        </ResponsiveContainer>
-                                </CardContent>
-                        </Card>
-
-                        <Card className="rounded-3xl shadow-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10">
-                                <CardContent className="p-6 flex gap-3">
-                                        <Sparkles className="text-indigo-400" />
-
-                                        <div>
-                                                <p className="font-semibold">
-                                                        AI Sales Insight
-                                                </p>
-
-                                                <p className="text-sm text-muted-foreground">
-                                                        Peak sales happen around{" "}
-                                                        <b>{bestHour?.hour}</b>.
-                                                        Revenue growth today is{" "}
-                                                        <b>
-                                                                {growth.toFixed(
-                                                                        1,
-                                                                )}
-                                                                %
-                                                        </b>
-                                                        . Focus promotions
-                                                        during peak hours and
-                                                        restock top products to
-                                                        maximize profit.
-                                                </p>
-                                        </div>
-                                </CardContent>
-                        </Card>
                 </div>
         );
 }

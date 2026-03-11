@@ -79,6 +79,13 @@ export const insertPendingOrderSchema = createInsertSchema(pendingOrders).omit({
 export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, createdAt: true });
 export const insertUserSettingSchema = createInsertSchema(userSettings).omit({ id: true });
 
+export const inventoryAdjustmentSchema = z.object({
+  productId: z.number(),
+  quantity: z.number(),
+  reason: z.enum(["sale", "adjustment", "received", "loss"]),
+  notes: z.string().optional(),
+});
+
 export type Product = typeof products.$inferSelect;
 export type ProductSize = typeof productSizes.$inferSelect;
 export type ProductModifier = typeof productModifiers.$inferSelect;

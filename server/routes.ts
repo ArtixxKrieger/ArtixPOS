@@ -191,25 +191,23 @@ export async function registerRoutes(
     }
   });
 
-  // Seed db initially
-  seedDatabase().catch(console.error);
+  // Seed db initially (non-blocking)
+  seedDatabase().catch(err => console.log("Seed warning:", err.message));
 
   return httpServer;
 }
 
 async function seedDatabase() {
-  const settings = await storage.getSettings();
-  if (!settings) {
-    await storage.updateSettings({
-      storeName: "Quick POS",
-      currency: "$",
-      taxRate: "8.5",
-    });
-  }
-
-  // Removed pre-made product seeding
-  const productsList = await storage.getProducts();
-  if (productsList.length === 0) {
-    console.log("No pre-made products will be added. Start with empty catalog.");
+  try {
+    const settings = await storage.getSettings();
+    if (!settings) {
+      await storage.updateSettings({
+        storeName: "Café Bara",
+        currency: "₱",
+        taxRate: "0",
+      });
+    }
+  } catch (err) {
+    console.log("Database seed skipped (schema migration may be pending)");
   }
 }

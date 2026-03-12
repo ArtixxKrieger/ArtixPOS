@@ -1,13 +1,17 @@
 import { z } from "zod";
 import { 
   insertProductSchema, 
+  insertIngredientSchema,
+  insertRecipeSchema,
   insertPendingOrderSchema, 
   insertSaleSchema, 
   insertUserSettingSchema,
   products,
   pendingOrders,
   sales,
-  userSettings
+  userSettings,
+  ingredients,
+  recipes
 } from "./schema";
 
 export const errorSchemas = {
@@ -138,38 +142,6 @@ export const api = {
       responses: {
         200: z.custom<typeof userSettings.$inferSelect>(),
         400: errorSchemas.validation,
-      }
-    }
-  },
-  ai: {
-    chat: {
-      method: "POST" as const,
-      path: "/api/ai/chat" as const,
-      input: z.object({
-        message: z.string().min(1),
-      }),
-      responses: {
-        200: z.object({
-          response: z.string(),
-        }),
-        500: errorSchemas.internal,
-      }
-    },
-    clearHistory: {
-      method: "POST" as const,
-      path: "/api/ai/clear" as const,
-      responses: {
-        200: z.object({
-          success: z.boolean(),
-        }),
-      }
-    },
-    report: {
-      method: "GET" as const,
-      path: "/api/ai/report" as const,
-      responses: {
-        200: z.any(),
-        500: errorSchemas.internal,
       }
     }
   }

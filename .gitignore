@@ -1,33 +1,6 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Environment variables (NEVER commit API keys)
-.env
-.env.local
-.env.*.local
-
-# Build outputs
-dist/
-build/
-out/
-
-# Runtime
-data.db
-data.db-shm
-data.db-wal
-*.log
-.replit
-.upm/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
+node_modules
+dist
 .DS_Store
-Thumbs.db
+server/public
+vite.config.ts.*
+*.tar.gz

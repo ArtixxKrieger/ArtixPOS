@@ -20,7 +20,8 @@ import {
   Settings,
   Moon,
   Sun,
-  MessageCircle,
+  Boxes,
+  Droplet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/hooks/use-settings";
@@ -29,9 +30,10 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "POS", url: "/pos", icon: ShoppingBag },
   { title: "Pending Orders", url: "/pending", icon: Clock },
+  { title: "Inventory", url: "/inventory", icon: Boxes },
+  { title: "Ingredients", url: "/ingredients", icon: Droplet },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Products", url: "/products", icon: Package },
-  { title: "AI Assistant", url: "/ai", icon: MessageCircle },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

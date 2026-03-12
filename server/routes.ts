@@ -3,12 +3,18 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { aiService } from "./ai-service";
+import { initializeDatabase } from "./db";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Initialize database schema first
+  try {
+    await initializeDatabase();
+  } catch (err) {
+    console.error("Database init failed:", err);
+  }
   // Products
   app.get(api.products.list.path, async (req, res) => {
     const products = await storage.getProducts();
@@ -63,6 +69,43 @@ export async function registerRoutes(
   app.delete(api.products.delete.path, async (req, res) => {
     await storage.deleteProduct(Number(req.params.id));
     res.status(204).end();
+  });
+
+  // Ingredients
+  app.get("/api/ingredients", async (req, res) => {
+    const ings = await storage.getIngredients();
+    res.json(ings);
+  });
+
+  app.post("/api/ingredients", async (req, res) => {
+    const ing = await storage.createIngredient(req.body);
+    res.status(201).json(ing);
+  });
+
+  app.put("/api/ingredients/:id", async (req, res) => {
+    const ing = await storage.updateIngredient(parseInt(req.params.id), req.body);
+    res.json(ing);
+  });
+
+  app.delete("/api/ingredients/:id", async (req, res) => {
+    await storage.deleteIngredient(parseInt(req.params.id));
+    res.status(204).send();
+  });
+
+  // Recipes
+  app.get("/api/recipes", async (req, res) => {
+    const recs = await storage.getRecipes();
+    res.json(recs);
+  });
+
+  app.post("/api/recipes", async (req, res) => {
+    const rec = await storage.createRecipe(req.body);
+    res.status(201).json(rec);
+  });
+
+  app.delete("/api/recipes/:id", async (req, res) => {
+    await storage.deleteRecipe(parseInt(req.params.id));
+    res.status(204).send();
   });
 
   // Pending Orders
@@ -127,8 +170,8 @@ export async function registerRoutes(
 
   // Sales
   app.get(api.sales.list.path, async (req, res) => {
-    const salesList = await storage.getSales();
-    res.json(salesList);
+    const sales = await storage.getSales();
+    res.json(sales);
   });
 
   app.post(api.sales.create.path, async (req, res) => {
@@ -192,133 +235,23 @@ export async function registerRoutes(
     }
   });
 
-  // AI Chat with context
-  app.post(api.ai.chat.path, async (req, res) => {
-    try {
-      const input = api.ai.chat.input.parse(req.body);
-      
-      // Fetch sales context for the AI
-      const salesList = await storage.getSales();
-      const products = await storage.getProducts();
-      const settings = await storage.getSettings();
-      
-      const totalRevenue = salesList.reduce((acc, s) => {
-        const total = typeof s.total === 'string' ? parseFloat(s.total) : s.total;
-        return acc + (isNaN(total) ? 0 : total);
-      }, 0);
-      
-      const productCounts: Record<string, number> = {};
-      salesList.forEach((sale: any) => {
-        sale.items?.forEach((item: any) => {
-          const name = item.product?.name || "Unknown";
-          productCounts[name] = (productCounts[name] || 0) + (item.quantity || 1);
-        });
-      });
-      
-      const topProducts = Object.entries(productCounts)
-        .map(([name, qty]) => ({ name, qty }))
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 5);
-      
-      const context = {
-        totalRevenue,
-        totalOrders: salesList.length,
-        recentSales: salesList.slice(-10),
-        topProducts,
-        currency: settings?.currency || "₱",
-      };
-      
-      const response = await aiService.chat(input.message, context);
-      res.json({ response });
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join("."),
-        });
-      }
-      console.error("AI Service error:", err);
-      res.status(500).json({
-        message: "AI service error. Please try again.",
-      });
-    }
-  });
-
-  // Generate sales report
-  app.get(api.ai.report.path, async (req, res) => {
-    try {
-      const salesList = await storage.getSales();
-      const settings = await storage.getSettings();
-      
-      const totalRevenue = salesList.reduce((acc, s) => {
-        const total = typeof s.total === 'string' ? parseFloat(s.total) : s.total;
-        return acc + (isNaN(total) ? 0 : total);
-      }, 0);
-      
-      const totalTax = salesList.reduce((acc, s) => {
-        const tax = typeof s.tax === 'string' ? parseFloat(s.tax) : s.tax;
-        return acc + (isNaN(tax) ? 0 : tax);
-      }, 0);
-      
-      const csv = `Café Bara - Sales Report\nGenerated: ${new Date().toISOString()}\n\n`;
-      const lines = [
-        csv,
-        "SUMMARY",
-        `Total Revenue,${totalRevenue.toFixed(2)}`,
-        `Total Orders,${salesList.length}`,
-        `Average Order Value,${(totalRevenue / salesList.length).toFixed(2)}`,
-        `Total Tax Collected,${totalTax.toFixed(2)}`,
-        `Currency,${settings?.currency || "₱"}`,
-        "",
-        "RECENT SALES",
-        "ID,Date,Amount,Payment Method,Items",
-      ];
-      
-      salesList.slice(-20).reverse().forEach(sale => {
-        const itemCount = sale.items?.length || 0;
-        lines.push(`${sale.id},${new Date(sale.createdAt).toLocaleString()},${sale.total},${sale.paymentMethod},${itemCount} items`);
-      });
-      
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", `attachment; filename="café-bara-sales-${new Date().toISOString().split('T')[0]}.csv"`);
-      res.send(lines.join("\n"));
-    } catch (err) {
-      console.error("Report error:", err);
-      res.status(500).json({ message: "Failed to generate report" });
-    }
-  });
-
-  app.post(api.ai.clearHistory.path, async (req, res) => {
-    try {
-      aiService.clearHistory();
-      res.json({ success: true });
-    } catch (err) {
-      console.error("Clear history error:", err);
-      res.status(500).json({
-        message: "Error clearing history",
-      });
-    }
-  });
-
-  // Seed db initially
-  seedDatabase().catch(console.error);
+  // Seed db initially (non-blocking)
+  seedDatabase().catch(err => console.log("Seed warning:", err.message));
 
   return httpServer;
 }
 
 async function seedDatabase() {
-  const settings = await storage.getSettings();
-  if (!settings) {
-    await storage.updateSettings({
-      storeName: "Quick POS",
-      currency: "$",
-      taxRate: "8.5",
-    });
-  }
-
-  // Removed pre-made product seeding
-  const productsList = await storage.getProducts();
-  if (productsList.length === 0) {
-    console.log("No pre-made products will be added. Start with empty catalog.");
+  try {
+    const settings = await storage.getSettings();
+    if (!settings) {
+      await storage.updateSettings({
+        storeName: "Café Bara",
+        currency: "₱",
+        taxRate: "0",
+      });
+    }
+  } catch (err) {
+    console.log("Database seed skipped (schema migration may be pending)");
   }
 }

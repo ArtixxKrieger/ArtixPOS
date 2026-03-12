@@ -2,28 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seed } from "./db";
-import * as fs from "fs";
-import * as path from "path";
-
-// Load environment variables from .env file
-const envPath = path.join(process.cwd(), ".env");
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, "utf-8");
-  envContent.split("\n").forEach((line) => {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith("#")) {
-      const [key, ...valueParts] = trimmed.split("=");
-      const value = valueParts.join("=").trim();
-      if (key && value) {
-        process.env[key] = value;
-      }
-    }
-  });
-  console.log("Environment variables loaded from .env");
-} else {
-  console.warn(".env file not found at:", envPath);
-}
+import { seed, initializeDatabase } from "./db";
 
 const app = express();
 const httpServer = createServer(app);

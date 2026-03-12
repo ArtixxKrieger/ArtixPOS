@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { aiService } from "./ai-service";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -188,6 +189,38 @@ export async function registerRoutes(
         });
       }
       throw err;
+    }
+  });
+
+  // AI Chat
+  app.post(api.ai.chat.path, async (req, res) => {
+    try {
+      const input = api.ai.chat.input.parse(req.body);
+      const response = await aiService.chat(input.message);
+      res.json({ response });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join("."),
+        });
+      }
+      console.error("AI Service error:", err);
+      res.status(500).json({
+        message: "AI service error. Please try again.",
+      });
+    }
+  });
+
+  app.post(api.ai.clearHistory.path, async (req, res) => {
+    try {
+      aiService.clearHistory();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Clear history error:", err);
+      res.status(500).json({
+        message: "Error clearing history",
+      });
     }
   });
 

@@ -12,6 +12,7 @@ import Products from "@/pages/products";
 import Analytics from "@/pages/analytics";
 import PendingOrders from "@/pages/pending-orders";
 import Settings from "@/pages/settings";
+import AIChat from "@/pages/ai-chat";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
         <Route path="/products" component={Products}/>
         <Route path="/analytics" component={Analytics}/>
         <Route path="/pending" component={PendingOrders}/>
+        <Route path="/ai" component={AIChat}/>
         <Route path="/settings" component={Settings}/>
         <Route component={NotFound} />
       </Switch>

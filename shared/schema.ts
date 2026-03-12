@@ -9,9 +9,6 @@ export const products = sqliteTable("products", {
   name: sqliteText("name").notNull(),
   price: sqliteNumeric("price").notNull(),
   category: sqliteText("category").default("General"),
-  stock: sqliteInteger("stock").default(0),
-  minStock: sqliteInteger("min_stock").default(10),
-  sku: sqliteText("sku"),
   hasSizes: sqliteInteger("has_sizes", { mode: "boolean" }).default(false),
   hasModifiers: sqliteInteger("has_modifiers", { mode: "boolean" }).default(false),
   sizes: sqliteText("sizes", { mode: "json" }).$type<{ name: string; price: string }[]>().default([]),
@@ -31,24 +28,6 @@ export const productModifiers = sqliteTable("product_modifiers", {
   productId: sqliteInteger("product_id").references(() => products.id).notNull(),
   modifierName: sqliteText("modifier_name").notNull(),
   price: sqliteNumeric("price").notNull(),
-});
-
-export const ingredients = sqliteTable("ingredients", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  name: sqliteText("name").notNull(),
-  unit: sqliteText("unit").notNull(), // grams, ml, kg, cc, liters, pieces, etc.
-  currentStock: sqliteNumeric("current_stock").notNull().default("0"),
-  minStock: sqliteNumeric("min_stock").default("0"),
-  cost: sqliteNumeric("cost").default("0"), // cost per unit
-  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
-});
-
-export const recipes = sqliteTable("recipes", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  productId: sqliteInteger("product_id").references(() => products.id).notNull(),
-  ingredientId: sqliteInteger("ingredient_id").references(() => ingredients.id).notNull(),
-  quantity: sqliteNumeric("quantity").notNull(), // amount needed per product
-  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
 });
 
 export const pendingOrders = sqliteTable("pending_orders", {
@@ -96,31 +75,18 @@ export const userSettings = sqliteTable("user_settings", {
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertProductSizeSchema = createInsertSchema(productSizes).omit({ id: true });
 export const insertProductModifierSchema = createInsertSchema(productModifiers).omit({ id: true });
-export const insertIngredientSchema = createInsertSchema(ingredients).omit({ id: true, createdAt: true });
-export const insertRecipeSchema = createInsertSchema(recipes).omit({ id: true, createdAt: true });
 export const insertPendingOrderSchema = createInsertSchema(pendingOrders).omit({ id: true, createdAt: true });
 export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, createdAt: true });
 export const insertUserSettingSchema = createInsertSchema(userSettings).omit({ id: true });
 
-export const inventoryAdjustmentSchema = z.object({
-  productId: z.number(),
-  quantity: z.number(),
-  reason: z.enum(["sale", "adjustment", "received", "loss"]),
-  notes: z.string().optional(),
-});
-
 export type Product = typeof products.$inferSelect;
 export type ProductSize = typeof productSizes.$inferSelect;
 export type ProductModifier = typeof productModifiers.$inferSelect;
-export type Ingredient = typeof ingredients.$inferSelect;
-export type Recipe = typeof recipes.$inferSelect;
 export type PendingOrder = typeof pendingOrders.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type UserSetting = typeof userSettings.$inferSelect;
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type InsertIngredient = z.infer<typeof insertIngredientSchema>;
-export type InsertRecipe = z.infer<typeof insertRecipeSchema>;
 export type InsertPendingOrder = z.infer<typeof insertPendingOrderSchema>;
 export type InsertSale = z.infer<typeof insertSaleSchema>;
 export type InsertUserSetting = z.infer<typeof insertUserSettingSchema>;

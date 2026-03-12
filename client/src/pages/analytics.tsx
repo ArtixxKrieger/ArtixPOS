@@ -67,7 +67,6 @@ export default function Analytics() {
         const { data: settings } = useSettings();
         const [date, setDate] = useState<Date | undefined>(new Date());
 
-        // Move all useMemo hooks to the top, before any conditions or loops
         const stats = useMemo(() => {
                 const filteredSales = date
                         ? sales.filter((s) =>
@@ -104,13 +103,26 @@ export default function Analytics() {
                 return { totalRevenue, totalOrders, avgOrderValue, revenueGrowth };
         }, [sales, date]);
 
+        if (isLoading) {
+                return (
+                        <div className="p-10 text-center text-muted-foreground animate-pulse">
+                                Loading analytics...
+                        </div>
+                );
+        }
+
+        const hourly: Record<number, number> = {};
+        const payment: Record<string, number> = {};
+        const productCounts: Record<string, number> = {};
+
+        // Use more efficient trend calculation for potentially big data
         const trendData = useMemo(() => {
                 const grouped: Record<string, number> = {};
                 sales.forEach((sale: any) => {
                         const dateStr = format(new Date(sale.createdAt), "yyyy-MM-dd");
                         grouped[dateStr] = (grouped[dateStr] || 0) + parseNumeric(sale.total);
                 });
-
+                
                 return Object.entries(grouped)
                         .map(([dateStr, amount]) => ({
                                 date: dateStr,
@@ -118,13 +130,8 @@ export default function Analytics() {
                                 amount,
                         }))
                         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                        .slice(-30);
+                        .slice(-30); // Last 30 points only for chart clarity
         }, [sales]);
-
-        // Compute derived data
-        const hourly: Record<number, number> = {};
-        const payment: Record<string, number> = {};
-        const productCounts: Record<string, number> = {};
 
         sales.forEach((sale: any) => {
                 const hour = new Date(sale.createdAt).getHours();
@@ -138,12 +145,10 @@ export default function Analytics() {
                 });
         });
 
-        const hourlyData = Object.entries(hourly)
-                .map(([h, v]) => ({
-                        hour: `${h}:00`,
-                        sales: v,
-                }))
-                .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+        const hourlyData = Object.entries(hourly).map(([h, v]) => ({
+                hour: `${h}:00`,
+                sales: v,
+        })).sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
 
         const paymentData = Object.entries(payment).map(([method, value]) => ({
                 name: method,
@@ -155,10 +160,10 @@ export default function Analytics() {
                 .sort((a, b) => b.qty - a.qty)
                 .slice(0, 5);
 
-        const bestHour = hourlyData.length > 0 ? hourlyData.reduce(
+        const bestHour = hourlyData.reduce(
                 (a, b) => (b.sales > (a?.sales || 0) ? b : a),
                 hourlyData[0],
-        ) : { hour: "N/A", sales: 0 };
+        );
 
         const COLORS = ["#6366f1", "#8b5cf6", "#22c55e", "#f59e0b", "#ef4444"];
 
@@ -170,14 +175,6 @@ export default function Analytics() {
                 boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
                 padding: "12px",
         };
-
-        if (isLoading) {
-                return (
-                        <div className="p-10 text-center text-muted-foreground animate-pulse">
-                                Loading analytics...
-                        </div>
-                );
-        }
 
         return (
                 <div className="space-y-8 animate-in fade-in duration-700 pb-10">

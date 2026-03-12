@@ -4,15 +4,15 @@ export function useInstallPWA() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setInstallPrompt(e);
       setIsInstallable(true);
+      setShowFallback(false);
     };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Check if app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -27,10 +27,21 @@ export function useInstallPWA() {
       setInstallPrompt(null);
     });
 
+    // Add beforeinstallprompt listener
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // If no beforeinstallprompt fires after 2 seconds, show fallback
+    const timeout = setTimeout(() => {
+      if (!installPrompt) {
+        setShowFallback(true);
+      }
+    }, 2000);
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      clearTimeout(timeout);
     };
-  }, []);
+  }, [installPrompt]);
 
   const install = async () => {
     if (!installPrompt) return;
@@ -46,5 +57,11 @@ export function useInstallPWA() {
     }
   };
 
-  return { installPrompt, isInstallable, isInstalled, install };
+  return { 
+    installPrompt, 
+    isInstallable: isInstallable || showFallback, 
+    isInstalled, 
+    install,
+    isFallback: showFallback
+  };
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useForm } from "react-hook-form";
 import { type InsertUserSetting } from "@shared/schema";
@@ -7,7 +7,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Save, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Settings as SettingsIcon, Save, Download, Info, Smartphone, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstallPWA } from "@/hooks/use-install-pwa";
 
@@ -15,7 +16,8 @@ export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
-  const { isInstallable, isInstalled, install } = useInstallPWA();
+  const { isInstallable, isInstalled, install, isFallback } = useInstallPWA();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   const form = useForm<Partial<InsertUserSetting>>({
     defaultValues: {
@@ -49,13 +51,25 @@ export default function Settings() {
         </div>
         
         {isInstallable && !isInstalled && (
-          <Button
-            onClick={install}
-            className="h-12 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-          >
-            <Download className="h-5 w-5" />
-            Install App
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={install}
+              className="h-12 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+            >
+              <Download className="h-5 w-5" />
+              Install App
+            </Button>
+            {isFallback && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12 rounded-xl"
+                onClick={() => setShowInstallGuide(true)}
+              >
+                <Info className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
         )}
         
         {isInstalled && (
@@ -126,6 +140,65 @@ export default function Settings() {
           </Form>
         </CardContent>
       </Card>
+
+      <Dialog open={showInstallGuide} onOpenChange={setShowInstallGuide}>
+        <DialogContent className="rounded-2xl max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-6 w-6 text-primary" />
+              Install Café Bara as an App
+            </DialogTitle>
+            <DialogDescription>
+              Choose your device type to see installation instructions
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="border border-border/50 rounded-2xl p-6 space-y-3">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5 text-primary" />
+                <h3 className="font-bold">Mobile (Android/iOS)</h3>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium">For Chrome/Brave on Android:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Tap the three dots menu (⋮)</li>
+                  <li>Select "Install app" or "Add to home screen"</li>
+                  <li>Tap "Install"</li>
+                </ol>
+                <p className="font-medium mt-3">For Safari on iOS:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Tap the Share button</li>
+                  <li>Scroll and tap "Add to Home Screen"</li>
+                  <li>Tap "Add"</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="border border-border/50 rounded-2xl p-6 space-y-3">
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-primary" />
+                <h3 className="font-bold">Desktop (Windows/Mac/Linux)</h3>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium">For Chrome, Edge, or Brave:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Look for the Install button in the address bar</li>
+                  <li>Or tap the three dots menu (⋮)</li>
+                  <li>Select "Install Café Bara POS"</li>
+                  <li>Click "Install"</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm">
+            <p className="font-medium text-blue-900 dark:text-blue-100">
+              💡 Once installed, Café Bara will work offline and appear like a native app on your device!
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

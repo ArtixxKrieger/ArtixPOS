@@ -3,11 +3,17 @@ import {
   products, 
   productSizes,
   productModifiers,
+  ingredients,
+  recipes,
   pendingOrders,
   sales,
   userSettings,
   type Product,
   type InsertProduct,
+  type Ingredient,
+  type InsertIngredient,
+  type Recipe,
+  type InsertRecipe,
   type PendingOrder,
   type InsertPendingOrder,
   type Sale,
@@ -35,6 +41,19 @@ export interface IStorage {
   // Sales
   getSales(): Promise<Sale[]>;
   createSale(sale: InsertSale): Promise<Sale>;
+
+  // Ingredients
+  getIngredients(): Promise<Ingredient[]>;
+  getIngredient(id: number): Promise<Ingredient | undefined>;
+  createIngredient(ingredient: InsertIngredient): Promise<Ingredient>;
+  updateIngredient(id: number, ingredient: Partial<InsertIngredient>): Promise<Ingredient>;
+  deleteIngredient(id: number): Promise<void>;
+
+  // Recipes
+  getRecipes(): Promise<Recipe[]>;
+  getRecipesByProduct(productId: number): Promise<Recipe[]>;
+  createRecipe(recipe: InsertRecipe): Promise<Recipe>;
+  deleteRecipe(id: number): Promise<void>;
 
   // Settings
   getSettings(): Promise<UserSetting | undefined>;
@@ -115,6 +134,48 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(userSettings).values(settings as InsertUserSetting).returning();
       return created;
     }
+  }
+
+  // Ingredients
+  async getIngredients(): Promise<Ingredient[]> {
+    return await db.select().from(ingredients);
+  }
+
+  async getIngredient(id: number): Promise<Ingredient | undefined> {
+    const [ingredient] = await db.select().from(ingredients).where(eq(ingredients.id, id));
+    return ingredient;
+  }
+
+  async createIngredient(ingredient: InsertIngredient): Promise<Ingredient> {
+    const [created] = await db.insert(ingredients).values(ingredient).returning();
+    return created;
+  }
+
+  async updateIngredient(id: number, ingredient: Partial<InsertIngredient>): Promise<Ingredient> {
+    const [updated] = await db.update(ingredients).set(ingredient).where(eq(ingredients.id, id)).returning();
+    return updated;
+  }
+
+  async deleteIngredient(id: number): Promise<void> {
+    await db.delete(ingredients).where(eq(ingredients.id, id));
+  }
+
+  // Recipes
+  async getRecipes(): Promise<Recipe[]> {
+    return await db.select().from(recipes);
+  }
+
+  async getRecipesByProduct(productId: number): Promise<Recipe[]> {
+    return await db.select().from(recipes).where(eq(recipes.productId, productId));
+  }
+
+  async createRecipe(recipe: InsertRecipe): Promise<Recipe> {
+    const [created] = await db.insert(recipes).values(recipe).returning();
+    return created;
+  }
+
+  async deleteRecipe(id: number): Promise<void> {
+    await db.delete(recipes).where(eq(recipes.id, id));
   }
 }
 

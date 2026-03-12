@@ -26,6 +26,9 @@ export async function initializeDatabase() {
         name TEXT NOT NULL,
         price TEXT NOT NULL,
         category TEXT DEFAULT 'General',
+        stock INTEGER DEFAULT 0,
+        min_stock INTEGER DEFAULT 10,
+        sku TEXT,
         has_sizes INTEGER DEFAULT 0,
         has_modifiers INTEGER DEFAULT 0,
         sizes TEXT DEFAULT '[]',
@@ -70,6 +73,24 @@ export async function initializeDatabase() {
         customer_name TEXT,
         notes TEXT,
         created_at INTEGER
+      )`,
+      `CREATE TABLE IF NOT EXISTS ingredients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        unit TEXT NOT NULL,
+        current_stock TEXT DEFAULT '0',
+        min_stock TEXT DEFAULT '0',
+        cost TEXT DEFAULT '0',
+        created_at INTEGER
+      )`,
+      `CREATE TABLE IF NOT EXISTS recipes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        ingredient_id INTEGER NOT NULL,
+        quantity TEXT NOT NULL,
+        created_at INTEGER,
+        FOREIGN KEY (product_id) REFERENCES products(id),
+        FOREIGN KEY (ingredient_id) REFERENCES ingredients(id)
       )`
     ];
 

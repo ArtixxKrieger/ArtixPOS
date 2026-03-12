@@ -71,6 +71,43 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  // Ingredients
+  app.get("/api/ingredients", async (req, res) => {
+    const ings = await storage.getIngredients();
+    res.json(ings);
+  });
+
+  app.post("/api/ingredients", async (req, res) => {
+    const ing = await storage.createIngredient(req.body);
+    res.status(201).json(ing);
+  });
+
+  app.put("/api/ingredients/:id", async (req, res) => {
+    const ing = await storage.updateIngredient(parseInt(req.params.id), req.body);
+    res.json(ing);
+  });
+
+  app.delete("/api/ingredients/:id", async (req, res) => {
+    await storage.deleteIngredient(parseInt(req.params.id));
+    res.status(204).send();
+  });
+
+  // Recipes
+  app.get("/api/recipes", async (req, res) => {
+    const recs = await storage.getRecipes();
+    res.json(recs);
+  });
+
+  app.post("/api/recipes", async (req, res) => {
+    const rec = await storage.createRecipe(req.body);
+    res.status(201).json(rec);
+  });
+
+  app.delete("/api/recipes/:id", async (req, res) => {
+    await storage.deleteRecipe(parseInt(req.params.id));
+    res.status(204).send();
+  });
+
   // Pending Orders
   app.get(api.pendingOrders.list.path, async (req, res) => {
     const orders = await storage.getPendingOrders();
@@ -133,8 +170,8 @@ export async function registerRoutes(
 
   // Sales
   app.get(api.sales.list.path, async (req, res) => {
-    const salesList = await storage.getSales();
-    res.json(salesList);
+    const sales = await storage.getSales();
+    res.json(sales);
   });
 
   app.post(api.sales.create.path, async (req, res) => {

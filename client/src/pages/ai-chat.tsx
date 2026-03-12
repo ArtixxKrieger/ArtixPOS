@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { MessageCircle, Send, RotateCcw, Sparkles, Copy, Check } from "lucide-react";
+import { MessageCircle, Send, RotateCcw, Sparkles, Copy, Check, Download, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -18,7 +18,7 @@ export default function AIChat() {
       id: "1",
       role: "assistant",
       content:
-        "Hi there! 👋 I'm your intelligent POS assistant. Ask me anything about your café operations - product recommendations, sales insights, order management, or business tips. How can I help?",
+        "Hi there! 👋 I'm your intelligent POS assistant. Ask me about your recent sales, top products, revenue, analytics, or any café operations topics. I can also generate sales reports for you!",
       timestamp: new Date(),
     },
   ]);
@@ -40,6 +40,34 @@ export default function AIChat() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const downloadReport = async () => {
+    try {
+      const response = await fetch("/api/ai/report");
+      if (!response.ok) throw new Error("Failed to download report");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `café-bara-sales-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Report downloaded",
+        description: "Your sales report is ready!",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download report.",
+        variant: "destructive",
+      });
+    }
   };
 
   const sendMessage = async () => {
@@ -101,7 +129,7 @@ export default function AIChat() {
           id: "1",
           role: "assistant",
           content:
-            "Hi there! 👋 I'm your intelligent POS assistant. Ask me anything about your café operations - product recommendations, sales insights, order management, or business tips. How can I help?",
+            "Hi there! 👋 I'm your intelligent POS assistant. Ask me about your recent sales, top products, revenue, analytics, or any café operations topics. I can also generate sales reports for you!",
           timestamp: new Date(),
         },
       ]);
@@ -129,19 +157,40 @@ export default function AIChat() {
           </div>
           <div>
             <h2 className="text-3xl font-black tracking-tight">AI Assistant</h2>
-            <p className="text-sm text-muted-foreground font-medium">Intelligent café operations assistant</p>
+            <p className="text-sm text-muted-foreground font-medium">Smart POS operations assistant</p>
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleClearHistory}
-          className="rounded-xl gap-2 font-bold border-border/50 hover:bg-secondary/50"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Clear
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadReport}
+            className="rounded-xl gap-2 font-bold border-border/50 hover:bg-secondary/50"
+            title="Download sales report as CSV"
+          >
+            <Download className="h-4 w-4" />
+            Report
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearHistory}
+            className="rounded-xl gap-2 font-bold border-border/50 hover:bg-secondary/50"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Clear
+          </Button>
+        </div>
+      </div>
+
+      {/* Info Banner */}
+      <div className="flex gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl items-start">
+        <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-bold text-amber-900">POS-Only Assistant</p>
+          <p className="text-amber-800/70">I only discuss café operations, sales, products, and analytics. Ask me about your recent sales, top products, or download a sales report!</p>
+        </div>
       </div>
 
       {/* Chat Container */}
@@ -208,7 +257,7 @@ export default function AIChat() {
         <div className="border-t border-border/50 p-6 bg-gradient-to-t from-muted/30 to-transparent">
           <div className="flex gap-3">
             <Input
-              placeholder="Ask about products, sales, analytics..."
+              placeholder="Ask about sales, products, analytics..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}

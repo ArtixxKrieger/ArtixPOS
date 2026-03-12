@@ -192,11 +192,43 @@ export async function registerRoutes(
     }
   });
 
-  // AI Chat
+  // AI Chat with context
   app.post(api.ai.chat.path, async (req, res) => {
     try {
       const input = api.ai.chat.input.parse(req.body);
-      const response = await aiService.chat(input.message);
+      
+      // Fetch sales context for the AI
+      const salesList = await storage.getSales();
+      const products = await storage.getProducts();
+      const settings = await storage.getSettings();
+      
+      const totalRevenue = salesList.reduce((acc, s) => {
+        const total = typeof s.total === 'string' ? parseFloat(s.total) : s.total;
+        return acc + (isNaN(total) ? 0 : total);
+      }, 0);
+      
+      const productCounts: Record<string, number> = {};
+      salesList.forEach((sale: any) => {
+        sale.items?.forEach((item: any) => {
+          const name = item.product?.name || "Unknown";
+          productCounts[name] = (productCounts[name] || 0) + (item.quantity || 1);
+        });
+      });
+      
+      const topProducts = Object.entries(productCounts)
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5);
+      
+      const context = {
+        totalRevenue,
+        totalOrders: salesList.length,
+        recentSales: salesList.slice(-10),
+        topProducts,
+        currency: settings?.currency || "₱",
+      };
+      
+      const response = await aiService.chat(input.message, context);
       res.json({ response });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -209,6 +241,50 @@ export async function registerRoutes(
       res.status(500).json({
         message: "AI service error. Please try again.",
       });
+    }
+  });
+
+  // Generate sales report
+  app.get(api.ai.report.path, async (req, res) => {
+    try {
+      const salesList = await storage.getSales();
+      const settings = await storage.getSettings();
+      
+      const totalRevenue = salesList.reduce((acc, s) => {
+        const total = typeof s.total === 'string' ? parseFloat(s.total) : s.total;
+        return acc + (isNaN(total) ? 0 : total);
+      }, 0);
+      
+      const totalTax = salesList.reduce((acc, s) => {
+        const tax = typeof s.tax === 'string' ? parseFloat(s.tax) : s.tax;
+        return acc + (isNaN(tax) ? 0 : tax);
+      }, 0);
+      
+      const csv = `Café Bara - Sales Report\nGenerated: ${new Date().toISOString()}\n\n`;
+      const lines = [
+        csv,
+        "SUMMARY",
+        `Total Revenue,${totalRevenue.toFixed(2)}`,
+        `Total Orders,${salesList.length}`,
+        `Average Order Value,${(totalRevenue / salesList.length).toFixed(2)}`,
+        `Total Tax Collected,${totalTax.toFixed(2)}`,
+        `Currency,${settings?.currency || "₱"}`,
+        "",
+        "RECENT SALES",
+        "ID,Date,Amount,Payment Method,Items",
+      ];
+      
+      salesList.slice(-20).reverse().forEach(sale => {
+        const itemCount = sale.items?.length || 0;
+        lines.push(`${sale.id},${new Date(sale.createdAt).toLocaleString()},${sale.total},${sale.paymentMethod},${itemCount} items`);
+      });
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="café-bara-sales-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(lines.join("\n"));
+    } catch (err) {
+      console.error("Report error:", err);
+      res.status(500).json({ message: "Failed to generate report" });
     }
   });
 

@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 
-// Load env vars directly in this file to ensure they're available
 function loadEnvVars() {
   const envPath = path.join(process.cwd(), ".env");
   if (fs.existsSync(envPath)) {
@@ -24,32 +23,32 @@ loadEnvVars();
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
-console.log("AI Service loaded. Gemini available:", !!GEMINI_API_KEY, "Deepseek available:", !!DEEPSEEK_API_KEY);
+const POS_KEYWORDS = ["sales", "order", "product", "menu", "inventory", "revenue", "customer", "payment", "receipt", "transaction", "analytics", "café", "coffee", "pos", "discount", "tax", "delivery", "staff", "shift", "report"];
 
-const FALLBACK_RESPONSES: Record<string, string> = {
-  "product": "For your Café Bara, I recommend featuring your specialty lattes and seasonal drinks. Focus on high-margin items and create bundles with snacks.",
-  "sales": "To boost sales, try running a lunch special on coffee combos or create a loyalty program. Peak hours are typically 8-10 AM and 12-1 PM.",
-  "order": "Your order system is tracking all transactions efficiently. Keep an eye on high-demand items and restock accordingly.",
-  "analytics": "Monitor your top-selling products and adjust inventory. Track customer preferences to identify opportunities for new menu items.",
-  "default": "I'm your café POS assistant. Ask me about product recommendations, sales strategies, analytics insights, or order management tips!"
-};
-
-function selectFallbackResponse(message: string): string {
+function isPOSRelated(message: string): boolean {
   const lower = message.toLowerCase();
-  for (const [key, response] of Object.entries(FALLBACK_RESPONSES)) {
-    if (key !== "default" && lower.includes(key)) {
-      return response;
-    }
-  }
-  return FALLBACK_RESPONSES.default;
+  return POS_KEYWORDS.some(keyword => lower.includes(keyword)) || lower.length < 3;
+}
+
+export interface SalesContext {
+  totalRevenue?: number;
+  totalOrders?: number;
+  recentSales?: any[];
+  topProducts?: any[];
+  currency?: string;
 }
 
 export class AIService {
-  async chat(userMessage: string): Promise<string> {
+  async chat(userMessage: string, context?: SalesContext): Promise<string> {
+    // Check if the question is POS-related
+    if (!isPOSRelated(userMessage)) {
+      return "I'm specifically designed to help with café POS operations. Please ask me about sales, orders, products, analytics, or customer service!";
+    }
+
     // Try Gemini first
     if (GEMINI_API_KEY) {
       try {
-        return await this.callGemini(userMessage);
+        return await this.callGemini(userMessage, context);
       } catch (error) {
         console.warn("Gemini failed:", error instanceof Error ? error.message : error);
       }
@@ -58,19 +57,50 @@ export class AIService {
     // Fallback to Deepseek
     if (DEEPSEEK_API_KEY) {
       try {
-        return await this.callDeepseek(userMessage);
+        return await this.callDeepseek(userMessage, context);
       } catch (error) {
         console.warn("Deepseek failed:", error instanceof Error ? error.message : error);
       }
     }
 
-    // Final fallback: Use smart response selection
-    console.log("Using fallback response for:", userMessage);
-    return selectFallbackResponse(userMessage);
+    // Final fallback with context awareness
+    return this.generateContextualResponse(userMessage, context);
   }
 
-  private async callGemini(userMessage: string): Promise<string> {
-    // Try the correct API endpoint for Gemini
+  private generateContextualResponse(message: string, context?: SalesContext): string {
+    const lower = message.toLowerCase();
+    const currency = context?.currency || "₱";
+    
+    if (lower.includes("recent") || lower.includes("last") || lower.includes("week") || lower.includes("sale")) {
+      if (context?.recentSales && context.recentSales.length > 0) {
+        const lastSales = context.recentSales.slice(0, 5);
+        const totalFromRecent = lastSales.reduce((sum, s) => sum + (typeof s.total === 'string' ? parseFloat(s.total) : s.total), 0);
+        return `Your recent sales summary:\n\n📊 Last ${lastSales.length} transactions: ${currency}${totalFromRecent.toFixed(2)}\n\nTop items sold: ${lastSales.map(s => `${s.items?.[0]?.product?.name || 'Item'}`).join(', ')}\n\nKeep up the great work! 🎉`;
+      }
+      return "You haven't had any recent sales yet. Start taking orders!";
+    }
+    
+    if (lower.includes("top") || lower.includes("best") || lower.includes("popular")) {
+      if (context?.topProducts && context.topProducts.length > 0) {
+        const tops = context.topProducts.slice(0, 3).map(p => p.name).join(", ");
+        return `Your top products are: ${tops}. These are your bestsellers! 🏆`;
+      }
+      return "No sales data yet to determine top products.";
+    }
+
+    if (lower.includes("revenue") || lower.includes("earnings") || lower.includes("total")) {
+      if (context?.totalRevenue) {
+        return `Your total revenue is ${currency}${context.totalRevenue.toFixed(2)} from ${context.totalOrders} orders. 💰`;
+      }
+      return "No sales recorded yet.";
+    }
+
+    return "I'm your POS assistant. Ask me about your sales performance, top products, recent orders, or business insights!";
+  }
+
+  private async callGemini(userMessage: string, context?: SalesContext): Promise<string> {
+    const contextStr = context ? `\n\nCurrent POS Data:\n- Total Revenue: ${context.totalRevenue}\n- Total Orders: ${context.totalOrders}\n- Recent Sales: ${context.recentSales?.length || 0}` : "";
+    
     const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
     
     const response = await fetch(url, {
@@ -79,16 +109,11 @@ export class AIService {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: userMessage,
+            text: `You are a POS system assistant for Café Bara. ONLY answer questions related to café operations, sales, orders, products, analytics, and customer service. If the question is NOT about POS/café operations, refuse politely and redirect to POS topics.${contextStr}\n\nUser question: ${userMessage}`,
           }],
         }],
-        safetySettings: [
-          { category: "HARM_CATEGORY_UNSPECIFIED", threshold: "BLOCK_NONE" },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 500,
-        },
+        safetySettings: [{ category: "HARM_CATEGORY_UNSPECIFIED", threshold: "BLOCK_NONE" }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 300 },
       }),
     });
 
@@ -100,14 +125,13 @@ export class AIService {
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    if (!text) {
-      throw new Error("No response from Gemini");
-    }
-
+    if (!text) throw new Error("No response from Gemini");
     return text;
   }
 
-  private async callDeepseek(userMessage: string): Promise<string> {
+  private async callDeepseek(userMessage: string, context?: SalesContext): Promise<string> {
+    const contextStr = context ? `Current POS Data: ${context.totalRevenue} revenue, ${context.totalOrders} orders` : "";
+    
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
@@ -119,15 +143,12 @@ export class AIService {
         messages: [
           {
             role: "system",
-            content: "You are a helpful POS assistant for Café Bara. Provide concise, practical advice.",
+            content: `You are a POS assistant for Café Bara. ONLY discuss café operations, sales, products, analytics. Refuse non-POS questions. ${contextStr}`,
           },
-          {
-            role: "user",
-            content: userMessage,
-          },
+          { role: "user", content: userMessage },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 300,
       }),
     });
 
@@ -139,16 +160,11 @@ export class AIService {
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content;
     
-    if (!text) {
-      throw new Error("No response from Deepseek");
-    }
-
+    if (!text) throw new Error("No response from Deepseek");
     return text;
   }
 
-  clearHistory(): void {
-    // Stateless
-  }
+  clearHistory(): void {}
 }
 
 export const aiService = new AIService();

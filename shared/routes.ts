@@ -163,6 +163,14 @@ export const api = {
           success: z.boolean(),
         }),
       }
+    },
+    report: {
+      method: "GET" as const,
+      path: "/api/ai/report" as const,
+      responses: {
+        200: z.any(),
+        500: errorSchemas.internal,
+      }
     }
   }
 };

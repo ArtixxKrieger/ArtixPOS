@@ -3,11 +3,18 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { initializeDatabase } from "./db";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Initialize database schema first
+  try {
+    await initializeDatabase();
+  } catch (err) {
+    console.error("Database init failed:", err);
+  }
   // Products
   app.get(api.products.list.path, async (req, res) => {
     const products = await storage.getProducts();

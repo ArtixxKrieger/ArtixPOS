@@ -20,6 +20,9 @@ if (fs.existsSync(envPath)) {
       }
     }
   });
+  console.log("Environment variables loaded from .env");
+} else {
+  console.warn(".env file not found at:", envPath);
 }
 
 const app = express();

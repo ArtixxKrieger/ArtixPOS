@@ -1,213 +1,344 @@
 import { useState } from "react";
-import { useProducts, useUpdateProduct } from "@/hooks/use-products";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
+import { type InsertProduct } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertCircle, Package, Plus, Minus, BarChart3, TrendingDown } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useForm, useFieldArray } from "react-hook-form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Plus, Edit2, Trash2, Search, Package, X } from "lucide-react";
 
-export default function Inventory() {
+export default function Products() {
   const { data: products = [], isLoading } = useProducts();
   const { data: settings } = useSettings();
+  const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+
   const [search, setSearch] = useState("");
-  const [adjustId, setAdjustId] = useState<number | null>(null);
-  const [adjustQty, setAdjustQty] = useState<string>("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const form = useForm<InsertProduct>({
+    defaultValues: { 
+      name: "", 
+      price: "0", 
+      category: "General",
+      sizes: [],
+      modifiers: []
+    }
+  });
+
+  const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({
+    control: form.control,
+    name: "sizes"
+  });
+
+  const { fields: modifierFields, append: appendModifier, remove: removeModifier } = useFieldArray({
+    control: form.control,
+    name: "modifiers"
+  });
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-  const lowStock = products.filter(p => (p.stock || 0) <= (p.minStock || 10));
-  const outOfStock = products.filter(p => (p.stock || 0) === 0);
 
-  const handleAdjustStock = (productId: number, adjustment: number) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    
-    const newStock = Math.max(0, (product.stock || 0) + adjustment);
-    updateProduct.mutate({
-      id: productId,
-      stock: newStock
-    });
+  const onSubmit = (data: InsertProduct) => {
+    const payload = { 
+      ...data, 
+      price: data.price.toString(),
+      hasSizes: (data.sizes?.length || 0) > 0,
+      hasModifiers: (data.modifiers?.length || 0) > 0
+    };
+
+    if (editingId) {
+      updateProduct.mutate({ id: editingId, ...payload }, {
+        onSuccess: () => { setIsDialogOpen(false); setEditingId(null); }
+      });
+    } else {
+      createProduct.mutate(payload, {
+        onSuccess: () => setIsDialogOpen(false)
+      });
+    }
   };
 
-  const handleSetStock = (productId: number, newQty: string) => {
-    const qty = parseInt(newQty) || 0;
-    updateProduct.mutate({
-      id: productId,
-      stock: Math.max(0, qty)
-    }, {
-      onSuccess: () => {
-        setAdjustId(null);
-        setAdjustQty("");
-      }
+  const openEdit = (p: any) => {
+    setEditingId(p.id);
+    form.reset({ 
+      name: p.name, 
+      price: p.price, 
+      category: p.category || "General",
+      sizes: p.sizes || [],
+      modifiers: p.modifiers || []
     });
+    setIsDialogOpen(true);
   };
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading inventory...</div>;
+  const openCreate = () => {
+    setEditingId(null);
+    form.reset({ 
+      name: "", 
+      price: "0", 
+      category: "General",
+      sizes: [],
+      modifiers: []
+    });
+    setIsDialogOpen(true);
+  };
+
+  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading products...</div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-10">
-      <div className="flex items-center gap-4">
-        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white shadow-xl">
-          <BarChart3 className="h-7 w-7" />
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-700 pb-10">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-3xl shadow-sm border border-border/50">
         <div>
-          <h2 className="text-3xl font-black tracking-tight">Inventory Management</h2>
-          <p className="text-sm text-muted-foreground font-medium">Monitor stock levels and manage inventory</p>
+          <h2 className="text-2xl font-bold">Products & Inventory</h2>
+          <p className="text-muted-foreground text-sm">Manage your products, pricing, and stock</p>
         </div>
-      </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-emerald-500/10 to-transparent border border-border/50 overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-4 opacity-10"><Package className="h-12 w-12" /></div>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Total Products</p>
-            <h3 className="text-3xl font-black mt-1">{products.length}</h3>
-            <p className="text-xs text-muted-foreground mt-2">In catalog</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-yellow-500/10 to-transparent border border-border/50 overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-4 opacity-10"><AlertCircle className="h-12 w-12" /></div>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Low Stock</p>
-            <h3 className="text-3xl font-black mt-1 text-amber-600">{lowStock.length}</h3>
-            <p className="text-xs text-muted-foreground mt-2">Need replenishment</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-red-500/10 to-transparent border border-border/50 overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-4 opacity-10"><TrendingDown className="h-12 w-12" /></div>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Out of Stock</p>
-            <h3 className="text-3xl font-black mt-1 text-destructive">{outOfStock.length}</h3>
-            <p className="text-xs text-muted-foreground mt-2">Requires immediate action</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="rounded-3xl border-none shadow-xl overflow-hidden bg-card">
-        <CardHeader className="bg-muted/20 border-b border-border/50 py-6 px-8">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-black">Stock Levels</CardTitle>
-            <Input
-              placeholder="Search products..."
-              className="w-64 h-11 rounded-xl bg-background border-none text-sm"
+        <div className="flex w-full sm:w-auto gap-4">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search..." 
+              className="pl-9 bg-secondary border-none rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-        </CardHeader>
 
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/30 border-b border-border/50 sticky top-0">
-                <tr>
-                  <th className="px-8 py-4 text-left font-black text-xs uppercase tracking-wider">Product</th>
-                  <th className="px-6 py-4 text-left font-black text-xs uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-4 text-center font-black text-xs uppercase tracking-wider">Current</th>
-                  <th className="px-6 py-4 text-center font-black text-xs uppercase tracking-wider">Min</th>
-                  <th className="px-6 py-4 text-center font-black text-xs uppercase tracking-wider">Status</th>
-                  <th className="px-8 py-4 text-right font-black text-xs uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {filtered.map((product) => {
-                  const current = product.stock || 0;
-                  const min = product.minStock || 10;
-                  const isLow = current <= min;
-                  const isEmpty = current === 0;
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreate} className="rounded-xl shadow-md bg-gradient-to-r from-primary to-violet-500 text-white hover:opacity-90 transition-opacity">
+                <Plus className="h-4 w-4 mr-2" /> Add Product
+              </Button>
+            </DialogTrigger>
 
-                  return (
-                    <tr key={product.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-8 py-5 font-bold text-foreground">{product.name}</td>
-                      <td className="px-6 py-5 text-sm text-muted-foreground font-mono">{product.sku || "N/A"}</td>
-                      <td className="px-6 py-5 text-center font-black text-lg">{current}</td>
-                      <td className="px-6 py-5 text-center text-muted-foreground font-semibold">{min}</td>
-                      <td className="px-6 py-5 text-center">
-                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-tight uppercase ${
-                          isEmpty ? "bg-destructive/10 text-destructive" :
-                          isLow ? "bg-amber-500/10 text-amber-600" :
-                          "bg-emerald-500/10 text-emerald-600"
-                        }`}>
-                          {isEmpty ? "Out" : isLow ? "Low" : "Good"}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5">
-                        <div className="flex justify-end items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary"
-                            onClick={() => handleAdjustStock(product.id, -1)}
-                            disabled={current === 0}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl">{editingId ? "Edit Product" : "New Product"}</DialogTitle>
+              </DialogHeader>
 
-                          <Dialog open={adjustId === product.id} onOpenChange={(open) => !open && setAdjustId(null)}>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="h-9 px-3 text-xs font-black rounded-lg border-border/50"
-                                onClick={() => {
-                                  setAdjustId(product.id);
-                                  setAdjustQty(current.toString());
-                                }}
-                              >
-                                Set
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[300px] rounded-2xl">
-                              <DialogHeader>
-                                <DialogTitle className="font-black">Set Stock Level</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 pt-4">
-                                <p className="text-sm text-muted-foreground">{product.name}</p>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={adjustQty}
-                                  onChange={(e) => setAdjustQty(e.target.value)}
-                                  className="h-12 text-center text-lg font-black rounded-xl border-border/50"
-                                  autoFocus
-                                />
-                                <Button
-                                  className="w-full h-11 font-black rounded-xl bg-primary"
-                                  onClick={() => handleSetStock(product.id, adjustQty)}
-                                  disabled={updateProduct.isPending}
-                                >
-                                  Confirm
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
 
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary"
-                            onClick={() => handleAdjustStock(product.id, 1)}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Product Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} className="rounded-xl bg-secondary border-none" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="price" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price ({settings?.currency})</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} className="rounded-xl bg-secondary border-none" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="category" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Input {...field} className="rounded-xl bg-secondary border-none" value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  {/* Sizes */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-base">Sizes (Optional)</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => appendSize({ name: "", price: "0" })}
+                        className="rounded-lg h-8"
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add Size
+                      </Button>
+                    </div>
+
+                    {sizeFields.map((field, index) => (
+                      <div key={field.id} className="flex gap-2 items-end">
+                        <FormField control={form.control} name={`sizes.${index}.name`} render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input {...field} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+
+                        <FormField control={form.control} name={`sizes.${index}.price`} render={({ field }) => (
+                          <FormItem className="w-24">
+                            <FormControl>
+                              <Input type="number" step="0.01" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSize(index)}
+                          className="h-9 w-9 text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Modifiers */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-base">Add-ons / Modifiers (Optional)</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => appendModifier({ name: "", price: "0" })}
+                        className="rounded-lg h-8"
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add Modifier
+                      </Button>
+                    </div>
+
+                    {modifierFields.map((field, index) => (
+                      <div key={field.id} className="flex gap-2 items-end">
+                        <FormField control={form.control} name={`modifiers.${index}.name`} render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input {...field} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+
+                        <FormField control={form.control} name={`modifiers.${index}.price`} render={({ field }) => (
+                          <FormItem className="w-24">
+                            <FormControl>
+                              <Input type="number" step="0.01" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeModifier(index)}
+                          className="h-9 w-9 text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full rounded-xl h-12 font-bold text-white shadow-lg bg-gradient-to-r from-primary to-violet-500 mt-4"
+                    disabled={createProduct.isPending || updateProduct.isPending}
+                  >
+                    {editingId ? "Save Changes" : "Create Product"}
+                  </Button>
+
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <Card className="rounded-3xl shadow-sm border border-border/50 overflow-hidden">
+        {isLoading ? (
+          <div className="p-8 text-center animate-pulse text-muted-foreground">Loading products...</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-16 text-center text-muted-foreground flex flex-col items-center">
+            <Package className="h-16 w-16 mb-4 opacity-20" />
+            <p className="text-lg font-medium text-foreground">No products found</p>
+            <p>Create your first product to get started.</p>
           </div>
-          {filtered.length === 0 && (
-            <div className="p-16 text-center text-muted-foreground">
-              <Package className="h-16 w-16 mx-auto mb-4 opacity-10" />
-              <p>No products found</p>
-            </div>
-          )}
-        </CardContent>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-border/50">
+                  <TableHead className="px-6 py-4 font-semibold">Product Name</TableHead>
+                  <TableHead className="py-4 font-semibold">Category</TableHead>
+                  <TableHead className="py-4 font-semibold">Price</TableHead>
+                  <TableHead className="py-4 font-semibold text-center">Sizes</TableHead>
+                  <TableHead className="py-4 font-semibold text-center">Add-ons</TableHead>
+                  <TableHead className="text-right px-6 py-4 font-semibold">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {filtered.map((product) => (
+                  <TableRow key={product.id} className="hover:bg-muted/30 transition-colors border-border/50">
+                    <TableCell className="font-bold px-6 py-4">{product.name}</TableCell>
+
+                    <TableCell className="py-4">
+                      <span className="bg-secondary px-3 py-1 rounded-full text-xs font-medium tracking-wide">
+                        {product.category || "General"}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="font-bold text-primary py-4">
+                      {formatCurrency(product.price, settings?.currency)}
+                    </TableCell>
+
+                    <TableCell className="text-center py-4 text-sm text-muted-foreground">
+                      {product.hasSizes ? `${product.sizes?.length || 0}` : "—"}
+                    </TableCell>
+
+                    <TableCell className="text-center py-4 text-sm text-muted-foreground">
+                      {product.hasModifiers ? `${product.modifiers?.length || 0}` : "—"}
+                    </TableCell>
+
+                    <TableCell className="text-right px-6 py-4">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
+                          onClick={() => openEdit(product)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                          onClick={() => {
+                            if (confirm("Delete this product?")) deleteProduct.mutate(product.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
     </div>
   );

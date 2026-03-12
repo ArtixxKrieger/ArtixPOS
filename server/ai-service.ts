@@ -112,7 +112,6 @@ export class AIService {
             text: `You are a POS system assistant for Café Bara. ONLY answer questions related to café operations, sales, orders, products, analytics, and customer service. If the question is NOT about POS/café operations, refuse politely and redirect to POS topics.${contextStr}\n\nUser question: ${userMessage}`,
           }],
         }],
-        safetySettings: [{ category: "HARM_CATEGORY_UNSPECIFIED", threshold: "BLOCK_NONE" }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 300 },
       }),
     });

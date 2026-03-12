@@ -7,13 +7,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Save } from "lucide-react";
+import { Settings as SettingsIcon, Save, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useInstallPWA } from "@/hooks/use-install-pwa";
 
 export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
+  const { isInstallable, isInstalled, install } = useInstallPWA();
 
   const form = useForm<Partial<InsertUserSetting>>({
     defaultValues: {
@@ -35,14 +37,32 @@ export default function Settings() {
 
   return (
     <div className="max-w-3xl animate-in fade-in duration-500">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center text-foreground shadow-sm">
-          <SettingsIcon className="h-6 w-6" />
+      <div className="flex items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center text-foreground shadow-sm">
+            <SettingsIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">Store Settings</h2>
+            <p className="text-sm text-muted-foreground">Configure your POS environment</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold">Store Settings</h2>
-          <p className="text-sm text-muted-foreground">Configure your POS environment</p>
-        </div>
+        
+        {isInstallable && !isInstalled && (
+          <Button
+            onClick={install}
+            className="h-12 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+          >
+            <Download className="h-5 w-5" />
+            Install App
+          </Button>
+        )}
+        
+        {isInstalled && (
+          <div className="px-6 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-sm border border-emerald-500/30">
+            ✓ App Installed
+          </div>
+        )}
       </div>
 
       <Card className="rounded-3xl border border-border/50 shadow-lg shadow-black/5 bg-card overflow-hidden">

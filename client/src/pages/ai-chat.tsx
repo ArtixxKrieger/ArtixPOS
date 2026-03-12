@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Send, RotateCcw, Zap, Zap2 } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { MessageCircle, Send, RotateCcw, Sparkles, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -18,12 +18,13 @@ export default function AIChat() {
       id: "1",
       role: "assistant",
       content:
-        "Hi! I'm your Café Bara AI assistant. I can help you with product recommendations, order assistance, customer inquiries, and business insights. How can I help you today?",
+        "Hi there! 👋 I'm your intelligent POS assistant. Ask me anything about your café operations - product recommendations, sales insights, order management, or business tips. How can I help?",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -34,6 +35,12 @@ export default function AIChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -74,7 +81,7 @@ export default function AIChat() {
       console.error("Chat error:", error);
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        description: "Unable to process your request. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -94,14 +101,14 @@ export default function AIChat() {
           id: "1",
           role: "assistant",
           content:
-            "Hi! I'm your Café Bara AI assistant. I can help you with product recommendations, order assistance, customer inquiries, and business insights. How can I help you today?",
+            "Hi there! 👋 I'm your intelligent POS assistant. Ask me anything about your café operations - product recommendations, sales insights, order management, or business tips. How can I help?",
           timestamp: new Date(),
         },
       ]);
 
       toast({
         title: "Chat cleared",
-        description: "Conversation history has been cleared.",
+        description: "Ready for a fresh conversation.",
       });
     } catch (error) {
       toast({
@@ -113,17 +120,16 @@ export default function AIChat() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-10 h-[calc(100vh-8rem)]">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 animate-in fade-in duration-700 pb-10 h-[calc(100vh-8rem)] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white shadow-xl">
-            <MessageCircle className="h-7 w-7" />
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center text-white shadow-xl">
+            <Sparkles className="h-7 w-7" />
           </div>
           <div>
             <h2 className="text-3xl font-black tracking-tight">AI Assistant</h2>
-            <p className="text-sm text-muted-foreground font-medium">
-              Powered by Gemini + Deepseek (with fallback)
-            </p>
+            <p className="text-sm text-muted-foreground font-medium">Intelligent café operations assistant</p>
           </div>
         </div>
 
@@ -131,50 +137,62 @@ export default function AIChat() {
           variant="outline"
           size="sm"
           onClick={handleClearHistory}
-          className="rounded-xl gap-2 font-bold border-border/50"
+          className="rounded-xl gap-2 font-bold border-border/50 hover:bg-secondary/50"
         >
           <RotateCcw className="h-4 w-4" />
-          Clear Chat
+          Clear
         </Button>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 bg-card rounded-3xl shadow-lg border border-border/50 overflow-hidden">
+      {/* Chat Container */}
+      <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-br from-card to-background rounded-[2.5rem] shadow-xl border border-border/50 overflow-hidden">
+        {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-8 space-y-6 scrollbar-hide">
           {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${
                 message.role === "user" ? "justify-end" : "justify-start"
-              } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+              } animate-in fade-in slide-in-from-bottom-2 duration-500 gap-2`}
             >
               <div
-                className={`max-w-[70%] rounded-3xl px-6 py-4 shadow-sm ${
+                className={`max-w-[75%] rounded-3xl px-6 py-4 shadow-lg transition-all ${
                   message.role === "user"
-                    ? "bg-gradient-to-r from-primary to-violet-600 text-white rounded-br-none"
-                    : "bg-muted/40 text-foreground rounded-bl-none border border-border/50"
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-none hover:shadow-xl"
+                    : "bg-muted/60 backdrop-blur-sm text-foreground rounded-bl-none border border-border/50 hover:bg-muted/80"
                 }`}
               >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                   {message.content}
                 </p>
-                <span
-                  className={`text-xs mt-2 block ${
-                    message.role === "user"
-                      ? "text-white/60"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {message.timestamp.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+                <div className="flex items-center justify-between mt-2 gap-2">
+                  <span className={`text-xs ${message.role === "user" ? "text-blue-100" : "text-muted-foreground"}`}>
+                    {message.timestamp.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  {message.role === "assistant" && (
+                    <button
+                      onClick={() => copyToClipboard(message.content, message.id)}
+                      className="opacity-50 hover:opacity-100 transition-opacity"
+                      title="Copy message"
+                    >
+                      {copied === message.id ? (
+                        <Check className="h-3 w-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
+
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-muted/40 rounded-3xl rounded-bl-none px-6 py-4 border border-border/50">
+            <div className="flex justify-start animate-in fade-in">
+              <div className="bg-muted/60 backdrop-blur-sm rounded-3xl rounded-bl-none px-6 py-4 border border-border/50">
                 <div className="flex gap-2">
                   <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" />
                   <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce delay-100" />
@@ -186,27 +204,25 @@ export default function AIChat() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-border/50 p-6 bg-muted/20">
+        {/* Input Area */}
+        <div className="border-t border-border/50 p-6 bg-gradient-to-t from-muted/30 to-transparent">
           <div className="flex gap-3">
             <Input
-              placeholder="Ask about products, analytics, orders..."
+              placeholder="Ask about products, sales, analytics..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               disabled={isLoading}
-              className="rounded-2xl bg-background border-border/50 shadow-sm text-base placeholder:text-muted-foreground/60 focus-visible:ring-primary/20"
+              className="rounded-2xl bg-background/80 backdrop-blur-sm border-border/50 shadow-sm text-base placeholder:text-muted-foreground/60 focus-visible:ring-blue-500/20 disabled:opacity-50"
             />
             <Button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="h-12 w-12 p-0 rounded-2xl bg-gradient-to-r from-primary to-violet-600 shadow-lg hover:opacity-90 transition-all"
+              className="h-12 w-12 p-0 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg hover:shadow-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
             >
               <Send className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-2">
-            <Zap className="h-3 w-3" /> Powered by Gemini with Deepseek fallback
-          </p>
         </div>
       </div>
     </div>

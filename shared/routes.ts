@@ -1,17 +1,13 @@
 import { z } from "zod";
 import { 
   insertProductSchema, 
-  insertIngredientSchema,
-  insertRecipeSchema,
   insertPendingOrderSchema, 
   insertSaleSchema, 
   insertUserSettingSchema,
   products,
   pendingOrders,
   sales,
-  userSettings,
-  ingredients,
-  recipes
+  userSettings
 } from "./schema";
 
 export const errorSchemas = {

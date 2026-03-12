@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
-import { type InsertProduct } from "@shared/schema";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { type InsertProduct, type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -64,7 +63,7 @@ export default function Products() {
     }
   };
 
-  const openEdit = (p: any) => {
+  const openEdit = (p: Product) => {
     setEditingId(p.id);
     form.reset({ 
       name: p.name, 
@@ -88,14 +87,12 @@ export default function Products() {
     setIsDialogOpen(true);
   };
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading products...</div>;
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 pb-10">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-3xl shadow-sm border border-border/50">
         <div>
-          <h2 className="text-2xl font-bold">Products & Inventory</h2>
-          <p className="text-muted-foreground text-sm">Manage your products, pricing, and stock</p>
+          <h2 className="text-2xl font-bold">Inventory</h2>
+          <p className="text-muted-foreground text-sm">Manage your products and pricing</p>
         </div>
 
         <div className="flex w-full sm:w-auto gap-4">
@@ -112,7 +109,7 @@ export default function Products() {
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreate} className="rounded-xl shadow-md bg-gradient-to-r from-primary to-violet-500 text-white hover:opacity-90 transition-opacity">
-                <Plus className="h-4 w-4 mr-2" /> Add Product
+                <Plus className="h-4 w-4 mr-2" /> Add Item
               </Button>
             </DialogTrigger>
 
@@ -137,7 +134,7 @@ export default function Products() {
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="price" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price ({settings?.currency})</FormLabel>
+                        <FormLabel>Base Price ({settings?.currency})</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" {...field} className="rounded-xl bg-secondary border-none" />
                         </FormControl>
@@ -263,83 +260,71 @@ export default function Products() {
         </div>
       </div>
 
-      <Card className="rounded-3xl shadow-sm border border-border/50 overflow-hidden">
+      <div className="bg-card rounded-3xl shadow-sm border border-border/50 overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center animate-pulse text-muted-foreground">Loading products...</div>
+          <div className="p-8 text-center animate-pulse text-muted-foreground">Loading inventory...</div>
         ) : filtered.length === 0 ? (
           <div className="p-16 text-center text-muted-foreground flex flex-col items-center">
             <Package className="h-16 w-16 mb-4 opacity-20" />
             <p className="text-lg font-medium text-foreground">No products found</p>
-            <p>Create your first product to get started.</p>
+            <p>Try adding a new product to your inventory.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent border-border/50">
-                  <TableHead className="px-6 py-4 font-semibold">Product Name</TableHead>
-                  <TableHead className="py-4 font-semibold">Category</TableHead>
-                  <TableHead className="py-4 font-semibold">Price</TableHead>
-                  <TableHead className="py-4 font-semibold text-center">Sizes</TableHead>
-                  <TableHead className="py-4 font-semibold text-center">Add-ons</TableHead>
-                  <TableHead className="text-right px-6 py-4 font-semibold">Actions</TableHead>
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent border-border/50">
+                <TableHead className="px-6 py-4 font-semibold">Product Name</TableHead>
+                <TableHead className="py-4 font-semibold">Category</TableHead>
+                <TableHead className="py-4 font-semibold">Price</TableHead>
+                <TableHead className="text-right px-6 py-4 font-semibold">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {filtered.map((product) => (
+                <TableRow key={product.id} className="hover:bg-muted/30 transition-colors border-border/50">
+                  <TableCell className="font-bold px-6 py-4">{product.name}</TableCell>
+
+                  <TableCell className="py-4">
+                    <span className="bg-secondary px-3 py-1 rounded-full text-xs font-medium tracking-wide">
+                      {product.category || "General"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="font-bold text-primary py-4">
+                    {formatCurrency(product.price, settings?.currency)}
+                  </TableCell>
+
+                  <TableCell className="text-right px-6 py-4">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
+                        onClick={() => openEdit(product)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                        onClick={() => {
+                          if (confirm("Delete this product?")) deleteProduct.mutate(product.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+
                 </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {filtered.map((product) => (
-                  <TableRow key={product.id} className="hover:bg-muted/30 transition-colors border-border/50">
-                    <TableCell className="font-bold px-6 py-4">{product.name}</TableCell>
-
-                    <TableCell className="py-4">
-                      <span className="bg-secondary px-3 py-1 rounded-full text-xs font-medium tracking-wide">
-                        {product.category || "General"}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="font-bold text-primary py-4">
-                      {formatCurrency(product.price, settings?.currency)}
-                    </TableCell>
-
-                    <TableCell className="text-center py-4 text-sm text-muted-foreground">
-                      {product.hasSizes ? `${product.sizes?.length || 0}` : "—"}
-                    </TableCell>
-
-                    <TableCell className="text-center py-4 text-sm text-muted-foreground">
-                      {product.hasModifiers ? `${product.modifiers?.length || 0}` : "—"}
-                    </TableCell>
-
-                    <TableCell className="text-right px-6 py-4">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
-                          onClick={() => openEdit(product)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
-                          onClick={() => {
-                            if (confirm("Delete this product?")) deleteProduct.mutate(product.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

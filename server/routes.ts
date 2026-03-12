@@ -3,18 +3,11 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { initializeDatabase } from "./db";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Initialize database schema first
-  try {
-    await initializeDatabase();
-  } catch (err) {
-    console.error("Database init failed:", err);
-  }
   // Products
   app.get(api.products.list.path, async (req, res) => {
     const products = await storage.getProducts();
@@ -69,43 +62,6 @@ export async function registerRoutes(
   app.delete(api.products.delete.path, async (req, res) => {
     await storage.deleteProduct(Number(req.params.id));
     res.status(204).end();
-  });
-
-  // Ingredients
-  app.get("/api/ingredients", async (req, res) => {
-    const ings = await storage.getIngredients();
-    res.json(ings);
-  });
-
-  app.post("/api/ingredients", async (req, res) => {
-    const ing = await storage.createIngredient(req.body);
-    res.status(201).json(ing);
-  });
-
-  app.put("/api/ingredients/:id", async (req, res) => {
-    const ing = await storage.updateIngredient(parseInt(req.params.id), req.body);
-    res.json(ing);
-  });
-
-  app.delete("/api/ingredients/:id", async (req, res) => {
-    await storage.deleteIngredient(parseInt(req.params.id));
-    res.status(204).send();
-  });
-
-  // Recipes
-  app.get("/api/recipes", async (req, res) => {
-    const recs = await storage.getRecipes();
-    res.json(recs);
-  });
-
-  app.post("/api/recipes", async (req, res) => {
-    const rec = await storage.createRecipe(req.body);
-    res.status(201).json(rec);
-  });
-
-  app.delete("/api/recipes/:id", async (req, res) => {
-    await storage.deleteRecipe(parseInt(req.params.id));
-    res.status(204).send();
   });
 
   // Pending Orders
@@ -170,8 +126,8 @@ export async function registerRoutes(
 
   // Sales
   app.get(api.sales.list.path, async (req, res) => {
-    const sales = await storage.getSales();
-    res.json(sales);
+    const salesList = await storage.getSales();
+    res.json(salesList);
   });
 
   app.post(api.sales.create.path, async (req, res) => {
@@ -235,23 +191,25 @@ export async function registerRoutes(
     }
   });
 
-  // Seed db initially (non-blocking)
-  seedDatabase().catch(err => console.log("Seed warning:", err.message));
+  // Seed db initially
+  seedDatabase().catch(console.error);
 
   return httpServer;
 }
 
 async function seedDatabase() {
-  try {
-    const settings = await storage.getSettings();
-    if (!settings) {
-      await storage.updateSettings({
-        storeName: "Café Bara",
-        currency: "₱",
-        taxRate: "0",
-      });
-    }
-  } catch (err) {
-    console.log("Database seed skipped (schema migration may be pending)");
+  const settings = await storage.getSettings();
+  if (!settings) {
+    await storage.updateSettings({
+      storeName: "Quick POS",
+      currency: "$",
+      taxRate: "8.5",
+    });
+  }
+
+  // Removed pre-made product seeding
+  const productsList = await storage.getProducts();
+  if (productsList.length === 0) {
+    console.log("No pre-made products will be added. Start with empty catalog.");
   }
 }

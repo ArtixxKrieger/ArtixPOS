@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["unzip", "zip"]
+packages = ["unzip", "zip", "turso-cli"]
 
 [[ports]]
 localPort = 5000

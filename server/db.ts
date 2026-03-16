@@ -1,17 +1,15 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 import * as schema from "@shared/schema";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Use Turso for production, local SQLite for development
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL || "file:local.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
-const dbPath = path.resolve(__dirname, "data.db");
-export const sqlite = new Database(dbPath);
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(client, { schema });
 
-// Auto-seed function
 export async function seed() {
   const { userSettings } = schema;
 

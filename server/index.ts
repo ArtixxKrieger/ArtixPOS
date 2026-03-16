@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes } from "./routes/index.js";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seed } from "./db";

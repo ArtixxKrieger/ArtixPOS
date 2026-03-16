@@ -60,7 +60,8 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+// Initialize the app function
+async function initializeApp() {
   try {
     console.log("Starting server initialization...");
     await seed();
@@ -85,49 +86,80 @@ app.use((req, res, next) => {
     if (process.env.NODE_ENV === "production") {
       serveStatic(app);
     } else {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
+      // Only setup Vite in development
+      try {
+        const { setupVite } = await import("./vite");
+        await setupVite(httpServer, app);
+      } catch (error) {
+        console.log("Vite setup skipped (not in development mode)");
+      }
     }
 
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
-    const port = process.env.PORT || process.env.REPL_PORT || "5000";
-    const parsedPort = parseInt(port, 10);
-
-    // Add error handling for the server
-    httpServer.listen(parsedPort, "0.0.0.0", () => {
-      log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || 'development'} mode`);
-      console.log(`Server is ready and listening on port ${parsedPort}`);
-    });
-
-    httpServer.on('error', (error) => {
-      console.error('Server failed to start:', error);
-      process.exit(1);
-    });
-
+    return app;
   } catch (error) {
     console.error("Failed to initialize server:", error);
-    process.exit(1);
+    throw error;
   }
-})();
+}
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  httpServer.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+// Only start the server if not in Vercel environment
+if (process.env.VERCEL !== "1") {
+  (async () => {
+    try {
+      await initializeApp();
+
+      // ALWAYS serve the app on the port specified in the environment variable PORT
+      // Other ports are firewalled. Default to 5000 if not specified.
+      const port = process.env.PORT || process.env.REPL_PORT || "5000";
+      const parsedPort = parseInt(port, 10);
+
+      // Add error handling for the server
+      httpServer.listen(parsedPort, "0.0.0.0", () => {
+        log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || 'development'} mode`);
+        console.log(`Server is ready and listening on port ${parsedPort}`);
+      });
+
+      httpServer.on('error', (error) => {
+        console.error('Server failed to start:', error);
+        process.exit(1);
+      });
+
+    } catch (error) {
+      console.error("Failed to initialize server:", error);
+      process.exit(1);
+    }
+  })();
+
+  // Handle graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    httpServer.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
-});
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+  });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+  });
+}
+
+// Export the app for Vercel serverless functions
+export default async function handler(req: Request, res: Response) {
+  try {
+    const app = await initializeApp();
+    return app(req, res);
+  } catch (error) {
+    console.error("Handler error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
+// Also export the app instance for other potential uses
+export { app, httpServer };

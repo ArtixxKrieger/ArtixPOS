@@ -1,92 +1,59 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
-import { sqliteTable, text as sqliteText, integer as sqliteInteger, numeric as sqliteNumeric } from "drizzle-orm/sqlite-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+// Insert schemas - fix for drizzle-zod
+export const insertProductSchema = createInsertSchema(products, {
+  name: z.string().min(1),
+  price: z.string().min(1),
+  category: z.string().optional(),
+  sizes: z.array(z.object({ name: z.string(), price: z.string() })).optional(),
+  modifiers: z.array(z.object({ name: z.string(), price: z.string() })).optional(),
+  hasSizes: z.boolean().optional(),
+  hasModifiers: z.boolean().optional()
+}).omit({ id: true, createdAt: true });
 
-// Shared logic for SQLite
-export const products = sqliteTable("products", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  name: sqliteText("name").notNull(),
-  price: sqliteNumeric("price").notNull(),
-  category: sqliteText("category").default("General"),
-  hasSizes: sqliteInteger("has_sizes", { mode: "boolean" }).default(false),
-  hasModifiers: sqliteInteger("has_modifiers", { mode: "boolean" }).default(false),
-  sizes: sqliteText("sizes", { mode: "json" }).$type<{ name: string; price: string }[]>().default([]),
-  modifiers: sqliteText("modifiers", { mode: "json" }).$type<{ name: string; price: string }[]>().default([]),
-  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
-});
+export const insertProductSizeSchema = createInsertSchema(productSizes, {
+  productId: z.number(),
+  sizeName: z.string().min(1),
+  price: z.string().min(1)
+}).omit({ id: true });
 
-export const productSizes = sqliteTable("product_sizes", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  productId: sqliteInteger("product_id").references(() => products.id).notNull(),
-  sizeName: sqliteText("size_name").notNull(),
-  price: sqliteNumeric("price").notNull(),
-});
+export const insertProductModifierSchema = createInsertSchema(productModifiers, {
+  productId: z.number(),
+  modifierName: z.string().min(1),
+  price: z.string().min(1)
+}).omit({ id: true });
 
-export const productModifiers = sqliteTable("product_modifiers", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  productId: sqliteInteger("product_id").references(() => products.id).notNull(),
-  modifierName: sqliteText("modifier_name").notNull(),
-  price: sqliteNumeric("price").notNull(),
-});
+export const insertPendingOrderSchema = createInsertSchema(pendingOrders, {
+  items: z.array(z.any()),
+  subtotal: z.string(),
+  tax: z.string().optional(),
+  discount: z.string().optional(),
+  total: z.string(),
+  paymentMethod: z.string().optional(),
+  paymentAmount: z.string().optional(),
+  changeAmount: z.string().optional(),
+  status: z.string().optional(),
+  customerName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable()
+}).omit({ id: true, createdAt: true });
 
-export const pendingOrders = sqliteTable("pending_orders", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  items: sqliteText("items", { mode: "json" }).notNull(),
-  subtotal: sqliteNumeric("subtotal").notNull(),
-  tax: sqliteNumeric("tax").default("0"),
-  discount: sqliteNumeric("discount").default("0"),
-  total: sqliteNumeric("total").notNull(),
-  paymentMethod: sqliteText("payment_method").default("cash"),
-  paymentAmount: sqliteNumeric("payment_amount").default("0"),
-  changeAmount: sqliteNumeric("change_amount").default("0"),
-  status: sqliteText("status").default("unpaid"),
-  customerName: sqliteText("customer_name"),
-  notes: sqliteText("notes"),
-  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
-});
+export const insertSaleSchema = createInsertSchema(sales, {
+  items: z.array(z.any()),
+  subtotal: z.string(),
+  tax: z.string().optional(),
+  discount: z.string().optional(),
+  total: z.string(),
+  paymentMethod: z.string().optional(),
+  paymentAmount: z.string().optional(),
+  changeAmount: z.string().optional(),
+  customerName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable()
+}).omit({ id: true, createdAt: true });
 
-export const sales = sqliteTable("sales", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  items: sqliteText("items", { mode: "json" }).notNull(),
-  subtotal: sqliteNumeric("subtotal").notNull(),
-  tax: sqliteNumeric("tax").default("0"),
-  discount: sqliteNumeric("discount").default("0"),
-  total: sqliteNumeric("total").notNull(),
-  paymentMethod: sqliteText("payment_method").default("cash"),
-  paymentAmount: sqliteNumeric("payment_amount").default("0"),
-  changeAmount: sqliteNumeric("change_amount").default("0"),
-  customerName: sqliteText("customer_name"),
-  notes: sqliteText("notes"),
-  createdAt: sqliteInteger("created_at", { mode: "timestamp" }).default(new Date()),
-});
-
-export const userSettings = sqliteTable("user_settings", {
-  id: sqliteInteger("id").primaryKey({ autoIncrement: true }),
-  storeName: sqliteText("store_name").default("My Store"),
-  currency: sqliteText("currency").default("₱"),
-  taxRate: sqliteNumeric("tax_rate").default("0"),
-  address: sqliteText("address"),
-  phone: sqliteText("phone"),
-  emailContact: sqliteText("email_contact"),
-  receiptFooter: sqliteText("receipt_footer").default("Thank you for your business!"),
-});
-
-export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
-export const insertProductSizeSchema = createInsertSchema(productSizes).omit({ id: true });
-export const insertProductModifierSchema = createInsertSchema(productModifiers).omit({ id: true });
-export const insertPendingOrderSchema = createInsertSchema(pendingOrders).omit({ id: true, createdAt: true });
-export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, createdAt: true });
-export const insertUserSettingSchema = createInsertSchema(userSettings).omit({ id: true });
-
-export type Product = typeof products.$inferSelect;
-export type ProductSize = typeof productSizes.$inferSelect;
-export type ProductModifier = typeof productModifiers.$inferSelect;
-export type PendingOrder = typeof pendingOrders.$inferSelect;
-export type Sale = typeof sales.$inferSelect;
-export type UserSetting = typeof userSettings.$inferSelect;
-
-export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type InsertPendingOrder = z.infer<typeof insertPendingOrderSchema>;
-export type InsertSale = z.infer<typeof insertSaleSchema>;
-export type InsertUserSetting = z.infer<typeof insertUserSettingSchema>;
+export const insertUserSettingSchema = createInsertSchema(userSettings, {
+  storeName: z.string().optional(),
+  currency: z.string().optional(),
+  taxRate: z.string().optional(),
+  address: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  emailContact: z.string().optional().nullable(),
+  receiptFooter: z.string().optional().nullable()
+}).omit({ id: true });

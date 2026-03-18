@@ -12,6 +12,16 @@ import { Settings as SettingsIcon, Save, Download, Info, Smartphone, Globe } fro
 import { useToast } from "@/hooks/use-toast";
 import { useInstallPWA } from "@/hooks/use-install-pwa";
 
+interface SettingsFormData {
+  storeName: string;
+  currency: string;
+  taxRate: string;
+  address: string;
+  phone: string;
+  emailContact: string;
+  receiptFooter: string;
+}
+
 export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
@@ -19,19 +29,48 @@ export default function Settings() {
   const { isInstallable, isInstalled, install, isFallback } = useInstallPWA();
   const [showInstallGuide, setShowInstallGuide] = useState(false);
 
-  const form = useForm<Partial<InsertUserSetting>>({
+  const form = useForm<SettingsFormData>({
     defaultValues: {
-      storeName: "", currency: "₱", taxRate: "0", address: "", phone: "", emailContact: "", receiptFooter: ""
+      storeName: "", 
+      currency: "₱", 
+      taxRate: "0", 
+      address: "", 
+      phone: "", 
+      emailContact: "", 
+      receiptFooter: ""
     }
   });
 
   useEffect(() => {
-    if (settings) form.reset(settings);
+    if (settings) {
+      form.reset({
+        storeName: settings.storeName || "",
+        currency: settings.currency || "₱",
+        taxRate: settings.taxRate || "0",
+        address: settings.address || "",
+        phone: settings.phone || "",
+        emailContact: settings.emailContact || "",
+        receiptFooter: settings.receiptFooter || ""
+      });
+    }
   }, [settings, form]);
 
-  const onSubmit = (data: Partial<InsertUserSetting>) => {
-    updateSettings.mutate(data, {
-      onSuccess: () => toast({ title: "Settings Saved", description: "Your store configuration has been updated." })
+  const onSubmit = (data: SettingsFormData) => {
+    const payload: Partial<InsertUserSetting> = {
+      storeName: data.storeName,
+      currency: data.currency,
+      taxRate: data.taxRate,
+      address: data.address,
+      phone: data.phone,
+      emailContact: data.emailContact,
+      receiptFooter: data.receiptFooter
+    };
+
+    updateSettings.mutate(payload, {
+      onSuccess: () => toast({ 
+        title: "Settings Saved", 
+        description: "Your store configuration has been updated." 
+      })
     });
   };
 
@@ -49,7 +88,7 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground">Configure your POS environment</p>
           </div>
         </div>
-        
+
         {isInstallable && !isInstalled && (
           <div className="flex gap-2">
             <Button
@@ -71,7 +110,7 @@ export default function Settings() {
             )}
           </div>
         )}
-        
+
         {isInstalled && (
           <div className="px-6 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-sm border border-emerald-500/30">
             ✓ App Installed
@@ -83,30 +122,41 @@ export default function Settings() {
         <CardContent className="p-0">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="p-8 space-y-6">
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <FormField control={form.control} name="storeName" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Store Name</FormLabel>
-                    <FormControl><Input {...field} className="h-12 rounded-xl bg-secondary border-none" /></FormControl>
+                    <FormControl>
+                      <Input {...field} value={field.value || ""} className="h-12 rounded-xl bg-secondary border-none" />
+                    </FormControl>
                   </FormItem>
                 )} />
+
                 <FormField control={form.control} name="currency" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Currency Symbol</FormLabel>
-                    <FormControl><Input {...field} className="h-12 rounded-xl bg-secondary border-none" /></FormControl>
+                    <FormControl>
+                      <Input {...field} value={field.value || "₱"} className="h-12 rounded-xl bg-secondary border-none" />
+                    </FormControl>
                   </FormItem>
                 )} />
+
                 <FormField control={form.control} name="taxRate" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Default Tax Rate (%)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} className="h-12 rounded-xl bg-secondary border-none" /></FormControl>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} value={field.value || "0"} className="h-12 rounded-xl bg-secondary border-none" />
+                    </FormControl>
                   </FormItem>
                 )} />
+
                 <FormField control={form.control} name="phone" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Contact Phone</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ""} className="h-12 rounded-xl bg-secondary border-none" /></FormControl>
+                    <FormControl>
+                      <Input {...field} value={field.value || ""} className="h-12 rounded-xl bg-secondary border-none" />
+                    </FormControl>
                   </FormItem>
                 )} />
               </div>
@@ -114,14 +164,18 @@ export default function Settings() {
               <FormField control={form.control} name="address" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">Store Address</FormLabel>
-                  <FormControl><Textarea {...field} value={field.value || ""} className="rounded-xl bg-secondary border-none resize-none" rows={3} /></FormControl>
+                  <FormControl>
+                    <Textarea {...field} value={field.value || ""} className="rounded-xl bg-secondary border-none resize-none" rows={3} />
+                  </FormControl>
                 </FormItem>
               )} />
 
               <FormField control={form.control} name="receiptFooter" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">Receipt Footer Message</FormLabel>
-                  <FormControl><Input {...field} value={field.value || ""} className="h-12 rounded-xl bg-secondary border-none" /></FormControl>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} className="h-12 rounded-xl bg-secondary border-none" />
+                  </FormControl>
                   <p className="text-xs text-muted-foreground">Printed at the bottom of customer receipts.</p>
                 </FormItem>
               )} />

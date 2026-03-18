@@ -10,6 +10,35 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 
+interface OrderItem {
+  quantity: number;
+  product: {
+    name: string;
+  };
+  size?: {
+    name: string;
+  };
+  modifiers?: Array<{
+    name: string;
+  }>;
+}
+
+interface PendingOrder {
+  id: number;
+  items: OrderItem[];
+  subtotal: string;
+  tax: string;
+  discount: string;
+  total: string;
+  paymentMethod: string;
+  paymentAmount: string;
+  changeAmount: string;
+  status: string;
+  customerName: string | null;
+  notes: string | null;
+  createdAt: Date | null;
+}
+
 export default function PendingOrders() {
   const { data: orders = [], isLoading } = usePendingOrders();
   const { data: settings } = useSettings();
@@ -19,21 +48,21 @@ export default function PendingOrders() {
   const { toast } = useToast();
   const [payments, setPayments] = useState<Record<number, string>>({});
 
-  const handleComplete = (order: any) => {
-    const paidAmount = Number(payments[order.id]) || Number(order.paymentAmount) || 0;
-    const total = parseNumeric(order.total);
+  const handleComplete = (order: PendingOrder) => {
+    const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
+    const total = parseNumeric(order.total || "0");
 
     createSale.mutate({
-      items: order.items,
-      subtotal: order.subtotal,
-      tax: order.tax,
-      discount: order.discount,
-      total: order.total,
+      items: order.items || [],
+      subtotal: order.subtotal || "0",
+      tax: order.tax || "0",
+      discount: order.discount || "0",
+      total: order.total || "0",
       paymentMethod: order.paymentMethod || "cash",
       paymentAmount: paidAmount.toString(),
       changeAmount: Math.max(0, paidAmount - total).toString(),
-      customerName: order.customerName,
-      notes: order.notes,
+      customerName: order.customerName || null,
+      notes: order.notes || null,
     }, {
       onSuccess: () => {
         deleteOrder.mutate(order.id);
@@ -45,9 +74,9 @@ export default function PendingOrders() {
     });
   };
 
-  const handleUpdatePayment = (order: any) => {
-    const paidAmount = Number(payments[order.id]) || 0;
-    const total = parseNumeric(order.total);
+  const handleUpdatePayment = (order: PendingOrder) => {
+    const paidAmount = Number(payments[order.id] ?? "0");
+    const total = parseNumeric(order.total || "0");
 
     updateOrder.mutate({
       id: order.id,
@@ -108,12 +137,11 @@ export default function PendingOrders() {
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
 
           {orders.map((order) => {
+            const items = (order.items as OrderItem[]) || [];
+            const itemCount = items.reduce((acc, i) => acc + (i.quantity || 0), 0);
 
-            const items = order.items as any[];
-            const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
-
-            const total = parseNumeric(order.total);
-            const paid = parseNumeric(order.paymentAmount || 0);
+            const total = parseNumeric(order.total || "0");
+            const paid = parseNumeric(order.paymentAmount || "0");
             const isPaid = order.status === "paid" || paid >= total;
 
             return (
@@ -132,7 +160,7 @@ export default function PendingOrders() {
                       <div className="flex flex-col gap-2">
 
                         <div className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest w-fit uppercase">
-                          {format(new Date(order.createdAt!), "MMM d, h:mm a")}
+                          {order.createdAt ? format(new Date(order.createdAt), "MMM d, h:mm a") : "Date unknown"}
                         </div>
 
                         <div className={`flex items-center gap-1.5 text-xs font-black tracking-tight ${isPaid ? "text-emerald-500" : "text-amber-500"}`}>
@@ -147,7 +175,7 @@ export default function PendingOrders() {
                       </div>
 
                       <span className="font-black text-2xl text-primary">
-                        {formatCurrency(order.total, settings?.currency)}
+                        {formatCurrency(order.total || "0", settings?.currency)}
                       </span>
 
                     </div>
@@ -187,14 +215,14 @@ export default function PendingOrders() {
 
                       </div>
 
-                      {Number(payments[order.id] || order.paymentAmount) > total && (
+                      {Number(payments[order.id] ?? order.paymentAmount ?? "0") > total && (
                         <div className="flex justify-between items-center pt-2 border-t border-border/50">
                           <span className="text-[10px] font-black text-emerald-600 uppercase">Change</span>
                           <span className="font-black text-emerald-600 text-sm">
                             {formatCurrency(
                               Math.max(
                                 0,
-                                Number(payments[order.id] || order.paymentAmount) - total
+                                Number(payments[order.id] ?? order.paymentAmount ?? "0") - total
                               ),
                               settings?.currency
                             )}
@@ -232,7 +260,7 @@ export default function PendingOrders() {
                           <li key={i} className="flex flex-col py-3 border-b border-border/30 last:border-0">
                             <div className="flex justify-between items-start">
                               <span className="font-black text-sm leading-tight max-w-[70%]">
-                                {item.quantity}x {item.product.name}
+                                {item.quantity || 0}x {item.product?.name || "Unknown"}
                               </span>
                               {item.size && (
                                 <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-tighter">

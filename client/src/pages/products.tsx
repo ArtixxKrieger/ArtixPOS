@@ -11,6 +11,24 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Edit2, Trash2, Search, Package, X } from "lucide-react";
 
+interface SizeItem {
+  name: string;
+  price: string;
+}
+
+interface ModifierItem {
+  name: string;
+  price: string;
+}
+
+interface ProductFormData {
+  name: string;
+  price: string;
+  category: string;
+  sizes: SizeItem[];
+  modifiers: ModifierItem[];
+}
+
 export default function Products() {
   const { data: products = [], isLoading } = useProducts();
   const { data: settings } = useSettings();
@@ -22,7 +40,7 @@ export default function Products() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const form = useForm<InsertProduct>({
+  const form = useForm<ProductFormData>({
     defaultValues: { 
       name: "", 
       price: "0", 
@@ -42,23 +60,35 @@ export default function Products() {
     name: "modifiers"
   });
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = products.filter(p => 
+    p.name?.toLowerCase().includes(search.toLowerCase()) ?? false
+  );
 
-  const onSubmit = (data: InsertProduct) => {
-    const payload = { 
-      ...data, 
+  const onSubmit = (data: ProductFormData) => {
+    const payload: InsertProduct = { 
+      name: data.name,
       price: data.price.toString(),
+      category: data.category || "General",
+      sizes: data.sizes || [],
+      modifiers: data.modifiers || [],
       hasSizes: (data.sizes?.length || 0) > 0,
       hasModifiers: (data.modifiers?.length || 0) > 0
     };
 
     if (editingId) {
       updateProduct.mutate({ id: editingId, ...payload }, {
-        onSuccess: () => { setIsDialogOpen(false); setEditingId(null); }
+        onSuccess: () => { 
+          setIsDialogOpen(false); 
+          setEditingId(null);
+          form.reset();
+        }
       });
     } else {
       createProduct.mutate(payload, {
-        onSuccess: () => setIsDialogOpen(false)
+        onSuccess: () => {
+          setIsDialogOpen(false);
+          form.reset();
+        }
       });
     }
   };
@@ -66,11 +96,11 @@ export default function Products() {
   const openEdit = (p: Product) => {
     setEditingId(p.id);
     form.reset({ 
-      name: p.name, 
-      price: p.price, 
+      name: p.name || "", 
+      price: p.price?.toString() || "0", 
       category: p.category || "General",
-      sizes: p.sizes || [],
-      modifiers: p.modifiers || []
+      sizes: (p.sizes as SizeItem[]) || [],
+      modifiers: (p.modifiers as ModifierItem[]) || []
     });
     setIsDialogOpen(true);
   };
@@ -125,7 +155,7 @@ export default function Products() {
                     <FormItem>
                       <FormLabel>Product Name</FormLabel>
                       <FormControl>
-                        <Input {...field} className="rounded-xl bg-secondary border-none" />
+                        <Input {...field} value={field.value || ""} className="rounded-xl bg-secondary border-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -136,7 +166,7 @@ export default function Products() {
                       <FormItem>
                         <FormLabel>Base Price ({settings?.currency})</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} className="rounded-xl bg-secondary border-none" />
+                          <Input type="number" step="0.01" {...field} value={field.value || "0"} className="rounded-xl bg-secondary border-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -146,7 +176,7 @@ export default function Products() {
                       <FormItem>
                         <FormLabel>Category</FormLabel>
                         <FormControl>
-                          <Input {...field} className="rounded-xl bg-secondary border-none" value={field.value || ""} />
+                          <Input {...field} value={field.value || "General"} className="rounded-xl bg-secondary border-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -173,7 +203,7 @@ export default function Products() {
                         <FormField control={form.control} name={`sizes.${index}.name`} render={({ field }) => (
                           <FormItem className="flex-1">
                             <FormControl>
-                              <Input {...field} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input {...field} value={field.value || ""} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9" />
                             </FormControl>
                           </FormItem>
                         )} />
@@ -181,7 +211,7 @@ export default function Products() {
                         <FormField control={form.control} name={`sizes.${index}.price`} render={({ field }) => (
                           <FormItem className="w-24">
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
                             </FormControl>
                           </FormItem>
                         )} />
@@ -219,7 +249,7 @@ export default function Products() {
                         <FormField control={form.control} name={`modifiers.${index}.name`} render={({ field }) => (
                           <FormItem className="flex-1">
                             <FormControl>
-                              <Input {...field} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input {...field} value={field.value || ""} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9" />
                             </FormControl>
                           </FormItem>
                         )} />
@@ -227,7 +257,7 @@ export default function Products() {
                         <FormField control={form.control} name={`modifiers.${index}.price`} render={({ field }) => (
                           <FormItem className="w-24">
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
                             </FormControl>
                           </FormItem>
                         )} />
@@ -283,7 +313,7 @@ export default function Products() {
             <TableBody>
               {filtered.map((product) => (
                 <TableRow key={product.id} className="hover:bg-muted/30 transition-colors border-border/50">
-                  <TableCell className="font-bold px-6 py-4">{product.name}</TableCell>
+                  <TableCell className="font-bold px-6 py-4">{product.name || ""}</TableCell>
 
                   <TableCell className="py-4">
                     <span className="bg-secondary px-3 py-1 rounded-full text-xs font-medium tracking-wide">
@@ -292,7 +322,7 @@ export default function Products() {
                   </TableCell>
 
                   <TableCell className="font-bold text-primary py-4">
-                    {formatCurrency(product.price, settings?.currency)}
+                    {formatCurrency(product.price || "0", settings?.currency)}
                   </TableCell>
 
                   <TableCell className="text-right px-6 py-4">

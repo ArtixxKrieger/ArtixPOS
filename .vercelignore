@@ -1,0 +1,17 @@
+client/src
+client/public
+server/*.ts
+shared/*.ts
+drizzle.config.ts
+tsconfig.json
+vite.config.ts
+.env.local
+.env.*.local
+.git
+.gitignore
+migrations
+node_modules
+*.md
+.vercelignore
+script
+.local

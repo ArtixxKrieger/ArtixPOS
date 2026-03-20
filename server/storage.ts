@@ -64,7 +64,7 @@ export class DatabaseStorage implements IStorage {
 
   async createProduct(product: InsertProduct): Promise<Product> {
     try {
-      const [created] = await db.insert(products).values(product).returning();
+      const [created] = await db.insert(products).values(product as any).returning();
       return created;
     } catch (error) {
       console.error("Error creating product:", error);
@@ -74,7 +74,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
     try {
-      const [updated] = await db.update(products).set(product).where(eq(products.id, id)).returning();
+      const [updated] = await db.update(products).set(product as any).where(eq(products.id, id)).returning();
       return updated;
     } catch (error) {
       console.error("Error updating product:", error);
@@ -113,7 +113,7 @@ export class DatabaseStorage implements IStorage {
 
   async createPendingOrder(order: InsertPendingOrder): Promise<PendingOrder> {
     try {
-      const [created] = await db.insert(pendingOrders).values(order).returning();
+      const [created] = await db.insert(pendingOrders).values(order as any).returning();
       return created;
     } catch (error) {
       console.error("Error creating pending order:", error);
@@ -123,7 +123,7 @@ export class DatabaseStorage implements IStorage {
 
   async updatePendingOrder(id: number, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined> {
     try {
-      const [updated] = await db.update(pendingOrders).set(order).where(eq(pendingOrders.id, id)).returning();
+      const [updated] = await db.update(pendingOrders).set(order as any).where(eq(pendingOrders.id, id)).returning();
       return updated;
     } catch (error) {
       console.error("Error updating pending order:", error);
@@ -152,7 +152,7 @@ export class DatabaseStorage implements IStorage {
 
   async createSale(sale: InsertSale): Promise<Sale> {
     try {
-      const [created] = await db.insert(sales).values(sale).returning();
+      const [created] = await db.insert(sales).values(sale as any).returning();
       return created;
     } catch (error) {
       console.error("Error creating sale:", error);
@@ -176,13 +176,13 @@ export class DatabaseStorage implements IStorage {
       const existing = await this.getSettings();
       if (existing) {
         const [updated] = await db.update(userSettings)
-          .set(settings)
+          .set(settings as any)
           .where(eq(userSettings.id, existing.id))
           .returning();
         return updated;
       } else {
         const [created] = await db.insert(userSettings)
-          .values(settings as InsertUserSetting)
+          .values(settings as any)
           .returning();
         return created;
       }

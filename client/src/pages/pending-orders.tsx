@@ -36,7 +36,7 @@ interface PendingOrder {
   status: string;
   customerName: string | null;
   notes: string | null;
-  createdAt: Date | null;
+  createdAt: string | null;
 }
 
 export default function PendingOrders() {

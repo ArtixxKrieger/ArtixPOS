@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "dist/index.cjs"
+    },
+    {
       "src": "/(.*)",
       "dest": "dist/index.cjs"
     }

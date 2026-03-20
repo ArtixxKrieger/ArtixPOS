@@ -29,6 +29,17 @@ try {
     fs.mkdirSync(distDir, { recursive: true });
   }
 
+  // Note: API folder is already compiled by tsc to dist/api/
+  // Just verify it exists
+  const apiTarget = path.join(distDir, "api");
+  if (fs.existsSync(apiTarget)) {
+    const apiFiles = fs.readdirSync(apiTarget);
+    const jsFiles = apiFiles.filter(f => f.endsWith(".js"));
+    if (jsFiles.length > 0) {
+      console.log(`✓ API serverless functions compiled (${jsFiles.length} files)`);
+    }
+  }
+
   // Copy migrations if they exist for database setup
   const migrationsSource = path.join(projectRoot, "migrations");
   const migrationsTarget = path.join(distDir, "migrations");

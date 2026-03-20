@@ -25,6 +25,6 @@
       "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
+  "include": ["client/src/**/*", "shared/**/*", "server/**/*", "api/**/*"],
   "exclude": ["node_modules", "dist", "build", "**/*.test.ts", "client/public", ".vercel"]
 }

@@ -129,3 +129,19 @@
     display: none;
   }
 }
+
+/* Smooth press animations on all interactive elements */
+@layer base {
+  button, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  /* All shadcn buttons get iOS-style press feel */
+  .btn-press {
+    @apply transition-all duration-150 active:scale-95 active:opacity-80;
+  }
+}
+

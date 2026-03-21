@@ -23,6 +23,16 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Disable caching in development — ensures fresh UI updates
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== "production") {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+  }
+  next();
+});
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",

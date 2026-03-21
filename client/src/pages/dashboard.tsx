@@ -3,12 +3,11 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Receipt, TrendingUp, CreditCard, DollarSign } from "lucide-react";
+import { Receipt, TrendingUp, CreditCard, DollarSign, ArrowUpRight } from "lucide-react";
 import { useState, useEffect } from "react";
 
 function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
   const [display, setDisplay] = useState(0);
-
   useEffect(() => {
     if (value === 0) { setDisplay(0); return; }
     let start = 0;
@@ -38,129 +37,111 @@ export default function Dashboard() {
   const todaySales = sales.filter(s => isToday(new Date(s.createdAt!)));
   const totalRevenue = todaySales.reduce((acc, s) => acc + parseNumeric(s.total), 0);
   const totalTax = todaySales.reduce((acc, s) => acc + parseNumeric(s.tax), 0);
+  const avgOrder = todaySales.length ? totalRevenue / todaySales.length : 0;
 
   if (isLoading) {
     return (
-      <div className="animate-pulse space-y-5">
-        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted rounded-2xl" />)}
+      <div className="space-y-6 animate-in fade-in">
+        <div className="h-32 bg-gradient-to-br from-muted to-muted/50 rounded-3xl animate-pulse" />
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-muted rounded-2xl animate-pulse" />)}
         </div>
-        <div className="h-80 bg-muted rounded-2xl" />
       </div>
     );
   }
 
-  const stats = [
-    {
-      label: "Revenue",
-      value: totalRevenue,
-      prefix: settings?.currency || "₱",
-      sub: `${todaySales.length} orders today`,
-      icon: DollarSign,
-      accent: "bg-blue-500",
-      glow: "shadow-blue-500/20",
-    },
-    {
-      label: "Avg. Order",
-      value: todaySales.length ? totalRevenue / todaySales.length : 0,
-      prefix: settings?.currency || "₱",
-      sub: "Per sale",
-      icon: TrendingUp,
-      accent: "bg-violet-500",
-      glow: "shadow-violet-500/20",
-    },
-    {
-      label: "Tax",
-      value: totalTax,
-      prefix: settings?.currency || "₱",
-      sub: "Collected today",
-      icon: Receipt,
-      accent: "bg-amber-500",
-      glow: "shadow-amber-500/20",
-    },
-    {
-      label: "Sales",
-      value: todaySales.length,
-      prefix: "",
-      sub: "Completed",
-      icon: CreditCard,
-      accent: "bg-emerald-500",
-      glow: "shadow-emerald-500/20",
-    },
-  ];
-
   return (
-    <div className="space-y-5 pb-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.label}
-              className="glass-card rounded-2xl p-4 flex flex-col gap-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
-                <div className={`h-7 w-7 rounded-lg ${stat.accent} ${stat.glow} shadow-md flex items-center justify-center`}>
-                  <Icon className="h-3.5 w-3.5 text-white" />
-                </div>
-              </div>
-              <div>
-                <p className="text-xl font-bold tracking-tight">
-                  <Counter value={stat.value} prefix={stat.prefix} />
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{stat.sub}</p>
-              </div>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Hero Card — Today's Summary */}
+      <div className="glass-card rounded-3xl p-6 md:p-8 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent border-blue-500/20 dark:border-blue-500/10 relative overflow-hidden group">
+        {/* Background glow */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -z-10 group-hover:bg-blue-500/10 transition-colors duration-500" />
+        
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Revenue */}
+          <div>
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Total Revenue</p>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-4xl md:text-5xl font-bold tracking-tight">
+                <Counter value={totalRevenue} prefix={settings?.currency || "₱"} />
+              </span>
+              <ArrowUpRight className="h-5 w-5 text-green-500 flex-shrink-0" />
             </div>
-          );
-        })}
+            <p className="text-sm text-muted-foreground mt-2">{todaySales.length} {todaySales.length === 1 ? "order" : "orders"} today</p>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/30 dark:bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/50 dark:border-white/10">
+              <p className="text-xs font-medium text-muted-foreground">Average</p>
+              <p className="text-2xl font-bold mt-1">
+                <Counter value={avgOrder} prefix={settings?.currency || "₱"} />
+              </p>
+            </div>
+            <div className="bg-white/30 dark:bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/50 dark:border-white/10">
+              <p className="text-xs font-medium text-muted-foreground">Tax</p>
+              <p className="text-2xl font-bold mt-1 text-orange-600 dark:text-orange-400">
+                <Counter value={totalTax} prefix={settings?.currency || "₱"} />
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Recent Sales Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-black/5 dark:border-white/5 flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Recent Sales</h3>
-        </div>
-
-        {sales.length === 0 ? (
-          <div className="py-16 text-center flex flex-col items-center gap-2 text-muted-foreground">
-            <Receipt className="h-8 w-8 opacity-20" />
-            <p className="text-sm">No sales yet — start selling from POS</p>
+      {/* KPI Cards Grid */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Total Sales", value: todaySales.length, icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", bg: "from-emerald-500/15" },
+          { label: "Growth", value: todaySales.length > 0 ? "↑" : "—", icon: TrendingUp, color: "text-blue-600 dark:text-blue-400", bg: "from-blue-500/15" },
+          { label: "Avg Order", value: avgOrder > 0 ? `₱${avgOrder.toFixed(0)}` : "₱0", icon: DollarSign, color: "text-amber-600 dark:text-amber-400", bg: "from-amber-500/15" },
+          { label: "Tax Paid", value: totalTax > 0 ? `₱${totalTax.toFixed(0)}` : "₱0", icon: Receipt, color: "text-purple-600 dark:text-purple-400", bg: "from-purple-500/15" },
+        ].map((card, i) => (
+          <div key={i} className={`glass-card rounded-2xl p-4 bg-gradient-to-br ${card.bg} to-transparent border-white/40 dark:border-white/10 hover:border-white/60 dark:hover:border-white/20 transition-all duration-300 group`}>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">{card.label}</p>
+                <p className={`text-2xl font-bold mt-2 ${card.color}`}>
+                  {typeof card.value === "number" && card.label !== "Growth"
+                    ? card.value
+                    : card.value}
+                </p>
+              </div>
+              <card.icon className={`h-5 w-5 ${card.color} opacity-50 group-hover:opacity-100 transition-opacity`} />
+            </div>
           </div>
-        ) : (
-          <div className="max-h-[420px] overflow-y-auto scrollbar-hide">
+        ))}
+      </div>
+
+      {/* Recent Sales Table — Improved */}
+      {sales.length > 0 && (
+        <div className="glass-card rounded-2xl overflow-hidden border-white/40 dark:border-white/10">
+          <div className="px-6 py-4 border-b border-black/5 dark:border-white/5 flex items-center gap-3 bg-white/30 dark:bg-black/30 backdrop-blur-sm">
+            <Receipt className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-foreground">Today's Transactions</h3>
+            <span className="ml-auto text-sm text-muted-foreground">{todaySales.length} orders</span>
+          </div>
+
+          <div className="max-h-[500px] overflow-y-auto scrollbar-hide">
             <Table>
-              <TableHeader className="sticky top-0 z-10 bg-white/50 dark:bg-black/30 backdrop-blur-sm">
+              <TableHeader className="sticky top-0 z-10 bg-white/40 dark:bg-black/40 backdrop-blur-md">
                 <TableRow className="hover:bg-transparent border-black/5 dark:border-white/5">
-                  <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ID</TableHead>
-                  <TableHead className="py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Time</TableHead>
-                  <TableHead className="py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Method</TableHead>
-                  <TableHead className="text-right px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total</TableHead>
+                  <TableHead className="px-6 py-3 text-[11px] font-semibold uppercase tracking-wider">Time</TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wider">Method</TableHead>
+                  <TableHead className="text-right px-6 py-3 text-[11px] font-semibold uppercase tracking-wider">Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales.slice(0, 50).map((sale) => (
-                  <TableRow key={sale.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-black/5 dark:border-white/5">
-                    <TableCell className="font-semibold px-5 py-3.5 text-sm text-primary">#{sale.id}</TableCell>
-                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                      {format(new Date(sale.createdAt!), "MMM d, h:mm a")}
+                {todaySales.reverse().map((sale) => (
+                  <TableRow key={sale.id} className="hover:bg-black/3 dark:hover:bg-white/3 transition-colors border-black/4 dark:border-white/4">
+                    <TableCell className="px-6 py-3 text-sm text-muted-foreground">
+                      {format(new Date(sale.createdAt!), "h:mm a")}
                     </TableCell>
-                    <TableCell className="py-3.5">
-                      <span className="px-2.5 py-1 rounded-lg bg-secondary text-foreground text-[11px] font-medium capitalize">
-                        {sale.paymentMethod}
+                    <TableCell className="py-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-secondary text-foreground text-[10px] font-medium capitalize border border-border/50">
+                        {sale.paymentMethod === "online" ? "Online" : "Cash"}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right font-bold px-5 py-3.5">
+                    <TableCell className="text-right font-bold px-6 py-3 text-primary">
                       {formatCurrency(sale.total, settings?.currency)}
                     </TableCell>
                   </TableRow>
@@ -168,8 +149,17 @@ export default function Dashboard() {
               </TableBody>
             </Table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {sales.length === 0 && (
+        <div className="glass-card rounded-2xl py-20 text-center flex flex-col items-center gap-3">
+          <Receipt className="h-12 w-12 text-muted-foreground/30" />
+          <p className="text-muted-foreground font-medium">No sales yet today</p>
+          <p className="text-sm text-muted-foreground/70">Start creating orders from the POS page</p>
+        </div>
+      )}
     </div>
   );
 }

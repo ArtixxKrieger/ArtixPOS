@@ -23,12 +23,25 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-// Disable caching in development — ensures fresh UI updates
+// Aggressive cache busting in development — ensures fresh UI every time
 app.use((req, res, next) => {
   if (process.env.NODE_ENV !== "production") {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
+    // HTML files: never cache
+    if (req.path.endsWith(".html") || req.path === "/") {
+      res.setHeader("Cache-Control", "no-store, no-cache, no-transform, must-revalidate, private");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+    }
+    // JS/CSS: cache bust with timestamps
+    else if (req.path.includes(".js") || req.path.includes(".css")) {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
+      res.setHeader("ETag", `"${Date.now()}"`);
+    }
+    // Everything else: no cache
+    else {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    }
   }
   next();
 });

@@ -138,7 +138,7 @@ export default function Products() {
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={openCreate} className="rounded-xl shadow-md bg-gradient-to-r from-primary to-violet-500 text-white hover:opacity-90 transition-opacity">
+              <Button onClick={openCreate} className="rounded-xl shadow-md bg-primary text-white hover:opacity-90 transition-opacity">
                 <Plus className="h-4 w-4 mr-2" /> Add Item
               </Button>
             </DialogTrigger>
@@ -277,7 +277,7 @@ export default function Products() {
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl h-12 font-bold text-white shadow-lg bg-gradient-to-r from-primary to-violet-500 mt-4"
+                    className="w-full rounded-xl h-12 font-bold text-white shadow-lg bg-primary mt-4"
                     disabled={createProduct.isPending || updateProduct.isPending}
                   >
                     {editingId ? "Save Changes" : "Create Product"}

@@ -183,7 +183,7 @@ export default function Settings() {
               <div className="pt-6 border-t border-border/50 flex justify-end">
                 <Button 
                   type="submit" 
-                  className="h-12 px-8 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 text-white shadow-lg hover:shadow-xl transition-all"
+                  className="h-12 px-8 rounded-xl font-bold bg-primary text-white shadow-lg hover:shadow-xl transition-all"
                   disabled={updateSettings.isPending}
                 >
                   <Save className="mr-2 h-5 w-5" />

@@ -1,11 +1,9 @@
 import { useLocation } from "wouter";
 import { ShoppingCart, Clock, Package, Settings } from "lucide-react";
-import { useProducts } from "@/hooks/use-products";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 
 export function BottomNav() {
   const [location] = useLocation();
-  const { data: products = [] } = useProducts();
   const { data: pendingOrders = [] } = usePendingOrders();
 
   const pendingCount = pendingOrders.filter(
@@ -20,18 +18,13 @@ export function BottomNav() {
       icon: Clock,
       badge: pendingCount > 0 ? pendingCount : null,
     },
-    {
-      label: "Products",
-      url: "/products",
-      icon: Package,
-      badge: products.length > 0 ? products.length : null,
-    },
+    { label: "Products", url: "/products", icon: Package, badge: null },
     { label: "Settings", url: "/settings", icon: Settings, badge: null },
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-950 border-t border-border/40 shadow-2xl">
-      <div className="flex items-center justify-around max-w-xl mx-auto">
+    <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="flex items-center gap-1 bg-card/80 dark:bg-card/90 backdrop-blur-2xl rounded-full border border-border shadow-2xl shadow-black/40 px-2 py-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.url;
@@ -40,21 +33,21 @@ export function BottomNav() {
             <a
               key={item.url}
               href={item.url}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 py-4 transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-1 px-4 py-2.5 rounded-full transition-all duration-200 ${
                 isActive
-                  ? "text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-primary/15 dark:bg-primary/20 text-primary dark:shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
               }`}
             >
-              <div className="relative">
-                <Icon className="h-6 w-6" />
-                {item.badge ? (
-                  <span className="absolute -top-2 -right-2 bg-primary text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                    {item.badge > 99 ? "99+" : item.badge}
-                  </span>
-                ) : null}
-              </div>
-              <span className="text-xs font-medium">{item.label}</span>
+              <Icon className={`h-5 w-5 ${isActive ? "dark:drop-shadow-[0_0_6px_hsl(var(--primary))]" : ""}`} />
+              {item.badge ? (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {item.badge > 9 ? "9+" : item.badge}
+                </span>
+              ) : null}
+              <span className={`text-[10px] font-semibold tracking-wide ${isActive ? "font-mono" : ""}`}>
+                {item.label}
+              </span>
             </a>
           );
         })}

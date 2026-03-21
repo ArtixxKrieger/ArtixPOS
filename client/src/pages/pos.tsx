@@ -299,7 +299,7 @@ export default function POS() {
 
         <div className="pb-4">
           <Button
-            className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-primary to-violet-500 shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
+            className="w-full h-12 rounded-xl font-bold bg-primary shadow-lg hover:shadow-xl hover:opacity-90 transition-all text-white"
             onClick={handleCheckout}
             disabled={cart.length === 0 || createPending.isPending}
           >
@@ -360,7 +360,7 @@ export default function POS() {
               variant={category === cat ? "default" : "secondary"}
               className={`rounded-full px-8 h-11 capitalize font-bold tracking-tight transition-all border border-border/50 ${
                 category === cat 
-                  ? "shadow-lg shadow-primary/20 bg-gradient-to-r from-primary to-violet-600 border-none" 
+                  ? "shadow-lg shadow-primary/20 bg-primary border-none" 
                   : "bg-card hover:bg-secondary/80"
               }`}
               onClick={() => setCategory(cat)}
@@ -402,7 +402,7 @@ export default function POS() {
 
         <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
           <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-            <DialogHeader className="p-8 bg-gradient-to-br from-primary to-violet-600 text-white">
+            <DialogHeader className="p-8 bg-primary text-white">
               <DialogTitle className="text-2xl font-black">{selectedProduct?.name}</DialogTitle>
               <p className="text-white/70 text-sm font-medium">Customize your selection</p>
             </DialogHeader>
@@ -458,7 +458,7 @@ export default function POS() {
               )}
 
               <Button
-                className="w-full h-16 rounded-2xl font-black text-lg bg-gradient-to-r from-primary to-violet-600 shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98] mt-4"
+                className="w-full h-16 rounded-2xl font-black text-lg bg-primary shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98] mt-4"
                 onClick={() => selectedProduct && addToCart(selectedProduct, tempSize || undefined, tempModifiers)}
               >
                 Add to Cart

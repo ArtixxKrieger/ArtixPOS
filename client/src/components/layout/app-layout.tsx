@@ -1,37 +1,9 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { 
-  SidebarProvider, 
-  Sidebar, 
-  SidebarContent, 
-  SidebarGroup, 
-  SidebarGroupContent, 
-  SidebarMenu, 
-  SidebarMenuItem, 
-  SidebarMenuButton,
-  SidebarTrigger
-} from "@/components/ui/sidebar";
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  Clock, 
-  BarChart3, 
-  Package, 
-  Settings,
-  Moon,
-  Sun
-} from "lucide-react";
+import { useLocation } from "wouter";
+import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/hooks/use-settings";
-
-const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "POS", url: "/pos", icon: ShoppingBag },
-  { title: "Pending Orders", url: "/pending", icon: Clock },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Products", url: "/products", icon: Package },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
+import { BottomNav } from "./bottom-nav";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -49,74 +21,61 @@ export function AppLayout({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle("dark");
   };
 
+  const getPageTitle = () => {
+    const titles: Record<string, string> = {
+      "/pos": "Point of Sale",
+      "/pending": "Pending Orders",
+      "/products": "Products",
+      "/settings": "Settings",
+      "/": "Dashboard",
+    };
+    return titles[location] || "Café Bara";
+  };
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background/50">
-        <Sidebar variant="inset" className="border-r border-border/50">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gradient">Artix POS</h1>
-            <p className="text-sm text-muted-foreground mt-1 font-medium">
-              {settings?.storeName || "Artix's Store"}
-            </p>
+    <div className="min-h-screen w-full bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl md:text-2xl font-black bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              {settings?.storeName || "Café Bara"}
+            </h1>
+            <span className="hidden md:block text-sm text-muted-foreground font-medium">
+              {getPageTitle()}
+            </span>
           </div>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navItems.map((item) => {
-                    const isActive = location === item.url;
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                          asChild 
-                          isActive={isActive}
-                          className="py-6 px-4 rounded-xl mb-1 transition-all duration-200"
-                        >
-                          <Link href={item.url} className={isActive ? "font-semibold" : ""}>
-                            <item.icon className="mr-2 h-5 w-5" />
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-16 px-4 md:px-6 flex items-center justify-between glass-effect sticky top-0 z-30">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="md:hidden" />
-              <h2 className="text-lg md:text-xl font-bold hidden sm:block">
-                {navItems.find(i => i.url === location)?.title || "POS"}
-              </h2>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-full hover:bg-primary/10 transition-colors"
+              data-testid="button-theme-toggle"
+            >
+              {isDark ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white font-bold shadow-lg">
+              {settings?.storeName?.[0] || "C"}
             </div>
-            
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleTheme}
-                className="rounded-full hover:bg-primary/10 transition-colors"
-              >
-                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </Button>
-              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-sm">
-                A
-              </div>
-            </div>
-          </header>
-
-          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-            <div className="max-w-7xl mx-auto h-full">
-              {children}
-            </div>
-          </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </header>
+
+      {/* Main content */}
+      <main className="pb-32 md:pb-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6">
+          {children}
+        </div>
+      </main>
+
+      {/* Bottom Navigation */}
+      <BottomNav />
+    </div>
   );
 }

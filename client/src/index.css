@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,86 +6,87 @@
 
 @layer base {
   :root {
-    --font-sans: 'Space Grotesk', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-    --background: 220 20% 97%;
-    --foreground: 220 20% 8%;
+    /* iOS 26 Light — clean, airy */
+    --background: 240 6% 95%;
+    --foreground: 240 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 8%;
+    --card-foreground: 240 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 8%;
+    --popover-foreground: 240 10% 10%;
 
-    --primary: 180 100% 28%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 93%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 240 5% 90%;
+    --secondary-foreground: 240 10% 20%;
 
-    --muted: 220 15% 93%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 240 5% 88%;
+    --muted-foreground: 240 5% 48%;
 
-    --accent: 220 15% 93%;
-    --accent-foreground: 220 20% 8%;
+    --accent: 240 5% 90%;
+    --accent-foreground: 240 10% 10%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 87%;
-    --input: 220 15% 87%;
-    --ring: 180 100% 28%;
+    --border: 240 6% 88%;
+    --input: 0 0% 100%;
+    --ring: 211 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 8%;
-    --sidebar-primary: 180 100% 28%;
+    --sidebar-foreground: 240 10% 10%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 93%;
-    --sidebar-accent-foreground: 220 20% 8%;
-    --sidebar-border: 220 15% 87%;
-    --sidebar-ring: 180 100% 28%;
+    --sidebar-accent: 240 5% 90%;
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 240 6% 88%;
+    --sidebar-ring: 211 100% 50%;
   }
 
   .dark {
-    --background: 220 25% 4%;
-    --foreground: 0 0% 92%;
+    /* iOS 26 Dark — deep, premium, not neon */
+    --background: 240 6% 8%;
+    --foreground: 0 0% 96%;
 
-    --card: 220 20% 7%;
-    --card-foreground: 0 0% 92%;
+    --card: 240 6% 13%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 20% 7%;
-    --popover-foreground: 0 0% 92%;
+    --popover: 240 6% 13%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 180 100% 50%;
-    --primary-foreground: 220 25% 4%;
+    --primary: 211 100% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 18% 11%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 240 5% 18%;
+    --secondary-foreground: 0 0% 88%;
 
-    --muted: 220 18% 11%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 240 5% 18%;
+    --muted-foreground: 240 5% 58%;
 
-    --accent: 220 18% 13%;
-    --accent-foreground: 0 0% 92%;
+    --accent: 240 5% 20%;
+    --accent-foreground: 0 0% 96%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 13%;
-    --input: 220 15% 13%;
-    --ring: 180 100% 50%;
+    --border: 240 5% 18%;
+    --input: 240 6% 16%;
+    --ring: 211 100% 60%;
 
-    --sidebar-background: 220 25% 4%;
-    --sidebar-foreground: 0 0% 92%;
-    --sidebar-primary: 180 100% 50%;
-    --sidebar-primary-foreground: 220 25% 4%;
-    --sidebar-accent: 220 18% 11%;
-    --sidebar-accent-foreground: 0 0% 92%;
-    --sidebar-border: 220 15% 13%;
-    --sidebar-ring: 180 100% 50%;
+    --sidebar-background: 240 6% 8%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 211 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 18%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 240 5% 18%;
+    --sidebar-ring: 211 100% 60%;
   }
 }
 
@@ -93,33 +94,33 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground;
     font-family: var(--font-sans);
-  }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-sans);
-    @apply tracking-tight font-semibold;
-  }
-  code, pre, .font-mono {
-    font-family: var(--font-mono);
+    font-feature-settings: "cv11", "ss01";
   }
 }
 
-/* Hacker glow utilities */
 @layer utilities {
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.25), 0 0 40px hsl(var(--primary) / 0.1);
+  /* Glass card — adapts to light and dark */
+  .glass-card {
+    @apply bg-white/70 dark:bg-white/5 backdrop-blur-2xl border border-white/80 dark:border-white/10 shadow-sm dark:shadow-black/30;
   }
-  .text-glow {
-    text-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+
+  /* Nav glass pill */
+  .glass-nav {
+    @apply bg-white/50 dark:bg-black/50 backdrop-blur-3xl border border-white/60 dark:border-white/10 shadow-xl shadow-black/10 dark:shadow-black/50;
   }
-  .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+
+  /* Header glass */
+  .glass-header {
+    @apply bg-white/60 dark:bg-black/30 backdrop-blur-2xl border-b border-black/10 dark:border-white/10;
   }
-  .glass-light {
-    @apply bg-black/5 backdrop-blur-xl border border-black/10;
-  }
+
   .scrollbar-hide {
     scrollbar-width: none;
     -ms-overflow-style: none;

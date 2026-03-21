@@ -2,7 +2,6 @@ import { useSales } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Receipt, TrendingUp, CreditCard, DollarSign } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -11,17 +10,12 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
+    if (value === 0) { setDisplay(0); return; }
     let start = 0;
-    const end = value;
-    if (start === end) return;
     const timer = setInterval(() => {
-      start += Math.max(1, end / 20);
-      if (start >= end) {
-        setDisplay(end);
-        clearInterval(timer);
-      } else {
-        setDisplay(start);
-      }
+      start += Math.max(1, value / 20);
+      if (start >= value) { setDisplay(value); clearInterval(timer); }
+      else setDisplay(start);
     }, 20);
     return () => clearInterval(timer);
   }, [value]);
@@ -42,145 +36,140 @@ export default function Dashboard() {
   const { data: settings } = useSettings();
 
   const todaySales = sales.filter(s => isToday(new Date(s.createdAt!)));
-  const totalRevenue = todaySales.reduce((acc, sale) => acc + parseNumeric(sale.total), 0);
-  const totalTax = todaySales.reduce((acc, sale) => acc + parseNumeric(sale.tax), 0);
+  const totalRevenue = todaySales.reduce((acc, s) => acc + parseNumeric(s.total), 0);
+  const totalTax = todaySales.reduce((acc, s) => acc + parseNumeric(s.tax), 0);
 
   if (isLoading) {
     return (
-      <div className="animate-pulse space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-muted rounded-xl w-full"></div>
-          ))}
+      <div className="animate-pulse space-y-5">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted rounded-2xl" />)}
         </div>
-        <div className="h-96 bg-muted rounded-xl w-full"></div>
+        <div className="h-80 bg-muted rounded-2xl" />
       </div>
     );
   }
 
   const stats = [
     {
-      label: "Today's Revenue",
+      label: "Revenue",
       value: totalRevenue,
       prefix: settings?.currency || "₱",
       sub: `${todaySales.length} orders today`,
       icon: DollarSign,
-      highlight: true,
+      accent: "bg-blue-500",
+      glow: "shadow-blue-500/20",
     },
     {
       label: "Avg. Order",
       value: todaySales.length ? totalRevenue / todaySales.length : 0,
       prefix: settings?.currency || "₱",
-      sub: "Revenue per sale",
+      sub: "Per sale",
       icon: TrendingUp,
-      highlight: false,
+      accent: "bg-violet-500",
+      glow: "shadow-violet-500/20",
     },
     {
-      label: "Tax Collected",
+      label: "Tax",
       value: totalTax,
       prefix: settings?.currency || "₱",
-      sub: "Today's tax total",
+      sub: "Collected today",
       icon: Receipt,
-      highlight: false,
+      accent: "bg-amber-500",
+      glow: "shadow-amber-500/20",
     },
     {
-      label: "Transactions",
+      label: "Sales",
       value: todaySales.length,
       prefix: "",
-      sub: "Completed sales",
+      sub: "Completed",
       icon: CreditCard,
-      highlight: false,
+      accent: "bg-emerald-500",
+      glow: "shadow-emerald-500/20",
     },
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+    <div className="space-y-5 pb-8">
+      {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">
-          <span className="font-mono text-primary">~/</span> Dashboard
-        </h2>
-        <p className="text-muted-foreground text-sm font-mono mt-1">
-          {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </p>
       </div>
 
+      {/* Stats Grid */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card
+            <div
               key={stat.label}
-              className={`rounded-xl border overflow-hidden ${
-                stat.highlight
-                  ? "bg-primary/10 dark:bg-primary/5 border-primary/30 dark:border-primary/20"
-                  : "bg-card border-border/60"
-              }`}
+              className="glass-card rounded-2xl p-4 flex flex-col gap-3"
             >
-              <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-                  {stat.label}
-                </CardTitle>
-                <Icon className={`h-4 w-4 ${stat.highlight ? "text-primary" : "text-muted-foreground/40"}`} />
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <div className={`text-2xl font-bold font-mono ${stat.highlight ? "text-primary dark:text-glow" : ""}`}>
-                  <Counter value={stat.value} prefix={stat.prefix} />
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
+                <div className={`h-7 w-7 rounded-lg ${stat.accent} ${stat.glow} shadow-md flex items-center justify-center`}>
+                  <Icon className="h-3.5 w-3.5 text-white" />
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">{stat.sub}</p>
-              </CardContent>
-            </Card>
+              </div>
+              <div>
+                <p className="text-xl font-bold tracking-tight">
+                  <Counter value={stat.value} prefix={stat.prefix} />
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{stat.sub}</p>
+              </div>
+            </div>
           );
         })}
       </div>
 
-      <Card className="rounded-xl border border-border/60 overflow-hidden bg-card">
-        <CardHeader className="border-b border-border/50 py-4 px-6">
-          <CardTitle className="text-sm font-mono flex items-center gap-2 text-muted-foreground">
-            <Receipt className="h-4 w-4 text-primary" />
-            <span className="text-primary">./</span>recent-sales.log
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {sales.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground flex flex-col items-center gap-3">
-              <Receipt className="h-10 w-10 opacity-15" />
-              <p className="text-sm font-mono">No sales recorded yet.</p>
-              <p className="text-xs opacity-60">Make your first sale in the POS.</p>
-            </div>
-          ) : (
-            <div className="max-h-[480px] overflow-y-auto scrollbar-hide">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted/30">
-                  <TableRow className="hover:bg-transparent border-border/50">
-                    <TableHead className="px-6 py-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">ID</TableHead>
-                    <TableHead className="py-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Time</TableHead>
-                    <TableHead className="py-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Method</TableHead>
-                    <TableHead className="text-right px-6 py-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</TableHead>
+      {/* Recent Sales Table */}
+      <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-black/5 dark:border-white/5 flex items-center gap-2">
+          <Receipt className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Recent Sales</h3>
+        </div>
+
+        {sales.length === 0 ? (
+          <div className="py-16 text-center flex flex-col items-center gap-2 text-muted-foreground">
+            <Receipt className="h-8 w-8 opacity-20" />
+            <p className="text-sm">No sales yet — start selling from POS</p>
+          </div>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto scrollbar-hide">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-white/50 dark:bg-black/30 backdrop-blur-sm">
+                <TableRow className="hover:bg-transparent border-black/5 dark:border-white/5">
+                  <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ID</TableHead>
+                  <TableHead className="py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Time</TableHead>
+                  <TableHead className="py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Method</TableHead>
+                  <TableHead className="text-right px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sales.slice(0, 50).map((sale) => (
+                  <TableRow key={sale.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-black/5 dark:border-white/5">
+                    <TableCell className="font-semibold px-5 py-3.5 text-sm text-primary">#{sale.id}</TableCell>
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                      {format(new Date(sale.createdAt!), "MMM d, h:mm a")}
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <span className="px-2.5 py-1 rounded-lg bg-secondary text-foreground text-[11px] font-medium capitalize">
+                        {sale.paymentMethod}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-bold px-5 py-3.5">
+                      {formatCurrency(sale.total, settings?.currency)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sales.slice(0, 50).map((sale) => (
-                    <TableRow key={sale.id} className="hover:bg-muted/30 transition-colors border-border/40">
-                      <TableCell className="font-mono font-bold px-6 py-3 text-sm text-primary">#{sale.id}</TableCell>
-                      <TableCell className="whitespace-nowrap text-sm font-mono text-muted-foreground">
-                        {format(new Date(sale.createdAt!), "MMM d, HH:mm")}
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <span className="px-2 py-0.5 rounded font-mono bg-secondary text-foreground text-[10px] uppercase tracking-wide border border-border/50">
-                          {sale.paymentMethod}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-bold px-6 py-3 text-primary">
-                        {formatCurrency(sale.total, settings?.currency)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

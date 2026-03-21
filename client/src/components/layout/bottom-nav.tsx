@@ -6,25 +6,20 @@ export function BottomNav() {
   const [location] = useLocation();
   const { data: pendingOrders = [] } = usePendingOrders();
 
-  const pendingCount = pendingOrders.filter(
+  const pendingCount = (pendingOrders as any[]).filter(
     (o: any) => o.status !== "paid"
   ).length;
 
   const navItems = [
     { label: "POS", url: "/pos", icon: ShoppingCart, badge: null },
-    {
-      label: "Pending",
-      url: "/pending",
-      icon: Clock,
-      badge: pendingCount > 0 ? pendingCount : null,
-    },
+    { label: "Pending", url: "/pending", icon: Clock, badge: pendingCount > 0 ? pendingCount : null },
     { label: "Products", url: "/products", icon: Package, badge: null },
     { label: "Settings", url: "/settings", icon: Settings, badge: null },
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-center gap-1 bg-card/80 dark:bg-card/90 backdrop-blur-2xl rounded-full border border-border shadow-2xl shadow-black/40 px-2 py-2">
+    <nav className="md:hidden fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
+      <div className="pointer-events-auto glass-nav rounded-[28px] px-2 py-2 flex items-center gap-0.5">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.url;
@@ -33,19 +28,21 @@ export function BottomNav() {
             <a
               key={item.url}
               href={item.url}
-              className={`relative flex flex-col items-center justify-center gap-1 px-4 py-2.5 rounded-full transition-all duration-200 ${
+              className={`relative flex flex-col items-center justify-center gap-1.5 px-4 py-2.5 rounded-[20px] transition-all duration-200 min-w-[60px] ${
                 isActive
-                  ? "bg-primary/15 dark:bg-primary/20 text-primary dark:shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  ? "bg-primary/15 dark:bg-primary/20 text-primary"
+                  : "text-foreground/50 hover:text-foreground/80 hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
-              <Icon className={`h-5 w-5 ${isActive ? "dark:drop-shadow-[0_0_6px_hsl(var(--primary))]" : ""}`} />
-              {item.badge ? (
-                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                  {item.badge > 9 ? "9+" : item.badge}
-                </span>
-              ) : null}
-              <span className={`text-[10px] font-semibold tracking-wide ${isActive ? "font-mono" : ""}`}>
+              <div className="relative">
+                <Icon className={`h-5 w-5 ${isActive ? "stroke-[2.5px]" : "stroke-[1.8px]"}`} />
+                {item.badge ? (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
+                    {item.badge > 9 ? "9+" : item.badge}
+                  </span>
+                ) : null}
+              </div>
+              <span className={`text-[10px] font-medium leading-none ${isActive ? "font-semibold" : ""}`}>
                 {item.label}
               </span>
             </a>

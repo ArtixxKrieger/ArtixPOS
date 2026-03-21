@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { ShoppingCart, Clock, Package, Settings } from "lucide-react";
+import { Home, ShoppingCart, Clock, Package, Settings } from "lucide-react";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 
 export function BottomNav() {
@@ -11,6 +11,7 @@ export function BottomNav() {
   ).length;
 
   const navItems = [
+    { label: "Home", url: "/", icon: Home, badge: null },
     { label: "POS", url: "/pos", icon: ShoppingCart, badge: null },
     { label: "Pending", url: "/pending", icon: Clock, badge: pendingCount > 0 ? pendingCount : null },
     { label: "Products", url: "/products", icon: Package, badge: null },

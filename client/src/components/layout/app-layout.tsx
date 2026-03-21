@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Moon, Sun, Menu, ShoppingCart, Clock, Package, Settings } from "lucide-react";
+import { Moon, Sun, Menu, Home, ShoppingCart, Clock, Package, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useSettings } from "@/hooks/use-settings";
@@ -50,16 +50,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const getPageTitle = () => {
     const titles: Record<string, string> = {
+      "/": "Dashboard",
       "/pos": "Point of Sale",
       "/pending": "Pending Orders",
       "/products": "Products",
       "/settings": "Settings",
-      "/": "Dashboard",
     };
-    return titles[location] || "Café Bara";
+    return titles[location] || "Dashboard";
   };
 
   const navItems = [
+    { label: "Home", url: "/", icon: Home, badge: null },
     { label: "POS", url: "/pos", icon: ShoppingCart, badge: null },
     { label: "Pending", url: "/pending", icon: Clock, badge: pendingCount > 0 ? pendingCount : null },
     { label: "Products", url: "/products", icon: Package, badge: null },

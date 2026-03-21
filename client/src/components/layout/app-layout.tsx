@@ -19,8 +19,7 @@ function initTheme() {
 }
 
 export function AppLayout({ children }: { children: ReactNode }) {
-  const [, setLocation] = useLocation();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: settings } = useSettings();
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(initTheme);

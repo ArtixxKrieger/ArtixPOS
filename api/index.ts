@@ -66,8 +66,12 @@ async function initializeApp(): Promise<express.Express> {
         res.json({ message: "API running on Vercel" });
       });
 
-      // Initialize database
-      await seed();
+      // Initialize database (non-blocking failure)
+      try {
+        await seed();
+      } catch (error) {
+        console.warn("[Vercel] Seed failed (non-fatal):", error instanceof Error ? error.message : error);
+      }
 
       // Register all routes
       await registerRoutes(httpServer, app);

@@ -11,16 +11,21 @@ const client = createClient({
 export const db = drizzle(client, { schema });
 
 export async function seed() {
-  const { userSettings } = schema;
+  try {
+    const { userSettings } = schema;
 
-  // Seed user settings if none exist
-  const existingSettings = await db.select().from(userSettings).limit(1);
-  if (existingSettings.length === 0) {
-    console.log("Seeding initial settings...");
-    await db.insert(userSettings).values({
-      storeName: "Café Bara",
-      currency: "₱",
-      taxRate: "0"
-    });
+    // Seed user settings if none exist
+    const existingSettings = await db.select().from(userSettings).limit(1);
+    if (existingSettings.length === 0) {
+      console.log("Seeding initial settings...");
+      await db.insert(userSettings).values({
+        storeName: "Café Bara",
+        currency: "₱",
+        taxRate: "0"
+      });
+      console.log("Seeding complete");
+    }
+  } catch (error) {
+    console.error("Seed error (non-fatal):", error instanceof Error ? error.message : error);
   }
 }

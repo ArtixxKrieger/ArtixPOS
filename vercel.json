@@ -3,17 +3,17 @@
   "buildCommand": "npm run vercel-build",
   "builds": [
     {
-      "src": "server/index.ts",
+      "src": "dist/index.cjs",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["dist/public/**"]
+        "includeFiles": ["dist/**"]
       }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "server/index.ts"
+      "dest": "dist/index.cjs"
     }
   ]
 }

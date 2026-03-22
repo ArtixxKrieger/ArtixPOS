@@ -3,31 +3,42 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  // Handle both development and production paths
-  // In development: __dirname is dist/server, so ../public works
-  // In production/Vercel: __dirname is dist/server, so ../public works
-  // But if called from api/, __dirname is dist/api, so ../../public works
-  let distPath = path.resolve(__dirname, "../public");
-  
-  // Fallback to alternative path if not found
-  if (!fs.existsSync(distPath)) {
-    distPath = path.resolve(__dirname, "../../public");
-  }
-  
-  if (!fs.existsSync(distPath)) {
+  // Try paths in order of reliability:
+  // 1. process.cwd()/dist/public — most reliable on Vercel Lambda (/var/task)
+  // 2. __dirname/../public — compiled output at dist/server → dist/public
+  // 3. __dirname/../../public — if bundled at different depth
+  const candidates = [
+    path.resolve(process.cwd(), "dist/public"),
+    path.resolve(__dirname, "../public"),
+    path.resolve(__dirname, "../../public"),
+  ];
+
+  const distPath = candidates.find((p) => fs.existsSync(p));
+
+  if (!distPath) {
     console.warn(
-      `Warning: Could not find the build directory at ${distPath}`,
+      `Warning: Could not find the build directory. Tried:\n  ${candidates.join("\n  ")}`,
     );
-    // Don't throw, just skip static serving - API can still work
+    // API still works — just no static files
     return;
   }
 
-  app.use(express.static(distPath));
+  console.log(`Serving static files from: ${distPath}`);
 
-  // fall through to index.html if the file doesn't exist
+  // Cache-control: long for hashed assets, short for everything else
+  app.use(
+    express.static(distPath, {
+      maxAge: "1y",
+      immutable: true,
+      index: false, // we handle index.html ourselves below
+    }),
+  );
+
+  // SPA fallback — all non-asset routes serve index.html
   app.use("/{*path}", (_req, res) => {
     const indexPath = path.resolve(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(indexPath);
     } else {
       res.status(404).json({ error: "Not found" });

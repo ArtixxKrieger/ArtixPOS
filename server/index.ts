@@ -23,23 +23,17 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-// Aggressive cache busting in development — ensures fresh UI every time
+// Cache-busting headers in development
 app.use((req, res, next) => {
   if (process.env.NODE_ENV !== "production") {
-    // HTML files: never cache
     if (req.path.endsWith(".html") || req.path === "/") {
       res.setHeader("Cache-Control", "no-store, no-cache, no-transform, must-revalidate, private");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
-      res.setHeader("X-Content-Type-Options", "nosniff");
-    }
-    // JS/CSS: cache bust with timestamps
-    else if (req.path.includes(".js") || req.path.includes(".css")) {
+    } else if (req.path.includes(".js") || req.path.includes(".css")) {
       res.setHeader("Cache-Control", "no-cache, must-revalidate");
       res.setHeader("ETag", `"${Date.now()}"`);
-    }
-    // Everything else: no cache
-    else {
+    } else {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     }
   }
@@ -53,7 +47,6 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
@@ -75,7 +68,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -83,8 +75,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize the app function
+// ── Initialization ───────────────────────────────────────────────────────────
+// Guard: only run once even if handler() is called multiple times (Vercel warm reuse)
+let _initialized = false;
+
 async function initializeApp() {
+  if (_initialized) return app;
+  _initialized = true;
+
   try {
     console.log("Starting server initialization...");
     await seed();
@@ -93,96 +91,83 @@ async function initializeApp() {
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
-
       console.error("Internal Server Error:", err);
-
-      if (res.headersSent) {
-        return next(err);
-      }
-
+      if (res.headersSent) return next(err);
       return res.status(status).json({ message });
     });
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
     if (process.env.NODE_ENV === "production") {
       serveStatic(app);
     } else {
-      // Only setup Vite in development
       try {
         const { setupVite } = await import("./vite");
         await setupVite(httpServer, app);
-      } catch (error) {
-        console.log("Vite setup skipped (not in development mode)");
+      } catch {
+        console.log("Vite setup skipped");
       }
     }
 
     return app;
   } catch (error) {
+    // Reset so the next request can try again
+    _initialized = false;
     console.error("Failed to initialize server:", error);
     throw error;
   }
 }
 
-// Only start the server if not in Vercel environment
+// ── Local server startup (not on Vercel) ────────────────────────────────────
 if (process.env.VERCEL !== "1") {
   (async () => {
     try {
       await initializeApp();
 
-      // ALWAYS serve the app on the port specified in the environment variable PORT
-      // Other ports are firewalled. Default to 5000 if not specified.
       const port = process.env.PORT || process.env.REPL_PORT || "5000";
       const parsedPort = parseInt(port, 10);
 
-      // Add error handling for the server
       httpServer.listen(parsedPort, "0.0.0.0", () => {
-        log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || 'development'} mode`);
+        log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || "development"} mode`);
         console.log(`Server is ready and listening on port ${parsedPort}`);
       });
 
-      httpServer.on('error', (error) => {
-        console.error('Server failed to start:', error);
+      httpServer.on("error", (error) => {
+        console.error("Server failed to start:", error);
         process.exit(1);
       });
-
     } catch (error) {
       console.error("Failed to initialize server:", error);
       process.exit(1);
     }
   })();
 
-  // Handle graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
+  process.on("SIGTERM", () => {
+    console.log("SIGTERM received, shutting down gracefully");
     httpServer.close(() => {
-      console.log('Server closed');
+      console.log("Server closed");
       process.exit(0);
     });
   });
 
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
+  process.on("uncaughtException", (error) => {
+    console.error("Uncaught Exception:", error);
     process.exit(1);
   });
 
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.on("unhandledRejection", (reason, promise) => {
+    console.error("Unhandled Rejection at:", promise, "reason:", reason);
     process.exit(1);
   });
 }
 
-// Export the app for Vercel serverless functions
+// ── Vercel serverless handler ────────────────────────────────────────────────
 export default async function handler(req: Request, res: Response) {
   try {
-    const app = await initializeApp();
-    return app(req, res);
+    const initializedApp = await initializeApp();
+    return initializedApp(req, res);
   } catch (error) {
     console.error("Handler error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
 
-// Also export the app instance for other potential uses
 export { app, httpServer };

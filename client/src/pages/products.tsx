@@ -6,21 +6,12 @@ import { type InsertProduct, type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X, Tag } from "lucide-react";
 
-interface SizeItem {
-  name: string;
-  price: string;
-}
-
-interface ModifierItem {
-  name: string;
-  price: string;
-}
-
+interface SizeItem { name: string; price: string; }
+interface ModifierItem { name: string; price: string; }
 interface ProductFormData {
   name: string;
   price: string;
@@ -40,32 +31,25 @@ export default function Products() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const currency = settings?.currency || "₱";
+
   const form = useForm<ProductFormData>({
-    defaultValues: { 
-      name: "", 
-      price: "0", 
-      category: "General",
-      sizes: [],
-      modifiers: []
-    }
+    defaultValues: { name: "", price: "0", category: "General", sizes: [], modifiers: [] }
   });
 
   const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({
-    control: form.control,
-    name: "sizes"
+    control: form.control, name: "sizes"
   });
-
   const { fields: modifierFields, append: appendModifier, remove: removeModifier } = useFieldArray({
-    control: form.control,
-    name: "modifiers"
+    control: form.control, name: "modifiers"
   });
 
-  const filtered = products.filter(p => 
+  const filtered = products.filter(p =>
     p.name?.toLowerCase().includes(search.toLowerCase()) ?? false
   );
 
   const onSubmit = (data: ProductFormData) => {
-    const payload: InsertProduct = { 
+    const payload: InsertProduct = {
       name: data.name,
       price: data.price.toString(),
       category: data.category || "General",
@@ -74,30 +58,22 @@ export default function Products() {
       hasSizes: (data.sizes?.length || 0) > 0,
       hasModifiers: (data.modifiers?.length || 0) > 0
     };
-
     if (editingId) {
       updateProduct.mutate({ id: editingId, ...payload }, {
-        onSuccess: () => { 
-          setIsDialogOpen(false); 
-          setEditingId(null);
-          form.reset();
-        }
+        onSuccess: () => { setIsDialogOpen(false); setEditingId(null); form.reset(); }
       });
     } else {
       createProduct.mutate(payload, {
-        onSuccess: () => {
-          setIsDialogOpen(false);
-          form.reset();
-        }
+        onSuccess: () => { setIsDialogOpen(false); form.reset(); }
       });
     }
   };
 
   const openEdit = (p: Product) => {
     setEditingId(p.id);
-    form.reset({ 
-      name: p.name || "", 
-      price: p.price?.toString() || "0", 
+    form.reset({
+      name: p.name || "",
+      price: p.price?.toString() || "0",
       category: p.category || "General",
       sizes: (p.sizes as SizeItem[]) || [],
       modifiers: (p.modifiers as ModifierItem[]) || []
@@ -107,66 +83,72 @@ export default function Products() {
 
   const openCreate = () => {
     setEditingId(null);
-    form.reset({ 
-      name: "", 
-      price: "0", 
-      category: "General",
-      sizes: [],
-      modifiers: []
-    });
+    form.reset({ name: "", price: "0", category: "General", sizes: [], modifiers: [] });
     setIsDialogOpen(true);
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-3xl shadow-sm border border-border/50">
+    <div className="space-y-4 page-enter">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Inventory</h2>
-          <p className="text-muted-foreground text-sm">Manage your products and pricing</p>
+          <h2 className="text-xl font-black tracking-tight">Inventory</h2>
+          <p className="text-xs text-muted-foreground font-medium mt-0.5">
+            {products.length} product{products.length !== 1 ? "s" : ""} in catalog
+          </p>
         </div>
 
-        <div className="flex w-full sm:w-auto gap-4">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex w-full sm:w-auto gap-2.5">
+          <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search..." 
-              className="pl-9 bg-secondary border-none rounded-xl"
+            <Input
+              placeholder="Search products..."
+              className="pl-9 h-10 bg-card border-none rounded-2xl shadow-sm text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              data-testid="input-search-inventory"
             />
           </div>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={openCreate} className="rounded-xl shadow-md bg-primary text-white hover:opacity-90 transition-opacity">
-                <Plus className="h-4 w-4 mr-2" /> Add Item
+              <Button
+                onClick={openCreate}
+                className="rounded-2xl h-10 px-4 shadow-md bg-primary text-white hover:opacity-90 transition-opacity shrink-0"
+                data-testid="button-add-product"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline ml-1">Add Item</span>
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-xl">{editingId ? "Edit Product" : "New Product"}</DialogTitle>
+            <DialogContent className="sm:max-w-[480px] max-w-[calc(100vw-24px)] max-h-[92dvh] overflow-y-auto rounded-3xl border-none shadow-2xl">
+              <DialogHeader className="pb-2">
+                <DialogTitle className="text-xl font-black">
+                  {editingId ? "Edit Product" : "New Product"}
+                </DialogTitle>
               </DialogHeader>
 
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
 
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Product Name</FormLabel>
+                      <FormLabel className="font-semibold text-sm">Product Name</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} className="rounded-xl bg-secondary border-none" />
+                        <Input {...field} value={field.value || ""} className="h-11 rounded-xl bg-secondary border-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <FormField control={form.control} name="price" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Base Price ({settings?.currency})</FormLabel>
+                        <FormLabel className="font-semibold text-sm">Base Price ({currency})</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} value={field.value || "0"} className="rounded-xl bg-secondary border-none" />
+                          <Input type="number" step="0.01" {...field} value={field.value || "0"} className="h-11 rounded-xl bg-secondary border-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -174,9 +156,9 @@ export default function Products() {
 
                     <FormField control={form.control} name="category" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Category</FormLabel>
+                        <FormLabel className="font-semibold text-sm">Category</FormLabel>
                         <FormControl>
-                          <Input {...field} value={field.value || "General"} className="rounded-xl bg-secondary border-none" />
+                          <Input {...field} value={field.value || "General"} className="h-11 rounded-xl bg-secondary border-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -184,105 +166,87 @@ export default function Products() {
                   </div>
 
                   {/* Sizes */}
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <FormLabel className="text-base">Sizes (Optional)</FormLabel>
+                      <FormLabel className="font-semibold text-sm">Sizes <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => appendSize({ name: "", price: "0" })}
-                        className="rounded-lg h-8"
+                        className="rounded-xl h-8 text-xs"
                       >
-                        <Plus className="h-3 w-3 mr-1" /> Add Size
+                        <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
                     </div>
-
                     {sizeFields.map((field, index) => (
-                      <div key={field.id} className="flex gap-2 items-end">
+                      <div key={field.id} className="flex gap-2 items-center">
                         <FormField control={form.control} name={`sizes.${index}.name`} render={({ field }) => (
                           <FormItem className="flex-1">
                             <FormControl>
-                              <Input {...field} value={field.value || ""} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input {...field} value={field.value || ""} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />
-
                         <FormField control={form.control} name={`sizes.${index}.price`} render={({ field }) => (
                           <FormItem className="w-24">
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeSize(index)}
-                          className="h-9 w-9 text-destructive"
-                        >
+                        <button type="button" onClick={() => removeSize(index)} className="h-9 w-9 flex items-center justify-center text-destructive/60 hover:text-destructive rounded-xl hover:bg-destructive/10 transition-colors">
                           <X className="h-4 w-4" />
-                        </Button>
+                        </button>
                       </div>
                     ))}
                   </div>
 
                   {/* Modifiers */}
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <FormLabel className="text-base">Add-ons / Modifiers (Optional)</FormLabel>
+                      <FormLabel className="font-semibold text-sm">Add-ons <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => appendModifier({ name: "", price: "0" })}
-                        className="rounded-lg h-8"
+                        className="rounded-xl h-8 text-xs"
                       >
-                        <Plus className="h-3 w-3 mr-1" /> Add Modifier
+                        <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
                     </div>
-
                     {modifierFields.map((field, index) => (
-                      <div key={field.id} className="flex gap-2 items-end">
+                      <div key={field.id} className="flex gap-2 items-center">
                         <FormField control={form.control} name={`modifiers.${index}.name`} render={({ field }) => (
                           <FormItem className="flex-1">
                             <FormControl>
-                              <Input {...field} value={field.value || ""} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input {...field} value={field.value || ""} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />
-
                         <FormField control={form.control} name={`modifiers.${index}.price`} render={({ field }) => (
                           <FormItem className="w-24">
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9" />
+                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeModifier(index)}
-                          className="h-9 w-9 text-destructive"
-                        >
+                        <button type="button" onClick={() => removeModifier(index)} className="h-9 w-9 flex items-center justify-center text-destructive/60 hover:text-destructive rounded-xl hover:bg-destructive/10 transition-colors">
                           <X className="h-4 w-4" />
-                        </Button>
+                        </button>
                       </div>
                     ))}
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl h-12 font-bold text-white shadow-lg bg-primary mt-4"
+                    className="w-full rounded-2xl h-12 font-bold text-white shadow-lg bg-primary mt-2"
                     disabled={createProduct.isPending || updateProduct.isPending}
+                    data-testid="button-submit-product"
                   >
                     {editingId ? "Save Changes" : "Create Product"}
                   </Button>
-
                 </form>
               </Form>
             </DialogContent>
@@ -290,71 +254,89 @@ export default function Products() {
         </div>
       </div>
 
-      <div className="bg-card rounded-3xl shadow-sm border border-border/50 overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center animate-pulse text-muted-foreground">Loading inventory...</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-16 text-center text-muted-foreground flex flex-col items-center">
-            <Package className="h-16 w-16 mb-4 opacity-20" />
-            <p className="text-lg font-medium text-foreground">No products found</p>
-            <p>Try adding a new product to your inventory.</p>
+      {/* Product List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="glass-card rounded-3xl py-16 text-center flex flex-col items-center gap-3">
+          <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
+            <Package className="h-8 w-8 opacity-25" strokeWidth={1.5} />
           </div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow className="hover:bg-transparent border-border/50">
-                <TableHead className="px-6 py-4 font-semibold">Product Name</TableHead>
-                <TableHead className="py-4 font-semibold">Category</TableHead>
-                <TableHead className="py-4 font-semibold">Price</TableHead>
-                <TableHead className="text-right px-6 py-4 font-semibold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+          <p className="font-bold text-base">{search ? "No results found" : "No products yet"}</p>
+          <p className="text-sm text-muted-foreground/70">
+            {search ? `No products match "${search}"` : "Tap 'Add Item' to add your first product"}
+          </p>
+        </div>
+      ) : (
+        /* Mobile-optimized card list */
+        <div className="space-y-2.5">
+          {filtered.map((product) => (
+            <div
+              key={product.id}
+              data-testid={`product-row-${product.id}`}
+              className="bg-card rounded-2xl border border-border/30 px-4 py-3.5 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow"
+            >
+              {/* Icon */}
+              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Package className="h-5 w-5 text-primary/60" strokeWidth={1.5} />
+              </div>
 
-            <TableBody>
-              {filtered.map((product) => (
-                <TableRow key={product.id} className="hover:bg-muted/30 transition-colors border-border/50">
-                  <TableCell className="font-bold px-6 py-4">{product.name || ""}</TableCell>
-
-                  <TableCell className="py-4">
-                    <span className="bg-secondary px-3 py-1 rounded-full text-xs font-medium tracking-wide">
-                      {product.category || "General"}
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm leading-tight truncate">{product.name || ""}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="bg-secondary/80 px-2 py-0.5 rounded-full text-[10px] font-semibold text-muted-foreground">
+                    {product.category || "General"}
+                  </span>
+                  {(product.sizes as any[])?.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground/60 font-medium">
+                      {(product.sizes as any[]).length} sizes
                     </span>
-                  </TableCell>
+                  )}
+                  {(product.modifiers as any[])?.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground/60 font-medium flex items-center gap-0.5">
+                      <Tag className="h-2.5 w-2.5" />
+                      {(product.modifiers as any[]).length} add-ons
+                    </span>
+                  )}
+                </div>
+              </div>
 
-                  <TableCell className="font-bold text-primary py-4">
-                    {formatCurrency(product.price || "0", settings?.currency)}
-                  </TableCell>
+              {/* Price */}
+              <div className="text-right shrink-0">
+                <p className="font-black text-base text-primary tabular-nums">
+                  {formatCurrency(product.price || "0", currency)}
+                </p>
+                {(product.sizes as any[])?.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground font-medium">base</p>
+                )}
+              </div>
 
-                  <TableCell className="text-right px-6 py-4">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
-                        onClick={() => openEdit(product)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
-                        onClick={() => {
-                          if (confirm("Delete this product?")) deleteProduct.mutate(product.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+              {/* Actions */}
+              <div className="flex items-center gap-1 shrink-0 ml-1">
+                <button
+                  className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground transition-colors"
+                  onClick={() => openEdit(product)}
+                  data-testid={`button-edit-${product.id}`}
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="h-9 w-9 rounded-xl hover:bg-destructive/10 hover:text-destructive flex items-center justify-center text-muted-foreground/60 transition-colors"
+                  onClick={() => {
+                    if (confirm("Delete this product?")) deleteProduct.mutate(product.id);
+                  }}
+                  data-testid={`button-delete-${product.id}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

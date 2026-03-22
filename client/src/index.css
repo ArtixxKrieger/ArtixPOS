@@ -8,7 +8,7 @@
   :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-    /* Light mode — cool blue-gray, easy on the eyes */
+    /* Light mode */
     --background: 220 18% 88%;
     --foreground: 222 47% 10%;
     --card: 220 20% 97%;
@@ -40,7 +40,6 @@
   }
 
   .dark {
-    /* Deep navy — NYVA Pay inspired */
     --background: 224 50% 4%;
     --foreground: 210 20% 95%;
     --card: 224 44% 7%;
@@ -78,11 +77,13 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
+    overscroll-behavior: none;
   }
 
   /* Premium deep-navy background with atmospheric glows (dark mode only) */
@@ -93,15 +94,21 @@
       radial-gradient(ellipse 55% 35% at 85% 95%, rgba(99, 102, 241, 0.10) 0%, transparent 60%),
       radial-gradient(ellipse 45% 30% at 5% 80%, rgba(37, 99, 235, 0.08) 0%, transparent 60%);
   }
+
   button, [role="button"] {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+  }
+
+  /* Prevent text size adjustment on rotation */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 
 /* ─── Glass utility classes ──────────────────────────────────────────────── */
 
-/* Glass card */
 .glass-card {
   background: rgba(255, 255, 255, 0.70);
   backdrop-filter: blur(24px) saturate(180%);
@@ -115,38 +122,35 @@
   box-shadow: 0 4px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Floating nav pill — ultra-transparent glass */
 .glass-nav {
-  background: rgba(255, 255, 255, 0.60);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.80);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 .dark .glass-nav {
-  background: rgba(5, 9, 24, 0.40);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 9, 24, 0.50);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow:
-    0 8px 48px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 8px 48px rgba(0, 0, 0, 0.60),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.25);
 }
 
-/* Sticky header — frosted glass */
 .glass-header {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.70);
+  background: rgba(255, 255, 255, 0.60);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 .dark .glass-header {
-  background: rgba(5, 9, 24, 0.30);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(5, 9, 24, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 4px 24px rgba(0, 0, 0, 0.25);
 }
 
-/* Glass button — frosted "See How It Works" style */
 .glass-btn {
   background: rgba(0, 0, 0, 0.06);
   backdrop-filter: blur(20px);
@@ -160,14 +164,28 @@
   border-color: rgba(0, 0, 0, 0.14);
 }
 .dark .glass-btn {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.13);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 12px rgba(0, 0, 0, 0.25);
 }
 .dark .glass-btn:hover {
-  background: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.20);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Cart bar glass ─────────────────────────────────────────────────────── */
+.glass-cart-bar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border-top: 1px solid rgba(255, 255, 255, 0.90);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.10);
+}
+.dark .glass-cart-bar {
+  background: rgba(8, 14, 36, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.50);
 }
 
 /* ─── Scrollbar hide ─────────────────────────────────────────────────────── */
@@ -186,4 +204,27 @@
 .btn-press:active {
   transform: scale(0.95);
   opacity: 0.8;
+}
+
+/* ─── Tap target minimum ─────────────────────────────────────────────────── */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ─── Page transitions ───────────────────────────────────────────────────── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Safe area padding utilities ────────────────────────────────────────── */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }

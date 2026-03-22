@@ -115,7 +115,7 @@ export default function PendingOrders() {
           <p className="text-sm text-muted-foreground/70">Orders you save will appear here</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 stagger-children">
           {orders.map((order) => {
             const items = (order.items as OrderItem[]) || [];
             const itemCount = items.reduce((acc, i) => acc + (i.quantity || 0), 0);
@@ -128,7 +128,7 @@ export default function PendingOrders() {
               <div
                 key={order.id}
                 data-testid={`pending-order-${order.id}`}
-                className="bg-card rounded-3xl shadow-md border border-border/30 overflow-hidden flex flex-col hover:shadow-xl transition-shadow duration-300"
+                className="bg-card rounded-3xl shadow-md border border-border/30 overflow-hidden flex flex-col hover:shadow-xl transition-shadow duration-300 animate-fade-scale card-press"
               >
                 {/* Card header */}
                 <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3 border-b border-border/30">

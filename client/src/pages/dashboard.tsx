@@ -90,7 +90,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Strip */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 stagger-children">
         {[
           {
             label: "Total Sales",
@@ -128,7 +128,7 @@ export default function Dashboard() {
         ].map((card, i) => (
           <div
             key={i}
-            className={`glass-card rounded-2xl p-4 bg-gradient-to-br ${card.glow} to-transparent transition-all duration-300 group`}
+            className={`glass-card rounded-2xl p-4 bg-gradient-to-br ${card.glow} to-transparent transition-all duration-300 group animate-fade-scale card-press`}
           >
             <div className="flex items-start justify-between mb-3">
               <div className={`h-8 w-8 rounded-xl ${card.iconBg} flex items-center justify-center`}>

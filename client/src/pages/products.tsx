@@ -271,12 +271,12 @@ export default function Products() {
         </div>
       ) : (
         /* Mobile-optimized card list */
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 stagger-children">
           {filtered.map((product) => (
             <div
               key={product.id}
               data-testid={`product-row-${product.id}`}
-              className="bg-card rounded-2xl border border-border/30 px-4 py-3.5 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-card rounded-2xl border border-border/30 px-4 py-3.5 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow animate-fade-scale card-press"
             >
               {/* Icon */}
               <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

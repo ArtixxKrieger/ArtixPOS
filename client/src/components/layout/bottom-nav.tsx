@@ -34,8 +34,8 @@ export function BottomNav() {
                 transition-all duration-150 active:scale-90 active:opacity-70 min-w-[60px]
                 select-none cursor-pointer
                 ${isActive
-                  ? "bg-primary/15 dark:bg-primary/20 text-primary"
-                  : "text-foreground/50 hover:text-foreground/80 hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "glass-btn text-primary shadow-lg shadow-primary/10 dark:shadow-primary/20"
+                  : "text-foreground/50 hover:text-foreground/80 hover:bg-white/10 dark:hover:bg-white/[0.05]"
                 }`}
             >
               <div className="relative">

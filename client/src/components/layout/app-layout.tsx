@@ -79,7 +79,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
           {/* Store name */}
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-[10px] bg-primary flex items-center justify-center shadow-md shadow-primary/30">
+            <div className="h-8 w-8 rounded-[10px] bg-primary flex items-center justify-center shadow-lg shadow-primary/40 dark:shadow-primary/30">
               <span className="text-white text-sm font-bold">
                 {(settings?.storeName || "C")[0]}
               </span>
@@ -97,10 +97,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-1.5">
             {/* Theme Toggle */}
             <Button
-              variant="ghost"
+              variant="glass"
               size="icon"
               onClick={() => setIsDark(!isDark)}
-              className="h-8 w-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+              className="h-8 w-8 rounded-full"
               data-testid="button-theme-toggle"
             >
               {isDark
@@ -113,9 +113,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="glass"
                   size="icon"
-                  className="hidden md:flex h-8 w-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                  className="hidden md:flex h-8 w-8 rounded-full"
                   data-testid="button-menu"
                 >
                   <Menu className="h-4 w-4" />
@@ -123,7 +123,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </SheetTrigger>
               <SheetContent
                 side="right"
-                className="w-72 p-0 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-l border-black/10 dark:border-white/10"
+                className="w-72 p-0 bg-white/90 dark:bg-[#080d1a]/90 backdrop-blur-3xl border-l border-black/10 dark:border-white/[0.07]"
               >
                 <div className="px-5 pt-8 pb-5 border-b border-black/10 dark:border-white/10">
                   <div className="flex items-center gap-3">

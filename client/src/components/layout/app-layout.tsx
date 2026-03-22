@@ -1,12 +1,13 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Moon, Sun, Menu, Home, ShoppingCart, Clock, Package, Settings, BarChart3 } from "lucide-react";
+import { Moon, Sun, Menu, Home, ShoppingCart, Clock, Package, Settings, BarChart3, WifiOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Toaster } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 const NAV_ITEMS = [
   { label: "Dashboard", url: "/", icon: Home },
@@ -40,6 +41,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { isOnline, isSyncing, queueCount } = useOnlineStatus();
 
   const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
   const storeName = settings?.storeName || "Café Bara";
@@ -70,6 +72,38 @@ export function AppLayout({ children }: { children: ReactNode }) {
         offset={{ bottom: 96 }}
         options={{ duration: 3500, roundness: 16 }}
       />
+
+      {/* Offline / syncing banner */}
+      {(!isOnline || isSyncing) && (
+        <div
+          data-testid="banner-offline-status"
+          className={[
+            "fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold tracking-wide",
+            isSyncing
+              ? "bg-primary/90 text-white"
+              : "bg-amber-500/90 dark:bg-amber-600/90 text-white",
+          ].join(" ")}
+          style={{ backdropFilter: "blur(8px)" }}
+        >
+          {isSyncing ? (
+            <>
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              Syncing {queueCount} offline {queueCount === 1 ? "change" : "changes"}…
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-3.5 w-3.5" />
+              Offline mode — changes will sync when you reconnect
+              {queueCount > 0 && (
+                <span className="ml-1 bg-white/20 rounded-full px-1.5 py-0.5">
+                  {queueCount} pending
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Glass Header */}
       <header className="sticky top-0 z-40 glass-header">
         <div

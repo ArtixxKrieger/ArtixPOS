@@ -1,14 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertPendingOrder } from "@shared/schema";
+import { getCached, setCached, patchCached, queueMutation, isOffline } from "@/lib/offline-db";
+
+const LIST_URL = api.pendingOrders.list.path;
 
 export function usePendingOrders() {
   return useQuery({
-    queryKey: [api.pendingOrders.list.path],
+    queryKey: [LIST_URL],
     queryFn: async () => {
-      const res = await fetch(api.pendingOrders.list.path, { credentials: "include" });
+      if (isOffline()) {
+        const cached = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
+        if (cached) return cached;
+        throw new Error("Offline — no cached orders available");
+      }
+      const res = await fetch(LIST_URL, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch pending orders");
-      return api.pendingOrders.list.responses[200].parse(await res.json());
+      const data = api.pendingOrders.list.responses[200].parse(await res.json());
+      await setCached(LIST_URL, data);
+      return data;
     },
   });
 }
@@ -17,6 +27,12 @@ export function useCreatePendingOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: InsertPendingOrder) => {
+      if (isOffline()) {
+        await queueMutation("POST", api.pendingOrders.create.path, data);
+        const optimistic = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
+        await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
+        return optimistic as any;
+      }
       const res = await fetch(api.pendingOrders.create.path, {
         method: api.pendingOrders.create.method,
         headers: { "Content-Type": "application/json" },
@@ -24,9 +40,11 @@ export function useCreatePendingOrder() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to create pending order");
-      return api.pendingOrders.create.responses[201].parse(await res.json());
+      const result = api.pendingOrders.create.responses[201].parse(await res.json());
+      await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
+      return result;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.pendingOrders.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
   });
 }
 
@@ -35,13 +53,19 @@ export function useDeletePendingOrder() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.pendingOrders.delete.path, { id });
+      if (isOffline()) {
+        await queueMutation("DELETE", url);
+        await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
+        return;
+      }
       const res = await fetch(url, {
         method: api.pendingOrders.delete.method,
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete pending order");
+      await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.pendingOrders.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
   });
 }
 
@@ -50,6 +74,13 @@ export function useUpdatePendingOrder() {
   return useMutation({
     mutationFn: async ({ id, ...data }: { id: number } & Partial<InsertPendingOrder>) => {
       const url = buildUrl(api.pendingOrders.update.path, { id });
+      if (isOffline()) {
+        await queueMutation("PUT", url, data);
+        await patchCached(LIST_URL, (prev: any[]) =>
+          prev.map((o: any) => (o.id === id ? { ...o, ...data } : o))
+        );
+        return { id, ...data } as any;
+      }
       const res = await fetch(url, {
         method: api.pendingOrders.update.method,
         headers: { "Content-Type": "application/json" },
@@ -58,8 +89,12 @@ export function useUpdatePendingOrder() {
       });
       if (!res.ok) throw new Error("Failed to update pending order");
       const json = await res.json();
-      return api.pendingOrders.update.responses[200].parse(json);
+      const result = api.pendingOrders.update.responses[200].parse(json);
+      await patchCached(LIST_URL, (prev: any[]) =>
+        prev.map((o: any) => (o.id === id ? result : o))
+      );
+      return result;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.pendingOrders.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
   });
 }

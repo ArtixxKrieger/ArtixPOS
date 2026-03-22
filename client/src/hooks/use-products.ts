@@ -1,14 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertProduct } from "@shared/schema";
+import { getCached, setCached, patchCached, queueMutation, isOffline } from "@/lib/offline-db";
+
+const LIST_URL = api.products.list.path;
 
 export function useProducts() {
   return useQuery({
-    queryKey: [api.products.list.path],
+    queryKey: [LIST_URL],
     queryFn: async () => {
-      const res = await fetch(api.products.list.path, { credentials: "include" });
+      if (isOffline()) {
+        const cached = await getCached<ReturnType<typeof api.products.list.responses[200]["parse"]>>(LIST_URL);
+        if (cached) return cached;
+        throw new Error("Offline — no cached products available");
+      }
+      const res = await fetch(LIST_URL, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch products");
-      return api.products.list.responses[200].parse(await res.json());
+      const data = api.products.list.responses[200].parse(await res.json());
+      await setCached(LIST_URL, data);
+      return data;
     },
   });
 }
@@ -31,6 +41,12 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: InsertProduct) => {
+      if (isOffline()) {
+        await queueMutation("POST", api.products.create.path, data);
+        const optimistic = { ...data, id: Date.now(), sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
+        await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
+        return optimistic as any;
+      }
       const res = await fetch(api.products.create.path, {
         method: api.products.create.method,
         headers: { "Content-Type": "application/json" },
@@ -44,9 +60,11 @@ export function useCreateProduct() {
         }
         throw new Error("Failed to create product");
       }
-      return api.products.create.responses[201].parse(await res.json());
+      const result = api.products.create.responses[201].parse(await res.json());
+      await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
+      return result;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.products.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
   });
 }
 
@@ -55,6 +73,13 @@ export function useUpdateProduct() {
   return useMutation({
     mutationFn: async ({ id, ...data }: { id: number } & Partial<InsertProduct>) => {
       const url = buildUrl(api.products.update.path, { id });
+      if (isOffline()) {
+        await queueMutation("PUT", url, data);
+        await patchCached(LIST_URL, (prev: any[]) =>
+          prev.map((p) => (p.id === id ? { ...p, ...data } : p))
+        );
+        return { id, ...data } as any;
+      }
       const res = await fetch(url, {
         method: api.products.update.method,
         headers: { "Content-Type": "application/json" },
@@ -62,9 +87,13 @@ export function useUpdateProduct() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update product");
-      return api.products.update.responses[200].parse(await res.json());
+      const result = api.products.update.responses[200].parse(await res.json());
+      await patchCached(LIST_URL, (prev: any[]) =>
+        prev.map((p) => (p.id === id ? result : p))
+      );
+      return result;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.products.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
   });
 }
 
@@ -73,12 +102,18 @@ export function useDeleteProduct() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.products.delete.path, { id });
+      if (isOffline()) {
+        await queueMutation("DELETE", url);
+        await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
+        return;
+      }
       const res = await fetch(url, {
         method: api.products.delete.method,
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete product");
+      await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.products.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
   });
 }

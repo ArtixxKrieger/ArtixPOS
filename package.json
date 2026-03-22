@@ -57,6 +57,7 @@
     "express": "^5.0.1",
     "express-session": "^1.18.1",
     "framer-motion": "^11.13.1",
+    "idb": "^8.0.3",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",

@@ -41,7 +41,6 @@ export function useCreateSale() {
         });
         if (!res.ok) throw new Error("Failed to record sale");
         const result = api.sales.create.responses[201].parse(await res.json());
-        await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
         return result;
       } catch (err) {
         if (!isNetworkError(err)) throw err;
@@ -51,7 +50,13 @@ export function useCreateSale() {
         return optimistic as any;
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      queryClient.setQueryData([LIST_URL], (old: any[] | undefined) => [
+        ...(old ?? []),
+        result,
+      ]);
+      const fresh = queryClient.getQueryData<any[]>([LIST_URL]);
+      if (fresh) setCached(LIST_URL, fresh);
       queryClient.invalidateQueries({ queryKey: [LIST_URL] });
     },
   });

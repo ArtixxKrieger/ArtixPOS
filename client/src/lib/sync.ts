@@ -7,6 +7,44 @@ export interface SyncResult {
   errors: string[];
 }
 
+function isTempId(id: string | number): boolean {
+  const n = Number(id);
+  return n > 1_000_000_000_000;
+}
+
+function extractPendingOrderId(url: string): string | null {
+  const m = url.match(/\/api\/pending-orders\/(\d+)$/);
+  return m ? m[1] : null;
+}
+
+function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
+  const result = [...queue];
+  const toRemove = new Set<number>();
+
+  for (let i = 0; i < result.length; i++) {
+    const item = result[i];
+    if (item.method !== "DELETE") continue;
+
+    const pendingId = extractPendingOrderId(item.url);
+    if (!pendingId || !isTempId(pendingId)) continue;
+
+    const createIdx = result.findIndex(
+      (q, idx) =>
+        idx < i &&
+        q.method === "POST" &&
+        q.url === "/api/pending-orders" &&
+        !toRemove.has(q.id!)
+    );
+
+    if (createIdx !== -1) {
+      toRemove.add(result[createIdx].id!);
+      toRemove.add(item.id!);
+    }
+  }
+
+  return result.filter((q) => !toRemove.has(q.id!));
+}
+
 async function processMutation(item: QueuedMutation): Promise<void> {
   const res = await fetch(item.url, {
     method: item.method,
@@ -21,8 +59,16 @@ async function processMutation(item: QueuedMutation): Promise<void> {
 }
 
 export async function syncOfflineData(): Promise<SyncResult> {
-  const queue = await getQueue();
-  if (queue.length === 0) return { synced: 0, failed: 0, errors: [] };
+  const rawQueue = await getQueue();
+  if (rawQueue.length === 0) return { synced: 0, failed: 0, errors: [] };
+
+  const queue = foldQueue(rawQueue);
+
+  const cancelledIds = new Set(rawQueue.map((q) => q.id!));
+  queue.forEach((q) => cancelledIds.delete(q.id!));
+  for (const id of cancelledIds) {
+    await removeQueueItem(id);
+  }
 
   const result: SyncResult = { synced: 0, failed: 0, errors: [] };
 
@@ -37,7 +83,7 @@ export async function syncOfflineData(): Promise<SyncResult> {
     }
   }
 
-  if (result.synced > 0) {
+  if (result.synced > 0 || cancelledIds.size > 0) {
     await queryClient.invalidateQueries();
   }
 

@@ -10,6 +10,16 @@ interface OnlineStatus {
   triggerSync: () => Promise<void>;
 }
 
+async function checkRealConnectivity(): Promise<boolean> {
+  if (!navigator.onLine) return false;
+  try {
+    await fetch("/api/settings", { method: "HEAD", credentials: "include" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function useOnlineStatus(): OnlineStatus {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -22,7 +32,9 @@ export function useOnlineStatus(): OnlineStatus {
   }, []);
 
   const triggerSync = useCallback(async () => {
-    if (isSyncing || !navigator.onLine) return;
+    if (isSyncing) return;
+    const online = await checkRealConnectivity();
+    if (!online) return;
     setIsSyncing(true);
     try {
       const result = await syncOfflineData();
@@ -37,17 +49,20 @@ export function useOnlineStatus(): OnlineStatus {
     refreshCount();
 
     const handleOnline = async () => {
-      setIsOnline(true);
-      const count = await getQueueCount();
-      setQueueCount(count);
-      if (count > 0) {
-        setIsSyncing(true);
-        try {
-          const result = await syncOfflineData();
-          setLastSync(result);
-          setQueueCount(0);
-        } finally {
-          setIsSyncing(false);
+      const online = await checkRealConnectivity();
+      setIsOnline(online);
+      if (online) {
+        const count = await getQueueCount();
+        setQueueCount(count);
+        if (count > 0) {
+          setIsSyncing(true);
+          try {
+            const result = await syncOfflineData();
+            setLastSync(result);
+            setQueueCount(0);
+          } finally {
+            setIsSyncing(false);
+          }
         }
       }
     };

@@ -36,7 +36,7 @@ export function BottomNav() {
                 "transition-all duration-200 active:scale-90 select-none cursor-pointer min-w-[58px]",
                 isActive
                   ? "glass-btn text-primary"
-                  : "text-white/30 dark:text-white/30 hover:text-white/60",
+                  : "text-foreground/40 dark:text-white/35 hover:text-foreground/70 dark:hover:text-white/65",
               ].join(" ")}
             >
               {isActive && (

@@ -296,3 +296,23 @@
   font-size: 11.5px !important;
   font-weight: 500 !important;
 }
+
+/* ── Dark mode text fix ────────────────────────────────────────────────────
+   Sileo hardcodes description to rgba(0,0,0,0.5) in dark theme,
+   which is invisible against our dark navy fill. Override to white.       */
+.dark [data-sileo-viewport] [data-sileo-description] {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+/* Title in dark mode: use the state tone colour (already readable) but
+   ensure it never falls back to black via currentColor.                    */
+.dark [data-sileo-viewport] [data-sileo-title] {
+  color: var(--sileo-tone, rgba(255, 255, 255, 0.9)) !important;
+}
+
+/* Sileo's theme="system" tracks OS preference, but our ThemeProvider
+   drives a manual .dark class. Flip the data-theme so sileo's own
+   CSS selectors stay in sync with our class-based dark mode.              */
+.dark [data-sileo-viewport] {
+  --sileo-viewport-theme: dark;
+}

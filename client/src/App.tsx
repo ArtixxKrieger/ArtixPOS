@@ -1,7 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "sileo";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/app-layout";
@@ -33,15 +32,6 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster
-          position="bottom-center"
-          theme="system"
-          offset={{ bottom: 96 }}
-          options={{
-            duration: 3500,
-            roundness: 16,
-          }}
-        />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>

@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Moon, Sun, Menu, Home, ShoppingCart, Clock, Package, Settings, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Toaster } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
@@ -63,6 +64,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen w-full bg-background">
+      <Toaster
+        position="bottom-center"
+        theme={isDark ? "dark" : "light"}
+        offset={{ bottom: 96 }}
+        options={{ duration: 3500, roundness: 16 }}
+      />
       {/* Glass Header */}
       <header className="sticky top-0 z-40 glass-header">
         <div

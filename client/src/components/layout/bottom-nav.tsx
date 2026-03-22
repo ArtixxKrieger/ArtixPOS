@@ -2,6 +2,14 @@ import { useLocation } from "wouter";
 import { Home, ShoppingCart, Clock, Package, Settings } from "lucide-react";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 
+const NAV_ITEMS = [
+  { label: "Home", url: "/", icon: Home },
+  { label: "POS", url: "/pos", icon: ShoppingCart },
+  { label: "Pending", url: "/pending", icon: Clock },
+  { label: "Products", url: "/products", icon: Package },
+  { label: "Settings", url: "/settings", icon: Settings },
+] as const;
+
 export function BottomNav() {
   const [location, setLocation] = useLocation();
   const { data: pendingOrders = [] } = usePendingOrders();
@@ -10,50 +18,53 @@ export function BottomNav() {
     (o: any) => o.status !== "paid"
   ).length;
 
-  const navItems = [
-    { label: "Home", url: "/", icon: Home, badge: null },
-    { label: "POS", url: "/pos", icon: ShoppingCart, badge: null },
-    { label: "Pending", url: "/pending", icon: Clock, badge: pendingCount > 0 ? pendingCount : null },
-    { label: "Products", url: "/products", icon: Package, badge: null },
-    { label: "Settings", url: "/settings", icon: Settings, badge: null },
-  ];
-
   return (
-    <nav className="md:hidden fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
-      <div className="pointer-events-auto glass-nav rounded-[28px] px-2 py-2 flex items-center gap-0.5">
-        {navItems.map((item) => {
+    <nav className="md:hidden fixed bottom-5 left-0 right-0 z-50 flex justify-center pointer-events-none px-4">
+      <div className="pointer-events-auto glass-nav rounded-[32px] px-1.5 py-1.5 flex items-center gap-0.5">
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.url;
+          const badge = item.label === "Pending" && pendingCount > 0 ? pendingCount : null;
 
           return (
             <button
               key={item.url}
               onClick={() => setLocation(item.url)}
               data-testid={`nav-${item.label.toLowerCase()}`}
-              className={`relative flex flex-col items-center justify-center gap-1.5 px-4 py-2.5 rounded-[20px] 
-                transition-all duration-150 active:scale-90 active:opacity-70 min-w-[60px]
-                select-none cursor-pointer
-                ${isActive
-                  ? "glass-btn text-primary shadow-lg shadow-primary/10 dark:shadow-primary/20"
-                  : "text-foreground/50 hover:text-foreground/80 hover:bg-white/10 dark:hover:bg-white/[0.05]"
-                }`}
+              className={[
+                "relative flex flex-col items-center justify-center gap-1 px-3.5 py-2.5 rounded-[24px]",
+                "transition-all duration-200 active:scale-90 select-none cursor-pointer min-w-[58px]",
+                isActive
+                  ? "glass-btn text-primary"
+                  : "text-white/30 dark:text-white/30 hover:text-white/60",
+              ].join(" ")}
             >
-              <div className="relative">
-                <Icon className={`h-5 w-5 transition-transform duration-150 ${isActive ? "scale-110" : "scale-100"}`} />
-                {item.badge ? (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none shadow-sm">
-                    {item.badge > 9 ? "9+" : item.badge}
+              {isActive && (
+                <span className="absolute inset-0 rounded-[24px] bg-primary/10 dark:bg-primary/15" />
+              )}
+
+              <div className="relative z-10">
+                <Icon
+                  className={[
+                    "h-[18px] w-[18px] transition-all duration-200",
+                    isActive ? "scale-110 stroke-[2.2px]" : "scale-100 stroke-[1.8px]",
+                  ].join(" ")}
+                />
+                {badge ? (
+                  <span className="absolute -top-2 -right-2.5 bg-rose-500 text-white text-[9px] font-bold w-[14px] h-[14px] rounded-full flex items-center justify-center leading-none shadow-sm shadow-rose-500/40">
+                    {badge > 9 ? "9+" : badge}
                   </span>
                 ) : null}
               </div>
-              <span className={`text-[10px] leading-none transition-all duration-150 ${isActive ? "font-semibold" : "font-medium"}`}>
+
+              <span
+                className={[
+                  "text-[9px] leading-none tracking-wide z-10 transition-all duration-200",
+                  isActive ? "font-semibold opacity-100" : "font-medium opacity-60",
+                ].join(" ")}
+              >
                 {item.label}
               </span>
-
-              {/* Active indicator dot */}
-              {isActive && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-              )}
             </button>
           );
         })}

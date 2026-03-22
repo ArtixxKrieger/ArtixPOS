@@ -7,12 +7,27 @@ import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
 
+const NAV_ITEMS = [
+  { label: "Home", url: "/", icon: Home },
+  { label: "POS", url: "/pos", icon: ShoppingCart },
+  { label: "Pending", url: "/pending", icon: Clock },
+  { label: "Products", url: "/products", icon: Package },
+  { label: "Settings", url: "/settings", icon: Settings },
+] as const;
+
+const PAGE_TITLES: Record<string, string> = {
+  "/": "Dashboard",
+  "/pos": "Point of Sale",
+  "/pending": "Pending Orders",
+  "/products": "Products",
+  "/settings": "Settings",
+};
+
 function getInitialDark(): boolean {
   if (typeof window === "undefined") return false;
   const saved = localStorage.getItem("theme");
   if (saved === "dark") return true;
   if (saved === "light") return false;
-  // default: system preference
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -24,48 +39,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
+  const storeName = settings?.storeName || "Café Bara";
+  const storeInitial = storeName[0].toUpperCase();
 
-  // Apply theme class whenever isDark changes
   useEffect(() => {
     const root = document.documentElement;
-    if (isDark) {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
+    root.classList.toggle("dark", isDark);
+    localStorage.setItem("theme", isDark ? "dark" : "light");
   }, [isDark]);
 
-  // Apply theme on first paint before React hydrates (avoids flash)
   useEffect(() => {
     const dark = getInitialDark();
     setIsDark(dark);
-    if (dark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    document.documentElement.classList.toggle("dark", dark);
   }, []);
-
-  const getPageTitle = () => {
-    const titles: Record<string, string> = {
-      "/": "Dashboard",
-      "/pos": "Point of Sale",
-      "/pending": "Pending Orders",
-      "/products": "Products",
-      "/settings": "Settings",
-    };
-    return titles[location] || "Dashboard";
-  };
-
-  const navItems = [
-    { label: "Home", url: "/", icon: Home, badge: null },
-    { label: "POS", url: "/pos", icon: ShoppingCart, badge: null },
-    { label: "Pending", url: "/pending", icon: Clock, badge: pendingCount > 0 ? pendingCount : null },
-    { label: "Products", url: "/products", icon: Package, badge: null },
-    { label: "Settings", url: "/settings", icon: Settings, badge: null },
-  ];
 
   const navigate = (url: string) => {
     setLocation(url);
@@ -76,26 +63,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen w-full bg-background">
       {/* Glass Header */}
       <header className="sticky top-0 z-40 glass-header">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
-          {/* Store name */}
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-[10px] bg-primary flex items-center justify-center shadow-lg shadow-primary/40 dark:shadow-primary/30">
-              <span className="text-white text-sm font-bold">
-                {(settings?.storeName || "C")[0]}
-              </span>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-3">
+
+          {/* Brand */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-8 w-8 shrink-0 rounded-[10px] bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+              <span className="text-white text-sm font-bold">{storeInitial}</span>
             </div>
-            <div>
-              <p className="text-sm font-semibold leading-none">
-                {settings?.storeName || "Café Bara"}
-              </p>
-              <p className="text-[11px] text-muted-foreground leading-none mt-0.5 hidden md:block">
-                {getPageTitle()}
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-none truncate">{storeName}</p>
+              <p className="text-[10px] text-muted-foreground/70 leading-none mt-[3px] hidden md:block tracking-wide uppercase">
+                {PAGE_TITLES[location] || "Dashboard"}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {/* Theme Toggle */}
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button
               variant="glass"
               size="icon"
@@ -104,12 +88,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               data-testid="button-theme-toggle"
             >
               {isDark
-                ? <Sun className="h-4 w-4 text-amber-400" />
-                : <Moon className="h-4 w-4 text-slate-500" />
+                ? <Sun className="h-[15px] w-[15px] text-amber-400" />
+                : <Moon className="h-[15px] w-[15px] text-slate-400" />
               }
             </Button>
 
-            {/* Hamburger — desktop only */}
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>
                 <Button
@@ -118,46 +101,54 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   className="hidden md:flex h-8 w-8 rounded-full"
                   data-testid="button-menu"
                 >
-                  <Menu className="h-4 w-4" />
+                  <Menu className="h-[15px] w-[15px]" />
                 </Button>
               </SheetTrigger>
+
               <SheetContent
                 side="right"
-                className="w-72 p-0 bg-white/90 dark:bg-[#080d1a]/90 backdrop-blur-3xl border-l border-black/10 dark:border-white/[0.07]"
+                className="w-72 p-0 border-l border-white/[0.06]"
+                style={{
+                  background: "rgba(6, 10, 26, 0.85)",
+                  backdropFilter: "blur(40px) saturate(200%)",
+                  WebkitBackdropFilter: "blur(40px) saturate(200%)",
+                }}
               >
-                <div className="px-5 pt-8 pb-5 border-b border-black/10 dark:border-white/10">
+                {/* Sheet Header */}
+                <div className="px-5 pt-8 pb-5 border-b border-white/[0.06]">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-[12px] bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-                      <span className="text-white font-bold">
-                        {(settings?.storeName || "C")[0]}
-                      </span>
+                    <div className="h-10 w-10 rounded-[12px] bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+                      <span className="text-white font-bold">{storeInitial}</span>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{settings?.storeName || "Café Bara"}</p>
-                      <p className="text-xs text-muted-foreground">POS System</p>
+                      <p className="font-semibold text-sm">{storeName}</p>
+                      <p className="text-[10px] text-muted-foreground tracking-wide uppercase mt-0.5">POS System</p>
                     </div>
                   </div>
                 </div>
 
-                <nav className="p-3 space-y-1">
-                  {navItems.map((item) => {
+                {/* Sheet Nav */}
+                <nav className="p-3 space-y-0.5">
+                  {NAV_ITEMS.map((item) => {
                     const Icon = item.icon;
                     const isActive = location === item.url;
+                    const badge = item.label === "Pending" && pendingCount > 0 ? pendingCount : null;
                     return (
                       <button
                         key={item.url}
                         onClick={() => navigate(item.url)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        className={[
+                          "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                           isActive
-                            ? "bg-primary/10 dark:bg-primary/15 text-primary"
-                            : "text-foreground/70 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-                        }`}
+                            ? "bg-primary/10 text-primary border border-primary/10"
+                            : "text-foreground/50 hover:text-foreground/80 hover:bg-white/[0.05]",
+                        ].join(" ")}
                       >
-                        <Icon className="h-4 w-4 flex-shrink-0" />
+                        <Icon className="h-4 w-4 shrink-0" />
                         <span>{item.label}</span>
-                        {item.badge ? (
-                          <span className="ml-auto bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                            {item.badge}
+                        {badge ? (
+                          <span className="ml-auto bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm shadow-rose-500/40">
+                            {badge > 9 ? "9+" : badge}
                           </span>
                         ) : null}
                       </button>
@@ -177,7 +168,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </main>
 
-      {/* Floating Glass Pill Nav — mobile only */}
       <BottomNav />
     </div>
   );

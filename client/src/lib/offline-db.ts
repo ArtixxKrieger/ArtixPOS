@@ -59,9 +59,7 @@ export async function patchCached<T>(
 ): Promise<void> {
   try {
     const current = await getCached<T[]>(url);
-    if (current !== null) {
-      await setCached(url, updater(current));
-    }
+    await setCached(url, updater(current ?? []));
   } catch {}
 }
 

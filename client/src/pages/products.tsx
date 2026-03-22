@@ -148,7 +148,7 @@ export default function Products() {
                       <FormItem>
                         <FormLabel className="font-semibold text-sm">Base Price ({currency})</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} value={field.value || "0"} className="h-11 rounded-xl bg-secondary border-none" />
+                          <Input type="text" inputMode="decimal" {...field} className="h-11 rounded-xl bg-secondary border-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -158,7 +158,7 @@ export default function Products() {
                       <FormItem>
                         <FormLabel className="font-semibold text-sm">Category</FormLabel>
                         <FormControl>
-                          <Input {...field} value={field.value || "General"} className="h-11 rounded-xl bg-secondary border-none" />
+                          <Input {...field} className="h-11 rounded-xl bg-secondary border-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -191,7 +191,7 @@ export default function Products() {
                         <FormField control={form.control} name={`sizes.${index}.price`} render={({ field }) => (
                           <FormItem className="w-24">
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
+                              <Input type="text" inputMode="decimal" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />
@@ -228,7 +228,7 @@ export default function Products() {
                         <FormField control={form.control} name={`modifiers.${index}.price`} render={({ field }) => (
                           <FormItem className="w-24">
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} value={field.value || "0"} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
+                              <Input type="text" inputMode="decimal" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />

@@ -15,6 +15,7 @@ interface OrderItem {
   product: { name: string };
   size?: { name: string };
   modifiers?: Array<{ name: string }>;
+  note?: string;
 }
 
 interface PendingOrder {
@@ -28,7 +29,6 @@ interface PendingOrder {
   paymentAmount: string;
   changeAmount: string;
   status: string;
-  customerName: string | null;
   notes: string | null;
   createdAt: string | null;
 }
@@ -57,7 +57,6 @@ export default function PendingOrders() {
       paymentMethod: order.paymentMethod || "cash",
       paymentAmount: paidAmount.toString(),
       changeAmount: Math.max(0, paidAmount - total).toString(),
-      customerName: order.customerName || null,
       notes: order.notes || null,
     }, {
       onSuccess: () => {
@@ -172,6 +171,11 @@ export default function PendingOrders() {
                         {item.modifiers && item.modifiers.length > 0 && (
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             + {item.modifiers.map((m: any) => m.name).join(", ")}
+                          </p>
+                        )}
+                        {item.note && (
+                          <p className="text-[10px] text-muted-foreground/60 italic mt-0.5">
+                            "{item.note}"
                           </p>
                         )}
                       </div>

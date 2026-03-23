@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function getQuickAmounts(total: number): number[] {
@@ -32,6 +32,7 @@ type CartItem = {
   quantity: number;
   size?: { name: string; price: string };
   modifiers?: { name: string; price: string }[];
+  note?: string;
 };
 
 export default function POS() {
@@ -52,6 +53,7 @@ export default function POS() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [tempSize, setTempSize] = useState<{ name: string; price: string } | null>(null);
   const [tempModifiers, setTempModifiers] = useState<{ name: string; price: string }[]>([]);
+  const [tempNote, setTempNote] = useState("");
 
   const paymentInputRef = useRef<HTMLInputElement>(null);
   const [isPaymentFocused, setIsPaymentFocused] = useState(false);
@@ -88,12 +90,13 @@ export default function POS() {
     });
   }, [products, search, category]);
 
-  const addToCart = (product: Product, size?: { name: string; price: string }, modifiers?: { name: string; price: string }[]) => {
+  const addToCart = (product: Product, size?: { name: string; price: string }, modifiers?: { name: string; price: string }[], note?: string) => {
     setCart(prev => {
       const existing = prev.find(item =>
         item.product.id === product.id &&
         item.size?.name === size?.name &&
-        JSON.stringify(item.modifiers) === JSON.stringify(modifiers)
+        JSON.stringify(item.modifiers) === JSON.stringify(modifiers) &&
+        !note
       );
       if (existing) {
         return prev.map(item =>
@@ -107,12 +110,20 @@ export default function POS() {
         product,
         quantity: 1,
         size,
-        modifiers
+        modifiers,
+        note: note || undefined,
       }];
     });
     setSelectedProduct(null);
     setTempSize(null);
     setTempModifiers([]);
+    setTempNote("");
+  };
+
+  const updateNote = (cartId: string, note: string) => {
+    setCart(prev => prev.map(item =>
+      item.cartId === cartId ? { ...item, note: note || undefined } : item
+    ));
   };
 
   const handleProductClick = (product: Product) => {
@@ -250,6 +261,16 @@ export default function POS() {
                     ))}
                   </div>
                 )}
+                <div className="flex items-center gap-1.5">
+                  <NotebookPen className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                  <input
+                    type="text"
+                    value={item.note || ""}
+                    onChange={(e) => updateNote(item.cartId, e.target.value)}
+                    placeholder="Add a note..."
+                    className="flex-1 text-[11px] bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/35 font-medium"
+                  />
+                </div>
               </div>
             );
           })
@@ -531,7 +552,7 @@ export default function POS() {
       </Sheet>
 
       {/* Product customization dialog */}
-      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => { if (!open) { setSelectedProduct(null); setTempNote(""); } }}>
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-5 bg-primary text-white">
             <DialogTitle className="text-xl font-black">{selectedProduct?.name}</DialogTitle>
@@ -588,9 +609,22 @@ export default function POS() {
               </div>
             )}
 
+            <div className="space-y-2">
+              <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                <NotebookPen className="h-3 w-3" /> Note
+              </h4>
+              <input
+                type="text"
+                value={tempNote}
+                onChange={(e) => setTempNote(e.target.value)}
+                placeholder="e.g. Less sugar, extra hot..."
+                className="w-full rounded-2xl border border-border/40 bg-secondary/50 px-4 py-3 text-sm outline-none focus:border-primary/40 transition-colors placeholder:text-muted-foreground/40 font-medium"
+              />
+            </div>
+
             <Button
               className="w-full h-14 rounded-2xl font-black text-base bg-primary shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
-              onClick={() => selectedProduct && addToCart(selectedProduct, tempSize || undefined, tempModifiers)}
+              onClick={() => selectedProduct && addToCart(selectedProduct, tempSize || undefined, tempModifiers, tempNote || undefined)}
               data-testid="button-add-to-cart"
             >
               <Plus className="h-4 w-4 mr-1.5" />

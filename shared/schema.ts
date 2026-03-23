@@ -41,7 +41,6 @@ export const pendingOrders = sqliteTable("pending_orders", {
   paymentAmount: text("payment_amount"),
   changeAmount: text("change_amount"),
   status: text("status").default("unpaid"),
-  customerName: text("customer_name"),
   notes: text("notes"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -56,7 +55,6 @@ export const sales = sqliteTable("sales", {
   paymentMethod: text("payment_method").default("cash"),
   paymentAmount: text("payment_amount"),
   changeAmount: text("change_amount"),
-  customerName: text("customer_name"),
   notes: text("notes"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -110,7 +108,6 @@ export const insertPendingOrderSchema = createInsertSchema(pendingOrders)
     paymentAmount: z.string().optional().nullable(),
     changeAmount: z.string().optional().nullable(),
     status: z.string().optional().nullable(),
-    customerName: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
   });
 
@@ -124,7 +121,6 @@ export const insertSaleSchema = createInsertSchema(sales)
     paymentMethod: z.string().optional().nullable(),
     paymentAmount: z.string().optional().nullable(),
     changeAmount: z.string().optional().nullable(),
-    customerName: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
   });
 

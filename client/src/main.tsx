@@ -9,39 +9,56 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-// In development, Vite's HMR WebSocket drops when wifi is lost.
-// When wifi returns, Vite polls the server and then calls location.reload()
-// to "resync" — causing a full page reload and losing all offline state.
-// This intercepts that specific reload so the app stays alive and can
-// sync offline-queued sales normally. In production there is no HMR,
-// so this block never runs.
+// In development, Vite's HMR WebSocket drops when wifi is lost. When wifi
+// returns, Vite polls the dev server with a special ping request, and upon
+// success immediately calls location.reload(). This causes a full page reload
+// that discards all offline-queued sales.
+//
+// Fix: intercept that ping request so it never resolves during the reconnect
+// window. Without a successful ping, Vite never calls location.reload().
+// After 12 s we unblock, so HMR still works for normal code changes.
+// In production there is no HMR, so this block never runs.
 if (import.meta.env.DEV) {
-  let blockNextReload = false;
-  let blockTimer: ReturnType<typeof setTimeout> | null = null;
+  let blockPing = false;
+  let unblockTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const originalReload = Location.prototype.reload;
-  Location.prototype.reload = function (this: Location) {
-    if (blockNextReload) return;
-    originalReload.call(this);
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = function (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> {
+    // Detect Vite's server-availability ping.
+    // Vite sends it with Accept: text/x-vite-ping and mode: no-cors.
+    const isVitePing =
+      blockPing &&
+      init != null &&
+      (init as RequestInit).mode === "no-cors";
+
+    if (isVitePing) {
+      // Return a promise that never resolves → Vite never calls reload().
+      return new Promise<Response>(() => {});
+    }
+
+    return originalFetch(input, init);
   };
 
   window.addEventListener("offline", () => {
-    blockNextReload = true;
-    if (blockTimer) clearTimeout(blockTimer);
-    // Safety: lift the block after 2 minutes if nothing happens.
-    blockTimer = setTimeout(() => {
-      blockNextReload = false;
+    blockPing = true;
+    if (unblockTimer) clearTimeout(unblockTimer);
+    // Safety valve: unblock after 2 min even if online event never fires.
+    unblockTimer = setTimeout(() => {
+      blockPing = false;
     }, 120_000);
   });
 
   window.addEventListener("online", () => {
-    // Vite polls then calls reload() a few seconds after the online event.
-    // Keep the block for 10 s to catch that call, then lift it so
-    // intentional reloads (e.g. manual refresh) still work.
-    if (blockTimer) clearTimeout(blockTimer);
-    blockTimer = setTimeout(() => {
-      blockNextReload = false;
-    }, 10_000);
+    // Keep blocking for 12 s so Vite's ping (which fires a few seconds after
+    // the online event) is still intercepted, then release.
+    if (unblockTimer) clearTimeout(unblockTimer);
+    unblockTimer = setTimeout(() => {
+      blockPing = false;
+    }, 12_000);
   });
 }
 

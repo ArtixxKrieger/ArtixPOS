@@ -19,15 +19,29 @@ export function BottomNav() {
     (o: any) => o.status !== "paid"
   ).length;
 
+  const activeIndex = NAV_ITEMS.findIndex((item) => item.url === location);
+  const safeIndex = activeIndex === -1 ? 0 : activeIndex;
+
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 6px)" }}
     >
       <div
-        className="pointer-events-auto glass-nav mx-3 mb-1.5 rounded-[24px] px-1 py-1 flex items-center w-full"
+        className="pointer-events-auto glass-nav mx-3 mb-1.5 rounded-[24px] px-1 py-1 flex items-center w-full relative"
         style={{ maxWidth: "480px" }}
       >
+        {/* Sliding active pill */}
+        <div
+          className="absolute inset-y-1 pointer-events-none z-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+          style={{
+            width: `calc((100% - 8px) / ${NAV_ITEMS.length})`,
+            transform: `translateX(calc(${safeIndex} * 100%))`,
+          }}
+        >
+          <div className="w-full h-full rounded-[18px] bg-primary/10 dark:bg-primary/15 glass-btn" />
+        </div>
+
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.url;
@@ -39,17 +53,13 @@ export function BottomNav() {
               onClick={() => setLocation(item.url)}
               data-testid={`nav-${item.label.toLowerCase()}`}
               className={[
-                "relative flex flex-col items-center justify-center gap-[2px] rounded-[18px] flex-1",
+                "relative flex flex-col items-center justify-center gap-[2px] rounded-[18px] flex-1 z-10",
                 "transition-all duration-200 active:scale-90 select-none cursor-pointer py-2",
                 isActive
-                  ? "glass-btn text-primary"
+                  ? "text-primary"
                   : "text-foreground/40 dark:text-white/35 hover:text-foreground/70 dark:hover:text-white/65",
               ].join(" ")}
             >
-              {isActive && (
-                <span className="absolute inset-0 rounded-[18px] bg-primary/10 dark:bg-primary/15" />
-              )}
-
               <div className="relative z-10">
                 <Icon
                   className={[

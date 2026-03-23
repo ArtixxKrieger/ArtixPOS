@@ -14,6 +14,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+function getQuickAmounts(total: number): number[] {
+  const units = [5, 10, 20, 50, 100, 200, 500, 1000];
+  const results: number[] = [];
+  for (const unit of units) {
+    const rounded = Math.ceil(total / unit) * unit;
+    if (rounded > total && !results.includes(rounded) && results.length < 4) {
+      results.push(rounded);
+    }
+  }
+  return results;
+}
+
 type CartItem = {
   cartId: string;
   product: Product;
@@ -131,6 +143,7 @@ export default function POS() {
   const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax - discount;
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
+  const quickAmounts = useMemo(() => getQuickAmounts(total), [total]);
 
   const numericPayment = isOnlinePayment ? total : parseNumeric(paymentAmount || "0");
   const changeAmount = isOnlinePayment ? 0 : Math.max(0, numericPayment - total);
@@ -188,7 +201,7 @@ export default function POS() {
             return (
               <div
                 key={item.cartId}
-                className="flex flex-col p-3 bg-secondary/50 dark:bg-secondary/30 rounded-2xl gap-2 border border-border/30"
+                className="flex flex-col p-3 bg-secondary/50 dark:bg-secondary/30 rounded-2xl gap-2 border border-border/30 item-enter"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -289,6 +302,27 @@ export default function POS() {
                 placeholder="0.00"
               />
             </div>
+            {total > 0 && (
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setPaymentAmount(total.toFixed(2))}
+                  className="flex-1 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-all active:scale-95"
+                  data-testid="button-quick-exact"
+                >
+                  Exact
+                </button>
+                {quickAmounts.map(amount => (
+                  <button
+                    key={amount}
+                    onClick={() => setPaymentAmount(amount.toString())}
+                    className="flex-1 h-8 rounded-xl bg-secondary/80 border border-border/40 text-[11px] font-bold hover:bg-secondary transition-all active:scale-95 tabular-nums"
+                    data-testid={`button-quick-${amount}`}
+                  >
+                    {currency}{amount}
+                  </button>
+                ))}
+              </div>
+            )}
             {changeAmount > 0 && (
               <div className="flex justify-between text-sm font-bold text-emerald-600 dark:text-emerald-400">
                 <span>Change</span>
@@ -425,9 +459,19 @@ export default function POS() {
           </div>
           <h2 className="text-xl font-black">Current Order</h2>
           {cartCount > 0 && (
-            <span className="ml-auto bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
-              {cartCount}
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full animate-badge-pop" key={cartCount}>
+                {cartCount}
+              </span>
+              <button
+                onClick={() => setCart([])}
+                className="h-7 w-7 rounded-full bg-destructive/8 hover:bg-destructive/15 flex items-center justify-center text-destructive/60 hover:text-destructive transition-all shrink-0"
+                title="Clear cart"
+                data-testid="button-clear-cart"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           )}
         </div>
         {CartContent}

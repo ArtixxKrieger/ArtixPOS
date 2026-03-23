@@ -6,6 +6,7 @@ import { type InsertProduct, type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Edit2, Trash2, Search, Package, X, Tag } from "lucide-react";
@@ -30,6 +31,7 @@ export default function Products() {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const currency = settings?.currency || "₱";
 
@@ -325,9 +327,7 @@ export default function Products() {
                 </button>
                 <button
                   className="h-9 w-9 rounded-xl hover:bg-destructive/10 hover:text-destructive flex items-center justify-center text-muted-foreground/60 transition-colors"
-                  onClick={() => {
-                    if (confirm("Delete this product?")) deleteProduct.mutate(product.id);
-                  }}
+                  onClick={() => setConfirmDeleteId(product.id)}
                   data-testid={`button-delete-${product.id}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -337,6 +337,30 @@ export default function Products() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This product will be permanently deleted and removed from your menu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              data-testid="button-confirm-delete"
+              onClick={() => {
+                if (confirmDeleteId !== null) deleteProduct.mutate(confirmDeleteId);
+                setConfirmDeleteId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

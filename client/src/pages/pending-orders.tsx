@@ -8,6 +8,7 @@ import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar } 
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface OrderItem {
   quantity: number;
@@ -40,6 +41,7 @@ export default function PendingOrders() {
   const createSale = useCreateSale();
   const { toast } = useToast();
   const [payments, setPayments] = useState<Record<number, string>>({});
+  const [confirmDiscardId, setConfirmDiscardId] = useState<number | null>(null);
 
   const currency = settings?.currency || "₱";
 
@@ -227,9 +229,7 @@ export default function PendingOrders() {
                   <Button
                     variant="ghost"
                     className="h-12 rounded-none rounded-bl-3xl hover:bg-destructive/8 hover:text-destructive text-muted-foreground text-xs font-bold tracking-wide border-r border-border/30"
-                    onClick={() => {
-                      if (confirm("Discard this order?")) deleteOrder.mutate(order.id);
-                    }}
+                    onClick={() => setConfirmDiscardId(order.id)}
                     data-testid={`button-discard-${order.id}`}
                   >
                     <Trash2 className="mr-1.5 h-3.5 w-3.5" />
@@ -251,6 +251,30 @@ export default function PendingOrders() {
           })}
         </div>
       )}
+
+      <AlertDialog open={confirmDiscardId !== null} onOpenChange={(open) => { if (!open) setConfirmDiscardId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This order will be permanently removed and cannot be recovered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-discard">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              data-testid="button-confirm-discard"
+              onClick={() => {
+                if (confirmDiscardId !== null) deleteOrder.mutate(confirmDiscardId);
+                setConfirmDiscardId(null);
+              }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -131,19 +131,14 @@ export function BottomNav() {
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
-          className="md:hidden rounded-t-[28px] p-0 border-0"
-          style={{
-            background: "rgba(10, 14, 32, 0.97)",
-            backdropFilter: "blur(40px) saturate(200%)",
-            WebkitBackdropFilter: "blur(40px) saturate(200%)",
-          }}
+          className="md:hidden rounded-t-[28px] p-0 border-t border-border bg-card"
         >
           <div className="flex justify-center pt-3 pb-1">
-            <div className="w-9 h-1 rounded-full bg-white/20" />
+            <div className="w-9 h-1 rounded-full bg-muted-foreground/20" />
           </div>
 
           <div className="px-4 pt-3 pb-2">
-            <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest px-1 mb-3">
+            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
               More
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -155,10 +150,10 @@ export function BottomNav() {
                     key={item.url}
                     onClick={() => navigate(item.url)}
                     className={[
-                      "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95",
+                      "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
                       isActive
-                        ? "bg-primary/15 border border-primary/20 text-primary"
-                        : "bg-white/[0.05] border border-white/[0.06] text-white/50 hover:text-white/80 hover:bg-white/[0.08]",
+                        ? "bg-primary/10 border-primary/20 text-primary"
+                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                     ].join(" ")}
                   >
                     <Icon className="h-5 w-5" />

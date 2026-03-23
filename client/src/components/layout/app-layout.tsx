@@ -70,23 +70,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
       />
 
       {/* ── Desktop Sidebar ─────────────────────────────────── */}
-      <aside
-        className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 w-56 z-40 border-r border-white/[0.06]"
-        style={{
-          background: "rgba(6, 10, 26, 0.85)",
-          backdropFilter: "blur(40px) saturate(180%)",
-          WebkitBackdropFilter: "blur(40px) saturate(180%)",
-        }}
-      >
+      <aside className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 w-56 z-40 bg-card border-r border-border">
         {/* Brand */}
-        <div className="px-5 py-5 border-b border-white/[0.06]">
+        <div className="px-5 py-5 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 shrink-0 rounded-[10px] bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
               <span className="text-white text-sm font-bold">{storeInitial}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-sm text-white truncate">{storeName}</p>
-              <p className="text-[10px] text-white/35 tracking-wide uppercase mt-0.5">POS System</p>
+              <p className="font-semibold text-sm text-foreground truncate">{storeName}</p>
+              <p className="text-[10px] text-muted-foreground/70 tracking-wide uppercase mt-0.5">POS System</p>
             </div>
           </div>
         </div>
@@ -105,8 +98,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 className={[
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-primary/15 text-primary border border-primary/15"
-                    : "text-white/40 hover:text-white/75 hover:bg-white/[0.05] border border-transparent",
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent",
                 ].join(" ")}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -122,11 +115,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         {/* Bottom: theme toggle */}
-        <div className="p-3 border-t border-white/[0.06]">
+        <div className="p-3 border-t border-border">
           <button
             onClick={() => setIsDark(!isDark)}
             data-testid="button-theme-toggle"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/75 hover:bg-white/[0.05] transition-all duration-150 border border-transparent"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150 border border-transparent"
           >
             {isDark
               ? <Sun className="h-4 w-4 text-amber-400 shrink-0" />

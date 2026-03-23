@@ -84,21 +84,24 @@ function getRange(preset: Preset, custom?: DateRange) {
   }
 }
 
+const EXPORT_HEADERS = ["Date", "Time", "Items", "Payment Method", "Subtotal", "Tax", "Discount", "Total"];
+
+function getExportRows(sales: any[]) {
+  return sales.map(s => [
+    format(new Date(s.createdAt), "yyyy-MM-dd"),
+    format(new Date(s.createdAt), "HH:mm:ss"),
+    ((s.items as any[]) || []).map((i: any) => `${i.product?.name || "?"} x${i.quantity || 1}`).join(" | "),
+    s.paymentMethod,
+    s.subtotal,
+    s.tax,
+    s.discount,
+    s.total,
+  ]);
+}
+
 function exportCSV(sales: any[], currency: string, label: string) {
-  const rows = [
-    ["Date", "Time", "Items", "Payment Method", "Subtotal", "Tax", "Discount", "Total"],
-    ...sales.map(s => [
-      format(new Date(s.createdAt), "yyyy-MM-dd"),
-      format(new Date(s.createdAt), "HH:mm:ss"),
-      ((s.items as any[]) || []).map((i: any) => `${i.product?.name || "?"} x${i.quantity || 1}`).join(" | "),
-      s.paymentMethod,
-      s.subtotal,
-      s.tax,
-      s.discount,
-      s.total,
-    ]),
-  ];
-  const csv = rows.map(r => r.map(String).join(",")).join("\n");
+  const rows = [EXPORT_HEADERS, ...getExportRows(sales)];
+  const csv = rows.map(r => r.map(String).map(v => v.includes(",") ? `"${v}"` : v).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -108,6 +111,83 @@ function exportCSV(sales: any[], currency: string, label: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+async function exportExcel(sales: any[], label: string, storeName: string) {
+  const XLSX = await import("xlsx");
+  const rows = [EXPORT_HEADERS, ...getExportRows(sales)];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  // Column widths
+  ws["!cols"] = [{ wch: 12 }, { wch: 10 }, { wch: 40 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sales");
+  XLSX.writeFile(wb, `${storeName.replace(/\s+/g, "-")}-sales-${label}.xlsx`);
+}
+
+function exportPDF(sales: any[], currency: string, label: string, storeName: string) {
+  const rows = sales.map(s => ({
+    date: format(new Date(s.createdAt), "MMM d, yyyy h:mm a"),
+    items: ((s.items as any[]) || []).map((i: any) => `${i.product?.name || "?"} ×${i.quantity || 1}`).join(", "),
+    method: (s.paymentMethod || "cash").charAt(0).toUpperCase() + (s.paymentMethod || "cash").slice(1),
+    total: parseNumeric(s.total),
+  }));
+  const grandTotal = rows.reduce((a, r) => a + r.total, 0);
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${storeName} — Sales Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 2px solid #6366f1; padding-bottom: 16px; }
+    .header h1 { font-size: 22px; font-weight: 800; color: #6366f1; }
+    .header .meta { text-align: right; font-size: 11px; color: #666; line-height: 1.6; }
+    .summary { display: flex; gap: 16px; margin-bottom: 20px; }
+    .summary-box { flex: 1; background: #f5f5ff; border-left: 3px solid #6366f1; padding: 10px 14px; border-radius: 4px; }
+    .summary-box .label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .summary-box .val { font-size: 18px; font-weight: 700; color: #6366f1; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    thead tr { background: #6366f1; color: white; }
+    th { padding: 9px 10px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 8px 10px; border-bottom: 1px solid #eef0f8; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9f9ff; }
+    tr:last-child td { border-bottom: none; }
+    .tfoot td { background: #f0f0ff; font-weight: 700; border-top: 2px solid #6366f1; }
+    .method-cash { color: #16a34a; background: #dcfce7; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+    .method-online { color: #2563eb; background: #dbeafe; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+    .footer { margin-top: 24px; font-size: 10px; color: #aaa; text-align: center; }
+    @media print { @page { margin: 20mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div><h1>${storeName}</h1><div style="font-size:13px;color:#666;margin-top:4px;">Sales Report — ${label}</div></div>
+    <div class="meta">Generated: ${format(new Date(), "MMMM d, yyyy")}<br/>${format(new Date(), "h:mm a")}<br/>${rows.length} transaction${rows.length !== 1 ? "s" : ""}</div>
+  </div>
+  <div class="summary">
+    <div class="summary-box"><div class="label">Total Revenue</div><div class="val">${currency}${grandTotal.toFixed(2)}</div></div>
+    <div class="summary-box"><div class="label">Transactions</div><div class="val">${rows.length}</div></div>
+    <div class="summary-box"><div class="label">Avg. Order</div><div class="val">${currency}${rows.length > 0 ? (grandTotal / rows.length).toFixed(2) : "0.00"}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Date & Time</th><th>Items</th><th>Method</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>
+      ${rows.map(r => `<tr><td style="white-space:nowrap">${r.date}</td><td>${r.items}</td><td><span class="method-${r.method.toLowerCase()}">${r.method}</span></td><td style="text-align:right;font-weight:600">${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
+    </tbody>
+    <tfoot><tr class="tfoot"><td colspan="3" style="text-align:right;padding-right:10px">Grand Total</td><td style="text-align:right">${currency}${grandTotal.toFixed(2)}</td></tr></tfoot>
+  </table>
+  <div class="footer">${storeName} · Powered by Quick POS</div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) { alert("Please allow pop-ups to export PDF."); return; }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
 
 const tooltipStyle = {
@@ -127,7 +207,7 @@ function ToggleGroup<T extends string>({ value, onChange, options }: {
   options: { value: T; label: string }[];
 }) {
   return (
-    <div className="flex bg-secondary/60 rounded-xl p-0.5 gap-0.5">
+    <div className="flex bg-secondary/60 dark:bg-white/5 rounded-xl p-0.5 gap-0.5 border border-border/30">
       {options.map(opt => (
         <button
           key={opt.value}
@@ -135,8 +215,8 @@ function ToggleGroup<T extends string>({ value, onChange, options }: {
           className={cn(
             "px-2.5 py-1 rounded-[10px] text-[10px] font-semibold transition-all duration-200",
             value === opt.value
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-card dark:bg-white/10 text-foreground shadow-sm"
+              : "text-muted-foreground dark:text-white/45 hover:text-foreground dark:hover:text-white/80"
           )}
         >
           {opt.label}
@@ -149,11 +229,11 @@ function ToggleGroup<T extends string>({ value, onChange, options }: {
 /* ── Insight Card ────────────────────────────────── */
 function InsightCard({ icon: Icon, text, color }: { icon: any; text: string; color: string }) {
   return (
-    <div className="flex items-start gap-3 p-3.5 bg-secondary/40 rounded-2xl">
+    <div className="flex items-start gap-3 p-3.5 bg-secondary/40 dark:bg-white/[0.04] border border-border/30 rounded-2xl">
       <div className={cn("h-7 w-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5", color)}>
         <Icon className="h-3.5 w-3.5" />
       </div>
-      <p className="text-xs text-foreground/80 leading-relaxed pt-0.5">{text}</p>
+      <p className="text-xs text-foreground/90 dark:text-white/75 leading-relaxed pt-0.5">{text}</p>
     </div>
   );
 }
@@ -390,7 +470,7 @@ export default function Analytics() {
         {/* Date range + export */}
         <div className="flex flex-wrap gap-2 items-center">
           {/* Preset pills */}
-          <div className="flex bg-secondary/60 dark:bg-secondary/40 rounded-2xl p-1 gap-1 border border-border/30">
+          <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30">
             {(["today", "yesterday", "7d", "30d"] as Preset[]).map(p => (
               <button
                 key={p}
@@ -400,7 +480,7 @@ export default function Analytics() {
                   "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200",
                   preset === p
                     ? "bg-primary text-white shadow-md shadow-primary/25"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
                 )}
               >
                 {p === "today" ? "Today" : p === "yesterday" ? "Yesterday" : p === "7d" ? "7 Days" : "30 Days"}
@@ -417,7 +497,7 @@ export default function Analytics() {
                     "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1",
                     preset === "custom"
                       ? "bg-primary text-white shadow-md shadow-primary/25"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
                   )}
                 >
                   {preset === "custom" && customRange?.from
@@ -438,14 +518,27 @@ export default function Analytics() {
             </Popover>
           </div>
 
-          {/* Export CSV */}
-          <button
-            onClick={() => exportCSV(currSales, currency, rangeLabel)}
-            data-testid="button-export-csv"
-            className="h-9 px-3.5 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/30 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-all"
-          >
-            <Download className="h-3.5 w-3.5" /> Export
-          </button>
+          {/* Export buttons */}
+          <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden">
+            {[
+              { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
+              { label: "Excel", fn: () => exportExcel(currSales, rangeLabel, settings?.storeName || "Store"), testId: "button-export-excel" },
+              { label: "PDF", fn: () => exportPDF(currSales, currency, rangeLabel, settings?.storeName || "Store"), testId: "button-export-pdf" },
+            ].map((btn, i) => (
+              <button
+                key={btn.label}
+                onClick={btn.fn}
+                data-testid={btn.testId}
+                className={cn(
+                  "h-9 px-3 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground dark:text-white/55 hover:text-foreground dark:hover:text-white hover:bg-secondary transition-all",
+                  i > 0 && "border-l border-border/30"
+                )}
+              >
+                {i === 0 && <Download className="h-3 w-3" />}
+                {btn.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -479,8 +572,10 @@ export default function Analytics() {
         <button
           onClick={() => setShowComparison(v => !v)}
           className={cn(
-            "flex bg-secondary/60 rounded-xl p-0.5 items-center px-2.5 py-1 text-[10px] font-semibold transition-all duration-200",
-            showComparison ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+            "flex rounded-xl border border-border/30 items-center px-2.5 py-1 text-[10px] font-semibold transition-all duration-200",
+            showComparison
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-secondary/60 dark:bg-white/5 text-muted-foreground dark:text-white/45 hover:text-foreground dark:hover:text-white/80"
           )}
         >
           Compare period
@@ -591,7 +686,7 @@ export default function Analytics() {
                         style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground/60 text-right">
+                    <p className="text-[10px] text-muted-foreground dark:text-white/40 text-right">
                       {prodSort === "qty" ? formatCurrency(p.revenue, currency) : `${p.qty} units`}
                     </p>
                   </div>
@@ -701,11 +796,15 @@ export default function Analytics() {
             ) : (
               <div className="flex flex-col sm:flex-row items-center gap-5">
                 <div className="shrink-0">
-                  <PieChart width={150} height={150}>
-                    <Pie data={paymentData} cx={70} cy={70} innerRadius={42} outerRadius={66} paddingAngle={4} dataKey="count" isAnimationActive>
+                  <PieChart width={150} height={150} style={{ background: "transparent" }}>
+                    <Pie data={paymentData} cx={70} cy={70} innerRadius={42} outerRadius={66} paddingAngle={4} dataKey="count" isAnimationActive stroke="none">
                       {paymentData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: any, n: any, p: any) => [`${v} orders · ${formatCurrency(p.payload.revenue, currency)}`, p.payload.name]} />
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      cursor={false}
+                      formatter={(v: any, n: any, p: any) => [`${v} orders · ${formatCurrency(p.payload.revenue, currency)}`, p.payload.name]}
+                    />
                   </PieChart>
                 </div>
                 <div className="flex flex-col gap-3 flex-1">
@@ -724,7 +823,7 @@ export default function Analytics() {
                         <div className="h-1.5 bg-secondary/60 rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground/60">{p.count} transactions · {formatCurrency(p.revenue, currency)}</p>
+                        <p className="text-[10px] text-muted-foreground dark:text-white/45">{p.count} transactions · {formatCurrency(p.revenue, currency)}</p>
                       </div>
                     );
                   })}
@@ -757,10 +856,10 @@ export default function Analytics() {
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                         <span className="font-semibold">{cat.name}</span>
-                        <span className="text-muted-foreground/50">{cat.orders} units</span>
+                        <span className="text-muted-foreground dark:text-white/40">{cat.orders} units</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground/60">{sharePct}%</span>
+                        <span className="text-muted-foreground dark:text-white/50">{sharePct}%</span>
                         <span className="font-bold tabular-nums" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>{formatCurrency(cat.revenue, currency)}</span>
                       </div>
                     </div>

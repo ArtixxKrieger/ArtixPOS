@@ -115,7 +115,7 @@ export default function Settings() {
                     {...field}
                     value={field.value || ""}
                     className="h-11 rounded-xl bg-secondary border-none"
-                    placeholder="e.g. Café Bara"
+                    placeholder="Your store name"
                     data-testid="input-store-name"
                   />
                 </FormControl>
@@ -210,7 +210,7 @@ export default function Settings() {
                     {...field}
                     value={field.value || ""}
                     className="h-11 rounded-xl bg-secondary border-none"
-                    placeholder="e.g. Thank you for your purchase!"
+                    placeholder="Receipt footer message"
                     data-testid="input-receipt-footer"
                   />
                 </FormControl>

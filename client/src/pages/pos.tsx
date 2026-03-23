@@ -617,7 +617,7 @@ export default function POS() {
                 type="text"
                 value={tempNote}
                 onChange={(e) => setTempNote(e.target.value)}
-                placeholder="e.g. Less sugar, extra hot..."
+                placeholder="Add a note for this item"
                 className="w-full rounded-2xl border border-border/40 bg-secondary/50 px-4 py-3 text-sm outline-none focus:border-primary/40 transition-colors placeholder:text-muted-foreground/40 font-medium"
               />
             </div>

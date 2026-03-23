@@ -56,6 +56,28 @@ function GrowthBadge({ pct, absolute }: { pct?: number; absolute?: number }) {
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CHART_COLORS = ["#6366f1", "#8b5cf6", "#22c55e", "#f59e0b", "#0ea5e9", "#ef4444", "#f43f5e"];
 
+const MEDAL_COLORS = [
+  "#F5C518", // #1 Gold
+  "#A8B8C8", // #2 Silver
+  "#CD7F32", // #3 Bronze
+];
+
+const RANK_PALETTE = [
+  "#6366f1", "#8b5cf6", "#ec4899", "#0ea5e9", "#14b8a6",
+  "#f97316", "#84cc16", "#a855f7", "#3b82f6", "#10b981",
+  "#eab308", "#06b6d4", "#d946ef", "#2dd4bf", "#fb923c",
+  "#4ade80", "#f43f5e", "#38bdf8", "#c084fc", "#34d399",
+];
+
+function getRankColor(index: number): string {
+  if (index < 3) return MEDAL_COLORS[index];
+  return RANK_PALETTE[(index - 3) % RANK_PALETTE.length];
+}
+
+function getCategoryColor(index: number): string {
+  return RANK_PALETTE[index % RANK_PALETTE.length];
+}
+
 type Preset = "today" | "yesterday" | "7d" | "30d" | "custom";
 type Metric = "revenue" | "orders";
 type ChartKind = "area" | "bar" | "line";
@@ -674,23 +696,24 @@ export default function Analytics() {
                   return productData.map((p, i) => {
                     const val = prodSort === "qty" ? p.qty : p.revenue;
                     const pct = (val / max) * 100;
+                    const color = getRankColor(i);
                     return (
                       <div key={p.name} className="space-y-1 item-enter" style={{ animationDelay: `${i * 40}ms` }}>
                         <div className="flex items-center justify-between gap-3 text-xs">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-black shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] + "22", color: CHART_COLORS[i % CHART_COLORS.length] }}>
+                            <span className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-black shrink-0" style={{ background: color + "30", color }}>
                               {i + 1}
                             </span>
                             <span className="font-semibold">{p.name}</span>
                           </div>
-                          <span className="font-bold tabular-nums shrink-0" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>
+                          <span className="font-bold tabular-nums shrink-0" style={{ color }}>
                             {prodSort === "qty" ? `${p.qty} sold` : formatCurrency(p.revenue, currency)}
                           </span>
                         </div>
                         <div className="h-1.5 bg-secondary/60 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-700 ease-out"
-                            style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }}
+                            style={{ width: `${pct}%`, background: color }}
                           />
                         </div>
                         <p className="text-[10px] text-muted-foreground dark:text-white/40 text-right">
@@ -811,6 +834,8 @@ export default function Analytics() {
                     </Pie>
                     <Tooltip
                       contentStyle={tooltipStyle}
+                      itemStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                      labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 700, marginBottom: 2 }}
                       cursor={false}
                       formatter={(v: any, n: any, p: any) => [`${v} orders · ${formatCurrency(p.payload.revenue, currency)}`, p.payload.name]}
                     />
@@ -860,23 +885,24 @@ export default function Analytics() {
               return categoryData.map((cat, i) => {
                 const pct = (cat.revenue / max) * 100;
                 const sharePct = totalRev > 0 ? ((cat.revenue / totalRev) * 100).toFixed(0) : 0;
+                const color = getCategoryColor(i);
                 return (
                   <div key={cat.name} className="space-y-1">
                     <div className="flex justify-between text-xs">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
                         <span className="font-semibold">{cat.name}</span>
                         <span className="text-muted-foreground dark:text-white/40">{cat.orders} units</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground dark:text-white/50">{sharePct}%</span>
-                        <span className="font-bold tabular-nums" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>{formatCurrency(cat.revenue, currency)}</span>
+                        <span className="font-bold tabular-nums" style={{ color }}>{formatCurrency(cat.revenue, currency)}</span>
                       </div>
                     </div>
                     <div className="h-2 bg-secondary/50 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-700 ease-out"
-                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${CHART_COLORS[i % CHART_COLORS.length]}, ${CHART_COLORS[(i + 1) % CHART_COLORS.length]})` }}
+                        style={{ width: `${pct}%`, background: color }}
                       />
                     </div>
                   </div>

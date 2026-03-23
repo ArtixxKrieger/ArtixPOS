@@ -186,7 +186,7 @@ export default function Products() {
                         <FormField control={form.control} name={`sizes.${index}.name`} render={({ field }) => (
                           <FormItem className="flex-1">
                             <FormControl>
-                              <Input {...field} value={field.value || ""} placeholder="e.g. Small" className="rounded-xl bg-secondary border-none h-9 text-sm" />
+                              <Input {...field} value={field.value || ""} placeholder="Size name" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />
@@ -223,7 +223,7 @@ export default function Products() {
                         <FormField control={form.control} name={`modifiers.${index}.name`} render={({ field }) => (
                           <FormItem className="flex-1">
                             <FormControl>
-                              <Input {...field} value={field.value || ""} placeholder="e.g. Extra Shot" className="rounded-xl bg-secondary border-none h-9 text-sm" />
+                              <Input {...field} value={field.value || ""} placeholder="Add-on name" className="rounded-xl bg-secondary border-none h-9 text-sm" />
                             </FormControl>
                           </FormItem>
                         )} />

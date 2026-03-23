@@ -3,7 +3,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Receipt, TrendingUp, CreditCard, DollarSign, ArrowUpRight, Trophy, BarChart3 } from "lucide-react";
+import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
 function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
@@ -73,7 +73,13 @@ export default function Dashboard() {
     );
   }
 
-  const currency = settings?.currency || "₱";
+  const currency = (settings as any)?.currency || "₱";
+
+  const CurrencyIcon = ({ className }: { className?: string }) => (
+    <span className="font-black text-sm leading-none flex items-center justify-center w-4 h-4 shrink-0">
+      {currency}
+    </span>
+  );
 
   return (
     <div className="space-y-4 page-enter">
@@ -114,7 +120,7 @@ export default function Dashboard() {
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 stagger-children">
         {[
           { label: "Total Sales", display: todaySales.length.toString(), icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10", glow: "from-emerald-500/8" },
-          { label: "Revenue", display: totalRevenue > 0 ? `${currency}${totalRevenue.toFixed(0)}` : `${currency}0`, icon: DollarSign, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10", glow: "from-blue-500/8" },
+          { label: "Revenue", display: totalRevenue > 0 ? `${currency}${totalRevenue.toFixed(0)}` : `${currency}0`, icon: CurrencyIcon, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10", glow: "from-blue-500/8" },
           { label: "Avg Order", display: avgOrder > 0 ? `${currency}${avgOrder.toFixed(0)}` : `${currency}0`, icon: TrendingUp, color: "text-amber-600 dark:text-amber-400", iconBg: "bg-amber-500/10", glow: "from-amber-500/8" },
           { label: "Tax Paid", display: totalTax > 0 ? `${currency}${totalTax.toFixed(0)}` : `${currency}0`, icon: Receipt, color: "text-purple-600 dark:text-purple-400", iconBg: "bg-purple-500/10", glow: "from-purple-500/8" },
         ].map((card, i) => (

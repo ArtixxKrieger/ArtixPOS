@@ -11,7 +11,7 @@ import {
   ComposedChart, Line, Legend,
 } from "recharts";
 import {
-  BarChart3, TrendingUp, Clock, DollarSign, ShoppingBag,
+  BarChart3, TrendingUp, Clock, ShoppingBag,
   Package, ArrowUpRight, ArrowDownRight, Download, Lightbulb,
   CreditCard, Tag, ChevronDown, Minus,
 } from "lucide-react";
@@ -242,7 +242,13 @@ function InsightCard({ icon: Icon, text, color }: { icon: any; text: string; col
 export default function Analytics() {
   const { data: sales = [], isLoading } = useSales();
   const { data: settings } = useSettings();
-  const currency = settings?.currency || "₱";
+  const currency = (settings as any)?.currency || "₱";
+
+  const CurrencyIcon = ({ className }: { className?: string }) => (
+    <span className="font-black leading-none flex items-center justify-center" style={{ fontSize: "0.85em" }}>
+      {currency}
+    </span>
+  );
 
   const [preset, setPreset] = useState<Preset>("7d");
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
@@ -545,7 +551,7 @@ export default function Analytics() {
       {/* ── KPI Cards ── */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4 stagger-children">
         {[
-          { label: showNet ? "Net Revenue" : "Gross Revenue", value: currRevenue, prefix: currency, icon: DollarSign, color: "text-violet-600 dark:text-violet-400", glow: "from-violet-500/10", growth: <GrowthBadge pct={revPct} />, sub: `prev: ${formatCurrency(prevRevenue, currency)}` },
+          { label: showNet ? "Net Revenue" : "Gross Revenue", value: currRevenue, prefix: currency, icon: CurrencyIcon, color: "text-violet-600 dark:text-violet-400", glow: "from-violet-500/10", growth: <GrowthBadge pct={revPct} />, sub: `prev: ${formatCurrency(prevRevenue, currency)}` },
           { label: "Total Orders", value: currOrders, prefix: "", icon: ShoppingBag, color: "text-pink-600 dark:text-pink-400", glow: "from-pink-500/10", growth: <GrowthBadge pct={ordPct} />, sub: `prev: ${prevOrders} orders` },
           { label: "Avg. Order", value: currAvg, prefix: currency, icon: TrendingUp, color: "text-amber-600 dark:text-amber-400", glow: "from-amber-500/10", growth: <GrowthBadge pct={avgPct} />, sub: `prev: ${formatCurrency(prevAvg, currency)}` },
           { label: "Tax Collected", value: currTax, prefix: currency, icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", glow: "from-emerald-500/10", growth: null, sub: currOrders > 0 ? `${((currTax / (currRevenue + currTax)) * 100).toFixed(1)}% of gross` : "No sales" },

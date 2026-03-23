@@ -6,9 +6,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Store, Receipt, MapPin, Phone, Mail, FileText, Save, Percent, Globe } from "lucide-react";
+import { Store, Receipt, MapPin, Phone, Mail, FileText, Save, Percent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { detectLocale } from "@/lib/locale-detect";
 
 interface SettingsFormData {
   storeName: string;
@@ -39,10 +38,6 @@ export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
-
-  const detectedLocale = detectLocale();
-  const currentTimezone = (settings as any)?.timezone || detectedLocale.timezone;
-  const currentCurrency = (settings as any)?.currency || detectedLocale.currency;
 
   const form = useForm<SettingsFormData>({
     defaultValues: {
@@ -127,31 +122,6 @@ export default function Settings() {
               </FormItem>
             )} />
           </SettingsSection>
-
-          {/* Locale & Region — read-only */}
-          <div className="bg-card rounded-2xl border border-border/30 overflow-hidden shadow-sm">
-            <div className="px-5 py-4 border-b border-border/30 bg-muted/10 flex items-center gap-2.5">
-              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Globe className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <h3 className="text-sm font-bold">Locale &amp; Region</h3>
-            </div>
-            <div className="p-5">
-              <p className="text-[11px] text-muted-foreground/70 mb-3">
-                Automatically detected from your browser. These cannot be changed manually.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl bg-secondary p-3">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Timezone</p>
-                  <p className="text-sm font-bold font-mono truncate">{currentTimezone}</p>
-                </div>
-                <div className="rounded-xl bg-secondary p-3">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Currency</p>
-                  <p className="text-sm font-bold">{currentCurrency}</p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Financial */}
           <SettingsSection title="Financial" icon={Percent}>

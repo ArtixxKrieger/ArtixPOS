@@ -44,7 +44,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: settings } = useSettings();
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
-  const { isOnline, isSyncing, queueCount } = useOnlineStatus();
+  const { isOnline, isSyncing, salesQueueCount } = useOnlineStatus();
 
   const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
   const storeName = settings?.storeName || "Café Bara";
@@ -169,16 +169,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   {isSyncing ? (
                     <>
                       <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>Syncing {queueCount > 0 ? `${queueCount} ` : ""}changes…</span>
+                      <span>Syncing {salesQueueCount > 0 ? `${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}` : "changes"}…</span>
                     </>
                   ) : (
                     <>
                       <span className="h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
                       <WifiOff className="h-3 w-3 shrink-0" />
                       <span>Offline</span>
-                      {queueCount > 0 && (
+                      {salesQueueCount > 0 && (
                         <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">
-                          {queueCount}
+                          {salesQueueCount} sale{salesQueueCount !== 1 ? "s" : ""}
                         </span>
                       )}
                     </>
@@ -229,16 +229,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   {isSyncing ? (
                     <>
                       <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>Syncing {queueCount > 0 ? `${queueCount} ` : ""}changes…</span>
+                      <span>Syncing {salesQueueCount > 0 ? `${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}` : "changes"}…</span>
                     </>
                   ) : (
                     <>
                       <span className="h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
                       <WifiOff className="h-3 w-3 shrink-0" />
                       <span>Offline</span>
-                      {queueCount > 0 && (
+                      {salesQueueCount > 0 && (
                         <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">
-                          {queueCount}
+                          {salesQueueCount} sale{salesQueueCount !== 1 ? "s" : ""}
                         </span>
                       )}
                     </>

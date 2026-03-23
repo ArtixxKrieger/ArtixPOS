@@ -1,13 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { type InsertSale } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, isNetworkError } from "@/lib/offline-db";
 
 const LIST_URL = api.sales.list.path;
-
-function isNetworkError(err: unknown): boolean {
-  return err instanceof TypeError;
-}
 
 export function useSales() {
   return useQuery({
@@ -44,7 +40,7 @@ export function useCreateSale() {
         return result;
       } catch (err) {
         if (!isNetworkError(err)) throw err;
-        await queueMutation("POST", api.sales.create.path, data);
+        await queueMutation("POST", api.sales.create.path, data, "sale");
         const optimistic = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
         await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
         return optimistic as any;

@@ -60,7 +60,6 @@ async function processMutation(item: QueuedMutation): Promise<void> {
 
 export async function syncOfflineData(): Promise<SyncResult> {
   const rawQueue = await getQueue();
-  if (rawQueue.length === 0) return { synced: 0, failed: 0, errors: [] };
 
   const queue = foldQueue(rawQueue);
 
@@ -83,9 +82,11 @@ export async function syncOfflineData(): Promise<SyncResult> {
     }
   }
 
-  if (result.synced > 0 || cancelledIds.size > 0) {
-    await queryClient.invalidateQueries();
-  }
+  await queryClient.invalidateQueries();
 
   return result;
+}
+
+export async function refreshAllData(): Promise<void> {
+  await queryClient.invalidateQueries();
 }

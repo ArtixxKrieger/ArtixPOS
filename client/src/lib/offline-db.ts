@@ -13,6 +13,7 @@ interface PosOfflineDB {
       url: string;
       body?: unknown;
       timestamp: number;
+      category?: string;
     };
     indexes: { "by-timestamp": number };
   };
@@ -69,12 +70,14 @@ export interface QueuedMutation {
   url: string;
   body?: unknown;
   timestamp: number;
+  category?: string;
 }
 
 export async function queueMutation(
   method: string,
   url: string,
-  body?: unknown
+  body?: unknown,
+  category?: string
 ): Promise<number> {
   const db = await getDB();
   const id = (await db.add("mutation-queue", {
@@ -82,6 +85,7 @@ export async function queueMutation(
     url,
     body,
     timestamp: Date.now(),
+    category,
   })) as number;
   return id;
 }
@@ -109,6 +113,22 @@ export async function getQueueCount(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+export async function getSalesQueueCount(): Promise<number> {
+  try {
+    const db = await getDB();
+    const all = await db.getAll("mutation-queue");
+    return all.filter((item) => item.category === "sale").length;
+  } catch {
+    return 0;
+  }
+}
+
+export function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  return false;
 }
 
 export function isOffline(): boolean {

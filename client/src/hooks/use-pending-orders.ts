@@ -1,13 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertPendingOrder } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, isNetworkError } from "@/lib/offline-db";
 
 const LIST_URL = api.pendingOrders.list.path;
-
-function isNetworkError(err: unknown): boolean {
-  return err instanceof TypeError;
-}
 
 export function usePendingOrders() {
   return useQuery({
@@ -45,7 +41,7 @@ export function useCreatePendingOrder() {
         return result;
       } catch (err) {
         if (!isNetworkError(err)) throw err;
-        await queueMutation("POST", api.pendingOrders.create.path, data);
+        await queueMutation("POST", api.pendingOrders.create.path, data, "pending-order");
         const optimistic = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
         await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
         return optimistic as any;
@@ -69,7 +65,7 @@ export function useDeletePendingOrder() {
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
       } catch (err) {
         if (!isNetworkError(err)) throw err;
-        await queueMutation("DELETE", url);
+        await queueMutation("DELETE", url, undefined, "pending-order");
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
       }
     },
@@ -95,7 +91,7 @@ export function useUpdatePendingOrder() {
         return result;
       } catch (err) {
         if (!isNetworkError(err)) throw err;
-        await queueMutation("PUT", url, data);
+        await queueMutation("PUT", url, data, "pending-order");
         await patchCached(LIST_URL, (prev: any[]) => prev.map((o: any) => (o.id === id ? { ...o, ...data } : o)));
         return { id, ...data } as any;
       }

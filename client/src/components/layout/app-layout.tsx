@@ -73,41 +73,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         options={{ duration: 3500, roundness: 16 }}
       />
 
-      {/* Offline / syncing banner */}
-      {(!isOnline || isSyncing) && (
-        <div
-          data-testid="banner-offline-status"
-          className={[
-            "fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold tracking-wide",
-            isSyncing
-              ? "bg-primary/90 text-white"
-              : "bg-amber-500/90 dark:bg-amber-600/90 text-white",
-          ].join(" ")}
-          style={{ backdropFilter: "blur(8px)" }}
-        >
-          {isSyncing ? (
-            <>
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-              Syncing {queueCount} offline {queueCount === 1 ? "change" : "changes"}…
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-3.5 w-3.5" />
-              Offline mode — changes will sync when you reconnect
-              {queueCount > 0 && (
-                <span className="ml-1 bg-white/20 rounded-full px-1.5 py-0.5">
-                  {queueCount} pending
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
       {/* Glass Header */}
       <header className="sticky top-0 z-40 glass-header">
         <div
-          className="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between gap-3"
+          className="max-w-7xl mx-auto px-4 md:px-6 flex items-center gap-3"
           style={{ height: "56px" }}
         >
           {/* Brand */}
@@ -121,6 +90,40 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {PAGE_TITLES[location] || "POS"}
               </p>
             </div>
+          </div>
+
+          {/* Offline / syncing status pill — center */}
+          <div className="flex-1 flex justify-center pointer-events-none">
+            {(!isOnline || isSyncing) && (
+              <div
+                data-testid="banner-offline-status"
+                className={[
+                  "flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-all duration-300",
+                  isSyncing
+                    ? "bg-primary/10 dark:bg-primary/15 text-primary border-primary/20"
+                    : "bg-foreground/5 dark:bg-white/5 text-muted-foreground border-border/50",
+                ].join(" ")}
+                style={{ backdropFilter: "blur(8px)" }}
+              >
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    <span>Syncing {queueCount > 0 ? `${queueCount} ` : ""}changes…</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
+                    <WifiOff className="h-3 w-3 shrink-0" />
+                    <span>Offline</span>
+                    {queueCount > 0 && (
+                      <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">
+                        {queueCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

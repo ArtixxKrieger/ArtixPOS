@@ -347,8 +347,7 @@ export default function Analytics() {
     });
     return Object.entries(counts)
       .map(([name, v]) => ({ name, ...v }))
-      .sort((a, b) => prodSort === "qty" ? b.qty - a.qty : b.revenue - a.revenue)
-      .slice(0, 6);
+      .sort((a, b) => prodSort === "qty" ? b.qty - a.qty : b.revenue - a.revenue);
   }, [currSales, prodSort]);
 
   /* Category breakdown */
@@ -665,40 +664,44 @@ export default function Analytics() {
               <ToggleGroup value={prodSort} onChange={setProdSort} options={[{ value: "qty", label: "Qty" }, { value: "revenue", label: "Revenue" }]} />
             </div>
           </div>
-          <div className="p-5 space-y-3">
+          <div className="p-5">
             {productData.length === 0 ? (
               <div className="py-10 text-center text-muted-foreground/40 text-sm">No product data for this period</div>
-            ) : (() => {
-              const max = Math.max(...productData.map(d => prodSort === "qty" ? d.qty : d.revenue), 1);
-              return productData.map((p, i) => {
-                const val = prodSort === "qty" ? p.qty : p.revenue;
-                const pct = (val / max) * 100;
-                return (
-                  <div key={p.name} className="space-y-1 item-enter" style={{ animationDelay: `${i * 40}ms` }}>
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-black" style={{ background: CHART_COLORS[i % CHART_COLORS.length] + "22", color: CHART_COLORS[i % CHART_COLORS.length] }}>
-                          {i + 1}
-                        </span>
-                        <span className="font-semibold truncate max-w-[120px]">{p.name}</span>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto scrollbar-hide pr-1">
+                {(() => {
+                  const max = Math.max(...productData.map(d => prodSort === "qty" ? d.qty : d.revenue), 1);
+                  return productData.map((p, i) => {
+                    const val = prodSort === "qty" ? p.qty : p.revenue;
+                    const pct = (val / max) * 100;
+                    return (
+                      <div key={p.name} className="space-y-1 item-enter" style={{ animationDelay: `${i * 40}ms` }}>
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-black shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] + "22", color: CHART_COLORS[i % CHART_COLORS.length] }}>
+                              {i + 1}
+                            </span>
+                            <span className="font-semibold">{p.name}</span>
+                          </div>
+                          <span className="font-bold tabular-nums shrink-0" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>
+                            {prodSort === "qty" ? `${p.qty} sold` : formatCurrency(p.revenue, currency)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-secondary/60 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-700 ease-out"
+                            style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground dark:text-white/40 text-right">
+                          {prodSort === "qty" ? formatCurrency(p.revenue, currency) : `${p.qty} units`}
+                        </p>
                       </div>
-                      <span className="font-bold tabular-nums shrink-0" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>
-                        {prodSort === "qty" ? `${p.qty} sold` : formatCurrency(p.revenue, currency)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-secondary/60 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700 ease-out"
-                        style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground dark:text-white/40 text-right">
-                      {prodSort === "qty" ? formatCurrency(p.revenue, currency) : `${p.qty} units`}
-                    </p>
-                  </div>
-                );
-              });
-            })()}
+                    );
+                  });
+                })()}
+              </div>
+            )}
           </div>
         </div>
 
@@ -849,7 +852,8 @@ export default function Analytics() {
             </div>
             <span className="font-semibold text-sm">Revenue by Category</span>
           </div>
-          <div className="p-5 space-y-3">
+          <div className="p-5">
+            <div className="space-y-3 max-h-[300px] overflow-y-auto scrollbar-hide pr-1">
             {(() => {
               const max = Math.max(...categoryData.map(c => c.revenue), 1);
               const totalRev = categoryData.reduce((a, c) => a + c.revenue, 0);
@@ -879,6 +883,7 @@ export default function Analytics() {
                 );
               });
             })()}
+            </div>
           </div>
         </div>
       )}

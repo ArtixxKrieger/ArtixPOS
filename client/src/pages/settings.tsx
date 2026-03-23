@@ -6,8 +6,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Store, DollarSign, Receipt, MapPin, Phone, Mail, FileText, Save, Percent } from "lucide-react";
+import { Store, DollarSign, Receipt, MapPin, Phone, Mail, FileText, Save, Percent, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { detectLocale } from "@/lib/locale-detect";
 
 interface SettingsFormData {
   storeName: string;
@@ -17,6 +18,7 @@ interface SettingsFormData {
   phone: string;
   emailContact: string;
   receiptFooter: string;
+  timezone: string;
 }
 
 function SettingsSection({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
@@ -40,28 +42,32 @@ export default function Settings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
 
+  const detectedLocale = detectLocale();
+
   const form = useForm<SettingsFormData>({
     defaultValues: {
       storeName: "",
-      currency: "₱",
+      currency: detectedLocale.currency,
       taxRate: "0",
       address: "",
       phone: "",
       emailContact: "",
-      receiptFooter: ""
+      receiptFooter: "",
+      timezone: detectedLocale.timezone,
     }
   });
 
   useEffect(() => {
     if (settings) {
       form.reset({
-        storeName: settings.storeName || "",
-        currency: settings.currency || "₱",
-        taxRate: settings.taxRate || "0",
-        address: settings.address || "",
-        phone: settings.phone || "",
-        emailContact: settings.emailContact || "",
-        receiptFooter: settings.receiptFooter || ""
+        storeName: (settings as any).storeName || "",
+        currency: (settings as any).currency || detectedLocale.currency,
+        taxRate: (settings as any).taxRate || "0",
+        address: (settings as any).address || "",
+        phone: (settings as any).phone || "",
+        emailContact: (settings as any).emailContact || "",
+        receiptFooter: (settings as any).receiptFooter || "",
+        timezone: (settings as any).timezone || detectedLocale.timezone,
       });
     }
   }, [settings, form]);
@@ -74,7 +80,8 @@ export default function Settings() {
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,
-      receiptFooter: data.receiptFooter
+      receiptFooter: data.receiptFooter,
+      timezone: data.timezone,
     };
     updateSettings.mutate(payload, {
       onSuccess: () => toast({
@@ -127,41 +134,65 @@ export default function Settings() {
             )} />
           </SettingsSection>
 
-          {/* Financial */}
-          <SettingsSection title="Financial" icon={DollarSign}>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Locale & Region */}
+          <SettingsSection title="Locale & Region" icon={Globe}>
+            <p className="text-[11px] text-muted-foreground/70 -mt-1">
+              Auto-detected from your browser. You can override these if needed.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField control={form.control} name="timezone" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold text-sm flex items-center gap-1.5">
+                    <Globe className="h-3 w-3 text-muted-foreground" /> Timezone
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value || detectedLocale.timezone}
+                      className="h-11 rounded-xl bg-secondary border-none font-mono text-sm"
+                      placeholder="e.g. Asia/Manila"
+                    />
+                  </FormControl>
+                  <p className="text-[11px] text-muted-foreground/60 mt-0.5">Used for correct date/time in sales logs.</p>
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="currency" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold text-sm">Currency Symbol</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
-                      value={field.value || "₱"}
+                      value={field.value || detectedLocale.currency}
                       className="h-11 rounded-xl bg-secondary border-none"
                       placeholder="₱"
                       data-testid="input-currency"
                     />
                   </FormControl>
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="taxRate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold text-sm">Tax Rate (%)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      {...field}
-                      value={field.value || "0"}
-                      className="h-11 rounded-xl bg-secondary border-none"
-                      placeholder="0"
-                      data-testid="input-tax-rate"
-                    />
-                  </FormControl>
+                  <p className="text-[11px] text-muted-foreground/60 mt-0.5">Shown on all prices and receipts.</p>
                 </FormItem>
               )} />
             </div>
+          </SettingsSection>
+
+          {/* Financial */}
+          <SettingsSection title="Financial" icon={DollarSign}>
+            <FormField control={form.control} name="taxRate" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold text-sm">Tax Rate (%)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...field}
+                    value={field.value || "0"}
+                    className="h-11 rounded-xl bg-secondary border-none"
+                    placeholder="0"
+                    data-testid="input-tax-rate"
+                  />
+                </FormControl>
+              </FormItem>
+            )} />
           </SettingsSection>
 
           {/* Contact Information */}

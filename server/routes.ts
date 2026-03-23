@@ -161,12 +161,13 @@ export async function registerRoutes(
       return res.json({
         id: 0,
         storeName: "My Store",
-        currency: "₱",
+        currency: "$",
         taxRate: "0",
         address: null,
         phone: null,
         emailContact: null,
         receiptFooter: "Thank you for your business!",
+        timezone: null,
       });
     }
     res.json(settings);

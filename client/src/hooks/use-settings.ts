@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { api } from "@shared/routes";
 import { type InsertUserSetting } from "@shared/schema";
 import { getCached, setCached, queueMutation } from "@/lib/offline-db";
+import { detectLocale } from "@/lib/locale-detect";
 
 const SETTINGS_URL = api.settings.get.path;
 
@@ -10,7 +12,10 @@ function isNetworkError(err: unknown): boolean {
 }
 
 export function useSettings() {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const didAutoSync = useRef(false);
+
+  const query = useQuery({
     queryKey: [SETTINGS_URL],
     queryFn: async () => {
       try {
@@ -27,6 +32,39 @@ export function useSettings() {
       }
     },
   });
+
+  useEffect(() => {
+    if (didAutoSync.current) return;
+    if (!query.data) return;
+
+    const settings = query.data as any;
+    const locale = detectLocale();
+    const needsTimezone = !settings.timezone;
+    const needsCurrency = !settings.currency || settings.currency === "$";
+
+    if (!needsTimezone && !needsCurrency) return;
+
+    didAutoSync.current = true;
+
+    const patch: Partial<InsertUserSetting> = {};
+    if (needsTimezone) patch.timezone = locale.timezone;
+    if (needsCurrency) patch.currency = locale.currency;
+
+    fetch(api.settings.update.path, {
+      method: api.settings.update.method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+      credentials: "include",
+    })
+      .then(r => r.json())
+      .then(updated => {
+        setCached(SETTINGS_URL, updated);
+        queryClient.invalidateQueries({ queryKey: [SETTINGS_URL] });
+      })
+      .catch(() => {});
+  }, [query.data, queryClient]);
+
+  return query;
 }
 
 export function useUpdateSettings() {

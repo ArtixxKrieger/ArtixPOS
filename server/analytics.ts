@@ -3,6 +3,32 @@ import { sql } from "drizzle-orm";
 
 type Row = Record<string, any>;
 
+function getUtcOffset(timezone: string): string {
+  try {
+    const now = new Date();
+    const localStr = now.toLocaleString("en-US", { timeZone: timezone });
+    const utcStr = now.toLocaleString("en-US", { timeZone: "UTC" });
+    const localDate = new Date(localStr);
+    const utcDate = new Date(utcStr);
+    const offsetMinutes = Math.round((localDate.getTime() - utcDate.getTime()) / 60000);
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const absOffset = Math.abs(offsetMinutes);
+    const hours = Math.floor(absOffset / 60).toString().padStart(2, "0");
+    const mins = (absOffset % 60).toString().padStart(2, "0");
+    return `${sign}${hours}:${mins}`;
+  } catch {
+    return "+00:00";
+  }
+}
+
+function localDateString(timezone: string, date: Date = new Date()): string {
+  try {
+    return date.toLocaleDateString("en-CA", { timeZone: timezone });
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
 function toRows(result: any): Row[] {
   if (!result) return [];
   if (Array.isArray(result.rows)) {
@@ -69,7 +95,7 @@ export interface AnalyticsData {
   totalAllTime: { orders: number; revenue: number };
 }
 
-async function querySummary(date: string): Promise<DaySummary> {
+async function querySummary(date: string, tzOffset: string): Promise<DaySummary> {
   try {
     const res = await db.execute(sql`
       SELECT 
@@ -77,7 +103,7 @@ async function querySummary(date: string): Promise<DaySummary> {
         COALESCE(SUM(CAST(total AS REAL)), 0) as revenue,
         COALESCE(AVG(CAST(total AS REAL)), 0) as avg_order
       FROM sales
-      WHERE date(created_at) = ${date}
+      WHERE date(datetime(created_at, ${tzOffset})) = ${date}
     `);
     const row = toRows(res)[0] ?? {};
     return {
@@ -88,17 +114,17 @@ async function querySummary(date: string): Promise<DaySummary> {
   } catch { return { orders: 0, revenue: 0, avgOrder: 0 }; }
 }
 
-async function queryTrend(days: number): Promise<TrendPoint[]> {
+async function queryTrend(days: number, tzOffset: string): Promise<TrendPoint[]> {
   try {
     const modifier = `-${days} days`;
     const res = await db.execute(sql`
       SELECT 
-        date(created_at) as date,
+        date(datetime(created_at, ${tzOffset})) as date,
         COUNT(*) as orders,
         COALESCE(SUM(CAST(total AS REAL)), 0) as revenue
       FROM sales
       WHERE created_at >= datetime('now', ${modifier})
-      GROUP BY date(created_at)
+      GROUP BY date(datetime(created_at, ${tzOffset}))
       ORDER BY date ASC
     `);
     return toRows(res).map(r => ({
@@ -110,21 +136,21 @@ async function queryTrend(days: number): Promise<TrendPoint[]> {
   } catch { return []; }
 }
 
-async function queryHourly(date?: string): Promise<HourPoint[]> {
+async function queryHourly(tzOffset: string, date?: string): Promise<HourPoint[]> {
   try {
     const res = date
       ? await db.execute(sql`
           SELECT
-            CAST(strftime('%H', created_at) AS INTEGER) as hour,
+            CAST(strftime('%H', datetime(created_at, ${tzOffset})) AS INTEGER) as hour,
             COUNT(*) as sales,
             COALESCE(SUM(CAST(total AS REAL)), 0) as revenue
           FROM sales
-          WHERE date(created_at) = ${date}
+          WHERE date(datetime(created_at, ${tzOffset})) = ${date}
           GROUP BY hour ORDER BY hour ASC
         `)
       : await db.execute(sql`
           SELECT
-            CAST(strftime('%H', created_at) AS INTEGER) as hour,
+            CAST(strftime('%H', datetime(created_at, ${tzOffset})) AS INTEGER) as hour,
             COUNT(*) as sales,
             COALESCE(SUM(CAST(total AS REAL)), 0) as revenue
           FROM sales
@@ -363,16 +389,17 @@ function formatDayName(dateStr: string): string {
   } catch { return dateStr; }
 }
 
-export async function getFullAnalytics(range: string, currency: string): Promise<AnalyticsData> {
+export async function getFullAnalytics(range: string, currency: string, timezone: string = "UTC"): Promise<AnalyticsData> {
   const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : 365;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const yesterdayStr = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const tzOffset = getUtcOffset(timezone);
+  const todayStr = localDateString(timezone, new Date());
+  const yesterdayStr = localDateString(timezone, new Date(Date.now() - 86_400_000));
 
   const [todaySummary, yesterdaySummary, trend, hourly, products, payments, allTime] = await Promise.all([
-    querySummary(todayStr),
-    querySummary(yesterdayStr),
-    queryTrend(days),
-    queryHourly(),
+    querySummary(todayStr, tzOffset),
+    querySummary(yesterdayStr, tzOffset),
+    queryTrend(days, tzOffset),
+    queryHourly(tzOffset, todayStr),
     queryTopProducts(days),
     queryPayments(days),
     queryAllTimeTotal(),

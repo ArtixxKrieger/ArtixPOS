@@ -68,6 +68,7 @@ export const userSettings = sqliteTable("user_settings", {
   phone: text("phone"),
   emailContact: text("email_contact"),
   receiptFooter: text("receipt_footer"),
+  timezone: text("timezone"),
 });
 
 // ─── Insert Schemas (use .extend() to avoid drizzle-zod strict key issues) ───
@@ -133,6 +134,7 @@ export const insertUserSettingSchema = createInsertSchema(userSettings)
     phone: z.string().optional().nullable(),
     emailContact: z.string().optional().nullable(),
     receiptFooter: z.string().optional().nullable(),
+    timezone: z.string().optional().nullable(),
   });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

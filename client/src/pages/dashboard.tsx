@@ -3,8 +3,10 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3 } from "lucide-react";
+import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3, ArrowRight } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "wouter";
+import { SaleDetailModal } from "@/components/sale-detail-modal";
 
 function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
   const [display, setDisplay] = useState(0);
@@ -33,6 +35,8 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
 export default function Dashboard() {
   const { data: sales = [], isLoading } = useSales();
   const { data: settings } = useSettings();
+  const [, setLocation] = useLocation();
+  const [selectedSale, setSelectedSale] = useState<any>(null);
 
   const todaySales = sales.filter(s => isToday(new Date(s.createdAt!)));
   const totalRevenue = todaySales.reduce((acc, s) => acc + parseNumeric(s.total), 0);
@@ -182,6 +186,13 @@ export default function Dashboard() {
             <span className="ml-auto text-xs text-muted-foreground bg-secondary/60 px-2 py-0.5 rounded-full">
               {todaySales.length}
             </span>
+            <button
+              onClick={() => setLocation("/transactions")}
+              className="flex items-center gap-1 text-xs text-primary font-medium hover:opacity-75 transition-opacity ml-2"
+            >
+              View all
+              <ArrowRight className="h-3 w-3" />
+            </button>
           </div>
 
           <div className="max-h-[420px] overflow-y-auto scrollbar-hide">
@@ -201,7 +212,11 @@ export default function Dashboard() {
                     ? items[0]?.product?.name || "1 item"
                     : `${items.length} items`;
                   return (
-                    <TableRow key={sale.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors border-black/4 dark:border-white/4">
+                    <TableRow
+                      key={sale.id}
+                      className="hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors border-black/4 dark:border-white/4 cursor-pointer"
+                      onClick={() => setSelectedSale(sale)}
+                    >
                       <TableCell className="px-5 py-3.5 text-sm text-muted-foreground font-medium">
                         {format(new Date(sale.createdAt!), "h:mm a")}
                       </TableCell>
@@ -237,6 +252,12 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground/70">Head to the POS tab to start taking orders</p>
         </div>
       )}
+
+      <SaleDetailModal
+        sale={selectedSale}
+        open={!!selectedSale}
+        onClose={() => setSelectedSale(null)}
+      />
     </div>
   );
 }

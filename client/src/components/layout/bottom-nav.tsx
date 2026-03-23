@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Home, ShoppingCart, Clock, Package, Settings, BarChart3, MoreHorizontal } from "lucide-react";
+import { Home, ShoppingCart, Clock, Package, Settings, BarChart3, MoreHorizontal, ScrollText } from "lucide-react";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -12,6 +12,7 @@ const PRIMARY_NAV = [
 
 const MORE_NAV = [
   { label: "Products", url: "/products", icon: Package },
+  { label: "Transactions", url: "/transactions", icon: ScrollText },
   { label: "Analytics", url: "/analytics", icon: BarChart3 },
   { label: "Settings", url: "/settings", icon: Settings },
 ] as const;
@@ -141,7 +142,7 @@ export function BottomNav() {
             <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
               More
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {MORE_NAV.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.url;

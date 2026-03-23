@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import {
   Moon, Sun, Home, ShoppingCart, Clock, Package,
-  Settings, BarChart3, WifiOff, RefreshCw,
+  Settings, BarChart3, WifiOff, RefreshCw, ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sileo";
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { label: "POS", url: "/pos", icon: ShoppingCart },
   { label: "Pending", url: "/pending", icon: Clock },
   { label: "Products", url: "/products", icon: Package },
+  { label: "Transactions", url: "/transactions", icon: ScrollText },
   { label: "Analytics", url: "/analytics", icon: BarChart3 },
   { label: "Settings", url: "/settings", icon: Settings },
 ] as const;
@@ -25,6 +26,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/pos": "Point of Sale",
   "/pending": "Pending Orders",
   "/products": "Products",
+  "/transactions": "Transactions",
   "/analytics": "Analytics",
   "/settings": "Settings",
 };

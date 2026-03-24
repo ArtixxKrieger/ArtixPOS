@@ -1,233 +1,261 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+
+function getIsDark(): boolean {
+  if (typeof window === "undefined") return false;
+  const saved = localStorage.getItem("theme");
+  if (saved === "dark") return true;
+  if (saved === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
 
 export default function Login() {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [isDark, setIsDark] = useState(getIsDark);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      setLocation("/");
-    }
+    if (!isLoading && isAuthenticated) setLocation("/");
   }, [isAuthenticated, isLoading, setLocation]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => setIsDark(getIsDark());
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f]">
-        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-[#080810]" : "bg-slate-50"}`}>
+        <div className={`w-7 h-7 border-2 rounded-full animate-spin ${isDark ? "border-violet-500 border-t-transparent" : "border-violet-600 border-t-transparent"}`} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#0a0a0f]">
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute w-[600px] h-[600px] rounded-full opacity-20"
-          style={{
-            background: "radial-gradient(circle, #7c3aed, transparent 70%)",
-            top: "-10%",
-            left: "-10%",
-            animation: "float1 12s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="absolute w-[500px] h-[500px] rounded-full opacity-15"
-          style={{
-            background: "radial-gradient(circle, #2563eb, transparent 70%)",
-            bottom: "-10%",
-            right: "-10%",
-            animation: "float2 15s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="absolute w-[300px] h-[300px] rounded-full opacity-10"
-          style={{
-            background: "radial-gradient(circle, #db2777, transparent 70%)",
-            top: "50%",
-            left: "60%",
-            animation: "float3 10s ease-in-out infinite",
-          }}
-        />
-
-        {/* Grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
-            backgroundSize: "60px 60px",
-          }}
-        />
-      </div>
-
+    <div
+      className="min-h-screen flex items-center justify-center relative overflow-hidden transition-colors duration-500"
+      style={{ background: isDark ? "#080810" : "#f8f7ff" }}
+    >
       <style>{`
-        @keyframes float1 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(40px, 30px) scale(1.05); }
-          66% { transform: translate(-20px, 50px) scale(0.95); }
+        @keyframes orb1 {
+          0%,100% { transform: translate(0,0) scale(1); }
+          40% { transform: translate(60px,40px) scale(1.1); }
+          70% { transform: translate(-30px,60px) scale(0.95); }
         }
-        @keyframes float2 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(-50px, -40px) scale(1.08); }
-          66% { transform: translate(30px, -20px) scale(0.95); }
+        @keyframes orb2 {
+          0%,100% { transform: translate(0,0) scale(1); }
+          35% { transform: translate(-70px,-50px) scale(1.12); }
+          70% { transform: translate(40px,-20px) scale(0.9); }
         }
-        @keyframes float3 {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); }
-          50% { transform: translate(-50%, -50%) scale(1.2); }
+        @keyframes orb3 {
+          0%,100% { transform: translate(-50%,-50%) scale(1); }
+          50% { transform: translate(-50%,-50%) scale(1.25); }
         }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
+        @keyframes rise {
+          from { opacity: 0; transform: translateY(32px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes fadeSlideUp {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
+        .rise { animation: rise 0.65s cubic-bezier(0.16,1,0.3,1) both; }
+        .d1 { animation-delay: 0.05s; }
+        .d2 { animation-delay: 0.15s; }
+        .d3 { animation-delay: 0.25s; }
+        .d4 { animation-delay: 0.35s; }
+        .btn-social {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          padding: 14px 20px;
+          border-radius: 14px;
+          font-size: 14px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), box-shadow 0.18s ease, opacity 0.18s ease;
+          position: relative;
+          overflow: hidden;
         }
-        .fade-slide-up {
-          animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        .btn-social:hover { transform: translateY(-2px); }
+        .btn-social:active { transform: translateY(0) scale(0.98); }
+        .btn-social::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: white;
+          opacity: 0;
+          transition: opacity 0.15s;
+          border-radius: inherit;
         }
-        .delay-100 { animation-delay: 0.1s; }
-        .delay-200 { animation-delay: 0.2s; }
-        .delay-300 { animation-delay: 0.3s; }
-        .delay-400 { animation-delay: 0.4s; }
-        .delay-500 { animation-delay: 0.5s; }
-        .btn-google:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,255,255,0.08); }
-        .btn-facebook:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(24,119,242,0.35); }
-        .btn-google, .btn-facebook { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-        .logo-glow {
-          box-shadow: 0 0 0 1px rgba(124,58,237,0.3), 0 0 40px rgba(124,58,237,0.3), 0 0 80px rgba(124,58,237,0.1);
-        }
-        .card-glow {
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 24px 80px rgba(0,0,0,0.6), 0 0 120px rgba(124,58,237,0.08);
-        }
-        .divider-line {
-          flex: 1;
-          height: 1px;
-          background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
-        }
+        .btn-social:hover::after { opacity: 0.06; }
       `}</style>
+
+      {/* Background orbs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {isDark ? (
+          <>
+            <div style={{
+              position: "absolute", width: 700, height: 700, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(109,40,217,0.18) 0%, transparent 65%)",
+              top: "-15%", left: "-15%", animation: "orb1 14s ease-in-out infinite",
+            }} />
+            <div style={{
+              position: "absolute", width: 600, height: 600, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(37,99,235,0.13) 0%, transparent 65%)",
+              bottom: "-10%", right: "-10%", animation: "orb2 17s ease-in-out infinite",
+            }} />
+            <div style={{
+              position: "absolute", width: 350, height: 350, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(219,39,119,0.09) 0%, transparent 65%)",
+              top: "50%", left: "55%", animation: "orb3 11s ease-in-out infinite",
+            }} />
+            <div style={{
+              position: "absolute", inset: 0,
+              backgroundImage: `linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`,
+              backgroundSize: "64px 64px",
+            }} />
+          </>
+        ) : (
+          <>
+            <div style={{
+              position: "absolute", width: 700, height: 700, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 65%)",
+              top: "-15%", left: "-15%", animation: "orb1 14s ease-in-out infinite",
+            }} />
+            <div style={{
+              position: "absolute", width: 600, height: 600, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 65%)",
+              bottom: "-10%", right: "-10%", animation: "orb2 17s ease-in-out infinite",
+            }} />
+          </>
+        )}
+      </div>
 
       {/* Card */}
       <div
-        className="relative z-10 w-full max-w-sm mx-4 rounded-2xl p-8 card-glow fade-slide-up"
+        className="rise relative z-10 w-full max-w-[400px] mx-5 rounded-3xl"
         style={{
-          background: "rgba(255,255,255,0.04)",
-          backdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.07)",
+          padding: "40px 36px",
+          background: isDark
+            ? "rgba(255,255,255,0.035)"
+            : "rgba(255,255,255,0.85)",
+          border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
+          backdropFilter: "blur(32px)",
+          boxShadow: isDark
+            ? "0 0 0 1px rgba(255,255,255,0.04), 0 32px 100px rgba(0,0,0,0.7), 0 0 100px rgba(109,40,217,0.07)"
+            : "0 8px 60px rgba(0,0,0,0.09), 0 2px 12px rgba(0,0,0,0.04)",
         }}
       >
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8 fade-slide-up delay-100">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 logo-glow"
-            style={{
-              background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
-            }}
-          >
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-          </div>
-
-          <h1
-            className="text-2xl font-bold tracking-tight mb-1"
-            style={{
-              background: "linear-gradient(135deg, #fff 40%, rgba(255,255,255,0.5))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
+        {/* Wordmark */}
+        <div className="rise d1 mb-8">
+          <div style={{
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: isDark ? "rgba(167,139,250,0.7)" : "rgba(109,40,217,0.6)",
+            marginBottom: 12,
+          }}>
             QuickPOS
+          </div>
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 800,
+            lineHeight: 1.18,
+            letterSpacing: "-0.02em",
+            color: isDark ? "#ffffff" : "#0f0a1e",
+            margin: 0,
+          }}>
+            Stop guessing.<br />Start selling.
           </h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Your store. Your data.
+          <p style={{
+            marginTop: 10,
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: isDark ? "rgba(255,255,255,0.38)" : "rgba(15,10,30,0.45)",
+          }}>
+            One sign-in. Your entire store — products, sales, analytics — private and ready to go.
           </p>
         </div>
 
+        {/* Error */}
         {error && (
-          <div
-            className="mb-5 px-4 py-3 rounded-xl text-sm text-center fade-slide-up"
-            style={{
-              background: "rgba(239,68,68,0.1)",
-              border: "1px solid rgba(239,68,68,0.2)",
-              color: "#f87171",
-            }}
-          >
+          <div className="rise d1 mb-4" style={{
+            padding: "11px 16px",
+            borderRadius: 12,
+            fontSize: 13,
+            textAlign: "center",
+            background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)",
+            border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`,
+            color: isDark ? "#f87171" : "#dc2626",
+          }}>
             Sign-in failed. Please try again.
           </div>
         )}
 
         {/* Buttons */}
-        <div className="space-y-3">
+        <div className="rise d2 space-y-3">
+          {/* Google */}
           <a
             href="/auth/google"
-            className="btn-google flex items-center gap-3 w-full px-4 py-3.5 rounded-xl font-medium text-sm"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.85)",
+            className="btn-social"
+            style={isDark ? {
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.88)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+            } : {
+              background: "#ffffff",
+              border: "1px solid rgba(0,0,0,0.10)",
+              color: "#1a1a1a",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05)",
             }}
           >
-            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+            <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            <span className="flex-1 text-center">Continue with Google</span>
+            <span style={{ flex: 1, textAlign: "center" }}>Continue with Google</span>
           </a>
 
+          {/* Facebook */}
           <a
             href="/auth/facebook"
-            className="btn-facebook flex items-center gap-3 w-full px-4 py-3.5 rounded-xl font-medium text-sm"
-            style={{
-              background: "linear-gradient(135deg, #1877F2, #0d65d9)",
-              border: "1px solid rgba(24,119,242,0.3)",
-              color: "#fff",
+            className="btn-social"
+            style={isDark ? {
+              background: "linear-gradient(135deg, #1877F2 0%, #0c63d4 100%)",
+              border: "1px solid rgba(24,119,242,0.4)",
+              color: "#ffffff",
+              boxShadow: "0 4px 20px rgba(24,119,242,0.3)",
+            } : {
+              background: "linear-gradient(135deg, #1877F2 0%, #1464cc 100%)",
+              border: "1px solid rgba(24,119,242,0.25)",
+              color: "#ffffff",
+              boxShadow: "0 4px 16px rgba(24,119,242,0.25)",
             }}
           >
-            <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
             </svg>
-            <span className="flex-1 text-center">Continue with Facebook</span>
+            <span style={{ flex: 1, textAlign: "center" }}>Continue with Facebook</span>
           </a>
         </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-6 fade-slide-up delay-400">
-          <div className="divider-line" />
-          <span className="text-xs shrink-0" style={{ color: "rgba(255,255,255,0.2)" }}>
-            Sign in to get started
-          </span>
-          <div className="divider-line" />
-        </div>
-
-        {/* Feature pills */}
-        <div className="flex flex-wrap justify-center gap-2 fade-slide-up delay-500">
-          {["Free to use", "Private data", "Multi-device"].map((f) => (
-            <span
-              key={f}
-              className="text-[11px] px-2.5 py-1 rounded-full"
-              style={{
-                background: "rgba(124,58,237,0.1)",
-                border: "1px solid rgba(124,58,237,0.2)",
-                color: "rgba(167,139,250,0.8)",
-              }}
-            >
-              {f}
-            </span>
-          ))}
-        </div>
-
-        <p className="text-center text-[11px] mt-5" style={{ color: "rgba(255,255,255,0.18)" }}>
-          Each account gets its own private POS system
+        {/* Footer line */}
+        <p className="rise d4" style={{
+          marginTop: 28,
+          fontSize: 12,
+          textAlign: "center",
+          color: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.28)",
+          lineHeight: 1.5,
+        }}>
+          No credit card. No setup fees. Your data stays yours.
         </p>
       </div>
     </div>

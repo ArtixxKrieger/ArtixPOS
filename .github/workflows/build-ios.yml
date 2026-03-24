@@ -38,6 +38,11 @@ jobs:
       - name: Add iOS platform
         run: npx cap add ios
 
+      - name: Set iOS deployment target to 15.0
+        run: |
+          sed -i '' "s/platform :ios, .*/platform :ios, '15.0'/" ios/App/Podfile
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
+
       - name: Sync Capacitor
         run: npx cap sync ios
 

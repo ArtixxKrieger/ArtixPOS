@@ -8,3 +8,10 @@ local.db
 .local/
 attached_assets/
 yarn.lock
+
+# iOS
+ios/Pods/
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/App/App.xcworkspace/
+ios/App/App.xcodeproj/xcuserdata/

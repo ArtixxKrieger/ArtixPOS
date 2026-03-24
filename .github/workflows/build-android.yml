@@ -41,14 +41,58 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
-      - name: Patch build.gradle for Java 21
+      - name: Patch android/build.gradle — force Kotlin 1.8.22
         run: |
+          # If kotlin_version already exists, replace it; otherwise insert after 'buildscript {'
+          if grep -q "kotlin_version" android/build.gradle; then
+            sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.8.22'/g" android/build.gradle
+          else
+            sed -i "s/buildscript {/buildscript {\n    ext.kotlin_version = '1.8.22'/" android/build.gradle
+          fi
+          echo "--- android/build.gradle kotlin_version ---"
+          grep "kotlin_version" android/build.gradle || true
+
+      - name: Patch android/app/build.gradle — Java 21 + Kotlin dedup
+        run: |
+          # Java 21 compatibility
           sed -i 's/sourceCompatibility JavaVersion.VERSION_[0-9_]*/sourceCompatibility JavaVersion.VERSION_21/g' android/app/build.gradle
           sed -i 's/targetCompatibility JavaVersion.VERSION_[0-9_]*/targetCompatibility JavaVersion.VERSION_21/g' android/app/build.gradle
           sed -i 's/jvmTarget = "[^"]*"/jvmTarget = "21"/g' android/app/build.gradle
-          echo "--- android/app/build.gradle (compileOptions section) ---"
-          grep -A4 "compileOptions" android/app/build.gradle || true
-          grep "jvmTarget" android/app/build.gradle || true
+
+          # Force kotlin-stdlib to 1.8.22 and exclude old jdk7/jdk8 variants
+          python3 - <<'EOF'
+          import re
+
+          with open('android/app/build.gradle', 'r') as f:
+              content = f.read()
+
+          # Update kotlin-stdlib version if present
+          content = re.sub(
+              r'(org\.jetbrains\.kotlin:kotlin-stdlib)[^"\']*',
+              r'\g<1>:1.8.22',
+              content
+          )
+
+          # Add configurations.all block before the dependencies block if not already present
+          if 'configurations.all' not in content:
+              content = content.replace(
+                  'dependencies {',
+                  'configurations.all {\n'
+                  '    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"\n'
+                  '    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"\n'
+                  '}\n\n'
+                  'dependencies {',
+                  1
+              )
+
+          with open('android/app/build.gradle', 'w') as f:
+              f.write(content)
+
+          print("Patch applied successfully")
+          EOF
+
+          echo "--- android/app/build.gradle (relevant sections) ---"
+          grep -E "configurations|kotlin-stdlib|sourceCompatibility|targetCompatibility|jvmTarget" android/app/build.gradle || true
 
       - name: Sync Capacitor
         run: npx cap sync android

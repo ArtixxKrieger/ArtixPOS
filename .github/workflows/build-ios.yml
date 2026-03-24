@@ -23,7 +23,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --ignore-scripts
 
       - name: Build web assets
         run: npx vite build
@@ -35,19 +35,20 @@ jobs:
         run: npx cap sync ios
 
       - name: Install CocoaPods dependencies
-        run: cd ios/App && pod install
+        run: cd ios/App && pod install --repo-update
 
-      - name: Build iOS (no signing)
+      - name: Build iOS (simulator, no signing)
         run: |
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Debug \
-            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -derivedDataPath ios/build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
       - name: Upload iOS build artifact
         uses: actions/upload-artifact@v4

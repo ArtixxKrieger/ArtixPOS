@@ -35,7 +35,7 @@ export function useCreateSale() {
           body: JSON.stringify(data),
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to record sale");
+        if (!res.ok) throw new TypeError("Server unavailable");
         const result = api.sales.create.responses[201].parse(await res.json());
         return result;
       } catch (err) {

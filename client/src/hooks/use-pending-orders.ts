@@ -35,7 +35,7 @@ export function useCreatePendingOrder() {
           body: JSON.stringify(data),
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to create pending order");
+        if (!res.ok) throw new TypeError("Server unavailable");
         const result = api.pendingOrders.create.responses[201].parse(await res.json());
         await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
         return result;
@@ -61,7 +61,7 @@ export function useDeletePendingOrder() {
           method: api.pendingOrders.delete.method,
           credentials: "include",
         });
-        if (!res.ok && res.status !== 404) throw new Error("Failed to delete pending order");
+        if (!res.ok && res.status !== 404) throw new TypeError("Server unavailable");
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
       } catch (err) {
         if (!isNetworkError(err)) throw err;
@@ -85,7 +85,7 @@ export function useUpdatePendingOrder() {
           body: JSON.stringify(data),
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to update pending order");
+        if (!res.ok) throw new TypeError("Server unavailable");
         const result = api.pendingOrders.update.responses[200].parse(await res.json());
         await patchCached(LIST_URL, (prev: any[]) => prev.map((o: any) => (o.id === id ? result : o)));
         return result;

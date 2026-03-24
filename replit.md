@@ -16,6 +16,7 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 - **Backend**: Express.js with SQLite (Drizzle ORM)
 - **State Management**: TanStack React Query
 - **Styling**: Shadcn UI components + custom design system
+- **Mobile**: Capacitor (Android & iOS native app builds via GitHub Actions)
 
 ## Design System
 - **Theme Colors**: Indigo-500 primary, Violet-600 secondary
@@ -29,6 +30,36 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 - Currency symbol: ₱ (Philippine Peso)
 - Tax rate: Configurable in settings
 - Payment methods: Cash, Online
+
+## Mobile App (Capacitor)
+
+### Setup
+The app uses [Capacitor](https://capacitorjs.com/) to wrap the React frontend as a native Android and iOS app.
+
+- **App ID**: `com.cafebara.app`
+- **Web build output**: `dist/public` (Vite build)
+- **Config file**: `capacitor.config.ts`
+
+### Building Locally
+Before running Capacitor commands, build the web assets first:
+```bash
+npx vite build
+npx cap add android   # first time only
+npx cap add ios       # first time only (macOS required)
+npx cap sync          # sync web assets to native projects
+```
+
+### GitHub Actions CI
+Two workflows are set up in `.github/workflows/`:
+
+| Workflow | Runner | Output |
+|---|---|---|
+| `build-android.yml` | `ubuntu-latest` | `app-debug.apk` |
+| `build-ios.yml` | `macos-latest` | Simulator `.app` build |
+
+Both workflows trigger automatically on push to `main`/`master` and can also be triggered manually. The built APK/app is uploaded as a GitHub Actions artifact (kept 30 days).
+
+> **Note**: Signing for release builds requires adding your keystore/certificate as GitHub Actions secrets and updating the workflow accordingly.
 
 ## File Structure
 ```
@@ -47,7 +78,12 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 │   └── routes.ts           # API endpoints
 ├── shared/
 │   └── schema.ts           # Drizzle ORM schema & Zod validation
-└── vite.config.ts          # Vite build config
+├── vite.config.ts          # Vite build config
+├── capacitor.config.ts     # Capacitor mobile app config
+└── .github/
+    └── workflows/
+        ├── build-android.yml   # Android APK build (ubuntu-latest)
+        └── build-ios.yml       # iOS build (macos-latest)
 ```
 
 ## How to Install as an App

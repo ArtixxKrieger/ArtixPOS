@@ -5,8 +5,11 @@ import { getCached, setCached, patchCached, queueMutation } from "@/lib/offline-
 
 const LIST_URL = api.products.list.path;
 
-function isNetworkError(err: unknown): boolean {
-  return err instanceof TypeError;
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
 }
 
 export function useProducts() {
@@ -56,15 +59,15 @@ export function useCreateProduct() {
         if (!res.ok) {
           if (res.status === 400) {
             const err = api.products.create.responses[400].parse(await res.json());
-            throw new Error(err.message);
+            throw new ValidationError(err.message);
           }
-          throw new Error("Failed to create product");
+          throw new TypeError("Server unavailable");
         }
         const result = api.products.create.responses[201].parse(await res.json());
         await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
         return result;
       } catch (err) {
-        if (!isNetworkError(err)) throw err;
+        if (err instanceof ValidationError) throw err;
         await queueMutation("POST", api.products.create.path, data);
         const optimistic = { ...data, id: Date.now(), sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
         await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
@@ -87,12 +90,12 @@ export function useUpdateProduct() {
           body: JSON.stringify(data),
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to update product");
+        if (!res.ok) throw new TypeError("Server unavailable");
         const result = api.products.update.responses[200].parse(await res.json());
         await patchCached(LIST_URL, (prev: any[]) => prev.map((p) => (p.id === id ? result : p)));
         return result;
       } catch (err) {
-        if (!isNetworkError(err)) throw err;
+        if (err instanceof ValidationError) throw err;
         await queueMutation("PUT", url, data);
         await patchCached(LIST_URL, (prev: any[]) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
         return { id, ...data } as any;
@@ -112,10 +115,10 @@ export function useDeleteProduct() {
           method: api.products.delete.method,
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to delete product");
+        if (!res.ok) throw new TypeError("Server unavailable");
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
       } catch (err) {
-        if (!isNetworkError(err)) throw err;
+        if (err instanceof ValidationError) throw err;
         await queueMutation("DELETE", url);
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
       }

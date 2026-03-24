@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Edit2, Trash2, Search, Package, X, Tag } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface SizeItem { name: string; price: string; }
 interface ModifierItem { name: string; price: string; }
@@ -27,6 +28,7 @@ export default function Products() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -51,6 +53,10 @@ export default function Products() {
   );
 
   const onSubmit = (data: ProductFormData) => {
+    if (!data.name?.trim()) {
+      toast({ title: "Name required", description: "Please enter a product name.", variant: "destructive" });
+      return;
+    }
     const payload: InsertProduct = {
       name: data.name,
       price: data.price.toString(),
@@ -62,11 +68,26 @@ export default function Products() {
     };
     if (editingId) {
       updateProduct.mutate({ id: editingId, ...payload }, {
-        onSuccess: () => { setIsDialogOpen(false); setEditingId(null); form.reset(); }
+        onSuccess: () => {
+          setIsDialogOpen(false);
+          setEditingId(null);
+          form.reset();
+          toast({ title: "Product updated" });
+        },
+        onError: (err) => {
+          toast({ title: "Failed to update", description: err.message, variant: "destructive" });
+        }
       });
     } else {
       createProduct.mutate(payload, {
-        onSuccess: () => { setIsDialogOpen(false); form.reset(); }
+        onSuccess: () => {
+          setIsDialogOpen(false);
+          form.reset();
+          toast({ title: "Product added" });
+        },
+        onError: (err) => {
+          toast({ title: "Failed to add product", description: err.message, variant: "destructive" });
+        }
       });
     }
   };
@@ -352,7 +373,12 @@ export default function Products() {
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               data-testid="button-confirm-delete"
               onClick={() => {
-                if (confirmDeleteId !== null) deleteProduct.mutate(confirmDeleteId);
+                if (confirmDeleteId !== null) {
+                  deleteProduct.mutate(confirmDeleteId, {
+                    onSuccess: () => toast({ title: "Product deleted" }),
+                    onError: (err) => toast({ title: "Failed to delete", description: err.message, variant: "destructive" }),
+                  });
+                }
                 setConfirmDeleteId(null);
               }}
             >

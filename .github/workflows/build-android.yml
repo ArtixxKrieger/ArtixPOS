@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -41,14 +41,23 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Patch build.gradle for Java 21
+        run: |
+          sed -i 's/sourceCompatibility JavaVersion.VERSION_[0-9_]*/sourceCompatibility JavaVersion.VERSION_21/g' android/app/build.gradle
+          sed -i 's/targetCompatibility JavaVersion.VERSION_[0-9_]*/targetCompatibility JavaVersion.VERSION_21/g' android/app/build.gradle
+          sed -i 's/jvmTarget = "[^"]*"/jvmTarget = "21"/g' android/app/build.gradle
+          echo "--- android/app/build.gradle (compileOptions section) ---"
+          grep -A4 "compileOptions" android/app/build.gradle || true
+          grep "jvmTarget" android/app/build.gradle || true
+
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build debug APK
-        run: cd android && ./gradlew assembleDebug --no-daemon
+      - name: Clean and build debug APK
+        run: cd android && ./gradlew clean assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

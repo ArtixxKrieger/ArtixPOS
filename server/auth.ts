@@ -6,21 +6,28 @@ import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { Express } from "express";
 
+function getBaseUrl(): string {
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  if (domain) return `https://${domain}`;
+  return process.env.APP_URL || "http://localhost:5000";
+}
+
 export function setupAuth(app: Express) {
+  const baseUrl = getBaseUrl();
+  console.log(`[auth] Using base URL: ${baseUrl}`);
+
   passport.use(
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: "/auth/google/callback",
+        callbackURL: `${baseUrl}/auth/google/callback`,
       },
       async (_accessToken, _refreshToken, profile, done) => {
         try {
           const userId = `google_${profile.id}`;
           const [existing] = await db.select().from(users).where(eq(users.id, userId));
-          if (existing) {
-            return done(null, existing);
-          }
+          if (existing) return done(null, existing);
           const [created] = await db
             .insert(users)
             .values({
@@ -45,16 +52,15 @@ export function setupAuth(app: Express) {
       {
         clientID: process.env.FACEBOOK_APP_ID!,
         clientSecret: process.env.FACEBOOK_APP_SECRET!,
-        callbackURL: "/auth/facebook/callback",
+        callbackURL: `${baseUrl}/auth/facebook/callback`,
         profileFields: ["id", "displayName", "photos", "email"],
+        enableProof: true,
       },
       async (_accessToken, _refreshToken, profile, done) => {
         try {
           const userId = `facebook_${profile.id}`;
           const [existing] = await db.select().from(users).where(eq(users.id, userId));
-          if (existing) {
-            return done(null, existing);
-          }
+          if (existing) return done(null, existing);
           const [created] = await db
             .insert(users)
             .values({
@@ -74,9 +80,7 @@ export function setupAuth(app: Express) {
     )
   );
 
-  passport.serializeUser((user: any, done) => {
-    done(null, user.id);
-  });
+  passport.serializeUser((user: any, done) => done(null, user.id));
 
   passport.deserializeUser(async (id: string, done) => {
     try {
@@ -87,22 +91,14 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.get(
-    "/auth/google",
-    passport.authenticate("google", { scope: ["profile", "email"] })
-  );
-
+  app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
   app.get(
     "/auth/google/callback",
     passport.authenticate("google", { failureRedirect: "/login?error=google" }),
     (_req, res) => res.redirect("/")
   );
 
-  app.get(
-    "/auth/facebook",
-    passport.authenticate("facebook", { scope: ["email"] })
-  );
-
+  app.get("/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
   app.get(
     "/auth/facebook/callback",
     passport.authenticate("facebook", { failureRedirect: "/login?error=facebook" }),

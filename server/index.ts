@@ -22,6 +22,9 @@ declare module "express-session" {
   }
 }
 
+// Trust Replit's reverse proxy so HTTPS is correctly detected
+app.set("trust proxy", 1);
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {

@@ -32,15 +32,21 @@ jobs:
       - name: Rebuild native binaries
         run: npm rebuild
 
+      - name: Patch iOS Podfile template to 15.0
+        run: |
+          mkdir -p /tmp/ios-template
+          tar -xzf node_modules/@capacitor/cli/assets/ios-pods-template.tar.gz -C /tmp/ios-template
+          sed -i '' "s/platform :ios, .*/platform :ios, '15.0'/" /tmp/ios-template/App/Podfile
+          tar -czf node_modules/@capacitor/cli/assets/ios-pods-template.tar.gz -C /tmp/ios-template .
+
       - name: Build web assets
         run: npx vite build
 
       - name: Add iOS platform
         run: npx cap add ios
 
-      - name: Set iOS deployment target to 15.0
+      - name: Set Xcode deployment target to 15.0
         run: |
-          sed -i '' "s/platform :ios, .*/platform :ios, '15.0'/" ios/App/Podfile
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
 
       - name: Sync Capacitor

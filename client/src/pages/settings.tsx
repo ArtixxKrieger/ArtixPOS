@@ -6,8 +6,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Store, Receipt, MapPin, Phone, Mail, FileText, Save, Percent } from "lucide-react";
+import { Store, Receipt, MapPin, Phone, Mail, FileText, Save, Percent, LogOut, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SettingsFormData {
   storeName: string;
@@ -38,6 +39,7 @@ export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
+  const { user, logout } = useAuth();
 
   const form = useForm<SettingsFormData>({
     defaultValues: {
@@ -231,6 +233,41 @@ export default function Settings() {
           </Button>
         </form>
       </Form>
+
+      {/* Account */}
+      <div className="bg-card rounded-2xl border border-border/30 overflow-hidden shadow-sm mt-4">
+        <div className="px-5 py-4 border-b border-border/30 bg-muted/10 flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <User className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <h3 className="text-sm font-bold">Account</h3>
+        </div>
+        <div className="p-5">
+          {user && (
+            <div className="flex items-center gap-3 mb-4 p-3 rounded-xl bg-muted/40">
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name ?? ""} className="h-10 w-10 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-bold text-primary">{(user.name ?? "?")[0].toUpperCase()}</span>
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{user.name ?? "User"}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email ?? `Signed in via ${user.provider}`}</p>
+              </div>
+            </div>
+          )}
+          <Button
+            variant="destructive"
+            className="w-full h-11 rounded-xl font-semibold"
+            onClick={() => logout()}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

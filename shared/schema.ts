@@ -2,10 +2,23 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email"),
+  name: text("name"),
+  avatar: text("avatar"),
+  provider: text("provider").notNull(),
+  providerId: text("provider_id").notNull(),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
 // ─── Table Definitions ────────────────────────────────────────────────────────
 
 export const products = sqliteTable("products", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   price: text("price").notNull().default("0"),
   category: text("category"),
@@ -32,6 +45,7 @@ export const productModifiers = sqliteTable("product_modifiers", {
 
 export const pendingOrders = sqliteTable("pending_orders", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().references(() => users.id),
   items: text("items", { mode: "json" }).notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
   tax: text("tax").default("0"),
@@ -47,6 +61,7 @@ export const pendingOrders = sqliteTable("pending_orders", {
 
 export const sales = sqliteTable("sales", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().references(() => users.id),
   items: text("items", { mode: "json" }).notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
   tax: text("tax").default("0"),
@@ -61,6 +76,7 @@ export const sales = sqliteTable("sales", {
 
 export const userSettings = sqliteTable("user_settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().unique().references(() => users.id),
   storeName: text("store_name"),
   currency: text("currency"),
   taxRate: text("tax_rate"),
@@ -71,7 +87,13 @@ export const userSettings = sqliteTable("user_settings", {
   timezone: text("timezone"),
 });
 
-// ─── Insert Schemas (use .extend() to avoid drizzle-zod strict key issues) ───
+// ─── Insert Schemas ───────────────────────────────────────────────────────────
+
+export const insertUserSchema = createInsertSchema(users).extend({
+  email: z.string().optional().nullable(),
+  name: z.string().optional().nullable(),
+  avatar: z.string().optional().nullable(),
+});
 
 export const insertProductSchema = createInsertSchema(products)
   .extend({
@@ -138,6 +160,9 @@ export const insertUserSettingSchema = createInsertSchema(userSettings)
   });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;

@@ -15,46 +15,48 @@ import {
   type UserSetting,
   type InsertUserSetting
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Products
-  getProducts(): Promise<Product[]>;
-  getProduct(id: number): Promise<Product | undefined>;
-  createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
-  deleteProduct(id: number): Promise<void>;
+  getProducts(userId: string): Promise<Product[]>;
+  getProduct(id: number, userId: string): Promise<Product | undefined>;
+  createProduct(userId: string, product: Omit<InsertProduct, "userId">): Promise<Product>;
+  updateProduct(id: number, userId: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: number, userId: string): Promise<void>;
 
   // Pending Orders
-  getPendingOrders(): Promise<PendingOrder[]>;
-  getPendingOrder(id: number): Promise<PendingOrder | undefined>;
-  createPendingOrder(order: InsertPendingOrder): Promise<PendingOrder>;
-  updatePendingOrder(id: number, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined>;
-  deletePendingOrder(id: number): Promise<void>;
+  getPendingOrders(userId: string): Promise<PendingOrder[]>;
+  getPendingOrder(id: number, userId: string): Promise<PendingOrder | undefined>;
+  createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder>;
+  updatePendingOrder(id: number, userId: string, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined>;
+  deletePendingOrder(id: number, userId: string): Promise<void>;
 
   // Sales
-  getSales(): Promise<Sale[]>;
-  createSale(sale: InsertSale): Promise<Sale>;
+  getSales(userId: string): Promise<Sale[]>;
+  createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
 
   // Settings
-  getSettings(): Promise<UserSetting | undefined>;
-  updateSettings(settings: Partial<InsertUserSetting>): Promise<UserSetting>;
+  getSettings(userId: string): Promise<UserSetting | undefined>;
+  updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting>;
 }
 
 export class DatabaseStorage implements IStorage {
   // Products
-  async getProducts(): Promise<Product[]> {
+  async getProducts(userId: string): Promise<Product[]> {
     try {
-      return await db.select().from(products);
+      return await db.select().from(products).where(eq(products.userId, userId));
     } catch (error) {
       console.error("Error fetching products:", error);
       return [];
     }
   }
 
-  async getProduct(id: number): Promise<Product | undefined> {
+  async getProduct(id: number, userId: string): Promise<Product | undefined> {
     try {
-      const [product] = await db.select().from(products).where(eq(products.id, id));
+      const [product] = await db.select().from(products).where(
+        and(eq(products.id, id), eq(products.userId, userId))
+      );
       return product;
     } catch (error) {
       console.error("Error fetching product:", error);
@@ -62,9 +64,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createProduct(product: InsertProduct): Promise<Product> {
+  async createProduct(userId: string, product: Omit<InsertProduct, "userId">): Promise<Product> {
     try {
-      const [created] = await db.insert(products).values(product as any).returning();
+      const [created] = await db.insert(products).values({ ...product, userId } as any).returning();
       return created;
     } catch (error) {
       console.error("Error creating product:", error);
@@ -72,9 +74,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
+  async updateProduct(id: number, userId: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
     try {
-      const [updated] = await db.update(products).set(product as any).where(eq(products.id, id)).returning();
+      const [updated] = await db.update(products)
+        .set(product as any)
+        .where(and(eq(products.id, id), eq(products.userId, userId)))
+        .returning();
       return updated;
     } catch (error) {
       console.error("Error updating product:", error);
@@ -82,9 +87,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteProduct(id: number): Promise<void> {
+  async deleteProduct(id: number, userId: string): Promise<void> {
     try {
-      await db.delete(products).where(eq(products.id, id));
+      await db.delete(products).where(and(eq(products.id, id), eq(products.userId, userId)));
     } catch (error) {
       console.error("Error deleting product:", error);
       throw error;
@@ -92,18 +97,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Pending Orders
-  async getPendingOrders(): Promise<PendingOrder[]> {
+  async getPendingOrders(userId: string): Promise<PendingOrder[]> {
     try {
-      return await db.select().from(pendingOrders);
+      return await db.select().from(pendingOrders).where(eq(pendingOrders.userId, userId));
     } catch (error) {
       console.error("Error fetching pending orders:", error);
       return [];
     }
   }
 
-  async getPendingOrder(id: number): Promise<PendingOrder | undefined> {
+  async getPendingOrder(id: number, userId: string): Promise<PendingOrder | undefined> {
     try {
-      const [order] = await db.select().from(pendingOrders).where(eq(pendingOrders.id, id));
+      const [order] = await db.select().from(pendingOrders).where(
+        and(eq(pendingOrders.id, id), eq(pendingOrders.userId, userId))
+      );
       return order;
     } catch (error) {
       console.error("Error fetching pending order:", error);
@@ -111,9 +118,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createPendingOrder(order: InsertPendingOrder): Promise<PendingOrder> {
+  async createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder> {
     try {
-      const [created] = await db.insert(pendingOrders).values(order as any).returning();
+      const [created] = await db.insert(pendingOrders).values({ ...order, userId } as any).returning();
       return created;
     } catch (error) {
       console.error("Error creating pending order:", error);
@@ -121,9 +128,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updatePendingOrder(id: number, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined> {
+  async updatePendingOrder(id: number, userId: string, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined> {
     try {
-      const [updated] = await db.update(pendingOrders).set(order as any).where(eq(pendingOrders.id, id)).returning();
+      const [updated] = await db.update(pendingOrders)
+        .set(order as any)
+        .where(and(eq(pendingOrders.id, id), eq(pendingOrders.userId, userId)))
+        .returning();
       return updated;
     } catch (error) {
       console.error("Error updating pending order:", error);
@@ -131,9 +141,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deletePendingOrder(id: number): Promise<void> {
+  async deletePendingOrder(id: number, userId: string): Promise<void> {
     try {
-      await db.delete(pendingOrders).where(eq(pendingOrders.id, id));
+      await db.delete(pendingOrders).where(and(eq(pendingOrders.id, id), eq(pendingOrders.userId, userId)));
     } catch (error) {
       console.error("Error deleting pending order:", error);
       throw error;
@@ -141,18 +151,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Sales
-  async getSales(): Promise<Sale[]> {
+  async getSales(userId: string): Promise<Sale[]> {
     try {
-      return await db.select().from(sales);
+      return await db.select().from(sales).where(eq(sales.userId, userId));
     } catch (error) {
       console.error("Error fetching sales:", error);
       return [];
     }
   }
 
-  async createSale(sale: InsertSale): Promise<Sale> {
+  async createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale> {
     try {
-      const [created] = await db.insert(sales).values(sale as any).returning();
+      const [created] = await db.insert(sales).values({ ...sale, userId } as any).returning();
       return created;
     } catch (error) {
       console.error("Error creating sale:", error);
@@ -161,9 +171,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Settings
-  async getSettings(): Promise<UserSetting | undefined> {
+  async getSettings(userId: string): Promise<UserSetting | undefined> {
     try {
-      const [setting] = await db.select().from(userSettings).limit(1);
+      const [setting] = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
       return setting;
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -171,18 +181,18 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateSettings(settings: Partial<InsertUserSetting>): Promise<UserSetting> {
+  async updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting> {
     try {
-      const existing = await this.getSettings();
+      const existing = await this.getSettings(userId);
       if (existing) {
         const [updated] = await db.update(userSettings)
           .set(settings as any)
-          .where(eq(userSettings.id, existing.id))
+          .where(eq(userSettings.userId, userId))
           .returning();
         return updated;
       } else {
         const [created] = await db.insert(userSettings)
-          .values(settings as any)
+          .values({ ...settings, userId } as any)
           .returning();
         return created;
       }

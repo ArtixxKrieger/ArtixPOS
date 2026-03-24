@@ -1,8 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import passport from "passport";
 import { registerRoutes } from "./routes.js";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seed } from "./db";
+import { setupAuth } from "./auth";
+import crypto from "crypto";
 
 const app = express();
 const httpServer = createServer(app);
@@ -10,6 +13,12 @@ const httpServer = createServer(app);
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
+  }
+}
+
+declare module "express-session" {
+  interface SessionData {
+    passport: { user: string };
   }
 }
 
@@ -22,6 +31,25 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Session
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+app.use(
+  session({
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
+  })
+);
+
+// Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Cache-busting headers in development
 app.use((req, res, next) => {
@@ -63,7 +91,7 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
+    if (path.startsWith("/api") || path.startsWith("/auth")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
@@ -76,7 +104,6 @@ app.use((req, res, next) => {
 });
 
 // ── Initialization ───────────────────────────────────────────────────────────
-// Guard: only run once even if handler() is called multiple times (Vercel warm reuse)
 let _initialized = false;
 
 async function initializeApp() {
@@ -85,7 +112,10 @@ async function initializeApp() {
 
   try {
     console.log("Starting server initialization...");
-    await seed();
+
+    // Setup OAuth strategies and auth routes
+    setupAuth(app);
+
     await registerRoutes(httpServer, app);
 
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
@@ -109,14 +139,13 @@ async function initializeApp() {
 
     return app;
   } catch (error) {
-    // Reset so the next request can try again
     _initialized = false;
     console.error("Failed to initialize server:", error);
     throw error;
   }
 }
 
-// ── Local server startup (not on Vercel) ────────────────────────────────────
+// ── Local server startup ────────────────────────────────────────────────────
 if (process.env.VERCEL !== "1") {
   (async () => {
     try {
@@ -154,7 +183,7 @@ if (process.env.VERCEL !== "1") {
   });
 
   process.on("unhandledRejection", (reason, promise) => {
-    console.error("Unhandled Rejection at:", promise, "reason:", reason);
+    console.error("Unhandled Rejection at:", promise, "reason:", promise);
     process.exit(1);
   });
 }

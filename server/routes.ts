@@ -1,32 +1,44 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+}
+
+function userId(req: Request): string {
+  return (req.user as any).id;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
   // Products
-  app.get(api.products.list.path, async (req, res) => {
-    const products = await storage.getProducts();
+  app.get(api.products.list.path, requireAuth, async (req, res) => {
+    const products = await storage.getProducts(userId(req));
     res.json(products);
   });
 
-  app.get(api.products.get.path, async (req, res) => {
-    const product = await storage.getProduct(Number(req.params.id));
+  app.get(api.products.get.path, requireAuth, async (req, res) => {
+    const product = await storage.getProduct(Number(req.params.id), userId(req));
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   });
 
-  app.post(api.products.create.path, async (req, res) => {
+  app.post(api.products.create.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.products.create.input.extend({
         price: z.coerce.string(),
       });
       const input = bodySchema.parse(req.body);
-      const product = await storage.createProduct(input);
+      const product = await storage.createProduct(userId(req), input);
       res.status(201).json(product);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -39,13 +51,13 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.products.update.path, async (req, res) => {
+  app.put(api.products.update.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.products.update.input.extend({
         price: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      const product = await storage.updateProduct(Number(req.params.id), input);
+      const product = await storage.updateProduct(Number(req.params.id), userId(req), input);
       if (!product) return res.status(404).json({ message: "Product not found" });
       res.json(product);
     } catch (err) {
@@ -59,18 +71,18 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.products.delete.path, async (req, res) => {
-    await storage.deleteProduct(Number(req.params.id));
+  app.delete(api.products.delete.path, requireAuth, async (req, res) => {
+    await storage.deleteProduct(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
   // Pending Orders
-  app.get(api.pendingOrders.list.path, async (req, res) => {
-    const orders = await storage.getPendingOrders();
+  app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {
+    const orders = await storage.getPendingOrders(userId(req));
     res.json(orders);
   });
 
-  app.post(api.pendingOrders.create.path, async (req, res) => {
+  app.post(api.pendingOrders.create.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.pendingOrders.create.input.extend({
         subtotal: z.coerce.string(),
@@ -81,7 +93,7 @@ export async function registerRoutes(
         changeAmount: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      const order = await storage.createPendingOrder(input);
+      const order = await storage.createPendingOrder(userId(req), input);
       res.status(201).json(order);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -94,7 +106,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.pendingOrders.update.path, async (req, res) => {
+  app.put(api.pendingOrders.update.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.pendingOrders.update.input.extend({
         subtotal: z.coerce.string().optional(),
@@ -105,7 +117,7 @@ export async function registerRoutes(
         changeAmount: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      const order = await storage.updatePendingOrder(Number(req.params.id), input);
+      const order = await storage.updatePendingOrder(Number(req.params.id), userId(req), input);
       if (!order) return res.status(404).json({ message: "Order not found" });
       res.json(order);
     } catch (err) {
@@ -119,18 +131,18 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.pendingOrders.delete.path, async (req, res) => {
-    await storage.deletePendingOrder(Number(req.params.id));
+  app.delete(api.pendingOrders.delete.path, requireAuth, async (req, res) => {
+    await storage.deletePendingOrder(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
   // Sales
-  app.get(api.sales.list.path, async (req, res) => {
-    const salesList = await storage.getSales();
+  app.get(api.sales.list.path, requireAuth, async (req, res) => {
+    const salesList = await storage.getSales(userId(req));
     res.json(salesList);
   });
 
-  app.post(api.sales.create.path, async (req, res) => {
+  app.post(api.sales.create.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.sales.create.input.extend({
         subtotal: z.coerce.string(),
@@ -141,7 +153,7 @@ export async function registerRoutes(
         changeAmount: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      const sale = await storage.createSale(input);
+      const sale = await storage.createSale(userId(req), input);
       res.status(201).json(sale);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -155,11 +167,12 @@ export async function registerRoutes(
   });
 
   // Settings
-  app.get(api.settings.get.path, async (req, res) => {
-    const settings = await storage.getSettings();
+  app.get(api.settings.get.path, requireAuth, async (req, res) => {
+    const settings = await storage.getSettings(userId(req));
     if (!settings) {
       return res.json({
         id: 0,
+        userId: userId(req),
         storeName: "My Store",
         currency: "$",
         taxRate: "0",
@@ -173,13 +186,13 @@ export async function registerRoutes(
     res.json(settings);
   });
 
-  app.put(api.settings.update.path, async (req, res) => {
+  app.put(api.settings.update.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.settings.update.input.extend({
         taxRate: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      const settings = await storage.updateSettings(input);
+      const settings = await storage.updateSettings(userId(req), input);
       res.json(settings);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -192,25 +205,5 @@ export async function registerRoutes(
     }
   });
 
-  // Seed db initially
-  seedDatabase().catch(console.error);
-
   return httpServer;
-}
-
-async function seedDatabase() {
-  const settings = await storage.getSettings();
-  if (!settings) {
-    await storage.updateSettings({
-      storeName: "Quick POS",
-      currency: "$",
-      taxRate: "8.5",
-    });
-  }
-
-  // Removed pre-made product seeding
-  const productsList = await storage.getProducts();
-  if (productsList.length === 0) {
-    console.log("No pre-made products will be added. Start with empty catalog.");
-  }
 }

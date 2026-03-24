@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import {
   Moon, Sun, Home, ShoppingCart, Clock, Package,
-  Settings, BarChart3, WifiOff, RefreshCw, ScrollText,
+  Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sileo";
@@ -10,6 +10,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useAuth } from "@/hooks/use-auth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", url: "/", icon: Home },
@@ -45,6 +46,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
   const { isOnline, isSyncing, salesQueueCount } = useOnlineStatus();
+  const { user, logout } = useAuth();
 
   const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
   const storeName = settings?.storeName || "Café Bara";
@@ -116,8 +118,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Bottom: theme toggle */}
-        <div className="p-3 border-t border-border">
+        {/* Bottom: user + theme */}
+        <div className="p-3 border-t border-border space-y-1">
+          {user && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 mb-1">
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
+              ) : (
+                <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-semibold text-primary">{(user.name ?? "?")[0].toUpperCase()}</span>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate text-foreground">{user.name ?? "User"}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{user.email ?? user.provider}</p>
+              </div>
+              <button onClick={() => logout()} className="text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Logout">
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <button
             onClick={() => setIsDark(!isDark)}
             data-testid="button-theme-toggle"

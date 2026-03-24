@@ -103,9 +103,13 @@ jobs:
       - name: Clean and build debug APK
         run: cd android && ./gradlew clean assembleDebug --no-daemon
 
+      - name: Find APK
+        run: find android/app/build/outputs -name "*.apk" 2>/dev/null || echo "No APKs found"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: cafe-bara-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
           retention-days: 30

@@ -4,12 +4,66 @@ import { Strategy as FacebookStrategy } from "passport-facebook";
 import { db } from "./db";
 import { users, products, sales, pendingOrders, userSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+
+const AUTH_COOKIE = "auth_token";
+const STATE_COOKIE = "oauth_state";
+
+function getJwtSecret(): string {
+  return process.env.SESSION_SECRET || "dev_fallback_secret_change_in_prod";
+}
 
 function getBaseUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
   if (domain) return `https://${domain}`;
-  return process.env.APP_URL || "http://localhost:5000";
+  return "http://localhost:5000";
+}
+
+function signToken(user: any): string {
+  return jwt.sign(
+    {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      provider: user.provider,
+    },
+    getJwtSecret(),
+    { expiresIn: "7d" }
+  );
+}
+
+function setAuthCookie(res: Response, user: any) {
+  const token = signToken(user);
+  res.cookie(AUTH_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
+export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
+  const token = (req as any).cookies?.[AUTH_COOKIE];
+  if (token) {
+    try {
+      const payload = jwt.verify(token, getJwtSecret()) as any;
+      req.user = {
+        id: payload.id,
+        name: payload.name,
+        email: payload.email,
+        avatar: payload.avatar,
+        provider: payload.provider,
+      };
+    } catch {
+      // invalid/expired token — req.user stays undefined
+    }
+  }
+  next();
 }
 
 export function setupAuth(app: Express) {
@@ -80,36 +134,57 @@ export function setupAuth(app: Express) {
     )
   );
 
-  passport.serializeUser((user: any, done) => done(null, user.id));
-
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const [user] = await db.select().from(users).where(eq(users.id, id));
-      done(null, user ?? null);
-    } catch (err) {
-      done(err);
-    }
+  app.get("/auth/google", (req, res, next) => {
+    const state = crypto.randomBytes(16).toString("hex");
+    res.cookie(STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 5 * 60 * 1000,
+      sameSite: "lax",
+    });
+    passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(req, res, next);
   });
 
-  app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
-  app.get(
-    "/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/login?error=google" }),
-    (_req, res) => res.redirect("/")
-  );
+  app.get("/auth/google/callback", (req, res, next) => {
+    const expected = (req as any).cookies?.[STATE_COOKIE];
+    const actual = req.query.state as string;
+    res.clearCookie(STATE_COOKIE);
+    if (!expected || expected !== actual) return res.redirect("/login?error=state_mismatch");
 
-  app.get("/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
-  app.get(
-    "/auth/facebook/callback",
-    passport.authenticate("facebook", { failureRedirect: "/login?error=facebook" }),
-    (_req, res) => res.redirect("/")
-  );
+    passport.authenticate("google", { session: false }, (err: any, user: any) => {
+      if (err || !user) return res.redirect("/login?error=google");
+      setAuthCookie(res, user);
+      res.redirect("/");
+    })(req, res, next);
+  });
 
-  app.post("/auth/logout", (req, res, next) => {
-    req.logout((err) => {
-      if (err) return next(err);
-      res.json({ ok: true });
+  app.get("/auth/facebook", (req, res, next) => {
+    const state = crypto.randomBytes(16).toString("hex");
+    res.cookie(STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 5 * 60 * 1000,
+      sameSite: "lax",
     });
+    passport.authenticate("facebook", { scope: ["email"], state, session: false })(req, res, next);
+  });
+
+  app.get("/auth/facebook/callback", (req, res, next) => {
+    const expected = (req as any).cookies?.[STATE_COOKIE];
+    const actual = req.query.state as string;
+    res.clearCookie(STATE_COOKIE);
+    if (!expected || expected !== actual) return res.redirect("/login?error=state_mismatch");
+
+    passport.authenticate("facebook", { session: false }, (err: any, user: any) => {
+      if (err || !user) return res.redirect("/login?error=facebook");
+      setAuthCookie(res, user);
+      res.redirect("/");
+    })(req, res, next);
+  });
+
+  app.post("/auth/logout", (_req, res) => {
+    res.clearCookie(AUTH_COOKIE);
+    res.json({ ok: true });
   });
 
   app.delete("/api/auth/account", async (req, res, next) => {
@@ -121,10 +196,8 @@ export function setupAuth(app: Express) {
       await db.delete(pendingOrders).where(eq(pendingOrders.userId, uid));
       await db.delete(userSettings).where(eq(userSettings.userId, uid));
       await db.delete(users).where(eq(users.id, uid));
-      req.logout((err) => {
-        if (err) return next(err);
-        res.json({ ok: true });
-      });
+      res.clearCookie(AUTH_COOKIE);
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }

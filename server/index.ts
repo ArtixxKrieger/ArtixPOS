@@ -1,75 +1,27 @@
 import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session";
+import cookieParser from "cookie-parser";
 import passport from "passport";
 import { registerRoutes } from "./routes.js";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { setupAuth } from "./auth";
+import { setupAuth, jwtAuthMiddleware } from "./auth";
 import crypto from "crypto";
 
 const app = express();
 const httpServer = createServer(app);
 
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
-}
-
-declare module "express-session" {
-  interface SessionData {
-    passport: { user: string };
-  }
-}
-
-// Trust Replit's reverse proxy so HTTPS is correctly detected
+// Trust reverse proxies (Replit, Vercel, etc.)
 app.set("trust proxy", 1);
 
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
-
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
-// Session
-const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
-app.use(
-  session({
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    },
-  })
-);
+// JWT auth — populates req.user from the auth_token cookie on every request
+app.use(jwtAuthMiddleware);
 
-// Passport
+// Passport (strategies only — no session serialisation needed)
 app.use(passport.initialize());
-app.use(passport.session());
-
-// Cache-busting headers in development
-app.use((req, res, next) => {
-  if (process.env.NODE_ENV !== "production") {
-    if (req.path.endsWith(".html") || req.path === "/") {
-      res.setHeader("Cache-Control", "no-store, no-cache, no-transform, must-revalidate, private");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-    } else if (req.path.includes(".js") || req.path.includes(".css")) {
-      res.setHeader("Cache-Control", "no-cache, must-revalidate");
-      res.setHeader("ETag", `"${Date.now()}"`);
-    } else {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-    }
-  }
-  next();
-});
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -116,9 +68,7 @@ async function initializeApp() {
   try {
     console.log("Starting server initialization...");
 
-    // Setup OAuth strategies and auth routes
     setupAuth(app);
-
     await registerRoutes(httpServer, app);
 
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

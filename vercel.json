@@ -1,5 +1,4 @@
 {
-  "buildCommand": "npx vite build",
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/public/**",

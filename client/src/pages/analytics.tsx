@@ -593,8 +593,8 @@ export default function Analytics() {
 
       {/* ── Toggles strip ── */}
       <div className="flex flex-wrap gap-2 items-center">
-        <ToggleGroup value={metric} onChange={setMetric} options={[{ value: "revenue", label: "Revenue" }, { value: "orders", label: "Orders" }]} />
-        <ToggleGroup value={chartKind} onChange={setChartKind} options={[{ value: "area", label: "Area" }, { value: "bar", label: "Bar" }, { value: "line", label: "Line" }]} />
+        <ToggleGroup value={metric} onChange={(v) => setMetric(v as Metric)} options={[{ value: "revenue", label: "Revenue" }, { value: "orders", label: "Orders" }]} />
+        <ToggleGroup value={chartKind} onChange={(v) => setChartKind(v as ChartKind)} options={[{ value: "area", label: "Area" }, { value: "bar", label: "Bar" }, { value: "line", label: "Line" }]} />
         <ToggleGroup value={showNet ? "net" : "gross"} onChange={(v) => setShowNet(v === "net")} options={[{ value: "gross", label: "Gross" }, { value: "net", label: "Net" }]} />
         <button
           onClick={() => setShowComparison(v => !v)}
@@ -683,7 +683,7 @@ export default function Analytics() {
             </div>
             <span className="font-semibold text-sm">Top Products</span>
             <div className="ml-auto">
-              <ToggleGroup value={prodSort} onChange={setProdSort} options={[{ value: "qty", label: "Qty" }, { value: "revenue", label: "Revenue" }]} />
+              <ToggleGroup value={prodSort} onChange={(v) => setProdSort(v as ProdSort)} options={[{ value: "qty", label: "Qty" }, { value: "revenue", label: "Revenue" }]} />
             </div>
           </div>
           <div className="p-5">

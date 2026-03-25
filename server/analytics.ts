@@ -1,6 +1,9 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const rawDb = db as any;
+
 type Row = Record<string, any>;
 
 function getUtcOffset(timezone: string): string {
@@ -97,7 +100,7 @@ export interface AnalyticsData {
 
 async function querySummary(date: string, tzOffset: string): Promise<DaySummary> {
   try {
-    const res = await db.execute(sql`
+    const res = await rawDb.execute(sql`
       SELECT 
         COUNT(*) as orders,
         COALESCE(SUM(CAST(total AS REAL)), 0) as revenue,
@@ -117,7 +120,7 @@ async function querySummary(date: string, tzOffset: string): Promise<DaySummary>
 async function queryTrend(days: number, tzOffset: string): Promise<TrendPoint[]> {
   try {
     const modifier = `-${days} days`;
-    const res = await db.execute(sql`
+    const res = await rawDb.execute(sql`
       SELECT 
         date(datetime(created_at, ${tzOffset})) as date,
         COUNT(*) as orders,
@@ -139,7 +142,7 @@ async function queryTrend(days: number, tzOffset: string): Promise<TrendPoint[]>
 async function queryHourly(tzOffset: string, date?: string): Promise<HourPoint[]> {
   try {
     const res = date
-      ? await db.execute(sql`
+      ? await rawDb.execute(sql`
           SELECT
             CAST(strftime('%H', datetime(created_at, ${tzOffset})) AS INTEGER) as hour,
             COUNT(*) as sales,
@@ -148,7 +151,7 @@ async function queryHourly(tzOffset: string, date?: string): Promise<HourPoint[]
           WHERE date(datetime(created_at, ${tzOffset})) = ${date}
           GROUP BY hour ORDER BY hour ASC
         `)
-      : await db.execute(sql`
+      : await rawDb.execute(sql`
           SELECT
             CAST(strftime('%H', datetime(created_at, ${tzOffset})) AS INTEGER) as hour,
             COUNT(*) as sales,
@@ -173,7 +176,7 @@ async function queryHourly(tzOffset: string, date?: string): Promise<HourPoint[]
 async function queryTopProducts(days: number, limit = 5): Promise<ProductPoint[]> {
   try {
     const modifier = `-${days} days`;
-    const res = await db.execute(sql`
+    const res = await rawDb.execute(sql`
       SELECT items FROM sales
       WHERE created_at >= datetime('now', ${modifier})
     `);
@@ -201,7 +204,7 @@ async function queryTopProducts(days: number, limit = 5): Promise<ProductPoint[]
 async function queryPayments(days: number): Promise<PaymentPoint[]> {
   try {
     const modifier = `-${days} days`;
-    const res = await db.execute(sql`
+    const res = await rawDb.execute(sql`
       SELECT
         payment_method as method,
         COUNT(*) as count,
@@ -221,7 +224,7 @@ async function queryPayments(days: number): Promise<PaymentPoint[]> {
 
 async function queryAllTimeTotal(): Promise<{ orders: number; revenue: number }> {
   try {
-    const res = await db.execute(sql`
+    const res = await rawDb.execute(sql`
       SELECT COUNT(*) as orders, COALESCE(SUM(CAST(total AS REAL)), 0) as revenue FROM sales
     `);
     const row = toRows(res)[0] ?? {};

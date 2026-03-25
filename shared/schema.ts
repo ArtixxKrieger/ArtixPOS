@@ -89,23 +89,26 @@ export const userSettings = sqliteTable("user_settings", {
 
 // ─── Insert Schemas ───────────────────────────────────────────────────────────
 
+// Note: createInsertSchema().extend() works fine, but .omit().extend() triggers
+// a type-level incompatibility between drizzle-zod 0.7 and Zod v4 (3.25+).
+// Schemas that need .omit() are defined as plain z.object() instead — same
+// runtime behaviour, no type errors.
+
 export const insertUserSchema = createInsertSchema(users).extend({
   email: z.string().optional().nullable(),
   name: z.string().optional().nullable(),
   avatar: z.string().optional().nullable(),
 });
 
-export const insertProductSchema = createInsertSchema(products)
-  .omit({ userId: true })
-  .extend({
-    name: z.string().min(1),
-    price: z.string().min(1),
-    category: z.string().optional().nullable(),
-    sizes: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
-    modifiers: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
-    hasSizes: z.boolean().optional().nullable(),
-    hasModifiers: z.boolean().optional().nullable(),
-  });
+export const insertProductSchema = z.object({
+  name: z.string().min(1),
+  price: z.string().min(1),
+  category: z.string().optional().nullable(),
+  sizes: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
+  modifiers: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
+  hasSizes: z.boolean().optional().nullable(),
+  hasModifiers: z.boolean().optional().nullable(),
+});
 
 export const insertProductSizeSchema = createInsertSchema(productSizes)
   .extend({
@@ -121,47 +124,41 @@ export const insertProductModifierSchema = createInsertSchema(productModifiers)
     price: z.string().min(1),
   });
 
-export const insertPendingOrderSchema = createInsertSchema(pendingOrders)
-  .omit({ userId: true })
-  .extend({
-    items: z.array(z.any()),
-    subtotal: z.string(),
-    tax: z.string().optional().nullable(),
-    discount: z.string().optional().nullable(),
-    total: z.string(),
-    paymentMethod: z.string().optional().nullable(),
-    paymentAmount: z.string().optional().nullable(),
-    changeAmount: z.string().optional().nullable(),
-    status: z.string().optional().nullable(),
-    notes: z.string().optional().nullable(),
-  });
+export const insertPendingOrderSchema = z.object({
+  items: z.array(z.any()),
+  subtotal: z.string(),
+  tax: z.string().optional().nullable(),
+  discount: z.string().optional().nullable(),
+  total: z.string(),
+  paymentMethod: z.string().optional().nullable(),
+  paymentAmount: z.string().optional().nullable(),
+  changeAmount: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
 
-export const insertSaleSchema = createInsertSchema(sales)
-  .omit({ userId: true })
-  .extend({
-    items: z.array(z.any()),
-    subtotal: z.string(),
-    tax: z.string().optional().nullable(),
-    discount: z.string().optional().nullable(),
-    total: z.string(),
-    paymentMethod: z.string().optional().nullable(),
-    paymentAmount: z.string().optional().nullable(),
-    changeAmount: z.string().optional().nullable(),
-    notes: z.string().optional().nullable(),
-  });
+export const insertSaleSchema = z.object({
+  items: z.array(z.any()),
+  subtotal: z.string(),
+  tax: z.string().optional().nullable(),
+  discount: z.string().optional().nullable(),
+  total: z.string(),
+  paymentMethod: z.string().optional().nullable(),
+  paymentAmount: z.string().optional().nullable(),
+  changeAmount: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
 
-export const insertUserSettingSchema = createInsertSchema(userSettings)
-  .omit({ userId: true })
-  .extend({
-    storeName: z.string().optional().nullable(),
-    currency: z.string().optional().nullable(),
-    taxRate: z.string().optional().nullable(),
-    address: z.string().optional().nullable(),
-    phone: z.string().optional().nullable(),
-    emailContact: z.string().optional().nullable(),
-    receiptFooter: z.string().optional().nullable(),
-    timezone: z.string().optional().nullable(),
-  });
+export const insertUserSettingSchema = z.object({
+  storeName: z.string().optional().nullable(),
+  currency: z.string().optional().nullable(),
+  taxRate: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  emailContact: z.string().optional().nullable(),
+  receiptFooter: z.string().optional().nullable(),
+  timezone: z.string().optional().nullable(),
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

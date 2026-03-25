@@ -85,6 +85,7 @@ export function setupAuth(app: Express) {
             if (existing) return done(null, existing);
             const [created] = await db
               .insert(users)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .values({
                 id: userId,
                 email: profile.emails?.[0]?.value ?? null,
@@ -92,7 +93,7 @@ export function setupAuth(app: Express) {
                 avatar: profile.photos?.[0]?.value ?? null,
                 provider: "google",
                 providerId: profile.id,
-              })
+              } as any)
               .returning();
             return done(null, created);
           } catch (err) {
@@ -123,6 +124,7 @@ export function setupAuth(app: Express) {
             if (existing) return done(null, existing);
             const [created] = await db
               .insert(users)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .values({
                 id: userId,
                 email: profile.emails?.[0]?.value ?? null,
@@ -130,7 +132,7 @@ export function setupAuth(app: Express) {
                 avatar: profile.photos?.[0]?.value ?? null,
                 provider: "facebook",
                 providerId: profile.id,
-              })
+              } as any)
               .returning();
             return done(null, created);
           } catch (err) {

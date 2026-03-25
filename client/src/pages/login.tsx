@@ -160,7 +160,7 @@ export default function Login() {
             color: isDark ? "rgba(167,139,250,0.7)" : "rgba(109,40,217,0.6)",
             marginBottom: 12,
           }}>
-            QuickPOS
+            ArtixPOS
           </div>
           <h1 style={{
             fontSize: 28,

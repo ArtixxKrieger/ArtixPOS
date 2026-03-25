@@ -144,7 +144,11 @@ export function setupAuth(app: Express) {
     console.log("[auth] Facebook OAuth not configured (FACEBOOK_APP_ID/FACEBOOK_APP_SECRET missing)");
   }
 
+  const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  const facebookEnabled = !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET);
+
   app.get("/auth/google", (req, res, next) => {
+    if (!googleEnabled) return res.redirect("/login?error=google_not_configured");
     const state = crypto.randomBytes(16).toString("hex");
     res.cookie(STATE_COOKIE, state, {
       httpOnly: true,
@@ -156,6 +160,7 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/auth/google/callback", (req, res, next) => {
+    if (!googleEnabled) return res.redirect("/login?error=google_not_configured");
     const expected = (req as any).cookies?.[STATE_COOKIE];
     const actual = req.query.state as string;
     res.clearCookie(STATE_COOKIE);
@@ -169,6 +174,7 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/auth/facebook", (req, res, next) => {
+    if (!facebookEnabled) return res.redirect("/login?error=facebook_not_configured");
     const state = crypto.randomBytes(16).toString("hex");
     res.cookie(STATE_COOKIE, state, {
       httpOnly: true,
@@ -180,6 +186,7 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/auth/facebook/callback", (req, res, next) => {
+    if (!facebookEnabled) return res.redirect("/login?error=facebook_not_configured");
     const expected = (req as any).cookies?.[STATE_COOKIE];
     const actual = req.query.state as string;
     res.clearCookie(STATE_COOKIE);

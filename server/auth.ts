@@ -70,69 +70,79 @@ export function setupAuth(app: Express) {
   const baseUrl = getBaseUrl();
   console.log(`[auth] Using base URL: ${baseUrl}`);
 
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: `${baseUrl}/auth/google/callback`,
-      },
-      async (_accessToken, _refreshToken, profile, done) => {
-        try {
-          const userId = `google_${profile.id}`;
-          const [existing] = await db.select().from(users).where(eq(users.id, userId));
-          if (existing) return done(null, existing);
-          const [created] = await db
-            .insert(users)
-            .values({
-              id: userId,
-              email: profile.emails?.[0]?.value ?? null,
-              name: profile.displayName ?? null,
-              avatar: profile.photos?.[0]?.value ?? null,
-              provider: "google",
-              providerId: profile.id,
-            })
-            .returning();
-          return done(null, created);
-        } catch (err) {
-          return done(err as Error);
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          callbackURL: `${baseUrl}/auth/google/callback`,
+        },
+        async (_accessToken, _refreshToken, profile, done) => {
+          try {
+            const userId = `google_${profile.id}`;
+            const [existing] = await db.select().from(users).where(eq(users.id, userId));
+            if (existing) return done(null, existing);
+            const [created] = await db
+              .insert(users)
+              .values({
+                id: userId,
+                email: profile.emails?.[0]?.value ?? null,
+                name: profile.displayName ?? null,
+                avatar: profile.photos?.[0]?.value ?? null,
+                provider: "google",
+                providerId: profile.id,
+              })
+              .returning();
+            return done(null, created);
+          } catch (err) {
+            return done(err as Error);
+          }
         }
-      }
-    )
-  );
+      )
+    );
+    console.log("[auth] Google OAuth strategy registered");
+  } else {
+    console.log("[auth] Google OAuth not configured (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET missing)");
+  }
 
-  passport.use(
-    new FacebookStrategy(
-      {
-        clientID: process.env.FACEBOOK_APP_ID!,
-        clientSecret: process.env.FACEBOOK_APP_SECRET!,
-        callbackURL: `${baseUrl}/auth/facebook/callback`,
-        profileFields: ["id", "displayName", "photos", "email"],
-        enableProof: true,
-      },
-      async (_accessToken, _refreshToken, profile, done) => {
-        try {
-          const userId = `facebook_${profile.id}`;
-          const [existing] = await db.select().from(users).where(eq(users.id, userId));
-          if (existing) return done(null, existing);
-          const [created] = await db
-            .insert(users)
-            .values({
-              id: userId,
-              email: profile.emails?.[0]?.value ?? null,
-              name: profile.displayName ?? null,
-              avatar: profile.photos?.[0]?.value ?? null,
-              provider: "facebook",
-              providerId: profile.id,
-            })
-            .returning();
-          return done(null, created);
-        } catch (err) {
-          return done(err as Error);
+  if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+    passport.use(
+      new FacebookStrategy(
+        {
+          clientID: process.env.FACEBOOK_APP_ID,
+          clientSecret: process.env.FACEBOOK_APP_SECRET,
+          callbackURL: `${baseUrl}/auth/facebook/callback`,
+          profileFields: ["id", "displayName", "photos", "email"],
+          enableProof: true,
+        },
+        async (_accessToken, _refreshToken, profile, done) => {
+          try {
+            const userId = `facebook_${profile.id}`;
+            const [existing] = await db.select().from(users).where(eq(users.id, userId));
+            if (existing) return done(null, existing);
+            const [created] = await db
+              .insert(users)
+              .values({
+                id: userId,
+                email: profile.emails?.[0]?.value ?? null,
+                name: profile.displayName ?? null,
+                avatar: profile.photos?.[0]?.value ?? null,
+                provider: "facebook",
+                providerId: profile.id,
+              })
+              .returning();
+            return done(null, created);
+          } catch (err) {
+            return done(err as Error);
+          }
         }
-      }
-    )
-  );
+      )
+    );
+    console.log("[auth] Facebook OAuth strategy registered");
+  } else {
+    console.log("[auth] Facebook OAuth not configured (FACEBOOK_APP_ID/FACEBOOK_APP_SECRET missing)");
+  }
 
   app.get("/auth/google", (req, res, next) => {
     const state = crypto.randomBytes(16).toString("hex");

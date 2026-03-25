@@ -1,19 +1,12 @@
 {
-  "version": 2,
-  "buildCommand": "npm run vercel-build",
-  "builds": [
-    {
-      "src": "dist/index.cjs",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["dist/**"]
-      }
+  "buildCommand": "npx vite build",
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "dist/public/**",
+      "maxDuration": 30
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "dist/index.cjs"
-    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
   ]
 }

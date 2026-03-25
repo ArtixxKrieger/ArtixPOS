@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useForm } from "react-hook-form";
 import { type InsertUserSetting } from "@shared/schema";
@@ -6,9 +6,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Store, Receipt, MapPin, Phone, Mail, FileText, Save, Percent, LogOut, User } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Store, Receipt, MapPin, Phone, Mail, FileText, Save, Percent, LogOut, User, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface SettingsFormData {
   storeName: string;
@@ -40,6 +42,22 @@ export default function Settings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch("/api/auth/account", { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete account");
+      queryClient.clear();
+      window.location.href = "/login";
+    } catch {
+      toast({ title: "Failed to delete account", description: "Please try again.", variant: "destructive" });
+      setIsDeleting(false);
+    }
+  };
 
   const form = useForm<SettingsFormData>({
     defaultValues: {
@@ -258,16 +276,47 @@ export default function Settings() {
               </div>
             </div>
           )}
-          <Button
-            variant="destructive"
-            className="w-full h-11 rounded-xl font-semibold"
-            onClick={() => logout()}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 h-11 rounded-xl font-semibold"
+              onClick={() => logout()}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 h-11 rounded-xl font-semibold"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Account
+            </Button>
+          </div>
         </div>
       </div>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your account and <strong>all your data</strong> — products, sales history, pending orders, and settings. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting…" : "Yes, delete everything"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -96,6 +96,7 @@ export const insertUserSchema = createInsertSchema(users).extend({
 });
 
 export const insertProductSchema = createInsertSchema(products)
+  .omit({ userId: true })
   .extend({
     name: z.string().min(1),
     price: z.string().min(1),
@@ -121,6 +122,7 @@ export const insertProductModifierSchema = createInsertSchema(productModifiers)
   });
 
 export const insertPendingOrderSchema = createInsertSchema(pendingOrders)
+  .omit({ userId: true })
   .extend({
     items: z.array(z.any()),
     subtotal: z.string(),
@@ -135,6 +137,7 @@ export const insertPendingOrderSchema = createInsertSchema(pendingOrders)
   });
 
 export const insertSaleSchema = createInsertSchema(sales)
+  .omit({ userId: true })
   .extend({
     items: z.array(z.any()),
     subtotal: z.string(),
@@ -148,6 +151,7 @@ export const insertSaleSchema = createInsertSchema(sales)
   });
 
 export const insertUserSettingSchema = createInsertSchema(userSettings)
+  .omit({ userId: true })
   .extend({
     storeName: z.string().optional().nullable(),
     currency: z.string().optional().nullable(),

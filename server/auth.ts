@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as FacebookStrategy } from "passport-facebook";
 import { db } from "./db";
-import { users } from "@shared/schema";
+import { users, products, sales, pendingOrders, userSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { Express } from "express";
 
@@ -110,6 +110,24 @@ export function setupAuth(app: Express) {
       if (err) return next(err);
       res.json({ ok: true });
     });
+  });
+
+  app.delete("/api/auth/account", async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const uid = (req.user as any).id;
+    try {
+      await db.delete(products).where(eq(products.userId, uid));
+      await db.delete(sales).where(eq(sales.userId, uid));
+      await db.delete(pendingOrders).where(eq(pendingOrders.userId, uid));
+      await db.delete(userSettings).where(eq(userSettings.userId, uid));
+      await db.delete(users).where(eq(users.id, uid));
+      req.logout((err) => {
+        if (err) return next(err);
+        res.json({ ok: true });
+      });
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.get("/api/auth/me", (req, res) => {

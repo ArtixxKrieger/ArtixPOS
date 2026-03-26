@@ -193,7 +193,11 @@ export default function Login() {
             border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`,
             color: isDark ? "#f87171" : "#dc2626",
           }}>
-            Sign-in failed. Please try again.
+            {error === "state_mismatch"
+              ? "Sign-in expired. Please try again."
+              : error === "google_not_configured" || error === "facebook_not_configured"
+              ? "This sign-in method is not configured yet."
+              : "Sign-in failed. Please try again."}
           </div>
         )}
 

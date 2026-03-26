@@ -1,1 +1,2 @@
-export { default } from "../server/index";
+// Vercel uses api/index.cjs (pre-built bundle) — see vercel.json
+export {};

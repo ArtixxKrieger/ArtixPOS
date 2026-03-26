@@ -2,7 +2,7 @@
   "buildCommand": "node script/build.js",
   "outputDirectory": "dist/public",
   "functions": {
-    "api/index.ts": {
+    "api/index.cjs": {
       "maxDuration": 30
     }
   },

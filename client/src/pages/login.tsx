@@ -28,6 +28,7 @@ export default function Login() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
+  const detail = urlParams.get("detail");
 
   if (isLoading) {
     return (
@@ -197,7 +198,7 @@ export default function Login() {
               ? "Sign-in expired or invalid state. Please try again."
               : error === "google_not_configured" || error === "facebook_not_configured"
               ? "This sign-in method is not configured yet."
-              : `Sign-in failed (${error}). Please try again.`}
+              : `Sign-in failed (${error})${detail ? `: ${detail}` : ""}. Please try again.`}
           </div>
         )}
 

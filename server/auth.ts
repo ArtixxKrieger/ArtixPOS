@@ -218,8 +218,9 @@ export function setupAuth(app: Express) {
 
     passport.authenticate("google", { session: false }, (err: any, user: any) => {
       if (err) {
-        console.error("[auth] Google callback error:", err?.message ?? err);
-        return res.redirect(`/login?error=google_cb`);
+        const msg = String(err?.message ?? err).slice(0, 120);
+        console.error("[auth] Google callback error:", msg);
+        return res.redirect(`/login?error=google_cb&detail=${encodeURIComponent(msg)}`);
       }
       if (!user) {
         console.warn("[auth] Google callback: no user returned");
@@ -302,5 +303,15 @@ export function setupAuth(app: Express) {
   app.get("/api/auth/me", (req, res) => {
     if (!req.user) return res.status(401).json({ user: null });
     res.json({ user: req.user });
+  });
+
+  // Diagnostic endpoint — check DB connectivity without needing OAuth
+  app.get("/api/auth/db-check", async (_req, res) => {
+    try {
+      await db.select().from(users).limit(1);
+      res.json({ ok: true, db: "connected", turso: !!process.env.TURSO_DATABASE_URL });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err?.message ?? String(err), turso: !!process.env.TURSO_DATABASE_URL });
+    }
   });
 }

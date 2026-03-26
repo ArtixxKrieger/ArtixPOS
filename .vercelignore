@@ -5,4 +5,4 @@
 *.md
 .env.local
 .env.*.local
-api/index.cjs
+api/index.ts

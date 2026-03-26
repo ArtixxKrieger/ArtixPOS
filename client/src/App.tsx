@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 
 import Dashboard from "@/pages/dashboard";
 import POS from "@/pages/pos";
@@ -62,6 +63,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Router />
+        <VercelAnalytics />
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -1,11 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import passport from "passport";
 import { registerRoutes } from "./routes.js";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, jwtAuthMiddleware } from "./auth";
-import crypto from "crypto";
 
 const app = express();
 const httpServer = createServer(app);
@@ -13,8 +14,52 @@ const httpServer = createServer(app);
 // Trust reverse proxies (Replit, Vercel, etc.)
 app.set("trust proxy", 1);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// ── Security headers ─────────────────────────────────────────────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: ["'self'", "https:"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Strict limit on auth endpoints (login attempts, OAuth flows)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  message: { message: "Too many requests, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General API limit
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { message: "Too many requests, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/auth", authLimiter);
+app.use("/api/auth", authLimiter);
+app.use("/api", apiLimiter);
+
+// ── Body parsing (with size limits to prevent DoS) ────────────────────────────
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 app.use(cookieParser());
 
 // JWT auth — populates req.user from the auth_token cookie on every request
@@ -136,7 +181,7 @@ if (process.env.VERCEL !== "1") {
   });
 
   process.on("unhandledRejection", (reason, promise) => {
-    console.error("Unhandled Rejection at:", promise, "reason:", promise);
+    console.error("Unhandled Rejection at:", promise, "reason:", reason);
     process.exit(1);
   });
 }
@@ -148,7 +193,9 @@ export default async function handler(req: Request, res: Response) {
     return initializedApp(req, res);
   } catch (error) {
     console.error("Handler error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   }
 }
 

@@ -12,11 +12,21 @@ const AUTH_COOKIE = "auth_token";
 const STATE_COOKIE = "oauth_state";
 
 function getJwtSecret(): string {
-  return process.env.SESSION_SECRET || "dev_fallback_secret_change_in_prod";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET environment variable is required in production");
+    }
+    console.warn("[auth] WARNING: SESSION_SECRET is not set. Using insecure fallback — set this in production!");
+    return "dev_fallback_secret_change_in_prod_do_not_use";
+  }
+  return secret;
 }
 
 function getBaseUrl(): string {
-  if (process.env.APP_URL) return process.env.APP_URL;
+  // APP_URL is the canonical production URL — always prefer it
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  // VERCEL_URL is the deployment URL (may be preview, not production)
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
   if (domain) return `https://${domain}`;
@@ -85,7 +95,6 @@ export function setupAuth(app: Express) {
             if (existing) return done(null, existing);
             const [created] = await db
               .insert(users)
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .values({
                 id: userId,
                 email: profile.emails?.[0]?.value ?? null,
@@ -124,7 +133,6 @@ export function setupAuth(app: Express) {
             if (existing) return done(null, existing);
             const [created] = await db
               .insert(users)
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .values({
                 id: userId,
                 email: profile.emails?.[0]?.value ?? null,
@@ -151,54 +159,98 @@ export function setupAuth(app: Express) {
 
   app.get("/auth/google", (req, res, next) => {
     if (!googleEnabled) return res.redirect("/login?error=google_not_configured");
-    const state = crypto.randomBytes(16).toString("hex");
-    res.cookie(STATE_COOKIE, state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 5 * 60 * 1000,
-      sameSite: "lax",
-    });
-    passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(req, res, next);
+    try {
+      const state = crypto.randomBytes(16).toString("hex");
+      res.cookie(STATE_COOKIE, state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 5 * 60 * 1000,
+        sameSite: "lax",
+      });
+      passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(req, res, next);
+    } catch (err) {
+      console.error("[auth] Google OAuth initiation error:", err);
+      res.redirect("/login?error=google");
+    }
   });
 
   app.get("/auth/google/callback", (req, res, next) => {
     if (!googleEnabled) return res.redirect("/login?error=google_not_configured");
-    const expected = (req as any).cookies?.[STATE_COOKIE];
-    const actual = req.query.state as string;
-    res.clearCookie(STATE_COOKIE);
-    if (!expected || expected !== actual) return res.redirect("/login?error=state_mismatch");
+    try {
+      const expected = (req as any).cookies?.[STATE_COOKIE];
+      const actual = req.query.state as string;
+      res.clearCookie(STATE_COOKIE);
+      if (!expected || expected !== actual) {
+        console.warn("[auth] Google OAuth state mismatch — possible CSRF attempt");
+        return res.redirect("/login?error=state_mismatch");
+      }
 
-    passport.authenticate("google", { session: false }, (err: any, user: any) => {
-      if (err || !user) return res.redirect("/login?error=google");
-      setAuthCookie(res, user);
-      res.redirect("/");
-    })(req, res, next);
+      passport.authenticate("google", { session: false }, (err: any, user: any) => {
+        if (err) {
+          console.error("[auth] Google OAuth callback error:", err.message ?? err);
+          return res.redirect("/login?error=google");
+        }
+        if (!user) return res.redirect("/login?error=google");
+        try {
+          setAuthCookie(res, user);
+          res.redirect("/");
+        } catch (cookieErr) {
+          console.error("[auth] Failed to set auth cookie:", cookieErr);
+          res.redirect("/login?error=google");
+        }
+      })(req, res, next);
+    } catch (err) {
+      console.error("[auth] Google callback handler error:", err);
+      res.redirect("/login?error=google");
+    }
   });
 
   app.get("/auth/facebook", (req, res, next) => {
     if (!facebookEnabled) return res.redirect("/login?error=facebook_not_configured");
-    const state = crypto.randomBytes(16).toString("hex");
-    res.cookie(STATE_COOKIE, state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 5 * 60 * 1000,
-      sameSite: "lax",
-    });
-    passport.authenticate("facebook", { scope: ["email"], state, session: false })(req, res, next);
+    try {
+      const state = crypto.randomBytes(16).toString("hex");
+      res.cookie(STATE_COOKIE, state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 5 * 60 * 1000,
+        sameSite: "lax",
+      });
+      passport.authenticate("facebook", { scope: ["email"], state, session: false })(req, res, next);
+    } catch (err) {
+      console.error("[auth] Facebook OAuth initiation error:", err);
+      res.redirect("/login?error=facebook");
+    }
   });
 
   app.get("/auth/facebook/callback", (req, res, next) => {
     if (!facebookEnabled) return res.redirect("/login?error=facebook_not_configured");
-    const expected = (req as any).cookies?.[STATE_COOKIE];
-    const actual = req.query.state as string;
-    res.clearCookie(STATE_COOKIE);
-    if (!expected || expected !== actual) return res.redirect("/login?error=state_mismatch");
+    try {
+      const expected = (req as any).cookies?.[STATE_COOKIE];
+      const actual = req.query.state as string;
+      res.clearCookie(STATE_COOKIE);
+      if (!expected || expected !== actual) {
+        console.warn("[auth] Facebook OAuth state mismatch — possible CSRF attempt");
+        return res.redirect("/login?error=state_mismatch");
+      }
 
-    passport.authenticate("facebook", { session: false }, (err: any, user: any) => {
-      if (err || !user) return res.redirect("/login?error=facebook");
-      setAuthCookie(res, user);
-      res.redirect("/");
-    })(req, res, next);
+      passport.authenticate("facebook", { session: false }, (err: any, user: any) => {
+        if (err) {
+          console.error("[auth] Facebook OAuth callback error:", err.message ?? err);
+          return res.redirect("/login?error=facebook");
+        }
+        if (!user) return res.redirect("/login?error=facebook");
+        try {
+          setAuthCookie(res, user);
+          res.redirect("/");
+        } catch (cookieErr) {
+          console.error("[auth] Failed to set auth cookie:", cookieErr);
+          res.redirect("/login?error=facebook");
+        }
+      })(req, res, next);
+    } catch (err) {
+      console.error("[auth] Facebook callback handler error:", err);
+      res.redirect("/login?error=facebook");
+    }
   });
 
   app.post("/auth/logout", (_req, res) => {

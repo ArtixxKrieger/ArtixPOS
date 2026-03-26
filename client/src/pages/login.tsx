@@ -194,10 +194,10 @@ export default function Login() {
             color: isDark ? "#f87171" : "#dc2626",
           }}>
             {error === "state_mismatch"
-              ? "Sign-in expired. Please try again."
+              ? "Sign-in expired or invalid state. Please try again."
               : error === "google_not_configured" || error === "facebook_not_configured"
               ? "This sign-in method is not configured yet."
-              : "Sign-in failed. Please try again."}
+              : `Sign-in failed (${error}). Please try again.`}
           </div>
         )}
 

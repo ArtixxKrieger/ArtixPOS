@@ -4,7 +4,7 @@ import {
   Home, ShoppingCart, Clock, Package, Settings, BarChart3,
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
-  LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen,
+  LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
 } from "lucide-react";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { useAuth } from "@/hooks/use-auth";
@@ -34,6 +34,7 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/discount-codes": { defaultLabel: "Discounts", icon: Tag },
   "/refunds": { defaultLabel: "Refunds", icon: RotateCcw },
   "/ai": { defaultLabel: "AI", icon: Sparkles },
+  "/billing": { defaultLabel: "Billing", icon: CreditCard },
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
 
@@ -56,6 +57,7 @@ const MORE_NAV_FULL = [
   { url: "/discount-codes", cashierHidden: true },
   { url: "/refunds", cashierHidden: true, managerOnly: true },
   { url: "/ai", cashierHidden: false },
+  { url: "/billing", cashierHidden: true },
   { url: "/settings", cashierHidden: false },
 ] as const;
 

@@ -262,6 +262,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               if (isCashier) return ["Dashboard", "POS", "Pending", "Kitchen", "Tables", "Shifts", "Time Clock", "AI Assistant", "Settings"].includes(item.label);
               const isManagerOrAbove = role === "owner" || role === "manager";
               if ((item as any).managerOnly && !isManagerOrAbove) return false;
+              if ((item as any).ownerOnly && !isOwner) return false;
               return true;
             })
             .sort((a, b) => {

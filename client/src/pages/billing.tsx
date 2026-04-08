@@ -167,7 +167,7 @@ export default function BillingPage() {
                     Your plan is set to cancel. You'll lose Pro features after {formatDate(subscription.currentPeriodEnd)}.
                     <Button
                       size="sm"
-                      variant="link"
+                      variant="ghost"
                       className="text-amber-700 dark:text-amber-400 p-0 h-auto ml-1 underline"
                       onClick={() => reactivateMutation.mutate()}
                       disabled={reactivateMutation.isPending}

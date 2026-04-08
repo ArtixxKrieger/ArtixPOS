@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-import { tenantSubscriptions, subscriptionPayments, tenants } from "@shared/schema";
+import { tenantSubscriptions, subscriptionPayments } from "@shared/schema";
 import { requireAuth } from "./middleware";
 
 const PAYMONGO_BASE = "https://api.paymongo.com/v1";
@@ -78,12 +78,12 @@ async function retrieveCheckoutSession(id: string) {
   return res.json() as Promise<any>;
 }
 
-function getOrCreateSubscription(tenantId: string) {
-  return db
+async function getOrCreateSubscription(tenantId: string) {
+  const rows = await db
     .select()
     .from(tenantSubscriptions)
-    .where(eq(tenantSubscriptions.tenantId, tenantId))
-    .then((rows) => rows[0] ?? null);
+    .where(eq(tenantSubscriptions.tenantId, tenantId));
+  return rows[0] ?? null;
 }
 
 export function registerSubscriptionRoutes(app: Express) {
@@ -97,7 +97,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
       let sub = await getOrCreateSubscription(tenantId);
       if (!sub) {
-        await db.insert(tenantSubscriptions).values({ tenantId, plan: "free", status: "active" });
+        await db.insert(tenantSubscriptions).values({ tenantId, plan: "free", status: "active" } as any);
         sub = await getOrCreateSubscription(tenantId);
       }
 
@@ -107,7 +107,7 @@ export function registerSubscriptionRoutes(app: Express) {
         if (expired && sub.status === "active") {
           await db
             .update(tenantSubscriptions)
-            .set({ plan: "free", status: "expired", billingCycle: null, currentPeriodEnd: null, updatedAt: new Date().toISOString() })
+            .set({ plan: "free", status: "expired", billingCycle: null, currentPeriodEnd: null, updatedAt: new Date().toISOString() } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
           sub = await getOrCreateSubscription(tenantId);
         }
@@ -178,7 +178,7 @@ export function registerSubscriptionRoutes(app: Express) {
         status: "pending",
         paymongoCheckoutId: checkoutId,
         checkoutUrl,
-      });
+      } as any);
 
       return res.json({ checkoutUrl, checkoutId });
     } catch (err: any) {
@@ -229,7 +229,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
         await db
           .update(subscriptionPayments)
-          .set({ status: "paid", paidAt: now.toISOString() })
+          .set({ status: "paid", paidAt: now.toISOString() } as any)
           .where(eq(subscriptionPayments.id, pending.id));
 
         const existing = await getOrCreateSubscription(tenantId);
@@ -244,7 +244,7 @@ export function registerSubscriptionRoutes(app: Express) {
               currentPeriodEnd: periodEnd.toISOString(),
               cancelAtPeriodEnd: false,
               updatedAt: now.toISOString(),
-            })
+            } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
         } else {
           await db.insert(tenantSubscriptions).values({
@@ -254,7 +254,7 @@ export function registerSubscriptionRoutes(app: Express) {
             status: "active",
             currentPeriodStart: now.toISOString(),
             currentPeriodEnd: periodEnd.toISOString(),
-          });
+          } as any);
         }
 
         return res.json({ success: true, plan: "pro", periodEnd: periodEnd.toISOString() });
@@ -276,7 +276,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
       await db
         .update(tenantSubscriptions)
-        .set({ cancelAtPeriodEnd: true, updatedAt: new Date().toISOString() })
+        .set({ cancelAtPeriodEnd: true, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
       return res.json({ ok: true });
@@ -294,7 +294,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
       await db
         .update(tenantSubscriptions)
-        .set({ cancelAtPeriodEnd: false, updatedAt: new Date().toISOString() })
+        .set({ cancelAtPeriodEnd: false, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
       return res.json({ ok: true });

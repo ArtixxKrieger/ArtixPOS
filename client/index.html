@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>ArtixPOS</title>
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="ArtixPOS — Modern Point of Sale system with real-time order management, analytics, and inventory tracking" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ArtixPOS" />
+    
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/logo192.png" />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      (function() {
+        // ── Dark mode: apply before React renders to avoid flash ──────────────
+        try {
+          var stored = localStorage.getItem('theme');
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          var isDark = stored === 'dark' || (!stored && mq.matches);
+          if (isDark) document.documentElement.classList.add('dark');
+          mq.addEventListener('change', function(e) {
+            if (!localStorage.getItem('theme')) {
+              document.documentElement.classList.toggle('dark', e.matches);
+            }
+          });
+        } catch(e) {}
+
+        // ── Disable right-click context menu ──────────────────────────────────
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+
+        // ── Block common devtools keyboard shortcuts ──────────────────────────
+        document.addEventListener('keydown', function(e) {
+          // F12
+          if (e.key === 'F12') { e.preventDefault(); return false; }
+          // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (DevTools)
+          if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+            e.preventDefault(); return false;
+          }
+          // Ctrl+U (view source)
+          if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return false; }
+          // Cmd+Option+I (macOS DevTools)
+          if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return false; }
+        });
+
+        // ── Continuous console warning ────────────────────────────────────────
+        function consoleWarning() {
+          console.clear();
+          console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
+          console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');
+        }
+        consoleWarning();
+        setInterval(consoleWarning, 3000);
+
+        // ── DevTools size detection ────────────────────────────────────────────
+        var devtoolsThreshold = 160;
+        function detectDevTools() {
+          var widthDiff = window.outerWidth - window.innerWidth;
+          var heightDiff = window.outerHeight - window.innerHeight;
+          if (widthDiff > devtoolsThreshold || heightDiff > devtoolsThreshold) {
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;background:#1a1a2e;color:#fff;"><h1 style="font-size:2rem;margin-bottom:1rem;">Access Denied</h1><p style="font-size:1rem;opacity:0.7;">Developer tools are not permitted on this platform.</p></div>';
+          }
+        }
+        setInterval(detectDevTools, 1000);
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

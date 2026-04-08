@@ -1,0 +1,403 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    /* Light mode */
+    --background: 220 18% 88%;
+    --foreground: 222 47% 10%;
+    --card: 220 20% 97%;
+    --card-foreground: 222 47% 10%;
+    --popover: 220 20% 97%;
+    --popover-foreground: 222 47% 10%;
+    --primary: 214 90% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 82%;
+    --secondary-foreground: 222 30% 20%;
+    --muted: 220 14% 82%;
+    --muted-foreground: 220 10% 44%;
+    --accent: 220 14% 82%;
+    --accent-foreground: 222 47% 10%;
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 78%;
+    --input: 220 20% 97%;
+    --ring: 214 90% 50%;
+    --radius: 1rem;
+    --sidebar-background: 220 18% 88%;
+    --sidebar-foreground: 222 47% 10%;
+    --sidebar-primary: 214 90% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 82%;
+    --sidebar-accent-foreground: 222 47% 10%;
+    --sidebar-border: 220 14% 78%;
+    --sidebar-ring: 214 90% 50%;
+  }
+
+  .dark {
+    --background: 224 50% 4%;
+    --foreground: 210 20% 95%;
+    --card: 224 44% 7%;
+    --card-foreground: 210 20% 95%;
+    --popover: 224 44% 7%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 214 88% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 224 38% 12%;
+    --secondary-foreground: 210 15% 85%;
+    --muted: 224 38% 12%;
+    --muted-foreground: 220 15% 52%;
+    --accent: 224 38% 14%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 224 32% 14%;
+    --input: 224 38% 10%;
+    --ring: 214 88% 62%;
+    --sidebar-background: 224 50% 4%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 214 88% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 38% 12%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 224 32% 14%;
+    --sidebar-ring: 214 88% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Disable smooth-scroll — it blocks native momentum scrolling on Android */
+    scroll-behavior: auto;
+    /* Enable GPU-composited scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    overscroll-behavior: none;
+    /* Prevent rubber-band scroll from triggering layout */
+    overscroll-behavior-y: contain;
+    /* Speed up text rendering on low-end */
+    text-rendering: optimizeSpeed;
+  }
+
+  /* Premium deep-navy background with atmospheric glows (dark mode only) */
+  .dark body {
+    background-color: hsl(224, 50%, 4%);
+    background-image:
+      radial-gradient(ellipse 80% 45% at 50% -5%, rgba(59, 130, 246, 0.20) 0%, transparent 65%),
+      radial-gradient(ellipse 55% 35% at 85% 95%, rgba(99, 102, 241, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 30% at 5% 80%, rgba(37, 99, 235, 0.08) 0%, transparent 60%);
+  }
+
+  button, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Prevent text size adjustment on rotation */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* ─── Glass utility classes ──────────────────────────────────────────────────
+   backdrop-filter: blur() is intentionally removed from ALL classes.
+   On low-end Android it forces a full-screen GPU composite every scroll frame
+   (effectively dropping to 15-20 fps). Solid high-opacity backgrounds give
+   the same visual feel with zero scroll overhead.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.80);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+.dark .glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Fixed bottom nav — solid background, no blur, GPU layer for compositing */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.06), 0 -4px 16px rgba(0, 0, 0, 0.06);
+  /* Promote to GPU compositing layer so it never triggers a paint during scroll */
+  will-change: transform;
+}
+.dark .glass-nav {
+  background: rgba(5, 9, 24, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.05), 0 -4px 24px rgba(0, 0, 0, 0.40);
+  will-change: transform;
+}
+
+/* Sticky mobile header — solid background, GPU layer */
+.glass-header {
+  background: rgba(237, 241, 248, 0.98);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+  will-change: transform;
+}
+.dark .glass-header {
+  background: rgba(5, 9, 24, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 8px rgba(0, 0, 0, 0.20);
+  will-change: transform;
+}
+
+.glass-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.glass-btn:hover {
+  background: rgba(0, 0, 0, 0.09);
+  border-color: rgba(0, 0, 0, 0.13);
+}
+.dark .glass-btn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.dark .glass-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ─── Cart bar — solid, GPU layer ────────────────────────────────────────── */
+.glass-cart-bar {
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  will-change: transform;
+}
+.dark .glass-cart-bar {
+  background: rgba(8, 14, 36, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.45);
+  will-change: transform;
+}
+
+/* ─── Scrollbar hide ─────────────────────────────────────────────────────── */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Press animation ────────────────────────────────────────────────────── */
+.btn-press {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.btn-press:active {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+/* ─── Tap target minimum ─────────────────────────────────────────────────── */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ─── Page transitions ───────────────────────────────────────────────────── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: slide-up 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-fade-scale {
+  animation: fade-in-scale 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered list children (kept for compatibility — extended version below) */
+
+/* Card tap feedback */
+.card-press {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+}
+.card-press:active {
+  transform: scale(0.97);
+}
+
+/* ─── Safe area padding utilities ────────────────────────────────────────── */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ─── Shimmer skeleton animation ────────────────────────────────────────── */
+:root {
+  --shimmer-base: hsl(220, 14%, 82%);
+  --shimmer-hi: hsl(220, 18%, 91%);
+}
+.dark {
+  --shimmer-base: hsl(224, 38%, 10%);
+  --shimmer-hi: hsl(224, 44%, 16%);
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg,
+    var(--shimmer-base) 25%,
+    var(--shimmer-hi)   50%,
+    var(--shimmer-base) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ─── Badge pop animation ────────────────────────────────────────────────── */
+@keyframes badge-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.30); }
+  70%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.animate-badge-pop {
+  animation: badge-pop 0.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* ─── Cart item enter animation ─────────────────────────────────────────── */
+@keyframes item-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.item-enter {
+  animation: item-enter 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Number flip animation ──────────────────────────────────────────────── */
+@keyframes num-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-num-up {
+  animation: num-up 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Stagger — tight delays so list feels instant, not waterfall-slow ──── */
+.stagger-children > *:nth-child(1)   { animation-delay:  0ms; }
+.stagger-children > *:nth-child(2)   { animation-delay: 20ms; }
+.stagger-children > *:nth-child(3)   { animation-delay: 40ms; }
+.stagger-children > *:nth-child(4)   { animation-delay: 60ms; }
+.stagger-children > *:nth-child(5)   { animation-delay: 80ms; }
+.stagger-children > *:nth-child(6)   { animation-delay: 100ms; }
+.stagger-children > *:nth-child(7)   { animation-delay: 120ms; }
+.stagger-children > *:nth-child(8)   { animation-delay: 140ms; }
+.stagger-children > *:nth-child(9)   { animation-delay: 160ms; }
+.stagger-children > *:nth-child(10)  { animation-delay: 180ms; }
+.stagger-children > *:nth-child(11)  { animation-delay: 200ms; }
+.stagger-children > *:nth-child(12)  { animation-delay: 200ms; }
+.stagger-children > *:nth-child(n+13){ animation-delay: 200ms; }
+
+/* ─── Recharts overrides ─────────────────────────────────────────────────── */
+.recharts-wrapper,
+.recharts-wrapper svg {
+  background: transparent !important;
+  outline: none !important;
+}
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none !important;
+}
+
+/* ─── Sileo toast custom theming ─────────────────────────────────────────── */
+:root {
+  --sileo-width: 320px;
+  --sileo-height: 44px;
+  --sileo-duration: 550ms;
+
+  /* Match app's primary blue for info/action */
+  --sileo-state-info:    oklch(0.60 0.20 245);
+  --sileo-state-action:  oklch(0.60 0.20 245);
+  /* Crisp emerald green for success */
+  --sileo-state-success: oklch(0.72 0.20 145);
+  /* Warm amber for warning */
+  --sileo-state-warning: oklch(0.80 0.18 86);
+  /* Vivid red for error */
+  --sileo-state-error:   oklch(0.63 0.23 25);
+}
+
+/* Sileo toast — glass-morphism backdrop on light */
+[data-sileo-viewport] {
+  z-index: 9999 !important;
+}
+
+/* On mobile lift above bottom nav */
+@media (max-width: 767px) {
+  [data-sileo-viewport][data-position^="bottom"] {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+  }
+}
+
+/* Slightly larger font for legibility */
+[data-sileo-title] {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+}
+
+[data-sileo-description] {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+}
+
+/* ── Light mode text fix ───────────────────────────────────────────────────
+   Sileo can use tone colours for titles (e.g. warning at L0.80 = nearly
+   white), making text invisible on a light toast background. Force dark.  */
+[data-sileo-viewport] [data-sileo-title] {
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+[data-sileo-viewport] [data-sileo-description] {
+  color: rgba(0, 0, 0, 0.58) !important;
+}
+
+/* ── Dark mode text fix ────────────────────────────────────────────────────
+   Sileo hardcodes description to rgba(0,0,0,0.5) in dark theme,
+   which is invisible against our dark navy fill. Override to white.       */
+.dark [data-sileo-viewport] [data-sileo-description] {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.dark [data-sileo-viewport] [data-sileo-title] {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* Sileo's theme="system" tracks OS preference, but our ThemeProvider
+   drives a manual .dark class. Flip the data-theme so sileo's own
+   CSS selectors stay in sync with our class-based dark mode.              */
+.dark [data-sileo-viewport] {
+  --sileo-viewport-theme: dark;
+}

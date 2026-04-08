@@ -1,0 +1,9 @@
+.git
+.gitignore
+.local
+.vercelignore
+*.md
+.env.local
+.env.*.local
+api/index.ts
+api/index.cjs

@@ -1,0 +1,352 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pull latest (ensures keystore committed by prior runs is present)
+        run: git pull origin main || true
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web assets
+        run: npx vite build
+        env:
+          VITE_API_BASE_URL: https://artix-pos.vercel.app
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Inject google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+            echo "✅ google-services.json written from secret"
+            echo "--- Checking for oauth_client configuration ---"
+            python3 - <<'PYEOF'
+          import json, sys
+          try:
+              with open("android/app/google-services.json") as f:
+                  data = json.load(f)
+              clients = data.get("client", [])
+              total_oauth = sum(len(c.get("oauth_client", [])) for c in clients)
+              if total_oauth > 0:
+                  print(f"✅ oauth_client entries found: {total_oauth} client(s) configured")
+                  for c in clients:
+                      for oc in c.get("oauth_client", []):
+                          print(f"   client_id: {oc.get('client_id','?')[:40]}...  type: {oc.get('client_type','?')}")
+              else:
+                  print("⚠️  WARNING: oauth_client array is EMPTY — Google Sign-In will fail!")
+                  print("Fix: Enable Google Authentication in Firebase Console, then re-download google-services.json")
+                  sys.exit(0)  # warn only, don't fail the build
+          except json.JSONDecodeError as e:
+              print(f"⚠️  google-services.json is not valid JSON — base64 decode may be corrupted: {e}")
+              sys.exit(1)
+          PYEOF
+          else
+            echo "⚠️  GOOGLE_SERVICES_JSON secret not set — Google Sign-In WILL fail on device"
+          fi
+
+      - name: Patch android/build.gradle — force Kotlin 1.8.22
+        run: |
+          # If kotlin_version already exists, replace it; otherwise insert after 'buildscript {'
+          if grep -q "kotlin_version" android/build.gradle; then
+            sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.8.22'/g" android/build.gradle
+          else
+            sed -i "s/buildscript {/buildscript {\n    ext.kotlin_version = '1.8.22'/" android/build.gradle
+          fi
+          echo "--- android/build.gradle kotlin_version ---"
+          grep "kotlin_version" android/build.gradle || true
+
+      - name: Patch android/app/build.gradle — Java 21 + Kotlin dedup
+        run: |
+          # Java 21 compatibility
+          sed -i 's/sourceCompatibility JavaVersion.VERSION_[0-9_]*/sourceCompatibility JavaVersion.VERSION_21/g' android/app/build.gradle
+          sed -i 's/targetCompatibility JavaVersion.VERSION_[0-9_]*/targetCompatibility JavaVersion.VERSION_21/g' android/app/build.gradle
+          sed -i 's/jvmTarget = "[^"]*"/jvmTarget = "21"/g' android/app/build.gradle
+
+          # Force kotlin-stdlib to 1.8.22 and exclude old jdk7/jdk8 variants
+          python3 - <<'EOF'
+          import re
+
+          with open('android/app/build.gradle', 'r') as f:
+              content = f.read()
+
+          # Update kotlin-stdlib version if present
+          content = re.sub(
+              r'(org\.jetbrains\.kotlin:kotlin-stdlib)[^"\']*',
+              r'\g<1>:1.8.22',
+              content
+          )
+
+          # Add configurations.all block before the dependencies block if not already present
+          if 'configurations.all' not in content:
+              content = content.replace(
+                  'dependencies {',
+                  'configurations.all {\n'
+                  '    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"\n'
+                  '    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"\n'
+                  '    // Pin androidx.browser to 1.8.0 — v1.9.0 requires compileSdk 36 + AGP 8.9.1\n'
+                  '    resolutionStrategy.force "androidx.browser:browser:1.8.0"\n'
+                  '}\n\n'
+                  'dependencies {',
+                  1
+              )
+
+          with open('android/app/build.gradle', 'w') as f:
+              f.write(content)
+
+          print("Patch applied successfully")
+          EOF
+
+          echo "--- android/app/build.gradle (relevant sections) ---"
+          grep -E "configurations|kotlin-stdlib|sourceCompatibility|targetCompatibility|jvmTarget" android/app/build.gradle || true
+
+      - name: Sync Capacitor (injects Google serverClientId + Facebook appId)
+        run: npx cap sync android
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+
+      - name: Configure Facebook Android SDK
+        env:
+          FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+          FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
+        run: |
+          python3 - <<'EOF'
+          import os, re
+
+          app_id = os.environ["FACEBOOK_APP_ID"]
+          client_token = os.environ["FACEBOOK_CLIENT_TOKEN"]
+
+          # ── strings.xml ───────────────────────────────────────────────────────
+          strings_path = "android/app/src/main/res/values/strings.xml"
+          with open(strings_path, "r") as f:
+              strings = f.read()
+
+          # Remove any existing facebook entries to avoid duplicates
+          strings = re.sub(r'\s*<string name="facebook_app_id">.*?</string>', "", strings)
+          strings = re.sub(r'\s*<string name="facebook_client_token">.*?</string>', "", strings)
+
+          # Inject before closing tag
+          fb_strings = (
+              f'\n    <string name="facebook_app_id">{app_id}</string>'
+              f'\n    <string name="facebook_client_token">{client_token}</string>'
+          )
+          strings = strings.replace("</resources>", fb_strings + "\n</resources>")
+
+          with open(strings_path, "w") as f:
+              f.write(strings)
+
+          print("strings.xml patched")
+
+          # ── AndroidManifest.xml ───────────────────────────────────────────────
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r") as f:
+              manifest = f.read()
+
+          fb_metadata = (
+              '\n        <meta-data android:name="com.facebook.sdk.ApplicationId"'
+              ' android:value="@string/facebook_app_id"/>'
+              '\n        <meta-data android:name="com.facebook.sdk.ClientToken"'
+              ' android:value="@string/facebook_client_token"/>'
+          )
+
+          if 'com.facebook.sdk.ApplicationId' not in manifest:
+              manifest = manifest.replace("</application>", fb_metadata + "\n    </application>")
+              with open(manifest_path, "w") as f:
+                  f.write(manifest)
+              print("AndroidManifest.xml patched with Facebook meta-data")
+          else:
+              print("Facebook meta-data already present — skipping")
+          EOF
+
+      - name: Patch AndroidManifest — register deep link URL scheme
+        run: |
+          python3 - <<'EOF'
+          import re
+
+          path = 'android/app/src/main/AndroidManifest.xml'
+          with open(path, 'r') as f:
+              content = f.read()
+
+          deep_link_filter = '''
+                  <intent-filter>
+                      <action android:name="android.intent.action.VIEW" />
+                      <category android:name="android.intent.category.DEFAULT" />
+                      <category android:name="android.intent.category.BROWSABLE" />
+                      <data android:scheme="com.cafebara.app" />
+                  </intent-filter>'''
+
+          if 'android:scheme="com.cafebara.app"' not in content:
+              content = content.replace('</activity>', deep_link_filter + '\n        </activity>', 1)
+              with open(path, 'w') as f:
+                  f.write(content)
+              print("AndroidManifest.xml patched with URL scheme")
+          else:
+              print("URL scheme already present — skipping")
+          EOF
+
+      - name: Show final AndroidManifest intent filters
+        run: grep -A6 "intent-filter\|facebook" android/app/src/main/AndroidManifest.xml || true
+
+      - name: Setup release keystore
+        env:
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+        run: |
+          echo "✅ Using ArtixCutie release keystore from repository"
+          mkdir -p /home/runner/keystore
+          cp keystore/ArtixCutie.jks /home/runner/keystore/ArtixCutie.jks
+          echo "✅ Keystore copied to /home/runner/keystore/ArtixCutie.jks"
+          # Verify the keystore is valid
+          keytool -list \
+            -keystore /home/runner/keystore/ArtixCutie.jks \
+            -alias ArtixCutie \
+            -storepass "$KEYSTORE_STORE_PASSWORD" \
+            -keypass "$KEYSTORE_KEY_PASSWORD" \
+            -noprompt \
+            && echo "✅ Keystore verified successfully" \
+            || echo "⚠️  Keystore verification failed — check credentials"
+
+      - name: Configure release signing in Gradle
+        env:
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PYEOF'
+          import os
+
+          keystore_path = "/home/runner/keystore/ArtixCutie.jks"
+          store_pass    = os.environ["KEYSTORE_STORE_PASSWORD"]
+          key_pass      = os.environ["KEYSTORE_KEY_PASSWORD"]
+
+          with open("android/app/build.gradle", "r") as f:
+              content = f.read()
+
+          signing_block = (
+              "    signingConfigs {\n"
+              "        release {\n"
+              f'            storeFile file("{keystore_path}")\n'
+              f'            storePassword "{store_pass}"\n'
+              '            keyAlias "ArtixCutie"\n'
+              f'            keyPassword "{key_pass}"\n'
+              "        }\n"
+              "    }\n\n"
+          )
+
+          # 1. Insert signingConfigs block before buildTypes (once only)
+          if "signingConfigs" not in content:
+              content = content.replace("    buildTypes {", signing_block + "    buildTypes {", 1)
+              print("✅ signingConfigs block inserted")
+          else:
+              print("signingConfigs block already present — skipping insert")
+
+          # 2. Add signingConfig reference inside the release block that is INSIDE buildTypes
+          #    (not the release block inside signingConfigs — find buildTypes first)
+          if "signingConfig signingConfigs.release" not in content:
+              bt_idx = content.find("    buildTypes {")
+              if bt_idx != -1:
+                  rel_idx = content.find("release {", bt_idx)
+                  if rel_idx != -1:
+                      insert_at = rel_idx + len("release {")
+                      content = (
+                          content[:insert_at]
+                          + "\n            signingConfig signingConfigs.release"
+                          + content[insert_at:]
+                      )
+                      print("✅ signingConfig reference added inside buildTypes.release")
+                  else:
+                      print("⚠️  Could not find release block inside buildTypes")
+              else:
+                  print("⚠️  Could not find buildTypes block")
+          else:
+              print("signingConfig reference already present — skipping")
+
+          with open("android/app/build.gradle", "w") as f:
+              f.write(content)
+
+          print("✅ Release signing config injected into android/app/build.gradle")
+          PYEOF
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Clean and build release APK
+        run: cd android && ./gradlew clean assembleRelease --no-daemon
+
+      - name: Print SHA-1 — keystore AND actual APK signing cert
+        env:
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+        run: |
+          echo "============================================================"
+          echo "  SHA-1 from ArtixCutie.jks keystore:"
+          echo "============================================================"
+          keytool -list -v \
+            -keystore keystore/ArtixCutie.jks \
+            -alias ArtixCutie \
+            -storepass "$KEYSTORE_STORE_PASSWORD" \
+            -keypass "$KEYSTORE_KEY_PASSWORD" | grep -E "SHA1|SHA-1"
+
+          echo ""
+          echo "============================================================"
+          echo "  SHA-1 extracted directly from the BUILT APK:"
+          echo "  (THIS is what Google actually checks)"
+          echo "============================================================"
+          APK=$(find android/app/build/outputs -name "*.apk" | head -1)
+          if [ -n "$APK" ]; then
+            $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/apksigner verify --print-certs "$APK" | grep -E "SHA-1|Signer"
+          else
+            echo "No APK found"
+          fi
+          echo "============================================================"
+          echo "  Expected SHA-1: B2:1C:FC:7E:05:5B:D8:FB:AB:6F:10:DE:27:5F:3F:C7:48:3C:94:61"
+          echo "============================================================"
+
+      - name: Find APK
+        run: find android/app/build/outputs -name "*.apk" 2>/dev/null || echo "No APKs found"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artixpos-release-apk
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 30

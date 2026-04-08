@@ -14,7 +14,7 @@ const PLANS = {
 };
 
 function getSecretKey() {
-  return process.env.PAYMONGO_SECRET_KEY ?? "";
+  return process.env.PAYMONGO_SECRET_KEY ?? process.env.PAYMONGO_LIVE_SECRET_KEY ?? "";
 }
 
 function pmAuth() {

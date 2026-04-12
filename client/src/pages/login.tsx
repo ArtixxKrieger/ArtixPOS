@@ -565,78 +565,75 @@ export default function Login() {
           className="w-[45%] flex-shrink-0 flex flex-col justify-between p-12 relative overflow-hidden"
           style={{
             background: isDark
-              ? "linear-gradient(145deg, #0e0820 0%, #150d2e 50%, #0a0618 100%)"
-              : "linear-gradient(145deg, #6d28d9 0%, #7c3aed 40%, #4f46e5 100%)",
+              ? "#060610"
+              : "linear-gradient(150deg, #0f0523 0%, #1a0845 40%, #0c0330 100%)",
           }}
         >
-          {/* Decorative circles */}
-          <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", background: "rgba(255,255,255,0.04)", top: "-100px", right: "-80px", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", width: 280, height: 280, borderRadius: "50%", background: "rgba(255,255,255,0.03)", bottom: "-60px", left: "-60px", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "52px 52px", pointerEvents: "none" }} />
+          {/* Grid overlay */}
+          <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.06) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
+          {/* Neon glow orbs */}
+          <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%)", top: "-80px", left: "-80px", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%)", bottom: "5%", right: "-60px", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", top: "50%", left: "60%", pointerEvents: "none" }} />
 
           {/* Logo */}
           <div style={{ position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(10px)" }}>
-                <span style={{ color: "#fff", fontSize: 20, fontWeight: 900 }}>A</span>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                boxShadow: "0 0 24px rgba(124,58,237,0.6), 0 0 60px rgba(124,58,237,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: "1px solid rgba(167,139,250,0.3)",
+              }}>
+                <span style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>A</span>
               </div>
-              <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em" }}>ArtixPOS</span>
+              <div>
+                <span style={{ color: "#fff", fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>ArtixPOS</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
+                  <span style={{ color: "rgba(167,139,250,0.7)", fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Business OS</span>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Center content */}
           <div style={{ position: "relative" }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px",
-              borderRadius: 100, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)",
-              marginBottom: 28,
-            }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
-              <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 600 }}>Trusted by 1,000+ businesses</span>
-            </div>
-
             <h2 style={{
-              fontSize: 38, fontWeight: 900, lineHeight: 1.1, letterSpacing: "-0.03em",
-              color: "#ffffff", margin: "0 0 18px",
+              fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.035em",
+              margin: "0 0 18px",
             }}>
-              The smarter way<br />to run your store
+              <span style={{ color: "#fff" }}>Your store.</span><br />
+              <span style={{ background: "linear-gradient(90deg, #a78bfa 0%, #818cf8 50%, #67e8f9 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                Fully in control.
+              </span>
             </h2>
-            <p style={{ fontSize: 15, lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: "0 0 36px", maxWidth: 340 }}>
-              Manage your sales, inventory, staff, and analytics — all in one beautifully designed platform.
+            <p style={{ fontSize: 14, lineHeight: 1.75, color: "rgba(167,139,250,0.6)", margin: "0 0 36px", maxWidth: 320 }}>
+              Sales, inventory, staff, analytics, and AI — all in one place. Built for speed, designed for simplicity.
             </p>
 
-            {/* Feature pills */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Feature list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[
-                { icon: "⚡", text: "Point of Sale with offline support" },
-                { icon: "📊", text: "Real-time analytics & reports" },
-                { icon: "🤖", text: "Built-in AI business assistant" },
+                { dot: "#a78bfa", text: "Point of Sale with offline support" },
+                { dot: "#818cf8", text: "Real-time analytics & reports" },
+                { dot: "#67e8f9", text: "Built-in AI business assistant" },
+                { dot: "#4ade80", text: "Multi-branch & team management" },
               ].map((f, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                    {f.icon}
-                  </div>
-                  <span style={{ color: "rgba(255,255,255,0.78)", fontSize: 14, fontWeight: 500 }}>{f.text}</span>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: f.dot, boxShadow: `0 0 8px ${f.dot}`, flexShrink: 0 }} />
+                  <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13.5, fontWeight: 500 }}>{f.text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Bottom quote */}
+          {/* Bottom — version badge */}
           <div style={{ position: "relative" }}>
-            <div style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>
-              <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, lineHeight: 1.6, margin: "0 0 10px", fontStyle: "italic" }}>
-                "ArtixPOS transformed how we manage our cafe. Setup was instant and the team loves it."
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #a78bfa, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>S</span>
-                </div>
-                <div>
-                  <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700, margin: 0 }}>Sarah K.</p>
-                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, margin: 0 }}>Cafe Owner</p>
-                </div>
-              </div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
+              <span style={{ color: "rgba(167,139,250,0.65)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>ARTIXPOS · BUSINESS PLATFORM</span>
             </div>
           </div>
         </div>

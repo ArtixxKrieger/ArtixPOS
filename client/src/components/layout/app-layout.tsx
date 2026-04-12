@@ -6,7 +6,7 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ChevronDown,
+  Sun, Moon,
 } from "lucide-react";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
@@ -16,83 +16,23 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAuth } from "@/hooks/use-auth";
 import { getBusinessFeatures } from "@/lib/business-features";
 
-function ThemeToggle({ isDark, onToggle, size = "md" }: { isDark: boolean; onToggle: () => void; size?: "sm" | "md" }) {
-  const isSmall = size === "sm";
+function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
   return (
     <button
       onClick={onToggle}
-      aria-label="Toggle theme"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      style={{
-        width: isSmall ? 44 : 52,
-        height: isSmall ? 24 : 28,
-        borderRadius: 999,
-        padding: 3,
-        cursor: "pointer",
-        border: "none",
-        outline: "none",
-        position: "relative",
-        overflow: "hidden",
-        transition: "background 0.4s ease",
-        background: isDark
-          ? "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)"
-          : "linear-gradient(135deg, #fbbf24 0%, #f97316 100%)",
-        boxShadow: isDark
-          ? "0 0 0 1px rgba(139,92,246,0.4), inset 0 1px 2px rgba(0,0,0,0.4)"
-          : "0 0 0 1px rgba(251,191,36,0.5), inset 0 1px 2px rgba(0,0,0,0.1)",
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-      }}
+      data-testid="button-toggle-theme"
+      className={[
+        "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0",
+        isDark
+          ? "text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/20"
+          : "text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 border border-amber-400/30",
+      ].join(" ")}
     >
-      {isDark && (
-        <>
-          <span style={{ position: "absolute", top: 4, left: 8, width: 2, height: 2, borderRadius: "50%", background: "white", opacity: 0.8 }} />
-          <span style={{ position: "absolute", top: 7, left: 14, width: 1.5, height: 1.5, borderRadius: "50%", background: "white", opacity: 0.6 }} />
-          <span style={{ position: "absolute", top: 3, left: 20, width: 1.5, height: 1.5, borderRadius: "50%", background: "white", opacity: 0.7 }} />
-        </>
-      )}
-      {!isDark && (
-        <span style={{ position: "absolute", right: 5, top: "50%", transform: "translateY(-50%)", width: isSmall ? 14 : 16, height: isSmall ? 14 : 16, borderRadius: "50%", background: "rgba(255,255,255,0.3)", boxShadow: "0 0 6px 3px rgba(255,220,80,0.5)" }} />
-      )}
-      <span
-        style={{
-          position: "absolute",
-          top: 3,
-          left: isDark ? `calc(100% - ${isSmall ? 18 : 22}px - 3px)` : 3,
-          width: isSmall ? 18 : 22,
-          height: isSmall ? 18 : 22,
-          borderRadius: "50%",
-          transition: "left 0.35s cubic-bezier(0.34,1.56,0.64,1)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: isDark
-            ? "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)"
-            : "linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)",
-          boxShadow: isDark
-            ? "0 1px 4px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)"
-            : "0 1px 4px rgba(0,0,0,0.2), 0 0 8px 2px rgba(255,230,50,0.6)",
-        }}
-      >
-        {isDark ? (
-          <svg width={isSmall ? 10 : 12} height={isSmall ? 10 : 12} viewBox="0 0 24 24" fill="none">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="#6d28d9" />
-          </svg>
-        ) : (
-          <svg width={isSmall ? 10 : 12} height={isSmall ? 10 : 12} viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="5" fill="#d97706" />
-            <line x1="12" y1="2" x2="12" y2="5" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="12" y1="19" x2="12" y2="22" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="4.22" y1="4.22" x2="6.34" y2="6.34" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="2" y1="12" x2="5" y2="12" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="19" y1="12" x2="22" y2="12" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
-        )}
-      </span>
+      {isDark
+        ? <Sun className="h-4 w-4" strokeWidth={2} />
+        : <Moon className="h-4 w-4" strokeWidth={2} />}
     </button>
   );
 }
@@ -213,7 +153,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isAdminOrAbove = role === "owner" || role === "manager" || role === "admin";
   const isManagerOrAbove = role === "owner" || role === "manager";
 
-  const { hiddenUrls: businessHiddenUrls, labels: businessLabels, sidebarOrder } = getBusinessFeatures(
+  const { hiddenUrls: businessHiddenUrls, labels: businessLabels } = getBusinessFeatures(
     (settings as any)?.businessType,
     (settings as any)?.businessSubType,
   );
@@ -252,7 +192,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  function shouldShowNavItem(item: { label?: string; url: string; managerOnly?: boolean; ownerOnly?: boolean }) {
+  function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean }) {
     if (businessHiddenUrls.has(item.url as any)) return false;
     if (isCashier) {
       const cashierUrls = ["/", "/pos", "/pending", "/kitchen", "/tables", "/shifts", "/timeclock", "/ai", "/settings"];
@@ -272,20 +212,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
     return (
       <button
-        key={item.url}
         onClick={() => startTransition(() => setLocation(item.url))}
         data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
         className={[
-          "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150",
+          "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
           isActive
             ? "nav-item-active"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent",
+            : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent",
         ].join(" ")}
       >
-        <Icon className={["h-[15px] w-[15px] shrink-0 transition-all duration-150", isActive ? "stroke-[2.2px]" : "stroke-[1.8px]"].join(" ")} />
+        <Icon className={["h-[14px] w-[14px] shrink-0 transition-all duration-150", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
         <span className="flex-1 text-left truncate">{displayLabel}</span>
         {badge ? (
-          <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm shadow-rose-500/40 tabular-nums">
+          <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
             {badge > 9 ? "9+" : badge}
           </span>
         ) : null}
@@ -308,26 +247,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         {/* Brand */}
-        <div className="px-4 pt-5 pb-4 border-b border-border/60">
-          <div className="flex items-center gap-3">
+        <div className="px-4 pt-5 pb-3 border-b border-border/50">
+          <div className="flex items-center gap-2.5">
             <div
-              className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center shadow-glow-sm"
+              className="h-8 w-8 shrink-0 rounded-xl flex items-center justify-center"
               style={{
-                background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-                boxShadow: "0 2px 12px rgba(109,40,217,0.35)",
+                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                boxShadow: "0 0 16px rgba(124,58,237,0.4)",
               }}
             >
-              <span className="text-white text-sm font-extrabold tracking-tight">{storeInitial}</span>
+              <span className="text-white text-sm font-black">{storeInitial}</span>
             </div>
             <div className="min-w-0">
               <p className="font-bold text-[13px] text-foreground truncate leading-tight">{storeName}</p>
-              <p className="text-[10px] text-muted-foreground tracking-wider uppercase mt-0.5 font-medium">POS System</p>
+              <p className="text-[9.5px] text-muted-foreground tracking-widest uppercase mt-0.5 font-semibold">POS System</p>
             </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5 scrollbar-hide">
+        <nav className="flex-1 px-2.5 py-2 overflow-y-auto space-y-0 scrollbar-hide">
           {NAV_SECTIONS.map((section) => {
             const visibleItems = section.items.filter(item => shouldShowNavItem(item));
             if (visibleItems.length === 0) return null;
@@ -345,7 +284,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
             );
           })}
 
-          {/* Admin section */}
           {isAdminOrAbove && (
             <div>
               <p className="nav-section-label">Admin</p>
@@ -360,13 +298,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                       onClick={() => startTransition(() => setLocation(item.url))}
                       className={[
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150",
+                        "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
                         isActive
                           ? "nav-item-active"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent",
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent",
                       ].join(" ")}
                     >
-                      <Icon className={["h-[15px] w-[15px] shrink-0", isActive ? "stroke-[2.2px]" : "stroke-[1.8px]"].join(" ")} />
+                      <Icon className={["h-[14px] w-[14px] shrink-0", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
                       <span className="flex-1 text-left truncate">{item.label}</span>
                     </button>
                   );
@@ -376,30 +314,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </nav>
 
-        {/* User profile + theme */}
-        <div className="px-3 pb-4 pt-2 border-t border-border/60">
+        {/* User profile footer — theme toggle lives HERE only */}
+        <div className="px-2.5 pb-4 pt-2 border-t border-border/50">
           {user && (
-            <div className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl bg-muted/40 border border-border/50">
+            <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
               {user.avatar ? (
-                <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover ring-2 ring-border" />
+                <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
               ) : (
                 <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                  style={{ background: "linear-gradient(135deg, #7c3aed, #6d28d9)" }}>
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
                   {(user.name ?? "?")[0].toUpperCase()}
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-semibold truncate text-foreground leading-tight">{user.name ?? "User"}</p>
+                <p className="text-[11.5px] font-semibold truncate text-foreground leading-tight">{user.name ?? "User"}</p>
                 <p className="text-[10px] text-muted-foreground truncate leading-tight">{user.email ?? user.provider}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <div data-testid="button-toggle-theme">
-                  <ThemeToggle isDark={isDark} onToggle={toggleTheme} size="sm" />
-                </div>
+                <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
                 <button
                   onClick={() => logout()}
                   aria-label="Logout"
-                  className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200"
                   title="Logout"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -413,109 +349,51 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* ── Main area ─────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 md:ml-[220px]">
 
-        {/* Mobile header */}
+        {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header
           className="md:hidden sticky top-0 z-40 glass-header"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
-          <div className="px-4 flex items-center gap-3" style={{ height: "56px" }}>
-            {/* Brand */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className="h-8 w-8 shrink-0 rounded-xl flex items-center justify-center"
-                style={{
-                  background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-                  boxShadow: "0 2px 10px rgba(109,40,217,0.3)",
-                }}
-              >
-                <span className="text-white text-sm font-extrabold">{storeInitial}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold leading-tight truncate">{storeName}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight mt-[2px] tracking-wide uppercase font-medium">
-                  {businessLabels[location] ?? PAGE_TITLES[location] ?? "POS"}
-                </p>
-              </div>
+          <div className="px-4 flex items-center gap-3" style={{ height: "52px" }}>
+            <div
+              className="h-7 w-7 shrink-0 rounded-lg flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", boxShadow: "0 0 12px rgba(124,58,237,0.35)" }}
+            >
+              <span className="text-white text-xs font-black">{storeInitial}</span>
             </div>
-
-            {/* Offline / syncing pill */}
-            <div className="flex-1 flex justify-center pointer-events-none">
-              {(!isOnline || isSyncing) && (
-                <div
-                  data-testid="banner-offline-status"
-                  className={[
-                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all duration-300",
-                    isSyncing
-                      ? "bg-primary/10 text-primary border-primary/20"
-                      : "bg-foreground/5 text-muted-foreground border-border/50",
-                  ].join(" ")}
-                >
-                  {isSyncing ? (
-                    <>
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>Syncing{salesQueueCount > 0 ? ` ${salesQueueCount}` : ""}…</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="h-3 w-3 shrink-0" />
-                      <span>Offline</span>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Theme toggle */}
-            <div data-testid="button-toggle-theme-mobile">
-              <ThemeToggle isDark={isDark} onToggle={toggleTheme} size="md" />
-            </div>
-          </div>
-        </header>
-
-        {/* Desktop top bar */}
-        <header className="hidden md:flex sticky top-0 z-30 glass-header">
-          <div className="w-full px-6 flex items-center gap-4" style={{ height: "56px" }}>
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold leading-none text-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-bold leading-tight truncate">{storeName}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight tracking-widest uppercase font-semibold">
                 {businessLabels[location] ?? PAGE_TITLES[location] ?? "POS"}
               </p>
             </div>
 
-            <div className="flex-1 flex justify-center pointer-events-none">
-              {(!isOnline || isSyncing) && (
-                <div
-                  data-testid="banner-offline-status"
-                  className={[
-                    "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-300",
-                    isSyncing
-                      ? "bg-primary/10 text-primary border-primary/20"
-                      : "bg-foreground/5 text-muted-foreground border-border/50",
-                  ].join(" ")}
-                >
-                  {isSyncing ? (
-                    <>
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>Syncing {salesQueueCount > 0 ? `${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}` : "changes"}…</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="h-3 w-3 shrink-0" />
-                      <span>Offline</span>
-                      {salesQueueCount > 0 && (
-                        <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">
-                          {salesQueueCount} sale{salesQueueCount !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            {(!isOnline || isSyncing) && (
+              <div className={["flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
+                {isSyncing ? <><RefreshCw className="h-2.5 w-2.5 animate-spin" /><span>Syncing</span></> : <><WifiOff className="h-2.5 w-2.5" /><span>Offline</span></>}
+              </div>
+            )}
 
-            {/* Theme toggle */}
-            <div data-testid="button-toggle-theme-desktop">
-              <ThemeToggle isDark={isDark} onToggle={toggleTheme} size="md" />
-            </div>
+            <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+          </div>
+        </header>
+
+        {/* Desktop top bar — NO theme toggle here (it's in sidebar) */}
+        <header className="hidden md:flex sticky top-0 z-30 glass-header">
+          <div className="w-full px-6 flex items-center gap-4" style={{ height: "52px" }}>
+            <p className="text-[13px] font-semibold text-foreground">
+              {businessLabels[location] ?? PAGE_TITLES[location] ?? ""}
+            </p>
+
+            {(!isOnline || isSyncing) && (
+              <div className={["flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-300", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
+                {isSyncing ? (
+                  <><RefreshCw className="h-3 w-3 animate-spin" /><span>Syncing {salesQueueCount > 0 ? `${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}` : "changes"}…</span></>
+                ) : (
+                  <><WifiOff className="h-3 w-3" /><span>Offline</span>{salesQueueCount > 0 && <span className="ml-0.5 bg-muted-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">{salesQueueCount}</span>}</>
+                )}
+              </div>
+            )}
           </div>
         </header>
 

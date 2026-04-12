@@ -45,11 +45,16 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 - `GET /api/admin/audit-logs` — Audit log (owner only)
 
 ## Design System
-- **Theme Colors**: Indigo-500 primary, Violet-600 secondary
-- **Border Radius**: Rounded-3xl / rounded-[2.5rem] (glassmorphic)
-- **Gradients**: Background gradients on cards (violet, pink, amber, emerald tints)
-- **Animations**: Smooth fade-in, hover effects, animated counters
-- **Dark Mode**: Full light/dark mode support with CSS variables
+- **Theme Colors**: Violet-600 primary (hsl 262 83% 58% light / hsl 265 75% 68% dark)
+- **Font**: Plus Jakarta Sans (primary) + Inter (fallback), loaded from Google Fonts
+- **Border Radius**: 2xl (1rem), xl (0.75rem), lg (0.625rem) — clean modern radius
+- **Glass utilities**: `.glass-card`, `.glass-sidebar`, `.glass-nav`, `.glass-header`, `.glass-cart-bar` — NO backdrop-filter blur for mobile GPU performance
+- **Gradients**: Ambient background glows (dark mode), card gradient tints (violet, emerald, amber, rose)
+- **Animations**: page-enter (slide-up), animate-fade-scale, card-press, skeleton-shimmer, stagger-children
+- **Dark Mode**: Full light/dark mode with CSS variables; toggle stored in localStorage
+- **Login Page**: Desktop split-panel layout (left: violet brand panel, right: form); mobile centered card
+- **Sidebar**: 220px wide, grouped nav sections (Main/Operations/Management/Finance/Tools/Admin), `.nav-item-active` gradient class
+- **Nav active state**: `.nav-item-active` class — violet gradient bg + border
 
 ## Currency & Settings
 - Store name: "ArtixPOS"

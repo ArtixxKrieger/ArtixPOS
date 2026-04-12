@@ -136,13 +136,13 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white/40 dark:bg-white/[0.05] rounded-2xl p-3.5 border border-white/60 dark:border-white/10">
+          <div className="bg-black/[0.04] dark:bg-white/[0.06] rounded-2xl p-3.5 border border-black/[0.07] dark:border-white/[0.08]">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Avg Order</p>
             <p className="text-xl font-bold tabular-nums">
               <Counter value={avgOrder} prefix={currency} />
             </p>
           </div>
-          <div className="bg-white/40 dark:bg-white/[0.05] rounded-2xl p-3.5 border border-white/60 dark:border-white/10">
+          <div className="bg-black/[0.04] dark:bg-white/[0.06] rounded-2xl p-3.5 border border-black/[0.07] dark:border-white/[0.08]">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Tax Collected</p>
             <p className="text-xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
               <Counter value={totalTax} prefix={currency} />

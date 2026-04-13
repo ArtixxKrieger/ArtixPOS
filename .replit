@@ -46,15 +46,6 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-GOOGLE_CLIENT_ID = "385155458012-ur148tsng34vbgicjha7941oseqvckoo.apps.googleusercontent.com"
-FACEBOOK_APP_ID = "1437909764484815"
-APP_URL = "https://artix-pos.vercel.app"
-TURSO_DATABASE_URL = "libsql://artix-pos-artixkrieger.aws-us-east-1.turso.io"
-TURSO_AUTH_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzQxNDI3MjMsImlkIjoiMDE5Y2Y1MzgtZmMwMS03NmY5LWE0MDktYjY0MDc5MGM3YTU2IiwicmlkIjoiYWMzMjJmYzEtOTEyNC00YWRmLWI5ZTAtY2Y0ZDE3MjFiOGIzIn0.W2zvfSvus4yEIKhjjiReOPrV3mfGt5FVt6_IFQp0MUVNz-m41jh_IIVBEsAmwLbwY-FcbgV-efgNdn3wDfILBQ"
-SMTP_HOST = "smtp.resend.com"
-SMTP_PORT = "587"
-SMTP_USER = "resend"
-SMTP_FROM = "onboarding@resend.dev"
 
 [agent]
 expertMode = true

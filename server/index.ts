@@ -15,22 +15,30 @@ const httpServer = createServer(app);
 // Trust reverse proxies (Replit, Vercel, etc.)
 app.set("trust proxy", 1);
 
-// ── Security headers ─────────────────────────────────────────────────────────
+const isDevelopment = process.env.NODE_ENV !== "production";
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+  fontSrc: ["'self'", "https://fonts.gstatic.com"],
+  imgSrc: ["'self'", "data:", "https:", "blob:"],
+  connectSrc: isDevelopment
+    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com"]
+    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
+  frameSrc: ["'none'"],
+  frameAncestors: isDevelopment
+    ? ["'self'", "https://replit.com", "https://*.replit.com"]
+    : ["'self'"],
+  objectSrc: ["'none'"],
+};
+
 app.use(
   helmet({
     contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:", "blob:"],
-        connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
-        frameSrc: ["'none'"],
-        objectSrc: ["'none'"],
-      },
+      directives: cspDirectives,
     },
     crossOriginEmbedderPolicy: false,
+    frameguard: isDevelopment ? false : { action: "sameorigin" },
   })
 );
 

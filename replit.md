@@ -1,7 +1,7 @@
 # ArtixPOS System
 
 ## Overview
-A full-stack Point of Sale (POS) system for café management with React/TypeScript frontend, Express backend, and SQLite via Drizzle ORM.
+A full-stack Point of Sale (POS) system for café management with React/TypeScript frontend, Express backend, and PostgreSQL via Drizzle ORM.
 
 ## Features
 - **Product Management**: Create/edit products with sizes and modifiers
@@ -179,14 +179,15 @@ Both workflows trigger automatically on push to `main`/`master` and can also be 
 
 ### Running the App
 - **Dev server**: `npm run dev` (starts on port 5000)
-- **Database**: Local SQLite (`local.db`) — created automatically on first run
-- **db:push**: `npm run db:push` works locally without `TURSO_DATABASE_URL` (falls back to `file:local.db`)
+- **Database**: Replit PostgreSQL via `DATABASE_URL`
+- **db:push**: `npm run db:push` syncs the Drizzle schema to the configured PostgreSQL database
 
 ### Optional Environment Variables
-- `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`: Connect to a remote Turso database (for production/deployment)
+- `SUPABASE_POOLER_URL` / `SUPABASE_DATABASE_URL`: Optional PostgreSQL fallback connection strings
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: Enable Google OAuth login
 - `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET`: Enable Facebook OAuth login
 - `SESSION_SECRET`: Custom session secret (auto-generated if not set)
+- `APP_URL`: Production public URL; development prefers the Replit preview domain automatically
 
 ## Notes
 - No external authentication required (local login)

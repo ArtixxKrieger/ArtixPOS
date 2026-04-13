@@ -15,6 +15,7 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 - **Admin Panel**: Branch management, user management, cross-branch analytics, audit logs
 - **Staff Auth**: Email/password login for admin-created staff accounts
 - **Audit Logging**: Full history of all admin actions (owner-only)
+- **AI Memory Layer**: SimpleMem-style atomic fact extraction per conversation. Memories stored in `ai_memories` table, injected into system prompt. Persists across sessions even if chat is deleted. Tenant-isolated + business-type tagged. Consolidation: decay stale facts, cap at 120 per tenant.
 
 ## Architecture
 - **Frontend**: React + TypeScript + TailwindCSS

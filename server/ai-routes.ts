@@ -18,6 +18,7 @@ import { getBranches } from "./admin-storage";
 import { eq, and, isNull, sql, ne, inArray } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
+import { extractAndStore, getRelevantMemories, consolidateIfNeeded } from "./ai-memory";
 
 // ─── Multer setup ──────────────────────────────────────────────────────────────
 const ALLOWED_EXTENSIONS = [".pdf", ".xlsx", ".xls", ".csv"];
@@ -1083,7 +1084,7 @@ CORE FEATURES (available to all businesses):
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-function buildSystemPrompt(contextText: string, fileContent?: string, businessType?: string | null, businessSubType?: string | null): string {
+function buildSystemPrompt(contextText: string, fileContent?: string, businessType?: string | null, businessSubType?: string | null, memoryBlock?: string): string {
   const businessCtx = getBusinessContext(businessType ?? null, businessSubType ?? null);
   const howToGuide = getHowToGuide(businessType ?? null, businessSubType ?? null);
   return `You are ArtixPOS AI — a personal business assistant built exclusively for this store. You know this business inside and out. Match the user's language naturally (English/Tagalog/Taglish). Never reveal what AI model powers you.
@@ -1104,7 +1105,7 @@ ${buildNavGuide()}
 ${businessCtx ? `\n${businessCtx}` : ""}
 ${howToGuide}
 
-LIVE STORE DATA:
+${memoryBlock ? `${memoryBlock}\n\n` : ""}LIVE STORE DATA:
 ${contextText}
 
 ⚠ DATA PRIORITY (read before answering any data question):
@@ -1782,12 +1783,13 @@ export function registerAiRoutes(app: Express) {
       const apiKey = getApiKey();
       const uid = getUserId(req);
 
-      // ── Check if user is banned ───────────────────────────────────────────────
-      const [userRecord] = await db.select({ isBanned: users.isBanned }).from(users).where(eq(users.id, uid));
+      // ── Check if user is banned + fetch tenant info ───────────────────────────
+      const [userRecord] = await db.select({ isBanned: users.isBanned, tenantId: users.tenantId }).from(users).where(eq(users.id, uid));
       if (userRecord?.isBanned) {
         console.warn(`[ai][${requestId}] user ${uid} is BANNED — rejecting`);
         return res.status(403).json({ message: BLOCK_MSG_BANNED });
       }
+      const tenantId = userRecord?.tenantId ?? uid;
 
       const { messages, fileContent } = req.body as {
         messages: ChatMessage[];
@@ -1866,20 +1868,31 @@ export function registerAiRoutes(app: Express) {
       const intent = detectQueryIntent(trimmedMessages);
       console.log(`[ai][${requestId}] queryIntent: ${JSON.stringify(intent)}`);
 
+      // ── Fetch memories in parallel with context loading ───────────────────────
+      const memoryFetch = getRelevantMemories({
+        tenantId,
+        businessType: cachedCtx?.data.businessType ?? null,
+        queryHint: lastUserMsg,
+      });
+
       let systemPrompt: string;
       if (wantsData) {
         const ctxStart = Date.now();
-        // Run base context + targeted dynamic query in parallel
-        const [baseCtx, dynamicSection] = await Promise.all([
+        // Run base context + targeted dynamic query + memories all in parallel
+        const [baseCtx, dynamicSection, memoryBlock] = await Promise.all([
           gatherContext(uid),
           runDynamicQuery(intent, uid, (cachedCtx?.data.currency ?? "₱"), requestId),
+          memoryFetch,
         ]);
-        console.log(`[ai][${requestId}] context gathered in ${Date.now() - ctxStart}ms (base: ${baseCtx.contextText.length} chars, dynamic: ${dynamicSection?.length ?? 0} chars, intent: ${intent.type})`);
-        systemPrompt = buildSystemPrompt(mergeContext(baseCtx.contextText, dynamicSection), fileContent, baseCtx.businessType, baseCtx.businessSubType);
+        console.log(`[ai][${requestId}] context gathered in ${Date.now() - ctxStart}ms (base: ${baseCtx.contextText.length} chars, dynamic: ${dynamicSection?.length ?? 0} chars, memory: ${memoryBlock.length} chars, intent: ${intent.type})`);
+        systemPrompt = buildSystemPrompt(mergeContext(baseCtx.contextText, dynamicSection), fileContent, baseCtx.businessType, baseCtx.businessSubType, memoryBlock || undefined);
       } else if (hasCachedCtx) {
         // Follow-up: reuse cached base context, but still run dynamic query for this message
-        const dynamicSection = await runDynamicQuery(intent, uid, cachedCtx!.data.currency, requestId);
-        systemPrompt = buildSystemPrompt(mergeContext(cachedCtx!.data.contextText, dynamicSection), fileContent, cachedCtx!.data.businessType, cachedCtx!.data.businessSubType);
+        const [dynamicSection, memoryBlock] = await Promise.all([
+          runDynamicQuery(intent, uid, cachedCtx!.data.currency, requestId),
+          memoryFetch,
+        ]);
+        systemPrompt = buildSystemPrompt(mergeContext(cachedCtx!.data.contextText, dynamicSection), fileContent, cachedCtx!.data.businessType, cachedCtx!.data.businessSubType, memoryBlock || undefined);
       } else {
         systemPrompt = buildMinimalSystemPrompt();
       }
@@ -1993,6 +2006,24 @@ export function registerAiRoutes(app: Express) {
       console.log(`[ai][${requestId}] request complete — total: ${Date.now() - requestStart}ms`);
       sendDone();
       res.end();
+
+      // ── Async memory extraction (fire-and-forget, never blocks the response) ──
+      // Only extract when there's a real conversation (≥2 messages) and we have
+      // a tenantId to scope the memories. Runs after the response is fully sent.
+      if (trimmedMessages.length >= 2 && tenantId) {
+        const businessType = cachedCtx?.data.businessType ?? null;
+        const convoWithReply: ChatMessage[] = [
+          ...trimmedMessages,
+          { role: "assistant", content: accumulated },
+        ];
+        // Fire-and-forget: extraction + consolidation run in background
+        Promise.resolve().then(async () => {
+          await extractAndStore({ tenantId, businessType, conversation: convoWithReply });
+          await consolidateIfNeeded(tenantId);
+        }).catch((err) => {
+          console.error(`[ai-memory] background extraction error: ${err.message}`);
+        });
+      }
     } catch (err: any) {
       const totalElapsed = Date.now() - requestStart;
       console.error(

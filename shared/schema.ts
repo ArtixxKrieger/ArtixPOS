@@ -466,6 +466,26 @@ export const subscriptionPayments = pgTable("subscription_payments", {
 export type TenantSubscription = typeof tenantSubscriptions.$inferSelect;
 export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
 
+// ─── AI Memories ───────────────────────────────────────────────────────────────
+// Stores compressed atomic facts extracted from AI conversations.
+// Persists across sessions even if chat history is deleted.
+// Scoped by tenantId (owner isolation) + businessType (cross-learning).
+
+export const aiMemories = pgTable("ai_memories", {
+  id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  businessType: text("business_type"),
+  content: text("content").notNull(),
+  category: text("category").notNull().default("general"),
+  importanceScore: integer("importance_score").notNull().default(5),
+  accessCount: integer("access_count").notNull().default(0),
+  lastAccessedAt: text("last_accessed_at"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  expiresAt: text("expires_at"),
+});
+
+export type AiMemory = typeof aiMemories.$inferSelect;
+
 // ─── Insert Schemas ───────────────────────────────────────────────────────────
 
 export const insertUserSchema = createInsertSchema(users).extend({

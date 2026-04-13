@@ -177,9 +177,11 @@ Both workflows trigger automatically on push to `main`/`master` and can also be 
 
 ## Replit Environment
 
+Production is intended to run on Vercel. Replit is used for development/preview only, so production URL and OAuth callback behavior should continue to prefer Vercel configuration (`APP_URL` / `VERCEL_URL`) rather than Replit preview domains.
+
 ### Running the App
 - **Dev server**: `npm run dev` (starts on port 5000)
-- **Database**: Replit PostgreSQL via `DATABASE_URL`
+- **Database**: PostgreSQL via `DATABASE_URL`
 - **db:push**: `npm run db:push` syncs the Drizzle schema to the configured PostgreSQL database
 
 ### Optional Environment Variables

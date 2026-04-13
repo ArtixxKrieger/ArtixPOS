@@ -132,7 +132,7 @@ export async function extractAndStore(opts: {
       );
     }
 
-    await db.insert(aiMemories).values({
+    const memory = {
       tenantId,
       businessType: businessType ?? null,
       content,
@@ -142,7 +142,9 @@ export async function extractAndStore(opts: {
       lastAccessedAt: null,
       createdAt: now,
       expiresAt,
-    });
+    } as any;
+
+    await db.insert(aiMemories).values(memory);
   }
 
   console.log(`[ai-memory] stored ${facts.length} facts for tenant=${tenantId}`);

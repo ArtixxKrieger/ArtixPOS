@@ -224,6 +224,17 @@ const tooltipStyle = {
   fontWeight: 500,
 };
 
+const tooltipLabelStyle = {
+  color: "hsl(var(--foreground))",
+  fontWeight: 700,
+  marginBottom: 4,
+};
+
+const tooltipItemStyle = {
+  color: "hsl(var(--foreground))",
+  fontWeight: 600,
+};
+
 /* ── Toggle Button Group ─────────────────────────── */
 function ToggleGroup<T extends string>({ value, onChange, options }: {
   value: T; onChange: (v: T) => void;
@@ -884,6 +895,8 @@ export default function Analytics() {
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={v => metric === "revenue" ? `${currency}${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}` : String(v)} width={42} />
                   <Tooltip
                     contentStyle={tooltipStyle}
+                    itemStyle={tooltipItemStyle}
+                    labelStyle={tooltipLabelStyle}
                     cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
                     formatter={(v: any) => [metric === "revenue" ? formatCurrency(Number(v), currency) : `${v} orders`, metric === "revenue" ? "Revenue" : "Orders"]}
                   />

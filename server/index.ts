@@ -8,6 +8,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, jwtAuthMiddleware } from "./auth";
 import { ensureIndexes } from "./indexes";
+import { initOllama, stopOllama } from "./ai-router";
 
 const app = express();
 const httpServer = createServer(app);
@@ -164,6 +165,11 @@ async function _doInit() {
     setupAuth(app);
     await registerRoutes(httpServer, app);
 
+    // Start Ollama in background (non-blocking — doesn't delay server start)
+    initOllama().catch((err) =>
+      console.warn("[ai-router][ollama] init error:", err.message)
+    );
+
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const isProduction = process.env.NODE_ENV === "production";
@@ -233,6 +239,7 @@ if (process.env.VERCEL !== "1") {
 
   process.on("SIGTERM", () => {
     console.log("SIGTERM received, shutting down gracefully");
+    stopOllama();
     httpServer.close(() => {
       console.log("Server closed");
       process.exit(0);

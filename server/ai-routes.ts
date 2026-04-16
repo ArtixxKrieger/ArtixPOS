@@ -19,6 +19,7 @@ import { eq, and, isNull, sql, ne, inArray } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import { extractAndStore, getRelevantMemories, consolidateIfNeeded } from "./ai-memory";
+import { resolveAIStream, getProviderStatus } from "./ai-router";
 
 // ─── Multer setup ──────────────────────────────────────────────────────────────
 const ALLOWED_EXTENSIONS = [".pdf", ".xlsx", ".xls", ".csv"];
@@ -103,16 +104,6 @@ function getDedupeKey(userId: string, lastMessage: string): string {
   return `${userId}:${lastMessage.trim().toLowerCase().slice(0, 200)}`;
 }
 
-// ─── Groq API key helper ──────────────────────────────────────────────────────
-function getApiKey(): string {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) {
-    console.error("[ai] FATAL: GROQ_API_KEY environment variable is not set.");
-    throw new Error("GROQ_API_KEY is not configured.");
-  }
-  console.log(`[ai] GROQ_API_KEY is set (length: ${key.length})`);
-  return key;
-}
 
 // ─── Get userId from request ──────────────────────────────────────────────────
 function getUserId(req: Request): string {
@@ -1542,209 +1533,6 @@ function checkOutputSafety(fullResponse: string): string | null {
   return null;
 }
 
-// ─── Pick a working model, return its ready Response for streaming ────────────
-type FetchResponse = Awaited<ReturnType<typeof fetch>>;
-
-async function resolveGroqStream(
-  apiKey: string,
-  groqMessages: Array<{ role: string; content: string }>,
-  maxTokens: number,
-  temperature: number,
-  requestId: string,
-): Promise<FetchResponse> {
-  // Only use models confirmed active on Groq as of 2026.
-  // Do NOT add llama3-8b-8192, llama3-70b-8192, llama-3.1-70b-versatile,
-  // mixtral-8x7b-32768 — those have been decommissioned by Groq (HTTP 400).
-  const MODELS = [
-    "llama-3.1-8b-instant",      // fast, low latency — primary choice
-    "llama-3.3-70b-versatile",   // larger, more capable
-    "gemma2-9b-it",              // Google model, good fallback
-    "qwen-qwq-32b",              // strong reasoning fallback
-    "llama-3.2-3b-preview",      // tiny model, last resort
-  ];
-
-  // ── Token/size diagnostics ─────────────────────────────────────────────────
-  const totalChars = groqMessages.reduce((s, m) => s + m.content.length, 0);
-  const estimatedInputTokens = Math.ceil(totalChars / 4); // rough 4 chars/token heuristic
-  const IS_VERCEL = process.env.VERCEL === "1";
-  console.log(
-    `[ai][${requestId}] resolveGroqStream — messages: ${groqMessages.length}` +
-    ` | totalChars: ${totalChars} | estimatedInputTokens: ~${estimatedInputTokens}` +
-    ` | maxOutputTokens: ${maxTokens} | estimatedTotal: ~${estimatedInputTokens + maxTokens}` +
-    ` | env: ${IS_VERCEL ? "vercel" : "local"}`
-  );
-  for (let i = 0; i < groqMessages.length; i++) {
-    const m = groqMessages[i];
-    const tokenEst = Math.ceil(m.content.length / 4);
-    console.log(`[ai][${requestId}]   msg[${i}] role=${m.role} chars=${m.content.length} (~${tokenEst} tokens)`);
-  }
-
-  // ── Shared time budget ────────────────────────────────────────────────────
-  // On Vercel hobby the ENTIRE function has a 10-second wall-clock limit.
-  // Using a 9-second per-attempt timeout means a single slow/rate-limited
-  // model eats the whole budget and Vercel kills the function before any
-  // fallback model can be tried. We instead share an 8-second total budget
-  // so that fast failures (429, 400, immediate network error) allow genuine
-  // retries, and a slow first attempt still leaves 2-3 seconds for a backup.
-  // On non-Vercel deployments (local dev, Replit) we allow 60 seconds total.
-  const TOTAL_BUDGET_MS = IS_VERCEL ? 8000 : 60000;
-  const MAX_ATTEMPT_MS  = IS_VERCEL ? 7000 : 20000;
-  const budgetStart = Date.now();
-
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < MODELS.length; attempt++) {
-    const remainingBudget = TOTAL_BUDGET_MS - (Date.now() - budgetStart);
-    if (remainingBudget < 800) {
-      console.warn(`[ai][${requestId}] budget exhausted before attempt ${attempt + 1} — stopping retries (${remainingBudget}ms left)`);
-      break;
-    }
-
-    const model = MODELS[attempt];
-    const controller = new AbortController();
-    const attemptStart = Date.now();
-    const attemptTimeoutMs = Math.min(remainingBudget - 500, MAX_ATTEMPT_MS);
-    const timeout = setTimeout(() => controller.abort(), attemptTimeoutMs);
-
-    console.log(`[ai][${requestId}] attempt ${attempt + 1}/${MODELS.length} — model: ${model} | maxTokens: ${maxTokens} | estimatedInputTokens: ~${estimatedInputTokens} | attemptTimeout: ${attemptTimeoutMs}ms | budgetRemaining: ${remainingBudget}ms`);
-
-    let response: FetchResponse;
-    try {
-      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages: groqMessages, max_tokens: maxTokens, temperature, stream: true }),
-      });
-    } catch (err: any) {
-      clearTimeout(timeout);
-      const elapsed = Date.now() - attemptStart;
-      if (err.name === "AbortError") {
-        console.warn(`[ai][${requestId}] attempt ${attempt + 1} TIMEOUT after ${elapsed}ms — model: ${model} — trying next`);
-        lastError = Object.assign(new Error("The AI took too long to respond. Please try again."), {
-          statusCode: 504,
-          debugInfo: `timeout after ${elapsed}ms on model ${model}`,
-        });
-        continue;
-      }
-      console.warn(`[ai][${requestId}] attempt ${attempt + 1} NETWORK ERROR after ${elapsed}ms — model: ${model} — ${err.message}`);
-      lastError = Object.assign(new Error("AI service is temporarily unavailable. Please try again."), {
-        statusCode: 502,
-        debugInfo: `network error on model ${model}: ${err.message}`,
-      });
-      continue;
-    }
-    clearTimeout(timeout);
-
-    const elapsed = Date.now() - attemptStart;
-
-    if (response.ok) {
-      console.log(`[ai][${requestId}] attempt ${attempt + 1} OK (${response.status}) after ${elapsed}ms — model: ${model}`);
-      return response;
-    }
-
-    // HTTP error — inspect and decide whether to retry
-    const errText = await response.text();
-    let errJson: any = {};
-    try { errJson = JSON.parse(errText); } catch {}
-    const errType = errJson?.error?.type ?? "";
-    const errCode = errJson?.error?.code ?? "";
-    const errMsg = errJson?.error?.message ?? errText.slice(0, 500);
-    // Log the full raw error body for diagnosis
-    console.error(
-      `[ai][${requestId}] attempt ${attempt + 1} HTTP ${response.status} after ${elapsed}ms — model: ${model}\n` +
-      `  errType: "${errType}" | errCode: "${errCode}"\n` +
-      `  errMsg: "${errMsg}"\n` +
-      `  fullBody: ${errText.slice(0, 800)}`
-    );
-
-    // Check for token limit errors (413, or 400 with token-related message)
-    const isTokenError =
-      response.status === 413 ||
-      (response.status === 400 && /token|context.+length|exceed|too large|too long/i.test(errMsg));
-    if (isTokenError) {
-      console.error(
-        `[ai][${requestId}] *** TOKEN/CONTEXT LIMIT HIT on model ${model} ***` +
-        ` estimatedInputTokens: ~${estimatedInputTokens} | maxOutputTokens: ${maxTokens}`
-      );
-    }
-
-    // Check for rate limit and log retry-after header; add a short backoff
-    if (response.status === 429) {
-      const retryAfter = response.headers.get("retry-after") ?? response.headers.get("x-ratelimit-reset-requests") ?? "unknown";
-      const limitType = response.headers.get("x-ratelimit-limit-tokens") ? "token-based" : "request-based";
-      const tokensRemaining = response.headers.get("x-ratelimit-remaining-tokens") ?? "?";
-      const requestsRemaining = response.headers.get("x-ratelimit-remaining-requests") ?? "?";
-      console.error(
-        `[ai][${requestId}] *** RATE LIMITED (429) on model ${model} ***` +
-        ` limitType: ${limitType} | retryAfter: ${retryAfter}s` +
-        ` | tokensRemaining: ${tokensRemaining} | requestsRemaining: ${requestsRemaining}` +
-        ` | budgetRemaining: ${TOTAL_BUDGET_MS - (Date.now() - budgetStart)}ms`
-      );
-      // Short backoff before trying next model — avoids hammering all models simultaneously
-      const backoffMs = Math.min(800, TOTAL_BUDGET_MS - (Date.now() - budgetStart) - 800);
-      if (backoffMs > 100) {
-        console.log(`[ai][${requestId}] backing off ${backoffMs}ms before next model`);
-        await new Promise(r => setTimeout(r, backoffMs));
-      }
-    }
-
-    // Invalid API key — no point trying other models with the same key
-    if (response.status === 401) {
-      console.error(`[ai][${requestId}] *** INVALID API KEY (401) — aborting all attempts ***`);
-      throw Object.assign(new Error("AI API key is invalid. Please check your Groq API key in Settings."), { statusCode: 503 });
-    }
-
-    // Model decommissioned / bad request — skip and try the next model
-    if (response.status === 400 && errType === "invalid_request_error" && !isTokenError) {
-      console.warn(`[ai][${requestId}] model ${model} returned 400 invalid_request (likely decommissioned) — skipping`);
-      lastError = Object.assign(new Error("AI service is temporarily unavailable. Please try again."), {
-        statusCode: 400,
-        debugInfo: `model ${model} decommissioned: ${errMsg.slice(0, 120)}`,
-      });
-      continue;
-    }
-
-    // Any other error (429, 502, 503, 529, 413, etc.) — try the next model
-    const userMsg =
-      response.status === 429
-        ? "The AI is at capacity. Please wait a moment and try again."
-        : "AI service is temporarily unavailable. Please try again.";
-
-    lastError = Object.assign(new Error(userMsg), {
-      statusCode: response.status === 429 ? 429 : 502,
-      debugInfo: `HTTP ${response.status} / errType=${errType} / errCode=${errCode} on model ${model}: ${errMsg.slice(0, 200)}`,
-    });
-    continue;
-  }
-
-  const totalElapsed = Date.now() - budgetStart;
-  console.error(
-    `[ai][${requestId}] *** ALL MODELS EXHAUSTED (${totalElapsed}ms total) ***\n` +
-    `  lastError.debugInfo: ${(lastError as any)?.debugInfo ?? "n/a"}\n` +
-    `  lastError.message: ${lastError?.message ?? "n/a"}\n` +
-    `  estimatedInputTokens: ~${estimatedInputTokens} | maxOutputTokens: ${maxTokens}` +
-    ` | env: ${IS_VERCEL ? "vercel" : "local"}`
-  );
-
-  // Classify the failure for a more helpful user message
-  const lastDebug: string = (lastError as any)?.debugInfo ?? "";
-  const lastStatus: number = (lastError as any)?.statusCode ?? 0;
-  const wasTimeout    = lastDebug.includes("timeout") || lastStatus === 504;
-  const wasRateLimit  = lastDebug.includes("429") || lastStatus === 429;
-  const wasNetwork    = lastDebug.includes("network error");
-  const wasBudgetExit = totalElapsed >= TOTAL_BUDGET_MS - 200;
-
-  let finalMsg = "AI service is temporarily unavailable. Please try again.";
-  if (wasRateLimit)           finalMsg = "The AI is at capacity right now. Please wait a moment and try again.";
-  else if (wasTimeout || wasBudgetExit) finalMsg = "The AI took too long to respond. Please try again in a moment.";
-  else if (wasNetwork)        finalMsg = "Network error reaching AI. Check your connection and try again.";
-
-  throw lastError
-    ? Object.assign(lastError, { message: finalMsg })
-    : Object.assign(new Error(finalMsg), { statusCode: 502 });
-}
-
 export function registerAiRoutes(app: Express) {
   // ── Chat endpoint (streaming SSE) ────────────────────────────────────────────
   app.post("/api/ai/chat", requireAuth, async (req: Request, res: Response) => {
@@ -1753,7 +1541,6 @@ export function registerAiRoutes(app: Express) {
     try {
       console.log(`[ai][${requestId}] POST /api/ai/chat — start`);
 
-      const apiKey = getApiKey();
       const uid = getUserId(req);
 
       // ── Check if user is banned + fetch tenant info ───────────────────────────
@@ -1898,33 +1685,33 @@ export function registerAiRoutes(app: Express) {
       ];
 
       const totalChars = groqMessages.reduce((s, m) => s + m.content.length, 0);
-      console.log(`[ai][${requestId}] sending to Groq — groqMsgCount: ${groqMessages.length} | systemPromptLen: ${systemPrompt.length} | totalChars: ${totalChars}`);
+      console.log(`[ai][${requestId}] routing to AI provider — msgCount: ${groqMessages.length} | systemPromptLen: ${systemPrompt.length} | totalChars: ${totalChars}`);
 
       // Token budget: data queries → 800, cache-hit follow-ups → 600, minimal → 300
       const maxTokens = contextMode === "fresh" ? 800 : contextMode === "cache-hit" ? 600 : 300;
 
-      let groqResponse: FetchResponse;
+      let aiResponse: Awaited<ReturnType<typeof fetch>>;
       try {
-        groqResponse = await resolveGroqStream(apiKey, groqMessages, maxTokens, 0.5, requestId);
-      } catch (groqErr: any) {
+        aiResponse = await resolveAIStream(groqMessages as any, maxTokens, 0.5, requestId);
+      } catch (aiErr: any) {
         const elapsed = Date.now() - requestStart;
-        console.error(`[ai][${requestId}] resolveGroqStream threw: ${groqErr.message} | total elapsed: ${elapsed}ms`);
+        console.error(`[ai][${requestId}] resolveAIStream threw: ${aiErr.message} | total elapsed: ${elapsed}ms`);
         sendEvent({
           type: "error",
-          message: groqErr.message ?? "Something went wrong. Please try again.",
-          debug: groqErr.debugInfo ?? `HTTP ${groqErr.statusCode ?? "?"} | elapsed: ${elapsed}ms | requestId: ${requestId}`,
+          message: aiErr.message ?? "Something went wrong. Please try again.",
+          debug: aiErr.debugInfo ?? `HTTP ${aiErr.statusCode ?? "?"} | elapsed: ${elapsed}ms | requestId: ${requestId}`,
         });
         sendDone();
         return res.end();
       }
 
-      // ── True streaming: pipe Groq chunks directly to the client ─────────────
+      // ── True streaming: pipe AI chunks directly to the client ─────────────
       // Chunks are sent to the client as they arrive so the response begins
       // flowing immediately. We also accumulate the full text to run the
       // output safety check at the end; if a violation is detected we send
       // a correction/override event the client will display in place of the
       // problematic content.
-      const reader = (groqResponse.body as any).getReader();
+      const reader = (aiResponse.body as any).getReader();
       const decoder = new TextDecoder();
       let sseBuffer = "";
       let accumulated = "";
@@ -2007,9 +1794,7 @@ export function registerAiRoutes(app: Express) {
         `  debugInfo: ${err.debugInfo ?? "n/a"}\n` +
         `  stack: ${err.stack ?? "n/a"}`
       );
-      const msg = err.message?.includes("GROQ_API_KEY")
-        ? "AI is not configured. Please add your Groq API key in Settings."
-        : "Something went wrong. Please try again.";
+      const msg = "Something went wrong. Please try again.";
       if (!res.headersSent) {
         return res.status(500).json({ message: msg });
       }
@@ -2503,5 +2288,10 @@ export function registerAiRoutes(app: Express) {
     const uid = getUserId(req);
     invalidateCache(uid);
     res.json({ message: "Context cache cleared." });
+  });
+
+  // ── AI provider status endpoint (admin/debug) ─────────────────────────────────
+  app.get("/api/ai/provider-status", requireAuth, async (_req: Request, res: Response) => {
+    res.json(getProviderStatus());
   });
 }

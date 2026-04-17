@@ -197,4 +197,4 @@ Production is intended to run on Vercel. Replit is used for development/preview 
 - Order history preserved in database
 - Charts optimized to show last 30 days of revenue data
 - Tooltips have adaptive colors for dark/light modes
-- Free plan includes 1 branch, 50 products, 2 staff accounts, and simple analytics; Pro unlocks multi-branch, advanced reporting/export/custom ranges, AI, customers, expenses, and automation modules
+- Free plan includes 1 branch, 50 products, 2 staff accounts, and a separate simple analytics screen; Pro keeps the advanced analytics dashboard with exports/custom ranges plus multi-branch, AI, customers, expenses, and automation modules

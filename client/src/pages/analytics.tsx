@@ -18,7 +18,6 @@ import {
   CreditCard, Tag, ChevronDown, Minus, RotateCcw,
 } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -273,6 +272,202 @@ function InsightCard({ icon: Icon, text, color }: { icon: any; text: string; col
   );
 }
 
+function FreeAnalyticsView({
+  sales,
+  currency,
+  terminology,
+}: {
+  sales: any[];
+  currency: string;
+  terminology: ReturnType<typeof getBusinessFeatures>["terminology"];
+}) {
+  const [preset, setPreset] = useState<"today" | "7d">("today");
+  const range = useMemo(() => getRange(preset), [preset]);
+
+  const periodSales = useMemo(
+    () => sales.filter(s => isWithinInterval(new Date(s.createdAt!), { start: range.s, end: range.e })),
+    [sales, range],
+  );
+  const activeSales = useMemo(() => periodSales.filter(s => !(s as any).refundedAt), [periodSales]);
+
+  const revenue = useMemo(() => activeSales.reduce((a, s) => a + parseNumeric(s.total), 0), [activeSales]);
+  const orders = periodSales.length;
+  const avgOrder = orders > 0 ? revenue / orders : 0;
+
+  const topItems = useMemo(() => {
+    const counts: Record<string, { qty: number; revenue: number }> = {};
+    activeSales.forEach(s => {
+      ((s.items as any[]) || []).forEach(item => {
+        const name = item.product?.name || item.name || item.title || "Unknown";
+        if (name === "Unknown") return;
+        if (!counts[name]) counts[name] = { qty: 0, revenue: 0 };
+        counts[name].qty += item.quantity || 1;
+        const price = parseNumeric(item.size?.price ?? item.product?.price ?? item.price ?? 0);
+        const modifiers = (item.modifiers || []).reduce((a: number, mod: any) => a + parseNumeric(mod.price), 0);
+        counts[name].revenue += (price + modifiers) * (item.quantity || 1);
+      });
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, ...value }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+  }, [activeSales]);
+
+  const activityBars = useMemo(() => {
+    if (preset === "today") {
+      const buckets = [
+        { label: "Overnight", start: 0, end: 5, orders: 0, revenue: 0 },
+        { label: "Morning", start: 6, end: 11, orders: 0, revenue: 0 },
+        { label: "Midday", start: 12, end: 14, orders: 0, revenue: 0 },
+        { label: "Afternoon", start: 15, end: 17, orders: 0, revenue: 0 },
+        { label: "Evening", start: 18, end: 23, orders: 0, revenue: 0 },
+      ];
+      activeSales.forEach(s => {
+        const hour = new Date(s.createdAt!).getHours();
+        const bucket = buckets.find(b => hour >= b.start && hour <= b.end);
+        if (bucket) {
+          bucket.orders += 1;
+          bucket.revenue += parseNumeric(s.total);
+        }
+      });
+      const max = Math.max(...buckets.map(b => b.revenue), 1);
+      return buckets.map(b => ({ ...b, pct: (b.revenue / max) * 100 }));
+    }
+
+    const days = eachDayOfInterval({ start: range.s, end: range.e });
+    const rows = days.map(day => {
+      const daySales = activeSales.filter(s => isWithinInterval(new Date(s.createdAt!), { start: startOfDay(day), end: endOfDay(day) }));
+      return {
+        label: format(day, "EEE"),
+        orders: daySales.length,
+        revenue: daySales.reduce((a, s) => a + parseNumeric(s.total), 0),
+      };
+    });
+    const max = Math.max(...rows.map(r => r.revenue), 1);
+    return rows.map(r => ({ ...r, pct: (r.revenue / max) * 100 }));
+  }, [activeSales, preset, range]);
+
+  const peak = activityBars.reduce((best, row) => row.revenue > best.revenue ? row : best, activityBars[0] || { label: "None", orders: 0, revenue: 0, pct: 0 });
+
+  return (
+    <div className="space-y-5 page-enter pb-6">
+      <div className="rounded-3xl border border-border/40 bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 flex items-center justify-center">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black tracking-tight" data-testid="text-free-analytics-title">Analytics</h2>
+              <p className="text-sm text-muted-foreground">A simple sales snapshot for your Free plan.</p>
+            </div>
+          </div>
+          <div className="flex rounded-2xl bg-secondary/70 p-1 border border-border/40 w-fit">
+            {(["today", "7d"] as const).map(option => (
+              <button
+                key={option}
+                onClick={() => setPreset(option)}
+                data-testid={`button-free-range-${option}`}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-semibold transition-colors",
+                  preset === option ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {option === "today" ? "Today" : "7 days"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Sales", value: formatCurrency(revenue, currency), icon: TrendingUp, testId: "text-free-sales" },
+          { label: "Orders", value: orders.toLocaleString(), icon: ShoppingBag, testId: "text-free-orders" },
+          { label: "Avg. order", value: formatCurrency(avgOrder, currency), icon: CreditCard, testId: "text-free-average-order" },
+          { label: "Best time", value: peak?.revenue > 0 ? peak.label : "No sales yet", icon: Clock, testId: "text-free-best-time" },
+        ].map(card => (
+          <div key={card.label} className="rounded-2xl border border-border/40 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</p>
+              <card.icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="mt-3 text-2xl font-black tabular-nums" data-testid={card.testId}>{card.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="rounded-3xl border border-border/40 bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div>
+              <h3 className="font-bold">Sales activity</h3>
+              <p className="text-xs text-muted-foreground">{preset === "today" ? "Grouped into simple parts of the day" : "Daily sales for the last 7 days"}</p>
+            </div>
+          </div>
+          {activityBars.every(row => row.revenue === 0) ? (
+            <div className="h-48 rounded-2xl bg-secondary/40 flex items-center justify-center text-sm text-muted-foreground" data-testid="text-free-no-activity">
+              No sales in this period yet.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {activityBars.map(row => (
+                <div key={row.label} className="space-y-2" data-testid={`row-free-activity-${row.label}`}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold">{row.label}</span>
+                    <span className="text-muted-foreground">{formatCurrency(row.revenue, currency)} · {row.orders} order{row.orders !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-secondary overflow-hidden">
+                    <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.max(row.pct, row.revenue > 0 ? 8 : 0)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-border/40 bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-5">
+            <Package className="h-4 w-4 text-indigo-500" />
+            <h3 className="font-bold">{terminology.topItemsLabel}</h3>
+          </div>
+          {topItems.length === 0 ? (
+            <div className="rounded-2xl bg-secondary/40 px-4 py-10 text-center text-sm text-muted-foreground" data-testid="text-free-no-top-items">
+              No item data yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topItems.map((item, index) => (
+                <div key={item.name} className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/35 px-3 py-3" data-testid={`row-free-top-item-${index}`}>
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">{item.qty} {terminology.itemUnit}{item.qty !== 1 ? "s" : ""}</p>
+                  </div>
+                  <p className="font-bold tabular-nums text-sm">{formatCurrency(item.revenue, currency)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-indigo-500/20 bg-indigo-500/10 p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="font-bold">Need deeper analytics?</h3>
+          <p className="text-sm text-muted-foreground mt-1">Pro keeps the advanced dashboard with custom ranges, exports, comparisons, category reports, and smart insights.</p>
+        </div>
+        <a
+          href="/billing"
+          data-testid="link-free-upgrade-analytics"
+          className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 transition-colors"
+        >
+          See Pro features
+        </a>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Component ──────────────────────────────── */
 export default function Analytics() {
   const { data: sales = [], isLoading } = useSales();
@@ -298,14 +493,6 @@ export default function Analytics() {
   const [prodSort, setProdSort] = useState<ProdSort>("qty");
   const [showNet, setShowNet] = useState(false);
   const [showComparison, setShowComparison] = useState(true);
-  const allowedPresets = useMemo<Preset[]>(() => isFree ? ["today", "7d"] : ["today", "yesterday", "7d", "30d"], [isFree]);
-
-  useEffect(() => {
-    if (isFree && !allowedPresets.includes(preset)) {
-      setPreset("7d");
-      setCustomRange(undefined);
-    }
-  }, [isFree, preset, allowedPresets]);
 
   const range = useMemo(() => getRange(preset, customRange), [preset, customRange]);
 
@@ -532,6 +719,10 @@ export default function Analytics() {
     );
   }
 
+  if (isFree) {
+    return <FreeAnalyticsView sales={sales} currency={currency} terminology={terminology} />;
+  }
+
   const yFmt = (v: number) => metric === "revenue" ? `${currency}${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}` : String(v);
   const ttFmt = (v: number) => metric === "revenue" ? formatCurrency(v, currency) : String(v);
 
@@ -546,7 +737,7 @@ export default function Analytics() {
           </div>
           <div>
             <h2 className="text-xl font-black tracking-tight">Analytics</h2>
-            <p className="text-xs text-muted-foreground font-medium">{isFree ? "Simple sales analytics included in Free" : "Deep performance insights"}</p>
+            <p className="text-xs text-muted-foreground font-medium">Deep performance insights</p>
           </div>
         </div>
 
@@ -554,7 +745,7 @@ export default function Analytics() {
         <div className="flex flex-wrap gap-2 items-center">
           {/* Preset pills */}
           <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30">
-            {allowedPresets.map(p => (
+            {(["today", "yesterday", "7d", "30d"] as Preset[]).map(p => (
               <button
                 key={p}
                 onClick={() => setPreset(p)}
@@ -570,74 +761,58 @@ export default function Analytics() {
               </button>
             ))}
 
-            {!isFree && (
-              <Popover open={customOpen} onOpenChange={setCustomOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    onClick={() => setPreset("custom")}
-                    data-testid="btn-preset-custom"
-                    className={cn(
-                      "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1",
-                      preset === "custom"
-                        ? "bg-primary text-white shadow-md shadow-primary/25"
-                        : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
-                    )}
-                  >
-                    {preset === "custom" && customRange?.from
-                      ? `${format(customRange.from, "M/d")}${customRange.to ? `–${format(customRange.to, "M/d")}` : ""}`
-                      : "Custom"}
-                    <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="end">
-                  <Calendar
-                    mode="range"
-                    selected={customRange}
-                    onSelect={(r) => { setCustomRange(r); if (r?.from && r?.to) { setPreset("custom"); setCustomOpen(false); } }}
-                    numberOfMonths={1}
-                    className="rounded-2xl"
-                  />
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
-
-          {!isFree && (
-            <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden">
-              {[
-                { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
-                { label: "Excel", fn: () => exportExcel(currSales, rangeLabel, settings?.storeName || "Store"), testId: "button-export-excel" },
-                { label: "PDF", fn: () => exportPDF(currSales, currency, rangeLabel, settings?.storeName || "Store"), testId: "button-export-pdf" },
-              ].map((btn, i) => (
+            <Popover open={customOpen} onOpenChange={setCustomOpen}>
+              <PopoverTrigger asChild>
                 <button
-                  key={btn.label}
-                  onClick={btn.fn}
-                  data-testid={btn.testId}
+                  onClick={() => setPreset("custom")}
+                  data-testid="btn-preset-custom"
                   className={cn(
-                    "h-9 px-3 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground dark:text-white/55 hover:text-foreground dark:hover:text-white hover:bg-secondary transition-all",
-                    i > 0 && "border-l border-border/30"
+                    "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1",
+                    preset === "custom"
+                      ? "bg-primary text-white shadow-md shadow-primary/25"
+                      : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
                   )}
                 >
-                  {i === 0 && <Download className="h-3 w-3" />}
-                  {btn.label}
+                  {preset === "custom" && customRange?.from
+                    ? `${format(customRange.from, "M/d")}${customRange.to ? `–${format(customRange.to, "M/d")}` : ""}`
+                    : "Custom"}
+                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="end">
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(r) => { setCustomRange(r); if (r?.from && r?.to) { setPreset("custom"); setCustomOpen(false); } }}
+                  numberOfMonths={1}
+                  className="rounded-2xl"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
-      {isFree && (
-        <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 flex items-start gap-3">
-          <Lightbulb className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">Free includes simple analytics</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Track today and the last 7 days for revenue, orders, top items, and hourly activity. Pro unlocks custom ranges, exports, comparisons, category reports, and smart insights.
-            </p>
+          <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden">
+            {[
+              { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
+              { label: "Excel", fn: () => exportExcel(currSales, rangeLabel, settings?.storeName || "Store"), testId: "button-export-excel" },
+              { label: "PDF", fn: () => exportPDF(currSales, currency, rangeLabel, settings?.storeName || "Store"), testId: "button-export-pdf" },
+            ].map((btn, i) => (
+              <button
+                key={btn.label}
+                onClick={btn.fn}
+                data-testid={btn.testId}
+                className={cn(
+                  "h-9 px-3 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground dark:text-white/55 hover:text-foreground dark:hover:text-white hover:bg-secondary transition-all",
+                  i > 0 && "border-l border-border/30"
+                )}
+              >
+                {i === 0 && <Download className="h-3 w-3" />}
+                {btn.label}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
       {/* ── KPI Cards ── */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 stagger-children">
@@ -716,19 +891,17 @@ export default function Analytics() {
         <ToggleGroup value={metric} onChange={(v) => setMetric(v as Metric)} options={[{ value: "revenue", label: "Revenue" }, { value: "orders", label: "Orders" }]} />
         <ToggleGroup value={chartKind} onChange={(v) => setChartKind(v as ChartKind)} options={[{ value: "area", label: "Area" }, { value: "bar", label: "Bar" }, { value: "line", label: "Line" }]} />
         <ToggleGroup value={showNet ? "net" : "gross"} onChange={(v) => setShowNet(v === "net")} options={[{ value: "gross", label: "Gross" }, { value: "net", label: "Net" }]} />
-        {!isFree && (
-          <button
-            onClick={() => setShowComparison(v => !v)}
-            className={cn(
-              "flex rounded-xl border border-border/30 items-center px-2.5 py-1 text-[10px] font-semibold transition-all duration-200",
-              showComparison
-                ? "bg-primary/10 text-primary border-primary/20"
-                : "bg-secondary/60 dark:bg-white/5 text-muted-foreground dark:text-white/45 hover:text-foreground dark:hover:text-white/80"
-            )}
-          >
-            Compare period
-          </button>
-        )}
+        <button
+          onClick={() => setShowComparison(v => !v)}
+          className={cn(
+            "flex rounded-xl border border-border/30 items-center px-2.5 py-1 text-[10px] font-semibold transition-all duration-200",
+            showComparison
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-secondary/60 dark:bg-white/5 text-muted-foreground dark:text-white/45 hover:text-foreground dark:hover:text-white/80"
+          )}
+        >
+          Compare period
+        </button>
       </div>
 
       {/* ── Revenue / Orders Trend ── */}
@@ -775,7 +948,7 @@ export default function Analytics() {
                 {chartKind === "line" && (
                   <Line type="monotone" dataKey={metric} name="Current" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: "#6366f1", stroke: "#fff", strokeWidth: 1.5 }} activeDot={{ r: 5, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} isAnimationActive />
                 )}
-                {!isFree && showComparison && (
+                {showComparison && (
                   <Line
                     type="monotone"
                     dataKey={metric === "revenue" ? "prevRevenue" : "prevOrders"}
@@ -994,7 +1167,7 @@ export default function Analytics() {
       </div>
 
       {/* ── Category Breakdown ── */}
-      {!isFree && categoryData.length > 0 && (
+      {categoryData.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-pink-500/10 flex items-center justify-center">
@@ -1040,7 +1213,7 @@ export default function Analytics() {
       )}
 
       {/* ── Smart Insights ── */}
-      {!isFree && insights.length > 0 && (
+      {insights.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-amber-500/10 flex items-center justify-center">

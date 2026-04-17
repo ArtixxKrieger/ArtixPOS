@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
-import { Receipt, CreditCard, Smartphone, Hash, Tag, FileText, RotateCcw, UserCircle2, Percent, ShieldCheck } from "lucide-react";
+import { Receipt, CreditCard, Smartphone, Hash, Tag, FileText, RotateCcw, UserCircle2, Percent, ShieldCheck, Printer } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -108,6 +108,96 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const paymentAmount = parseNumeric(sale.paymentAmount);
   const changeAmount = parseNumeric(sale.changeAmount);
   const method = sale.paymentMethod || "cash";
+
+  const handleReprint = () => {
+    const s = (settings ?? {}) as Record<string, any>;
+    const receiptWidth = s.receiptWidth ?? "80mm";
+    const paperPx = receiptWidth === "58mm" ? 210 : 280;
+    const storeName = s.storeName ?? "";
+    const address = s.address ?? "";
+    const phone = s.phone ?? "";
+    const emailContact = s.emailContact ?? "";
+    const receiptFooter = s.receiptFooter ?? "";
+    const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";
+    const receiptHeaderText = s.receiptHeaderText ?? "";
+    const receiptWebsite = s.receiptWebsite ?? "";
+    const showAddress = (s.receiptShowAddress ?? 1) === 1;
+    const showPhone = (s.receiptShowPhone ?? 1) === 1;
+    const showEmail = (s.receiptShowEmail ?? 0) === 1;
+    const showWebsite = (s.receiptShowWebsite ?? 0) === 1;
+    const showOrderNumber = (s.receiptShowOrderNumber ?? 1) === 1;
+    const showUnitPrice = (s.receiptShowUnitPrice ?? 0) === 1;
+    const showPoweredBy = (s.receiptShowPoweredBy ?? 1) === 1;
+    const cur = currency;
+
+    const fmt = (n: number) => formatCurrency(n, cur);
+    const txn = `TXN-${String(sale.id ?? 0).padStart(4, "0")}`;
+    const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
+
+    const itemsHtml = items.map(item => {
+      const basePrice = parseNumeric((item.size as any)?.price);
+      const modsTotal = ((item.modifiers || []) as any[]).reduce((s: number, m: any) => s + parseNumeric(m.price), 0);
+      const unitPrice = basePrice + modsTotal;
+      const lineTotal = unitPrice * (item.quantity || 1);
+      return `
+        <div class="row">
+          <span class="item-name">${(item.product as any)?.name ?? "Item"}${(item.size as any)?.name ? ` (${(item.size as any).name})` : ""} x${item.quantity}</span>
+          <span>${fmt(lineTotal)}</span>
+        </div>
+        ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px;font-size:10px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
+        ${((item.modifiers || []) as any[]).length > 0 ? `<div class="muted" style="padding-left:12px">+ ${((item.modifiers || []) as any[]).map((m: any) => m.name).join(", ")}</div>` : ""}
+      `;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html><head><title>Receipt</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Courier New',monospace;font-size:12px;width:${paperPx}px;padding:12px}
+  .center{text-align:center}
+  .bold{font-weight:bold}
+  .line{border-top:1px dashed #000;margin:6px 0}
+  .row{display:flex;justify-content:space-between;margin:2px 0}
+  .item-name{flex:1;margin-right:8px;font-weight:500}
+  .total-row{font-weight:bold;font-size:14px}
+  .muted{color:#555}
+  .green{color:#16a34a;font-weight:600}
+  .footer{text-align:center;font-size:10px;color:#555}
+</style></head>
+<body>
+<div class="center">
+  ${storeName ? `<p class="bold">${storeName}</p>` : ""}
+  ${receiptHeaderText ? `<p style="font-size:10px">${receiptHeaderText}</p>` : ""}
+  ${receiptTitle ? `<p style="font-size:11px">${receiptTitle}</p>` : ""}
+  <p class="muted" style="font-size:10px">${dateStr}</p>
+  ${showAddress && address ? `<p class="muted" style="font-size:10px">${address}</p>` : ""}
+  ${showPhone && phone ? `<p class="muted" style="font-size:10px">Tel: ${phone}</p>` : ""}
+  ${showEmail && emailContact ? `<p class="muted" style="font-size:10px">${emailContact}</p>` : ""}
+  ${showWebsite && receiptWebsite ? `<p class="muted" style="font-size:10px">${receiptWebsite}</p>` : ""}
+  ${sale.customerName ? `<p style="font-size:10px">Customer: ${sale.customerName}</p>` : ""}
+</div>
+${showOrderNumber ? `<div class="row muted" style="font-size:10px;margin-bottom:4px"><span>Order #</span><span>${txn}</span></div>` : ""}
+<div class="line"></div>
+${itemsHtml}
+<div class="line"></div>
+<div class="row muted"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
+${discount > 0 ? `<div class="row" style="color:#e11d48"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span>-${fmt(discount)}</span></div>` : ""}
+${tax > 0 ? `<div class="row muted"><span>Tax</span><span>${fmt(tax)}</span></div>` : ""}
+<div class="line"></div>
+<div class="row total-row"><span>TOTAL</span><span>${fmt(total)}</span></div>
+<div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span>${fmt(paymentAmount)}</span></div>
+${changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(changeAmount)}</span></div>` : ""}
+${receiptFooter ? `<div class="line"></div><p class="footer">${receiptFooter}</p>` : ""}
+<p class="center muted" style="margin-top:6px;font-size:10px">Thank you!</p>
+${showPoweredBy ? `<p class="center" style="font-size:8px;color:#ccc;margin-top:2px">Powered by ArtixPOS</p>` : ""}
+<script>window.onload=function(){window.print();window.close()}<\/script>
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=360,height=700");
+    if (!win) { alert("Please allow pop-ups to print receipts."); return; }
+    win.document.write(html);
+    win.document.close();
+  };
 
   return (
     <>
@@ -285,6 +375,18 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Print Receipt */}
+          <div className={["px-5", isManagerOrAbove ? "pt-0 pb-2" : "pb-5"].join(" ")}>
+            <Button
+              variant="outline"
+              className="w-full h-10 rounded-xl"
+              onClick={handleReprint}
+              data-testid="button-reprint-receipt"
+            >
+              <Printer className="h-3.5 w-3.5 mr-2" /> Print Receipt
+            </Button>
           </div>
 
           {/* Refund footer — only for manager/owner, only if not already refunded */}

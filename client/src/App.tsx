@@ -47,6 +47,7 @@ import StaffPage from "@/pages/staff";
 import RoomsPage from "@/pages/rooms";
 import MembershipsPage from "@/pages/memberships";
 import BillingPage from "@/pages/billing";
+import PrintSettings from "@/pages/print-settings";
 
 /**
  * Extract and store the JWT token from an OAuth deep-link URL.
@@ -185,6 +186,12 @@ function ProAndCashierGuard({ component: Component }: { component: () => JSX.Ele
   return <Component />;
 }
 
+function OwnerGuard({ component: Component }: { component: () => JSX.Element }) {
+  const { user } = useAuth();
+  if (user?.role !== "owner") return <Redirect to="/" />;
+  return <Component />;
+}
+
 function CashierGuard({ component: Component }: { component: () => JSX.Element }) {
   const { user } = useAuth();
   if (user?.role === "cashier") return <Redirect to="/" />;
@@ -271,6 +278,7 @@ function AppRouter() {
         <Route path="/staff" component={() => <CashierGuard component={StaffPage} />} />
         <Route path="/rooms" component={() => <ProGuard component={RoomsPage} />} />
         <Route path="/memberships" component={() => <ProGuard component={MembershipsPage} />} />
+        <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
         <Route path="/billing" component={BillingPage} />
         <Route component={NotFound} />
       </Switch>

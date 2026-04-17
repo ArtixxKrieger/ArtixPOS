@@ -27,6 +27,7 @@ export const APP_PAGES: NavPage[] = [
   { label: "Discount Codes", url: "/discount-codes", location: "more", description: "Create and manage promotional discount codes" },
   { label: "Refunds", url: "/refunds", location: "more", description: "Process and view refunds (managers and above)" },
   { label: "AI Assistant", url: "/ai", location: "more", description: "AI-powered business assistant" },
+  { label: "Print Settings", url: "/print-settings", location: "more", description: "Configure receipt paper size, title, store info, and other print options (owner only)" },
   { label: "Settings", url: "/settings", location: "more", description: "Store name, logo, currency, tax rate, staff invites, receipt customization, monthly goal" },
   { label: "Branches", url: "/admin/branches", location: "admin", description: "Add and manage multiple store branches" },
   { label: "Team Overview", url: "/admin/users", location: "admin", description: "View all staff across all branches" },

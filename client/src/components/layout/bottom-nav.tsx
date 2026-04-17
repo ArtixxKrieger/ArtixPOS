@@ -5,6 +5,7 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
+  ReceiptText,
 } from "lucide-react";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,6 +36,7 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/discount-codes": { defaultLabel: "Discounts", icon: Tag },
   "/refunds": { defaultLabel: "Refunds", icon: RotateCcw },
   "/ai": { defaultLabel: "AI", icon: Sparkles },
+  "/print-settings": { defaultLabel: "Print Settings", icon: ReceiptText },
   "/billing": { defaultLabel: "Billing", icon: CreditCard },
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
@@ -58,7 +60,8 @@ const MORE_NAV_FULL = [
   { url: "/discount-codes", cashierHidden: true, proOnly: true },
   { url: "/refunds", cashierHidden: true, managerOnly: true },
   { url: "/ai", cashierHidden: false, proOnly: true },
-  { url: "/billing", cashierHidden: true },
+  { url: "/print-settings", cashierHidden: true, ownerOnly: true },
+  { url: "/billing", cashierHidden: true, ownerOnly: true },
   { url: "/settings", cashierHidden: false },
 ];
 
@@ -102,11 +105,14 @@ export function BottomNav() {
 
   const primaryNavUrlSet = new Set(primaryNavItems.map((i) => i.url));
 
+  const isOwner = role === "owner";
+
   const MORE_NAV = MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
     if (isFree && (i as any).proOnly) return false;
     if (isCashier && i.cashierHidden) return false;
     if ((i as any).managerOnly && !isManagerOrAbove) return false;
+    if ((i as any).ownerOnly && !isOwner) return false;
     if (hiddenUrls.has(i.url)) return false;
     return true;
   }).map((item) => {

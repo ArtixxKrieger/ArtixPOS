@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { Printer, X } from "lucide-react";
 import { format } from "date-fns";
+import { useSettings } from "@/hooks/use-settings";
 
 interface ReceiptItem {
   product: { name: string };
@@ -28,6 +29,8 @@ export interface ReceiptData {
   currency: string;
   discountCode?: string | null;
   loyaltyPointsEarned?: number;
+  orderNumber?: number | null;
+  cashierName?: string;
 }
 
 interface ReceiptModalProps {
@@ -36,47 +39,102 @@ interface ReceiptModalProps {
   receipt: ReceiptData | null;
 }
 
+export function buildReceiptHtml(
+  printableId: string,
+  settings: Record<string, any>,
+): string | null {
+  const el = document.getElementById(printableId);
+  if (!el) return null;
+  const width = (settings?.receiptWidth ?? "80mm") === "58mm" ? 210 : 280;
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Receipt</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Courier New', monospace; font-size: 12px; width: ${width}px; padding: 12px; }
+      .center { text-align: center; }
+      .bold { font-weight: bold; }
+      .line { border-top: 1px dashed #000; margin: 6px 0; }
+      .row { display: flex; justify-content: space-between; margin: 2px 0; }
+      .item-name { flex: 1; margin-right: 8px; }
+      .total-row { font-weight: bold; font-size: 14px; }
+      .footer { text-align: center; margin-top: 8px; font-size: 11px; }
+      .muted { color: #555; }
+      .small { font-size: 10px; }
+      .green { color: #16a34a; }
+    </style>
+  </head>
+  <body>
+    ${el.innerHTML}
+    <script>window.onload = function() { window.print(); window.close(); }<\/script>
+  </body>
+</html>`;
+}
+
 export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
+  const { data: settings } = useSettings();
   if (!receipt) return null;
 
+  const s = (settings ?? {}) as Record<string, any>;
   const { currency } = receipt;
   const now = new Date();
 
-  const handlePrint = () => {
-    const printContent = document.getElementById("receipt-printable");
-    if (!printContent) return;
-    const win = window.open("", "_blank", "width=320,height=600");
-    if (!win) { alert("Please allow pop-ups to print receipts."); return; }
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Receipt</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Courier New', monospace; font-size: 12px; width: 280px; padding: 12px; }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .line { border-top: 1px dashed #000; margin: 6px 0; }
-            .row { display: flex; justify-content: space-between; margin: 2px 0; }
-            .item-name { flex: 1; margin-right: 8px; }
-            .total-row { font-weight: bold; font-size: 14px; }
-            .footer { text-align: center; margin-top: 8px; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-          <script>window.onload = function() { window.print(); window.close(); }<\/script>
-        </body>
-      </html>
-    `);
-    win.document.close();
-  };
+  const receiptWidth = s.receiptWidth ?? "80mm";
+  const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";
+  const receiptHeaderText = s.receiptHeaderText ?? "";
+  const receiptWebsite = s.receiptWebsite ?? "";
+  const showAddress = (s.receiptShowAddress ?? 1) === 1;
+  const showPhone = (s.receiptShowPhone ?? 1) === 1;
+  const showEmail = (s.receiptShowEmail ?? 0) === 1;
+  const showWebsite = (s.receiptShowWebsite ?? 0) === 1;
+  const showOrderNumber = (s.receiptShowOrderNumber ?? 1) === 1;
+  const showCashier = (s.receiptShowCashier ?? 0) === 1;
+  const showUnitPrice = (s.receiptShowUnitPrice ?? 0) === 1;
+  const showPoweredBy = (s.receiptShowPoweredBy ?? 1) === 1;
+
+  const storeAddress = s.address ?? "";
+  const storePhone = s.phone ?? "";
+  const storeEmail = s.emailContact ?? "";
 
   const isCash = receipt.paymentMethod === "cash";
   const hasDiscount = receipt.discount > 0;
   const hasLoyalty = receipt.loyaltyDiscount > 0;
   const hasTax = receipt.tax > 0;
+
+  const handlePrint = () => {
+    const width = receiptWidth === "58mm" ? 210 : 280;
+    const printContent = document.getElementById("receipt-printable");
+    if (!printContent) return;
+    const win = window.open("", "_blank", "width=360,height=700");
+    if (!win) { alert("Please allow pop-ups to print receipts."); return; }
+    win.document.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>Receipt</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Courier New', monospace; font-size: 12px; width: ${width}px; padding: 12px; }
+      .center { text-align: center; }
+      .bold { font-weight: bold; }
+      .line { border-top: 1px dashed #000; margin: 6px 0; }
+      .row { display: flex; justify-content: space-between; margin: 2px 0; }
+      .item-name { flex: 1; margin-right: 8px; }
+      .total-row { font-weight: bold; font-size: 14px; }
+      .footer { text-align: center; font-size: 10px; color: #555; }
+      .muted { color: #555; font-size: 10px; }
+      .small { font-size: 10px; }
+      .green { color: #16a34a; font-weight: 600; }
+      .unit-price { font-size: 10px; color: #888; padding-left: 12px; }
+    </style>
+  </head>
+  <body>
+    ${printContent.innerHTML}
+    <script>window.onload = function() { window.print(); window.close(); }<\/script>
+  </body>
+</html>`);
+    win.document.close();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -95,11 +153,46 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
               {receipt.storeName && (
                 <p className="bold font-bold text-sm">{receipt.storeName}</p>
               )}
-              <p className="text-muted-foreground text-[10px]">{format(now, "MMM d, yyyy h:mm a")}</p>
+              {receiptHeaderText && (
+                <p className="text-[10px] text-muted-foreground">{receiptHeaderText}</p>
+              )}
+              {receiptTitle && (
+                <p className="text-[11px] font-semibold text-muted-foreground mt-0.5">{receiptTitle}</p>
+              )}
+              <p className="text-muted-foreground text-[10px] mt-0.5">{format(now, "MMM d, yyyy h:mm a")}</p>
+              {showAddress && storeAddress && (
+                <p className="text-[10px] text-muted-foreground">{storeAddress}</p>
+              )}
+              {showPhone && storePhone && (
+                <p className="text-[10px] text-muted-foreground">Tel: {storePhone}</p>
+              )}
+              {showEmail && storeEmail && (
+                <p className="text-[10px] text-muted-foreground">{storeEmail}</p>
+              )}
+              {showWebsite && receiptWebsite && (
+                <p className="text-[10px] text-muted-foreground">{receiptWebsite}</p>
+              )}
               {receipt.customerName && (
                 <p className="text-[10px] mt-0.5">Customer: {receipt.customerName}</p>
               )}
             </div>
+
+            {(showOrderNumber && receipt.orderNumber) || (showCashier && receipt.cashierName) ? (
+              <div className="space-y-0.5 mb-1">
+                {showOrderNumber && receipt.orderNumber && (
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Order #</span>
+                    <span className="tabular-nums">{receipt.orderNumber}</span>
+                  </div>
+                )}
+                {showCashier && receipt.cashierName && (
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Cashier</span>
+                    <span>{receipt.cashierName}</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             <div className="border-t border-dashed border-border/60 my-2" />
 
@@ -108,6 +201,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
               {receipt.items.map((item, i) => {
                 const basePrice = parseFloat(item.size?.price || "0");
                 const modsTotal = (item.modifiers || []).reduce((s, m) => s + parseFloat(m.price || "0"), 0);
+                const unitPrice = basePrice + modsTotal;
                 return (
                   <div key={i}>
                     <div className="flex justify-between">
@@ -117,9 +211,14 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                         {" "}x{item.quantity}
                       </span>
                       <span className="tabular-nums text-[11px]">
-                        {formatCurrency((basePrice + modsTotal) * item.quantity, currency)}
+                        {formatCurrency(unitPrice * item.quantity, currency)}
                       </span>
                     </div>
+                    {showUnitPrice && unitPrice > 0 && (
+                      <div className="unit-price pl-3 text-muted-foreground text-[10px]">
+                        {formatCurrency(unitPrice, currency)} × {item.quantity}
+                      </div>
+                    )}
                     {item.modifiers && item.modifiers.length > 0 && (
                       <div className="pl-3 text-muted-foreground text-[10px]">
                         {item.modifiers.map(m => `+ ${m.name}`).join(", ")}
@@ -168,7 +267,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 <span className="tabular-nums">{formatCurrency(receipt.paymentAmount, currency)}</span>
               </div>
               {isCash && receipt.changeAmount > 0 && (
-                <div className="flex justify-between text-[11px] text-emerald-600 font-semibold">
+                <div className="flex justify-between text-[11px] text-emerald-600 font-semibold green">
                   <span>Change</span>
                   <span className="tabular-nums">{formatCurrency(receipt.changeAmount, currency)}</span>
                 </div>
@@ -183,10 +282,13 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             {receipt.receiptFooter && (
               <>
                 <div className="border-t border-dashed border-border/60 my-2" />
-                <p className="text-center text-[10px] text-muted-foreground">{receipt.receiptFooter}</p>
+                <p className="footer text-center text-[10px] text-muted-foreground">{receipt.receiptFooter}</p>
               </>
             )}
             <p className="text-center text-[10px] text-muted-foreground/50 mt-2">Thank you!</p>
+            {showPoweredBy && (
+              <p className="text-center text-[9px] text-muted-foreground/30 mt-0.5">Powered by ArtixPOS</p>
+            )}
           </div>
         </div>
 
@@ -195,12 +297,14 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             variant="outline"
             className="flex-1 rounded-xl h-10"
             onClick={onClose}
+            data-testid="button-close-receipt"
           >
             Close
           </Button>
           <Button
             className="flex-1 rounded-xl h-10 font-bold"
             onClick={handlePrint}
+            data-testid="button-print-receipt"
           >
             <Printer className="h-4 w-4 mr-2" />
             Print

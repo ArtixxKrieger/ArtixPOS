@@ -6,7 +6,7 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  Sun, Moon,
+  Sun, Moon, ReceiptText,
 } from "lucide-react";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
@@ -88,6 +88,7 @@ const NAV_SECTIONS = [
     label: "Tools",
     items: [
       { label: "AI Assistant", url: "/ai", icon: Sparkles, proOnly: true },
+      { label: "Print Settings", url: "/print-settings", icon: ReceiptText, ownerOnly: true },
       { label: "Billing", url: "/billing", icon: CreditCard, ownerOnly: true },
       { label: "Settings", url: "/settings", icon: Settings },
     ],
@@ -124,6 +125,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/discount-codes": "Discount Codes",
   "/refunds": "Refunds",
   "/ai": "AI Assistant",
+  "/print-settings": "Print Settings",
   "/billing": "Billing",
   "/settings": "Settings",
   "/admin": "Admin Panel",

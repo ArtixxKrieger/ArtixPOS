@@ -310,6 +310,18 @@ export const userSettings = pgTable("user_settings", {
   onboardingComplete: integer("onboarding_complete").default(0),
   paymentMethods: jsonb("payment_methods").$type<{ id: string; label: string; isCash: boolean }[]>(),
   monthlyRevenueGoal: text("monthly_revenue_goal"),
+  receiptWidth: text("receipt_width").default("80mm"),
+  receiptTitle: text("receipt_title").default("OFFICIAL RECEIPT"),
+  receiptHeaderText: text("receipt_header_text"),
+  receiptWebsite: text("receipt_website"),
+  receiptShowAddress: integer("receipt_show_address").default(1),
+  receiptShowPhone: integer("receipt_show_phone").default(1),
+  receiptShowEmail: integer("receipt_show_email").default(0),
+  receiptShowWebsite: integer("receipt_show_website").default(0),
+  receiptShowOrderNumber: integer("receipt_show_order_number").default(1),
+  receiptShowCashier: integer("receipt_show_cashier").default(0),
+  receiptShowUnitPrice: integer("receipt_show_unit_price").default(0),
+  receiptShowPoweredBy: integer("receipt_show_powered_by").default(1),
 });
 
 // ─── Service Staff ────────────────────────────────────────────────────────────
@@ -602,6 +614,18 @@ export const insertUserSettingSchema = z.object({
   onboardingComplete: z.number().optional(),
   paymentMethods: z.array(z.object({ id: z.string(), label: z.string(), isCash: z.boolean() })).optional().nullable(),
   monthlyRevenueGoal: z.string().optional().nullable(),
+  receiptWidth: z.string().optional().nullable(),
+  receiptTitle: z.string().optional().nullable(),
+  receiptHeaderText: z.string().optional().nullable(),
+  receiptWebsite: z.string().optional().nullable(),
+  receiptShowAddress: z.number().optional().nullable(),
+  receiptShowPhone: z.number().optional().nullable(),
+  receiptShowEmail: z.number().optional().nullable(),
+  receiptShowWebsite: z.number().optional().nullable(),
+  receiptShowOrderNumber: z.number().optional().nullable(),
+  receiptShowCashier: z.number().optional().nullable(),
+  receiptShowUnitPrice: z.number().optional().nullable(),
+  receiptShowPoweredBy: z.number().optional().nullable(),
 });
 
 export const insertDiscountCodeSchema = z.object({

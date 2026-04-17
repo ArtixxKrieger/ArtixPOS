@@ -87,8 +87,8 @@ export async function registerRoutes(
         const sub = await getSubscription(tid);
         if (!isProSubscription(sub)) {
           const existing = await storage.getProducts(userId(req));
-          if (existing.length >= 30) {
-            return res.status(403).json({ message: "Free plan is limited to 30 products. Upgrade to Pro for unlimited products.", code: "PRODUCT_LIMIT_REACHED" });
+          if (existing.length >= 50) {
+            return res.status(403).json({ message: "The Free plan includes 50 products. Upgrade to Pro when you need a larger catalog.", code: "PRODUCT_LIMIT_REACHED" });
           }
         }
       }

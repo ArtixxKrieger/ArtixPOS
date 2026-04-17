@@ -51,7 +51,7 @@ const MORE_NAV_FULL = [
   { url: "/products", cashierHidden: true },
   { url: "/customers", cashierHidden: true, proOnly: true },
   { url: "/transactions", cashierHidden: true },
-  { url: "/analytics", cashierHidden: true, proOnly: true },
+  { url: "/analytics", cashierHidden: true },
   { url: "/expenses", cashierHidden: true, proOnly: true },
   { url: "/suppliers", cashierHidden: true, proOnly: true },
   { url: "/purchases", cashierHidden: true, proOnly: true },

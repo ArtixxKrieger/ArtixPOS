@@ -19,7 +19,7 @@ export const PRO_FEATURES = [
   "Unlimited branches",
   "Unlimited products",
   "Unlimited staff accounts",
-  "Full analytics & advanced reports",
+  "Advanced analytics, exports & custom reports",
   "AI business assistant",
   "Customer management & loyalty",
   "Expense tracking",
@@ -34,8 +34,8 @@ export const PRO_FEATURES = [
 
 export const FREE_LIMITS = {
   branches: 1,
-  products: 30,
-  staff: 3,
+  products: 50,
+  staff: 2,
 };
 
 export function useSubscription() {

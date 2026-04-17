@@ -254,7 +254,7 @@ function AppRouter() {
         <Route path="/pos" component={POS} />
         <Route path="/pending" component={PendingOrders} />
         <Route path="/products" component={() => <CashierGuard component={Products} />} />
-        <Route path="/analytics" component={() => <ProAndCashierGuard component={Analytics} />} />
+        <Route path="/analytics" component={() => <CashierGuard component={Analytics} />} />
         <Route path="/transactions" component={() => <CashierGuard component={Transactions} />} />
         <Route path="/settings" component={Settings} />
         <Route path="/admin" component={() => <AdminGuard component={AdminIndex} />} />

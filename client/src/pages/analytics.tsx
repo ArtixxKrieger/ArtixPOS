@@ -1,5 +1,6 @@
 import { useSales } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
+import { useSubscription } from "@/hooks/use-subscription";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { getBusinessFeatures } from "@/lib/business-features";
 import {
@@ -276,6 +277,7 @@ function InsightCard({ icon: Icon, text, color }: { icon: any; text: string; col
 export default function Analytics() {
   const { data: sales = [], isLoading } = useSales();
   const { data: settings } = useSettings();
+  const { isFree } = useSubscription();
   const currency = (settings as any)?.currency || "₱";
   const { terminology } = getBusinessFeatures(
     (settings as any)?.businessType,
@@ -296,6 +298,14 @@ export default function Analytics() {
   const [prodSort, setProdSort] = useState<ProdSort>("qty");
   const [showNet, setShowNet] = useState(false);
   const [showComparison, setShowComparison] = useState(true);
+  const allowedPresets = useMemo<Preset[]>(() => isFree ? ["today", "7d"] : ["today", "yesterday", "7d", "30d"], [isFree]);
+
+  useEffect(() => {
+    if (isFree && !allowedPresets.includes(preset)) {
+      setPreset("7d");
+      setCustomRange(undefined);
+    }
+  }, [isFree, preset, allowedPresets]);
 
   const range = useMemo(() => getRange(preset, customRange), [preset, customRange]);
 
@@ -536,7 +546,7 @@ export default function Analytics() {
           </div>
           <div>
             <h2 className="text-xl font-black tracking-tight">Analytics</h2>
-            <p className="text-xs text-muted-foreground font-medium">Deep performance insights</p>
+            <p className="text-xs text-muted-foreground font-medium">{isFree ? "Simple sales analytics included in Free" : "Deep performance insights"}</p>
           </div>
         </div>
 
@@ -544,7 +554,7 @@ export default function Analytics() {
         <div className="flex flex-wrap gap-2 items-center">
           {/* Preset pills */}
           <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30">
-            {(["today", "yesterday", "7d", "30d"] as Preset[]).map(p => (
+            {allowedPresets.map(p => (
               <button
                 key={p}
                 onClick={() => setPreset(p)}
@@ -560,60 +570,74 @@ export default function Analytics() {
               </button>
             ))}
 
-            {/* Custom range */}
-            <Popover open={customOpen} onOpenChange={setCustomOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  onClick={() => setPreset("custom")}
-                  data-testid="btn-preset-custom"
-                  className={cn(
-                    "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1",
-                    preset === "custom"
-                      ? "bg-primary text-white shadow-md shadow-primary/25"
-                      : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
-                  )}
-                >
-                  {preset === "custom" && customRange?.from
-                    ? `${format(customRange.from, "M/d")}${customRange.to ? `–${format(customRange.to, "M/d")}` : ""}`
-                    : "Custom"}
-                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="end">
-                <Calendar
-                  mode="range"
-                  selected={customRange}
-                  onSelect={(r) => { setCustomRange(r); if (r?.from && r?.to) { setPreset("custom"); setCustomOpen(false); } }}
-                  numberOfMonths={1}
-                  className="rounded-2xl"
-                />
-              </PopoverContent>
-            </Popover>
+            {!isFree && (
+              <Popover open={customOpen} onOpenChange={setCustomOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    onClick={() => setPreset("custom")}
+                    data-testid="btn-preset-custom"
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1",
+                      preset === "custom"
+                        ? "bg-primary text-white shadow-md shadow-primary/25"
+                        : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
+                    )}
+                  >
+                    {preset === "custom" && customRange?.from
+                      ? `${format(customRange.from, "M/d")}${customRange.to ? `–${format(customRange.to, "M/d")}` : ""}`
+                      : "Custom"}
+                    <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={customRange}
+                    onSelect={(r) => { setCustomRange(r); if (r?.from && r?.to) { setPreset("custom"); setCustomOpen(false); } }}
+                    numberOfMonths={1}
+                    className="rounded-2xl"
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
 
-          {/* Export buttons */}
-          <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden">
-            {[
-              { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
-              { label: "Excel", fn: () => exportExcel(currSales, rangeLabel, settings?.storeName || "Store"), testId: "button-export-excel" },
-              { label: "PDF", fn: () => exportPDF(currSales, currency, rangeLabel, settings?.storeName || "Store"), testId: "button-export-pdf" },
-            ].map((btn, i) => (
-              <button
-                key={btn.label}
-                onClick={btn.fn}
-                data-testid={btn.testId}
-                className={cn(
-                  "h-9 px-3 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground dark:text-white/55 hover:text-foreground dark:hover:text-white hover:bg-secondary transition-all",
-                  i > 0 && "border-l border-border/30"
-                )}
-              >
-                {i === 0 && <Download className="h-3 w-3" />}
-                {btn.label}
-              </button>
-            ))}
-          </div>
+          {!isFree && (
+            <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden">
+              {[
+                { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
+                { label: "Excel", fn: () => exportExcel(currSales, rangeLabel, settings?.storeName || "Store"), testId: "button-export-excel" },
+                { label: "PDF", fn: () => exportPDF(currSales, currency, rangeLabel, settings?.storeName || "Store"), testId: "button-export-pdf" },
+              ].map((btn, i) => (
+                <button
+                  key={btn.label}
+                  onClick={btn.fn}
+                  data-testid={btn.testId}
+                  className={cn(
+                    "h-9 px-3 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground dark:text-white/55 hover:text-foreground dark:hover:text-white hover:bg-secondary transition-all",
+                    i > 0 && "border-l border-border/30"
+                  )}
+                >
+                  {i === 0 && <Download className="h-3 w-3" />}
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {isFree && (
+        <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 flex items-start gap-3">
+          <Lightbulb className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Free includes simple analytics</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Track today and the last 7 days for revenue, orders, top items, and hourly activity. Pro unlocks custom ranges, exports, comparisons, category reports, and smart insights.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── KPI Cards ── */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 stagger-children">
@@ -692,17 +716,19 @@ export default function Analytics() {
         <ToggleGroup value={metric} onChange={(v) => setMetric(v as Metric)} options={[{ value: "revenue", label: "Revenue" }, { value: "orders", label: "Orders" }]} />
         <ToggleGroup value={chartKind} onChange={(v) => setChartKind(v as ChartKind)} options={[{ value: "area", label: "Area" }, { value: "bar", label: "Bar" }, { value: "line", label: "Line" }]} />
         <ToggleGroup value={showNet ? "net" : "gross"} onChange={(v) => setShowNet(v === "net")} options={[{ value: "gross", label: "Gross" }, { value: "net", label: "Net" }]} />
-        <button
-          onClick={() => setShowComparison(v => !v)}
-          className={cn(
-            "flex rounded-xl border border-border/30 items-center px-2.5 py-1 text-[10px] font-semibold transition-all duration-200",
-            showComparison
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "bg-secondary/60 dark:bg-white/5 text-muted-foreground dark:text-white/45 hover:text-foreground dark:hover:text-white/80"
-          )}
-        >
-          Compare period
-        </button>
+        {!isFree && (
+          <button
+            onClick={() => setShowComparison(v => !v)}
+            className={cn(
+              "flex rounded-xl border border-border/30 items-center px-2.5 py-1 text-[10px] font-semibold transition-all duration-200",
+              showComparison
+                ? "bg-primary/10 text-primary border-primary/20"
+                : "bg-secondary/60 dark:bg-white/5 text-muted-foreground dark:text-white/45 hover:text-foreground dark:hover:text-white/80"
+            )}
+          >
+            Compare period
+          </button>
+        )}
       </div>
 
       {/* ── Revenue / Orders Trend ── */}
@@ -749,7 +775,7 @@ export default function Analytics() {
                 {chartKind === "line" && (
                   <Line type="monotone" dataKey={metric} name="Current" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: "#6366f1", stroke: "#fff", strokeWidth: 1.5 }} activeDot={{ r: 5, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} isAnimationActive />
                 )}
-                {showComparison && (
+                {!isFree && showComparison && (
                   <Line
                     type="monotone"
                     dataKey={metric === "revenue" ? "prevRevenue" : "prevOrders"}
@@ -968,7 +994,7 @@ export default function Analytics() {
       </div>
 
       {/* ── Category Breakdown ── */}
-      {categoryData.length > 0 && (
+      {!isFree && categoryData.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-pink-500/10 flex items-center justify-center">
@@ -1014,7 +1040,7 @@ export default function Analytics() {
       )}
 
       {/* ── Smart Insights ── */}
-      {insights.length > 0 && (
+      {!isFree && insights.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-amber-500/10 flex items-center justify-center">

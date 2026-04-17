@@ -77,7 +77,7 @@ const NAV_SECTIONS = [
     id: "finance",
     label: "Finance & Analytics",
     items: [
-      { label: "Analytics", url: "/analytics", icon: BarChart3, proOnly: true },
+      { label: "Analytics", url: "/analytics", icon: BarChart3 },
       { label: "Expenses", url: "/expenses", icon: Wallet, managerOnly: true, proOnly: true },
       { label: "Suppliers", url: "/suppliers", icon: Truck, managerOnly: true, proOnly: true },
       { label: "Purchases", url: "/purchases", icon: ShoppingBag, managerOnly: true, proOnly: true },

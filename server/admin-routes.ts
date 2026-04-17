@@ -178,7 +178,7 @@ export function registerAdminRoutes(app: Express) {
       if (!isProSubscription(sub)) {
         const existingBranches = await getBranches(user.tenantId!);
         if (existingBranches.length >= 1) {
-          return res.status(403).json({ message: "Free plan is limited to 1 branch. Upgrade to Pro for unlimited branches.", code: "BRANCH_LIMIT_REACHED" });
+          return res.status(403).json({ message: "The Free plan includes 1 branch. Upgrade to Pro when you are ready to manage multiple locations.", code: "BRANCH_LIMIT_REACHED" });
         }
       }
       const input = z.object({
@@ -259,7 +259,7 @@ export function registerAdminRoutes(app: Express) {
       if (!isProSubscription(sub)) {
         const tenantUsers = await getTenantUsers(user.tenantId!);
         if (tenantUsers.length >= 3) {
-          return res.status(403).json({ message: "Free plan is limited to 3 staff accounts. Upgrade to Pro for unlimited staff.", code: "STAFF_LIMIT_REACHED" });
+          return res.status(403).json({ message: "The Free plan includes the owner plus 2 staff accounts. Upgrade to Pro to add more team members.", code: "STAFF_LIMIT_REACHED" });
         }
       }
       const input = z.object({

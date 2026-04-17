@@ -45,8 +45,19 @@ export async function nativeFetch(url: string, options: RequestInit = {}): Promi
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const text = await res.text();
+    let message = res.statusText || "Something went wrong";
+
+    if (text) {
+      try {
+        const body = JSON.parse(text);
+        message = body?.message || body?.error || message;
+      } catch {
+        message = text;
+      }
+    }
+
+    throw new Error(message);
   }
 }
 

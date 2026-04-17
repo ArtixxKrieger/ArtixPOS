@@ -207,7 +207,7 @@ export default function BillingPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500 dark:text-white/50">
-              You're on the <strong>Free plan</strong> — limited to {FREE_LIMITS.branches} branch, {FREE_LIMITS.products} products, and {FREE_LIMITS.staff} staff accounts. Upgrade to unlock everything.
+              You're on the <strong>Free plan</strong> — {FREE_LIMITS.branches} branch, {FREE_LIMITS.products} products, {FREE_LIMITS.staff} staff accounts, and simple analytics are included. Upgrade when you need multiple locations, automation, and advanced reports.
             </p>
           )}
         </CardContent>
@@ -267,7 +267,7 @@ export default function BillingPage() {
                     `Up to ${FREE_LIMITS.products} products`,
                     `Up to ${FREE_LIMITS.staff} staff accounts`,
                     "Basic POS & sales",
-                    "Today's summary report",
+                    "Simple analytics dashboard",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-slate-600 dark:text-white/70">
                       <Check className="w-4 h-4 text-slate-400 shrink-0" />
@@ -276,7 +276,7 @@ export default function BillingPage() {
                   ))}
                   {[
                     "AI assistant",
-                    "Full analytics",
+                    "Analytics exports & custom ranges",
                     "Customer management",
                     "Expense tracking",
                     "Appointments",

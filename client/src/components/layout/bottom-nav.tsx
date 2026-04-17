@@ -122,10 +122,20 @@ export function BottomNav() {
     (o: any) => o.status !== "paid"
   ).length;
 
-  const allMoreUrls = [...MORE_NAV.map((i) => i.url), ...ADMIN_NAV.map((i) => i.url)];
-  const isMoreActive = allMoreUrls.some((url) => url === location);
+  // Use the FULL unfiltered list so navigating to any secondary page highlights "More",
+  // even if that page is currently hidden from the nav (e.g. during subscription load).
+  const allSecondaryUrls = new Set([
+    ...MORE_NAV_FULL.map((i) => i.url),
+    ...ADMIN_NAV.map((i) => i.url),
+  ]);
+  const isMoreActive = allSecondaryUrls.has(location) || location.startsWith("/admin");
   const primaryActiveIndex = primaryNavItems.findIndex((item) => item.url === location);
-  const pillIndex = primaryActiveIndex === -1 ? (isMoreActive ? primaryNavItems.length : 0) : primaryActiveIndex;
+  // -1 means no pill shown; only show pill when we have a clear match
+  const pillIndex = primaryActiveIndex !== -1
+    ? primaryActiveIndex
+    : isMoreActive
+      ? primaryNavItems.length
+      : -1;
 
   const hasMore = MORE_NAV.length > 0 || isAdminOrAbove;
 
@@ -144,12 +154,13 @@ export function BottomNav() {
           className="pointer-events-auto glass-nav mx-3 mb-1.5 rounded-[24px] px-1 py-1 flex items-center w-full relative"
           style={{ maxWidth: "480px" }}
         >
-          {/* Sliding active pill */}
+          {/* Sliding active pill — hidden when no nav item matches current page */}
           <div
             className="absolute inset-y-1 pointer-events-none z-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
             style={{
               width: `calc((100% - 8px) / ${hasMore ? primaryNavItems.length + 1 : primaryNavItems.length})`,
-              transform: `translateX(calc(${pillIndex} * 100%))`,
+              transform: `translateX(calc(${Math.max(0, pillIndex)} * 100%))`,
+              opacity: pillIndex === -1 ? 0 : 1,
             }}
           >
             <div className="w-full h-full rounded-[18px] bg-primary/10 dark:bg-primary/15 glass-btn" />

@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, Crown, Zap, X, Loader2, CreditCard, Calendar, AlertTriangle } from "lucide-react";
+import { Check, Crown, Zap, X, Loader2, CreditCard, Calendar, AlertTriangle, Lock } from "lucide-react";
 
 interface SubscriptionPayment {
   id: number;
@@ -122,8 +122,22 @@ export default function BillingPage() {
     );
   }
 
+  const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+      {/* Pro Required Banner */}
+      {showProRequiredBanner && (
+        <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/30 px-4 py-4">
+          <Lock className="h-5 w-5 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-violet-900 dark:text-violet-200">Pro Feature</p>
+            <p className="text-sm text-violet-700 dark:text-violet-300 mt-0.5">
+              The page you tried to access is only available on the Pro plan. Upgrade below to unlock all features.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h1>

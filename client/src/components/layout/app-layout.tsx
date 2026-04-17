@@ -14,6 +14,7 @@ import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAuth } from "@/hooks/use-auth";
+import { useSubscription } from "@/hooks/use-subscription";
 import { getBusinessFeatures } from "@/lib/business-features";
 
 function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
@@ -45,9 +46,9 @@ const NAV_SECTIONS = [
       { label: "Dashboard", url: "/", icon: Home },
       { label: "POS", url: "/pos", icon: ShoppingCart },
       { label: "Pending", url: "/pending", icon: Clock },
-      { label: "Kitchen", url: "/kitchen", icon: ChefHat },
-      { label: "Tables", url: "/tables", icon: LayoutGrid },
-      { label: "Appointments", url: "/appointments", icon: CalendarDays },
+      { label: "Kitchen", url: "/kitchen", icon: ChefHat, proOnly: true },
+      { label: "Tables", url: "/tables", icon: LayoutGrid, proOnly: true },
+      { label: "Appointments", url: "/appointments", icon: CalendarDays, proOnly: true },
     ],
   },
   {
@@ -55,10 +56,10 @@ const NAV_SECTIONS = [
     label: "Operations",
     items: [
       { label: "Staff", url: "/staff", icon: UserCheck, managerOnly: true },
-      { label: "Rooms", url: "/rooms", icon: DoorOpen },
-      { label: "Memberships", url: "/memberships", icon: BadgeCheck },
-      { label: "Shifts", url: "/shifts", icon: AlarmClock },
-      { label: "Time Clock", url: "/timeclock", icon: Timer },
+      { label: "Rooms", url: "/rooms", icon: DoorOpen, proOnly: true },
+      { label: "Memberships", url: "/memberships", icon: BadgeCheck, proOnly: true },
+      { label: "Shifts", url: "/shifts", icon: AlarmClock, proOnly: true },
+      { label: "Time Clock", url: "/timeclock", icon: Timer, proOnly: true },
     ],
   },
   {
@@ -66,9 +67,9 @@ const NAV_SECTIONS = [
     label: "Management",
     items: [
       { label: "Products", url: "/products", icon: Package },
-      { label: "Customers", url: "/customers", icon: UserCircle2, managerOnly: true },
+      { label: "Customers", url: "/customers", icon: UserCircle2, managerOnly: true, proOnly: true },
       { label: "Transactions", url: "/transactions", icon: ScrollText },
-      { label: "Discounts", url: "/discount-codes", icon: Tag, managerOnly: true },
+      { label: "Discounts", url: "/discount-codes", icon: Tag, managerOnly: true, proOnly: true },
       { label: "Refunds", url: "/refunds", icon: RotateCcw, managerOnly: true },
     ],
   },
@@ -76,22 +77,22 @@ const NAV_SECTIONS = [
     id: "finance",
     label: "Finance & Analytics",
     items: [
-      { label: "Analytics", url: "/analytics", icon: BarChart3 },
-      { label: "Expenses", url: "/expenses", icon: Wallet, managerOnly: true },
-      { label: "Suppliers", url: "/suppliers", icon: Truck, managerOnly: true },
-      { label: "Purchases", url: "/purchases", icon: ShoppingBag, managerOnly: true },
+      { label: "Analytics", url: "/analytics", icon: BarChart3, proOnly: true },
+      { label: "Expenses", url: "/expenses", icon: Wallet, managerOnly: true, proOnly: true },
+      { label: "Suppliers", url: "/suppliers", icon: Truck, managerOnly: true, proOnly: true },
+      { label: "Purchases", url: "/purchases", icon: ShoppingBag, managerOnly: true, proOnly: true },
     ],
   },
   {
     id: "tools",
     label: "Tools",
     items: [
-      { label: "AI Assistant", url: "/ai", icon: Sparkles },
+      { label: "AI Assistant", url: "/ai", icon: Sparkles, proOnly: true },
       { label: "Billing", url: "/billing", icon: CreditCard, ownerOnly: true },
       { label: "Settings", url: "/settings", icon: Settings },
     ],
   },
-] as const;
+];
 
 const ADMIN_NAV_ITEMS = [
   { label: "Overview", url: "/admin", icon: ShieldCheck },
@@ -147,6 +148,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(getInitialDark);
   const { isOnline, isSyncing, salesQueueCount } = useOnlineStatus();
   const { user, logout } = useAuth();
+  const { isFree } = useSubscription();
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
   const isOwner = role === "owner";
@@ -192,10 +194,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean }) {
+  function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean }) {
     if (businessHiddenUrls.has(item.url as any)) return false;
+    if ((item as any).proOnly && isFree) return false;
     if (isCashier) {
-      const cashierUrls = ["/", "/pos", "/pending", "/kitchen", "/tables", "/shifts", "/timeclock", "/ai", "/settings"];
+      const cashierUrls = ["/", "/pos", "/pending", "/settings"];
       return cashierUrls.includes(item.url);
     }
     if ((item as any).managerOnly && !isManagerOrAbove) return false;

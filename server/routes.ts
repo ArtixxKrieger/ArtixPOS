@@ -11,7 +11,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
-import { requireAuth, requireManagerOrAbove } from "./middleware";
+import { requireAuth, requireManagerOrAbove, requirePro, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
 import {
   insertCustomerSchema,
@@ -82,6 +82,16 @@ export async function registerRoutes(
 
   app.post(api.products.create.path, requireAuth, async (req, res) => {
     try {
+      const tid = tenantId(req);
+      if (tid) {
+        const sub = await getSubscription(tid);
+        if (!isProSubscription(sub)) {
+          const existing = await storage.getProducts(userId(req));
+          if (existing.length >= 30) {
+            return res.status(403).json({ message: "Free plan is limited to 30 products. Upgrade to Pro for unlimited products.", code: "PRODUCT_LIMIT_REACHED" });
+          }
+        }
+      }
       const bodySchema = api.products.create.input.extend({
         price: z.coerce.string().min(1, "Price is required"),
       });
@@ -446,18 +456,18 @@ export async function registerRoutes(
 
   // ── Customers ─────────────────────────────────────────────────────────────
 
-  app.get("/api/customers", requireAuth, async (req, res) => {
+  app.get("/api/customers", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getCustomers(userId(req));
     res.json(list);
   });
 
-  app.get("/api/customers/:id", requireAuth, async (req, res) => {
+  app.get("/api/customers/:id", requireAuth, requirePro, async (req, res) => {
     const customer = await storage.getCustomer(Number(req.params.id), userId(req));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
-  app.post("/api/customers", requireAuth, async (req, res) => {
+  app.post("/api/customers", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertCustomerSchema.parse(req.body);
       const customer = await storage.createCustomer(userId(req), input);
@@ -471,7 +481,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/customers/:id", requireAuth, async (req, res) => {
+  app.put("/api/customers/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertCustomerSchema.partial().parse(req.body);
       const customer = await storage.updateCustomer(Number(req.params.id), userId(req), input);
@@ -486,7 +496,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/customers/:id", requireAuth, async (req, res) => {
+  app.delete("/api/customers/:id", requireAuth, requirePro, async (req, res) => {
     const id = Number(req.params.id);
     const existing = await storage.getCustomer(id, userId(req));
     await storage.deleteCustomer(id, userId(req));
@@ -495,7 +505,7 @@ export async function registerRoutes(
   });
 
   // Customer sales history
-  app.get("/api/customers/:id/sales", requireAuth, async (req, res) => {
+  app.get("/api/customers/:id/sales", requireAuth, requirePro, async (req, res) => {
     const customerSales = await storage.getSales(userId(req), {
       customerId: Number(req.params.id),
       limit: 500,
@@ -505,12 +515,12 @@ export async function registerRoutes(
 
   // ── Expenses ──────────────────────────────────────────────────────────────
 
-  app.get("/api/expenses", requireAuth, async (req, res) => {
+  app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getExpenses(userId(req));
     res.json(list);
   });
 
-  app.post("/api/expenses", requireAuth, async (req, res) => {
+  app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.extend({ amount: z.coerce.string() }).parse(req.body);
       const expense = await storage.createExpense(userId(req), input);
@@ -524,7 +534,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/expenses/:id", requireAuth, async (req, res) => {
+  app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.partial().extend({ amount: z.coerce.string().optional() }).parse(req.body);
       const expense = await storage.updateExpense(Number(req.params.id), userId(req), input);
@@ -539,7 +549,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
+  app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
     const id = Number(req.params.id);
     const existing = await storage.getExpenses(userId(req)).then(list => list.find(e => e.id === id));
     await storage.deleteExpense(id, userId(req));
@@ -549,7 +559,7 @@ export async function registerRoutes(
 
   // ── Shifts ────────────────────────────────────────────────────────────────
 
-  app.get("/api/shifts", requireAuth, async (req, res) => {
+  app.get("/api/shifts", requireAuth, requirePro, async (req, res) => {
     const { limit, offset } = req.query as Record<string, string>;
     const list = await storage.getShifts(userId(req), {
       limit: Math.min(Number(limit) || 200, 1000),
@@ -558,12 +568,12 @@ export async function registerRoutes(
     res.json(list);
   });
 
-  app.get("/api/shifts/open", requireAuth, async (req, res) => {
+  app.get("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
     const shift = await storage.getOpenShift(userId(req));
     res.json(shift ?? null);
   });
 
-  app.post("/api/shifts/open", requireAuth, async (req, res) => {
+  app.post("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
     try {
       const { openingBalance, notes } = insertShiftSchema.parse(req.body);
       // Check for existing open shift
@@ -579,7 +589,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/shifts/:id/close", requireAuth, async (req, res) => {
+  app.post("/api/shifts/:id/close", requireAuth, requirePro, async (req, res) => {
     try {
       const { closingBalance, notes } = closeShiftSchema.parse(req.body);
       const shift = await storage.closeShift(Number(req.params.id), userId(req), closingBalance, notes ?? undefined);
@@ -595,12 +605,12 @@ export async function registerRoutes(
 
   // ── Discount Codes ────────────────────────────────────────────────────────
 
-  app.get("/api/discount-codes", requireAuth, async (req, res) => {
+  app.get("/api/discount-codes", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getDiscountCodes(userId(req));
     res.json(list);
   });
 
-  app.post("/api/discount-codes/validate", requireAuth, async (req, res) => {
+  app.post("/api/discount-codes/validate", requireAuth, requirePro, async (req, res) => {
     try {
       const { code, orderTotal } = z.object({ code: z.string(), orderTotal: z.number() }).parse(req.body);
       const dc = await storage.getDiscountCodeByCode(code, userId(req));
@@ -629,7 +639,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/discount-codes", requireAuth, async (req, res) => {
+  app.post("/api/discount-codes", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertDiscountCodeSchema.parse(req.body);
       const dc = await storage.createDiscountCode(userId(req), input);
@@ -643,7 +653,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/discount-codes/:id", requireAuth, async (req, res) => {
+  app.put("/api/discount-codes/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertDiscountCodeSchema.partial().parse(req.body);
       const dc = await storage.updateDiscountCode(Number(req.params.id), userId(req), input);
@@ -658,7 +668,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/discount-codes/:id", requireAuth, async (req, res) => {
+  app.delete("/api/discount-codes/:id", requireAuth, requirePro, async (req, res) => {
     const id = Number(req.params.id);
     const list = await storage.getDiscountCodes(userId(req));
     const existing = list.find(d => d.id === id);
@@ -707,12 +717,12 @@ export async function registerRoutes(
 
   // ── Tables ────────────────────────────────────────────────────────────────
 
-  app.get("/api/tables", requireAuth, async (req, res) => {
+  app.get("/api/tables", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getTables(userId(req));
     res.json(list);
   });
 
-  app.post("/api/tables", requireAuth, async (req, res) => {
+  app.post("/api/tables", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertTableSchema.parse(req.body);
       const table = await storage.createTable(userId(req), input);
@@ -723,7 +733,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/tables/:id", requireAuth, async (req, res) => {
+  app.put("/api/tables/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertTableSchema.partial().parse(req.body);
       const table = await storage.updateTable(Number(req.params.id), userId(req), input);
@@ -735,7 +745,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/tables/:id", requireAuth, async (req, res, next) => {
+  app.delete("/api/tables/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       await storage.deleteTable(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -744,12 +754,12 @@ export async function registerRoutes(
 
   // ── Suppliers ─────────────────────────────────────────────────────────────
 
-  app.get("/api/suppliers", requireAuth, async (req, res) => {
+  app.get("/api/suppliers", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getSuppliers(userId(req));
     res.json(list);
   });
 
-  app.post("/api/suppliers", requireAuth, async (req, res) => {
+  app.post("/api/suppliers", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(userId(req), input);
@@ -760,7 +770,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/suppliers/:id", requireAuth, async (req, res) => {
+  app.put("/api/suppliers/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertSupplierSchema.partial().parse(req.body);
       const supplier = await storage.updateSupplier(Number(req.params.id), userId(req), input);
@@ -772,7 +782,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/suppliers/:id", requireAuth, async (req, res, next) => {
+  app.delete("/api/suppliers/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       await storage.deleteSupplier(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -781,12 +791,12 @@ export async function registerRoutes(
 
   // ── Purchase Orders ───────────────────────────────────────────────────────
 
-  app.get("/api/purchase-orders", requireAuth, async (req, res) => {
+  app.get("/api/purchase-orders", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getPurchaseOrders(userId(req));
     res.json(list);
   });
 
-  app.post("/api/purchase-orders", requireAuth, async (req, res) => {
+  app.post("/api/purchase-orders", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertPurchaseOrderSchema.parse(req.body);
       const po = await storage.createPurchaseOrder(userId(req), input);
@@ -798,14 +808,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/purchase-orders/:id/receive", requireAuth, async (req, res) => {
+  app.post("/api/purchase-orders/:id/receive", requireAuth, requirePro, async (req, res) => {
     const po = await storage.receivePurchaseOrder(Number(req.params.id), userId(req));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
     await auditLog(req, "receive", "purchase_order", String(po.id), { totalAmount: po.totalAmount });
     res.json(po);
   });
 
-  app.post("/api/purchase-orders/:id/cancel", requireAuth, async (req, res) => {
+  app.post("/api/purchase-orders/:id/cancel", requireAuth, requirePro, async (req, res) => {
     const po = await storage.cancelPurchaseOrder(Number(req.params.id), userId(req));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
     res.json(po);
@@ -813,17 +823,17 @@ export async function registerRoutes(
 
   // ── Time Logs ─────────────────────────────────────────────────────────────
 
-  app.get("/api/time-logs", requireAuth, async (req, res) => {
+  app.get("/api/time-logs", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getTimeLogs(userId(req));
     res.json(list);
   });
 
-  app.get("/api/time-logs/active", requireAuth, async (req, res) => {
+  app.get("/api/time-logs/active", requireAuth, requirePro, async (req, res) => {
     const log = await storage.getActiveTimeLog(userId(req));
     res.json(log ?? null);
   });
 
-  app.post("/api/time-logs/clock-in", requireAuth, async (req, res) => {
+  app.post("/api/time-logs/clock-in", requireAuth, requirePro, async (req, res) => {
     try {
       // Check if already clocked in
       const active = await storage.getActiveTimeLog(userId(req));
@@ -837,7 +847,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/time-logs/clock-out", requireAuth, async (req, res) => {
+  app.post("/api/time-logs/clock-out", requireAuth, requirePro, async (req, res) => {
     try {
       const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
       const log = await storage.clockOut(userId(req), notes);
@@ -851,7 +861,7 @@ export async function registerRoutes(
 
   // ── Loyalty Points ────────────────────────────────────────────────────────
 
-  app.post("/api/customers/:id/loyalty", requireAuth, async (req, res) => {
+  app.post("/api/customers/:id/loyalty", requireAuth, requirePro, async (req, res) => {
     try {
       const { delta } = z.object({ delta: z.number() }).parse(req.body);
       const customer = await storage.adjustLoyaltyPoints(Number(req.params.id), delta, userId(req));
@@ -865,7 +875,7 @@ export async function registerRoutes(
 
   // ── Kitchen Status Update ─────────────────────────────────────────────────
 
-  app.patch("/api/pending-orders/:id/kitchen", requireAuth, async (req, res) => {
+  app.patch("/api/pending-orders/:id/kitchen", requireAuth, requirePro, async (req, res) => {
     try {
       const { kitchenStatus } = z.object({ kitchenStatus: z.enum(["pending", "preparing", "ready", "done"]) }).parse(req.body);
       const order = await storage.updatePendingOrder(Number(req.params.id), userId(req), { kitchenStatus });
@@ -879,18 +889,18 @@ export async function registerRoutes(
 
   // ── Service Staff ─────────────────────────────────────────────────────────
 
-  app.get("/api/service-staff", requireAuth, async (req, res) => {
+  app.get("/api/service-staff", requireAuth, requirePro, async (req, res) => {
     const staff = await storage.getServiceStaff(userId(req));
     res.json(staff);
   });
 
-  app.get("/api/service-staff/:id", requireAuth, async (req, res) => {
+  app.get("/api/service-staff/:id", requireAuth, requirePro, async (req, res) => {
     const member = await storage.getServiceStaffMember(Number(req.params.id), userId(req));
     if (!member) return res.status(404).json({ message: "Staff member not found" });
     res.json(member);
   });
 
-  app.post("/api/service-staff", requireAuth, async (req, res) => {
+  app.post("/api/service-staff", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertServiceStaffSchema.parse(req.body);
       const member = await storage.createServiceStaff(userId(req), input);
@@ -901,7 +911,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/service-staff/:id", requireAuth, async (req, res) => {
+  app.put("/api/service-staff/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertServiceStaffSchema.partial().parse(req.body);
       const member = await storage.updateServiceStaff(Number(req.params.id), userId(req), input);
@@ -913,7 +923,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/service-staff/:id", requireAuth, async (req, res, next) => {
+  app.delete("/api/service-staff/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       await storage.deleteServiceStaff(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -922,12 +932,12 @@ export async function registerRoutes(
 
   // ── Service Rooms ─────────────────────────────────────────────────────────
 
-  app.get("/api/service-rooms", requireAuth, async (req, res) => {
+  app.get("/api/service-rooms", requireAuth, requirePro, async (req, res) => {
     const rooms = await storage.getServiceRooms(userId(req));
     res.json(rooms);
   });
 
-  app.post("/api/service-rooms", requireAuth, async (req, res) => {
+  app.post("/api/service-rooms", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertServiceRoomSchema.parse(req.body);
       const room = await storage.createServiceRoom(userId(req), input);
@@ -938,7 +948,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/service-rooms/:id", requireAuth, async (req, res) => {
+  app.put("/api/service-rooms/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertServiceRoomSchema.partial().parse(req.body);
       const room = await storage.updateServiceRoom(Number(req.params.id), userId(req), input);
@@ -950,7 +960,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/service-rooms/:id", requireAuth, async (req, res, next) => {
+  app.delete("/api/service-rooms/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       await storage.deleteServiceRoom(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -959,7 +969,7 @@ export async function registerRoutes(
 
   // ── Appointments ──────────────────────────────────────────────────────────
 
-  app.get("/api/appointments", requireAuth, async (req, res) => {
+  app.get("/api/appointments", requireAuth, requirePro, async (req, res) => {
     const { date, staffId, status } = req.query as Record<string, string>;
     const appts = await storage.getAppointments(userId(req), {
       date: date || undefined,
@@ -969,13 +979,13 @@ export async function registerRoutes(
     res.json(appts);
   });
 
-  app.get("/api/appointments/:id", requireAuth, async (req, res) => {
+  app.get("/api/appointments/:id", requireAuth, requirePro, async (req, res) => {
     const appt = await storage.getAppointment(Number(req.params.id), userId(req));
     if (!appt) return res.status(404).json({ message: "Appointment not found" });
     res.json(appt);
   });
 
-  app.post("/api/appointments", requireAuth, async (req, res) => {
+  app.post("/api/appointments", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertAppointmentSchema.parse(req.body);
       const appt = await storage.createAppointment(userId(req), input);
@@ -986,7 +996,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/appointments/:id", requireAuth, async (req, res) => {
+  app.put("/api/appointments/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertAppointmentSchema.partial().parse(req.body);
       const appt = await storage.updateAppointment(Number(req.params.id), userId(req), input);
@@ -998,19 +1008,19 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/appointments/:id", requireAuth, async (req, res) => {
+  app.delete("/api/appointments/:id", requireAuth, requirePro, async (req, res) => {
     await storage.deleteAppointment(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
   // ── Membership Plans ──────────────────────────────────────────────────────
 
-  app.get("/api/membership-plans", requireAuth, async (req, res) => {
+  app.get("/api/membership-plans", requireAuth, requirePro, async (req, res) => {
     const plans = await storage.getMembershipPlans(userId(req));
     res.json(plans);
   });
 
-  app.post("/api/membership-plans", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.post("/api/membership-plans", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertMembershipPlanSchema.parse(req.body);
       const plan = await storage.createMembershipPlan(userId(req), input);
@@ -1021,7 +1031,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/membership-plans/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.put("/api/membership-plans/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertMembershipPlanSchema.partial().parse(req.body);
       const plan = await storage.updateMembershipPlan(Number(req.params.id), userId(req), input);
@@ -1033,25 +1043,25 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/membership-plans/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.delete("/api/membership-plans/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     await storage.deleteMembershipPlan(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
   // ── Memberships ───────────────────────────────────────────────────────────
 
-  app.get("/api/memberships", requireAuth, async (req, res) => {
+  app.get("/api/memberships", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getMemberships(userId(req));
     res.json(list);
   });
 
-  app.get("/api/memberships/:id", requireAuth, async (req, res) => {
+  app.get("/api/memberships/:id", requireAuth, requirePro, async (req, res) => {
     const m = await storage.getMembership(Number(req.params.id), userId(req));
     if (!m) return res.status(404).json({ message: "Membership not found" });
     res.json(m);
   });
 
-  app.post("/api/memberships", requireAuth, async (req, res) => {
+  app.post("/api/memberships", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertMembershipSchema.parse(req.body);
       const m = await storage.createMembership(userId(req), input);
@@ -1062,7 +1072,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/memberships/:id", requireAuth, async (req, res) => {
+  app.put("/api/memberships/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertMembershipSchema.partial().parse(req.body);
       const m = await storage.updateMembership(Number(req.params.id), userId(req), input);
@@ -1074,12 +1084,12 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/memberships/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.delete("/api/memberships/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     await storage.deleteMembership(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
-  app.post("/api/memberships/:id/check-in", requireAuth, async (req, res) => {
+  app.post("/api/memberships/:id/check-in", requireAuth, requirePro, async (req, res) => {
     try {
       const m = await storage.getMembership(Number(req.params.id), userId(req));
       if (!m) return res.status(404).json({ message: "Membership not found" });
@@ -1093,7 +1103,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/memberships/:id/check-ins", requireAuth, async (req, res) => {
+  app.get("/api/memberships/:id/check-ins", requireAuth, requirePro, async (req, res) => {
     const checkIns = await storage.getCheckIns(Number(req.params.id), userId(req));
     res.json(checkIns);
   });

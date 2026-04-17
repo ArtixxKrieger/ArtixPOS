@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import {
   requireAuth, requireOwner, requireAdminOrAbove, requireManagerOrAbove,
-  requireTenant, getAuthUser
+  requireTenant, getAuthUser, getSubscription, isProSubscription
 } from "./middleware";
 import {
   getTenant, updateTenant, createTenant,
@@ -174,6 +174,13 @@ export function registerAdminRoutes(app: Express) {
   app.post("/api/admin/branches", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
+      const sub = await getSubscription(user.tenantId!);
+      if (!isProSubscription(sub)) {
+        const existingBranches = await getBranches(user.tenantId!);
+        if (existingBranches.length >= 1) {
+          return res.status(403).json({ message: "Free plan is limited to 1 branch. Upgrade to Pro for unlimited branches.", code: "BRANCH_LIMIT_REACHED" });
+        }
+      }
       const input = z.object({
         name: z.string().min(1),
         address: z.string().optional().nullable(),
@@ -248,6 +255,13 @@ export function registerAdminRoutes(app: Express) {
   app.post("/api/admin/users", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
+      const sub = await getSubscription(user.tenantId!);
+      if (!isProSubscription(sub)) {
+        const tenantUsers = await getTenantUsers(user.tenantId!);
+        if (tenantUsers.length >= 3) {
+          return res.status(403).json({ message: "Free plan is limited to 3 staff accounts. Upgrade to Pro for unlimited staff.", code: "STAFF_LIMIT_REACHED" });
+        }
+      }
       const input = z.object({
         name: z.string().min(1),
         email: z.string().email(),

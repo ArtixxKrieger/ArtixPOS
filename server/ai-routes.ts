@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { requireAuth } from "./middleware";
+import { requireAuth, requirePro } from "./middleware";
 import { storage } from "./storage";
 import { db } from "./db";
 import { bannedUserIds } from "./auth";
@@ -1534,6 +1534,9 @@ function checkOutputSafety(fullResponse: string): string | null {
 }
 
 export function registerAiRoutes(app: Express) {
+  // Require Pro subscription for all AI routes
+  app.use("/api/ai", requireAuth, requirePro);
+
   // ── Chat endpoint (streaming SSE) ────────────────────────────────────────────
   app.post("/api/ai/chat", requireAuth, async (req: Request, res: Response) => {
     const requestId = Math.random().toString(36).slice(2, 8);

@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
+import { useSubscription } from "@/hooks/use-subscription";
 import { useEffect, useState } from "react";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
@@ -168,6 +169,22 @@ function useNativeDeepLink() {
   }, []);
 }
 
+function ProGuard({ component: Component }: { component: () => JSX.Element }) {
+  const { isPro, isLoading } = useSubscription();
+  if (isLoading) return null;
+  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
+  return <Component />;
+}
+
+function ProAndCashierGuard({ component: Component }: { component: () => JSX.Element }) {
+  const { user } = useAuth();
+  const { isPro, isLoading } = useSubscription();
+  if (isLoading) return null;
+  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
+  if (user?.role === "cashier") return <Redirect to="/" />;
+  return <Component />;
+}
+
 function CashierGuard({ component: Component }: { component: () => JSX.Element }) {
   const { user } = useAuth();
   if (user?.role === "cashier") return <Redirect to="/" />;
@@ -230,7 +247,7 @@ function AppRouter() {
         <Route path="/pos" component={POS} />
         <Route path="/pending" component={PendingOrders} />
         <Route path="/products" component={() => <CashierGuard component={Products} />} />
-        <Route path="/analytics" component={() => <CashierGuard component={Analytics} />} />
+        <Route path="/analytics" component={() => <ProAndCashierGuard component={Analytics} />} />
         <Route path="/transactions" component={() => <CashierGuard component={Transactions} />} />
         <Route path="/settings" component={Settings} />
         <Route path="/admin" component={() => <AdminGuard component={AdminIndex} />} />
@@ -239,21 +256,21 @@ function AppRouter() {
         <Route path="/admin/analytics" component={() => <AdminGuard component={AdminAnalytics} />} />
         <Route path="/admin/audit-logs" component={() => <AdminGuard component={AdminAuditLogs} />} />
         <Route path="/admin/permissions" component={() => <AdminGuard component={AdminPermissions} />} />
-        <Route path="/customers" component={() => <CashierGuard component={Customers} />} />
-        <Route path="/expenses" component={() => <CashierGuard component={Expenses} />} />
-        <Route path="/shifts" component={Shifts} />
-        <Route path="/discount-codes" component={() => <CashierGuard component={DiscountCodes} />} />
+        <Route path="/customers" component={() => <ProAndCashierGuard component={Customers} />} />
+        <Route path="/expenses" component={() => <ProAndCashierGuard component={Expenses} />} />
+        <Route path="/shifts" component={() => <ProGuard component={Shifts} />} />
+        <Route path="/discount-codes" component={() => <ProAndCashierGuard component={DiscountCodes} />} />
         <Route path="/refunds" component={() => <ManagerOrAboveGuard component={Refunds} />} />
-        <Route path="/ai" component={AiPage} />
-        <Route path="/tables" component={TablesPage} />
-        <Route path="/kitchen" component={KitchenPage} />
-        <Route path="/suppliers" component={() => <CashierGuard component={SuppliersPage} />} />
-        <Route path="/purchases" component={() => <CashierGuard component={PurchasesPage} />} />
-        <Route path="/timeclock" component={TimeClockPage} />
-        <Route path="/appointments" component={AppointmentsPage} />
+        <Route path="/ai" component={() => <ProGuard component={AiPage} />} />
+        <Route path="/tables" component={() => <ProGuard component={TablesPage} />} />
+        <Route path="/kitchen" component={() => <ProGuard component={KitchenPage} />} />
+        <Route path="/suppliers" component={() => <ProAndCashierGuard component={SuppliersPage} />} />
+        <Route path="/purchases" component={() => <ProAndCashierGuard component={PurchasesPage} />} />
+        <Route path="/timeclock" component={() => <ProGuard component={TimeClockPage} />} />
+        <Route path="/appointments" component={() => <ProGuard component={AppointmentsPage} />} />
         <Route path="/staff" component={() => <CashierGuard component={StaffPage} />} />
-        <Route path="/rooms" component={RoomsPage} />
-        <Route path="/memberships" component={MembershipsPage} />
+        <Route path="/rooms" component={() => <ProGuard component={RoomsPage} />} />
+        <Route path="/memberships" component={() => <ProGuard component={MembershipsPage} />} />
         <Route path="/billing" component={BillingPage} />
         <Route component={NotFound} />
       </Switch>

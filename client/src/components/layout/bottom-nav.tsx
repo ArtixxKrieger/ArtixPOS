@@ -9,6 +9,7 @@ import {
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
+import { useSubscription } from "@/hooks/use-subscription";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { getBusinessFeatures } from "@/lib/business-features";
 
@@ -39,27 +40,27 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
 };
 
 const MORE_NAV_FULL = [
-  { url: "/kitchen", cashierHidden: false },
-  { url: "/tables", cashierHidden: false },
-  { url: "/appointments", cashierHidden: false },
+  { url: "/kitchen", cashierHidden: false, proOnly: true },
+  { url: "/tables", cashierHidden: false, proOnly: true },
+  { url: "/appointments", cashierHidden: false, proOnly: true },
   { url: "/staff", cashierHidden: true },
-  { url: "/rooms", cashierHidden: false },
-  { url: "/memberships", cashierHidden: false },
+  { url: "/rooms", cashierHidden: false, proOnly: true },
+  { url: "/memberships", cashierHidden: false, proOnly: true },
   { url: "/products", cashierHidden: true },
-  { url: "/customers", cashierHidden: true },
+  { url: "/customers", cashierHidden: true, proOnly: true },
   { url: "/transactions", cashierHidden: true },
-  { url: "/analytics", cashierHidden: true },
-  { url: "/expenses", cashierHidden: true },
-  { url: "/suppliers", cashierHidden: true },
-  { url: "/purchases", cashierHidden: true },
-  { url: "/shifts", cashierHidden: false },
-  { url: "/timeclock", cashierHidden: false },
-  { url: "/discount-codes", cashierHidden: true },
+  { url: "/analytics", cashierHidden: true, proOnly: true },
+  { url: "/expenses", cashierHidden: true, proOnly: true },
+  { url: "/suppliers", cashierHidden: true, proOnly: true },
+  { url: "/purchases", cashierHidden: true, proOnly: true },
+  { url: "/shifts", cashierHidden: false, proOnly: true },
+  { url: "/timeclock", cashierHidden: false, proOnly: true },
+  { url: "/discount-codes", cashierHidden: true, proOnly: true },
   { url: "/refunds", cashierHidden: true, managerOnly: true },
-  { url: "/ai", cashierHidden: false },
+  { url: "/ai", cashierHidden: false, proOnly: true },
   { url: "/billing", cashierHidden: true },
   { url: "/settings", cashierHidden: false },
-] as const;
+];
 
 const ADMIN_NAV = [
   { label: "Overview", url: "/admin", icon: ShieldCheck },
@@ -74,6 +75,7 @@ export function BottomNav() {
   const { data: pendingOrders = [] } = usePendingOrders();
   const { user } = useAuth();
   const { data: settings } = useSettings();
+  const { isFree } = useSubscription();
 
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
@@ -102,6 +104,7 @@ export function BottomNav() {
 
   const MORE_NAV = MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
+    if (isFree && (i as any).proOnly) return false;
     if (isCashier && i.cashierHidden) return false;
     if ((i as any).managerOnly && !isManagerOrAbove) return false;
     if (hiddenUrls.has(i.url)) return false;

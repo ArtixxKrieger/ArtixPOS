@@ -289,7 +289,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
         if (!text) {
           return { ok: false, error: "This printer requires bitmap data. Please retry printing." };
         }
-        const energy = "energy" in args ? (args.energy ?? 65000) : 65000;
+        const energy = "energy" in args ? (args.energy ?? 65535) : 65535;
         const catReceiptWidth = "catReceiptWidth" in args ? (args.catReceiptWidth ?? "58mm") : "58mm";
         const catFontSize = "catFontSize" in args ? args.catFontSize : undefined;
         const packets = buildCatPrinterPackets(text, energy, catReceiptWidth, catFontSize);

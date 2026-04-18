@@ -89,7 +89,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const now = new Date();
 
   const receiptWidth = s.receiptWidth ?? "80mm";
-  const printDarkness = s.printDarkness ?? 65000;
+  const printDarkness = s.printDarkness ?? 65535;
   const receiptFontSize = 25;
   const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";
   const receiptHeaderText = s.receiptHeaderText ?? "";

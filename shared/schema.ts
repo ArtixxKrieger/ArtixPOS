@@ -322,7 +322,7 @@ export const userSettings = pgTable("user_settings", {
   receiptShowCashier: integer("receipt_show_cashier").default(0),
   receiptShowUnitPrice: integer("receipt_show_unit_price").default(0),
   receiptShowPoweredBy: integer("receipt_show_powered_by").default(1),
-  printDarkness: integer("print_darkness").default(8000),
+  printDarkness: integer("print_darkness").default(32000),
 });
 
 // ─── Service Staff ────────────────────────────────────────────────────────────

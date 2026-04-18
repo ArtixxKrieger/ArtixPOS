@@ -55,10 +55,10 @@ function packet(cmd: number, data: number[]): number[] {
 
 /** Render plain-text receipt lines onto an off-screen canvas → 1-bit raster rows */
 function textToRasterRows(text: string): number[][] {
-  const FONT_SIZE   = 16;  // px
-  const LINE_HEIGHT = 20;  // px
-  const MARGIN_X    = 6;   // px left/right padding
-  const MARGIN_Y    = 6;   // px top padding
+  const FONT_SIZE   = 18;   // px — larger for denser pixels
+  const LINE_HEIGHT = 22;   // px
+  const MARGIN_X    = 4;    // px left/right padding
+  const MARGIN_Y    = 4;    // px top padding
 
   const lines = text.split("\n");
   const height = MARGIN_Y * 2 + lines.length * LINE_HEIGHT;
@@ -67,12 +67,17 @@ function textToRasterRows(text: string): number[][] {
   canvas.width  = PRINT_WIDTH;
   canvas.height = height;
 
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "white";
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+
+  // Force white background explicitly
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, PRINT_WIDTH, height);
-  ctx.fillStyle = "black";
-  ctx.font      = `${FONT_SIZE}px "Courier New", monospace`;
+
+  // Bold monospace font — captures more pixels per glyph and survives anti-aliasing
+  ctx.fillStyle = "#000000";
+  ctx.font      = `bold ${FONT_SIZE}px "Courier New", "Lucida Console", monospace`;
   ctx.textBaseline = "top";
+  ctx.imageSmoothingEnabled = false;
 
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], MARGIN_X, MARGIN_Y + i * LINE_HEIGHT);
@@ -85,8 +90,9 @@ function textToRasterRows(text: string): number[][] {
     const row = new Array<number>(BYTES_PER_ROW).fill(0);
     for (let x = 0; x < PRINT_WIDTH; x++) {
       const idx = (y * PRINT_WIDTH + x) * 4;
-      const brightness = (imgData.data[idx] + imgData.data[idx + 1] + imgData.data[idx + 2]) / 3;
-      if (brightness < 128) {
+      // Use only the red channel (white bg → 255, black text → 0).
+      // Threshold at 200 to capture anti-aliased grey edges as printed dots.
+      if (imgData.data[idx] < 200) {
         row[Math.floor(x / 8)] |= 0x80 >> (x % 8);
       }
     }
@@ -101,11 +107,14 @@ function textToRasterRows(text: string): number[][] {
  * Each element is one complete cat-printer packet — send them one at a time
  * with a ~20ms delay between each.
  */
-export function buildCatPrinterPackets(receiptText: string, energy = 8000): number[][] {
+export function buildCatPrinterPackets(receiptText: string, energy = 32000): number[][] {
   const packets: number[][] = [];
 
-  // 1. Set darkness (energy)
-  packets.push(packet(CMD_SET_ENERGY, [energy & 0xff, (energy >> 8) & 0xff]));
+  // 1. Set darkness (energy) — send 3× to ensure the printer registers it
+  const energyData = [energy & 0xff, (energy >> 8) & 0xff];
+  packets.push(packet(CMD_SET_ENERGY, energyData));
+  packets.push(packet(CMD_SET_ENERGY, energyData));
+  packets.push(packet(CMD_SET_ENERGY, energyData));
 
   // 2. One packet per raster row
   const rows = textToRasterRows(receiptText);

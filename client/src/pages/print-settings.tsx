@@ -276,7 +276,7 @@ export default function PrintSettings() {
     emailContact: "",
     receiptFooter: "",
     currency: "₱",
-    printDarkness: 8000,
+    printDarkness: 32000,
   });
 
   useEffect(() => {
@@ -301,7 +301,7 @@ export default function PrintSettings() {
       emailContact: s.emailContact ?? "",
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
-      printDarkness: s.printDarkness ?? 8000,
+      printDarkness: s.printDarkness ?? 32000,
     });
   }, [settings]);
 
@@ -544,14 +544,16 @@ export default function PrintSettings() {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-muted-foreground">Light</span>
-                  <span className="text-[11px] font-medium text-foreground">{Math.round(cfg.printDarkness / 100)}%</span>
+                  <span className="text-[11px] font-medium text-foreground">
+                    {cfg.printDarkness < 15000 ? "Low" : cfg.printDarkness < 40000 ? "Medium" : cfg.printDarkness < 55000 ? "High" : "Max"}
+                  </span>
                   <span className="text-[11px] text-muted-foreground">Dark</span>
                 </div>
                 <input
                   type="range"
-                  min={1000}
-                  max={12000}
-                  step={500}
+                  min={5000}
+                  max={65000}
+                  step={1000}
                   value={cfg.printDarkness}
                   onChange={e => set("printDarkness", Number(e.target.value))}
                   className="w-full accent-primary h-1.5 rounded-full cursor-pointer"

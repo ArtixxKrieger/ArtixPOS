@@ -177,40 +177,81 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         }
       });
     } else {
-      // Capture HTML content before closing the modal
       const width = receiptWidth === "58mm" ? 210 : 280;
-      const printContent = document.getElementById("receipt-printable");
-      if (!printContent) return;
-      const capturedHtml = printContent.innerHTML;
-      // Close immediately so cashier can start next sale
-      onClose();
-      const win = window.open("", "_blank", "width=360,height=700");
-      if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
-      win.document.write(`<!DOCTYPE html>
+      const fs = receiptFontSize;
+      const fmt = (n: number) => formatCurrency(n, currency);
+      const dateStr = format(now, "MMM d, yyyy h:mm a");
+
+      const itemsHtml = receipt.items.map(item => {
+        const basePrice = parseFloat(item.size?.price || String(item.product.price ?? "0") || "0");
+        const modsTotal = (item.modifiers || []).reduce((acc, m) => acc + parseFloat(m.price || "0"), 0);
+        const unitPrice = basePrice + modsTotal;
+        const lineTotal = unitPrice * item.quantity;
+        return `
+          <div class="row">
+            <span class="item-name">${item.product.name}${item.size ? ` (${item.size.name})` : ""} x${item.quantity}</span>
+            <span>${fmt(lineTotal)}</span>
+          </div>
+          ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
+          ${item.modifiers && item.modifiers.length > 0 ? `<div class="muted" style="padding-left:12px">+ ${item.modifiers.map(m => m.name).join(", ")}</div>` : ""}
+          ${item.note ? `<div class="muted" style="padding-left:12px;font-style:italic">Note: ${item.note}</div>` : ""}
+        `;
+      }).join("");
+
+      const printHtml = `<!DOCTYPE html>
 <html>
   <head>
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: ${receiptFontSize}px; font-weight: 600; width: ${width}px; padding: 12px 12px 80px 12px; }
+      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 600; width: ${width}px; padding: 12px 12px 80px 12px; }
       .center { text-align: center; }
       .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
-      .item-name { flex: 1; margin-right: 8px; }
-      .total-row { font-weight: 800; font-size: ${receiptFontSize + 2}px; }
-      .footer { text-align: center; color: #555; }
-      .muted { color: #555; }
-      .small { }
+      .item-name { flex: 1; margin-right: 8px; font-weight: 700; }
+      .total-row { font-weight: 800; font-size: ${fs + 2}px; }
+      .muted { color: #555; font-size: ${fs - 2}px; }
       .green { color: #16a34a; font-weight: 700; }
-      .unit-price { color: #888; padding-left: 12px; }
+      .footer { text-align: center; color: #555; }
     </style>
   </head>
   <body>
-    ${capturedHtml}
+    <div class="center">
+      ${receipt.storeName ? `<p class="bold" style="font-size:${fs + 2}px">${receipt.storeName}</p>` : ""}
+      ${receiptHeaderText ? `<p class="muted">${receiptHeaderText}</p>` : ""}
+      ${receiptTitle ? `<p style="font-size:${fs - 1}px;font-weight:700">${receiptTitle}</p>` : ""}
+      <p class="muted">${dateStr}</p>
+      ${showAddress && storeAddress ? `<p class="muted">${storeAddress}</p>` : ""}
+      ${showPhone && storePhone ? `<p class="muted">Tel: ${storePhone}</p>` : ""}
+      ${showEmail && storeEmail ? `<p class="muted">${storeEmail}</p>` : ""}
+      ${receipt.customerName ? `<p class="muted">Customer: ${receipt.customerName}</p>` : ""}
+    </div>
+    ${showOrderNumber && receipt.orderNumber ? `<div class="row muted" style="margin-bottom:4px"><span>Order #</span><span>${receipt.orderNumber}</span></div>` : ""}
+    ${showCashier && receipt.cashierName ? `<div class="row muted" style="margin-bottom:4px"><span>Cashier</span><span>${receipt.cashierName}</span></div>` : ""}
+    <div class="line"></div>
+    ${itemsHtml}
+    <div class="line"></div>
+    <div class="row muted"><span>Subtotal</span><span>${fmt(receipt.subtotal)}</span></div>
+    ${hasDiscount ? `<div class="row" style="color:#e11d48;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span>-${fmt(receipt.discount)}</span></div>` : ""}
+    ${hasTax ? `<div class="row muted"><span>Tax</span><span>${fmt(receipt.tax)}</span></div>` : ""}
+    ${hasLoyalty ? `<div class="row" style="color:#d97706;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span>-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
+    <div class="line"></div>
+    <div class="row total-row"><span>TOTAL</span><span>${fmt(receipt.total)}</span></div>
+    <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span>${fmt(receipt.paymentAmount)}</span></div>
+    ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(receipt.changeAmount)}</span></div>` : ""}
+    ${receipt.loyaltyPointsEarned && receipt.loyaltyPointsEarned > 0 ? `<p class="center" style="color:#d97706;margin-top:4px;font-size:${fs - 2}px">+${receipt.loyaltyPointsEarned} loyalty points earned</p>` : ""}
+    ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${receipt.receiptFooter}</p>` : ""}
+    <p class="center muted" style="margin-top:6px">Thank you!</p>
+    <p class="center" style="color:#ccc;font-size:${fs - 3}px;margin-top:2px">Powered by ArtixPOS</p>
     <script>window.onload = function() { window.print(); window.close(); }<\/script>
   </body>
-</html>`);
+</html>`;
+
+      onClose();
+      const win = window.open("", "_blank", "width=360,height=700");
+      if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
+      win.document.write(printHtml);
       win.document.close();
     }
   };

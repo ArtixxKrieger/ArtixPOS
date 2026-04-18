@@ -154,7 +154,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 <html><head><title>Receipt</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:600;width:${paperPx}px;padding:12px}
+  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:600;width:${paperPx}px;padding:12px 12px 80px 12px}
   .center{text-align:center}
   .bold{font-weight:800}
   .line{border-top:1px dashed #000;margin:6px 0}

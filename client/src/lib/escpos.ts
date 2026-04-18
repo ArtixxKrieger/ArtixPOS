@@ -176,7 +176,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   if (r.showPoweredBy) push(text("Powered by ArtixPOS\n"));
   push(bytes(ESC, 0x61, 0x00));
 
-  push(bytes(LF, LF, LF));
+  push(bytes(LF, LF, LF, LF, LF, LF));
   push(bytes(GS, 0x56, 0x42, 0x00));
 
   return new Uint8Array(out);

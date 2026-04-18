@@ -165,7 +165,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
       // Fire in background — don't block the UI
       print({
         escpos: buildReceiptEscPos(receiptData),
-        catText: buildReceiptText(receiptData, charsPerLine),
+        catText: buildReceiptText(receiptData, charsPerLine) + "\n\n\n\n\n",
         energy: printDarkness,
         catReceiptWidth: receiptWidth,
         catFontSize: receiptFontSize,
@@ -192,18 +192,18 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: ${receiptFontSize}px; font-weight: 600; width: ${width}px; padding: 12px; }
+      body { font-family: 'Courier New', monospace; font-size: ${receiptFontSize}px; font-weight: 600; width: ${width}px; padding: 12px 12px 80px 12px; }
       .center { text-align: center; }
       .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
       .item-name { flex: 1; margin-right: 8px; }
       .total-row { font-weight: 800; font-size: ${receiptFontSize + 2}px; }
-      .footer { text-align: center; font-size: ${receiptFontSize - 2}px; color: #555; }
-      .muted { color: #555; font-size: ${receiptFontSize - 2}px; }
-      .small { font-size: ${receiptFontSize - 2}px; }
+      .footer { text-align: center; color: #555; }
+      .muted { color: #555; }
+      .small { }
       .green { color: #16a34a; font-weight: 700; }
-      .unit-price { font-size: ${receiptFontSize - 2}px; color: #888; padding-left: 12px; }
+      .unit-price { color: #888; padding-left: 12px; }
     </style>
   </head>
   <body>
@@ -223,45 +223,45 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         </DialogHeader>
 
         <div className="px-5 pb-5 max-h-[70vh] overflow-y-auto scrollbar-hide">
-          <div id="receipt-printable" className="font-mono text-xs space-y-1">
+          <div id="receipt-printable" className="font-mono space-y-1" style={{ fontSize: `${receiptFontSize}px` }}>
             <div className="center text-center mb-3">
               {receipt.storeName && (
-                <p className="bold font-bold text-sm">{receipt.storeName}</p>
+                <p className="bold font-bold" style={{ fontSize: `${receiptFontSize + 1}px` }}>{receipt.storeName}</p>
               )}
               {receiptHeaderText && (
-                <p className="text-[10px] text-muted-foreground">{receiptHeaderText}</p>
+                <p className="text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>{receiptHeaderText}</p>
               )}
               {receiptTitle && (
-                <p className="text-[11px] font-semibold text-muted-foreground mt-0.5">{receiptTitle}</p>
+                <p className="font-semibold text-muted-foreground mt-0.5" style={{ fontSize: `${Math.max(8, receiptFontSize - 2)}px` }}>{receiptTitle}</p>
               )}
-              <p className="text-muted-foreground text-[10px] mt-0.5">{format(now, "MMM d, yyyy h:mm a")}</p>
+              <p className="text-muted-foreground mt-0.5" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>{format(now, "MMM d, yyyy h:mm a")}</p>
               {showAddress && storeAddress && (
-                <p className="text-[10px] text-muted-foreground">{storeAddress}</p>
+                <p className="text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>{storeAddress}</p>
               )}
               {showPhone && storePhone && (
-                <p className="text-[10px] text-muted-foreground">Tel: {storePhone}</p>
+                <p className="text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>Tel: {storePhone}</p>
               )}
               {showEmail && storeEmail && (
-                <p className="text-[10px] text-muted-foreground">{storeEmail}</p>
+                <p className="text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>{storeEmail}</p>
               )}
               {showWebsite && receiptWebsite && (
-                <p className="text-[10px] text-muted-foreground">{receiptWebsite}</p>
+                <p className="text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>{receiptWebsite}</p>
               )}
               {receipt.customerName && (
-                <p className="text-[10px] mt-0.5">Customer: {receipt.customerName}</p>
+                <p className="mt-0.5" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>Customer: {receipt.customerName}</p>
               )}
             </div>
 
             {(showOrderNumber && receipt.orderNumber) || (showCashier && receipt.cashierName) ? (
               <div className="space-y-0.5 mb-1">
                 {showOrderNumber && receipt.orderNumber && (
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <div className="flex justify-between text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>
                     <span>Order #</span>
                     <span className="tabular-nums">{receipt.orderNumber}</span>
                   </div>
                 )}
                 {showCashier && receipt.cashierName && (
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <div className="flex justify-between text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>
                     <span>Cashier</span>
                     <span>{receipt.cashierName}</span>
                   </div>
@@ -278,28 +278,28 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 const unitPrice = basePrice + modsTotal;
                 return (
                   <div key={i}>
-                    <div className="flex justify-between">
-                      <span className="flex-1 mr-2 font-medium text-[11px]">
+                    <div className="flex justify-between" style={{ fontSize: `${receiptFontSize}px` }}>
+                      <span className="flex-1 mr-2 font-medium">
                         {item.product.name}
                         {item.size && <span className="text-muted-foreground"> ({item.size.name})</span>}
                         {" "}x{item.quantity}
                       </span>
-                      <span className="tabular-nums text-[11px]">
+                      <span className="tabular-nums">
                         {formatCurrency(unitPrice * item.quantity, currency)}
                       </span>
                     </div>
                     {showUnitPrice && unitPrice > 0 && (
-                      <div className="unit-price pl-3 text-muted-foreground text-[10px]">
+                      <div className="unit-price pl-3 text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 2)}px` }}>
                         {formatCurrency(unitPrice, currency)} × {item.quantity}
                       </div>
                     )}
                     {item.modifiers && item.modifiers.length > 0 && (
-                      <div className="pl-3 text-muted-foreground text-[10px]">
+                      <div className="pl-3 text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 2)}px` }}>
                         {item.modifiers.map(m => `+ ${m.name}`).join(", ")}
                       </div>
                     )}
                     {item.note && (
-                      <div className="pl-3 text-muted-foreground text-[10px] italic">Note: {item.note}</div>
+                      <div className="pl-3 text-muted-foreground italic" style={{ fontSize: `${Math.max(8, receiptFontSize - 2)}px` }}>Note: {item.note}</div>
                     )}
                   </div>
                 );
@@ -309,44 +309,44 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             <div className="border-t border-dashed border-border/60 my-2" />
 
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-muted-foreground">
+              <div className="flex justify-between text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 1)}px` }}>
                 <span>Subtotal</span>
                 <span className="tabular-nums">{formatCurrency(receipt.subtotal, currency)}</span>
               </div>
               {hasDiscount && (
-                <div className="flex justify-between text-[11px] text-rose-500">
+                <div className="flex justify-between text-rose-500" style={{ fontSize: `${Math.max(8, receiptFontSize - 1)}px` }}>
                   <span>Discount {receipt.discountCode ? `(${receipt.discountCode})` : ""}</span>
                   <span className="tabular-nums">-{formatCurrency(receipt.discount, currency)}</span>
                 </div>
               )}
               {hasTax && (
-                <div className="flex justify-between text-[11px] text-muted-foreground">
+                <div className="flex justify-between text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 1)}px` }}>
                   <span>Tax</span>
                   <span className="tabular-nums">{formatCurrency(receipt.tax, currency)}</span>
                 </div>
               )}
               {hasLoyalty && (
-                <div className="flex justify-between text-[11px] text-amber-600">
+                <div className="flex justify-between text-amber-600" style={{ fontSize: `${Math.max(8, receiptFontSize - 1)}px` }}>
                   <span>Loyalty Redemption</span>
                   <span className="tabular-nums">-{formatCurrency(receipt.loyaltyDiscount, currency)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-sm pt-1 border-t border-dashed border-border/60">
+              <div className="flex justify-between font-bold pt-1 border-t border-dashed border-border/60" style={{ fontSize: `${receiptFontSize + 1}px` }}>
                 <span>TOTAL</span>
                 <span className="tabular-nums">{formatCurrency(receipt.total, currency)}</span>
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground">
+              <div className="flex justify-between text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 1)}px` }}>
                 <span>Payment ({receipt.paymentMethod.toUpperCase()})</span>
                 <span className="tabular-nums">{formatCurrency(receipt.paymentAmount, currency)}</span>
               </div>
               {isCash && receipt.changeAmount > 0 && (
-                <div className="flex justify-between text-[11px] text-emerald-600 font-semibold green">
+                <div className="flex justify-between text-emerald-600 font-semibold green" style={{ fontSize: `${Math.max(8, receiptFontSize - 1)}px` }}>
                   <span>Change</span>
                   <span className="tabular-nums">{formatCurrency(receipt.changeAmount, currency)}</span>
                 </div>
               )}
               {receipt.loyaltyPointsEarned != null && receipt.loyaltyPointsEarned > 0 && (
-                <div className="text-[10px] text-amber-600 text-center mt-1">
+                <div className="text-amber-600 text-center mt-1" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>
                   +{receipt.loyaltyPointsEarned} loyalty points earned
                 </div>
               )}
@@ -355,12 +355,12 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             {receipt.receiptFooter && (
               <>
                 <div className="border-t border-dashed border-border/60 my-2" />
-                <p className="footer text-center text-[10px] text-muted-foreground">{receipt.receiptFooter}</p>
+                <p className="footer text-center text-muted-foreground" style={{ fontSize: `${Math.max(8, receiptFontSize - 2)}px` }}>{receipt.receiptFooter}</p>
               </>
             )}
-            <p className="text-center text-[10px] text-muted-foreground/50 mt-2">Thank you!</p>
+            <p className="text-center text-muted-foreground/50 mt-3" style={{ fontSize: `${Math.max(8, receiptFontSize - 2)}px` }}>Thank you!</p>
             {showPoweredBy && (
-              <p className="text-center text-[9px] text-muted-foreground/30 mt-0.5">Powered by ArtixPOS</p>
+              <p className="text-center text-muted-foreground/30 mt-1 pb-4" style={{ fontSize: `${Math.max(8, receiptFontSize - 3)}px` }}>Powered by ArtixPOS</p>
             )}
           </div>
         </div>

@@ -276,7 +276,7 @@ export default function PrintSettings() {
     emailContact: "",
     receiptFooter: "",
     currency: "₱",
-    printDarkness: 32000,
+    printDarkness: 65000,
   });
 
   useEffect(() => {
@@ -301,7 +301,7 @@ export default function PrintSettings() {
       emailContact: s.emailContact ?? "",
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
-      printDarkness: s.printDarkness ?? 32000,
+      printDarkness: s.printDarkness ?? 65000,
     });
   }, [settings]);
 

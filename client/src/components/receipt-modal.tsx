@@ -204,16 +204,16 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 600; width: ${width}px; padding: 12px 12px 80px 12px; }
+      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 900; color: #000; width: ${width}px; padding: 12px 12px 80px 12px; }
       .center { text-align: center; }
-      .bold { font-weight: 800; }
-      .line { border-top: 1px dashed #000; margin: 6px 0; }
+      .bold { font-weight: 900; }
+      .line { border-top: 2px solid #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
-      .item-name { flex: 1; margin-right: 8px; font-weight: 700; }
-      .total-row { font-weight: 800; font-size: ${fs + 2}px; }
-      .muted { color: #555; font-size: ${fs - 2}px; }
-      .green { color: #16a34a; font-weight: 700; }
-      .footer { text-align: center; color: #555; }
+      .item-name { flex: 1; margin-right: 8px; font-weight: 900; }
+      .total-row { font-weight: 900; font-size: ${fs + 2}px; }
+      .muted { color: #000; font-size: ${fs - 2}px; }
+      .green { color: #000; font-weight: 900; }
+      .footer { text-align: center; color: #000; }
     </style>
   </head>
   <body>
@@ -233,17 +233,17 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     ${itemsHtml}
     <div class="line"></div>
     <div class="row muted"><span>Subtotal</span><span>${fmt(receipt.subtotal)}</span></div>
-    ${hasDiscount ? `<div class="row" style="color:#e11d48;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span>-${fmt(receipt.discount)}</span></div>` : ""}
+    ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span>-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasTax ? `<div class="row muted"><span>Tax</span><span>${fmt(receipt.tax)}</span></div>` : ""}
-    ${hasLoyalty ? `<div class="row" style="color:#d97706;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span>-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
+    ${hasLoyalty ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span>-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row total-row"><span>TOTAL</span><span>${fmt(receipt.total)}</span></div>
     <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span>${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(receipt.changeAmount)}</span></div>` : ""}
-    ${receipt.loyaltyPointsEarned && receipt.loyaltyPointsEarned > 0 ? `<p class="center" style="color:#d97706;margin-top:4px;font-size:${fs - 2}px">+${receipt.loyaltyPointsEarned} loyalty points earned</p>` : ""}
+    ${receipt.loyaltyPointsEarned && receipt.loyaltyPointsEarned > 0 ? `<p class="center" style="color:#000;margin-top:4px;font-size:${fs - 2}px">+${receipt.loyaltyPointsEarned} loyalty points earned</p>` : ""}
     ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${receipt.receiptFooter}</p>` : ""}
-    <p class="center muted" style="margin-top:6px">Thank you!</p>
-    <p class="center" style="color:#ccc;font-size:${fs - 3}px;margin-top:2px">Powered by ArtixPOS</p>
+    <p class="center" style="color:#000;margin-top:6px">Thank you!</p>
+    <p class="center" style="color:#000;font-size:${fs - 3}px;margin-top:2px">Powered by ArtixPOS</p>
     <script>window.onload = function() { window.print(); window.close(); }<\/script>
   </body>
 </html>`;

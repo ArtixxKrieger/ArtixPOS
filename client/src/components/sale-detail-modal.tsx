@@ -154,16 +154,16 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 <html><head><title>Receipt</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:600;width:${paperPx}px;padding:12px 12px 80px 12px}
+  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:900;color:#000;width:${paperPx}px;padding:12px 12px 80px 12px}
   .center{text-align:center}
-  .bold{font-weight:800}
-  .line{border-top:1px dashed #000;margin:6px 0}
+  .bold{font-weight:900}
+  .line{border-top:2px solid #000;margin:6px 0}
   .row{display:flex;justify-content:space-between;margin:2px 0}
-  .item-name{flex:1;margin-right:8px;font-weight:700}
-  .total-row{font-weight:800;font-size:${fs + 2}px}
-  .muted{color:#555;font-size:${fs - 2}px}
-  .green{color:#16a34a;font-weight:700}
-  .footer{text-align:center;font-size:${fs - 2}px;color:#555}
+  .item-name{flex:1;margin-right:8px;font-weight:900}
+  .total-row{font-weight:900;font-size:${fs + 2}px}
+  .muted{color:#000;font-size:${fs - 2}px}
+  .green{color:#000;font-weight:900}
+  .footer{text-align:center;font-size:${fs - 2}px;color:#000}
 </style></head>
 <body>
 <div class="center">
@@ -182,15 +182,15 @@ ${showOrderNumber ? `<div class="row muted" style="font-size:${fs - 3}px;margin-
 ${itemsHtml}
 <div class="line"></div>
 <div class="row muted"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
-${discount > 0 ? `<div class="row" style="color:#e11d48;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span>-${fmt(discount)}</span></div>` : ""}
+${discount > 0 ? `<div class="row" style="color:#000;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span>-${fmt(discount)}</span></div>` : ""}
 ${tax > 0 ? `<div class="row muted"><span>Tax</span><span>${fmt(tax)}</span></div>` : ""}
 <div class="line"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(total)}</span></div>
 <div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span>${fmt(paymentAmount)}</span></div>
 ${changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(changeAmount)}</span></div>` : ""}
 ${receiptFooter ? `<div class="line"></div><p class="footer">${receiptFooter}</p>` : ""}
-<p class="center muted" style="margin-top:6px;font-size:${fs - 2}px">Thank you!</p>
-${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#ccc;margin-top:2px">Powered by ArtixPOS</p>` : ""}
+<p class="center" style="color:#000;margin-top:6px;font-size:${fs - 2}px">Thank you!</p>
+${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;margin-top:2px">Powered by ArtixPOS</p>` : ""}
 <script>window.onload=function(){window.print();window.close()}<\/script>
 </body></html>`;
 

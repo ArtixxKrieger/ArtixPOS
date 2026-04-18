@@ -164,6 +164,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           escpos: buildReceiptEscPos(receiptData),
           catText: buildReceiptText(receiptData),
           energy: printDarkness,
+          catReceiptWidth: receiptWidth,
         });
         if (result.ok) {
           toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });

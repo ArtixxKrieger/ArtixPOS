@@ -74,7 +74,7 @@ async function writeCatPackets(
 
     for (const pkt of packets) {
       await char.writeValueWithoutResponse(new Uint8Array(pkt));
-      await sleep(30); // 30 ms between packets — balanced speed vs darkness
+      await sleep(35); // 35 ms between packets — more heat per row = darker print
     }
     return { ok: true };
   } catch (err: any) {
@@ -157,9 +157,9 @@ type BlePrinterState = {
 };
 
 type PrintArgs =
-  | { escpos: Uint8Array; catText: string; energy?: number }  // normal receipt print
-  | { catText: string; energy?: number }                       // cat-printer-only (test)
-  | { escpos: Uint8Array };                                    // escpos-only
+  | { escpos: Uint8Array; catText: string; energy?: number; catReceiptWidth?: string }
+  | { catText: string; energy?: number; catReceiptWidth?: string }
+  | { escpos: Uint8Array };
 
 type BlePrinterContextType = {
   printer: BlePrinterState;
@@ -290,7 +290,8 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
           return { ok: false, error: "This printer requires bitmap data. Please retry printing." };
         }
         const energy = "energy" in args ? (args.energy ?? 65000) : 65000;
-        const packets = buildCatPrinterPackets(text, energy);
+        const catReceiptWidth = "catReceiptWidth" in args ? (args.catReceiptWidth ?? "58mm") : "58mm";
+        const packets = buildCatPrinterPackets(text, energy, catReceiptWidth);
         return writeCatPackets(server, packets);
       }
 

@@ -13,7 +13,7 @@
  *
  * Commands:
  *   0xAF  SetEnergy      data = [lo, hi] little-endian  (e.g. 0x04B0 = 1200)
- *   0xA2  PrintRow       data = 48 bytes of 1-bit raster (384 pixels, MSB first)
+ *   0xA2  PrintRow       data = 48 bytes of 1-bit raster (384 pixels, LSB first)
  *   0xA1  FeedPaper      data = [lines, 0x00]
  */
 
@@ -26,8 +26,8 @@ const CMD_SET_ENERGY = 0xaf;
 const CMD_PRINT_ROW  = 0xa2;
 const CMD_FEED_PAPER = 0xa1;
 
-const PRINT_WIDTH = 384;          // pixels per row
-const BYTES_PER_ROW = PRINT_WIDTH / 8; // 48
+const PRINT_WIDTH = 384;
+const BYTES_PER_ROW = PRINT_WIDTH / 8;
 
 function crc8(data: number[]): number {
   let crc = 0;
@@ -53,12 +53,25 @@ function packet(cmd: number, data: number[]): number[] {
   ];
 }
 
+/**
+ * Find the largest bold monospace font size where `charsPerLine` characters
+ * fit within PRINT_WIDTH pixels. Uses canvas measureText for accuracy.
+ */
+function fitFontSize(charsPerLine: number): number {
+  const probe = document.createElement("canvas").getContext("2d")!;
+  const testStr = "W".repeat(charsPerLine); // W is widest char
+  for (let size = 28; size >= 8; size--) {
+    probe.font = `bold ${size}px "Courier New", "Lucida Console", monospace`;
+    if (probe.measureText(testStr).width <= PRINT_WIDTH) return size;
+  }
+  return 8;
+}
+
 /** Render plain-text receipt lines onto an off-screen canvas → 1-bit raster rows */
-function textToRasterRows(text: string): number[][] {
-  const FONT_SIZE   = 22;   // px — larger for denser pixels
-  const LINE_HEIGHT = 26;   // px
-  const MARGIN_X    = 4;    // px left/right padding
-  const MARGIN_Y    = 4;    // px top padding
+function textToRasterRows(text: string, charsPerLine = 32): number[][] {
+  const FONT_SIZE   = fitFontSize(charsPerLine);
+  const LINE_HEIGHT = Math.ceil(FONT_SIZE * 1.3);
+  const MARGIN_Y    = 4;
 
   const lines = text.split("\n");
   const height = MARGIN_Y * 2 + lines.length * LINE_HEIGHT;
@@ -69,18 +82,16 @@ function textToRasterRows(text: string): number[][] {
 
   const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
 
-  // Force white background explicitly
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, PRINT_WIDTH, height);
 
-  // Bold monospace font — captures more pixels per glyph and survives anti-aliasing
   ctx.fillStyle = "#000000";
-  ctx.font      = `bold ${FONT_SIZE}px "Courier New", "Lucida Console", monospace`;
+  ctx.font = `bold ${FONT_SIZE}px "Courier New", "Lucida Console", monospace`;
   ctx.textBaseline = "top";
   ctx.imageSmoothingEnabled = false;
 
   for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], MARGIN_X, MARGIN_Y + i * LINE_HEIGHT);
+    ctx.fillText(lines[i], 0, MARGIN_Y + i * LINE_HEIGHT);
   }
 
   const imgData = ctx.getImageData(0, 0, PRINT_WIDTH, height);
@@ -90,9 +101,8 @@ function textToRasterRows(text: string): number[][] {
     const row = new Array<number>(BYTES_PER_ROW).fill(0);
     for (let x = 0; x < PRINT_WIDTH; x++) {
       const idx = (y * PRINT_WIDTH + x) * 4;
-      // Use only the red channel (white bg → 255, black text → 0).
-      // Threshold at 200 to capture anti-aliased grey edges as printed dots.
-      // SC03h/iPrint protocol uses LSB-first bit order within each byte.
+      // Red channel: white bg = 255, black text = 0. Threshold 200 captures anti-aliased edges.
+      // LSB-first bit order matches SC03h/iPrint protocol.
       if (imgData.data[idx] < 200) {
         row[Math.floor(x / 8)] |= 1 << (x % 8);
       }
@@ -105,34 +115,38 @@ function textToRasterRows(text: string): number[][] {
 
 /**
  * Build the array of BLE packets to send for the given receipt text.
- * Each element is one complete cat-printer packet — send them one at a time
- * with a ~20ms delay between each.
+ * receiptWidth controls how many chars per line were used when building the text,
+ * so we can size the font to match exactly.
  */
-export function buildCatPrinterPackets(receiptText: string, energy = 65000): number[][] {
+export function buildCatPrinterPackets(
+  receiptText: string,
+  energy = 65000,
+  receiptWidth = "58mm",
+): number[][] {
+  const charsPerLine = receiptWidth === "58mm" ? 32 : 42;
   const packets: number[][] = [];
 
-  // 1. Set darkness (energy) — send 10× so the printer fully registers it
-  //    before the first print row arrives (~20ms per packet = ~200ms lead time)
+  // Set darkness — send 10× so printer registers it before print rows arrive
   const energyData = [energy & 0xff, (energy >> 8) & 0xff];
   for (let i = 0; i < 10; i++) {
     packets.push(packet(CMD_SET_ENERGY, energyData));
   }
 
-  // 2. One packet per raster row
-  const rows = textToRasterRows(receiptText);
+  // One packet per raster row
+  const rows = textToRasterRows(receiptText, charsPerLine);
   for (const row of rows) {
     packets.push(packet(CMD_PRINT_ROW, row));
   }
 
-  // 3. Feed paper at end (48 blank lines so the print exits the head)
+  // Feed paper so the print exits the head
   packets.push(packet(CMD_FEED_PAPER, [0x30, 0x00]));
 
   return packets;
 }
 
 /** Test print – no receipt data needed */
-export function buildTestCatPrinterPackets(storeName: string): number[][] {
-  const width = 32; // chars (works fine for both 58mm and 80mm since we use pixels)
+export function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58mm"): number[][] {
+  const width = receiptWidth === "58mm" ? 32 : 42;
   const dash  = "-".repeat(width);
   const center = (s: string) => {
     const p = Math.max(0, Math.floor((width - s.length) / 2));
@@ -149,7 +163,7 @@ export function buildTestCatPrinterPackets(storeName: string): number[][] {
     center("Thank you"),
   ].join("\n");
 
-  return buildCatPrinterPackets(lines);
+  return buildCatPrinterPackets(lines, 65000, receiptWidth);
 }
 
 /** Convert a structured receipt into plain text for canvas rendering */
@@ -212,7 +226,7 @@ export function buildReceiptText(r: EscPosReceipt): string {
     const label = r.discountCode ? `Discount (${r.discountCode})` : "Discount";
     out.push(twoCol(label, `-${fmt(r.discount)}`));
   }
-  if (r.tax > 0)   out.push(twoCol("Tax", fmt(r.tax)));
+  if (r.tax > 0) out.push(twoCol("Tax", fmt(r.tax)));
   if (r.loyaltyDiscount && r.loyaltyDiscount > 0) {
     out.push(twoCol("Loyalty Redemption", `-${fmt(r.loyaltyDiscount)}`));
   }

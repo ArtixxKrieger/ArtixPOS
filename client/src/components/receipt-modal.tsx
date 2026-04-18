@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
+import { buildReceiptText } from "@/lib/catprinter";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReceiptItem {
@@ -114,7 +115,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     setPrinting(true);
     try {
       if (printer.connected) {
-        const data = buildReceiptEscPos({
+        const receiptData = {
           storeName: receipt.storeName ?? s.storeName ?? "",
           headerText: receiptHeaderText,
           receiptTitle,
@@ -140,7 +141,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             qty: item.quantity,
             unitPrice:
               parseFloat(item.size?.price || "0") +
-              (item.modifiers || []).reduce((s, m) => s + parseFloat(m.price || "0"), 0),
+              (item.modifiers || []).reduce((acc, m) => acc + parseFloat(m.price || "0"), 0),
             modifiers: item.modifiers,
             note: item.note,
           })),
@@ -157,8 +158,11 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           currency,
           receiptFooter: receipt.receiptFooter,
           receiptWidth,
+        };
+        const result = await print({
+          escpos: buildReceiptEscPos(receiptData),
+          catText: buildReceiptText(receiptData),
         });
-        const result = await print(data);
         if (result.ok) {
           toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });
         } else {

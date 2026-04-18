@@ -215,8 +215,21 @@ export default function PrintSettings() {
 
   const testBlePrint = async () => {
     setTestingBle(true);
-    const data = buildTestPrintEscPos((settings as any)?.storeName || "ArtixPOS", (settings as any)?.receiptWidth);
-    const result = await blePrint(data);
+    const storeName = (settings as any)?.storeName || "ArtixPOS";
+    const receiptWidth = (settings as any)?.receiptWidth;
+    const result = await blePrint({
+      escpos: buildTestPrintEscPos(storeName, receiptWidth),
+      catText: [
+        "     " + storeName,
+        "  --- Test Print ---",
+        "  " + new Date().toLocaleString(),
+        "  --------------------------------",
+        "  Printer is working!",
+        "  BLE connection OK",
+        "",
+        "       Thank you",
+      ].join("\n"),
+    });
     if (result.ok) {
       toast({ title: "Test print sent!", description: `Check your ${blePrinter.name} for the test receipt.` });
     } else {

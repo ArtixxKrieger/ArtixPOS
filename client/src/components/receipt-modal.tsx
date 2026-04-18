@@ -90,6 +90,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const now = new Date();
 
   const receiptWidth = s.receiptWidth ?? "80mm";
+  const printDarkness = s.printDarkness ?? 8000;
   const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";
   const receiptHeaderText = s.receiptHeaderText ?? "";
   const receiptWebsite = s.receiptWebsite ?? "";
@@ -162,6 +163,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         const result = await print({
           escpos: buildReceiptEscPos(receiptData),
           catText: buildReceiptText(receiptData),
+          energy: printDarkness,
         });
         if (result.ok) {
           toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });

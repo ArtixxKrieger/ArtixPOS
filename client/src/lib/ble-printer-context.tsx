@@ -157,9 +157,9 @@ type BlePrinterState = {
 };
 
 type PrintArgs =
-  | { escpos: Uint8Array; catText: string }  // normal receipt print
-  | { catText: string }                       // cat-printer-only (test)
-  | { escpos: Uint8Array };                   // escpos-only
+  | { escpos: Uint8Array; catText: string; energy?: number }  // normal receipt print
+  | { catText: string; energy?: number }                       // cat-printer-only (test)
+  | { escpos: Uint8Array };                                    // escpos-only
 
 type BlePrinterContextType = {
   printer: BlePrinterState;
@@ -289,7 +289,8 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
         if (!text) {
           return { ok: false, error: "This printer requires bitmap data. Please retry printing." };
         }
-        const packets = buildCatPrinterPackets(text);
+        const energy = "energy" in args ? (args.energy ?? 8000) : 8000;
+        const packets = buildCatPrinterPackets(text, energy);
         return writeCatPackets(server, packets);
       }
 

@@ -70,6 +70,7 @@ interface PrintConfig {
   emailContact: string;
   receiptFooter: string;
   currency: string;
+  printDarkness: number;
 }
 
 function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
@@ -229,6 +230,7 @@ export default function PrintSettings() {
         "",
         "       Thank you",
       ].join("\n"),
+      energy: cfg.printDarkness,
     });
     if (result.ok) {
       toast({ title: "Test print sent!", description: `Check your ${blePrinter.name} for the test receipt.` });
@@ -274,6 +276,7 @@ export default function PrintSettings() {
     emailContact: "",
     receiptFooter: "",
     currency: "₱",
+    printDarkness: 8000,
   });
 
   useEffect(() => {
@@ -298,6 +301,7 @@ export default function PrintSettings() {
       emailContact: s.emailContact ?? "",
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
+      printDarkness: s.printDarkness ?? 8000,
     });
   }, [settings]);
 
@@ -318,6 +322,7 @@ export default function PrintSettings() {
       receiptShowCashier: cfg.receiptShowCashier ? 1 : 0,
       receiptShowUnitPrice: cfg.receiptShowUnitPrice ? 1 : 0,
       receiptShowPoweredBy: cfg.receiptShowPoweredBy ? 1 : 0,
+      printDarkness: cfg.printDarkness,
     } as any);
     toast({ title: "Print settings saved" });
   };
@@ -533,6 +538,26 @@ export default function PrintSettings() {
                 placeholder="e.g. VAT Reg. TIN 000-000-000"
                 data-testid="input-receipt-header-text"
               />
+            </SettingRow>
+
+            <SettingRow label="Print Darkness" hint="For Bluetooth cat printers — higher = darker print">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">Light</span>
+                  <span className="text-[11px] font-medium text-foreground">{Math.round(cfg.printDarkness / 100)}%</span>
+                  <span className="text-[11px] text-muted-foreground">Dark</span>
+                </div>
+                <input
+                  type="range"
+                  min={1000}
+                  max={12000}
+                  step={500}
+                  value={cfg.printDarkness}
+                  onChange={e => set("printDarkness", Number(e.target.value))}
+                  className="w-full accent-primary h-1.5 rounded-full cursor-pointer"
+                  data-testid="input-print-darkness"
+                />
+              </div>
             </SettingRow>
           </div>
 

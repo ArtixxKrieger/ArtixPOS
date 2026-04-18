@@ -101,7 +101,7 @@ function textToRasterRows(text: string): number[][] {
  * Each element is one complete cat-printer packet — send them one at a time
  * with a ~20ms delay between each.
  */
-export function buildCatPrinterPackets(receiptText: string, energy = 1200): number[][] {
+export function buildCatPrinterPackets(receiptText: string, energy = 8000): number[][] {
   const packets: number[][] = [];
 
   // 1. Set darkness (energy)

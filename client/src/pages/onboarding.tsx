@@ -251,6 +251,11 @@ export default function Onboarding() {
 
   async function handleDone() {
     await queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+    localStorage.setItem("ai_welcome_pending", JSON.stringify({
+      businessType: businessType ?? "other",
+      businessSubType: businessSubType ?? "other",
+      storeName: storeName.trim() || "Your Store",
+    }));
     setLocation("/");
   }
 

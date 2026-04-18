@@ -220,12 +220,12 @@ function renderMarkdown(text: string, isUser: boolean, navigate?: (to: string) =
           </code>
         );
       } else if (m[3] !== undefined && navigate) {
-        // Plain page name mention → link it
+        // Plain page name mention → subtle tappable link, no underline
         const route = PAGE_LINK_MAP[m[3]];
         parts.push(
           <span
             key={m.index}
-            className="text-primary font-medium underline decoration-dotted cursor-pointer"
+            className="text-primary/80 cursor-pointer"
             onClick={() => navigate(route)}
           >{m[3]}</span>
         );
@@ -1125,6 +1125,42 @@ function EmptyState({
 }
 
 
+function buildWelcomeMessage(businessType: string, businessSubType: string, storeName: string): string {
+  const name = storeName || "your store";
+
+  const tutorialsBySubType: Record<string, string> = {
+    // Food & Beverage
+    cafe: `Here's how to get started with **${name}**:\n\n**Taking Orders**\n1. Open **POS** from the bottom nav.\n2. Tap products to add them to the cart.\n3. Apply a discount if needed, then tap **Charge**.\n\n**Managing Your Menu**\n1. Go to **Products** → tap **+** to add an item.\n2. Set a name, price, and category (e.g. "Drinks", "Pastries").\n3. Toggle **Track Stock** if you want low-stock alerts.\n\n**Pending Orders (for dine-in)**\n1. In POS, choose **Pending Order** instead of Charge.\n2. Staff can view and fulfill orders from **Pending**.\n\n**Daily Reports**\n1. Open **Analytics** in the **More** menu.\n2. See revenue, best-selling items, and customer trends.\n\nAsk me anything — I can pull your sales data, suggest pricing, or help manage your menu. ☕`,
+    restaurant: `Here's how to get started with **${name}**:\n\n**Taking Orders**\n1. Open **POS** → assign a table if needed.\n2. Build the order and tap **Charge** or **Pending Order** for kitchen queue.\n\n**Kitchen Queue**\n1. Go to **Pending** to see live orders.\n2. Tap an item to mark it preparing or ready.\n\n**Managing Tables & Rooms**\n1. Open **Rooms** in the **More** menu.\n2. Create tables/rooms and assign them during checkout.\n\n**Expense Tracking**\n1. Go to **Expenses** in the **More** menu.\n2. Log daily costs like ingredients or utilities.\n\n**Staff & Shifts**\n1. Go to **Staff** → add your team members.\n2. Use **Time Clock** for shift tracking.\n\nAsk me anything — daily sales, top dishes, low stock — I can pull it all for you.`,
+    bakery: `Here's how to get started with **${name}**:\n\n**Adding Your Products**\n1. Go to **Products** → tap **+**.\n2. Set name, price, and category (e.g. "Breads", "Pastries", "Cakes").\n3. Set stock levels for freshness tracking.\n\n**Taking Orders**\n1. Open **POS** — tap items, then **Charge**.\n2. Use **Pending Orders** for pre-orders or pickup queues.\n\n**Tracking Inventory**\n1. Low-stock alerts appear on the Dashboard automatically.\n2. I can tell you which items are running low — just ask.\n\n**Revenue & Top Sellers**\n1. Open **Analytics** in the **More** menu.\n2. See which baked goods earn the most.\n\nAsk me anything about your sales, stock, or how to set things up!`,
+    bar: `Here's how to get started with **${name}**:\n\n**Quick Orders**\n1. Open **POS** → tap drinks to add to the cart.\n2. Apply a discount code or tap **Charge**.\n\n**Tab Management**\n1. Start a **Pending Order** for a customer's tab.\n2. Add items throughout their visit, then close out when done.\n\n**Discount Codes**\n1. Go to **Discount Codes** in the **More** menu.\n2. Create happy hour deals or promo codes.\n\n**Tracking Daily Revenue**\n1. Open **Analytics** for a breakdown of peak hours and top sellers.\n2. Ask me: "What were my top drinks last week?"\n\n**Staff & Shifts**\n1. Use **Time Clock** to track bartender shifts.\n\nI'm here whenever you need sales data, help with pricing, or anything else.`,
+    food_truck: `Here's how to get started with **${name}**:\n\n**Fast Checkout**\n1. Open **POS** — tap items, then **Charge**.\n2. Use cash or any payment method.\n\n**Managing Your Menu**\n1. Go to **Products** → add your items with categories.\n2. Update prices easily before each service.\n\n**Tracking Expenses**\n1. Go to **Expenses** to log fuel, ingredients, and supplies.\n2. I can compare your expenses vs. revenue for you.\n\n**Analytics**\n1. Open **Analytics** to see your busiest days and top-selling items.\n\nWorking offline? ArtixPOS saves all sales locally and syncs when you're back online. I'm here for any questions!`,
+    // Retail
+    clothing: `Here's how to get started with **${name}**:\n\n**Adding Products**\n1. Go to **Products** → tap **+**.\n2. Add name, price, category, and variants (e.g. Size S/M/L, Color).\n3. Set stock levels per variant.\n\n**Making Sales**\n1. Open **POS** → tap items or search by name.\n2. Apply discount codes if needed, then **Charge**.\n\n**Customer Profiles**\n1. Go to **Customers** to build a customer list.\n2. Each customer tracks visit count, spending, and loyalty points.\n\n**Discount Codes**\n1. Create seasonal sale codes in **Discount Codes**.\n2. Apply them at checkout with one tap.\n\n**Inventory Alerts**\n1. I'll notify you when stock runs low.\n2. Ask me: "What's my current stock for [item]?"\n\nI'm your business partner — ask me anything about sales, inventory, or customers.`,
+    electronics: `Here's how to get started with **${name}**:\n\n**Product Catalog**\n1. Go to **Products** → add items with serial/barcode support.\n2. Set categories (e.g. "Phones", "Accessories", "Laptops").\n3. Track stock carefully with low-stock alerts.\n\n**Point of Sale**\n1. Open **POS** → search by product name or barcode.\n2. Process payment and generate a receipt.\n\n**Customer Warranty Tracking**\n1. Create customer profiles in **Customers**.\n2. Notes and purchase history help with warranty lookups.\n\n**Analytics**\n1. See your best-selling brands and categories in **Analytics**.\n2. Ask me: "What were my top products this month?"\n\nI can help with pricing strategy, stock management, and more — just ask!`,
+    grocery: `Here's how to get started with **${name}**:\n\n**Adding Products**\n1. Go to **Products** → add items with categories (e.g. "Produce", "Dairy", "Beverages").\n2. Enable **Track Stock** for inventory management.\n3. Use barcodes for fast scanning at checkout.\n\n**Checkout**\n1. Open **POS** → scan or search items.\n2. Apply discounts if needed, then **Charge**.\n\n**Stock Alerts**\n1. Dashboard shows low-stock items automatically.\n2. Ask me: "What's running low?" for a quick report.\n\n**Expenses**\n1. Log supplier payments in **Expenses**.\n2. I can compare your cost vs. revenue any time.\n\nI'm here to help you run a tighter, more profitable store — just ask!`,
+    bookstore: `Here's how to get started with **${name}**:\n\n**Adding Your Inventory**\n1. Go to **Products** → add books with categories (e.g. "Fiction", "Non-Fiction", "Kids").\n2. Set stock levels and enable low-stock alerts.\n\n**Checkout**\n1. Open **POS** → search by title or author.\n2. Apply discounts (e.g. member prices) with **Discount Codes**.\n\n**Customer Loyalty**\n1. Add customers in **Customers** to track their purchase history.\n2. Loyal readers can accumulate loyalty points.\n\n**Analytics**\n1. Open **Analytics** to see best-selling titles and genres.\n\nAsk me about your sales trends, stock levels, or anything else!`,
+    // Services
+    salon: `Here's how to get started with **${name}**:\n\n**Booking Appointments**\n1. Go to **Appointments** in the **More** menu.\n2. Add client name, service, date, and assigned stylist.\n3. Confirmed bookings appear in your calendar view.\n\n**At Checkout**\n1. Open **POS** → add services and any retail products sold.\n2. Process payment — cash, card, or online.\n\n**Managing Staff**\n1. Add your team in **Staff**.\n2. Assign them to appointments and track their shifts in **Time Clock**.\n\n**Discount Codes**\n1. Create promo codes for new clients or loyalty deals.\n2. Apply at checkout with one tap.\n\n**Tracking Revenue**\n1. Open **Analytics** to see revenue per service, per stylist, and per day.\n\nI'm here to help with anything — appointment trends, top services, staff performance.`,
+    gym: `Here's how to get started with **${name}**:\n\n**Memberships & Services**\n1. Go to **Products** → add membership plans (e.g. "Monthly - ₱999", "Day Pass - ₱150").\n2. Sell them at **POS** like any product.\n\n**Appointments / Classes**\n1. Go to **Appointments** to schedule classes or PT sessions.\n2. Assign a trainer and track attendance.\n\n**Staff & Shifts**\n1. Add trainers in **Staff** and use **Time Clock** for shift management.\n\n**Expense Tracking**\n1. Log equipment, utilities, and supplies in **Expenses**.\n\n**Analytics**\n1. Open **Analytics** to see peak hours, popular plans, and monthly revenue.\n\nAsk me about member trends, revenue, or how to set up anything specific!`,
+    spa: `Here's how to get started with **${name}**:\n\n**Booking Appointments**\n1. Go to **Appointments** to schedule massages, facials, and other services.\n2. Assign therapists and set service duration.\n\n**Checkout**\n1. Open **POS** → add services and any products sold (oils, skincare).\n2. Apply loyalty discounts or promo codes.\n\n**Staff Management**\n1. Add therapists in **Staff** and track shifts with **Time Clock**.\n\n**Customer Profiles**\n1. Build client records in **Customers** — track preferences and visit history.\n\n**Revenue Reports**\n1. Open **Analytics** to see top services, peak days, and revenue trends.\n\nI'm here to help with scheduling, revenue analysis, or anything your spa needs!`,
+    clinic: `Here's how to get started with **${name}**:\n\n**Appointments**\n1. Go to **Appointments** to schedule patient visits.\n2. Assign to specific doctors or staff.\n\n**Billing at Checkout**\n1. Open **POS** → add consultation fees, procedures, or medicines.\n2. Process payment and generate a receipt.\n\n**Patient Records**\n1. Use **Customers** to maintain patient profiles and visit history.\n\n**Staff & Shifts**\n1. Add your medical team in **Staff** and track schedules with **Time Clock**.\n\n**Expense Tracking**\n1. Log medical supplies and operating costs in **Expenses**.\n\nAsk me about billing trends, patient visits, or how to configure anything for your clinic.`,
+    laundry: `Here's how to get started with **${name}**:\n\n**Services & Pricing**\n1. Go to **Products** → add services like "Wash & Fold - ₱80/kg", "Dry Cleaning - ₱150".\n2. Enable quantity input for weight-based pricing.\n\n**Taking Orders**\n1. Open **POS** → add services, set quantity, then **Charge** or use **Pending Order** for pickup tracking.\n\n**Pickup Queue**\n1. Use **Pending** to track orders ready for pickup.\n\n**Customer Profiles**\n1. Build regulars in **Customers** for loyalty rewards.\n\n**Analytics**\n1. See daily revenue and busiest days in **Analytics**.\n\nI can help you track orders, manage pricing, and analyze your busiest days — just ask!`,
+    car_wash: `Here's how to get started with **${name}**:\n\n**Services**\n1. Go to **Products** → add services like "Basic Wash - ₱150", "Full Detail - ₱800".\n2. Set categories (e.g. "Exterior", "Interior", "Premium").\n\n**Checkout**\n1. Open **POS** → select service, add extras, then **Charge**.\n2. Use **Pending Order** for vehicles still in queue.\n\n**Expenses**\n1. Log soap, supplies, and staff costs in **Expenses**.\n\n**Staff**\n1. Add your team in **Staff** and use **Time Clock** for shift management.\n\n**Analytics**\n1. Open **Analytics** to see peak days, top services, and monthly revenue.\n\nNeed help with anything? I can pull your sales, compare expenses, or guide you through any feature.`,
+  };
+
+  const generic: Record<string, string> = {
+    food_beverage: tutorialsBySubType["cafe"],
+    retail: tutorialsBySubType["clothing"],
+    services: tutorialsBySubType["salon"],
+    other: `Here's how to get started with **${name}**:\n\n**Adding Products or Services**\n1. Go to **Products** → tap **+** to add what you sell.\n2. Set name, price, category, and stock level.\n\n**Making Sales**\n1. Open **POS** from the bottom nav.\n2. Tap items to build the cart, then tap **Charge**.\n\n**Tracking Revenue**\n1. Open **Analytics** in the **More** menu.\n2. See daily/weekly/monthly revenue and top sellers.\n\n**Managing Customers**\n1. Go to **Customers** to build a client list.\n2. Track spending history and loyalty points.\n\n**Staff & Expenses**\n1. Add your team in **Staff**.\n2. Log costs in **Expenses** to track profitability.\n\nI'm here whenever you need help — just ask!`,
+  };
+
+  const message = tutorialsBySubType[businessSubType] ?? generic[businessType] ?? generic["other"];
+
+  return `Welcome to ArtixPOS, ${name}! I'm your AI business assistant — I can answer questions, pull live data from your store, and help you get the most out of the system.\n\n${message}`;
+}
+
 export default function AiPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -1174,7 +1210,30 @@ export default function AiPage() {
   useEffect(() => {
     if (user?.id) {
       initAiStore(user.id);
-      setSessions(getSessions());
+      const existing = getSessions();
+      setSessions(existing);
+
+      // Inject onboarding welcome message if this is a brand-new store
+      const raw = localStorage.getItem("ai_welcome_pending");
+      if (raw && existing.length === 0) {
+        try {
+          const { businessType: bType, businessSubType: bSub, storeName: sName } = JSON.parse(raw);
+          localStorage.removeItem("ai_welcome_pending");
+          const welcomeContent = buildWelcomeMessage(bType ?? "other", bSub ?? "other", sName ?? "");
+          const welcomeMsg: AiMessage = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: welcomeContent,
+            timestamp: new Date().toISOString(),
+          };
+          const s = createSession();
+          setActiveId(s.id);
+          setMessages([welcomeMsg]);
+          updateSession(s.id, [welcomeMsg]);
+          setSessions(getSessions());
+          setShowSidebar(false);
+        } catch {}
+      }
     }
   }, [user?.id]);
 
@@ -1243,9 +1302,6 @@ export default function AiPage() {
     const content = (text ?? input).trim();
     if (!content && !pendingFile) return;
     if (loading) return;
-    if (!isOnline) {
-      return;
-    }
 
     let sessionId = activeId;
     if (!sessionId) {
@@ -1922,7 +1978,7 @@ export default function AiPage() {
               onDeleteDiscount={handleDeleteDiscount}
               onToggleDiscount={handleToggleDiscount}
               onShowStaffInfo={handleShowStaffInfo}
-              isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant"}
+              isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant" && msg.content.length > 0}
               importDone={importedIds.has(msg.id)}
               priceDone={priceUpdatedIds.has(msg.id)}
               addProductDone={addProductDoneIds.has(msg.id)}
@@ -1944,8 +2000,11 @@ export default function AiPage() {
           ))
         )}
 
-        {/* Thinking dots — only when waiting and no assistant bubble yet */}
-        {loading && messages[messages.length - 1]?.role === "user" && (
+        {/* Thinking dots — show while waiting for first token */}
+        {loading && (
+          messages[messages.length - 1]?.role === "user" ||
+          (messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content)
+        ) && (
           <div className="flex gap-2 justify-start">
             <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0 shadow-sm">
               <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -1969,7 +2028,7 @@ export default function AiPage() {
           {!isOnline && (
             <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
               <WifiOff className="h-3.5 w-3.5 shrink-0" />
-              <span className="font-medium">You're offline. Chat history is available but new messages require a connection.</span>
+              <span className="font-medium">You're offline. Responses may be limited.</span>
             </div>
           )}
           {pendingFile && (
@@ -1981,11 +2040,11 @@ export default function AiPage() {
               </button>
             </div>
           )}
-          <div className={["flex items-end gap-1.5 bg-muted/40 dark:bg-white/[0.05] border border-border rounded-[24px] px-2 py-2 focus-within:border-primary/40 focus-within:bg-muted/60 transition-all", !isOnline ? "opacity-50 pointer-events-none" : ""].join(" ")}>
+          <div className="flex items-end gap-1.5 bg-muted/40 dark:bg-white/[0.05] border border-border rounded-[24px] px-2 py-2 focus-within:border-primary/40 focus-within:bg-muted/60 transition-all">
             <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleFileUpload} />
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingFile || loading || !isOnline}
+              disabled={uploadingFile || loading}
               className="h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
               title="Upload PDF or Excel"
             >
@@ -1996,9 +2055,9 @@ export default function AiPage() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={!isOnline ? "Offline — reconnect to send messages" : pendingFile ? "Ask about this file…" : "Ask anything about your store…"}
+              placeholder={pendingFile ? "Ask about this file…" : "Ask anything about your store…"}
               rows={1}
-              disabled={loading || !isOnline}
+              disabled={loading}
               className="flex-1 resize-none bg-transparent border-none outline-none px-1 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 disabled:opacity-60 min-h-[36px] max-h-[120px]"
               style={{ height: "36px" }}
               onInput={e => {
@@ -2009,7 +2068,7 @@ export default function AiPage() {
             />
             <button
               onClick={() => sendMessage()}
-              disabled={loading || (!input.trim() && !pendingFile) || !isOnline}
+              disabled={loading || (!input.trim() && !pendingFile)}
               className={[
                 "h-9 w-9 shrink-0 rounded-full flex items-center justify-center transition-all",
                 (loading || (!input.trim() && !pendingFile))

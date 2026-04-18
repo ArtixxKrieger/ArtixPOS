@@ -127,7 +127,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const showWebsite = (s.receiptShowWebsite ?? 0) === 1;
     const showOrderNumber = (s.receiptShowOrderNumber ?? 1) === 1;
     const showUnitPrice = (s.receiptShowUnitPrice ?? 0) === 1;
-    const showPoweredBy = (s.receiptShowPoweredBy ?? 1) === 1;
+    const showPoweredBy = true;
     const fs = s.receiptFontSize ?? 15;
     const cur = currency;
 
@@ -136,7 +136,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
 
     const itemsHtml = items.map(item => {
-      const basePrice = parseNumeric((item.size as any)?.price);
+      const basePrice = parseNumeric((item.size as any)?.price || (item.product as any)?.price);
       const modsTotal = ((item.modifiers || []) as any[]).reduce((s: number, m: any) => s + parseNumeric(m.price), 0);
       const unitPrice = basePrice + modsTotal;
       const lineTotal = unitPrice * (item.quantity || 1);

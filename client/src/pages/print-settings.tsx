@@ -63,14 +63,12 @@ interface PrintConfig {
   receiptShowOrderNumber: boolean;
   receiptShowCashier: boolean;
   receiptShowUnitPrice: boolean;
-  receiptShowPoweredBy: boolean;
   storeName: string;
   address: string;
   phone: string;
   emailContact: string;
   receiptFooter: string;
   currency: string;
-  printDarkness: number;
   receiptFontSize: number;
 }
 
@@ -147,9 +145,7 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
         </>
       )}
       <p className="text-center text-gray-400 mt-1" style={{ fontSize: `${fs - 2}px` }}>Thank you!</p>
-      {cfg.receiptShowPoweredBy && (
-        <p className="text-center text-gray-300 mt-0.5" style={{ fontSize: `${fs - 4}px` }}>Powered by ArtixPOS</p>
-      )}
+      <p className="text-center text-gray-300 mt-0.5" style={{ fontSize: `${fs - 4}px` }}>Powered by ArtixPOS</p>
     </div>
   );
 }
@@ -237,7 +233,7 @@ export default function PrintSettings() {
     const result = await blePrint({
       escpos: buildTestPrintEscPos(storeName, receiptWidth),
       catText,
-      energy: cfg.printDarkness,
+      energy: 65535,
       catReceiptWidth: receiptWidth,
     });
     if (result.ok) {
@@ -277,14 +273,12 @@ export default function PrintSettings() {
     receiptShowOrderNumber: true,
     receiptShowCashier: false,
     receiptShowUnitPrice: false,
-    receiptShowPoweredBy: true,
     storeName: "",
     address: "",
     phone: "",
     emailContact: "",
     receiptFooter: "",
     currency: "₱",
-    printDarkness: 65000,
     receiptFontSize: 15,
   });
 
@@ -304,14 +298,12 @@ export default function PrintSettings() {
       receiptShowOrderNumber: (s.receiptShowOrderNumber ?? 1) === 1,
       receiptShowCashier: (s.receiptShowCashier ?? 0) === 1,
       receiptShowUnitPrice: (s.receiptShowUnitPrice ?? 0) === 1,
-      receiptShowPoweredBy: (s.receiptShowPoweredBy ?? 1) === 1,
       storeName: s.storeName ?? "",
       address: s.address ?? "",
       phone: s.phone ?? "",
       emailContact: s.emailContact ?? "",
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
-      printDarkness: s.printDarkness ?? 65000,
       receiptFontSize: s.receiptFontSize ?? 15,
     });
   }, [settings]);
@@ -333,8 +325,8 @@ export default function PrintSettings() {
       receiptShowOrderNumber: cfg.receiptShowOrderNumber ? 1 : 0,
       receiptShowCashier: cfg.receiptShowCashier ? 1 : 0,
       receiptShowUnitPrice: cfg.receiptShowUnitPrice ? 1 : 0,
-      receiptShowPoweredBy: cfg.receiptShowPoweredBy ? 1 : 0,
-      printDarkness: cfg.printDarkness,
+      receiptShowPoweredBy: 1,
+      printDarkness: 65535,
       receiptFontSize: cfg.receiptFontSize,
     } as any);
     toast({ title: "Print settings saved" });
@@ -573,27 +565,6 @@ export default function PrintSettings() {
               </div>
             </SettingRow>
 
-            <SettingRow label="Print Darkness" hint="For Bluetooth cat printers — higher = darker print">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">Light</span>
-                  <span className="text-[11px] font-medium text-foreground">
-                    {cfg.printDarkness < 15000 ? "Low" : cfg.printDarkness < 40000 ? "Medium" : cfg.printDarkness < 55000 ? "High" : "Max"}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">Dark</span>
-                </div>
-                <input
-                  type="range"
-                  min={5000}
-                  max={65000}
-                  step={1000}
-                  value={cfg.printDarkness}
-                  onChange={e => set("printDarkness", Number(e.target.value))}
-                  className="w-full accent-primary h-1.5 rounded-full cursor-pointer"
-                  data-testid="input-print-darkness"
-                />
-              </div>
-            </SettingRow>
           </div>
 
           <SectionLabel>Store Info on Receipt</SectionLabel>
@@ -658,11 +629,6 @@ export default function PrintSettings() {
                 placeholder="e.g. Thank you for shopping!"
                 data-testid="input-receipt-footer"
               />
-            </SettingRow>
-            <SettingRow label="Show 'Powered by ArtixPOS'" hint="Attribution footer on printed receipts">
-              <div className="flex justify-end">
-                <Toggle value={cfg.receiptShowPoweredBy} onChange={v => set("receiptShowPoweredBy", v)} data-testid="toggle-show-powered-by" />
-              </div>
             </SettingRow>
           </div>
 

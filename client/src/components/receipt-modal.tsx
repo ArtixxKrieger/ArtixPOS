@@ -10,7 +10,7 @@ import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReceiptItem {
-  product: { name: string };
+  product: { name: string; price?: string | number };
   quantity: number;
   size?: { name: string; price: string };
   modifiers?: { name: string; price: string }[];
@@ -101,7 +101,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const showOrderNumber = (s.receiptShowOrderNumber ?? 1) === 1;
   const showCashier = (s.receiptShowCashier ?? 0) === 1;
   const showUnitPrice = (s.receiptShowUnitPrice ?? 0) === 1;
-  const showPoweredBy = (s.receiptShowPoweredBy ?? 1) === 1;
+  const showPoweredBy = true;
 
   const storeAddress = s.address ?? "";
   const storePhone = s.phone ?? "";
@@ -141,7 +141,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           sizeName: item.size?.name,
           qty: item.quantity,
           unitPrice:
-            parseFloat(item.size?.price || "0") +
+            parseFloat(item.size?.price || String(item.product.price ?? "0") || "0") +
             (item.modifiers || []).reduce((acc, m) => acc + parseFloat(m.price || "0"), 0),
           modifiers: item.modifiers,
           note: item.note,
@@ -273,7 +273,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
             <div className="space-y-1.5">
               {receipt.items.map((item, i) => {
-                const basePrice = parseFloat(item.size?.price || "0");
+                const basePrice = parseFloat(item.size?.price || String(item.product.price ?? "0") || "0");
                 const modsTotal = (item.modifiers || []).reduce((s, m) => s + parseFloat(m.price || "0"), 0);
                 const unitPrice = basePrice + modsTotal;
                 return (

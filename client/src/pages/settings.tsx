@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight } from "lucide-react";
+import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   food_beverage: "Food & Beverage",
@@ -77,6 +78,8 @@ export default function Settings() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showPaymentManager, setShowPaymentManager] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [redeemingVoucher, setRedeemingVoucher] = useState(false);
 
   const DEFAULT_METHODS = [
     { id: "cash", label: "Cash", isCash: true },
@@ -189,6 +192,31 @@ export default function Settings() {
     updateSettings.mutate(payload, {
       onSuccess: () => toast({ title: "Settings saved" })
     });
+  };
+
+  const redeemVoucher = async () => {
+    const code = voucherCode.trim();
+    if (!code) return;
+    setRedeemingVoucher(true);
+    try {
+      const res = await apiRequest("POST", "/api/subscription/redeem-voucher", { code });
+      const data = await res.json();
+      await queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/subscription/payments"] });
+      setVoucherCode("");
+      toast({
+        title: "Voucher applied",
+        description: data.periodEnd ? `Pro is active until ${new Date(data.periodEnd).toLocaleDateString()}.` : "Your Pro access has been activated.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Voucher not applied",
+        description: err?.message || "Please check the code and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRedeemingVoucher(false);
+    }
   };
 
   if (isLoading) {
@@ -336,6 +364,38 @@ export default function Settings() {
       {/* Payment Methods */}
       {isOwner && (
         <>
+          <SectionLabel>Plan Voucher</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Ticket className="h-4 w-4 text-violet-500 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Voucher Code</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Enter a Pro voucher code when one is available.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={voucherCode}
+                  onChange={e => setVoucherCode(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === "Enter" && redeemVoucher()}
+                  placeholder="ENTER CODE"
+                  className="h-9 text-sm rounded-xl bg-secondary/60 border-none uppercase tracking-wider"
+                  data-testid="input-voucher-code"
+                />
+                <Button
+                  type="button"
+                  onClick={redeemVoucher}
+                  disabled={!voucherCode.trim() || redeemingVoucher}
+                  className="h-9 rounded-xl px-3"
+                  data-testid="button-redeem-voucher"
+                >
+                  {redeemingVoucher ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <SectionLabel>Checkout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
             <button

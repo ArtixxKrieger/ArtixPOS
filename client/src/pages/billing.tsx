@@ -145,21 +145,22 @@ export default function BillingPage() {
       </div>
 
       {/* Current Plan Status */}
-      <Card className="border border-violet-200/70 dark:border-violet-500/20 bg-gradient-to-br from-white via-violet-50/70 to-fuchsia-50/60 dark:from-white/[0.08] dark:via-violet-950/30 dark:to-fuchsia-950/20 shadow-lg shadow-violet-500/5 overflow-hidden">
+      <Card className="border border-slate-200 dark:border-white/10 bg-card shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-indigo-500" />
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <span className="h-8 w-8 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-600/25">
+              <span className="h-8 w-8 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-300 flex items-center justify-center">
                 {isPro ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
               </span>
               Current Plan
             </CardTitle>
             {isPro ? (
-              <Badge className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white gap-1.5 shadow-sm">
+              <Badge className="bg-violet-600 text-white gap-1.5">
                 <Crown className="w-3.5 h-3.5" /> Pro
               </Badge>
             ) : (
-              <Badge className="bg-white/80 text-violet-700 border border-violet-200 dark:bg-white/10 dark:text-violet-200 dark:border-white/10">Free</Badge>
+              <Badge variant="secondary">Free</Badge>
             )}
           </div>
         </CardHeader>
@@ -226,12 +227,12 @@ export default function BillingPage() {
           </h2>
 
           {/* Billing cycle toggle */}
-          <div className="inline-flex rounded-2xl border border-violet-200/70 dark:border-white/10 p-1 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-white/10 dark:to-white/5 shadow-sm">
+          <div className="inline-flex rounded-2xl border border-slate-200 dark:border-white/10 p-1 bg-slate-50 dark:bg-white/5 shadow-sm">
             <button
               onClick={() => setBillingCycle("monthly")}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 billingCycle === "monthly"
-                  ? "bg-white dark:bg-white/15 text-violet-700 dark:text-white shadow-sm"
+                  ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/70"
               }`}
               data-testid="button-billing-monthly"
@@ -242,7 +243,7 @@ export default function BillingPage() {
               onClick={() => setBillingCycle("annual")}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
                 billingCycle === "annual"
-                  ? "bg-white dark:bg-white/15 text-violet-700 dark:text-white shadow-sm"
+                  ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/70"
               }`}
               data-testid="button-billing-annual"
@@ -255,12 +256,12 @@ export default function BillingPage() {
           {/* Plan cards */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Free Card */}
-            <Card className={`border-2 overflow-hidden relative ${!isPro ? "border-violet-500 shadow-xl shadow-violet-500/10" : "border-slate-200 dark:border-white/10"} bg-gradient-to-br from-white via-slate-50 to-violet-50/60 dark:from-white/[0.07] dark:via-white/[0.04] dark:to-violet-950/20`}>
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-300 via-violet-400 to-slate-300" />
+            <Card className={`border-2 overflow-hidden relative bg-card ${!isPro ? "border-violet-500 shadow-lg shadow-violet-500/10" : "border-slate-200 dark:border-white/10"}`}>
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-indigo-400" />
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2">
-                  <span className="h-9 w-9 rounded-2xl bg-slate-100 dark:bg-white/10 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-slate-500 dark:text-white/70" />
+                  <span className="h-9 w-9 rounded-2xl bg-violet-500/10 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-violet-500" />
                   </span>
                   Free
                 </CardTitle>
@@ -270,7 +271,7 @@ export default function BillingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-2xl bg-white/70 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 p-3 max-h-72 overflow-y-auto pr-2">
+                <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 p-3 max-h-64 overflow-y-auto pr-2">
                   <ul className="space-y-2 text-sm">
                     {[
                       `${FREE_LIMITS.branches} branch`,
@@ -306,45 +307,44 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            <Card className={`border-2 relative overflow-hidden ${isPro ? "border-violet-500" : "border-violet-300/80 dark:border-violet-500/30"} bg-gradient-to-br from-violet-600 via-fuchsia-600 to-indigo-700 text-white shadow-2xl shadow-violet-600/20`}>
-              <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-white/20 blur-3xl" />
-              <div className="absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-cyan-300/20 blur-3xl" />
+            <Card className={`border-2 relative overflow-hidden bg-card ${isPro ? "border-violet-500 shadow-lg shadow-violet-500/10" : "border-slate-200 dark:border-white/10"}`}>
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-indigo-500" />
               <div className="absolute top-3 right-3 z-10">
-                <Badge className="bg-white/20 text-white border border-white/30 gap-1 backdrop-blur">
+                <Badge className="bg-violet-600 text-white gap-1">
                   <Crown className="w-3 h-3" /> Pro
                 </Badge>
               </div>
               <CardHeader className="relative pb-4">
                 <CardTitle className="flex items-center gap-2">
-                  <span className="h-9 w-9 rounded-2xl bg-white/20 flex items-center justify-center shadow-lg shadow-black/10">
-                    <Crown className="w-5 h-5 text-white" />
+                  <span className="h-9 w-9 rounded-2xl bg-violet-600/10 flex items-center justify-center">
+                    <Crown className="w-5 h-5 text-violet-600 dark:text-violet-300" />
                   </span>
                   Pro
                 </CardTitle>
-                <CardDescription className="text-white/80">
+                <CardDescription>
                   {billingCycle === "monthly" ? (
                     <>
-                      <span className="text-3xl font-black text-white">₱30</span>
-                      <span className="text-white/70 ml-1">/ month</span>
+                      <span className="text-3xl font-black text-slate-900 dark:text-white">₱30</span>
+                      <span className="text-slate-400 ml-1">/ month</span>
                     </>
                   ) : (
                     <>
-                      <span className="text-3xl font-black text-white">₱4,999</span>
-                      <span className="text-white/70 ml-1">/ year</span>
+                      <span className="text-3xl font-black text-slate-900 dark:text-white">₱4,999</span>
+                      <span className="text-slate-400 ml-1">/ year</span>
                     </>
                   )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="relative space-y-3">
-                <div className="rounded-2xl bg-white/12 border border-white/20 backdrop-blur p-3 max-h-72 overflow-y-auto pr-2">
+                <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 p-3 max-h-64 overflow-y-auto pr-2">
                   <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2 text-white">
-                      <Check className="w-4 h-4 text-emerald-200 shrink-0" />
+                    <li className="flex items-center gap-2 text-slate-700 dark:text-white/80">
+                      <Check className="w-4 h-4 text-violet-500 shrink-0" />
                       <span className="font-semibold">Everything in Free, plus:</span>
                     </li>
                     {PRO_FEATURES.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-white/90">
-                        <Check className="w-4 h-4 text-emerald-200 shrink-0" />
+                      <li key={f} className="flex items-center gap-2 text-slate-600 dark:text-white/70">
+                        <Check className="w-4 h-4 text-violet-500 shrink-0" />
                         {f}
                       </li>
                     ))}
@@ -354,7 +354,7 @@ export default function BillingPage() {
                 <div className="pt-2">
                   {isPro ? (
                     <Button
-                      className="w-full bg-white text-violet-700 hover:bg-white/90 shadow-lg shadow-black/10 font-bold"
+                      className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
                       onClick={() => checkoutMutation.mutate(billingCycle)}
                       disabled={checkoutMutation.isPending}
                       data-testid="button-renew-pro"
@@ -367,7 +367,7 @@ export default function BillingPage() {
                     </Button>
                   ) : (
                     <Button
-                      className="w-full bg-white text-violet-700 hover:bg-white/90 shadow-lg shadow-black/10 font-bold"
+                      className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
                       onClick={() => checkoutMutation.mutate(billingCycle)}
                       disabled={checkoutMutation.isPending}
                       data-testid="button-upgrade-pro"
@@ -382,7 +382,7 @@ export default function BillingPage() {
                       )}
                     </Button>
                   )}
-                  <p className="text-xs text-center text-white/65 mt-2">
+                  <p className="text-xs text-center text-slate-400 mt-2">
                     Secure payment via GCash, Card, GrabPay, or Maya
                   </p>
                 </div>

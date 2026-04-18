@@ -198,3 +198,4 @@ Production is intended to run on Vercel. Replit is used for development/preview 
 - Charts optimized to show last 30 days of revenue data
 - Tooltips have adaptive colors for dark/light modes
 - Free plan includes 1 branch, 50 products, 2 staff accounts, and a separate simple analytics screen; Pro keeps the advanced analytics dashboard with exports/custom ranges plus multi-branch, AI, customers, expenses, and automation modules
+- Pro voucher codes can be enabled with `PRO_VOUCHER_CODE` or comma-separated `PRO_VOUCHER_CODES` values; each code may include an optional day duration like `CODE:30`

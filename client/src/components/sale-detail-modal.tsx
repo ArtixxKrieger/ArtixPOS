@@ -128,7 +128,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const showOrderNumber = (s.receiptShowOrderNumber ?? 1) === 1;
     const showUnitPrice = (s.receiptShowUnitPrice ?? 0) === 1;
     const showPoweredBy = true;
-    const fs = s.receiptFontSize ?? 15;
+    const fs = 25;
     const cur = currency;
 
     const fmt = (n: number) => formatCurrency(n, cur);

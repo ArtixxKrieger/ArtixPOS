@@ -279,7 +279,7 @@ export default function PrintSettings() {
     emailContact: "",
     receiptFooter: "",
     currency: "₱",
-    receiptFontSize: 15,
+    receiptFontSize: 25,
   });
 
   useEffect(() => {
@@ -304,7 +304,7 @@ export default function PrintSettings() {
       emailContact: s.emailContact ?? "",
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
-      receiptFontSize: s.receiptFontSize ?? 15,
+      receiptFontSize: s.receiptFontSize ?? 25,
     });
   }, [settings]);
 
@@ -327,7 +327,7 @@ export default function PrintSettings() {
       receiptShowUnitPrice: cfg.receiptShowUnitPrice ? 1 : 0,
       receiptShowPoweredBy: 1,
       printDarkness: 65535,
-      receiptFontSize: cfg.receiptFontSize,
+      receiptFontSize: 25,
     } as any);
     toast({ title: "Print settings saved" });
   };

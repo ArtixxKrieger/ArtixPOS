@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import { Printer, Loader2 } from "lucide-react";
+import { Printer } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { useBlePrinter } from "@/lib/ble-printer-context";
@@ -82,7 +81,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const { data: settings } = useSettings();
   const { printer, print } = useBlePrinter();
   const { toast } = useToast();
-  const [printing, setPrinting] = useState(false);
 
   if (!receipt) return null;
 
@@ -114,72 +112,78 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const hasLoyalty = receipt.loyaltyDiscount > 0;
   const hasTax = receipt.tax > 0;
 
-  const handlePrint = async () => {
-    setPrinting(true);
-    try {
-      if (printer.connected) {
-        const receiptData = {
-          storeName: receipt.storeName ?? s.storeName ?? "",
-          headerText: receiptHeaderText,
-          receiptTitle,
-          address: storeAddress,
-          phone: storePhone,
-          email: storeEmail,
-          website: receiptWebsite,
-          showAddress,
-          showPhone,
-          showEmail,
-          showWebsite,
-          showOrderNumber,
-          showCashier,
-          showUnitPrice,
-          showPoweredBy,
-          orderNumber: receipt.orderNumber,
-          cashierName: receipt.cashierName,
-          dateStr: format(now, "MMM d, yyyy h:mm a"),
-          customerName: receipt.customerName,
-          items: receipt.items.map(item => ({
-            name: item.product.name,
-            sizeName: item.size?.name,
-            qty: item.quantity,
-            unitPrice:
-              parseFloat(item.size?.price || "0") +
-              (item.modifiers || []).reduce((acc, m) => acc + parseFloat(m.price || "0"), 0),
-            modifiers: item.modifiers,
-            note: item.note,
-          })),
-          subtotal: receipt.subtotal,
-          tax: receipt.tax,
-          discount: receipt.discount,
-          discountCode: receipt.discountCode,
-          loyaltyDiscount: receipt.loyaltyDiscount,
-          loyaltyPointsEarned: receipt.loyaltyPointsEarned,
-          total: receipt.total,
-          paymentMethod: receipt.paymentMethod,
-          paymentAmount: receipt.paymentAmount,
-          changeAmount: receipt.changeAmount,
-          currency,
-          receiptFooter: receipt.receiptFooter,
-          receiptWidth,
-        };
-        const result = await print({
-          escpos: buildReceiptEscPos(receiptData),
-          catText: buildReceiptText(receiptData),
-          energy: printDarkness,
-          catReceiptWidth: receiptWidth,
-        });
+  const handlePrint = () => {
+    if (printer.connected) {
+      // Close immediately so cashier can start next sale
+      onClose();
+      const receiptData = {
+        storeName: receipt.storeName ?? s.storeName ?? "",
+        headerText: receiptHeaderText,
+        receiptTitle,
+        address: storeAddress,
+        phone: storePhone,
+        email: storeEmail,
+        website: receiptWebsite,
+        showAddress,
+        showPhone,
+        showEmail,
+        showWebsite,
+        showOrderNumber,
+        showCashier,
+        showUnitPrice,
+        showPoweredBy,
+        orderNumber: receipt.orderNumber,
+        cashierName: receipt.cashierName,
+        dateStr: format(now, "MMM d, yyyy h:mm a"),
+        customerName: receipt.customerName,
+        items: receipt.items.map(item => ({
+          name: item.product.name,
+          sizeName: item.size?.name,
+          qty: item.quantity,
+          unitPrice:
+            parseFloat(item.size?.price || "0") +
+            (item.modifiers || []).reduce((acc, m) => acc + parseFloat(m.price || "0"), 0),
+          modifiers: item.modifiers,
+          note: item.note,
+        })),
+        subtotal: receipt.subtotal,
+        tax: receipt.tax,
+        discount: receipt.discount,
+        discountCode: receipt.discountCode,
+        loyaltyDiscount: receipt.loyaltyDiscount,
+        loyaltyPointsEarned: receipt.loyaltyPointsEarned,
+        total: receipt.total,
+        paymentMethod: receipt.paymentMethod,
+        paymentAmount: receipt.paymentAmount,
+        changeAmount: receipt.changeAmount,
+        currency,
+        receiptFooter: receipt.receiptFooter,
+        receiptWidth,
+      };
+      // Fire in background — don't block the UI
+      print({
+        escpos: buildReceiptEscPos(receiptData),
+        catText: buildReceiptText(receiptData),
+        energy: printDarkness,
+        catReceiptWidth: receiptWidth,
+      }).then(result => {
         if (result.ok) {
           toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });
         } else {
           toast({ title: "Print failed", description: result.error, variant: "destructive" });
         }
-      } else {
-        const width = receiptWidth === "58mm" ? 210 : 280;
-        const printContent = document.getElementById("receipt-printable");
-        if (!printContent) return;
-        const win = window.open("", "_blank", "width=360,height=700");
-        if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
-        win.document.write(`<!DOCTYPE html>
+      });
+    } else {
+      // Capture HTML content before closing the modal
+      const width = receiptWidth === "58mm" ? 210 : 280;
+      const printContent = document.getElementById("receipt-printable");
+      if (!printContent) return;
+      const capturedHtml = printContent.innerHTML;
+      // Close immediately so cashier can start next sale
+      onClose();
+      const win = window.open("", "_blank", "width=360,height=700");
+      if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
+      win.document.write(`<!DOCTYPE html>
 <html>
   <head>
     <title>Receipt</title>
@@ -200,14 +204,11 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     </style>
   </head>
   <body>
-    ${printContent.innerHTML}
+    ${capturedHtml}
     <script>window.onload = function() { window.print(); window.close(); }<\/script>
   </body>
 </html>`);
-        win.document.close();
-      }
-    } finally {
-      setPrinting(false);
+      win.document.close();
     }
   };
 
@@ -384,15 +385,10 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           <Button
             className="flex-1 rounded-xl h-10 font-bold"
             onClick={handlePrint}
-            disabled={printing}
             data-testid="button-print-receipt"
           >
-            {printing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Printer className="h-4 w-4 mr-2" />
-            )}
-            {printing ? "Printing…" : printer.connected ? "Print" : "Print"}
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
         </div>
       </DialogContent>

@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 import {
   Building2, Plus, Pencil, Trash2, Phone, MapPin,
-  CheckCircle, XCircle, Star,
+  CheckCircle, XCircle, Star, Crown, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, type Branch } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
 
 const branchSchema = z.object({
@@ -129,8 +131,20 @@ export default function Branches() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | undefined>();
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
+  const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const isOwner = user?.role === "owner";
   const { toast } = useToast();
+  const { isPro } = useSubscription();
+  const [, setLocation] = useLocation();
+
+  function handleAddBranch() {
+    if (!isPro && branches.length >= 1) {
+      setShowUpgradeCard(true);
+    } else {
+      setEditingBranch(undefined);
+      setFormOpen(true);
+    }
+  }
 
   async function handleDelete() {
     if (!deletingBranchId) return;
@@ -168,12 +182,12 @@ export default function Branches() {
         {isOwner && (
           <button
             data-testid="button-create-branch"
-            onClick={() => { setEditingBranch(undefined); setFormOpen(true); }}
+            onClick={handleAddBranch}
             className="flex items-center gap-2 h-9 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 hover:opacity-90 transition-opacity shrink-0"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Add Branch</span>
-            <span className="sm:hidden">Add</span>
+            <span className="sm:hidden">+ Add</span>
           </button>
         )}
       </div>
@@ -196,7 +210,7 @@ export default function Branches() {
           <p className="text-sm text-muted-foreground mt-1 mb-5">Create your first location to start managing your stores</p>
           {isOwner && (
             <button
-              onClick={() => { setEditingBranch(undefined); setFormOpen(true); }}
+              onClick={handleAddBranch}
               className="flex items-center gap-2 h-9 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 hover:opacity-90 transition-opacity"
             >
               <Plus className="h-4 w-4" /> Create your first branch
@@ -304,6 +318,38 @@ export default function Branches() {
           ))}
         </div>
       )}
+
+      {/* Pro upgrade card — shown instead of form when free plan hits branch limit */}
+      <Dialog open={showUpgradeCard} onOpenChange={setShowUpgradeCard}>
+        <DialogContent className="max-w-sm">
+          <div className="flex flex-col items-center text-center gap-4 py-2">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/25">
+              <Lock className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <Crown className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-bold uppercase tracking-widest text-amber-500">Pro Feature</span>
+              </div>
+              <h2 className="text-lg font-black text-foreground">Multiple Branches</h2>
+              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                The Free plan includes 1 branch. Upgrade to Pro to manage unlimited locations, staff across branches, and get advanced analytics per store.
+              </p>
+            </div>
+            <div className="w-full space-y-2">
+              <Button
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold shadow-md shadow-orange-500/20 border-0"
+                onClick={() => { setShowUpgradeCard(false); setLocation("/billing"); }}
+              >
+                <Crown className="h-4 w-4 mr-2" /> Upgrade to Pro
+              </Button>
+              <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setShowUpgradeCard(false)}>
+                Maybe later
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BranchFormDialog
         open={formOpen}

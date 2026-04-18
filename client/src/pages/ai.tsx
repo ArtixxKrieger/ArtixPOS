@@ -599,6 +599,11 @@ function MessageBubble({
     return null;
   }
 
+  // Don't render avatar-only ghost bubble while waiting for first token
+  if (!isUser && !display.trim() && !isStreaming && !msg.file) {
+    return null;
+  }
+
   return (
     <div className={`flex gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
@@ -1213,13 +1218,22 @@ export default function AiPage() {
       const existing = getSessions();
       setSessions(existing);
 
-      // Inject onboarding welcome message if this is a brand-new store
+      // Inject onboarding welcome message for brand-new accounts
+      const welcomedKey = `ai_welcomed_${user.id}`;
       const raw = localStorage.getItem("ai_welcome_pending");
-      if (raw && existing.length === 0) {
+      const alreadyWelcomed = localStorage.getItem(welcomedKey);
+      if (!alreadyWelcomed && existing.length === 0) {
         try {
-          const { businessType: bType, businessSubType: bSub, storeName: sName } = JSON.parse(raw);
+          let bType = "other", bSub = "other", sName = "";
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            bType = parsed.businessType ?? "other";
+            bSub = parsed.businessSubType ?? "other";
+            sName = parsed.storeName ?? "";
+          }
           localStorage.removeItem("ai_welcome_pending");
-          const welcomeContent = buildWelcomeMessage(bType ?? "other", bSub ?? "other", sName ?? "");
+          localStorage.setItem(welcomedKey, "1");
+          const welcomeContent = buildWelcomeMessage(bType, bSub, sName);
           const welcomeMsg: AiMessage = {
             id: crypto.randomUUID(),
             role: "assistant",
@@ -1233,6 +1247,8 @@ export default function AiPage() {
           setSessions(getSessions());
           setShowSidebar(false);
         } catch {}
+      } else if (raw) {
+        localStorage.removeItem("ai_welcome_pending");
       }
     }
   }, [user?.id]);
@@ -1429,9 +1445,7 @@ export default function AiPage() {
       refreshSessions();
 
     } catch (err: any) {
-      const errContent = navigator.onLine
-        ? "The connection was interrupted. Please try again."
-        : "You appear to be offline. Please check your connection.";
+      const errContent = "Couldn't reach the AI service. Please check your connection and try again.";
       setMessages(prev => prev.map(m =>
         m.id === assistantId ? { ...m, content: errContent } : m
       ));

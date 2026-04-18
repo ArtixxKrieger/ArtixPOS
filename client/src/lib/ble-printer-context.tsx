@@ -74,7 +74,7 @@ async function writeCatPackets(
 
     for (const pkt of packets) {
       await char.writeValueWithoutResponse(new Uint8Array(pkt));
-      await sleep(20); // 20 ms between packets — required to avoid printer buffer overflow
+      await sleep(50); // 50 ms between packets — slower = more heat per row = darker print
     }
     return { ok: true };
   } catch (err: any) {

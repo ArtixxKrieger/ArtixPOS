@@ -55,8 +55,8 @@ function packet(cmd: number, data: number[]): number[] {
 
 /** Render plain-text receipt lines onto an off-screen canvas → 1-bit raster rows */
 function textToRasterRows(text: string): number[][] {
-  const FONT_SIZE   = 18;   // px — larger for denser pixels
-  const LINE_HEIGHT = 22;   // px
+  const FONT_SIZE   = 22;   // px — larger for denser pixels
+  const LINE_HEIGHT = 26;   // px
   const MARGIN_X    = 4;    // px left/right padding
   const MARGIN_Y    = 4;    // px top padding
 

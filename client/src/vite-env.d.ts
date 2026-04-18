@@ -7,6 +7,7 @@ interface BluetoothCharacteristicProperties {
 
 interface BluetoothRemoteGATTCharacteristic {
   readonly properties: BluetoothCharacteristicProperties;
+  writeValue(value: BufferSource): Promise<void>;
   writeValueWithoutResponse(value: BufferSource): Promise<void>;
 }
 
@@ -19,6 +20,7 @@ interface BluetoothRemoteGATTServer {
   connect(): Promise<BluetoothRemoteGATTServer>;
   disconnect(): void;
   getPrimaryService(service: string): Promise<BluetoothRemoteGATTService>;
+  getPrimaryServices(service?: string): Promise<BluetoothRemoteGATTService[]>;
 }
 
 interface BluetoothDevice {

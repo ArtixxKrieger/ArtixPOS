@@ -171,12 +171,18 @@ function buildTestPrintData(storeName: string): Uint8Array {
   ]);
 }
 
-// Common BLE write characteristic UUIDs for thermal printers
+// Common BLE service UUIDs for thermal printers (expanded list)
 const BLE_PRINT_SERVICES = [
   "000018f0-0000-1000-8000-00805f9b34fb",
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
   "49535343-fe7d-4ae5-8fa9-9fafd205e455",
   "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "0000fff0-0000-1000-8000-00805f9b34fb",
+  "0000fee7-0000-1000-8000-00805f9b34fb",
+  "00001101-0000-1000-8000-00805f9b34fb",
+  "0000ae30-0000-1000-8000-00805f9b34fb",
+  "000001ff-0000-1000-8000-00805f9b34fb",
 ];
 
 type DetectedPrinter = {
@@ -200,6 +206,33 @@ export default function PrintSettings() {
   const [scanningUsb, setScanningUsb] = useState(false);
   const [testingPrint, setTestingPrint] = useState<string | null>(null);
   const bleDeviceRef = useRef<BluetoothDevice | null>(null);
+
+  // Auto-reconnect previously paired BLE printers on mount
+  useEffect(() => {
+    const ble = (navigator as any).bluetooth;
+    if (!ble || typeof ble.getDevices !== "function") return;
+    ble.getDevices().then(async (devices: BluetoothDevice[]) => {
+      for (const device of devices) {
+        const name = device.name || "Bluetooth Printer";
+        try {
+          const server = await device.gatt?.connect();
+          if (server?.connected) {
+            bleDeviceRef.current = device;
+            setDetectedPrinters(prev => {
+              if (prev.some(p => p.type === "bluetooth" && p.name === name)) return prev;
+              return [...prev, { name, type: "bluetooth", connected: true, device }];
+            });
+          }
+        } catch {
+          // Device not in range or refused — add as disconnected so user can see it
+          setDetectedPrinters(prev => {
+            if (prev.some(p => p.type === "bluetooth" && p.name === name)) return prev;
+            return [...prev, { name, type: "bluetooth", connected: false, device }];
+          });
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   const scanBluetooth = async () => {
     if (!(navigator as any).bluetooth) {
@@ -270,6 +303,25 @@ export default function PrintSettings() {
     }
   };
 
+  const writeToCharacteristic = async (char: BluetoothRemoteGATTCharacteristic, data: Uint8Array): Promise<boolean> => {
+    const CHUNK = 512;
+    try {
+      for (let i = 0; i < data.length; i += CHUNK) {
+        await char.writeValueWithoutResponse(data.slice(i, i + CHUNK));
+      }
+      return true;
+    } catch {
+      try {
+        for (let i = 0; i < data.length; i += CHUNK) {
+          await char.writeValue(data.slice(i, i + CHUNK));
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  };
+
   const testPrint = async (printer: DetectedPrinter) => {
     setTestingPrint(printer.name);
     const data = buildTestPrintData((settings as any)?.storeName || "ArtixPOS");
@@ -278,23 +330,49 @@ export default function PrintSettings() {
         let server = printer.device.gatt?.connected ? printer.device.gatt : null;
         if (!server?.connected) server = await printer.device.gatt?.connect() ?? null;
         if (!server) throw new Error("Could not connect to printer");
+
         let wrote = false;
-        for (const svcUuid of BLE_PRINT_SERVICES) {
-          try {
-            const svc = await server.getPrimaryService(svcUuid);
-            const chars = await svc.getCharacteristics();
-            const writeable = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
-            if (writeable) {
-              const CHUNK = 512;
-              for (let i = 0; i < data.length; i += CHUNK) {
-                await writeable.writeValueWithoutResponse(data.slice(i, i + CHUNK));
+
+        // First try: enumerate ALL services the device actually has
+        try {
+          const allServices = await server.getPrimaryServices();
+          for (const svc of allServices) {
+            if (wrote) break;
+            try {
+              const chars = await svc.getCharacteristics();
+              for (const char of chars) {
+                if (char.properties.write || char.properties.writeWithoutResponse) {
+                  wrote = await writeToCharacteristic(char, data);
+                  if (wrote) break;
+                }
               }
-              wrote = true;
-              break;
-            }
-          } catch {}
+              // If property flags didn't help, try every characteristic anyway
+              if (!wrote) {
+                for (const char of chars) {
+                  wrote = await writeToCharacteristic(char, data);
+                  if (wrote) break;
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+
+        // Second try: fallback to known service UUIDs if getPrimaryServices() failed
+        if (!wrote) {
+          for (const svcUuid of BLE_PRINT_SERVICES) {
+            if (wrote) break;
+            try {
+              const svc = await server.getPrimaryService(svcUuid);
+              const chars = await svc.getCharacteristics();
+              for (const char of chars) {
+                wrote = await writeToCharacteristic(char, data);
+                if (wrote) break;
+              }
+            } catch {}
+          }
         }
-        if (!wrote) throw new Error("No writable characteristic found. This printer may not support direct BLE printing.");
+
+        if (!wrote) throw new Error("No writable characteristic found. Make sure the printer is on, in range, and supports BLE printing.");
         setDetectedPrinters(prev => prev.map(p => p.name === printer.name && p.type === "bluetooth" ? { ...p, connected: true } : p));
         toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
       } else if (printer.type === "usb" && printer.usbDevice) {

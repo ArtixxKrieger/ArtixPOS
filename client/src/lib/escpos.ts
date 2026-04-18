@@ -97,11 +97,13 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   };
 
   push(
-    bytes(ESC, 0x40),
-    bytes(ESC, 0x61, 0x01),
+    bytes(ESC, 0x40),         // Initialize printer
+    bytes(ESC, 0x45, 1),      // Bold on (global)
+    bytes(ESC, 0x47, 1),      // Double-strike on — prints each dot twice, much darker output
+    bytes(ESC, 0x61, 0x01),   // Center align
   );
 
-  if (r.storeName) push(bytes(ESC, 0x45, 1), center(r.storeName, width), bytes(ESC, 0x45, 0));
+  if (r.storeName) push(center(r.storeName, width));
   if (r.headerText) push(center(r.headerText, width));
   if (r.receiptTitle) push(center(r.receiptTitle, width));
   if (r.dateStr) push(center(r.dateStr, width));
@@ -147,9 +149,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   }
 
   push(dashes(width));
-  push(bytes(ESC, 0x45, 1));
   push(row("TOTAL", fmt(r.total, r.currency), width));
-  push(bytes(ESC, 0x45, 0));
 
   push(row(`Payment (${r.paymentMethod.toUpperCase()})`, fmt(r.paymentAmount, r.currency), width));
   if (r.paymentMethod === "cash" && r.changeAmount > 0) {
@@ -190,8 +190,10 @@ export function buildTestPrintEscPos(storeName: string, receiptWidth?: string): 
   const now = new Date().toLocaleString();
   push(
     bytes(ESC, 0x40),
+    bytes(ESC, 0x45, 1),
+    bytes(ESC, 0x47, 1),
     bytes(ESC, 0x61, 0x01),
-    bytes(ESC, 0x45, 1), center(storeName || "ArtixPOS", width), bytes(ESC, 0x45, 0),
+    center(storeName || "ArtixPOS", width),
     center("--- Test Print ---", width),
     center(now, width),
     dashes(width),

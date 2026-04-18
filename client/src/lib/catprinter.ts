@@ -92,8 +92,9 @@ function textToRasterRows(text: string): number[][] {
       const idx = (y * PRINT_WIDTH + x) * 4;
       // Use only the red channel (white bg → 255, black text → 0).
       // Threshold at 200 to capture anti-aliased grey edges as printed dots.
+      // SC03h/iPrint protocol uses LSB-first bit order within each byte.
       if (imgData.data[idx] < 200) {
-        row[Math.floor(x / 8)] |= 0x80 >> (x % 8);
+        row[Math.floor(x / 8)] |= 1 << (x % 8);
       }
     }
     rows.push(row);
@@ -110,11 +111,12 @@ function textToRasterRows(text: string): number[][] {
 export function buildCatPrinterPackets(receiptText: string, energy = 65000): number[][] {
   const packets: number[][] = [];
 
-  // 1. Set darkness (energy) — send 3× to ensure the printer registers it
+  // 1. Set darkness (energy) — send 10× so the printer fully registers it
+  //    before the first print row arrives (~20ms per packet = ~200ms lead time)
   const energyData = [energy & 0xff, (energy >> 8) & 0xff];
-  packets.push(packet(CMD_SET_ENERGY, energyData));
-  packets.push(packet(CMD_SET_ENERGY, energyData));
-  packets.push(packet(CMD_SET_ENERGY, energyData));
+  for (let i = 0; i < 10; i++) {
+    packets.push(packet(CMD_SET_ENERGY, energyData));
+  }
 
   // 2. One packet per raster row
   const rows = textToRasterRows(receiptText);

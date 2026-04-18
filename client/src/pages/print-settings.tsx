@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -173,6 +173,7 @@ export default function PrintSettings() {
   const [scanningUsb, setScanningUsb] = useState(false);
   const [testingBle, setTestingBle] = useState(false);
   const [testingUsb, setTestingUsb] = useState<string | null>(null);
+  const cfgLoadedRef = useRef(false);
 
   const handleScanBluetooth = async () => {
     const { device, error } = await bleScan();
@@ -288,7 +289,8 @@ export default function PrintSettings() {
   });
 
   useEffect(() => {
-    if (!settings) return;
+    if (!settings || cfgLoadedRef.current) return;
+    cfgLoadedRef.current = true;
     const s = settings as any;
     setCfg({
       receiptWidth: s.receiptWidth ?? "80mm",

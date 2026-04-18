@@ -545,25 +545,6 @@ export default function PrintSettings() {
               />
             </SettingRow>
 
-            <SettingRow label="Font Size" hint="Base font size for printed receipts">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">Small</span>
-                  <span className="text-[11px] font-medium text-foreground">{cfg.receiptFontSize}px</span>
-                  <span className="text-[11px] text-muted-foreground">Large</span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={22}
-                  step={1}
-                  value={cfg.receiptFontSize}
-                  onChange={e => set("receiptFontSize", Number(e.target.value))}
-                  className="w-full accent-primary h-1.5 rounded-full cursor-pointer"
-                  data-testid="input-receipt-font-size"
-                />
-              </div>
-            </SettingRow>
 
           </div>
 

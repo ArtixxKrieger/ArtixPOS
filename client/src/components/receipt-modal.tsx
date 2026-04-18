@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import { Printer, X } from "lucide-react";
+import { Printer, X, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
+import { useBlePrinter } from "@/lib/ble-printer-context";
+import { buildReceiptEscPos } from "@/lib/escpos";
+import { useToast } from "@/hooks/use-toast";
 
 interface ReceiptItem {
   product: { name: string };
@@ -74,6 +78,10 @@ export function buildReceiptHtml(
 
 export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const { data: settings } = useSettings();
+  const { printer, print } = useBlePrinter();
+  const { toast } = useToast();
+  const [printing, setPrinting] = useState(false);
+
   if (!receipt) return null;
 
   const s = (settings ?? {}) as Record<string, any>;
@@ -102,13 +110,67 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const hasLoyalty = receipt.loyaltyDiscount > 0;
   const hasTax = receipt.tax > 0;
 
-  const handlePrint = () => {
-    const width = receiptWidth === "58mm" ? 210 : 280;
-    const printContent = document.getElementById("receipt-printable");
-    if (!printContent) return;
-    const win = window.open("", "_blank", "width=360,height=700");
-    if (!win) { alert("Please allow pop-ups to print receipts."); return; }
-    win.document.write(`<!DOCTYPE html>
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      if (printer.connected) {
+        const data = buildReceiptEscPos({
+          storeName: receipt.storeName ?? s.storeName ?? "",
+          headerText: receiptHeaderText,
+          receiptTitle,
+          address: storeAddress,
+          phone: storePhone,
+          email: storeEmail,
+          website: receiptWebsite,
+          showAddress,
+          showPhone,
+          showEmail,
+          showWebsite,
+          showOrderNumber,
+          showCashier,
+          showUnitPrice,
+          showPoweredBy,
+          orderNumber: receipt.orderNumber,
+          cashierName: receipt.cashierName,
+          dateStr: format(now, "MMM d, yyyy h:mm a"),
+          customerName: receipt.customerName,
+          items: receipt.items.map(item => ({
+            name: item.product.name,
+            sizeName: item.size?.name,
+            qty: item.quantity,
+            unitPrice:
+              parseFloat(item.size?.price || "0") +
+              (item.modifiers || []).reduce((s, m) => s + parseFloat(m.price || "0"), 0),
+            modifiers: item.modifiers,
+            note: item.note,
+          })),
+          subtotal: receipt.subtotal,
+          tax: receipt.tax,
+          discount: receipt.discount,
+          discountCode: receipt.discountCode,
+          loyaltyDiscount: receipt.loyaltyDiscount,
+          loyaltyPointsEarned: receipt.loyaltyPointsEarned,
+          total: receipt.total,
+          paymentMethod: receipt.paymentMethod,
+          paymentAmount: receipt.paymentAmount,
+          changeAmount: receipt.changeAmount,
+          currency,
+          receiptFooter: receipt.receiptFooter,
+          receiptWidth,
+        });
+        const result = await print(data);
+        if (result.ok) {
+          toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });
+        } else {
+          toast({ title: "Print failed", description: result.error, variant: "destructive" });
+        }
+      } else {
+        const width = receiptWidth === "58mm" ? 210 : 280;
+        const printContent = document.getElementById("receipt-printable");
+        if (!printContent) return;
+        const win = window.open("", "_blank", "width=360,height=700");
+        if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
+        win.document.write(`<!DOCTYPE html>
 <html>
   <head>
     <title>Receipt</title>
@@ -133,7 +195,11 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <script>window.onload = function() { window.print(); window.close(); }<\/script>
   </body>
 </html>`);
-    win.document.close();
+        win.document.close();
+      }
+    } finally {
+      setPrinting(false);
+    }
   };
 
   return (
@@ -148,7 +214,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
         <div className="px-5 pb-5 max-h-[70vh] overflow-y-auto scrollbar-hide">
           <div id="receipt-printable" className="font-mono text-xs space-y-1">
-            {/* Store Header */}
             <div className="center text-center mb-3">
               {receipt.storeName && (
                 <p className="bold font-bold text-sm">{receipt.storeName}</p>
@@ -196,7 +261,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
             <div className="border-t border-dashed border-border/60 my-2" />
 
-            {/* Items */}
             <div className="space-y-1.5">
               {receipt.items.map((item, i) => {
                 const basePrice = parseFloat(item.size?.price || "0");
@@ -234,7 +298,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
             <div className="border-t border-dashed border-border/60 my-2" />
 
-            {/* Totals */}
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] text-muted-foreground">
                 <span>Subtotal</span>
@@ -292,7 +355,18 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           </div>
         </div>
 
-        <div className="px-5 pb-5 flex gap-2">
+        {printer.name && (
+          <div className="px-5 pb-1">
+            <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
+                {printer.connected ? `Ready — ${printer.name}` : `Reconnecting to ${printer.name}…`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="px-5 pb-5 flex gap-2 pt-2">
           <Button
             variant="outline"
             className="flex-1 rounded-xl h-10"
@@ -304,10 +378,15 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           <Button
             className="flex-1 rounded-xl h-10 font-bold"
             onClick={handlePrint}
+            disabled={printing}
             data-testid="button-print-receipt"
           >
-            <Printer className="h-4 w-4 mr-2" />
-            Print
+            {printing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4 mr-2" />
+            )}
+            {printing ? "Printing…" : printer.connected ? "Print" : "Print"}
           </Button>
         </div>
       </DialogContent>

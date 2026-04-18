@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useEffect, useState } from "react";
+import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
@@ -366,8 +367,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Router />
-        <Toaster />
+        <BlePrinterProvider>
+          <Router />
+          <Toaster />
+        </BlePrinterProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

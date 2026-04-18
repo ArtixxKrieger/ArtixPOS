@@ -1,13 +1,14 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, XCircle, Circle } from "lucide-react";
+import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, WifiOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
+import { useBlePrinter } from "@/lib/ble-printer-context";
+import { buildTestPrintEscPos } from "@/lib/escpos";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -150,47 +151,10 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
   );
 }
 
-// ESC/POS test print bytes
-const ESC = 0x1b;
-const GS = 0x1d;
-const LF = 0x0a;
-function buildTestPrintData(storeName: string): Uint8Array {
-  const enc = new TextEncoder();
-  const header = enc.encode(storeName || "ArtixPOS");
-  const line = enc.encode("Test Print - OK");
-  const date = enc.encode(new Date().toLocaleString());
-  return new Uint8Array([
-    ESC, 0x40,        // Initialize
-    ESC, 0x61, 0x01, // Center
-    ...header, LF,
-    ESC, 0x61, 0x00, // Left
-    ...line, LF,
-    ...date, LF,
-    LF, LF, LF,
-    GS, 0x56, 0x42, 0x00, // Full cut
-  ]);
-}
-
-// Common BLE service UUIDs for thermal printers (expanded list)
-const BLE_PRINT_SERVICES = [
-  "000018f0-0000-1000-8000-00805f9b34fb",
-  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
-  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
-  "0000ff00-0000-1000-8000-00805f9b34fb",
-  "0000ffe0-0000-1000-8000-00805f9b34fb",
-  "0000fff0-0000-1000-8000-00805f9b34fb",
-  "0000fee7-0000-1000-8000-00805f9b34fb",
-  "00001101-0000-1000-8000-00805f9b34fb",
-  "0000ae30-0000-1000-8000-00805f9b34fb",
-  "000001ff-0000-1000-8000-00805f9b34fb",
-];
-
-type DetectedPrinter = {
+type UsbPrinter = {
   name: string;
-  type: "bluetooth" | "usb";
   connected: boolean;
-  device?: BluetoothDevice;
-  usbDevice?: USBDevice;
+  device: USBDevice;
 };
 
 export default function PrintSettings() {
@@ -198,76 +162,22 @@ export default function PrintSettings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { printer: blePrinter, scanning: bleScanning, scan: bleScan, disconnect: bleDisconnect, print: blePrint } = useBlePrinter();
 
   const isOwner = user?.role === "owner";
 
-  const [detectedPrinters, setDetectedPrinters] = useState<DetectedPrinter[]>([]);
-  const [scanningBt, setScanningBt] = useState(false);
+  const [usbPrinters, setUsbPrinters] = useState<UsbPrinter[]>([]);
   const [scanningUsb, setScanningUsb] = useState(false);
-  const [testingPrint, setTestingPrint] = useState<string | null>(null);
-  const bleDeviceRef = useRef<BluetoothDevice | null>(null);
+  const [testingBle, setTestingBle] = useState(false);
+  const [testingUsb, setTestingUsb] = useState<string | null>(null);
 
-  // Auto-reconnect previously paired BLE printers on mount
-  useEffect(() => {
-    const ble = (navigator as any).bluetooth;
-    if (!ble || typeof ble.getDevices !== "function") return;
-    ble.getDevices().then(async (devices: BluetoothDevice[]) => {
-      for (const device of devices) {
-        const name = device.name || "Bluetooth Printer";
-        try {
-          const server = await device.gatt?.connect();
-          if (server?.connected) {
-            bleDeviceRef.current = device;
-            setDetectedPrinters(prev => {
-              if (prev.some(p => p.type === "bluetooth" && p.name === name)) return prev;
-              return [...prev, { name, type: "bluetooth", connected: true, device }];
-            });
-          }
-        } catch {
-          // Device not in range or refused — add as disconnected so user can see it
-          setDetectedPrinters(prev => {
-            if (prev.some(p => p.type === "bluetooth" && p.name === name)) return prev;
-            return [...prev, { name, type: "bluetooth", connected: false, device }];
-          });
-        }
-      }
-    }).catch(() => {});
-  }, []);
-
-  const scanBluetooth = async () => {
-    if (!(navigator as any).bluetooth) {
-      toast({ title: "Not supported", description: "Web Bluetooth is not available. Use Chrome on desktop or Android.", variant: "destructive" });
-      return;
-    }
-    setScanningBt(true);
-    try {
-      const device: BluetoothDevice = await (navigator as any).bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: BLE_PRINT_SERVICES,
-      });
-      bleDeviceRef.current = device;
+  const handleScanBluetooth = async () => {
+    const { device, error } = await bleScan();
+    if (error) {
+      toast({ title: "Scan failed", description: error, variant: "destructive" });
+    } else if (device) {
       const name = device.name || "Bluetooth Printer";
-      const printer: DetectedPrinter = { name, type: "bluetooth", connected: false, device };
-      setDetectedPrinters(prev => {
-        const others = prev.filter(p => !(p.type === "bluetooth" && p.name === name));
-        return [...others, printer];
-      });
-      // Try GATT connect
-      try {
-        const server = await device.gatt?.connect();
-        if (server?.connected) {
-          setDetectedPrinters(prev => prev.map(p => p.name === name && p.type === "bluetooth" ? { ...p, connected: true } : p));
-          toast({ title: "Printer connected", description: `${name} is ready.` });
-        }
-      } catch {
-        toast({ title: "Device found", description: `${name} detected but could not auto-connect. Try Test Print to connect.` });
-      }
-    } catch (err: any) {
-      if (err.name !== "NotFoundError" && err.name !== "NotAllowedError") {
-        toast({ title: "Scan failed", description: err.message, variant: "destructive" });
-      }
-    } finally {
-      setScanningBt(false);
+      toast({ title: "Printer paired", description: `${name} is connected and ready.` });
     }
   };
 
@@ -280,19 +190,19 @@ export default function PrintSettings() {
     try {
       const device: USBDevice = await (navigator as any).usb.requestDevice({ filters: [] });
       const name = device.productName || device.manufacturerName || "USB Printer";
-      const printer: DetectedPrinter = { name, type: "usb", connected: false, usbDevice: device };
-      setDetectedPrinters(prev => {
-        const others = prev.filter(p => !(p.type === "usb" && p.name === name));
+      const printer: UsbPrinter = { name, connected: false, device };
+      setUsbPrinters(prev => {
+        const others = prev.filter(p => p.name !== name);
         return [...others, printer];
       });
       try {
         await device.open();
         if (device.configuration === null) await device.selectConfiguration(1);
         await device.claimInterface(0);
-        setDetectedPrinters(prev => prev.map(p => p.name === name && p.type === "usb" ? { ...p, connected: true } : p));
+        setUsbPrinters(prev => prev.map(p => p.name === name ? { ...p, connected: true } : p));
         toast({ title: "USB Printer connected", description: `${name} is ready.` });
       } catch {
-        toast({ title: "Device found", description: `${name} detected. Use Test Print to send a test page.` });
+        toast({ title: "Device found", description: `${name} detected. Use Test Print to connect.` });
       }
     } catch (err: any) {
       if (err.name !== "NotFoundError" && err.name !== "NotAllowedError") {
@@ -303,97 +213,33 @@ export default function PrintSettings() {
     }
   };
 
-  const writeToCharacteristic = async (char: BluetoothRemoteGATTCharacteristic, data: Uint8Array): Promise<boolean> => {
-    const CHUNK = 512;
-    try {
-      for (let i = 0; i < data.length; i += CHUNK) {
-        await char.writeValueWithoutResponse(data.slice(i, i + CHUNK));
-      }
-      return true;
-    } catch {
-      try {
-        for (let i = 0; i < data.length; i += CHUNK) {
-          await char.writeValue(data.slice(i, i + CHUNK));
-        }
-        return true;
-      } catch {
-        return false;
-      }
+  const testBlePrint = async () => {
+    setTestingBle(true);
+    const data = buildTestPrintEscPos((settings as any)?.storeName || "ArtixPOS", (settings as any)?.receiptWidth);
+    const result = await blePrint(data);
+    if (result.ok) {
+      toast({ title: "Test print sent!", description: `Check your ${blePrinter.name} for the test receipt.` });
+    } else {
+      toast({ title: "Print failed", description: result.error, variant: "destructive" });
     }
+    setTestingBle(false);
   };
 
-  const testPrint = async (printer: DetectedPrinter) => {
-    setTestingPrint(printer.name);
-    const data = buildTestPrintData((settings as any)?.storeName || "ArtixPOS");
+  const testUsbPrint = async (printer: UsbPrinter) => {
+    setTestingUsb(printer.name);
+    const data = buildTestPrintEscPos((settings as any)?.storeName || "ArtixPOS", (settings as any)?.receiptWidth);
     try {
-      if (printer.type === "bluetooth" && printer.device) {
-        let server = printer.device.gatt?.connected ? printer.device.gatt : null;
-        if (!server?.connected) server = await printer.device.gatt?.connect() ?? null;
-        if (!server) throw new Error("Could not connect to printer");
-
-        let wrote = false;
-
-        // First try: enumerate ALL services the device actually has
-        try {
-          const allServices = await server.getPrimaryServices();
-          for (const svc of allServices) {
-            if (wrote) break;
-            try {
-              const chars = await svc.getCharacteristics();
-              for (const char of chars) {
-                if (char.properties.write || char.properties.writeWithoutResponse) {
-                  wrote = await writeToCharacteristic(char, data);
-                  if (wrote) break;
-                }
-              }
-              // If property flags didn't help, try every characteristic anyway
-              if (!wrote) {
-                for (const char of chars) {
-                  wrote = await writeToCharacteristic(char, data);
-                  if (wrote) break;
-                }
-              }
-            } catch {}
-          }
-        } catch {}
-
-        // Second try: fallback to known service UUIDs if getPrimaryServices() failed
-        if (!wrote) {
-          for (const svcUuid of BLE_PRINT_SERVICES) {
-            if (wrote) break;
-            try {
-              const svc = await server.getPrimaryService(svcUuid);
-              const chars = await svc.getCharacteristics();
-              for (const char of chars) {
-                wrote = await writeToCharacteristic(char, data);
-                if (wrote) break;
-              }
-            } catch {}
-          }
-        }
-
-        if (!wrote) throw new Error("No writable characteristic found. Make sure the printer is on, in range, and supports BLE printing.");
-        setDetectedPrinters(prev => prev.map(p => p.name === printer.name && p.type === "bluetooth" ? { ...p, connected: true } : p));
-        toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
-      } else if (printer.type === "usb" && printer.usbDevice) {
-        const dev = printer.usbDevice;
-        if (!dev.opened) await dev.open();
-        if (dev.configuration === null) await dev.selectConfiguration(1);
-        try { await dev.claimInterface(0); } catch {}
-        await dev.transferOut(1, data);
-        setDetectedPrinters(prev => prev.map(p => p.name === printer.name && p.type === "usb" ? { ...p, connected: true } : p));
-        toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
-      }
+      const dev = printer.device;
+      if (!dev.opened) await dev.open();
+      if (dev.configuration === null) await dev.selectConfiguration(1);
+      try { await dev.claimInterface(0); } catch {}
+      await dev.transferOut(1, data);
+      toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
     } catch (err: any) {
       toast({ title: "Print failed", description: err.message, variant: "destructive" });
     } finally {
-      setTestingPrint(null);
+      setTestingUsb(null);
     }
-  };
-
-  const removePrinter = (printer: DetectedPrinter) => {
-    try { printer.device?.gatt?.disconnect(); } catch {}
-    setDetectedPrinters(prev => prev.filter(p => !(p.name === printer.name && p.type === printer.type)));
   };
 
   const [cfg, setCfg] = useState<PrintConfig>({
@@ -495,99 +341,138 @@ export default function PrintSettings() {
         </div>
       </div>
 
-      {/* ── Thermal Printer Detection ─────────────────────────────────────── */}
+      {/* ── Thermal Printer ───────────────────────────────────────────────── */}
       <SectionLabel>Thermal Printer</SectionLabel>
-      <div className="bg-card rounded-2xl border border-border/25 px-4 py-3 shadow-sm mb-2">
-        <div className="flex flex-wrap gap-2 mb-3">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 rounded-lg gap-1.5 text-xs font-medium"
-            onClick={scanBluetooth}
-            disabled={scanningBt || scanningUsb}
-            data-testid="button-scan-bluetooth"
-          >
-            {scanningBt ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bluetooth className="h-3.5 w-3.5" />}
-            {scanningBt ? "Scanning…" : "Scan Bluetooth"}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 rounded-lg gap-1.5 text-xs font-medium"
-            onClick={scanUsb}
-            disabled={scanningBt || scanningUsb}
-            data-testid="button-scan-usb"
-          >
-            {scanningUsb ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Usb className="h-3.5 w-3.5" />}
-            {scanningUsb ? "Scanning…" : "Scan USB"}
-          </Button>
-          <p className="text-[11px] text-muted-foreground self-center ml-1 hidden sm:block">
-            Requires Chrome browser + HTTPS
-          </p>
-        </div>
+      <div className="bg-card rounded-2xl border border-border/25 shadow-sm mb-2 overflow-hidden">
 
-        {detectedPrinters.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-1">No printers detected yet. Click Scan to find a nearby printer.</p>
-        ) : (
-          <div className="space-y-2">
-            {detectedPrinters.map(printer => (
-              <div
-                key={`${printer.type}-${printer.name}`}
-                className="flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5"
-                data-testid={`printer-item-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
-              >
-                <div className="shrink-0">
-                  {printer.type === "bluetooth"
-                    ? <Bluetooth className="h-4 w-4 text-primary" />
-                    : <Usb className="h-4 w-4 text-primary" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" data-testid={`printer-name-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}>{printer.name}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    {printer.connected
-                      ? <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                      : <Circle className="h-3 w-3 text-muted-foreground" />}
-                    <span
-                      className={`text-[11px] ${printer.connected ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
-                      data-testid={`printer-status-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
-                    >
-                      {printer.connected ? "Connected" : "Detected — not connected"}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/50 ml-1">
-                      {printer.type === "bluetooth" ? "BLE" : "USB"}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
+        {/* BLE Printer */}
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Bluetooth className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-none">Bluetooth Printer</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Stays connected across pages. Requires Chrome.</p>
+            </div>
+          </div>
+
+          {blePrinter.name ? (
+            <div className="rounded-xl border border-border/30 bg-secondary/30 px-3 py-2.5 flex items-center gap-3 mb-3">
+              <div className={`h-2 w-2 rounded-full shrink-0 ${blePrinter.connected ? "bg-emerald-500" : "bg-amber-400"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" data-testid="printer-name-ble">{blePrinter.name}</p>
+                <p className={`text-[11px] mt-0.5 ${blePrinter.connected ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} data-testid="printer-status-ble">
+                  {blePrinter.connected ? "Connected — ready to print" : "Reconnecting…"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {blePrinter.connected && (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     className="h-7 px-2.5 rounded-lg text-xs gap-1"
-                    onClick={() => testPrint(printer)}
-                    disabled={testingPrint === printer.name}
-                    data-testid={`button-test-print-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
+                    onClick={testBlePrint}
+                    disabled={testingBle}
+                    data-testid="button-test-print-ble"
                   >
-                    {testingPrint === printer.name
-                      ? <RefreshCw className="h-3 w-3 animate-spin" />
-                      : <Zap className="h-3 w-3" />}
-                    {testingPrint === printer.name ? "Printing…" : "Test Print"}
+                    {testingBle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    {testingBle ? "Printing…" : "Test"}
                   </Button>
-                  <button
-                    type="button"
-                    onClick={() => removePrinter(printer)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                    data-testid={`button-remove-printer-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  onClick={bleDisconnect}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  data-testid="button-disconnect-ble"
+                  title="Disconnect printer"
+                >
+                  <WifiOff className="h-3.5 w-3.5" />
+                </button>
               </div>
-            ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/40 bg-secondary/20 px-3 py-3 mb-3 text-center">
+              <p className="text-[11px] text-muted-foreground">No printer paired yet. Tap the button below to scan.</p>
+            </div>
+          )}
+
+          <Button
+            type="button"
+            size="sm"
+            variant={blePrinter.name ? "outline" : "default"}
+            className="w-full h-9 rounded-xl gap-2 text-sm font-medium"
+            onClick={handleScanBluetooth}
+            disabled={bleScanning || scanningUsb}
+            data-testid="button-scan-bluetooth"
+          >
+            {bleScanning
+              ? <RefreshCw className="h-4 w-4 animate-spin" />
+              : <Bluetooth className="h-4 w-4" />}
+            {bleScanning ? "Scanning for printers…" : blePrinter.name ? "Change Printer" : "Scan for Bluetooth Printer"}
+          </Button>
+        </div>
+
+        <div className="border-t border-border/20 mx-4" />
+
+        {/* USB Printer */}
+        <div className="px-4 pt-3 pb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Usb className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-none">USB Printer</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Chrome desktop only. Re-scan after each page load.</p>
+            </div>
           </div>
-        )}
+
+          {usbPrinters.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {usbPrinters.map(printer => (
+                <div
+                  key={printer.name}
+                  className="rounded-xl border border-border/30 bg-secondary/30 px-3 py-2.5 flex items-center gap-3"
+                  data-testid={`printer-item-usb-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
+                >
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${printer.connected ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{printer.name}</p>
+                    <p className={`text-[11px] mt-0.5 ${printer.connected ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                      {printer.connected ? "Connected" : "Detected — not connected"}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 rounded-lg text-xs gap-1 shrink-0"
+                    onClick={() => testUsbPrint(printer)}
+                    disabled={testingUsb === printer.name}
+                    data-testid={`button-test-print-usb-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
+                  >
+                    {testingUsb === printer.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    {testingUsb === printer.name ? "Printing…" : "Test"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="w-full h-9 rounded-xl gap-2 text-sm font-medium"
+            onClick={scanUsb}
+            disabled={bleScanning || scanningUsb}
+            data-testid="button-scan-usb"
+          >
+            {scanningUsb ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Usb className="h-4 w-4" />}
+            {scanningUsb ? "Scanning…" : "Scan for USB Printer"}
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">

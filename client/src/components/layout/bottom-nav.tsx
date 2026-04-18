@@ -85,7 +85,7 @@ export function BottomNav() {
   const isAdminOrAbove = role === "owner" || role === "manager" || role === "admin";
   const isManagerOrAbove = role === "owner" || role === "manager";
 
-  const { hiddenUrls, primaryNavUrls, labels } = getBusinessFeatures(
+  const { hiddenUrls, essentialUrls, primaryNavUrls, labels } = getBusinessFeatures(
     (settings as any)?.businessType,
     (settings as any)?.businessSubType,
   );
@@ -109,7 +109,7 @@ export function BottomNav() {
 
   const MORE_NAV = MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
-    if (isFree && (i as any).proOnly) return false;
+    if (isFree && (i as any).proOnly && !essentialUrls.has(i.url)) return false;
     if (isCashier && i.cashierHidden) return false;
     if ((i as any).managerOnly && !isManagerOrAbove) return false;
     if ((i as any).ownerOnly && !isOwner) return false;

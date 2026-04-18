@@ -125,7 +125,7 @@ export default function BillingPage() {
   const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       {/* Pro Required Banner */}
       {showProRequiredBanner && (
         <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/30 px-4 py-4">
@@ -139,18 +139,17 @@ export default function BillingPage() {
         </div>
       )}
       {/* Header */}
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h1>
         <p className="text-slate-500 dark:text-white/50 mt-1">Manage your ArtixPOS plan and payment history.</p>
       </div>
 
       {/* Current Plan Status */}
-      <Card className="border border-slate-200 dark:border-white/10 bg-card shadow-sm overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-indigo-500" />
+      <Card className="border border-border/60 bg-card shadow-sm overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <span className="h-8 w-8 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-300 flex items-center justify-center">
+              <span className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                 {isPro ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
               </span>
               Current Plan
@@ -212,7 +211,7 @@ export default function BillingPage() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-slate-500 dark:text-white/50">
+            <p className="text-sm text-muted-foreground">
               You're on the <strong>Free plan</strong> — {FREE_LIMITS.branches} branch, {FREE_LIMITS.products} products, {FREE_LIMITS.staff} staff accounts, and simple analytics are included. Upgrade when you need multiple locations, automation, and advanced reports.
             </p>
           )}
@@ -221,47 +220,49 @@ export default function BillingPage() {
 
       {/* Upgrade Section — show for free users or pro users wanting to renew */}
       {isOwner && (
-        <div className="space-y-5">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            {isPro ? "Extend or Switch Billing Cycle" : "Upgrade to Pro"}
-          </h2>
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {isPro ? "Extend or Switch Billing Cycle" : "Upgrade to Pro"}
+              </h2>
+              <p className="text-sm text-muted-foreground">Keep essentials free. Pro unlocks scale, automation, and cross-business tools.</p>
+            </div>
 
-          {/* Billing cycle toggle */}
-          <div className="inline-flex rounded-2xl border border-slate-200 dark:border-white/10 p-1 bg-slate-50 dark:bg-white/5 shadow-sm">
-            <button
-              onClick={() => setBillingCycle("monthly")}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                billingCycle === "monthly"
-                  ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/70"
-              }`}
-              data-testid="button-billing-monthly"
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle("annual")}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                billingCycle === "annual"
-                  ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/70"
-              }`}
-              data-testid="button-billing-annual"
-            >
-              Annual
-              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save</Badge>
-            </button>
+            <div className="inline-flex rounded-xl border border-border p-1 bg-muted/40 w-fit">
+              <button
+                onClick={() => setBillingCycle("monthly")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  billingCycle === "monthly"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid="button-billing-monthly"
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingCycle("annual")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                  billingCycle === "annual"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid="button-billing-annual"
+              >
+                Annual
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save</Badge>
+              </button>
+            </div>
           </div>
 
-          {/* Plan cards */}
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             {/* Free Card */}
-            <Card className={`border-2 overflow-hidden relative bg-card ${!isPro ? "border-violet-500 shadow-lg shadow-violet-500/10" : "border-slate-200 dark:border-white/10"}`}>
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-indigo-400" />
+            <Card className={`overflow-hidden relative bg-card ${!isPro ? "border-primary/60" : "border-border/60"}`}>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2">
-                  <span className="h-9 w-9 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-violet-500" />
+                  <span className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-muted-foreground" />
                   </span>
                   Free
                 </CardTitle>
@@ -271,44 +272,29 @@ export default function BillingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 p-3 max-h-64 overflow-y-auto pr-2">
-                  <ul className="space-y-2 text-sm">
-                    {[
-                      `${FREE_LIMITS.branches} branch`,
-                      `Up to ${FREE_LIMITS.products} products`,
-                      `Up to ${FREE_LIMITS.staff} staff accounts`,
-                      "Basic POS & sales",
-                      "Simple analytics dashboard",
-                    ].map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-slate-600 dark:text-white/70">
-                        <Check className="w-4 h-4 text-violet-500 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                    {[
-                      "AI assistant",
-                      "Analytics exports & custom ranges",
-                      "Customer management",
-                      "Expense tracking",
-                      "Appointments",
-                    ].map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-slate-400 line-through">
-                        <X className="w-4 h-4 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    `${FREE_LIMITS.branches} branch`,
+                    `Up to ${FREE_LIMITS.products} products`,
+                    `Up to ${FREE_LIMITS.staff} staff accounts`,
+                    "Core features needed for your business type",
+                    "Simple analytics dashboard",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-muted-foreground">
+                      <Check className="w-4 h-4 text-primary shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
                 {!isPro && (
                   <div className="pt-2">
-                    <Badge className="w-full justify-center py-1.5 bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white/70 border-0">Current Plan</Badge>
+                    <Badge className="w-full justify-center py-1.5 bg-muted text-muted-foreground border-0">Current Plan</Badge>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className={`border-2 relative overflow-hidden bg-card ${isPro ? "border-violet-500 shadow-lg shadow-violet-500/10" : "border-slate-200 dark:border-white/10"}`}>
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-indigo-500" />
+            <Card className={`relative overflow-hidden bg-card ${isPro ? "border-primary/60" : "border-border/60"}`}>
               <div className="absolute top-3 right-3 z-10">
                 <Badge className="bg-violet-600 text-white gap-1">
                   <Crown className="w-3 h-3" /> Pro
@@ -316,8 +302,8 @@ export default function BillingPage() {
               </div>
               <CardHeader className="relative pb-4">
                 <CardTitle className="flex items-center gap-2">
-                  <span className="h-9 w-9 rounded-2xl bg-violet-600/10 flex items-center justify-center">
-                    <Crown className="w-5 h-5 text-violet-600 dark:text-violet-300" />
+                  <span className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Crown className="w-5 h-5 text-primary" />
                   </span>
                   Pro
                 </CardTitle>
@@ -336,20 +322,20 @@ export default function BillingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="relative space-y-3">
-                <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 p-3 max-h-64 overflow-y-auto pr-2">
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2 text-slate-700 dark:text-white/80">
-                      <Check className="w-4 h-4 text-violet-500 shrink-0" />
-                      <span className="font-semibold">Everything in Free, plus:</span>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    "Unlimited branches, products, and staff",
+                    "All modules across every business type",
+                    "Advanced analytics and exports",
+                    "AI assistant, expenses, suppliers, purchases",
+                    "Customer loyalty and automation tools",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-muted-foreground">
+                      <Check className="w-4 h-4 text-primary shrink-0" />
+                      {f}
                     </li>
-                    {PRO_FEATURES.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-slate-600 dark:text-white/70">
-                        <Check className="w-4 h-4 text-violet-500 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  ))}
+                </ul>
 
                 <div className="pt-2">
                   {isPro ? (

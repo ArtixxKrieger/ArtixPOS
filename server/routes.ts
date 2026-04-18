@@ -11,7 +11,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
-import { requireAuth, requireManagerOrAbove, requirePro, getSubscription, isProSubscription } from "./middleware";
+import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
 import {
   insertCustomerSchema,
@@ -456,18 +456,18 @@ export async function registerRoutes(
 
   // ── Customers ─────────────────────────────────────────────────────────────
 
-  app.get("/api/customers", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const list = await storage.getCustomers(userId(req));
     res.json(list);
   });
 
-  app.get("/api/customers/:id", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const customer = await storage.getCustomer(Number(req.params.id), userId(req));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
-  app.post("/api/customers", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     try {
       const input = insertCustomerSchema.parse(req.body);
       const customer = await storage.createCustomer(userId(req), input);
@@ -481,7 +481,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/customers/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     try {
       const input = insertCustomerSchema.partial().parse(req.body);
       const customer = await storage.updateCustomer(Number(req.params.id), userId(req), input);
@@ -496,7 +496,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/customers/:id", requireAuth, requirePro, async (req, res) => {
+  app.delete("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const id = Number(req.params.id);
     const existing = await storage.getCustomer(id, userId(req));
     await storage.deleteCustomer(id, userId(req));
@@ -505,7 +505,7 @@ export async function registerRoutes(
   });
 
   // Customer sales history
-  app.get("/api/customers/:id/sales", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/customers/:id/sales", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const customerSales = await storage.getSales(userId(req), {
       customerId: Number(req.params.id),
       limit: 500,
@@ -717,12 +717,12 @@ export async function registerRoutes(
 
   // ── Tables ────────────────────────────────────────────────────────────────
 
-  app.get("/api/tables", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     const list = await storage.getTables(userId(req));
     res.json(list);
   });
 
-  app.post("/api/tables", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     try {
       const input = insertTableSchema.parse(req.body);
       const table = await storage.createTable(userId(req), input);
@@ -733,7 +733,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/tables/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     try {
       const input = insertTableSchema.partial().parse(req.body);
       const table = await storage.updateTable(Number(req.params.id), userId(req), input);
@@ -745,7 +745,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/tables/:id", requireAuth, requirePro, async (req, res, next) => {
+  app.delete("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res, next) => {
     try {
       await storage.deleteTable(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -875,7 +875,7 @@ export async function registerRoutes(
 
   // ── Kitchen Status Update ─────────────────────────────────────────────────
 
-  app.patch("/api/pending-orders/:id/kitchen", requireAuth, requirePro, async (req, res) => {
+  app.patch("/api/pending-orders/:id/kitchen", requireAuth, requireProOrBusinessFeature("/kitchen"), async (req, res) => {
     try {
       const { kitchenStatus } = z.object({ kitchenStatus: z.enum(["pending", "preparing", "ready", "done"]) }).parse(req.body);
       const order = await storage.updatePendingOrder(Number(req.params.id), userId(req), { kitchenStatus });
@@ -889,18 +889,18 @@ export async function registerRoutes(
 
   // ── Service Staff ─────────────────────────────────────────────────────────
 
-  app.get("/api/service-staff", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/service-staff", requireAuth, requireProOrBusinessFeature("/staff"), async (req, res) => {
     const staff = await storage.getServiceStaff(userId(req));
     res.json(staff);
   });
 
-  app.get("/api/service-staff/:id", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/service-staff/:id", requireAuth, requireProOrBusinessFeature("/staff"), async (req, res) => {
     const member = await storage.getServiceStaffMember(Number(req.params.id), userId(req));
     if (!member) return res.status(404).json({ message: "Staff member not found" });
     res.json(member);
   });
 
-  app.post("/api/service-staff", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/service-staff", requireAuth, requireProOrBusinessFeature("/staff"), async (req, res) => {
     try {
       const input = insertServiceStaffSchema.parse(req.body);
       const member = await storage.createServiceStaff(userId(req), input);
@@ -911,7 +911,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/service-staff/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/service-staff/:id", requireAuth, requireProOrBusinessFeature("/staff"), async (req, res) => {
     try {
       const input = insertServiceStaffSchema.partial().parse(req.body);
       const member = await storage.updateServiceStaff(Number(req.params.id), userId(req), input);
@@ -923,7 +923,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/service-staff/:id", requireAuth, requirePro, async (req, res, next) => {
+  app.delete("/api/service-staff/:id", requireAuth, requireProOrBusinessFeature("/staff"), async (req, res, next) => {
     try {
       await storage.deleteServiceStaff(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -932,12 +932,12 @@ export async function registerRoutes(
 
   // ── Service Rooms ─────────────────────────────────────────────────────────
 
-  app.get("/api/service-rooms", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/service-rooms", requireAuth, requireProOrBusinessFeature("/rooms"), async (req, res) => {
     const rooms = await storage.getServiceRooms(userId(req));
     res.json(rooms);
   });
 
-  app.post("/api/service-rooms", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/service-rooms", requireAuth, requireProOrBusinessFeature("/rooms"), async (req, res) => {
     try {
       const input = insertServiceRoomSchema.parse(req.body);
       const room = await storage.createServiceRoom(userId(req), input);
@@ -948,7 +948,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/service-rooms/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/service-rooms/:id", requireAuth, requireProOrBusinessFeature("/rooms"), async (req, res) => {
     try {
       const input = insertServiceRoomSchema.partial().parse(req.body);
       const room = await storage.updateServiceRoom(Number(req.params.id), userId(req), input);
@@ -960,7 +960,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/service-rooms/:id", requireAuth, requirePro, async (req, res, next) => {
+  app.delete("/api/service-rooms/:id", requireAuth, requireProOrBusinessFeature("/rooms"), async (req, res, next) => {
     try {
       await storage.deleteServiceRoom(Number(req.params.id), userId(req));
       res.status(204).end();
@@ -969,7 +969,7 @@ export async function registerRoutes(
 
   // ── Appointments ──────────────────────────────────────────────────────────
 
-  app.get("/api/appointments", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     const { date, staffId, status } = req.query as Record<string, string>;
     const appts = await storage.getAppointments(userId(req), {
       date: date || undefined,
@@ -979,13 +979,13 @@ export async function registerRoutes(
     res.json(appts);
   });
 
-  app.get("/api/appointments/:id", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     const appt = await storage.getAppointment(Number(req.params.id), userId(req));
     if (!appt) return res.status(404).json({ message: "Appointment not found" });
     res.json(appt);
   });
 
-  app.post("/api/appointments", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     try {
       const input = insertAppointmentSchema.parse(req.body);
       const appt = await storage.createAppointment(userId(req), input);
@@ -996,7 +996,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/appointments/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     try {
       const input = insertAppointmentSchema.partial().parse(req.body);
       const appt = await storage.updateAppointment(Number(req.params.id), userId(req), input);
@@ -1008,19 +1008,19 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/appointments/:id", requireAuth, requirePro, async (req, res) => {
+  app.delete("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     await storage.deleteAppointment(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
   // ── Membership Plans ──────────────────────────────────────────────────────
 
-  app.get("/api/membership-plans", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/membership-plans", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     const plans = await storage.getMembershipPlans(userId(req));
     res.json(plans);
   });
 
-  app.post("/api/membership-plans", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+  app.post("/api/membership-plans", requireAuth, requireProOrBusinessFeature("/memberships"), requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertMembershipPlanSchema.parse(req.body);
       const plan = await storage.createMembershipPlan(userId(req), input);
@@ -1031,7 +1031,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/membership-plans/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+  app.put("/api/membership-plans/:id", requireAuth, requireProOrBusinessFeature("/memberships"), requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertMembershipPlanSchema.partial().parse(req.body);
       const plan = await storage.updateMembershipPlan(Number(req.params.id), userId(req), input);
@@ -1043,25 +1043,25 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/membership-plans/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+  app.delete("/api/membership-plans/:id", requireAuth, requireProOrBusinessFeature("/memberships"), requireManagerOrAbove, async (req, res) => {
     await storage.deleteMembershipPlan(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
   // ── Memberships ───────────────────────────────────────────────────────────
 
-  app.get("/api/memberships", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/memberships", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     const list = await storage.getMemberships(userId(req));
     res.json(list);
   });
 
-  app.get("/api/memberships/:id", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/memberships/:id", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     const m = await storage.getMembership(Number(req.params.id), userId(req));
     if (!m) return res.status(404).json({ message: "Membership not found" });
     res.json(m);
   });
 
-  app.post("/api/memberships", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/memberships", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     try {
       const input = insertMembershipSchema.parse(req.body);
       const m = await storage.createMembership(userId(req), input);
@@ -1072,7 +1072,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/memberships/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/memberships/:id", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     try {
       const input = insertMembershipSchema.partial().parse(req.body);
       const m = await storage.updateMembership(Number(req.params.id), userId(req), input);
@@ -1084,12 +1084,12 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/memberships/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+  app.delete("/api/memberships/:id", requireAuth, requireProOrBusinessFeature("/memberships"), requireManagerOrAbove, async (req, res) => {
     await storage.deleteMembership(Number(req.params.id), userId(req));
     res.status(204).end();
   });
 
-  app.post("/api/memberships/:id/check-in", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/memberships/:id/check-in", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     try {
       const m = await storage.getMembership(Number(req.params.id), userId(req));
       if (!m) return res.status(404).json({ message: "Membership not found" });

@@ -199,3 +199,4 @@ Production is intended to run on Vercel. Replit is used for development/preview 
 - Tooltips have adaptive colors for dark/light modes
 - Free plan includes 1 branch, 50 products, 2 staff accounts, and a separate simple analytics screen; Pro keeps the advanced analytics dashboard with exports/custom ranges plus multi-branch, AI, customers, expenses, and automation modules
 - Pro voucher codes can be enabled with `PRO_VOUCHER_CODE` or comma-separated `PRO_VOUCHER_CODES` values; each code may include an optional day duration like `CODE:30`
+- Feature gating is business-type aware: Free includes core modules required by the selected business (for example Tables for Bar/Pub, Kitchen/Tables for Restaurant, Appointments/Staff for Services, Rooms where rooms/studios/chairs are core, Memberships for Gym, and Customers/Records for clinic/dental). Pro still unlocks all modules across all business types and branches.

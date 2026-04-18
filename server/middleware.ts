@@ -1,8 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import type { UserRole } from "@shared/schema";
 import { db } from "./db";
-import { tenantSubscriptions } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { tenantSubscriptions, userSettings, users } from "@shared/schema";
+import { and, eq } from "drizzle-orm";
+import { isEssentialBusinessUrl } from "@shared/business-access";
 
 export interface AuthUser {
   id: string;
@@ -106,4 +107,43 @@ export async function requirePro(req: Request, res: Response, next: NextFunction
     console.error("[requirePro] subscription check error:", err);
     return res.status(500).json({ message: "Failed to verify subscription" });
   }
+}
+
+async function getBusinessAccessContext(user: AuthUser) {
+  const direct = await db.select().from(userSettings).where(eq(userSettings.userId, user.id));
+  if (direct[0]) return direct[0];
+
+  if (!user.tenantId) return null;
+  const ownerRows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.tenantId, user.tenantId), eq(users.role, "owner")))
+    .limit(1);
+
+  if (!ownerRows[0]) return null;
+  const ownerSettings = await db.select().from(userSettings).where(eq(userSettings.userId, ownerRows[0].id));
+  return ownerSettings[0] ?? null;
+}
+
+export function requireProOrBusinessFeature(url: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const user = req.user as AuthUser;
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ message: "Pro plan required", code: "PRO_REQUIRED" });
+    }
+    try {
+      const sub = await getSubscription(tenantId);
+      if (isProSubscription(sub)) return next();
+
+      const settings = await getBusinessAccessContext(user);
+      if (isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType)) return next();
+
+      return res.status(403).json({ message: "This feature requires a Pro plan", code: "PRO_REQUIRED" });
+    } catch (err) {
+      console.error("[requireProOrBusinessFeature] access check error:", err);
+      return res.status(500).json({ message: "Failed to verify feature access" });
+    }
+  };
 }

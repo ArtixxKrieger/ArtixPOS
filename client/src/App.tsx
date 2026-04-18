@@ -11,6 +11,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useEffect, useState } from "react";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
+import { isEssentialBusinessUrl } from "@shared/business-access";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -170,18 +171,20 @@ function useNativeDeepLink() {
   }, []);
 }
 
-function ProGuard({ component: Component }: { component: () => JSX.Element }) {
+function ProGuard({ component: Component, url }: { component: () => JSX.Element; url: string }) {
   const { isPro, isLoading } = useSubscription();
-  if (isLoading) return null;
-  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
+  const { data: settings, isLoading: settingsLoading } = useSettings();
+  if (isLoading || settingsLoading) return null;
+  if (!isPro && !isEssentialBusinessUrl(url, (settings as any)?.businessType, (settings as any)?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
   return <Component />;
 }
 
-function ProAndCashierGuard({ component: Component }: { component: () => JSX.Element }) {
+function ProAndCashierGuard({ component: Component, url }: { component: () => JSX.Element; url: string }) {
   const { user } = useAuth();
   const { isPro, isLoading } = useSubscription();
-  if (isLoading) return null;
-  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
+  const { data: settings, isLoading: settingsLoading } = useSettings();
+  if (isLoading || settingsLoading) return null;
+  if (!isPro && !isEssentialBusinessUrl(url, (settings as any)?.businessType, (settings as any)?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
   if (user?.role === "cashier") return <Redirect to="/" />;
   return <Component />;
 }
@@ -263,21 +266,21 @@ function AppRouter() {
         <Route path="/admin/analytics" component={() => <AdminGuard component={AdminAnalytics} />} />
         <Route path="/admin/audit-logs" component={() => <AdminGuard component={AdminAuditLogs} />} />
         <Route path="/admin/permissions" component={() => <AdminGuard component={AdminPermissions} />} />
-        <Route path="/customers" component={() => <ProAndCashierGuard component={Customers} />} />
-        <Route path="/expenses" component={() => <ProAndCashierGuard component={Expenses} />} />
-        <Route path="/shifts" component={() => <ProGuard component={Shifts} />} />
-        <Route path="/discount-codes" component={() => <ProAndCashierGuard component={DiscountCodes} />} />
+        <Route path="/customers" component={() => <ProAndCashierGuard url="/customers" component={Customers} />} />
+        <Route path="/expenses" component={() => <ProAndCashierGuard url="/expenses" component={Expenses} />} />
+        <Route path="/shifts" component={() => <ProGuard url="/shifts" component={Shifts} />} />
+        <Route path="/discount-codes" component={() => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />} />
         <Route path="/refunds" component={() => <ManagerOrAboveGuard component={Refunds} />} />
-        <Route path="/ai" component={() => <ProGuard component={AiPage} />} />
-        <Route path="/tables" component={() => <ProGuard component={TablesPage} />} />
-        <Route path="/kitchen" component={() => <ProGuard component={KitchenPage} />} />
-        <Route path="/suppliers" component={() => <ProAndCashierGuard component={SuppliersPage} />} />
-        <Route path="/purchases" component={() => <ProAndCashierGuard component={PurchasesPage} />} />
-        <Route path="/timeclock" component={() => <ProGuard component={TimeClockPage} />} />
-        <Route path="/appointments" component={() => <ProGuard component={AppointmentsPage} />} />
+        <Route path="/ai" component={() => <ProGuard url="/ai" component={AiPage} />} />
+        <Route path="/tables" component={() => <ProGuard url="/tables" component={TablesPage} />} />
+        <Route path="/kitchen" component={() => <ProGuard url="/kitchen" component={KitchenPage} />} />
+        <Route path="/suppliers" component={() => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />} />
+        <Route path="/purchases" component={() => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />} />
+        <Route path="/timeclock" component={() => <ProGuard url="/timeclock" component={TimeClockPage} />} />
+        <Route path="/appointments" component={() => <ProGuard url="/appointments" component={AppointmentsPage} />} />
         <Route path="/staff" component={() => <CashierGuard component={StaffPage} />} />
-        <Route path="/rooms" component={() => <ProGuard component={RoomsPage} />} />
-        <Route path="/memberships" component={() => <ProGuard component={MembershipsPage} />} />
+        <Route path="/rooms" component={() => <ProGuard url="/rooms" component={RoomsPage} />} />
+        <Route path="/memberships" component={() => <ProGuard url="/memberships" component={MembershipsPage} />} />
         <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
         <Route path="/billing" component={BillingPage} />
         <Route component={NotFound} />

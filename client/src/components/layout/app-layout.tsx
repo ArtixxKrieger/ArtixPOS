@@ -157,7 +157,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isAdminOrAbove = role === "owner" || role === "manager" || role === "admin";
   const isManagerOrAbove = role === "owner" || role === "manager";
 
-  const { hiddenUrls: businessHiddenUrls, labels: businessLabels } = getBusinessFeatures(
+  const { hiddenUrls: businessHiddenUrls, essentialUrls: businessEssentialUrls, labels: businessLabels } = getBusinessFeatures(
     (settings as any)?.businessType,
     (settings as any)?.businessSubType,
   );
@@ -198,9 +198,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean }) {
     if (businessHiddenUrls.has(item.url as any)) return false;
-    if ((item as any).proOnly && isFree) return false;
+    if ((item as any).proOnly && isFree && !businessEssentialUrls.has(item.url)) return false;
     if (isCashier) {
-      const cashierUrls = ["/", "/pos", "/pending", "/settings"];
+      const cashierUrls = ["/", "/pos", "/pending", "/settings", ...businessEssentialUrls];
       return cashierUrls.includes(item.url);
     }
     if ((item as any).managerOnly && !isManagerOrAbove) return false;

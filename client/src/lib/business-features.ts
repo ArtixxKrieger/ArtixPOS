@@ -1,3 +1,5 @@
+import { getEssentialBusinessUrls } from "@shared/business-access";
+
 /**
  * Centralized feature-visibility rules based on business type and sub-type.
  * Controls: which pages are hidden, which items appear in the primary bottom nav,
@@ -23,6 +25,7 @@ export type BusinessTerminology = {
 
 export type BusinessFeatures = {
   hiddenUrls: Set<string>;
+  essentialUrls: Set<string>;
   showBarcode: boolean;
   primaryNavUrls: [string, string];
   labels: Record<string, string>;
@@ -72,7 +75,7 @@ export function getBusinessFeatures(
     hidden.add("/staff");
     hidden.add("/memberships");
     hidden.add("/rooms");
-    return { hiddenUrls: hidden, showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };
+    return { hiddenUrls: hidden, essentialUrls: getEssentialBusinessUrls(businessType, businessSubType), showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };
   }
 
   if (businessType === "food_beverage") {
@@ -356,5 +359,5 @@ export function getBusinessFeatures(
     }
   }
 
-  return { hiddenUrls: hidden, showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };
+  return { hiddenUrls: hidden, essentialUrls: getEssentialBusinessUrls(businessType, businessSubType), showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };
 }

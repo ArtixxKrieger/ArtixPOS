@@ -74,7 +74,7 @@ async function writeCatPackets(
 
     for (const pkt of packets) {
       await char.writeValueWithoutResponse(new Uint8Array(pkt));
-      await sleep(50); // 50 ms between packets — slower = more heat per row = darker print
+      await sleep(30); // 30 ms between packets — balanced speed vs darkness
     }
     return { ok: true };
   } catch (err: any) {

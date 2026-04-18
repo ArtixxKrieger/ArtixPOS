@@ -157,8 +157,8 @@ type BlePrinterState = {
 };
 
 type PrintArgs =
-  | { escpos: Uint8Array; catText: string; energy?: number; catReceiptWidth?: string }
-  | { catText: string; energy?: number; catReceiptWidth?: string }
+  | { escpos: Uint8Array; catText: string; energy?: number; catReceiptWidth?: string; catFontSize?: number }
+  | { catText: string; energy?: number; catReceiptWidth?: string; catFontSize?: number }
   | { escpos: Uint8Array };
 
 type BlePrinterContextType = {
@@ -291,7 +291,8 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
         }
         const energy = "energy" in args ? (args.energy ?? 65000) : 65000;
         const catReceiptWidth = "catReceiptWidth" in args ? (args.catReceiptWidth ?? "58mm") : "58mm";
-        const packets = buildCatPrinterPackets(text, energy, catReceiptWidth);
+        const catFontSize = "catFontSize" in args ? args.catFontSize : undefined;
+        const packets = buildCatPrinterPackets(text, energy, catReceiptWidth, catFontSize);
         return writeCatPackets(server, packets);
       }
 

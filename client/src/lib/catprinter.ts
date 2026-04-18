@@ -67,6 +67,18 @@ function fitFontSize(charsPerLine: number): number {
   return 8;
 }
 
+/**
+ * Given a desired font size (px), returns how many "W" characters fit across
+ * PRINT_WIDTH at that font size. Used to sync text layout with raster rendering.
+ * Minimum of 16 chars so receipts are never illegibly wide.
+ */
+export function catCharsPerLine(fontSize: number): number {
+  const probe = document.createElement("canvas").getContext("2d")!;
+  probe.font = `bold ${fontSize}px "Courier New", "Lucida Console", monospace`;
+  const charW = probe.measureText("W").width;
+  return Math.max(16, Math.floor(PRINT_WIDTH / charW));
+}
+
 /** Render plain-text receipt lines onto an off-screen canvas → 1-bit raster rows */
 function textToRasterRows(text: string, charsPerLine = 32): number[][] {
   const FONT_SIZE   = fitFontSize(charsPerLine);
@@ -117,13 +129,18 @@ function textToRasterRows(text: string, charsPerLine = 32): number[][] {
  * Build the array of BLE packets to send for the given receipt text.
  * receiptWidth controls how many chars per line were used when building the text,
  * so we can size the font to match exactly.
+ * If fontSize is provided, the charsPerLine is derived from that font size so
+ * the rendered font matches the user's font size preference.
  */
 export function buildCatPrinterPackets(
   receiptText: string,
   energy = 65000,
   receiptWidth = "58mm",
+  fontSize?: number,
 ): number[][] {
-  const charsPerLine = receiptWidth === "58mm" ? 32 : 42;
+  const charsPerLine = fontSize
+    ? catCharsPerLine(fontSize)
+    : (receiptWidth === "58mm" ? 32 : 42);
   const packets: number[][] = [];
 
   // Set darkness — send 10× so printer registers it before print rows arrive
@@ -166,9 +183,10 @@ export function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58
   return buildCatPrinterPackets(lines, 65000, receiptWidth);
 }
 
-/** Convert a structured receipt into plain text for canvas rendering */
-export function buildReceiptText(r: EscPosReceipt): string {
-  const width = r.receiptWidth === "58mm" ? 32 : 42;
+/** Convert a structured receipt into plain text for canvas rendering.
+ *  Pass `charsOverride` to use a custom line width (e.g. derived from font size). */
+export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): string {
+  const width = charsOverride ?? (r.receiptWidth === "58mm" ? 32 : 42);
   const dash  = "-".repeat(width);
   const fmt   = (n: number) => `${r.currency}${n.toFixed(2)}`;
 

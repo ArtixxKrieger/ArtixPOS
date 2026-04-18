@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
-import { buildReceiptText } from "@/lib/catprinter";
+import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReceiptItem {
@@ -89,7 +89,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const now = new Date();
 
   const receiptWidth = s.receiptWidth ?? "80mm";
-  const printDarkness = s.printDarkness ?? 8000;
+  const printDarkness = s.printDarkness ?? 65000;
   const receiptFontSize = s.receiptFontSize ?? 15;
   const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";
   const receiptHeaderText = s.receiptHeaderText ?? "";
@@ -160,12 +160,15 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         receiptFooter: receipt.receiptFooter,
         receiptWidth,
       };
+      // Compute chars-per-line to match the requested font size on the cat printer
+      const charsPerLine = catCharsPerLine(receiptFontSize);
       // Fire in background — don't block the UI
       print({
         escpos: buildReceiptEscPos(receiptData),
-        catText: buildReceiptText(receiptData),
+        catText: buildReceiptText(receiptData, charsPerLine),
         energy: printDarkness,
         catReceiptWidth: receiptWidth,
+        catFontSize: receiptFontSize,
       }).then(result => {
         if (result.ok) {
           toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });

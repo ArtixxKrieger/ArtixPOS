@@ -73,7 +73,9 @@ async function writeDataToServer(
       const svc = await server.getPrimaryService(svcUuid);
       for (const charUuid of charUuids) {
         try {
-          const char = await svc.getCharacteristic(charUuid);
+          // getCharacteristics(uuid) returns an array filtered by UUID
+          const [char] = await svc.getCharacteristics(charUuid);
+          if (!char) continue;
           const ok = await writeChunked(char, data);
           if (ok) return { ok: true };
         } catch {}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import { Printer, X, Loader2 } from "lucide-react";
+import { Printer, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { useBlePrinter } from "@/lib/ble-printer-context";
@@ -205,11 +205,8 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden">
-        <DialogHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between">
+        <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="text-base font-bold">Receipt</DialogTitle>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="h-4 w-4" />
-          </button>
         </DialogHeader>
 
         <div className="px-5 pb-5 max-h-[70vh] overflow-y-auto scrollbar-hide">

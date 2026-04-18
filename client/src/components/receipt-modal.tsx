@@ -57,16 +57,16 @@ export function buildReceiptHtml(
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 12px; width: ${width}px; padding: 12px; }
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 600; width: ${width}px; padding: 12px; }
       .center { text-align: center; }
-      .bold { font-weight: bold; }
+      .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
       .item-name { flex: 1; margin-right: 8px; }
-      .total-row { font-weight: bold; font-size: 14px; }
-      .footer { text-align: center; margin-top: 8px; font-size: 11px; }
+      .total-row { font-weight: 800; font-size: 17px; }
+      .footer { text-align: center; margin-top: 8px; font-size: 13px; }
       .muted { color: #555; }
-      .small { font-size: 10px; }
+      .small { font-size: 13px; }
       .green { color: #16a34a; }
     </style>
   </head>
@@ -183,18 +183,18 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 12px; width: ${width}px; padding: 12px; }
+      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 600; width: ${width}px; padding: 12px; }
       .center { text-align: center; }
-      .bold { font-weight: bold; }
+      .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
       .item-name { flex: 1; margin-right: 8px; }
-      .total-row { font-weight: bold; font-size: 14px; }
-      .footer { text-align: center; font-size: 10px; color: #555; }
-      .muted { color: #555; font-size: 10px; }
-      .small { font-size: 10px; }
-      .green { color: #16a34a; font-weight: 600; }
-      .unit-price { font-size: 10px; color: #888; padding-left: 12px; }
+      .total-row { font-weight: 800; font-size: 17px; }
+      .footer { text-align: center; font-size: 13px; color: #555; }
+      .muted { color: #555; font-size: 13px; }
+      .small { font-size: 13px; }
+      .green { color: #16a34a; font-weight: 700; }
+      .unit-price { font-size: 13px; color: #888; padding-left: 12px; }
     </style>
   </head>
   <body>

@@ -51,22 +51,23 @@ export function buildReceiptHtml(
   const el = document.getElementById(printableId);
   if (!el) return null;
   const width = (settings?.receiptWidth ?? "80mm") === "58mm" ? 210 : 280;
+  const fs = settings?.receiptFontSize ?? 15;
   return `<!DOCTYPE html>
 <html>
   <head>
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 600; width: ${width}px; padding: 12px; }
+      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 600; width: ${width}px; padding: 12px; }
       .center { text-align: center; }
       .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
       .item-name { flex: 1; margin-right: 8px; }
-      .total-row { font-weight: 800; font-size: 17px; }
-      .footer { text-align: center; margin-top: 8px; font-size: 13px; }
+      .total-row { font-weight: 800; font-size: ${fs + 2}px; }
+      .footer { text-align: center; margin-top: 8px; font-size: ${fs - 2}px; }
       .muted { color: #555; }
-      .small { font-size: 13px; }
+      .small { font-size: ${fs - 2}px; }
       .green { color: #16a34a; }
     </style>
   </head>
@@ -90,7 +91,8 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const now = new Date();
 
   const receiptWidth = s.receiptWidth ?? "80mm";
-  const printDarkness = s.printDarkness ?? 8000;
+  const printDarkness = s.printDarkness ?? 65000;
+  const receiptFontSize = s.receiptFontSize ?? 15;
   const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";
   const receiptHeaderText = s.receiptHeaderText ?? "";
   const receiptWebsite = s.receiptWebsite ?? "";
@@ -183,18 +185,18 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 600; width: ${width}px; padding: 12px; }
+      body { font-family: 'Courier New', monospace; font-size: ${receiptFontSize}px; font-weight: 600; width: ${width}px; padding: 12px; }
       .center { text-align: center; }
       .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
       .item-name { flex: 1; margin-right: 8px; }
-      .total-row { font-weight: 800; font-size: 17px; }
-      .footer { text-align: center; font-size: 13px; color: #555; }
-      .muted { color: #555; font-size: 13px; }
-      .small { font-size: 13px; }
+      .total-row { font-weight: 800; font-size: ${receiptFontSize + 2}px; }
+      .footer { text-align: center; font-size: ${receiptFontSize - 2}px; color: #555; }
+      .muted { color: #555; font-size: ${receiptFontSize - 2}px; }
+      .small { font-size: ${receiptFontSize - 2}px; }
       .green { color: #16a34a; font-weight: 700; }
-      .unit-price { font-size: 13px; color: #888; padding-left: 12px; }
+      .unit-price { font-size: ${receiptFontSize - 2}px; color: #888; padding-left: 12px; }
     </style>
   </head>
   <body>

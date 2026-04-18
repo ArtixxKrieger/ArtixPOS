@@ -128,6 +128,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const showOrderNumber = (s.receiptShowOrderNumber ?? 1) === 1;
     const showUnitPrice = (s.receiptShowUnitPrice ?? 0) === 1;
     const showPoweredBy = (s.receiptShowPoweredBy ?? 1) === 1;
+    const fs = s.receiptFontSize ?? 15;
     const cur = currency;
 
     const fmt = (n: number) => formatCurrency(n, cur);
@@ -144,7 +145,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
           <span class="item-name">${(item.product as any)?.name ?? "Item"}${(item.size as any)?.name ? ` (${(item.size as any).name})` : ""} x${item.quantity}</span>
           <span>${fmt(lineTotal)}</span>
         </div>
-        ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px;font-size:10px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
+        ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px;font-size:${fs - 2}px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
         ${((item.modifiers || []) as any[]).length > 0 ? `<div class="muted" style="padding-left:12px">+ ${((item.modifiers || []) as any[]).map((m: any) => m.name).join(", ")}</div>` : ""}
       `;
     }).join("");
@@ -153,43 +154,43 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 <html><head><title>Receipt</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:12px;width:${paperPx}px;padding:12px}
+  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:600;width:${paperPx}px;padding:12px}
   .center{text-align:center}
-  .bold{font-weight:bold}
+  .bold{font-weight:800}
   .line{border-top:1px dashed #000;margin:6px 0}
   .row{display:flex;justify-content:space-between;margin:2px 0}
-  .item-name{flex:1;margin-right:8px;font-weight:500}
-  .total-row{font-weight:bold;font-size:14px}
-  .muted{color:#555}
-  .green{color:#16a34a;font-weight:600}
-  .footer{text-align:center;font-size:10px;color:#555}
+  .item-name{flex:1;margin-right:8px;font-weight:700}
+  .total-row{font-weight:800;font-size:${fs + 2}px}
+  .muted{color:#555;font-size:${fs - 2}px}
+  .green{color:#16a34a;font-weight:700}
+  .footer{text-align:center;font-size:${fs - 2}px;color:#555}
 </style></head>
 <body>
 <div class="center">
-  ${storeName ? `<p class="bold">${storeName}</p>` : ""}
-  ${receiptHeaderText ? `<p style="font-size:10px">${receiptHeaderText}</p>` : ""}
-  ${receiptTitle ? `<p style="font-size:11px">${receiptTitle}</p>` : ""}
-  <p class="muted" style="font-size:10px">${dateStr}</p>
-  ${showAddress && address ? `<p class="muted" style="font-size:10px">${address}</p>` : ""}
-  ${showPhone && phone ? `<p class="muted" style="font-size:10px">Tel: ${phone}</p>` : ""}
-  ${showEmail && emailContact ? `<p class="muted" style="font-size:10px">${emailContact}</p>` : ""}
-  ${showWebsite && receiptWebsite ? `<p class="muted" style="font-size:10px">${receiptWebsite}</p>` : ""}
-  ${sale.customerName ? `<p style="font-size:10px">Customer: ${sale.customerName}</p>` : ""}
+  ${storeName ? `<p class="bold" style="font-size:${fs + 2}px">${storeName}</p>` : ""}
+  ${receiptHeaderText ? `<p style="font-size:${fs - 2}px">${receiptHeaderText}</p>` : ""}
+  ${receiptTitle ? `<p style="font-size:${fs - 1}px;font-weight:700">${receiptTitle}</p>` : ""}
+  <p class="muted" style="font-size:${fs - 3}px">${dateStr}</p>
+  ${showAddress && address ? `<p class="muted" style="font-size:${fs - 3}px">${address}</p>` : ""}
+  ${showPhone && phone ? `<p class="muted" style="font-size:${fs - 3}px">Tel: ${phone}</p>` : ""}
+  ${showEmail && emailContact ? `<p class="muted" style="font-size:${fs - 3}px">${emailContact}</p>` : ""}
+  ${showWebsite && receiptWebsite ? `<p class="muted" style="font-size:${fs - 3}px">${receiptWebsite}</p>` : ""}
+  ${sale.customerName ? `<p style="font-size:${fs - 3}px">Customer: ${sale.customerName}</p>` : ""}
 </div>
-${showOrderNumber ? `<div class="row muted" style="font-size:10px;margin-bottom:4px"><span>Order #</span><span>${txn}</span></div>` : ""}
+${showOrderNumber ? `<div class="row muted" style="font-size:${fs - 3}px;margin-bottom:4px"><span>Order #</span><span>${txn}</span></div>` : ""}
 <div class="line"></div>
 ${itemsHtml}
 <div class="line"></div>
 <div class="row muted"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
-${discount > 0 ? `<div class="row" style="color:#e11d48"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span>-${fmt(discount)}</span></div>` : ""}
+${discount > 0 ? `<div class="row" style="color:#e11d48;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span>-${fmt(discount)}</span></div>` : ""}
 ${tax > 0 ? `<div class="row muted"><span>Tax</span><span>${fmt(tax)}</span></div>` : ""}
 <div class="line"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(total)}</span></div>
 <div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span>${fmt(paymentAmount)}</span></div>
 ${changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(changeAmount)}</span></div>` : ""}
 ${receiptFooter ? `<div class="line"></div><p class="footer">${receiptFooter}</p>` : ""}
-<p class="center muted" style="margin-top:6px;font-size:10px">Thank you!</p>
-${showPoweredBy ? `<p class="center" style="font-size:8px;color:#ccc;margin-top:2px">Powered by ArtixPOS</p>` : ""}
+<p class="center muted" style="margin-top:6px;font-size:${fs - 2}px">Thank you!</p>
+${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#ccc;margin-top:2px">Powered by ArtixPOS</p>` : ""}
 <script>window.onload=function(){window.print();window.close()}<\/script>
 </body></html>`;
 

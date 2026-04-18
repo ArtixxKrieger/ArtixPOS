@@ -323,6 +323,7 @@ export const userSettings = pgTable("user_settings", {
   receiptShowUnitPrice: integer("receipt_show_unit_price").default(0),
   receiptShowPoweredBy: integer("receipt_show_powered_by").default(1),
   printDarkness: integer("print_darkness").default(65000),
+  receiptFontSize: integer("receipt_font_size").default(15),
 });
 
 // ─── Service Staff ────────────────────────────────────────────────────────────
@@ -628,6 +629,7 @@ export const insertUserSettingSchema = z.object({
   receiptShowUnitPrice: z.number().optional().nullable(),
   receiptShowPoweredBy: z.number().optional().nullable(),
   printDarkness: z.number().optional().nullable(),
+  receiptFontSize: z.number().optional().nullable(),
 });
 
 export const insertDiscountCodeSchema = z.object({

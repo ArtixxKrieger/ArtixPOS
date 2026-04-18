@@ -71,11 +71,13 @@ interface PrintConfig {
   receiptFooter: string;
   currency: string;
   printDarkness: number;
+  receiptFontSize: number;
 }
 
 function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
   const width = cfg.receiptWidth === "58mm" ? 210 : 280;
   const now = new Date();
+  const fs = cfg.receiptFontSize;
   const sampleItems = [
     { name: "Caramel Macchiato", qty: 2, unitPrice: 150, size: "Large" },
     { name: "Blueberry Muffin", qty: 1, unitPrice: 75, size: "" },
@@ -86,27 +88,27 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
 
   return (
     <div
-      className="bg-white text-black font-mono text-[11px] leading-relaxed mx-auto shadow-lg border border-gray-200 rounded-sm"
-      style={{ width: `${width}px`, padding: "12px", fontFamily: "'Courier New', monospace" }}
+      className="bg-white text-black font-mono leading-relaxed mx-auto shadow-lg border border-gray-200 rounded-sm"
+      style={{ width: `${width}px`, padding: "12px", fontFamily: "'Courier New', monospace", fontSize: `${fs}px`, fontWeight: 600 }}
     >
       <div className="text-center mb-2">
-        {cfg.storeName && <p className="font-bold text-[13px]">{cfg.storeName}</p>}
-        {cfg.receiptHeaderText && <p className="text-[10px]">{cfg.receiptHeaderText}</p>}
-        {cfg.receiptTitle && <p className="text-[11px] font-semibold mt-0.5">{cfg.receiptTitle}</p>}
-        <p className="text-[9px] text-gray-500 mt-0.5">{format(now, "MMM d, yyyy h:mm a")}</p>
-        {cfg.receiptShowAddress && cfg.address && <p className="text-[9px] text-gray-500">{cfg.address}</p>}
-        {cfg.receiptShowPhone && cfg.phone && <p className="text-[9px] text-gray-500">Tel: {cfg.phone}</p>}
-        {cfg.receiptShowEmail && cfg.emailContact && <p className="text-[9px] text-gray-500">{cfg.emailContact}</p>}
-        {cfg.receiptShowWebsite && cfg.receiptWebsite && <p className="text-[9px] text-gray-500">{cfg.receiptWebsite}</p>}
+        {cfg.storeName && <p style={{ fontWeight: 800, fontSize: `${fs + 2}px` }}>{cfg.storeName}</p>}
+        {cfg.receiptHeaderText && <p style={{ fontSize: `${fs - 2}px` }}>{cfg.receiptHeaderText}</p>}
+        {cfg.receiptTitle && <p style={{ fontSize: `${fs - 1}px`, fontWeight: 700 }} className="mt-0.5">{cfg.receiptTitle}</p>}
+        <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500 mt-0.5">{format(now, "MMM d, yyyy h:mm a")}</p>
+        {cfg.receiptShowAddress && cfg.address && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">{cfg.address}</p>}
+        {cfg.receiptShowPhone && cfg.phone && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">Tel: {cfg.phone}</p>}
+        {cfg.receiptShowEmail && cfg.emailContact && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">{cfg.emailContact}</p>}
+        {cfg.receiptShowWebsite && cfg.receiptWebsite && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">{cfg.receiptWebsite}</p>}
       </div>
 
       {cfg.receiptShowOrderNumber && (
-        <div className="flex justify-between text-[9px] text-gray-400 mb-1">
+        <div className="flex justify-between text-gray-400 mb-1" style={{ fontSize: `${fs - 3}px` }}>
           <span>Order #</span><span>1001</span>
         </div>
       )}
       {cfg.receiptShowCashier && (
-        <div className="flex justify-between text-[9px] text-gray-400 mb-1">
+        <div className="flex justify-between text-gray-400 mb-1" style={{ fontSize: `${fs - 3}px` }}>
           <span>Cashier</span><span>John Doe</span>
         </div>
       )}
@@ -116,13 +118,13 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
       {sampleItems.map((item, i) => (
         <div key={i} className="mb-1">
           <div className="flex justify-between">
-            <span className="flex-1 mr-1 font-medium text-[11px]">
+            <span className="flex-1 mr-1" style={{ fontWeight: 700, fontSize: `${fs}px` }}>
               {item.name}{item.size ? ` (${item.size})` : ""} x{item.qty}
             </span>
-            <span className="tabular-nums text-[11px]">{formatCurrency(item.unitPrice * item.qty, cfg.currency || "₱")}</span>
+            <span className="tabular-nums" style={{ fontSize: `${fs}px` }}>{formatCurrency(item.unitPrice * item.qty, cfg.currency || "₱")}</span>
           </div>
           {cfg.receiptShowUnitPrice && (
-            <div className="text-[9px] text-gray-400 pl-2">
+            <div className="text-gray-400 pl-2" style={{ fontSize: `${fs - 3}px` }}>
               {formatCurrency(item.unitPrice, cfg.currency || "₱")} × {item.qty}
             </div>
           )}
@@ -131,22 +133,22 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
 
       <div style={{ borderTop: "1px dashed #999", margin: "6px 0" }} />
 
-      <div className="flex justify-between text-[10px] text-gray-500"><span>Subtotal</span><span>{formatCurrency(subtotal, cfg.currency || "₱")}</span></div>
-      <div className="flex justify-between text-[10px] text-gray-500"><span>Tax (12%)</span><span>{formatCurrency(tax, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>Subtotal</span><span>{formatCurrency(subtotal, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>Tax (12%)</span><span>{formatCurrency(tax, cfg.currency || "₱")}</span></div>
       <div style={{ borderTop: "1px dashed #999", margin: "4px 0" }} />
-      <div className="flex justify-between font-bold text-[13px]"><span>TOTAL</span><span>{formatCurrency(total, cfg.currency || "₱")}</span></div>
-      <div className="flex justify-between text-[10px] text-gray-500 mt-0.5"><span>Payment (CASH)</span><span>{formatCurrency(400, cfg.currency || "₱")}</span></div>
-      <div className="flex justify-between text-[10px] text-emerald-600 font-semibold"><span>Change</span><span>{formatCurrency(400 - total, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between font-bold" style={{ fontSize: `${fs + 2}px` }}><span>TOTAL</span><span>{formatCurrency(total, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between text-gray-500 mt-0.5" style={{ fontSize: `${fs - 2}px` }}><span>Payment (CASH)</span><span>{formatCurrency(400, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between text-emerald-600 font-semibold" style={{ fontSize: `${fs - 2}px` }}><span>Change</span><span>{formatCurrency(400 - total, cfg.currency || "₱")}</span></div>
 
       {cfg.receiptFooter && (
         <>
           <div style={{ borderTop: "1px dashed #999", margin: "6px 0" }} />
-          <p className="text-center text-[9px] text-gray-500">{cfg.receiptFooter}</p>
+          <p className="text-center text-gray-500" style={{ fontSize: `${fs - 2}px` }}>{cfg.receiptFooter}</p>
         </>
       )}
-      <p className="text-center text-[10px] text-gray-400 mt-1">Thank you!</p>
+      <p className="text-center text-gray-400 mt-1" style={{ fontSize: `${fs - 2}px` }}>Thank you!</p>
       {cfg.receiptShowPoweredBy && (
-        <p className="text-center text-[8px] text-gray-300 mt-0.5">Powered by ArtixPOS</p>
+        <p className="text-center text-gray-300 mt-0.5" style={{ fontSize: `${fs - 4}px` }}>Powered by ArtixPOS</p>
       )}
     </div>
   );
@@ -282,6 +284,7 @@ export default function PrintSettings() {
     receiptFooter: "",
     currency: "₱",
     printDarkness: 65000,
+    receiptFontSize: 15,
   });
 
   useEffect(() => {
@@ -307,6 +310,7 @@ export default function PrintSettings() {
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
       printDarkness: s.printDarkness ?? 65000,
+      receiptFontSize: s.receiptFontSize ?? 15,
     });
   }, [settings]);
 
@@ -319,6 +323,7 @@ export default function PrintSettings() {
       receiptTitle: cfg.receiptTitle,
       receiptHeaderText: cfg.receiptHeaderText || null,
       receiptWebsite: cfg.receiptWebsite || null,
+      receiptFooter: cfg.receiptFooter || null,
       receiptShowAddress: cfg.receiptShowAddress ? 1 : 0,
       receiptShowPhone: cfg.receiptShowPhone ? 1 : 0,
       receiptShowEmail: cfg.receiptShowEmail ? 1 : 0,
@@ -328,6 +333,7 @@ export default function PrintSettings() {
       receiptShowUnitPrice: cfg.receiptShowUnitPrice ? 1 : 0,
       receiptShowPoweredBy: cfg.receiptShowPoweredBy ? 1 : 0,
       printDarkness: cfg.printDarkness,
+      receiptFontSize: cfg.receiptFontSize,
     } as any);
     toast({ title: "Print settings saved" });
   };
@@ -545,6 +551,26 @@ export default function PrintSettings() {
               />
             </SettingRow>
 
+            <SettingRow label="Font Size" hint="Base font size for printed receipts">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">Small</span>
+                  <span className="text-[11px] font-medium text-foreground">{cfg.receiptFontSize}px</span>
+                  <span className="text-[11px] text-muted-foreground">Large</span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={22}
+                  step={1}
+                  value={cfg.receiptFontSize}
+                  onChange={e => set("receiptFontSize", Number(e.target.value))}
+                  className="w-full accent-primary h-1.5 rounded-full cursor-pointer"
+                  data-testid="input-receipt-font-size"
+                />
+              </div>
+            </SettingRow>
+
             <SettingRow label="Print Darkness" hint="For Bluetooth cat printers — higher = darker print">
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
@@ -622,6 +648,15 @@ export default function PrintSettings() {
 
           <SectionLabel>Branding</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+            <SettingRow label="Receipt Footer" hint="Message printed at the bottom of every receipt">
+              <Input
+                value={cfg.receiptFooter}
+                onChange={e => set("receiptFooter", e.target.value)}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                placeholder="e.g. Thank you for shopping!"
+                data-testid="input-receipt-footer"
+              />
+            </SettingRow>
             <SettingRow label="Show 'Powered by ArtixPOS'" hint="Attribution footer on printed receipts">
               <div className="flex justify-end">
                 <Toggle value={cfg.receiptShowPoweredBy} onChange={v => set("receiptShowPoweredBy", v)} data-testid="toggle-show-powered-by" />

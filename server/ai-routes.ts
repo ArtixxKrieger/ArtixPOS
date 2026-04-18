@@ -173,13 +173,13 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
     // Owner tenantId (for staff lookup)
     db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId)),
     // Products, customers, expenses, shifts, settings
-    storage.getProducts(userId).then(r => r.slice(0, 500)),
-    storage.getCustomers(userId).then(r => r.slice(0, 300)),
-    storage.getExpenses(userId).then(r => r.slice(0, 200)),
-    storage.getShifts(userId, { limit: 20 }),
+    storage.getProducts(userId).then(r => r.slice(0, 60)),
+    storage.getCustomers(userId).then(r => r.slice(0, 40)),
+    storage.getExpenses(userId).then(r => r.slice(0, 40)),
+    storage.getShifts(userId, { limit: 10 }),
     storage.getSettings(userId),
-    // Recent 100 sales for product-level analysis
-    storage.getSales(userId, { limit: 100 }),
+    // Recent 20 sales for product-level analysis
+    storage.getSales(userId, { limit: 20 }),
     // All-time revenue — PostgreSQL: CAST(total AS NUMERIC)
     db.select({
       totalRevenue: sql<number>`COALESCE(SUM(CAST(total AS NUMERIC)), 0)`,
@@ -1569,8 +1569,8 @@ export function registerAiRoutes(app: Express) {
         ` | lastMsg: "${lastUserMsg.slice(0, 80)}${lastUserMsg.length > 80 ? "…" : ""}"`
       );
 
-      // Trim history to last 20 messages to keep token count reasonable
-      const trimmedMessages = messages.slice(-20);
+      // Trim history to last 10 messages to keep token count reasonable
+      const trimmedMessages = messages.slice(-10);
 
       // ── Server-side safety pre-filter ────────────────────────────────────────
       // Block destructive or off-topic requests before they ever reach the AI.

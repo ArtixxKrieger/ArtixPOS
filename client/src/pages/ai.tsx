@@ -1213,45 +1213,59 @@ export default function AiPage() {
 
   // Initialize AI store with the current user's ID for data isolation
   useEffect(() => {
-    if (user?.id) {
-      initAiStore(user.id);
-      const existing = getSessions();
-      setSessions(existing);
+    if (!user?.id) return;
 
-      // Inject onboarding welcome message for brand-new accounts
-      const welcomedKey = `ai_welcomed_${user.id}`;
-      const raw = localStorage.getItem("ai_welcome_pending");
-      const alreadyWelcomed = localStorage.getItem(welcomedKey);
-      if (!alreadyWelcomed && existing.length === 0) {
-        try {
-          let bType = "other", bSub = "other", sName = "";
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            bType = parsed.businessType ?? "other";
-            bSub = parsed.businessSubType ?? "other";
-            sName = parsed.storeName ?? "";
-          }
-          localStorage.removeItem("ai_welcome_pending");
-          localStorage.setItem(welcomedKey, "1");
-          const welcomeContent = buildWelcomeMessage(bType, bSub, sName);
-          const welcomeMsg: AiMessage = {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: welcomeContent,
-            timestamp: new Date().toISOString(),
-          };
-          const s = createSession();
-          setActiveId(s.id);
-          setMessages([welcomeMsg]);
-          updateSession(s.id, [welcomeMsg]);
-          setSessions(getSessions());
-          setShowSidebar(false);
-        } catch {}
-      } else if (raw) {
-        localStorage.removeItem("ai_welcome_pending");
+    initAiStore(user.id);
+    const existing = getSessions();
+    setSessions(existing);
+
+    // ── Auto-open single existing session (welcome message after page reload / strict-mode remount) ──
+    if (existing.length === 1) {
+      const s = getSession(existing[0].id);
+      if (s) {
+        setActiveId(s.id);
+        setMessages(s.messages);
+        setShowSidebar(false);
       }
     }
-  }, [user?.id]);
+
+    // ── Inject onboarding welcome message for brand-new accounts ──────────────
+    const welcomedKey = `ai_welcomed_${user.id}`;
+    const raw = localStorage.getItem("ai_welcome_pending");
+    const alreadyWelcomed = localStorage.getItem(welcomedKey);
+    if (!alreadyWelcomed && existing.length === 0) {
+      try {
+        // Use ai_welcome_pending flag from onboarding, fall back to current settings
+        let bType = businessType ?? "other";
+        let bSub = businessSubType ?? "other";
+        let sName = (settings as any)?.storeName ?? "";
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          bType = parsed.businessType ?? bType;
+          bSub = parsed.businessSubType ?? bSub;
+          sName = parsed.storeName ?? sName;
+        }
+        localStorage.removeItem("ai_welcome_pending");
+        localStorage.setItem(welcomedKey, "1");
+        const welcomeContent = buildWelcomeMessage(bType, bSub, sName);
+        const welcomeMsg: AiMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: welcomeContent,
+          timestamp: new Date().toISOString(),
+        };
+        const s = createSession();
+        setActiveId(s.id);
+        setMessages([welcomeMsg]);
+        updateSession(s.id, [welcomeMsg]);
+        setSessions(getSessions());
+        setShowSidebar(false);
+      } catch {}
+    } else if (raw) {
+      localStorage.removeItem("ai_welcome_pending");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, settings]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

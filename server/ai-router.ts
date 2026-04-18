@@ -13,8 +13,8 @@
  * to what the existing Groq streaming code in ai-routes.ts expects.
  */
 
-import { spawn, type ChildProcess } from "child_process";
-import { existsSync } from "fs";
+import { spawn, execSync, type ChildProcess } from "child_process";
+import { existsSync, statSync } from "fs";
 import path from "path";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -149,21 +149,28 @@ let ollamaReady = false;
 let ollamaModelReady = false;
 
 function findOllamaBinary(): string | null {
+  const isValidBinary = (p: string): boolean => {
+    try {
+      const stat = statSync(p);
+      return stat.isFile() && stat.size > 1024 * 100; // must be >100KB
+    } catch { return false; }
+  };
   const candidates = [
     "/usr/bin/ollama",
     "/usr/local/bin/ollama",
+    "/snap/bin/ollama",
     "/nix/var/nix/profiles/default/bin/ollama",
     `${process.env.HOME}/.nix-profile/bin/ollama`,
     `${process.env.HOME}/.ollama-bin/ollama`,
+    `${process.env.HOME}/.local/bin/ollama`,
   ];
   for (const p of candidates) {
-    if (existsSync(p)) return p;
+    if (isValidBinary(p)) return p;
   }
   // Try PATH
   try {
-    const { execSync } = require("child_process");
     const which = execSync("which ollama 2>/dev/null", { encoding: "utf8" }).trim();
-    if (which) return which;
+    if (which && isValidBinary(which)) return which;
   } catch {}
   return null;
 }

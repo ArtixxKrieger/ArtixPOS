@@ -411,8 +411,8 @@ function renderMarkdown(text: string, isUser: boolean, navigate?: (to: string) =
 function TypingCursor() {
   return (
     <span
-      className="inline-block w-[2px] h-[14px] bg-primary ml-0.5 align-middle rounded-full"
-      style={{ animation: "ai-cursor-blink 0.8s step-end infinite" }}
+      className="inline-block w-[2px] h-[1em] bg-primary ml-[2px] align-text-bottom rounded-full"
+      style={{ animation: "ai-cursor-blink 0.65s ease-in-out infinite" }}
     />
   );
 }
@@ -606,7 +606,7 @@ function MessageBubble({
           <Sparkles className="h-3.5 w-3.5 text-white" />
         </div>
       )}
-      <div className={`max-w-[78%] flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`max-w-[88%] sm:max-w-[80%] flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
         {msg.file && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-muted/50 border border-border/60 text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -1905,7 +1905,7 @@ export default function AiPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-5 space-y-3">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-8 py-4 space-y-3">
         {messages.length === 0 ? (
           <EmptyState onSuggestion={sendMessage} onDailyDigest={handleDailyDigest} businessType={businessType} businessSubType={businessSubType} />
         ) : (
@@ -1922,7 +1922,7 @@ export default function AiPage() {
               onDeleteDiscount={handleDeleteDiscount}
               onToggleDiscount={handleToggleDiscount}
               onShowStaffInfo={handleShowStaffInfo}
-              isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant" && msg.content.length > 0}
+              isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant"}
               importDone={importedIds.has(msg.id)}
               priceDone={priceUpdatedIds.has(msg.id)}
               addProductDone={addProductDoneIds.has(msg.id)}
@@ -1944,7 +1944,7 @@ export default function AiPage() {
           ))
         )}
 
-        {/* Thinking dots — only when waiting for first token */}
+        {/* Thinking dots — only when waiting and no assistant bubble yet */}
         {loading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex gap-2 justify-start">
             <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0 shadow-sm">
@@ -1952,9 +1952,9 @@ export default function AiPage() {
             </div>
             <div className="px-4 py-3 rounded-[20px] rounded-tl-[5px] bg-muted/50 dark:bg-white/[0.07]">
               <div className="flex gap-1.5 items-center h-4">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary/70 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-1.5 w-1.5 rounded-full bg-primary/70 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-1.5 w-1.5 rounded-full bg-primary/70 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="h-2 w-2 rounded-full bg-primary/80 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-2 w-2 rounded-full bg-primary/80 animate-bounce" style={{ animationDelay: "160ms" }} />
+                <span className="h-2 w-2 rounded-full bg-primary/80 animate-bounce" style={{ animationDelay: "320ms" }} />
               </div>
             </div>
           </div>
@@ -1964,7 +1964,7 @@ export default function AiPage() {
       </div>
 
       {/* Input */}
-      <div className="px-4 md:px-8 pb-4 pt-2 shrink-0">
+      <div className="px-3 sm:px-4 md:px-8 pt-2 shrink-0" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
         <div className="max-w-3xl mx-auto">
           {!isOnline && (
             <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
@@ -2033,10 +2033,13 @@ export default function AiPage() {
       <style>{`
         @keyframes ai-cursor-blink {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
+          45%, 55% { opacity: 0; }
         }
       `}</style>
-      <div className="h-[calc(100dvh-56px)] flex overflow-hidden -mx-4 md:-mx-6 -my-5">
+      <div
+        className="flex overflow-hidden -mx-4 md:-mx-6 -my-5"
+        style={{ height: "calc(100dvh - 56px)" }}
+      >
         {/* Desktop: always show sidebar */}
         <div className="hidden md:flex w-64 shrink-0 h-full overflow-hidden flex-col">
           {sidebar}

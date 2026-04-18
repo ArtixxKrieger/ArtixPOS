@@ -329,7 +329,15 @@ async function callCloudProvider(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature, stream: true }),
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+        stream: true,
+        frequency_penalty: 0.55,
+        presence_penalty: 0.35,
+      }),
     });
   } catch (err: any) {
     clearTimeout(timeout);

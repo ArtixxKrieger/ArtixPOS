@@ -251,9 +251,23 @@ export default function PrintSettings() {
       const dev = printer.device;
       if (!dev.opened) await dev.open();
       if (dev.configuration === null) await dev.selectConfiguration(1);
-      try { await dev.claimInterface(0); } catch {}
-      await dev.transferOut(1, data);
-      toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
+      // Claim all interfaces — some printers expose interface 1 instead of 0
+      for (let iface = 0; iface <= 2; iface++) {
+        try { await dev.claimInterface(iface); } catch {}
+      }
+      // Try endpoints 1, 2, 3 — different printer models use different endpoint numbers
+      let sent = false;
+      for (const ep of [1, 2, 3]) {
+        try {
+          const result = await dev.transferOut(ep, data);
+          if (result.status === "ok" || result.bytesWritten > 0) { sent = true; break; }
+        } catch {}
+      }
+      if (sent) {
+        toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
+      } else {
+        toast({ title: "Print failed", description: "Could not find a working USB endpoint. Try a different cable or printer driver.", variant: "destructive" });
+      }
     } catch (err: any) {
       toast({ title: "Print failed", description: err.message, variant: "destructive" });
     } finally {

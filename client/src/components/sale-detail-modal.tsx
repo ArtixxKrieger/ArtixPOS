@@ -11,6 +11,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useBlePrinter } from "@/lib/ble-printer-context";
+import { buildReceiptEscPos } from "@/lib/escpos";
+import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 
 type SaleItem = {
   cartId?: string;
@@ -75,6 +78,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const currency = (settings as any)?.currency || "₱";
   const { toast } = useToast();
   const { isManagerOrAbove } = useAuth();
+  const { printer: blePrinter, print: blePrint } = useBlePrinter();
   const [showRefund, setShowRefund] = useState(false);
   const [refundReason, setRefundReason] = useState("");
 
@@ -109,7 +113,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const changeAmount = parseNumeric(sale.changeAmount);
   const method = sale.paymentMethod || "cash";
 
-  const handleReprint = () => {
+  const handleReprint = async () => {
     const s = (settings ?? {}) as Record<string, any>;
     const receiptWidth = s.receiptWidth ?? "80mm";
     const paperPx = receiptWidth === "58mm" ? 210 : 280;
@@ -130,10 +134,72 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const showPoweredBy = true;
     const fs = 25;
     const cur = currency;
+    const taxRateNum = parseNumeric(s.taxRate || 0);
+    const printDarkness = s.printDarkness ?? 65535;
 
     const fmt = (n: number) => formatCurrency(n, cur);
     const txn = `TXN-${String(sale.id ?? 0).padStart(4, "0")}`;
     const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
+
+    // ── BLE / thermal print path ──────────────────────────────────────────────
+    if (blePrinter.connected) {
+      const escPosData = {
+        storeName,
+        headerText: receiptHeaderText,
+        receiptTitle,
+        address,
+        phone,
+        email: emailContact,
+        website: receiptWebsite,
+        showAddress,
+        showPhone,
+        showEmail,
+        showWebsite,
+        showOrderNumber,
+        showCashier: false,
+        showUnitPrice,
+        showPoweredBy,
+        orderNumber: sale.id ?? undefined,
+        dateStr,
+        items: items.map(item => {
+          const basePrice = parseNumeric((item.size as any)?.price || (item.product as any)?.price);
+          const modsTotal = ((item.modifiers || []) as any[]).reduce((acc: number, m: any) => acc + parseNumeric(m.price), 0);
+          return {
+            name: (item.product as any)?.name ?? "Item",
+            sizeName: (item.size as any)?.name,
+            qty: item.quantity || 1,
+            unitPrice: basePrice + modsTotal,
+            modifiers: ((item.modifiers || []) as any[]).map((m: any) => ({ name: m.name ?? "", price: String(m.price ?? "0") })),
+          };
+        }),
+        subtotal,
+        tax,
+        taxRate: taxRateNum,
+        discount,
+        discountCode: sale.discountCode ?? null,
+        total,
+        paymentMethod: method,
+        paymentAmount,
+        changeAmount,
+        currency: cur,
+        receiptFooter,
+        receiptWidth,
+      };
+      const charsPerLine = catCharsPerLine(fs);
+      const result = await blePrint({
+        escpos: buildReceiptEscPos(escPosData),
+        catText: buildReceiptText(escPosData, charsPerLine) + "\n\n",
+        energy: printDarkness,
+        catReceiptWidth: receiptWidth,
+        catFontSize: fs,
+      });
+      if (result.ok) {
+        toast({ title: "Receipt reprinted", description: `Sent to ${blePrinter.name}` });
+      } else {
+        toast({ title: "Print failed", description: result.error, variant: "destructive" });
+      }
+      return;
+    }
 
     const itemsHtml = items.map(item => {
       const basePrice = parseNumeric((item.size as any)?.price || (item.product as any)?.price);

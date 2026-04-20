@@ -167,7 +167,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
       // Fire in background — don't block the UI
       print({
         escpos: buildReceiptEscPos(receiptData),
-        catText: buildReceiptText(receiptData, charsPerLine) + "\n\n\n\n\n",
+        catText: buildReceiptText(receiptData, charsPerLine) + "\n\n",
         energy: printDarkness,
         catReceiptWidth: receiptWidth,
         catFontSize: receiptFontSize,

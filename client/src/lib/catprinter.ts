@@ -275,7 +275,10 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
     const label = r.discountCode ? `Discount (${r.discountCode})` : "Discount";
     out.push(twoCol(label, `-${fmt(r.discount)}`));
   }
-  if (r.tax > 0) out.push(twoCol("Tax", fmt(r.tax)));
+  if (r.tax > 0) {
+    const vatLabel = r.taxRate != null && r.taxRate > 0 ? `VAT (${r.taxRate}%)` : "VAT";
+    out.push(twoCol(vatLabel, fmt(r.tax)));
+  }
   if (r.loyaltyDiscount && r.loyaltyDiscount > 0) {
     out.push(twoCol("Loyalty Redemption", `-${fmt(r.loyaltyDiscount)}`));
   }

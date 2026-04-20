@@ -21,6 +21,7 @@ export interface ReceiptData {
   items: ReceiptItem[];
   subtotal: number;
   tax: number;
+  taxRate?: number;
   discount: number;
   loyaltyDiscount: number;
   total: number;
@@ -148,6 +149,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         })),
         subtotal: receipt.subtotal,
         tax: receipt.tax,
+        taxRate: receipt.taxRate,
         discount: receipt.discount,
         discountCode: receipt.discountCode,
         loyaltyDiscount: receipt.loyaltyDiscount,
@@ -204,7 +206,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <title>Receipt</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 900; color: #000; width: ${width}px; padding: 12px 12px 80px 12px; }
+      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 900; color: #000; width: ${width}px; padding: 12px 12px 24px 12px; }
       .center { text-align: center; }
       .bold { font-weight: 900; }
       .line { border-top: 2px solid #000; margin: 6px 0; }
@@ -235,7 +237,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <div class="line"></div>
     <div class="row muted"><span>Subtotal</span><span class="price">${fmt(receipt.subtotal)}</span></div>
     ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
-    ${hasTax ? `<div class="row muted"><span>Tax</span><span class="price">${fmt(receipt.tax)}</span></div>` : ""}
+    ${hasTax ? `<div class="row muted"><span>${receipt.taxRate ? `VAT (${receipt.taxRate}%)` : "VAT"}</span><span class="price">${fmt(receipt.tax)}</span></div>` : ""}
     ${hasLoyalty ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span class="price">-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(receipt.total)}</span></div>
@@ -363,7 +365,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
               )}
               {hasTax && (
                 <div className="flex justify-between text-muted-foreground text-[12px]">
-                  <span>Tax</span>
+                  <span>{receipt.taxRate ? `VAT (${receipt.taxRate}%)` : "VAT"}</span>
                   <span className="tabular-nums">{formatCurrency(receipt.tax, currency)}</span>
                 </div>
               )}

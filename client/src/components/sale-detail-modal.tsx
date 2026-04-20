@@ -154,7 +154,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 <html><head><title>Receipt</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:900;color:#000;width:${paperPx}px;padding:12px 12px 80px 12px}
+  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:900;color:#000;width:${paperPx}px;padding:12px 12px 24px 12px}
   .center{text-align:center}
   .bold{font-weight:900}
   .line{border-top:2px solid #000;margin:6px 0}
@@ -184,7 +184,7 @@ ${itemsHtml}
 <div class="line"></div>
 <div class="row muted"><span>Subtotal</span><span class="price">${fmt(subtotal)}</span></div>
 ${discount > 0 ? `<div class="row" style="color:#000;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span class="price">-${fmt(discount)}</span></div>` : ""}
-${tax > 0 ? `<div class="row muted"><span>Tax</span><span class="price">${fmt(tax)}</span></div>` : ""}
+${tax > 0 ? `<div class="row muted"><span>${(settings as any)?.taxRate ? `VAT (${(settings as any).taxRate}%)` : "VAT"}</span><span class="price">${fmt(tax)}</span></div>` : ""}
 <div class="line"></div>
 <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(total)}</span></div>
 <div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span class="price">${fmt(paymentAmount)}</span></div>
@@ -353,7 +353,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
                 )}
                 {tax > 0 && (
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Tax</span>
+                    <span>{(settings as any)?.taxRate ? `VAT (${(settings as any).taxRate}%)` : "VAT"}</span>
                     <span className="tabular-nums font-medium">{formatCurrency(tax, currency)}</span>
                   </div>
                 )}

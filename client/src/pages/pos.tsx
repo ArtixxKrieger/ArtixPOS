@@ -323,6 +323,7 @@ export default function POS() {
           storeName: (settings as any)?.storeName,
           receiptFooter: (settings as any)?.receiptFooter,
           currency,
+          taxRate: globalTaxRate,
           discountCode: appliedCode?.code ?? null,
           loyaltyPointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
         };
@@ -458,7 +459,7 @@ export default function POS() {
         </div>
         {taxRate > 0 && (
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Tax ({taxRate}%)</span>
+            <span>VAT ({taxRate}%)</span>
             <span className="tabular-nums">{formatCurrency(tax, currency)}</span>
           </div>
         )}

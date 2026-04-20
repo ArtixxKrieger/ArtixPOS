@@ -132,7 +132,7 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
       <div style={{ borderTop: "1px dashed #999", margin: "6px 0" }} />
 
       <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>Subtotal</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(subtotal, cfg.currency || "₱")}</span></div>
-      <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>Tax (12%)</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(tax, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>VAT (12%)</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(tax, cfg.currency || "₱")}</span></div>
       <div style={{ borderTop: "1px dashed #999", margin: "4px 0" }} />
       <div className="flex justify-between items-start gap-1.5 font-bold" style={{ fontSize: `${fs + 2}px` }}><span>TOTAL</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(total, cfg.currency || "₱")}</span></div>
       <div className="flex justify-between items-start gap-1.5 text-gray-500 mt-0.5" style={{ fontSize: `${fs - 2}px` }}><span>Payment (CASH)</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(400, cfg.currency || "₱")}</span></div>

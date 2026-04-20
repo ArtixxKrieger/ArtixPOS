@@ -112,6 +112,7 @@ export interface EscPosReceipt {
   }>;
   subtotal: number;
   tax: number;
+  taxRate?: number;
   discount: number;
   discountCode?: string | null;
   loyaltyDiscount?: number;
@@ -184,7 +185,10 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
     const label = r.discountCode ? `Discount (${r.discountCode})` : "Discount";
     push(row(label, `-${fmt(r.discount, r.currency)}`, width));
   }
-  if (r.tax > 0) push(row("Tax", fmt(r.tax, r.currency), width));
+  if (r.tax > 0) {
+    const vatLabel = r.taxRate != null && r.taxRate > 0 ? `VAT (${r.taxRate}%)` : "VAT";
+    push(row(vatLabel, fmt(r.tax, r.currency), width));
+  }
   if (r.loyaltyDiscount && r.loyaltyDiscount > 0) {
     push(row("Loyalty Redemption", `-${fmt(r.loyaltyDiscount, r.currency)}`, width));
   }
@@ -217,7 +221,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   if (r.showPoweredBy) push(text("Powered by ArtixPOS\n"));
   push(bytes(ESC, 0x61, 0x00));
 
-  push(bytes(LF, LF, LF, LF, LF, LF));
+  push(bytes(LF, LF, LF));
   push(bytes(GS, 0x56, 0x42, 0x00));
 
   return new Uint8Array(out);

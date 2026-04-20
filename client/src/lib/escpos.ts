@@ -26,6 +26,47 @@ function row(left: string, right: string, width: number): number[] {
   return text(l + rpad(right, right.length) + "\n");
 }
 
+// Wraps long item names across multiple lines instead of truncating
+function wrappedRow(left: string, right: string, width: number): number[] {
+  const rightLen = right.length;
+  const available = width - rightLen;
+
+  if (left.length <= available) {
+    return text(left.padEnd(available) + right + "\n");
+  }
+
+  // Word-wrap the left text
+  const words = left.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if (current.length + 1 + word.length <= width) {
+      current += " " + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+
+  const result: number[] = [];
+  for (let i = 0; i < lines.length - 1; i++) {
+    result.push(...text(lines[i] + "\n"));
+  }
+
+  // Last line: try to fit the price on the same line
+  const lastLine = lines[lines.length - 1] || "";
+  if (lastLine.length <= available) {
+    result.push(...text(lastLine.padEnd(available) + right + "\n"));
+  } else {
+    result.push(...text(lastLine + "\n"));
+    result.push(...text(right.padStart(width) + "\n"));
+  }
+  return result;
+}
+
 function center(str: string, width: number): number[] {
   const len = str.length;
   if (len >= width) return text(str.slice(0, width) + "\n");
@@ -126,7 +167,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   for (const item of r.items) {
     const label = item.sizeName ? `${item.name} (${item.sizeName}) x${item.qty}` : `${item.name} x${item.qty}`;
     const price = fmt(item.unitPrice * item.qty, r.currency);
-    push(row(label, price, width));
+    push(wrappedRow(label, price, width));
     if (r.showUnitPrice && item.unitPrice > 0) {
       push(text(`  ${fmt(item.unitPrice, r.currency)} x ${item.qty}\n`));
     }

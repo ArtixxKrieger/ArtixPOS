@@ -143,7 +143,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
       return `
         <div class="row">
           <span class="item-name">${(item.product as any)?.name ?? "Item"}${(item.size as any)?.name ? ` (${(item.size as any).name})` : ""} x${item.quantity}</span>
-          <span>${fmt(lineTotal)}</span>
+          <span class="price">${fmt(lineTotal)}</span>
         </div>
         ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px;font-size:${fs - 2}px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
         ${((item.modifiers || []) as any[]).length > 0 ? `<div class="muted" style="padding-left:12px">+ ${((item.modifiers || []) as any[]).map((m: any) => m.name).join(", ")}</div>` : ""}
@@ -158,8 +158,9 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   .center{text-align:center}
   .bold{font-weight:900}
   .line{border-top:2px solid #000;margin:6px 0}
-  .row{display:flex;justify-content:space-between;margin:2px 0}
-  .item-name{flex:1;margin-right:8px;font-weight:900}
+  .row{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin:2px 0}
+  .item-name{flex:1;min-width:0;word-break:break-word;font-weight:900}
+  .price{flex-shrink:0;white-space:nowrap}
   .total-row{font-weight:900;font-size:${fs + 2}px}
   .muted{color:#000;font-size:${fs - 2}px}
   .green{color:#000;font-weight:900}
@@ -181,13 +182,13 @@ ${showOrderNumber ? `<div class="row muted" style="font-size:${fs - 3}px;margin-
 <div class="line"></div>
 ${itemsHtml}
 <div class="line"></div>
-<div class="row muted"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
-${discount > 0 ? `<div class="row" style="color:#000;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span>-${fmt(discount)}</span></div>` : ""}
-${tax > 0 ? `<div class="row muted"><span>Tax</span><span>${fmt(tax)}</span></div>` : ""}
+<div class="row muted"><span>Subtotal</span><span class="price">${fmt(subtotal)}</span></div>
+${discount > 0 ? `<div class="row" style="color:#000;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span class="price">-${fmt(discount)}</span></div>` : ""}
+${tax > 0 ? `<div class="row muted"><span>Tax</span><span class="price">${fmt(tax)}</span></div>` : ""}
 <div class="line"></div>
-<div class="row total-row"><span>TOTAL</span><span>${fmt(total)}</span></div>
-<div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span>${fmt(paymentAmount)}</span></div>
-${changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(changeAmount)}</span></div>` : ""}
+<div class="row total-row"><span>TOTAL</span><span class="price">${fmt(total)}</span></div>
+<div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span class="price">${fmt(paymentAmount)}</span></div>
+${changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(changeAmount)}</span></div>` : ""}
 ${receiptFooter ? `<div class="line"></div><p class="footer">${receiptFooter}</p>` : ""}
 <p class="center" style="color:#000;margin-top:6px;font-size:${fs - 2}px">Thank you!</p>
 ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;margin-top:2px">Powered by ArtixPOS</p>` : ""}

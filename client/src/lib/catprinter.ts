@@ -195,11 +195,42 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
     return " ".repeat(p) + s;
   };
 
-  const twoCol = (left: string, right: string) => {
-    const maxLeft = width - right.length - 1;
-    const l       = left.length > maxLeft ? left.slice(0, maxLeft - 1) + "…" : left;
-    const spaces  = Math.max(1, width - l.length - right.length);
-    return l + " ".repeat(spaces) + right;
+  const twoCol = (left: string, right: string): string => {
+    const rightLen = right.length;
+    const available = width - rightLen - 1;
+
+    if (left.length <= available) {
+      return left + " ".repeat(Math.max(1, width - left.length - rightLen)) + right;
+    }
+
+    // Word-wrap the left text across multiple lines
+    const words = left.split(" ");
+    const lines: string[] = [];
+    let current = "";
+    for (const word of words) {
+      if (!current) {
+        current = word;
+      } else if (current.length + 1 + word.length <= width) {
+        current += " " + word;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
+
+    const result: string[] = [];
+    for (let i = 0; i < lines.length - 1; i++) {
+      result.push(lines[i]);
+    }
+    const lastLine = lines[lines.length - 1] || "";
+    if (lastLine.length <= available) {
+      result.push(lastLine + " ".repeat(Math.max(1, width - lastLine.length - rightLen)) + right);
+    } else {
+      result.push(lastLine);
+      result.push(" ".repeat(Math.max(0, width - rightLen)) + right);
+    }
+    return result.join("\n");
   };
 
   const out: string[] = [];

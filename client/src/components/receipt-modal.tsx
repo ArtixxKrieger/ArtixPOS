@@ -190,7 +190,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         return `
           <div class="row">
             <span class="item-name">${item.product.name}${item.size ? ` (${item.size.name})` : ""} x${item.quantity}</span>
-            <span>${fmt(lineTotal)}</span>
+            <span class="price">${fmt(lineTotal)}</span>
           </div>
           ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
           ${item.modifiers && item.modifiers.length > 0 ? `<div class="muted" style="padding-left:12px">+ ${item.modifiers.map(m => m.name).join(", ")}</div>` : ""}
@@ -208,8 +208,9 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
       .center { text-align: center; }
       .bold { font-weight: 900; }
       .line { border-top: 2px solid #000; margin: 6px 0; }
-      .row { display: flex; justify-content: space-between; margin: 2px 0; }
-      .item-name { flex: 1; margin-right: 8px; font-weight: 900; }
+      .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin: 2px 0; }
+      .item-name { flex: 1; min-width: 0; word-break: break-word; font-weight: 900; }
+      .price { flex-shrink: 0; white-space: nowrap; }
       .total-row { font-weight: 900; font-size: ${fs + 2}px; }
       .muted { color: #000; font-size: ${fs - 2}px; }
       .green { color: #000; font-weight: 900; }
@@ -232,14 +233,14 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <div class="line"></div>
     ${itemsHtml}
     <div class="line"></div>
-    <div class="row muted"><span>Subtotal</span><span>${fmt(receipt.subtotal)}</span></div>
-    ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span>-${fmt(receipt.discount)}</span></div>` : ""}
-    ${hasTax ? `<div class="row muted"><span>Tax</span><span>${fmt(receipt.tax)}</span></div>` : ""}
-    ${hasLoyalty ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span>-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
+    <div class="row muted"><span>Subtotal</span><span class="price">${fmt(receipt.subtotal)}</span></div>
+    ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
+    ${hasTax ? `<div class="row muted"><span>Tax</span><span class="price">${fmt(receipt.tax)}</span></div>` : ""}
+    ${hasLoyalty ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span class="price">-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
     <div class="line"></div>
-    <div class="row total-row"><span>TOTAL</span><span>${fmt(receipt.total)}</span></div>
-    <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span>${fmt(receipt.paymentAmount)}</span></div>
-    ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span>${fmt(receipt.changeAmount)}</span></div>` : ""}
+    <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(receipt.total)}</span></div>
+    <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
+    ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
     ${receipt.loyaltyPointsEarned && receipt.loyaltyPointsEarned > 0 ? `<p class="center" style="color:#000;margin-top:4px;font-size:${fs - 2}px">+${receipt.loyaltyPointsEarned} loyalty points earned</p>` : ""}
     ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${receipt.receiptFooter}</p>` : ""}
     <p class="center" style="color:#000;margin-top:6px">Thank you!</p>

@@ -151,7 +151,7 @@ async function writeEscPos(
           if (char.properties.write || char.properties.writeWithoutResponse) {
             const ok = await tryWrite(char);
             if (ok) {
-              onCacheHit({ svcUuid: svc.uuid, charUuid: char.uuid });
+              onCacheHit({ svcUuid: (svc as any).uuid, charUuid: (char as any).uuid });
               return { ok: true };
             }
           }

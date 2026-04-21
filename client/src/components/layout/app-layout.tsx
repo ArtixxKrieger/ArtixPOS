@@ -238,7 +238,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-transparent flex">
+    <div className="min-h-screen w-full bg-background flex">
       <Toaster
         position="top-left"
         theme={isDark ? "dark" : "light"}
@@ -320,9 +320,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         {/* User profile footer — theme toggle lives HERE only */}
-        <div className="px-2.5 pb-4 pt-2 border-t border-border/40">
+        <div className="px-2.5 pb-4 pt-2 border-t border-border/50">
           {user && (
-            <div className="flex items-center gap-2 px-2 py-2 rounded-xl glass-btn border">
+            <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
               {user.avatar ? (
                 <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
               ) : (

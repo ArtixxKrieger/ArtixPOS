@@ -231,7 +231,7 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-[#06060f]" : "bg-[#f4f3f9]"}`}>
         <div className={`w-7 h-7 border-2 rounded-full animate-spin ${isDark ? "border-violet-500 border-t-transparent" : "border-violet-600 border-t-transparent"}`} />
       </div>
     );
@@ -244,16 +244,11 @@ export default function Login() {
     fontSize: 14,
     outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s",
-    background: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.70)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    border: `1.5px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.85)"}`,
+    background: isDark ? "rgba(255,255,255,0.05)" : "#ffffff",
+    border: `1.5px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)"}`,
     color: isDark ? "rgba(255,255,255,0.92)" : "#1a1a1a",
     boxSizing: "border-box",
     fontFamily: "inherit",
-    boxShadow: isDark
-      ? "inset 0 1px 3px rgba(0,0,0,0.25)"
-      : "inset 0 1px 3px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.90)",
   };
 
   const formPanel = (
@@ -541,27 +536,45 @@ export default function Login() {
   return (
     <div
       className="min-h-screen flex relative overflow-hidden transition-colors duration-500"
+      style={{ background: isDark ? "#06060f" : "#f4f3f9" }}
     >
+      {/* Background ambient glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {isDark ? (
+          <>
+            <div style={{ position: "absolute", width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 65%)", top: "-20%", left: "-10%", animation: "orb1 16s ease-in-out infinite" }} />
+            <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.10) 0%, transparent 65%)", bottom: "-10%", right: "-5%", animation: "orb2 19s ease-in-out infinite" }} />
+          </>
+        ) : (
+          <>
+            <div style={{ position: "absolute", width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 65%)", top: "-20%", left: "-10%" }} />
+            <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 65%)", bottom: "-10%", right: "-5%" }} />
+          </>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes orb1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px,30px); } }
+        @keyframes orb2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-40px,-20px); } }
+      `}</style>
+
       {/* ── Desktop split layout ─────────────────────────────── */}
       <div className="hidden md:flex w-full">
-        {/* Left — brand panel (glass over the body gradient) */}
+        {/* Left — brand panel */}
         <div
           className="w-[45%] flex-shrink-0 flex flex-col justify-between p-12 relative overflow-hidden"
           style={{
             background: isDark
-              ? "rgba(6, 4, 18, 0.65)"
-              : "rgba(60, 20, 140, 0.72)",
-            backdropFilter: "blur(2px)",
-            WebkitBackdropFilter: "blur(2px)",
-            borderRight: isDark
-              ? "1px solid rgba(255,255,255,0.06)"
-              : "1px solid rgba(255,255,255,0.30)",
+              ? "#060610"
+              : "linear-gradient(150deg, #0f0523 0%, #1a0845 40%, #0c0330 100%)",
           }}
         >
           {/* Grid overlay */}
-          <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
-          {/* Specular top highlight */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.18)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.06) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
+          {/* Neon glow orbs */}
+          <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%)", top: "-80px", left: "-80px", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%)", bottom: "5%", right: "-60px", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", top: "50%", left: "60%", pointerEvents: "none" }} />
 
           {/* Logo */}
           <div style={{ position: "relative" }}>
@@ -625,28 +638,12 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Right — form panel (glass card) */}
-        <div className="flex-1 flex items-center justify-center p-12 relative">
-          <div
-            style={{
-              width: "100%", maxWidth: 440,
-              padding: "44px 40px",
-              borderRadius: 28,
-              background: isDark
-                ? "rgba(12, 8, 30, 0.72)"
-                : "rgba(255, 255, 255, 0.72)",
-              backdropFilter: "blur(40px) saturate(1.8)",
-              WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-              border: isDark
-                ? "1px solid rgba(255,255,255,0.10)"
-                : "1px solid rgba(255,255,255,0.90)",
-              boxShadow: isDark
-                ? "0 32px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.20)"
-                : "0 16px 60px rgba(80,40,180,0.14), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(0,0,0,0.04)",
-            }}
-          >
-            {formPanel}
-          </div>
+        {/* Right — form panel */}
+        <div
+          className="flex-1 flex items-center justify-center p-12 relative"
+          style={{ background: isDark ? "#06060f" : "#ffffff" }}
+        >
+          {formPanel}
         </div>
       </div>
 
@@ -659,18 +656,12 @@ export default function Login() {
           style={{
             width: "100%", maxWidth: 420,
             padding: "32px 28px",
-            borderRadius: 28,
-            background: isDark
-              ? "rgba(10, 7, 26, 0.78)"
-              : "rgba(255, 255, 255, 0.74)",
-            backdropFilter: "blur(40px) saturate(1.8)",
-            WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-            border: isDark
-              ? "1px solid rgba(255,255,255,0.10)"
-              : "1px solid rgba(255,255,255,0.90)",
+            borderRadius: 24,
+            background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.88)",
+            border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
             boxShadow: isDark
-              ? "0 32px 80px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.10)"
-              : "0 12px 50px rgba(80,40,180,0.14), inset 0 1px 0 rgba(255,255,255,0.95)",
+              ? "0 0 0 1px rgba(255,255,255,0.04), 0 32px 80px rgba(0,0,0,0.65)"
+              : "0 8px 50px rgba(0,0,0,0.08), 0 2px 12px rgba(0,0,0,0.04)",
           }}
         >
           {formPanel}
@@ -679,8 +670,8 @@ export default function Login() {
 
       {/* Forgot password overlay */}
       {showForgot && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: isDark ? "rgba(0,0,0,0.60)" : "rgba(50,20,120,0.25)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", padding: "0 20px" }}>
-          <div style={{ width: "100%", maxWidth: 420, borderRadius: 28, padding: "36px 32px", background: isDark ? "rgba(12,8,30,0.90)" : "rgba(255,255,255,0.88)", backdropFilter: "blur(40px) saturate(1.8)", WebkitBackdropFilter: "blur(40px) saturate(1.8)", border: isDark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(255,255,255,0.90)", boxShadow: isDark ? "0 32px 100px rgba(0,0,0,0.70), inset 0 1px 0 rgba(255,255,255,0.10)" : "0 16px 60px rgba(80,40,180,0.16), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: isDark ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", padding: "0 20px" }}>
+          <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, padding: "36px 32px", background: isDark ? "#0f0c1a" : "#ffffff", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 32px 100px rgba(0,0,0,0.8)" : "0 8px 60px rgba(0,0,0,0.12)" }}>
             {forgotSuccess ? (
               <div style={{ textAlign: "center" }}>
                 <div style={{ width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px", background: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>

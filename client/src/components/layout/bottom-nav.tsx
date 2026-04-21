@@ -239,7 +239,7 @@ export function BottomNav() {
       <Sheet open={moreOpen} onOpenChange={setMoreOpen} modal={false}>
         <SheetContent
           side="bottom"
-          className="md:hidden rounded-t-[28px] p-0 glass-sheet border-0"
+          className="md:hidden rounded-t-[28px] p-0 border-t border-border bg-card"
         >
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-9 h-1 rounded-full bg-muted-foreground/20" />
@@ -259,10 +259,10 @@ export function BottomNav() {
                       key={item.url}
                       onClick={() => navigate(item.url)}
                       className={[
-                        "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95",
+                        "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
                         isActive
-                          ? "glass-btn text-primary border border-primary/25"
-                          : "glass-btn text-muted-foreground hover:text-foreground border border-transparent",
+                          ? "bg-primary/10 border-primary/20 text-primary"
+                          : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
@@ -288,10 +288,10 @@ export function BottomNav() {
                       key={item.url}
                       onClick={() => navigate(item.url)}
                       className={[
-                        "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95",
+                        "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
                         isActive
-                          ? "glass-btn text-primary border border-primary/25"
-                          : "glass-btn text-muted-foreground hover:text-foreground border border-transparent",
+                          ? "bg-primary/10 border-primary/20 text-primary"
+                          : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />

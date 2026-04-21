@@ -21,7 +21,7 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 - **Frontend**: React + TypeScript + TailwindCSS
 - **Backend**: Express.js with SQLite (Drizzle ORM)
 - **State Management**: TanStack React Query
-- **Styling**: Shadcn UI components + custom design system
+- **Styling**: Shadcn UI components + Liquid Glass design system (real `backdrop-filter` blur, specular highlights, vivid multi-color gradient backgrounds)
 - **Mobile**: Capacitor (Android & iOS native app builds via GitHub Actions)
 - **Auth**: JWT in httpOnly cookies (1-day TTL); OAuth (Google, Facebook) + local email/password for staff
 - **RBAC Middleware**: `requireAuth`, `requireOwner`, `requireAdminOrAbove`, `requireTenant` in `server/middleware.ts`

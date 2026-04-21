@@ -41,10 +41,29 @@ function diagnoseNativeError(raw: string): string {
 async function nativeGoogleSignIn(): Promise<string> {
   debugLog("google", "importing GoogleAuth plugin…");
   const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
+  const { Capacitor } = await import("@capacitor/core");
+
   const webClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
-  const initOptions: Record<string, any> = { scopes: ["profile", "email"], grantOfflineAccess: true };
-  if (webClientId) initOptions.clientId = webClientId;
+  const iosClientId = (import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID as string) || webClientId;
+  const platform = Capacitor.getPlatform();
+  debugLog("google", `platform=${platform} webClientId=${webClientId ? "SET" : "MISSING"}`);
+
+  const initOptions: Record<string, any> = {
+    scopes: ["profile", "email"],
+    grantOfflineAccess: true,
+  };
+
+  if (webClientId) initOptions.serverClientId = webClientId;
+
+  if (platform === "ios" && iosClientId) {
+    initOptions.clientId = iosClientId;
+  } else if (webClientId) {
+    initOptions.clientId = webClientId;
+  }
+
+  debugLog("google", `initialize options: clientId=${initOptions.clientId ? "SET" : "NONE"} serverClientId=${initOptions.serverClientId ? "SET" : "NONE"}`);
   await GoogleAuth.initialize(initOptions);
+
   let googleUser: any;
   try { googleUser = await GoogleAuth.signIn(); }
   catch (e: any) {
@@ -52,6 +71,7 @@ async function nativeGoogleSignIn(): Promise<string> {
     debugLog("google", `signIn raw error: ${raw}`);
     throw new Error(diagnoseNativeError(raw));
   }
+
   const idToken = googleUser?.authentication?.idToken;
   if (!idToken) throw new Error(diagnoseNativeError("no id token returned"));
   debugLog("google", "sending idToken to server…");

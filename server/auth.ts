@@ -86,7 +86,7 @@ export function signToken(user: any): string {
       activeBranchId: user.activeBranchId ?? null,
     },
     getJwtSecret(),
-    { expiresIn: "1d" }
+    { expiresIn: "30d" }
   );
 }
 

@@ -1,11 +1,15 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const webClientId = process.env.GOOGLE_CLIENT_ID;
+const iosClientId = process.env.GOOGLE_IOS_CLIENT_ID || webClientId;
+
 const config: CapacitorConfig = {
   appId: 'com.cafebara.app',
   appName: 'ArtixPOS',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
+    iosScheme: 'https',
     cleartext: false,
   },
   plugins: {
@@ -14,7 +18,8 @@ const config: CapacitorConfig = {
     },
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      ...(process.env.GOOGLE_CLIENT_ID ? { serverClientId: process.env.GOOGLE_CLIENT_ID } : {}),
+      ...(webClientId ? { serverClientId: webClientId } : {}),
+      ...(iosClientId ? { clientId: iosClientId } : {}),
       forceCodeForRefreshToken: true,
     },
     ...(process.env.FACEBOOK_APP_ID ? {

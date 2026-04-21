@@ -3,12 +3,11 @@ import { queryClient, setNativeToken, NATIVE_TOKEN_KEY, apiRequest } from "./lib
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
-import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
@@ -17,39 +16,41 @@ import { isEssentialBusinessUrl } from "@shared/business-access";
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 
-import Dashboard from "@/pages/dashboard";
-import POS from "@/pages/pos";
-import Products from "@/pages/products";
-import Analytics from "@/pages/analytics";
-import PendingOrders from "@/pages/pending-orders";
-import Settings from "@/pages/settings";
-import Transactions from "@/pages/transactions";
 import Login from "@/pages/login";
 import ResetPassword from "@/pages/reset-password";
-import AdminIndex from "@/pages/admin/index";
-import AdminBranches from "@/pages/admin/branches";
-import AdminUsers from "@/pages/admin/users";
-import AdminAnalytics from "@/pages/admin/analytics";
-import AdminAuditLogs from "@/pages/admin/audit-logs";
-import AdminPermissions from "@/pages/admin/permissions";
-import Customers from "@/pages/customers";
-import Expenses from "@/pages/expenses";
-import Shifts from "@/pages/shifts";
-import DiscountCodes from "@/pages/discount-codes";
-import Refunds from "@/pages/refunds";
-import AiPage from "@/pages/ai";
-import TablesPage from "@/pages/tables";
-import KitchenPage from "@/pages/kitchen";
-import SuppliersPage from "@/pages/suppliers";
-import PurchasesPage from "@/pages/purchases";
-import TimeClockPage from "@/pages/timeclock";
-import Onboarding from "@/pages/onboarding";
-import AppointmentsPage from "@/pages/appointments";
-import StaffPage from "@/pages/staff";
-import RoomsPage from "@/pages/rooms";
-import MembershipsPage from "@/pages/memberships";
-import BillingPage from "@/pages/billing";
-import PrintSettings from "@/pages/print-settings";
+import NotFound from "@/pages/not-found";
+
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const POS = lazy(() => import("@/pages/pos"));
+const Products = lazy(() => import("@/pages/products"));
+const Analytics = lazy(() => import("@/pages/analytics"));
+const PendingOrders = lazy(() => import("@/pages/pending-orders"));
+const Settings = lazy(() => import("@/pages/settings"));
+const Transactions = lazy(() => import("@/pages/transactions"));
+const AdminIndex = lazy(() => import("@/pages/admin/index"));
+const AdminBranches = lazy(() => import("@/pages/admin/branches"));
+const AdminUsers = lazy(() => import("@/pages/admin/users"));
+const AdminAnalytics = lazy(() => import("@/pages/admin/analytics"));
+const AdminAuditLogs = lazy(() => import("@/pages/admin/audit-logs"));
+const AdminPermissions = lazy(() => import("@/pages/admin/permissions"));
+const Customers = lazy(() => import("@/pages/customers"));
+const Expenses = lazy(() => import("@/pages/expenses"));
+const Shifts = lazy(() => import("@/pages/shifts"));
+const DiscountCodes = lazy(() => import("@/pages/discount-codes"));
+const Refunds = lazy(() => import("@/pages/refunds"));
+const AiPage = lazy(() => import("@/pages/ai"));
+const TablesPage = lazy(() => import("@/pages/tables"));
+const KitchenPage = lazy(() => import("@/pages/kitchen"));
+const SuppliersPage = lazy(() => import("@/pages/suppliers"));
+const PurchasesPage = lazy(() => import("@/pages/purchases"));
+const TimeClockPage = lazy(() => import("@/pages/timeclock"));
+const Onboarding = lazy(() => import("@/pages/onboarding"));
+const AppointmentsPage = lazy(() => import("@/pages/appointments"));
+const StaffPage = lazy(() => import("@/pages/staff"));
+const RoomsPage = lazy(() => import("@/pages/rooms"));
+const MembershipsPage = lazy(() => import("@/pages/memberships"));
+const BillingPage = lazy(() => import("@/pages/billing"));
+const PrintSettings = lazy(() => import("@/pages/print-settings"));
 
 /**
  * Extract and store the JWT token from an OAuth deep-link URL.
@@ -172,7 +173,7 @@ function useNativeDeepLink() {
   }, []);
 }
 
-function ProGuard({ component: Component, url }: { component: () => JSX.Element; url: string }) {
+function ProGuard({ component: Component, url }: { component: ComponentType; url: string }) {
   const { isPro, isLoading } = useSubscription();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   if (isLoading || settingsLoading) return null;
@@ -180,7 +181,7 @@ function ProGuard({ component: Component, url }: { component: () => JSX.Element;
   return <Component />;
 }
 
-function ProAndCashierGuard({ component: Component, url }: { component: () => JSX.Element; url: string }) {
+function ProAndCashierGuard({ component: Component, url }: { component: ComponentType; url: string }) {
   const { user } = useAuth();
   const { isPro, isLoading } = useSubscription();
   const { data: settings, isLoading: settingsLoading } = useSettings();
@@ -190,26 +191,26 @@ function ProAndCashierGuard({ component: Component, url }: { component: () => JS
   return <Component />;
 }
 
-function OwnerGuard({ component: Component }: { component: () => JSX.Element }) {
+function OwnerGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   if (user?.role !== "owner") return <Redirect to="/" />;
   return <Component />;
 }
 
-function CashierGuard({ component: Component }: { component: () => JSX.Element }) {
+function CashierGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   if (user?.role === "cashier") return <Redirect to="/" />;
   return <Component />;
 }
 
-function AdminGuard({ component: Component }: { component: () => JSX.Element }) {
+function AdminGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   const role = user?.role;
   if (!role || role === "cashier") return <Redirect to="/" />;
   return <Component />;
 }
 
-function ManagerOrAboveGuard({ component: Component }: { component: () => JSX.Element }) {
+function ManagerOrAboveGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   const role = user?.role;
   if (!role || (role !== "owner" && role !== "manager")) return <Redirect to="/" />;
@@ -248,44 +249,50 @@ function AppRouter() {
   }
 
   if (location === "/onboarding") {
-    return <Onboarding />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <Onboarding />
+      </Suspense>
+    );
   }
 
   return (
     <AppLayout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/pos" component={POS} />
-        <Route path="/pending" component={PendingOrders} />
-        <Route path="/products" component={() => <CashierGuard component={Products} />} />
-        <Route path="/analytics" component={() => <CashierGuard component={Analytics} />} />
-        <Route path="/transactions" component={() => <CashierGuard component={Transactions} />} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/admin" component={() => <AdminGuard component={AdminIndex} />} />
-        <Route path="/admin/branches" component={() => <AdminGuard component={AdminBranches} />} />
-        <Route path="/admin/users" component={() => <AdminGuard component={AdminUsers} />} />
-        <Route path="/admin/analytics" component={() => <AdminGuard component={AdminAnalytics} />} />
-        <Route path="/admin/audit-logs" component={() => <AdminGuard component={AdminAuditLogs} />} />
-        <Route path="/admin/permissions" component={() => <AdminGuard component={AdminPermissions} />} />
-        <Route path="/customers" component={() => <ProAndCashierGuard url="/customers" component={Customers} />} />
-        <Route path="/expenses" component={() => <ProAndCashierGuard url="/expenses" component={Expenses} />} />
-        <Route path="/shifts" component={() => <ProGuard url="/shifts" component={Shifts} />} />
-        <Route path="/discount-codes" component={() => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />} />
-        <Route path="/refunds" component={() => <ManagerOrAboveGuard component={Refunds} />} />
-        <Route path="/ai" component={() => <ProGuard url="/ai" component={AiPage} />} />
-        <Route path="/tables" component={() => <ProGuard url="/tables" component={TablesPage} />} />
-        <Route path="/kitchen" component={() => <ProGuard url="/kitchen" component={KitchenPage} />} />
-        <Route path="/suppliers" component={() => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />} />
-        <Route path="/purchases" component={() => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />} />
-        <Route path="/timeclock" component={() => <ProGuard url="/timeclock" component={TimeClockPage} />} />
-        <Route path="/appointments" component={() => <ProGuard url="/appointments" component={AppointmentsPage} />} />
-        <Route path="/staff" component={() => <CashierGuard component={StaffPage} />} />
-        <Route path="/rooms" component={() => <ProGuard url="/rooms" component={RoomsPage} />} />
-        <Route path="/memberships" component={() => <ProGuard url="/memberships" component={MembershipsPage} />} />
-        <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
-        <Route path="/billing" component={BillingPage} />
-        <Route component={NotFound} />
-      </Switch>
+      <Suspense fallback={<LoadingScreen />}>
+        <Switch>
+          <Route path="/" component={() => <Dashboard />} />
+          <Route path="/pos" component={() => <POS />} />
+          <Route path="/pending" component={() => <PendingOrders />} />
+          <Route path="/products" component={() => <CashierGuard component={Products} />} />
+          <Route path="/analytics" component={() => <CashierGuard component={Analytics} />} />
+          <Route path="/transactions" component={() => <CashierGuard component={Transactions} />} />
+          <Route path="/settings" component={() => <Settings />} />
+          <Route path="/admin" component={() => <AdminGuard component={AdminIndex} />} />
+          <Route path="/admin/branches" component={() => <AdminGuard component={AdminBranches} />} />
+          <Route path="/admin/users" component={() => <AdminGuard component={AdminUsers} />} />
+          <Route path="/admin/analytics" component={() => <AdminGuard component={AdminAnalytics} />} />
+          <Route path="/admin/audit-logs" component={() => <AdminGuard component={AdminAuditLogs} />} />
+          <Route path="/admin/permissions" component={() => <AdminGuard component={AdminPermissions} />} />
+          <Route path="/customers" component={() => <ProAndCashierGuard url="/customers" component={Customers} />} />
+          <Route path="/expenses" component={() => <ProAndCashierGuard url="/expenses" component={Expenses} />} />
+          <Route path="/shifts" component={() => <ProGuard url="/shifts" component={Shifts} />} />
+          <Route path="/discount-codes" component={() => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />} />
+          <Route path="/refunds" component={() => <ManagerOrAboveGuard component={Refunds} />} />
+          <Route path="/ai" component={() => <ProGuard url="/ai" component={AiPage} />} />
+          <Route path="/tables" component={() => <ProGuard url="/tables" component={TablesPage} />} />
+          <Route path="/kitchen" component={() => <ProGuard url="/kitchen" component={KitchenPage} />} />
+          <Route path="/suppliers" component={() => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />} />
+          <Route path="/purchases" component={() => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />} />
+          <Route path="/timeclock" component={() => <ProGuard url="/timeclock" component={TimeClockPage} />} />
+          <Route path="/appointments" component={() => <ProGuard url="/appointments" component={AppointmentsPage} />} />
+          <Route path="/staff" component={() => <CashierGuard component={StaffPage} />} />
+          <Route path="/rooms" component={() => <ProGuard url="/rooms" component={RoomsPage} />} />
+          <Route path="/memberships" component={() => <ProGuard url="/memberships" component={MembershipsPage} />} />
+          <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
+          <Route path="/billing" component={() => <BillingPage />} />
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </AppLayout>
   );
 }

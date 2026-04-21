@@ -3,6 +3,8 @@ import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY } from "@/l
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
+
 export interface AuthUser {
   id: string;
   name: string | null;
@@ -40,9 +42,10 @@ function decodeJwtUser(token: string): AuthUser | null {
 async function fetchMe(): Promise<AuthUser | null> {
   const token = localStorage.getItem(NATIVE_TOKEN_KEY);
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-  // When using a Bearer token (native) omit credentials — cookies are same-origin
-  // only and sending them cross-origin requires Allow-Credentials which we avoid.
-  const credentials: RequestCredentials = token ? "omit" : "include";
+  // On native (API_BASE set) every request is cross-origin. Use "omit" even
+  // before the first token arrives so the initial /api/auth/me check doesn't
+  // fail CORS — the server never sends Allow-Credentials for native origins.
+  const credentials: RequestCredentials = token || API_BASE ? "omit" : "include";
 
   try {
     debugLog("auth", `fetchMe — token=${token ? "YES" : "NO"} url=${resolveUrl("/api/auth/me")}`);

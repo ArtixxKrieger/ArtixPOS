@@ -61,13 +61,17 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// When a native token is stored the app is cross-origin (APK WebView → Vercel).
-// Sending credentials:"include" on cross-origin requests requires the server to
-// echo back an exact origin + Allow-Credentials header, which was causing the
-// CORS preflight to silently fail. With Bearer-token auth, cookies aren't needed,
-// so we use "omit" to sidestep that requirement.
+// When running in a native (Capacitor) context, API_BASE is set and every
+// request is cross-origin (APK WebView → Vercel server). Sending
+// credentials:"include" on cross-origin requests requires the server to respond
+// with Access-Control-Allow-Credentials: true. We never set that header because
+// native clients authenticate via Bearer tokens, not cookies. Using "omit"
+// avoids the CORS preflight failure entirely — even before the first token is
+// received (e.g. the initial /api/auth/me check or the Google idToken POST).
 function getCredentials(): RequestCredentials {
-  return localStorage.getItem(NATIVE_TOKEN_KEY) ? "omit" : "include";
+  const isNativeContext = !!API_BASE;
+  const hasToken = !!localStorage.getItem(NATIVE_TOKEN_KEY);
+  return isNativeContext || hasToken ? "omit" : "include";
 }
 
 export async function apiRequest(

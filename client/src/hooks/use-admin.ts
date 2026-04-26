@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, setNativeToken } from "@/lib/queryClient";
 
 export interface Branch {
   id: number;
@@ -285,10 +285,20 @@ export function useMyPermissions() {
 export function useSwitchBranch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (branchId: number | null) =>
-      apiRequest("POST", "/api/admin/switch-branch", { branchId }),
+    mutationFn: async (branchId: number | null) => {
+      const res = await apiRequest("POST", "/api/admin/switch-branch", { branchId });
+      const data = await res.json().catch(() => ({}));
+      // Persist the new JWT (with updated activeBranchId) so subsequent requests
+      // are scoped to the selected branch immediately.
+      if (data?.token) {
+        setNativeToken(data.token);
+      }
+      return data;
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["auth-me"] });
+      // Wipe all cached data — branch-scoped queries (products, sales, pending
+      // orders, expenses) need to refetch with the new active branch.
+      qc.clear();
     },
   });
 }

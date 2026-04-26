@@ -6,6 +6,7 @@ import { z } from "zod";
 import { registerAdminRoutes } from "./admin-routes";
 import { registerAiRoutes } from "./ai-routes";
 import { registerSubscriptionRoutes } from "./subscription-routes";
+import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog } from "./admin-storage";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -41,6 +42,12 @@ function userId(req: Request): string {
   return (req.user as any).id;
 }
 
+/** Active branch the user has selected (owner can switch via /api/admin/switch-branch).
+ *  Returns null when the user is viewing "all branches" or not scoped to one. */
+function activeBranchId(req: Request): number | null {
+  return (req.user as any)?.activeBranchId ?? null;
+}
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/;
 function isValidDate(s: string): boolean {
   return ISO_DATE_RE.test(s) && !isNaN(Date.parse(s));
@@ -67,14 +74,16 @@ export async function registerRoutes(
   registerAdminRoutes(app);
   registerAiRoutes(app);
   registerSubscriptionRoutes(app);
+  registerPayrollRoutes(app);
 
   // ── Products ──────────────────────────────────────────────────────────────
 
   app.get(api.products.list.path, requireAuth, async (req, res) => {
-    const cacheKey = productsCacheKey(userId(req));
+    const branch = activeBranchId(req);
+    const cacheKey = productsCacheKey(userId(req)) + (branch != null ? `:b${branch}` : "");
     const cached = cache.get(cacheKey);
     if (cached) return res.json(cached);
-    const products = await storage.getProducts(userId(req));
+    const products = await storage.getProducts(userId(req), branch);
     cache.set(cacheKey, products, TTL.PRODUCTS);
     res.json(products);
   });
@@ -163,7 +172,7 @@ export async function registerRoutes(
   // ── Pending Orders ────────────────────────────────────────────────────────
 
   app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {
-    const orders = await storage.getPendingOrders(userId(req));
+    const orders = await storage.getPendingOrders(userId(req), activeBranchId(req));
     res.json(orders);
   });
 
@@ -271,6 +280,7 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Invalid endDate format" });
     }
     const salesList = await storage.getSales(userId(req), {
+      branchId: activeBranchId(req),
       limit: Math.min(Number(limit) || 200, 1000),
       offset: Math.max(Number(offset) || 0, 0),
       startDate: startDate || undefined,
@@ -527,7 +537,7 @@ export async function registerRoutes(
   // ── Expenses ──────────────────────────────────────────────────────────────
 
   app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
-    const list = await storage.getExpenses(userId(req));
+    const list = await storage.getExpenses(userId(req), activeBranchId(req));
     res.json(list);
   });
 

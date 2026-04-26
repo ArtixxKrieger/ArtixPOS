@@ -5,8 +5,9 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ReceiptText,
+  ReceiptText, Gift, Banknote,
 } from "lucide-react";
+import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
@@ -37,6 +38,8 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/refunds": { defaultLabel: "Refunds", icon: RotateCcw },
   "/ai": { defaultLabel: "AI", icon: Sparkles },
   "/print-settings": { defaultLabel: "Print Settings", icon: ReceiptText },
+  "/loyalty": { defaultLabel: "Loyalty", icon: Gift },
+  "/payroll": { defaultLabel: "Payroll", icon: Banknote },
   "/billing": { defaultLabel: "Billing", icon: CreditCard },
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
@@ -60,6 +63,8 @@ const MORE_NAV_FULL = [
   { url: "/discount-codes", cashierHidden: true, proOnly: true },
   { url: "/refunds", cashierHidden: true, managerOnly: true },
   { url: "/ai", cashierHidden: false, proOnly: true },
+  { url: "/loyalty", cashierHidden: true, proOnly: true },
+  { url: "/payroll", cashierHidden: true, ownerOnly: true, proOnly: true },
   { url: "/print-settings", cashierHidden: true, ownerOnly: true },
   { url: "/billing", cashierHidden: true, ownerOnly: true },
   { url: "/settings", cashierHidden: false },
@@ -244,6 +249,12 @@ export function BottomNav() {
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-9 h-1 rounded-full bg-muted-foreground/20" />
           </div>
+
+          {role === "owner" && (
+            <div className="px-4 pt-3">
+              <BranchSwitcher />
+            </div>
+          )}
 
           {MORE_NAV.length > 0 && (
             <div className="px-4 pt-3 pb-2">

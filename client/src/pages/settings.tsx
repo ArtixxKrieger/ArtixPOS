@@ -12,8 +12,11 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useSubscription } from "@/hooks/use-subscription";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
+import { Sparkles } from "lucide-react";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   food_beverage: "Food & Beverage",
@@ -75,6 +78,8 @@ export default function Settings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user, logout } = useAuth();
+  const { isPro } = useSubscription();
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -323,40 +328,62 @@ export default function Settings() {
               </SettingRow>
             </div>
 
-            {/* Café WiFi vouchers — shown for cafés/restaurants/bars/bakeries */}
+            {/* Café WiFi vouchers — shown for cafés/restaurants/bars/bakeries (Pro feature) */}
             {["cafe", "restaurant", "bar", "bakery", "food_truck"].includes(businessSubType) && (
               <>
                 <SectionLabel>Free WiFi Vouchers</SectionLabel>
-                <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-                  <SettingRow label="Network (SSID)" hint="Shown on receipt voucher">
-                    <FormField control={form.control} name="wifiSsid" render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="e.g. ArtixCafe-Guest" data-testid="input-wifi-ssid" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                  </SettingRow>
-                  <SettingRow label="WiFi Password">
-                    <FormField control={form.control} name="wifiPassword" render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="Leave blank if open" data-testid="input-wifi-password" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                  </SettingRow>
-                  <SettingRow label="Voucher duration" hint="Minutes per voucher">
-                    <FormField control={form.control} name="wifiDurationMinutes" render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input type="number" min="1" {...field} value={field.value || "60"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" data-testid="input-wifi-duration" />
-                        </FormControl>
-                        <FormMessage className="text-right text-[10px]" />
-                      </FormItem>
-                    )} />
-                  </SettingRow>
-                </div>
+                {isPro ? (
+                  <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+                    <SettingRow label="Network (SSID)" hint="Shown on receipt voucher">
+                      <FormField control={form.control} name="wifiSsid" render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="e.g. ArtixCafe-Guest" data-testid="input-wifi-ssid" />
+                          </FormControl>
+                        </FormItem>
+                      )} />
+                    </SettingRow>
+                    <SettingRow label="WiFi Password">
+                      <FormField control={form.control} name="wifiPassword" render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="Leave blank if open" data-testid="input-wifi-password" />
+                          </FormControl>
+                        </FormItem>
+                      )} />
+                    </SettingRow>
+                    <SettingRow label="Voucher duration" hint="Minutes per voucher">
+                      <FormField control={form.control} name="wifiDurationMinutes" render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input type="number" min="1" {...field} value={field.value || "60"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" data-testid="input-wifi-duration" />
+                          </FormControl>
+                          <FormMessage className="text-right text-[10px]" />
+                        </FormItem>
+                      )} />
+                    </SettingRow>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/billing?reason=pro_required")}
+                    data-testid="button-upgrade-wifi"
+                    className="w-full text-left bg-gradient-to-br from-violet-500/10 via-fuchsia-500/10 to-amber-500/10 border border-violet-500/30 rounded-2xl px-4 py-3.5 shadow-sm hover:from-violet-500/15 hover:via-fuchsia-500/15 hover:to-amber-500/15 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0 shadow-md shadow-violet-500/30">
+                        <Sparkles className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold text-foreground">WiFi voucher printing is a Pro feature</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                          Print time-limited WiFi codes on every receipt to delight guests and reduce staff requests. Tap to upgrade.
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                    </div>
+                  </button>
+                )}
               </>
             )}
 

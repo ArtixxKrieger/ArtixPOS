@@ -51,6 +51,8 @@ const RoomsPage = lazy(() => import("@/pages/rooms"));
 const MembershipsPage = lazy(() => import("@/pages/memberships"));
 const BillingPage = lazy(() => import("@/pages/billing"));
 const PrintSettings = lazy(() => import("@/pages/print-settings"));
+const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
+const PayrollPage = lazy(() => import("@/pages/payroll"));
 
 /**
  * Extract and store the JWT token from an OAuth deep-link URL.
@@ -289,6 +291,8 @@ function AppRouter() {
           <Route path="/rooms" component={() => <ProGuard url="/rooms" component={RoomsPage} />} />
           <Route path="/memberships" component={() => <ProGuard url="/memberships" component={MembershipsPage} />} />
           <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
+          <Route path="/loyalty" component={() => <ProGuard url="/loyalty" component={LoyaltyPage} />} />
+          <Route path="/payroll" component={() => <ProGuard url="/payroll" component={PayrollPage} />} />
           <Route path="/billing" component={() => <BillingPage />} />
           <Route component={NotFound} />
         </Switch>

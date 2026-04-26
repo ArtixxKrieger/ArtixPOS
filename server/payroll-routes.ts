@@ -1,0 +1,209 @@
+import type { Express, Request, Response, NextFunction } from "express";
+import { db } from "./db";
+import { users, timeLogs, sales } from "@shared/schema";
+import { and, eq, gte, lte, inArray, isNull, isNotNull } from "drizzle-orm";
+import { z } from "zod";
+import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
+
+interface PayrollEntry {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  role: string;
+  wageType: "none" | "hourly" | "monthly" | "commission";
+  wageRate: number;
+  commissionPercent: number;
+  hoursWorked: number;
+  salesAmount: number;
+  payout: number;
+  notes: string;
+}
+
+async function ensurePro(req: Request, res: Response): Promise<boolean> {
+  const user = getAuthUser(req);
+  if (!user.tenantId) {
+    res.status(403).json({ message: "No tenant" });
+    return false;
+  }
+  const sub = await getSubscription(user.tenantId);
+  if (!isProSubscription(sub)) {
+    res.status(403).json({ message: "Payroll is a Pro feature.", code: "PRO_REQUIRED" });
+    return false;
+  }
+  return true;
+}
+
+export function registerPayrollRoutes(app: Express) {
+  // ── List staff with wage info ───────────────────────────────────────────────
+  app.get("/api/payroll/staff", requireAuth, requireTenant, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const list = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+          wageType: users.wageType,
+          wageRate: users.wageRate,
+          commissionPercent: users.commissionPercent,
+        })
+        .from(users)
+        .where(eq(users.tenantId, user.tenantId!));
+      res.json(list);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ── Update a single user's wage settings ────────────────────────────────────
+  app.put("/api/payroll/staff/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const schema = z.object({
+        wageType: z.enum(["none", "hourly", "monthly", "commission"]),
+        wageRate: z.union([z.string(), z.number()]).transform((v) => String(v)),
+        commissionPercent: z.union([z.string(), z.number()]).transform((v) => String(v)).optional(),
+      });
+      const input = schema.parse(req.body);
+
+      const [target] = await db.select().from(users).where(eq(users.id, req.params.id as string));
+      if (!target || target.tenantId !== user.tenantId) {
+        return res.status(404).json({ message: "Staff member not found" });
+      }
+
+      await db
+        .update(users)
+        .set({
+          wageType: input.wageType,
+          wageRate: input.wageRate,
+          commissionPercent: input.commissionPercent ?? "0",
+        } as any)
+        .where(eq(users.id, req.params.id as string));
+
+      res.json({ ok: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // ── Compute payroll for a date range ────────────────────────────────────────
+  app.get("/api/payroll/compute", requireAuth, requireTenant, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const schema = z.object({
+        from: z.string().min(1),
+        to: z.string().min(1),
+      });
+      const { from, to } = schema.parse({
+        from: req.query.from ?? new Date(Date.now() - 30 * 86400000).toISOString(),
+        to: req.query.to ?? new Date().toISOString(),
+      });
+
+      // Tenant users
+      const tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
+      const userIds = tenantUsers.map((u) => u.id);
+
+      // Time logs in range (only those clocked out)
+      const logs = userIds.length
+        ? await db
+            .select()
+            .from(timeLogs)
+            .where(
+              and(
+                inArray(timeLogs.userId, userIds),
+                isNotNull(timeLogs.clockOut),
+                gte(timeLogs.clockIn, from),
+                lte(timeLogs.clockIn, to),
+              ),
+            )
+        : [];
+
+      // Sales by cashier in range (for commission)
+      const tenantSales = userIds.length
+        ? await db
+            .select({ cashierId: sales.cashierId, total: sales.total })
+            .from(sales)
+            .where(
+              and(
+                inArray(sales.userId, userIds),
+                isNull(sales.deletedAt),
+                gte(sales.createdAt, from),
+                lte(sales.createdAt, to),
+              ),
+            )
+        : [];
+
+      // Tally
+      const hoursMap = new Map<string, number>();
+      for (const log of logs) {
+        if (!log.clockOut) continue;
+        const start = new Date(log.clockIn).getTime();
+        const end = new Date(log.clockOut).getTime();
+        if (!isFinite(start) || !isFinite(end) || end <= start) continue;
+        const hours = (end - start) / 3600000;
+        hoursMap.set(log.userId, (hoursMap.get(log.userId) ?? 0) + hours);
+      }
+
+      const salesMap = new Map<string, number>();
+      for (const s of tenantSales) {
+        if (!s.cashierId) continue;
+        salesMap.set(s.cashierId, (salesMap.get(s.cashierId) ?? 0) + (parseFloat(s.total) || 0));
+      }
+
+      const entries: PayrollEntry[] = tenantUsers.map((u) => {
+        const wageType = (u.wageType ?? "none") as PayrollEntry["wageType"];
+        const wageRate = parseFloat(u.wageRate ?? "0") || 0;
+        const commissionPercent = parseFloat(u.commissionPercent ?? "0") || 0;
+        const hoursWorked = Number((hoursMap.get(u.id) ?? 0).toFixed(2));
+        const salesAmount = Number((salesMap.get(u.id) ?? 0).toFixed(2));
+
+        let payout = 0;
+        let notes = "";
+
+        if (wageType === "hourly") {
+          payout = hoursWorked * wageRate;
+          notes = `${hoursWorked.toFixed(2)} hrs × ${wageRate.toFixed(2)}`;
+        } else if (wageType === "monthly") {
+          payout = wageRate;
+          notes = "Fixed monthly salary";
+        } else if (wageType === "commission") {
+          payout = (salesAmount * commissionPercent) / 100;
+          notes = `${commissionPercent.toFixed(2)}% of ${salesAmount.toFixed(2)}`;
+        } else {
+          notes = "Not configured";
+        }
+
+        return {
+          userId: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role ?? "cashier",
+          wageType,
+          wageRate,
+          commissionPercent,
+          hoursWorked,
+          salesAmount,
+          payout: Number(payout.toFixed(2)),
+          notes,
+        };
+      });
+
+      const totals = {
+        totalPayout: Number(entries.reduce((s, e) => s + e.payout, 0).toFixed(2)),
+        totalHours: Number(entries.reduce((s, e) => s + e.hoursWorked, 0).toFixed(2)),
+        totalCommissionable: Number(entries.reduce((s, e) => s + (e.wageType === "commission" ? e.salesAmount : 0), 0).toFixed(2)),
+        staffCount: entries.length,
+      };
+
+      res.json({ from, to, entries, totals });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+}

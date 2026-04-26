@@ -39,7 +39,8 @@ const DEFAULT_SIDEBAR_ORDER = [
   "/appointments", "/staff", "/rooms", "/memberships",
   "/products", "/customers", "/transactions", "/analytics",
   "/expenses", "/suppliers", "/purchases", "/shifts",
-  "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings",
+  "/timeclock", "/payroll", "/discount-codes", "/loyalty",
+  "/refunds", "/ai", "/settings",
 ];
 
 const DEFAULT_TERMINOLOGY: BusinessTerminology = {

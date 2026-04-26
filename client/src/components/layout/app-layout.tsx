@@ -6,8 +6,9 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  Sun, Moon, ReceiptText,
+  Sun, Moon, ReceiptText, Gift, Banknote,
 } from "lucide-react";
+import { BranchSwitcher } from "./branch-switcher";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -60,6 +61,7 @@ const NAV_SECTIONS = [
       { label: "Memberships", url: "/memberships", icon: BadgeCheck, proOnly: true },
       { label: "Shifts", url: "/shifts", icon: AlarmClock, proOnly: true },
       { label: "Time Clock", url: "/timeclock", icon: Timer, proOnly: true },
+      { label: "Payroll", url: "/payroll", icon: Banknote, ownerOnly: true, proOnly: true },
     ],
   },
   {
@@ -70,6 +72,7 @@ const NAV_SECTIONS = [
       { label: "Customers", url: "/customers", icon: UserCircle2, managerOnly: true, proOnly: true },
       { label: "Transactions", url: "/transactions", icon: ScrollText },
       { label: "Discounts", url: "/discount-codes", icon: Tag, managerOnly: true, proOnly: true },
+      { label: "Loyalty", url: "/loyalty", icon: Gift, proOnly: true },
       { label: "Refunds", url: "/refunds", icon: RotateCcw, managerOnly: true },
     ],
   },
@@ -126,6 +129,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/refunds": "Refunds",
   "/ai": "AI Assistant",
   "/print-settings": "Print Settings",
+  "/loyalty": "Loyalty Program",
+  "/payroll": "Payroll",
   "/billing": "Billing",
   "/settings": "Settings",
   "/admin": "Admin Panel",
@@ -268,6 +273,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <p className="text-[9.5px] text-muted-foreground tracking-widest uppercase mt-0.5 font-semibold">POS System</p>
             </div>
           </div>
+          {isOwner && (
+            <div className="mt-3">
+              <BranchSwitcher />
+            </div>
+          )}
         </div>
 
         {/* Nav */}

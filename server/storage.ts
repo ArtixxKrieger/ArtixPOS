@@ -231,13 +231,13 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Products ─────────────────────────────────────────────────────────────
 
-  async getProducts(userId: string): Promise<Product[]> {
+  async getProducts(userId: string, branchId?: number | null): Promise<Product[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      if (userIds.length === 1) {
-        return await db.select().from(products).where(eq(products.userId, userIds[0]));
-      }
-      return await db.select().from(products).where(inArray(products.userId, userIds));
+      const conditions: any[] = [];
+      conditions.push(userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds));
+      if (branchId != null) conditions.push(eq(products.branchId, branchId));
+      return await db.select().from(products).where(and(...conditions));
     } catch (error) {
       console.error("Error fetching products:", error);
       return [];
@@ -315,13 +315,13 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Pending Orders ───────────────────────────────────────────────────────
 
-  async getPendingOrders(userId: string): Promise<PendingOrder[]> {
+  async getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      if (userIds.length === 1) {
-        return await db.select().from(pendingOrders).where(eq(pendingOrders.userId, userIds[0]));
-      }
-      return await db.select().from(pendingOrders).where(inArray(pendingOrders.userId, userIds));
+      const conditions: any[] = [];
+      conditions.push(userIds.length === 1 ? eq(pendingOrders.userId, userIds[0]) : inArray(pendingOrders.userId, userIds));
+      if (branchId != null) conditions.push(eq(pendingOrders.branchId, branchId));
+      return await db.select().from(pendingOrders).where(and(...conditions));
     } catch (error) {
       console.error("Error fetching pending orders:", error);
       return [];
@@ -380,9 +380,9 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Sales ────────────────────────────────────────────────────────────────
 
-  async getSales(userId: string, opts: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number } = {}): Promise<Sale[]> {
+  async getSales(userId: string, opts: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null } = {}): Promise<Sale[]> {
     try {
-      const { limit = 200, offset = 0, startDate, endDate, customerId } = opts;
+      const { limit = 200, offset = 0, startDate, endDate, customerId, branchId } = opts;
       const userIds = await this.getTenantUserIds(userId);
       const userCondition = userIds.length === 1
         ? eq(sales.userId, userIds[0])
@@ -391,6 +391,7 @@ export class DatabaseStorage implements IStorage {
       if (startDate) conditions.push(sql`${sales.createdAt} >= ${startDate}`);
       if (endDate) conditions.push(sql`${sales.createdAt} <= ${endDate}`);
       if (customerId) conditions.push(eq(sales.customerId, customerId));
+      if (branchId != null) conditions.push(eq(sales.branchId, branchId));
       return await db.select().from(sales)
         .where(and(...conditions))
         .orderBy(desc(sales.createdAt))
@@ -617,13 +618,13 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Expenses ─────────────────────────────────────────────────────────────
 
-  async getExpenses(userId: string): Promise<Expense[]> {
+  async getExpenses(userId: string, branchId?: number | null): Promise<Expense[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      if (userIds.length === 1) {
-        return await db.select().from(expenses).where(eq(expenses.userId, userIds[0])).orderBy(desc(expenses.createdAt));
-      }
-      return await db.select().from(expenses).where(inArray(expenses.userId, userIds)).orderBy(desc(expenses.createdAt));
+      const conditions: any[] = [];
+      conditions.push(userIds.length === 1 ? eq(expenses.userId, userIds[0]) : inArray(expenses.userId, userIds));
+      if (branchId != null) conditions.push(eq(expenses.branchId, branchId));
+      return await db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
     } catch (error) {
       console.error("Error fetching expenses:", error);
       return [];

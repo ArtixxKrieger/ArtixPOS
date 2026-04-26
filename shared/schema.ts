@@ -42,6 +42,10 @@ export const users = pgTable("users", {
   lastSeenAt: text("last_seen_at"),
   resetToken: text("reset_token"),
   resetTokenExpires: text("reset_token_expires"),
+  // Payroll fields
+  wageType: text("wage_type").default("none"), // none | hourly | monthly | commission
+  wageRate: text("wage_rate").default("0"),
+  commissionPercent: text("commission_percent").default("0"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -233,7 +237,9 @@ export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
+  cashierId: text("cashier_id"), // user.id of cashier who rang up the sale (for commission/tips)
   customerId: integer("customer_id").references(() => customers.id),
+  customerName: text("customer_name"), // Free-text guest name (Starbucks-style, not a stored customer)
   tableId: integer("table_id").references(() => tables.id),
   items: jsonb("items").notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
@@ -241,6 +247,7 @@ export const sales = pgTable("sales", {
   discount: text("discount").default("0"),
   discountCode: text("discount_code"),
   loyaltyDiscount: text("loyalty_discount").default("0"),
+  tip: text("tip").default("0"),
   total: text("total").notNull(),
   paymentMethod: text("payment_method").default("cash"),
   paymentAmount: text("payment_amount"),
@@ -271,7 +278,9 @@ export const pendingOrders = pgTable("pending_orders", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
+  cashierId: text("cashier_id"),
   customerId: integer("customer_id").references(() => customers.id),
+  customerName: text("customer_name"), // Free-text guest name
   tableId: integer("table_id").references(() => tables.id),
   orderNumber: integer("order_number"),
   kitchenStatus: text("kitchen_status").default("pending"), // pending | preparing | ready | done
@@ -281,6 +290,7 @@ export const pendingOrders = pgTable("pending_orders", {
   discount: text("discount").default("0"),
   discountCode: text("discount_code"),
   loyaltyDiscount: text("loyalty_discount").default("0"),
+  tip: text("tip").default("0"),
   total: text("total").notNull(),
   paymentMethod: text("payment_method").default("cash"),
   paymentAmount: text("payment_amount"),
@@ -324,6 +334,11 @@ export const userSettings = pgTable("user_settings", {
   receiptShowPoweredBy: integer("receipt_show_powered_by").default(1),
   printDarkness: integer("print_darkness").default(65000),
   receiptFontSize: integer("receipt_font_size").default(15),
+  // Café WiFi voucher settings
+  wifiSsid: text("wifi_ssid"),
+  wifiPassword: text("wifi_password"),
+  wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
+  wifiAutoIssue: integer("wifi_auto_issue").default(0),
 });
 
 // ─── Service Staff ────────────────────────────────────────────────────────────
@@ -500,6 +515,89 @@ export const aiMemories = pgTable("ai_memories", {
 
 export type AiMemory = typeof aiMemories.$inferSelect;
 
+// ─── Ingredients (Raw Materials for Recipes) ──────────────────────────────────
+
+export const ingredients = pgTable("ingredients", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  branchId: integer("branch_id").references(() => branches.id),
+  name: text("name").notNull(),
+  unit: text("unit").notNull().default("pcs"), // g | ml | pcs | kg | l
+  stockQty: text("stock_qty").notNull().default("0"),
+  lowStockThreshold: text("low_stock_threshold").default("0"),
+  costPerUnit: text("cost_per_unit").default("0"),
+  notes: text("notes"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+// ─── Product Recipes (BOM linking products to ingredients) ────────────────────
+
+export const productRecipes = pgTable("product_recipes", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  ingredientId: integer("ingredient_id").notNull().references(() => ingredients.id),
+  quantity: text("quantity").notNull().default("0"), // amount of ingredient (in its unit) used per 1 product
+});
+
+// ─── WiFi Vouchers (per-branch customer WiFi codes) ───────────────────────────
+
+export const wifiVouchers = pgTable("wifi_vouchers", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  branchId: integer("branch_id").references(() => branches.id),
+  code: text("code").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(60),
+  status: text("status").notNull().default("unused"), // unused | active | expired
+  saleId: integer("sale_id").references(() => sales.id),
+  customerName: text("customer_name"),
+  customerEmail: text("customer_email"),
+  redeemedAt: text("redeemed_at"),
+  expiresAt: text("expires_at"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+// ─── Payroll Periods ──────────────────────────────────────────────────────────
+
+export const payrollPeriods = pgTable("payroll_periods", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id), // owner who created it
+  name: text("name").notNull(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  status: text("status").notNull().default("draft"), // draft | finalized | paid
+  totalAmount: text("total_amount").default("0"),
+  notes: text("notes"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  finalizedAt: text("finalized_at"),
+  paidAt: text("paid_at"),
+});
+
+// ─── Payroll Entries (per employee per period) ────────────────────────────────
+
+export const payrollEntries = pgTable("payroll_entries", {
+  id: serial("id").primaryKey(),
+  periodId: integer("period_id").notNull().references(() => payrollPeriods.id),
+  employeeUserId: text("employee_user_id").notNull().references(() => users.id),
+  employeeName: text("employee_name").notNull(),
+  wageType: text("wage_type").notNull().default("hourly"),
+  wageRate: text("wage_rate").notNull().default("0"),
+  hoursWorked: text("hours_worked").default("0"),
+  baseAmount: text("base_amount").notNull().default("0"),
+  commissionAmount: text("commission_amount").default("0"),
+  tipAmount: text("tip_amount").default("0"),
+  bonusAmount: text("bonus_amount").default("0"),
+  deductionAmount: text("deduction_amount").default("0"),
+  advanceAmount: text("advance_amount").default("0"),
+  netAmount: text("net_amount").notNull().default("0"),
+  notes: text("notes"),
+});
+
+export type Ingredient = typeof ingredients.$inferSelect;
+export type ProductRecipe = typeof productRecipes.$inferSelect;
+export type WifiVoucher = typeof wifiVouchers.$inferSelect;
+export type PayrollPeriod = typeof payrollPeriods.$inferSelect;
+export type PayrollEntry = typeof payrollEntries.$inferSelect;
+
 // ─── Insert Schemas ───────────────────────────────────────────────────────────
 
 export const insertUserSchema = createInsertSchema(users).extend({
@@ -570,12 +668,15 @@ export const insertSaleSchema = z.object({
   discount: z.string().optional(),
   discountCode: z.string().optional().nullable(),
   loyaltyDiscount: z.string().optional(),
+  tip: z.string().optional(),
   total: z.string(),
   paymentMethod: z.string().optional(),
   paymentAmount: z.string().optional().nullable(),
   changeAmount: z.string().optional().nullable(),
   customerId: z.number().optional().nullable(),
+  customerName: z.string().optional().nullable(),
   tableId: z.number().optional().nullable(),
+  cashierId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   branchId: z.number().optional().nullable(),
 });
@@ -587,12 +688,15 @@ export const insertPendingOrderSchema = z.object({
   discount: z.string().optional(),
   discountCode: z.string().optional().nullable(),
   loyaltyDiscount: z.string().optional(),
+  tip: z.string().optional(),
   total: z.string(),
   paymentMethod: z.string().optional(),
   paymentAmount: z.string().optional().nullable(),
   changeAmount: z.string().optional().nullable(),
   customerId: z.number().optional().nullable(),
+  customerName: z.string().optional().nullable(),
   tableId: z.number().optional().nullable(),
+  cashierId: z.string().optional().nullable(),
   orderNumber: z.number().optional().nullable(),
   kitchenStatus: z.string().optional(),
   status: z.string().optional(),
@@ -630,6 +734,10 @@ export const insertUserSettingSchema = z.object({
   receiptShowPoweredBy: z.number().optional().nullable(),
   printDarkness: z.number().optional().nullable(),
   receiptFontSize: z.number().optional().nullable(),
+  wifiSsid: z.string().optional().nullable(),
+  wifiPassword: z.string().optional().nullable(),
+  wifiDurationMinutes: z.number().optional().nullable(),
+  wifiAutoIssue: z.number().optional().nullable(),
 });
 
 export const insertDiscountCodeSchema = z.object({
@@ -832,3 +940,60 @@ export type InsertMembership = z.infer<typeof insertMembershipSchema>;
 
 export type MembershipCheckIn = typeof membershipCheckIns.$inferSelect;
 export type InsertMembershipCheckIn = z.infer<typeof insertMembershipCheckInSchema>;
+
+// ─── Insert Schemas for new tables ───────────────────────────────────────────
+
+export const insertIngredientSchema = z.object({
+  name: z.string().min(1),
+  unit: z.string().min(1).default("pcs"),
+  stockQty: z.string().default("0"),
+  lowStockThreshold: z.string().optional().nullable(),
+  costPerUnit: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  branchId: z.number().optional().nullable(),
+});
+
+export const upsertProductRecipeSchema = z.object({
+  productId: z.number(),
+  items: z.array(z.object({
+    ingredientId: z.number(),
+    quantity: z.string(),
+  })),
+});
+
+export const insertWifiVoucherSchema = z.object({
+  durationMinutes: z.number().int().positive().default(60),
+  customerName: z.string().optional().nullable(),
+  customerEmail: z.string().optional().nullable(),
+  branchId: z.number().optional().nullable(),
+});
+
+export const insertPayrollPeriodSchema = z.object({
+  name: z.string().min(1),
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  notes: z.string().optional().nullable(),
+});
+
+export const updatePayrollEntrySchema = z.object({
+  hoursWorked: z.string().optional(),
+  baseAmount: z.string().optional(),
+  commissionAmount: z.string().optional(),
+  tipAmount: z.string().optional(),
+  bonusAmount: z.string().optional(),
+  deductionAmount: z.string().optional(),
+  advanceAmount: z.string().optional(),
+  notes: z.string().optional().nullable(),
+});
+
+export const updateUserWageSchema = z.object({
+  wageType: z.enum(["none", "hourly", "monthly", "commission"]),
+  wageRate: z.string().default("0"),
+  commissionPercent: z.string().default("0"),
+});
+
+export type InsertIngredient = z.infer<typeof insertIngredientSchema>;
+export type InsertWifiVoucher = z.infer<typeof insertWifiVoucherSchema>;
+export type InsertPayrollPeriod = z.infer<typeof insertPayrollPeriodSchema>;
+export type UpdatePayrollEntry = z.infer<typeof updatePayrollEntrySchema>;
+export type UpdateUserWage = z.infer<typeof updateUserWageSchema>;

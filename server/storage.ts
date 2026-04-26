@@ -23,6 +23,20 @@ import {
   membershipPlans,
   memberships,
   membershipCheckIns,
+  ingredients,
+  productRecipes,
+  wifiVouchers,
+  payrollPeriods,
+  payrollEntries,
+  type Ingredient,
+  type InsertIngredient,
+  type ProductRecipe,
+  type WifiVoucher,
+  type InsertWifiVoucher,
+  type PayrollPeriod,
+  type InsertPayrollPeriod,
+  type PayrollEntry,
+  type UpdatePayrollEntry,
   type Product,
   type InsertProduct,
   type PendingOrder,
@@ -396,11 +410,64 @@ export class DatabaseStorage implements IStorage {
       if (sale.customerId) {
         void this.updateCustomerStats(sale.customerId, parseFloat(sale.total) || 0);
       }
+      // Auto-deduct ingredients via product recipes (cafés / production kitchens).
+      void this.deductIngredientsForSale(userId, sale.items as any[]).catch((e) => {
+        console.error("Recipe deduction failed:", e);
+      });
       return created;
     } catch (error) {
       console.error("Error creating sale:", error);
       throw error;
     }
+  }
+
+  /** Deduct ingredient stock based on product recipes (BOM) for sold items. */
+  async deductIngredientsForSale(userId: string, items: any[]): Promise<void> {
+    if (!Array.isArray(items) || items.length === 0) return;
+    const userIds = await this.getTenantUserIds(userId);
+
+    // Tally quantity sold per productId
+    const productQty = new Map<number, number>();
+    for (const it of items) {
+      const pid = Number(it?.productId ?? it?.id);
+      const qty = Number(it?.quantity ?? 1);
+      if (!Number.isFinite(pid) || !Number.isFinite(qty) || qty <= 0) continue;
+      productQty.set(pid, (productQty.get(pid) ?? 0) + qty);
+    }
+    if (productQty.size === 0) return;
+
+    const productIds = [...productQty.keys()];
+    // Fetch matching recipes (only for products in this tenant — verified via products table)
+    const recipes = await db.select().from(productRecipes).where(inArray(productRecipes.productId, productIds));
+    if (recipes.length === 0) return;
+
+    // Verify products belong to tenant before applying
+    const tenantProducts = await db.select({ id: products.id }).from(products).where(
+      and(inArray(products.id, productIds), inArray(products.userId, userIds))
+    );
+    const allowedProducts = new Set(tenantProducts.map(p => p.id));
+
+    // Aggregate ingredient deltas
+    const ingredientDelta = new Map<number, number>();
+    for (const r of recipes) {
+      if (!allowedProducts.has(r.productId)) continue;
+      const sold = productQty.get(r.productId) ?? 0;
+      const perUnit = parseFloat(r.quantity || "0");
+      if (sold <= 0 || !Number.isFinite(perUnit) || perUnit <= 0) continue;
+      const delta = sold * perUnit;
+      ingredientDelta.set(r.ingredientId, (ingredientDelta.get(r.ingredientId) ?? 0) + delta);
+    }
+    if (ingredientDelta.size === 0) return;
+
+    await db.transaction(async (tx) => {
+      await Promise.all(
+        [...ingredientDelta.entries()].map(([ingId, delta]) =>
+          tx.update(ingredients)
+            .set({ stockQty: sql`(COALESCE(stock_qty::numeric, 0) - ${delta})::text` } as any)
+            .where(eq(ingredients.id, ingId))
+        )
+      );
+    });
   }
 
   async softDeleteSale(id: number, userId: string, deletedBy: string): Promise<boolean> {
@@ -1360,6 +1427,331 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(membershipCheckIns)
       .where(and(eq(membershipCheckIns.membershipId, membershipId), eq(membershipCheckIns.userId, userId)))
       .orderBy(desc(membershipCheckIns.checkedInAt));
+  }
+
+  // ─── Ingredients ──────────────────────────────────────────────────────────
+
+  async getIngredients(userId: string): Promise<Ingredient[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    return db.select().from(ingredients)
+      .where(inArray(ingredients.userId, userIds))
+      .orderBy(desc(ingredients.id));
+  }
+
+  async getIngredient(id: number, userId: string): Promise<Ingredient | undefined> {
+    const userIds = await this.getTenantUserIds(userId);
+    const [row] = await db.select().from(ingredients)
+      .where(and(eq(ingredients.id, id), inArray(ingredients.userId, userIds)));
+    return row;
+  }
+
+  async createIngredient(userId: string, data: InsertIngredient): Promise<Ingredient> {
+    const [created] = await db.insert(ingredients).values({ ...data, userId } as any).returning();
+    return created;
+  }
+
+  async updateIngredient(id: number, userId: string, data: Partial<InsertIngredient>): Promise<Ingredient | undefined> {
+    const existing = await this.getIngredient(id, userId);
+    if (!existing) return undefined;
+    const [updated] = await db.update(ingredients).set(data as any).where(eq(ingredients.id, id)).returning();
+    return updated;
+  }
+
+  async deleteIngredient(id: number, userId: string): Promise<void> {
+    const existing = await this.getIngredient(id, userId);
+    if (!existing) return;
+    await db.delete(productRecipes).where(eq(productRecipes.ingredientId, id));
+    await db.delete(ingredients).where(eq(ingredients.id, id));
+  }
+
+  async adjustIngredientStock(id: number, userId: string, delta: number): Promise<Ingredient | undefined> {
+    const existing = await this.getIngredient(id, userId);
+    if (!existing) return undefined;
+    const [updated] = await db.update(ingredients)
+      .set({ stockQty: sql`(COALESCE(stock_qty::numeric, 0) + ${delta})::text` } as any)
+      .where(eq(ingredients.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ─── Product Recipes ──────────────────────────────────────────────────────
+
+  async getRecipeForProduct(productId: number, userId: string): Promise<(ProductRecipe & { ingredientName: string; unit: string })[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    // Verify product belongs to tenant
+    const [prod] = await db.select().from(products).where(
+      and(eq(products.id, productId), inArray(products.userId, userIds))
+    );
+    if (!prod) return [];
+    const rows = await db.select({
+      id: productRecipes.id,
+      productId: productRecipes.productId,
+      ingredientId: productRecipes.ingredientId,
+      quantity: productRecipes.quantity,
+      ingredientName: ingredients.name,
+      unit: ingredients.unit,
+    }).from(productRecipes)
+      .leftJoin(ingredients, eq(productRecipes.ingredientId, ingredients.id))
+      .where(eq(productRecipes.productId, productId));
+    return rows as any;
+  }
+
+  async setRecipeForProduct(productId: number, userId: string, items: { ingredientId: number; quantity: string }[]): Promise<void> {
+    const userIds = await this.getTenantUserIds(userId);
+    const [prod] = await db.select().from(products).where(
+      and(eq(products.id, productId), inArray(products.userId, userIds))
+    );
+    if (!prod) throw new Error("Product not found");
+    // Verify all ingredients belong to tenant
+    if (items.length > 0) {
+      const ingIds = items.map(i => i.ingredientId);
+      const tenantIngs = await db.select({ id: ingredients.id }).from(ingredients).where(
+        and(inArray(ingredients.id, ingIds), inArray(ingredients.userId, userIds))
+      );
+      const allowed = new Set(tenantIngs.map(i => i.id));
+      const filtered = items.filter(i => allowed.has(i.ingredientId));
+      await db.transaction(async (tx) => {
+        await tx.delete(productRecipes).where(eq(productRecipes.productId, productId));
+        if (filtered.length > 0) {
+          await tx.insert(productRecipes).values(filtered.map(i => ({
+            productId,
+            ingredientId: i.ingredientId,
+            quantity: i.quantity,
+          })) as any);
+        }
+      });
+    } else {
+      await db.delete(productRecipes).where(eq(productRecipes.productId, productId));
+    }
+  }
+
+  // ─── WiFi Vouchers ────────────────────────────────────────────────────────
+
+  async getWifiVouchers(userId: string): Promise<WifiVoucher[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    return db.select().from(wifiVouchers)
+      .where(inArray(wifiVouchers.userId, userIds))
+      .orderBy(desc(wifiVouchers.createdAt))
+      .limit(200);
+  }
+
+  async createWifiVoucher(userId: string, data: InsertWifiVoucher & { saleId?: number | null }): Promise<WifiVoucher> {
+    const code = (Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6)).toUpperCase();
+    const [created] = await db.insert(wifiVouchers).values({
+      userId,
+      branchId: data.branchId ?? null,
+      code,
+      durationMinutes: data.durationMinutes,
+      customerName: data.customerName ?? null,
+      customerEmail: data.customerEmail ?? null,
+      saleId: data.saleId ?? null,
+      status: "unused",
+    } as any).returning();
+    return created;
+  }
+
+  async redeemWifiVoucher(code: string, userId: string): Promise<WifiVoucher | undefined> {
+    const userIds = await this.getTenantUserIds(userId);
+    const [v] = await db.select().from(wifiVouchers).where(
+      and(eq(wifiVouchers.code, code), inArray(wifiVouchers.userId, userIds))
+    );
+    if (!v) return undefined;
+    if (v.status !== "unused") return v;
+    const now = new Date();
+    const expires = new Date(now.getTime() + (v.durationMinutes ?? 60) * 60_000);
+    const [updated] = await db.update(wifiVouchers).set({
+      status: "active",
+      redeemedAt: now.toISOString(),
+      expiresAt: expires.toISOString(),
+    } as any).where(eq(wifiVouchers.id, v.id)).returning();
+    return updated;
+  }
+
+  // ─── Payroll ──────────────────────────────────────────────────────────────
+
+  async getPayrollPeriods(userId: string): Promise<PayrollPeriod[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    return db.select().from(payrollPeriods)
+      .where(inArray(payrollPeriods.userId, userIds))
+      .orderBy(desc(payrollPeriods.createdAt));
+  }
+
+  async getPayrollPeriod(id: number, userId: string): Promise<PayrollPeriod | undefined> {
+    const userIds = await this.getTenantUserIds(userId);
+    const [p] = await db.select().from(payrollPeriods).where(
+      and(eq(payrollPeriods.id, id), inArray(payrollPeriods.userId, userIds))
+    );
+    return p;
+  }
+
+  /**
+   * Create a payroll period and auto-generate entries for every employee in the tenant
+   * by computing hours from time_logs and commission/tip from sales in the date range.
+   */
+  async createPayrollPeriod(userId: string, data: InsertPayrollPeriod): Promise<PayrollPeriod> {
+    const userIds = await this.getTenantUserIds(userId);
+    const [period] = await db.insert(payrollPeriods).values({
+      userId,
+      name: data.name,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      notes: data.notes ?? null,
+      status: "draft",
+    } as any).returning();
+
+    // Fetch all tenant users (employees) — exclude wageType "none"
+    const employees = await db.select().from(users).where(inArray(users.id, userIds));
+    const start = new Date(data.startDate).toISOString();
+    const endInclusive = new Date(new Date(data.endDate).getTime() + 24 * 60 * 60_000 - 1).toISOString();
+
+    // All time logs for these users in window
+    const logs = await db.select().from(timeLogs).where(
+      and(inArray(timeLogs.userId, userIds), isNotNull(timeLogs.clockOut))
+    );
+    // All sales in window for commission/tip
+    const tenantSales = await db.select().from(sales).where(
+      and(inArray(sales.userId, userIds), isNull(sales.deletedAt))
+    );
+    const inWindowSales = tenantSales.filter(s => {
+      const t = s.createdAt ?? "";
+      return t >= start && t <= endInclusive;
+    });
+    const tipPool = inWindowSales.reduce((sum, s) => sum + (parseFloat(s.tip || "0") || 0), 0);
+
+    // Filter logs to window
+    const inWindowLogs = logs.filter(l => {
+      const ci = l.clockIn ?? "";
+      return ci >= start && ci <= endInclusive;
+    });
+
+    let totalAmount = 0;
+    const entries: any[] = [];
+    // Count how many employees actually clocked in (for tip share)
+    const employeesWithHours = new Set<string>();
+    for (const l of inWindowLogs) employeesWithHours.add(l.userId);
+    const tipShare = employeesWithHours.size > 0 ? tipPool / employeesWithHours.size : 0;
+
+    for (const emp of employees) {
+      const wageType = (emp as any).wageType || "none";
+      if (wageType === "none") continue;
+      const wageRate = parseFloat((emp as any).wageRate || "0") || 0;
+      const commissionPct = parseFloat((emp as any).commissionPercent || "0") || 0;
+
+      const empLogs = inWindowLogs.filter(l => l.userId === emp.id);
+      const hours = empLogs.reduce((sum, l) => {
+        if (!l.clockOut) return sum;
+        const ms = new Date(l.clockOut).getTime() - new Date(l.clockIn ?? l.clockOut).getTime();
+        return sum + Math.max(0, ms / 3600000);
+      }, 0);
+
+      let baseAmount = 0;
+      if (wageType === "hourly") baseAmount = hours * wageRate;
+      else if (wageType === "monthly") baseAmount = wageRate; // simple monthly base
+      else if (wageType === "commission") baseAmount = 0;
+
+      // Commission from sales rung up by this cashier
+      const empSales = inWindowSales.filter(s => s.cashierId === emp.id);
+      const empSubtotal = empSales.reduce((sum, s) => sum + (parseFloat(s.subtotal || "0") || 0), 0);
+      const commissionAmount = (empSubtotal * commissionPct) / 100;
+
+      const empTip = employeesWithHours.has(emp.id) ? tipShare : 0;
+
+      const net = baseAmount + commissionAmount + empTip;
+      totalAmount += net;
+
+      entries.push({
+        periodId: period.id,
+        employeeUserId: emp.id,
+        employeeName: emp.name || emp.email,
+        wageType,
+        wageRate: String(wageRate),
+        hoursWorked: hours.toFixed(2),
+        baseAmount: baseAmount.toFixed(2),
+        commissionAmount: commissionAmount.toFixed(2),
+        tipAmount: empTip.toFixed(2),
+        bonusAmount: "0",
+        deductionAmount: "0",
+        advanceAmount: "0",
+        netAmount: net.toFixed(2),
+      });
+    }
+
+    if (entries.length > 0) {
+      await db.insert(payrollEntries).values(entries as any);
+    }
+    const [updated] = await db.update(payrollPeriods)
+      .set({ totalAmount: totalAmount.toFixed(2) } as any)
+      .where(eq(payrollPeriods.id, period.id))
+      .returning();
+    return updated;
+  }
+
+  async getPayrollEntries(periodId: number, userId: string): Promise<PayrollEntry[]> {
+    const period = await this.getPayrollPeriod(periodId, userId);
+    if (!period) return [];
+    return db.select().from(payrollEntries).where(eq(payrollEntries.periodId, periodId));
+  }
+
+  async updatePayrollEntry(id: number, userId: string, data: UpdatePayrollEntry): Promise<PayrollEntry | undefined> {
+    const [entry] = await db.select().from(payrollEntries).where(eq(payrollEntries.id, id));
+    if (!entry) return undefined;
+    const period = await this.getPayrollPeriod(entry.periodId, userId);
+    if (!period) return undefined;
+    const merged = { ...entry, ...data } as any;
+    const base = parseFloat(merged.baseAmount || "0") || 0;
+    const comm = parseFloat(merged.commissionAmount || "0") || 0;
+    const tip = parseFloat(merged.tipAmount || "0") || 0;
+    const bonus = parseFloat(merged.bonusAmount || "0") || 0;
+    const ded = parseFloat(merged.deductionAmount || "0") || 0;
+    const adv = parseFloat(merged.advanceAmount || "0") || 0;
+    const net = base + comm + tip + bonus - ded - adv;
+    const [updated] = await db.update(payrollEntries).set({
+      ...data,
+      netAmount: net.toFixed(2),
+    } as any).where(eq(payrollEntries.id, id)).returning();
+    // Recompute period total
+    const allEntries = await db.select().from(payrollEntries).where(eq(payrollEntries.periodId, entry.periodId));
+    const total = allEntries.reduce((s, e) => s + (parseFloat(e.netAmount || "0") || 0), 0);
+    await db.update(payrollPeriods).set({ totalAmount: total.toFixed(2) } as any).where(eq(payrollPeriods.id, entry.periodId));
+    return updated;
+  }
+
+  async finalizePayrollPeriod(id: number, userId: string): Promise<PayrollPeriod | undefined> {
+    const period = await this.getPayrollPeriod(id, userId);
+    if (!period) return undefined;
+    const [updated] = await db.update(payrollPeriods).set({
+      status: "finalized",
+      finalizedAt: new Date().toISOString(),
+    } as any).where(eq(payrollPeriods.id, id)).returning();
+    return updated;
+  }
+
+  async markPayrollPeriodPaid(id: number, userId: string): Promise<PayrollPeriod | undefined> {
+    const period = await this.getPayrollPeriod(id, userId);
+    if (!period) return undefined;
+    const [updated] = await db.update(payrollPeriods).set({
+      status: "paid",
+      paidAt: new Date().toISOString(),
+    } as any).where(eq(payrollPeriods.id, id)).returning();
+    return updated;
+  }
+
+  async deletePayrollPeriod(id: number, userId: string): Promise<void> {
+    const period = await this.getPayrollPeriod(id, userId);
+    if (!period) return;
+    await db.delete(payrollEntries).where(eq(payrollEntries.periodId, id));
+    await db.delete(payrollPeriods).where(eq(payrollPeriods.id, id));
+  }
+
+  async updateUserWage(targetUserId: string, requesterId: string, data: { wageType: string; wageRate: string; commissionPercent: string }): Promise<any> {
+    const userIds = await this.getTenantUserIds(requesterId);
+    if (!userIds.includes(targetUserId)) return undefined;
+    const [updated] = await db.update(users).set({
+      wageType: data.wageType,
+      wageRate: data.wageRate,
+      commissionPercent: data.commissionPercent,
+    } as any).where(eq(users.id, targetUserId)).returning();
+    return updated;
   }
 }
 

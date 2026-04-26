@@ -66,6 +66,9 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [cartOpen, setCartOpen] = useState(false);
+  const [receiptName, setReceiptName] = useState<string>("");
+  const [tip, setTip] = useState<number>(0);
+  const [issueWifi, setIssueWifi] = useState<boolean>(false);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [tempSize, setTempSize] = useState<{ name: string; price: string } | null>(null);
@@ -234,7 +237,7 @@ export default function POS() {
     return acc + itemSubtotal * (rate / 100);
   }, 0);
   const taxRate = globalTaxRate; // kept for display purposes
-  const total = discountedSubtotal + tax - loyaltyDiscount;
+  const total = discountedSubtotal + tax - loyaltyDiscount + tip;
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
   const quickAmounts = useMemo(() => getQuickAmounts(total), [total]);
 
@@ -274,20 +277,29 @@ export default function POS() {
       discount: discount.toString(),
       discountCode: appliedCode?.code ?? null,
       loyaltyDiscount: loyaltyDiscount.toString(),
+      tip: tip.toString(),
       total: actualTotal.toString(),
       paymentAmount: numericPayment.toString(),
       changeAmount: changeAmount.toString(),
       status: !isCashPayment || numericPayment >= actualTotal ? "paid" : "unpaid",
       paymentMethod,
       customerId: selectedCustomer?.id ?? null,
+      customerName: !selectedCustomer && receiptName.trim() ? receiptName.trim() : null,
       loyaltyPointsUsed: loyaltyPointsToRedeem,
       loyaltyPointsEarned: pointsEarned,
     };
 
     const snapshotCustomer = selectedCustomer;
 
+    const snapshotName = !selectedCustomer && receiptName.trim() ? receiptName.trim() : undefined;
+    const snapshotTip = tip;
+    const snapshotIssueWifi = issueWifi;
+    const wifiSsid = (settings as any)?.wifiSsid as string | undefined;
+    const wifiPassword = (settings as any)?.wifiPassword as string | undefined;
+    const wifiDuration = parseNumeric((settings as any)?.wifiDurationMinutes ?? 60) || 60;
+
     createPending.mutate(orderData, {
-      onSuccess: () => {
+      onSuccess: async () => {
         // Award/deduct loyalty points — queue offline if network unavailable
         if (snapshotCustomer) {
           const netDelta = pointsEarned - loyaltyPointsToRedeem;
@@ -308,6 +320,26 @@ export default function POS() {
           queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
         }
 
+        // Optionally issue a free wifi voucher
+        let wifiVoucher: ReceiptData["wifiVoucher"] = undefined;
+        if (snapshotIssueWifi && (wifiSsid || wifiPassword)) {
+          try {
+            const res = await apiRequest("POST", "/api/wifi-vouchers", {
+              durationMinutes: wifiDuration,
+              customerName: snapshotName ?? snapshotCustomer?.name ?? null,
+            });
+            const v = await res.json();
+            wifiVoucher = {
+              code: v.code,
+              durationMinutes: v.durationMinutes ?? wifiDuration,
+              ssid: wifiSsid,
+              password: wifiPassword,
+            };
+          } catch (e) {
+            console.error("Failed to issue wifi voucher:", e);
+          }
+        }
+
         // Build receipt data and show receipt modal
         const receipt: ReceiptData = {
           items: cart,
@@ -315,17 +347,19 @@ export default function POS() {
           tax,
           discount,
           loyaltyDiscount,
+          tip: snapshotTip,
           total: actualTotal,
           paymentMethod,
           paymentAmount: numericPayment,
           changeAmount,
-          customerName: snapshotCustomer?.name,
+          customerName: snapshotCustomer?.name ?? snapshotName,
           storeName: (settings as any)?.storeName,
           receiptFooter: (settings as any)?.receiptFooter,
           currency,
           taxRate: globalTaxRate,
           discountCode: appliedCode?.code ?? null,
           loyaltyPointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
+          wifiVoucher,
         };
         setReceiptData(receipt);
         setShowReceipt(true);
@@ -337,6 +371,9 @@ export default function POS() {
         setSelectedCustomer(null);
         setLoyaltyPointsToRedeem(0);
         setPaymentAmount("");
+        setReceiptName("");
+        setTip(0);
+        setIssueWifi(false);
         setCartOpen(false);
       },
       onError: () => {
@@ -451,6 +488,18 @@ export default function POS() {
             <UserCircle2 className="h-4 w-4" />
             <span>Add Customer (optional)</span>
           </button>
+        )}
+
+        {/* Receipt name (Starbucks-style) — not stored as a customer */}
+        {!selectedCustomer && (
+          <Input
+            type="text"
+            value={receiptName}
+            onChange={(e) => setReceiptName(e.target.value.slice(0, 40))}
+            placeholder="Name on receipt (optional)"
+            className="h-9 rounded-xl bg-secondary/60 border-none text-sm"
+            data-testid="input-receipt-name"
+          />
         )}
 
         <div className="flex justify-between text-sm text-muted-foreground">
@@ -571,6 +620,54 @@ export default function POS() {
             <span>Loyalty Redemption ({loyaltyPointsToRedeem} pts)</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(loyaltyDiscount, currency)}</span>
           </div>
+        )}
+
+        {/* Tip selector */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Tip</span>
+            <Input
+              type="number"
+              min={0}
+              className="w-24 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-semibold"
+              value={tip || ""}
+              onChange={(e) => setTip(Math.max(0, Number(e.target.value) || 0))}
+              placeholder="0"
+              data-testid="input-tip-amount"
+            />
+          </div>
+          <div className="flex gap-1.5">
+            {[0.05, 0.10, 0.15].map(pct => (
+              <button
+                key={pct}
+                onClick={() => setTip(parseFloat((discountedSubtotal * pct).toFixed(2)))}
+                className="flex-1 h-7 rounded-xl bg-secondary/80 border border-border/40 text-[11px] font-bold hover:bg-secondary transition-all active:scale-95"
+                data-testid={`button-tip-${Math.round(pct * 100)}`}
+              >
+                {Math.round(pct * 100)}%
+              </button>
+            ))}
+            <button
+              onClick={() => setTip(0)}
+              className="flex-1 h-7 rounded-xl bg-secondary/40 border border-border/40 text-[11px] font-medium hover:bg-secondary transition-all active:scale-95"
+              data-testid="button-tip-clear"
+            >
+              No tip
+            </button>
+          </div>
+        </div>
+
+        {/* WiFi voucher toggle (cafés) */}
+        {((settings as any)?.wifiSsid || (settings as any)?.wifiPassword) && (
+          <label className="flex items-center justify-between text-sm gap-2 cursor-pointer" data-testid="toggle-wifi-voucher">
+            <span className="font-medium">Issue free WiFi voucher</span>
+            <input
+              type="checkbox"
+              checked={issueWifi}
+              onChange={(e) => setIssueWifi(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
         )}
 
         <div className="flex justify-between items-center pt-2 border-t border-border/50">

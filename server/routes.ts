@@ -29,6 +29,11 @@ import {
   insertMembershipPlanSchema,
   insertMembershipSchema,
   insertMembershipCheckInSchema,
+  insertIngredientSchema,
+  insertWifiVoucherSchema,
+  insertPayrollPeriodSchema,
+  updatePayrollEntrySchema,
+  updateUserWageSchema,
 } from "@shared/schema";
 
 function userId(req: Request): string {
@@ -173,7 +178,9 @@ export async function registerRoutes(
         changeAmount: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      const order = await storage.createPendingOrder(userId(req), input);
+      // Default cashierId to the authenticated user
+      const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req) };
+      const order = await storage.createPendingOrder(userId(req), inputWithCashier);
 
       // When a POS order is finalized as paid, also record it as a sale so it
       // immediately appears in Dashboard, Analytics, and Sales History.
@@ -190,12 +197,15 @@ export async function registerRoutes(
             discount: input.discount,
             discountCode: input.discountCode,
             loyaltyDiscount: input.loyaltyDiscount,
+            tip: (input as any).tip,
             total: input.total,
             paymentMethod: input.paymentMethod,
             paymentAmount: input.paymentAmount,
             changeAmount: input.changeAmount,
             customerId: input.customerId,
+            customerName: (input as any).customerName,
             tableId: input.tableId,
+            cashierId: userId(req),
             notes: input.notes,
             branchId: input.branchId,
           });
@@ -293,7 +303,8 @@ export async function registerRoutes(
         }
       }
 
-      const sale = await storage.createSale(userId(req), input);
+      const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req) };
+      const sale = await storage.createSale(userId(req), inputWithCashier);
       await auditLog(req, "create", "sale", String(sale.id), {
         total: sale.total,
         itemCount: Array.isArray(sale.items) ? sale.items.length : 0,
@@ -1106,6 +1117,176 @@ export async function registerRoutes(
   app.get("/api/memberships/:id/check-ins", requireAuth, requirePro, async (req, res) => {
     const checkIns = await storage.getCheckIns(Number(req.params.id), userId(req));
     res.json(checkIns);
+  });
+
+  // ── Ingredients ───────────────────────────────────────────────────────────
+
+  app.get("/api/ingredients", requireAuth, async (req, res) => {
+    const list = await storage.getIngredients(userId(req));
+    res.json(list);
+  });
+
+  app.post("/api/ingredients", requireAuth, requireManagerOrAbove, async (req, res) => {
+    try {
+      const input = insertIngredientSchema.parse(req.body);
+      const created = await storage.createIngredient(userId(req), input);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.put("/api/ingredients/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+    try {
+      const input = insertIngredientSchema.partial().parse(req.body);
+      const updated = await storage.updateIngredient(Number(req.params.id), userId(req), input);
+      if (!updated) return res.status(404).json({ message: "Ingredient not found" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete("/api/ingredients/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+    await storage.deleteIngredient(Number(req.params.id), userId(req));
+    res.status(204).end();
+  });
+
+  app.post("/api/ingredients/:id/stock", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const delta = Number(req.body?.delta);
+    if (!Number.isFinite(delta)) return res.status(400).json({ message: "delta must be a number" });
+    const updated = await storage.adjustIngredientStock(Number(req.params.id), userId(req), delta);
+    if (!updated) return res.status(404).json({ message: "Ingredient not found" });
+    res.json(updated);
+  });
+
+  // ── Product Recipes ───────────────────────────────────────────────────────
+
+  app.get("/api/products/:id/recipe", requireAuth, async (req, res) => {
+    const items = await storage.getRecipeForProduct(Number(req.params.id), userId(req));
+    res.json(items);
+  });
+
+  app.put("/api/products/:id/recipe", requireAuth, requireManagerOrAbove, async (req, res) => {
+    try {
+      const schema = z.object({
+        items: z.array(z.object({
+          ingredientId: z.coerce.number(),
+          quantity: z.coerce.string(),
+        })),
+      });
+      const input = schema.parse(req.body);
+      const items = input.items.map(i => ({ ingredientId: i.ingredientId, quantity: i.quantity }));
+      await storage.setRecipeForProduct(Number(req.params.id), userId(req), items);
+      const result = await storage.getRecipeForProduct(Number(req.params.id), userId(req));
+      res.json(result);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  // ── WiFi Vouchers ─────────────────────────────────────────────────────────
+
+  app.get("/api/wifi-vouchers", requireAuth, async (req, res) => {
+    const list = await storage.getWifiVouchers(userId(req));
+    res.json(list);
+  });
+
+  app.post("/api/wifi-vouchers", requireAuth, async (req, res) => {
+    try {
+      const input = insertWifiVoucherSchema.parse(req.body);
+      const created = await storage.createWifiVoucher(userId(req), input);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.post("/api/wifi-vouchers/redeem", requireAuth, async (req, res) => {
+    const code = String(req.body?.code || "").trim();
+    if (!code) return res.status(400).json({ message: "code is required" });
+    const v = await storage.redeemWifiVoucher(code, userId(req));
+    if (!v) return res.status(404).json({ message: "Voucher not found" });
+    res.json(v);
+  });
+
+  // ── Payroll (Pro) ─────────────────────────────────────────────────────────
+
+  app.get("/api/payroll/periods", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const list = await storage.getPayrollPeriods(userId(req));
+    res.json(list);
+  });
+
+  app.post("/api/payroll/periods", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const input = insertPayrollPeriodSchema.parse(req.body);
+      const period = await storage.createPayrollPeriod(userId(req), input);
+      await auditLog(req, "create", "payroll_period", String(period.id), { name: period.name });
+      res.status(201).json(period);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.get("/api/payroll/periods/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const period = await storage.getPayrollPeriod(Number(req.params.id), userId(req));
+    if (!period) return res.status(404).json({ message: "Period not found" });
+    res.json(period);
+  });
+
+  app.get("/api/payroll/periods/:id/entries", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const entries = await storage.getPayrollEntries(Number(req.params.id), userId(req));
+    res.json(entries);
+  });
+
+  app.put("/api/payroll/entries/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const input = updatePayrollEntrySchema.parse(req.body);
+      const updated = await storage.updatePayrollEntry(Number(req.params.id), userId(req), input);
+      if (!updated) return res.status(404).json({ message: "Entry not found" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.post("/api/payroll/periods/:id/finalize", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const updated = await storage.finalizePayrollPeriod(Number(req.params.id), userId(req));
+    if (!updated) return res.status(404).json({ message: "Period not found" });
+    res.json(updated);
+  });
+
+  app.post("/api/payroll/periods/:id/pay", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const updated = await storage.markPayrollPeriodPaid(Number(req.params.id), userId(req));
+    if (!updated) return res.status(404).json({ message: "Period not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/payroll/periods/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    await storage.deletePayrollPeriod(Number(req.params.id), userId(req));
+    res.status(204).end();
+  });
+
+  app.put("/api/users/:id/wage", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const input = updateUserWageSchema.parse(req.body);
+      const updated = await storage.updateUserWage(String(req.params.id), userId(req), {
+        wageType: input.wageType,
+        wageRate: input.wageRate,
+        commissionPercent: input.commissionPercent,
+      });
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
   });
 
   return httpServer;

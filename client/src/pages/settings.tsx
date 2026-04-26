@@ -41,6 +41,9 @@ const settingsSchema = z.object({
   receiptFooter: z.string().optional().or(z.literal("")),
   loyaltyPointsPerUnit: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
   loyaltyRedemptionRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 1, { message: "Must be at least 1" }),
+  wifiSsid: z.string().optional().or(z.literal("")),
+  wifiPassword: z.string().optional().or(z.literal("")),
+  wifiDurationMinutes: z.string().refine(v => !v || (!isNaN(Number(v)) && Number(v) > 0), { message: "Must be greater than 0" }).optional(),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -115,6 +118,7 @@ export default function Settings() {
     defaultValues: {
       storeName: "", taxRate: "0", address: "", phone: "",
       emailContact: "", receiptFooter: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
+      wifiSsid: "", wifiPassword: "", wifiDurationMinutes: "60",
     }
   });
 
@@ -129,6 +133,9 @@ export default function Settings() {
         receiptFooter: (settings as any).receiptFooter || "",
         loyaltyPointsPerUnit: (settings as any).loyaltyPointsPerUnit?.toString() || "1",
         loyaltyRedemptionRate: (settings as any).loyaltyRedemptionRate?.toString() || "100",
+        wifiSsid: (settings as any).wifiSsid || "",
+        wifiPassword: (settings as any).wifiPassword || "",
+        wifiDurationMinutes: (settings as any).wifiDurationMinutes?.toString() || "60",
       });
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
@@ -188,6 +195,9 @@ export default function Settings() {
       receiptFooter: data.receiptFooter,
       loyaltyPointsPerUnit: data.loyaltyPointsPerUnit,
       loyaltyRedemptionRate: data.loyaltyRedemptionRate,
+      wifiSsid: data.wifiSsid || null,
+      wifiPassword: data.wifiPassword || null,
+      wifiDurationMinutes: data.wifiDurationMinutes ? Number(data.wifiDurationMinutes) : 60,
     };
     updateSettings.mutate(payload, {
       onSuccess: () => toast({ title: "Settings saved" })
@@ -312,6 +322,43 @@ export default function Settings() {
                 )} />
               </SettingRow>
             </div>
+
+            {/* Café WiFi vouchers — shown for cafés/restaurants/bars/bakeries */}
+            {["cafe", "restaurant", "bar", "bakery", "food_truck"].includes(businessSubType) && (
+              <>
+                <SectionLabel>Free WiFi Vouchers</SectionLabel>
+                <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+                  <SettingRow label="Network (SSID)" hint="Shown on receipt voucher">
+                    <FormField control={form.control} name="wifiSsid" render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="e.g. ArtixCafe-Guest" data-testid="input-wifi-ssid" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  </SettingRow>
+                  <SettingRow label="WiFi Password">
+                    <FormField control={form.control} name="wifiPassword" render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="Leave blank if open" data-testid="input-wifi-password" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  </SettingRow>
+                  <SettingRow label="Voucher duration" hint="Minutes per voucher">
+                    <FormField control={form.control} name="wifiDurationMinutes" render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} value={field.value || "60"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" data-testid="input-wifi-duration" />
+                        </FormControl>
+                        <FormMessage className="text-right text-[10px]" />
+                      </FormItem>
+                    )} />
+                  </SettingRow>
+                </div>
+              </>
+            )}
 
             {/* Contact */}
             <SectionLabel>Contact</SectionLabel>

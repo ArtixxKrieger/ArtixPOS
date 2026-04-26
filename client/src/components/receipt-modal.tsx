@@ -24,6 +24,7 @@ export interface ReceiptData {
   taxRate?: number;
   discount: number;
   loyaltyDiscount: number;
+  tip?: number;
   total: number;
   paymentMethod: string;
   paymentAmount: number;
@@ -36,6 +37,7 @@ export interface ReceiptData {
   loyaltyPointsEarned?: number;
   orderNumber?: number | null;
   cashierName?: string;
+  wifiVoucher?: { code: string; durationMinutes: number; ssid?: string; password?: string };
 }
 
 interface ReceiptModalProps {
@@ -112,6 +114,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const hasDiscount = receipt.discount > 0;
   const hasLoyalty = receipt.loyaltyDiscount > 0;
   const hasTax = receipt.tax > 0;
+  const hasTip = (receipt.tip ?? 0) > 0;
 
   const handlePrint = () => {
     if (printer.connected) {
@@ -239,11 +242,19 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasTax ? `<div class="row muted"><span>${receipt.taxRate ? `VAT (${receipt.taxRate}%)` : "VAT"}</span><span class="price">${fmt(receipt.tax)}</span></div>` : ""}
     ${hasLoyalty ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span class="price">-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
+    ${hasTip ? `<div class="row muted"><span>Tip</span><span class="price">${fmt(receipt.tip ?? 0)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(receipt.total)}</span></div>
     <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
     ${receipt.loyaltyPointsEarned && receipt.loyaltyPointsEarned > 0 ? `<p class="center" style="color:#000;margin-top:4px;font-size:${fs - 2}px">+${receipt.loyaltyPointsEarned} loyalty points earned</p>` : ""}
+    ${receipt.wifiVoucher ? `<div class="line"></div>
+      <p class="center bold">FREE WIFI VOUCHER</p>
+      ${receipt.wifiVoucher.ssid ? `<div class="row muted"><span>Network</span><span>${receipt.wifiVoucher.ssid}</span></div>` : ""}
+      ${receipt.wifiVoucher.password ? `<div class="row muted"><span>Password</span><span>${receipt.wifiVoucher.password}</span></div>` : ""}
+      <div class="row"><span>Code</span><span class="bold">${receipt.wifiVoucher.code}</span></div>
+      <p class="center muted">Valid for ${receipt.wifiVoucher.durationMinutes} min after first use</p>
+    ` : ""}
     ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${receipt.receiptFooter}</p>` : ""}
     <p class="center" style="color:#000;margin-top:6px">Thank you!</p>
     <p class="center" style="color:#000;font-size:${fs - 3}px;margin-top:2px">Powered by ArtixPOS</p>
@@ -375,6 +386,12 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                   <span className="tabular-nums">-{formatCurrency(receipt.loyaltyDiscount, currency)}</span>
                 </div>
               )}
+              {hasTip && (
+                <div className="flex justify-between text-muted-foreground text-[12px]">
+                  <span>Tip</span>
+                  <span className="tabular-nums" data-testid="text-receipt-tip">{formatCurrency(receipt.tip ?? 0, currency)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold pt-1 border-t border-dashed border-border/60 text-[14px]">
                 <span>TOTAL</span>
                 <span className="tabular-nums">{formatCurrency(receipt.total, currency)}</span>
@@ -395,6 +412,29 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 </div>
               )}
             </div>
+
+            {receipt.wifiVoucher && (
+              <div className="mt-3 rounded-lg border border-dashed border-border/60 p-3" data-testid="block-wifi-voucher">
+                <p className="text-center font-bold text-[12px]">FREE WIFI VOUCHER</p>
+                {receipt.wifiVoucher.ssid && (
+                  <div className="flex justify-between text-muted-foreground text-[11px] mt-1">
+                    <span>Network</span><span>{receipt.wifiVoucher.ssid}</span>
+                  </div>
+                )}
+                {receipt.wifiVoucher.password && (
+                  <div className="flex justify-between text-muted-foreground text-[11px]">
+                    <span>Password</span><span>{receipt.wifiVoucher.password}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-[12px] mt-1">
+                  <span>Code</span>
+                  <span className="font-bold tracking-wider" data-testid="text-wifi-code">{receipt.wifiVoucher.code}</span>
+                </div>
+                <p className="text-center text-muted-foreground text-[10px] mt-1">
+                  Valid for {receipt.wifiVoucher.durationMinutes} min after first use
+                </p>
+              </div>
+            )}
 
             {receipt.receiptFooter && (
               <>

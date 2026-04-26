@@ -58,6 +58,13 @@ export default function POS() {
     (settings as any)?.businessSubType,
   );
 
+  // Cafe-style businesses (cafe, bakery, food truck) operate Starbucks-style:
+  // walk-in customers aren't stored — only a name on the receipt.
+  const businessSubType = (settings as any)?.businessSubType;
+  const isCafeStyle =
+    (settings as any)?.businessType === "food_beverage" &&
+    ["cafe", "bakery", "food_truck"].includes(businessSubType);
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [category, setCategory] = useState<string>("all");
@@ -465,8 +472,8 @@ export default function POS() {
       {/* Summary */}
       <div className="pt-4 border-t border-border/50 space-y-2.5 shrink-0">
 
-        {/* Customer Selector */}
-        {selectedCustomer ? (
+        {/* Customer Selector — hidden for cafe-style businesses (Starbucks-style: name on receipt only) */}
+        {!isCafeStyle && (selectedCustomer ? (
           <div className="flex items-center gap-2 bg-primary/8 rounded-xl px-3 py-2 border border-primary/15">
             <UserCircle2 className="h-4 w-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
@@ -488,7 +495,7 @@ export default function POS() {
             <UserCircle2 className="h-4 w-4" />
             <span>Add Customer (optional)</span>
           </button>
-        )}
+        ))}
 
         {/* Receipt name (Starbucks-style) — not stored as a customer */}
         {!selectedCustomer && (
@@ -932,7 +939,7 @@ export default function POS() {
               )}
             </SheetTitle>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-hide">
+          <div className="flex-1 min-h-0 px-5 py-4">
             {CartContent}
           </div>
         </SheetContent>

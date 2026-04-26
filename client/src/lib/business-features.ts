@@ -98,15 +98,18 @@ export function getBusinessFeatures(
         break;
       case "cafe":
       case "bakery":
+        // Starbucks-style: walk-in customers are not stored; only a name on the receipt.
         primaryNavUrls = ["/pos", "/pending"];
         hidden.add("/kitchen");
         hidden.add("/tables");
-        sidebarOrder = ["/", "/pos", "/pending", "/products", "/customers", "/transactions", "/analytics", "/expenses", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
+        hidden.add("/customers");
+        sidebarOrder = ["/", "/pos", "/pending", "/products", "/transactions", "/analytics", "/expenses", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
         break;
       case "food_truck":
         primaryNavUrls = ["/pos", "/pending"];
         hidden.add("/kitchen");
         hidden.add("/tables");
+        hidden.add("/customers");
         sidebarOrder = ["/", "/pos", "/pending", "/products", "/transactions", "/analytics", "/expenses", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
         break;
       default:

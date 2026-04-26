@@ -187,7 +187,7 @@ export default function Branches() {
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Add Branch</span>
-            <span className="sm:hidden">+ Add</span>
+            <span className="sm:hidden">Add</span>
           </button>
         )}
       </div>

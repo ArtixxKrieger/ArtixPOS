@@ -115,10 +115,11 @@ function CustomerForm({
 }
 
 function CustomerDetailPanel({ customer, onClose, currency }: { customer: Customer; onClose: () => void; currency: string }) {
-  const { data: sales = [] } = useQuery<any[]>({
+  const { data: sales = [], isLoading: salesLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customer.id, "sales"],
     queryFn: async () => {
       const res = await fetch(`/api/customers/${customer.id}/sales`, { credentials: "include" });
+      if (!res.ok) return [];
       return res.json();
     },
   });
@@ -161,19 +162,28 @@ function CustomerDetailPanel({ customer, onClose, currency }: { customer: Custom
       {/* Purchase history */}
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Purchase History</p>
-        {sales.length === 0 ? (
+        {salesLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-12 rounded-xl bg-secondary/40 animate-pulse" />
+            ))}
+          </div>
+        ) : sales.length === 0 ? (
           <p className="text-sm text-muted-foreground/50 text-center py-4">No purchases yet</p>
         ) : (
           <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-            {[...sales].reverse().map(s => (
-              <div key={s.id} className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/40 text-sm">
-                <div>
-                  <p className="font-medium">{format(new Date(s.createdAt), "MMM d, yyyy")}</p>
-                  <p className="text-xs text-muted-foreground">{(s.items as any[]).length} item(s)</p>
+            {[...sales].reverse().map(s => {
+              const itemCount = Array.isArray(s.items) ? s.items.length : 0;
+              return (
+                <div key={s.id} className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/40 text-sm">
+                  <div>
+                    <p className="font-medium">{format(new Date(s.createdAt), "MMM d, yyyy")}</p>
+                    <p className="text-xs text-muted-foreground">{itemCount} item{itemCount !== 1 ? "s" : ""}</p>
+                  </div>
+                  <p className="font-bold text-primary tabular-nums">{formatCurrency(s.total, currency)}</p>
                 </div>
-                <p className="font-bold text-primary tabular-nums">{formatCurrency(s.total, currency)}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

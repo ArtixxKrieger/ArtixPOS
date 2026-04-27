@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Truck, Phone, Mail, MapPin, Pencil, Trash2, User } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Truck, Phone, Mail, MapPin, Pencil, Trash2, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Supplier } from "@shared/schema";
 
@@ -25,6 +29,7 @@ export default function SuppliersPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
   const [form, setForm] = useState<SupplierForm>(DEFAULT_FORM);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
@@ -45,7 +50,11 @@ export default function SuppliersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/suppliers/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] }); toast({ title: "Supplier deleted" }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      toast({ title: "Supplier deleted" });
+      setDeleteTarget(null);
+    },
     onError: () => toast({ title: "Failed to delete supplier", variant: "destructive" }),
   });
 
@@ -138,10 +147,20 @@ export default function SuppliersPage() {
                   )}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEdit(supplier)} className="text-muted-foreground hover:text-foreground transition-colors p-1" data-testid={`button-edit-supplier-${supplier.id}`}>
+                  <button
+                    onClick={() => openEdit(supplier)}
+                    className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                    aria-label={`Edit ${supplier.name}`}
+                    data-testid={`button-edit-supplier-${supplier.id}`}
+                  >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => deleteMutation.mutate(supplier.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" data-testid={`button-delete-supplier-${supplier.id}`}>
+                  <button
+                    onClick={() => setDeleteTarget(supplier)}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                    aria-label={`Delete ${supplier.name}`}
+                    data-testid={`button-delete-supplier-${supplier.id}`}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -211,11 +230,40 @@ export default function SuppliersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-supplier">
+              {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
               {editing ? "Save Changes" : "Create Supplier"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this supplier?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  <strong>{deleteTarget.name}</strong> will be removed from your supplier list.
+                  This won't delete any past purchase orders, but you won't be able to link new orders to them.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-supplier"
+            >
+              {deleteMutation.isPending ? (<><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Deleting…</>) : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

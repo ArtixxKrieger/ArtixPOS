@@ -434,13 +434,17 @@ export default function POS() {
                       <button
                         className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
                         onClick={() => updateQuantity(item.cartId, -1)}
+                        aria-label={`Decrease quantity of ${item.product.name}`}
+                        data-testid={`button-decrease-${item.cartId}`}
                       >
                         <Minus className="h-3 w-3" />
                       </button>
-                      <span className="w-6 text-center text-sm font-bold tabular-nums">{item.quantity}</span>
+                      <span className="w-6 text-center text-sm font-bold tabular-nums" aria-label={`Quantity: ${item.quantity}`}>{item.quantity}</span>
                       <button
                         className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
                         onClick={() => updateQuantity(item.cartId, 1)}
+                        aria-label={`Increase quantity of ${item.product.name}`}
+                        data-testid={`button-increase-${item.cartId}`}
                       >
                         <Plus className="h-3 w-3" />
                       </button>
@@ -448,6 +452,8 @@ export default function POS() {
                     <button
                       className="h-7 w-7 flex items-center justify-center text-destructive/60 hover:text-destructive active:scale-90 transition-all"
                       onClick={() => removeFromCart(item.cartId)}
+                      aria-label={`Remove ${item.product.name} from cart`}
+                      data-testid={`button-remove-${item.cartId}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

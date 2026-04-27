@@ -7,6 +7,10 @@ import { format, isToday, isThisWeek, isThisMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -98,13 +102,16 @@ export default function Expenses() {
   const [showForm, setShowForm] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/expenses/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({ title: "Expense deleted" });
+      setDeleteTarget(null);
     },
+    onError: () => toast({ title: "Failed to delete expense", variant: "destructive" }),
   });
 
   const filtered = useMemo(() => {
@@ -237,9 +244,9 @@ export default function Expenses() {
                 <div className="flex items-center gap-2 shrink-0">
                   <p className="font-bold text-rose-600 dark:text-rose-400 tabular-nums">{formatCurrency(expense.amount, currency)}</p>
                   <button
-                    onClick={() => deleteMutation.mutate(expense.id)}
-                    disabled={deleteMutation.isPending}
+                    onClick={() => setDeleteTarget(expense)}
                     className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/8 transition-all"
+                    aria-label={`Delete expense ${expense.description}`}
                     data-testid={`button-delete-expense-${expense.id}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -257,6 +264,33 @@ export default function Expenses() {
           <ExpenseForm onSuccess={() => setShowForm(false)} onClose={() => setShowForm(false)} />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  This will permanently remove <strong>{deleteTarget.description}</strong> ({formatCurrency(deleteTarget.amount, currency)})
+                  from your records. Your reports and totals will recalculate.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-expense"
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

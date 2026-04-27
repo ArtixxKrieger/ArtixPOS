@@ -477,7 +477,17 @@ export function registerAdminRoutes(app: Express) {
     try {
       const user = getAuthUser(req);
       const tenantUsers = await getTenantUsers(user.tenantId!);
-      res.json(tenantUsers.map(u => ({ ...u, passwordHash: undefined })));
+      const isOwner = user.role === "owner";
+      res.json(tenantUsers.map(u => {
+        // Strip security/recovery tokens from every response.
+        const { passwordHash, resetToken, resetTokenExpires, ...safe } = u as any;
+        // Only owners can see compensation details — admins/managers should not
+        // be able to see what their peers are paid.
+        if (!isOwner && u.id !== user.id) {
+          return { ...safe, wageType: undefined, wageRate: undefined, commissionPercent: undefined };
+        }
+        return safe;
+      }));
     } catch (err) { next(err); }
   });
 

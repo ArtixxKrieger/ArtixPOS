@@ -222,10 +222,9 @@ export async function registerRoutes(
       // immediately appears in Dashboard, Analytics, and Sales History.
       if (input.status === "paid") {
         try {
-          if (input.discountCode) {
-            const dc = await storage.getDiscountCodeByCode(input.discountCode, userId(req));
-            if (dc) await storage.incrementDiscountCodeUsage(dc.id);
-          }
+          // Create the sale FIRST. Only after it succeeds do we increment the
+          // discount-code usage — otherwise a failed sale would leave the
+          // discount counter inflated and rob the merchant of legitimate uses.
           const sale = await storage.createSale(userId(req), {
             items: input.items,
             subtotal: input.subtotal,
@@ -245,6 +244,16 @@ export async function registerRoutes(
             notes: input.notes,
             branchId: enforcedBranch,
           });
+          if (input.discountCode) {
+            try {
+              const dc = await storage.getDiscountCodeByCode(input.discountCode, userId(req));
+              if (dc) await storage.incrementDiscountCodeUsage(dc.id);
+            } catch (dcErr) {
+              // Don't fail the whole flow if the counter bump fails — the sale
+              // and order are already recorded correctly.
+              console.error("Failed to increment discount code usage:", dcErr);
+            }
+          }
           await auditLog(req, "create", "sale", String(sale.id), {
             total: sale.total,
             itemCount: Array.isArray(sale.items) ? sale.items.length : 0,

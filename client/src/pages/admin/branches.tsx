@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, useSeedBranch, useResetBranch, fetchBranchSeedTemplate, type Branch, type BranchSeedTemplate } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,6 +29,17 @@ const branchSchema = z.object({
   isActive: z.boolean().default(true),
   businessType: z.string().min(1, "Business type is required"),
   businessSubType: z.string().optional(),
+}).superRefine((val, ctx) => {
+  // Subtype is required whenever the chosen type actually has subtypes —
+  // we use it to pick the right starter catalog ("cafe" vs "bakery", etc).
+  const subtypes = BUSINESS_SUBTYPES[val.businessType] ?? [];
+  if (subtypes.length > 0 && !val.businessSubType) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["businessSubType"],
+      message: "Please pick what kind of business this is",
+    });
+  }
 });
 type BranchForm = z.infer<typeof branchSchema>;
 
@@ -293,26 +304,37 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
               </FormItem>
             )} />
             {subtypeOptions.length > 0 && (
-              <FormField control={form.control} name="businessSubType" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>More specifically</FormLabel>
-                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-branch-business-subtype">
-                        <SelectValue placeholder="Choose a sub-category (optional)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {subtypeOptions.map((t) => (
-                        <SelectItem key={t.value} value={t.value} data-testid={`option-business-subtype-${t.value}`}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField control={form.control} name="businessSubType" render={({ field }) => {
+                const selectedTypeLabel = BUSINESS_TYPES.find(t => t.value === selectedType)?.label ?? "";
+                return (
+                  <FormItem className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/5 to-indigo-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                      <FormLabel className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+                        What kind of {selectedTypeLabel.toLowerCase()}?
+                      </FormLabel>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      We'll use this to suggest the right starter catalog (menu, services or inventory) for the branch.
+                    </p>
+                    <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-branch-business-subtype">
+                          <SelectValue placeholder={`Pick a ${selectedTypeLabel.toLowerCase()} type`} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {subtypeOptions.map((t) => (
+                          <SelectItem key={t.value} value={t.value} data-testid={`option-business-subtype-${t.value}`}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }} />
             )}
             <FormField control={form.control} name="isActive" render={({ field }) => (
               <FormItem className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-border/30 p-3">
@@ -450,17 +472,26 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
   );
 }
 
+// All template keys grouped by parent business type, used for the Reset
+// dialog's "use a different template" picker.
+const TEMPLATE_GROUPS: { type: string; label: string }[] = BUSINESS_TYPES
+  .filter(t => (BUSINESS_SUBTYPES[t.value] ?? []).length > 0)
+  .map(t => ({ type: t.value, label: t.label }));
+
 function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; open: boolean; onClose: () => void }) {
   const resetBranch = useResetBranch();
   const { toast } = useToast();
   const [confirmText, setConfirmText] = useState("");
   const [reseed, setReseed] = useState(true);
+  // "" means "auto" — use the branch's own businessType/subType match.
+  const [templateKey, setTemplateKey] = useState<string>("");
 
   // Reset local state whenever the dialog opens fresh.
   useEffect(() => {
     if (!open) {
       setConfirmText("");
       setReseed(true);
+      setTemplateKey("");
     }
   }, [open]);
 
@@ -470,7 +501,11 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
   async function handleReset() {
     if (!branch || !canReset) return;
     try {
-      const result = await resetBranch.mutateAsync({ branchId: branch.id, reseed });
+      const result = await resetBranch.mutateAsync({
+        branchId: branch.id,
+        reseed,
+        templateKey: reseed && templateKey ? templateKey : undefined,
+      });
       const parts: string[] = [];
       if (result.productsDeleted || result.tablesDeleted) {
         parts.push(`Removed ${result.productsDeleted} product${result.productsDeleted === 1 ? "" : "s"}`);
@@ -516,18 +551,56 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-border/30 p-3">
-            <div className="flex-1">
-              <p className="text-sm font-semibold">Re-seed with the starter catalog</p>
-              <p className="text-xs text-muted-foreground">
-                After wiping, repopulate with the default products & tables for this business type.
-              </p>
+          <div className="rounded-xl bg-secondary/40 border border-border/30 p-3 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Re-seed with a starter catalog</p>
+                <p className="text-xs text-muted-foreground">
+                  After wiping, repopulate the branch with a fresh set of products & tables.
+                </p>
+              </div>
+              <Switch
+                data-testid="switch-reset-reseed"
+                checked={reseed}
+                onCheckedChange={setReseed}
+              />
             </div>
-            <Switch
-              data-testid="switch-reset-reseed"
-              checked={reseed}
-              onCheckedChange={setReseed}
-            />
+            {reseed && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Catalog template
+                </label>
+                <Select value={templateKey || "auto"} onValueChange={(v) => setTemplateKey(v === "auto" ? "" : v)}>
+                  <SelectTrigger data-testid="select-reset-template" className="bg-background">
+                    <SelectValue placeholder="Match this branch's business type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto" data-testid="option-reset-template-auto">
+                      Auto — match this branch's business type
+                    </SelectItem>
+                    {TEMPLATE_GROUPS.map(group => (
+                      <SelectGroup key={group.type}>
+                        <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          {group.label}
+                        </SelectLabel>
+                        {(BUSINESS_SUBTYPES[group.type] ?? []).map(opt => (
+                          <SelectItem
+                            key={opt.value}
+                            value={opt.value}
+                            data-testid={`option-reset-template-${opt.value}`}
+                          >
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Pick a different template if you'd like to switch this branch to a new business type's starter catalog.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

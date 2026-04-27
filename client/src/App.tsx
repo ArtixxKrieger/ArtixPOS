@@ -12,6 +12,7 @@ import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -376,14 +377,16 @@ function App() {
   useGlobalDarkMode();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BlePrinterProvider>
-          <Router />
-          <Toaster />
-        </BlePrinterProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <BlePrinterProvider>
+            <Router />
+            <Toaster />
+          </BlePrinterProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -16,6 +16,9 @@ A full-stack Point of Sale (POS) system for café management with React/TypeScri
 - **Staff Auth**: Email/password login for admin-created staff accounts
 - **Audit Logging**: Full history of all admin actions (owner-only)
 - **AI Memory Layer**: SimpleMem-style atomic fact extraction per conversation. Memories stored in `ai_memories` table, injected into system prompt. Persists across sessions even if chat is deleted. Tenant-isolated + business-type tagged. Consolidation: decay stale facts, cap at 120 per tenant.
+- **Per-branch business type**: Each branch has its own `businessType`/`businessSubType` (cafe, salon, retail, etc.). Navigation, quick actions and dashboard adapt per active branch via `useBranchBusiness()` (`client/src/hooks/use-branch-business.ts`), which reads `user.activeBranch` from `/api/auth/me` and falls back to global settings.
+- **Per-branch onboarding & seed catalog**: When an owner creates a new branch, they pick its business type and (after creation) get a one-tap "Add starter catalog" prompt. Seed templates live in `server/branch-seeds.ts` (cafe coffee menu, restaurant + tables, salon services, gym memberships, retail SKUs, etc.). Endpoints: `GET /api/admin/branches/:id/seed-template` (preview) and `POST /api/admin/branches/:id/seed` (apply).
+- **Resilience**: Service worker is dev-gated (registers only in production, unregisters stale ones in dev) to prevent stale-chunk white-screens. Top-level `<ErrorBoundary>` (`client/src/components/error-boundary.tsx`) catches lazy-import failures and auto-reloads once on chunk-load errors.
 
 ## Architecture
 - **Frontend**: React + TypeScript + TailwindCSS

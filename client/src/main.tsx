@@ -4,10 +4,29 @@ import "./index.css";
 import "sileo/styles.css";
 import { Analytics } from "@vercel/analytics/react";
 
+// Register the service worker only in production. In development the SW caches
+// Vite's dev modules, and once Vite restarts (or an HMR update changes a chunk
+// hash) the cached HTML keeps referencing chunks that no longer exist — the
+// dynamic import rejects and the whole React tree unmounts to a white screen.
+//
+// We also proactively unregister any SW that a previous build may have installed
+// so returning users on dev/preview don't stay stuck behind a stale cache.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
+  if (import.meta.env.PROD) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    });
+  } else {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))
+      .catch(() => {});
+    if (window.caches) {
+      caches.keys()
+        .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        .catch(() => {});
+    }
+  }
 }
 
 // In development, Vite's HMR WebSocket drops when wifi is lost. When wifi

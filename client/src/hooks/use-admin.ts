@@ -98,10 +98,39 @@ export function useBranches() {
 export function useCreateBranch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; address?: string; phone?: string; isActive?: boolean; businessType?: string | null; businessSubType?: string | null }) =>
-      apiRequest("POST", "/api/admin/branches", data),
+    mutationFn: async (data: { name: string; address?: string; phone?: string; isActive?: boolean; businessType?: string | null; businessSubType?: string | null }): Promise<Branch> => {
+      const res = await apiRequest("POST", "/api/admin/branches", data);
+      return res.json();
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/branches"] });
+    },
+  });
+}
+
+export interface BranchSeedTemplate {
+  available: boolean;
+  label?: string;
+  description?: string;
+  itemCount?: number;
+  tableCount?: number;
+}
+
+export async function fetchBranchSeedTemplate(branchId: number): Promise<BranchSeedTemplate> {
+  const res = await apiRequest("GET", `/api/admin/branches/${branchId}/seed-template`);
+  return res.json();
+}
+
+export function useSeedBranch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ branchId, templateKey }: { branchId: number; templateKey?: string }) => {
+      const res = await apiRequest("POST", `/api/admin/branches/${branchId}/seed`, templateKey ? { templateKey } : {});
+      return res.json() as Promise<{ ok: boolean; productsCreated: number; tablesCreated: number; template: string }>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/products"] });
+      qc.invalidateQueries({ queryKey: ["/api/tables"] });
     },
   });
 }

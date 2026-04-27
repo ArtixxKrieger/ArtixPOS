@@ -17,11 +17,12 @@ import {
   getRolePermissions, upsertRolePermission,
 } from "./admin-storage";
 import { bannedUserIds } from "./auth";
-import { invalidateTenantCache } from "./storage";
+import { invalidateTenantCache, storage } from "./storage";
 import { db } from "./db";
 import { users, sales, type UserRole } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray } from "drizzle-orm";
 import { signToken } from "./auth";
+import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
 export function registerAdminRoutes(app: Express) {
 
@@ -192,6 +193,97 @@ export function registerAdminRoutes(app: Express) {
       const branch = await createBranch(user.tenantId!, input as { name: string; address?: string | null; phone?: string | null; isActive?: boolean; businessType?: string | null; businessSubType?: string | null });
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "branch", entityId: String(branch.id), metadata: { name: branch.name } });
       res.status(201).json(branch);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // ─── Branch onboarding: preview & seed default catalog ───────────────────
+  // GET returns the matching template (so the UI can ask "want a sample
+  // coffee menu?" before committing). POST actually inserts the products
+  // (and tables, where applicable) for the branch.
+
+  app.get("/api/admin/branches/:id/seed-template", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const id = Number(req.params.id);
+      const branch = await getBranch(id, user.tenantId!);
+      if (!branch) return res.status(404).json({ message: "Branch not found" });
+      const template = getSeedTemplate(branch.businessType, branch.businessSubType);
+      if (!template) return res.json({ available: false });
+      res.json({
+        available: true,
+        label: template.label,
+        description: template.description,
+        itemCount: template.items.length,
+        tableCount: template.tables?.length ?? 0,
+      });
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/admin/branches/:id/seed", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const id = Number(req.params.id);
+      const branch = await getBranch(id, user.tenantId!);
+      if (!branch) return res.status(404).json({ message: "Branch not found" });
+
+      // Allow the client to override which template to use (e.g. owner picks
+      // "cafe" defaults for an "other F&B" branch). Defaults to the auto-match.
+      const body = z.object({
+        templateKey: z.string().optional(),
+      }).parse(req.body ?? {});
+
+      const template = body.templateKey
+        ? SEED_TEMPLATES[body.templateKey] ?? null
+        : getSeedTemplate(branch.businessType, branch.businessSubType);
+
+      if (!template) {
+        return res.status(400).json({ message: "No seed template available for this business type." });
+      }
+
+      let productsCreated = 0;
+      for (const item of template.items) {
+        try {
+          await storage.createProduct(user.id, {
+            name: item.name,
+            price: item.price,
+            category: item.category,
+            branchId: branch.id,
+          } as any);
+          productsCreated++;
+        } catch (err) {
+          console.error("[branch-seed] failed to create product", item.name, err);
+        }
+      }
+
+      let tablesCreated = 0;
+      if (template.tables?.length) {
+        for (const t of template.tables) {
+          try {
+            await storage.createTable(user.id, {
+              name: t.name,
+              seats: t.seats,
+              branchId: branch.id,
+            } as any);
+            tablesCreated++;
+          } catch (err) {
+            console.error("[branch-seed] failed to create table", t.name, err);
+          }
+        }
+      }
+
+      await createAuditLog({
+        tenantId: user.tenantId!,
+        userId: user.id,
+        action: "seed",
+        entity: "branch",
+        entityId: String(branch.id),
+        metadata: { template: template.label, productsCreated, tablesCreated },
+      });
+
+      res.json({ ok: true, productsCreated, tablesCreated, template: template.label });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);

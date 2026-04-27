@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, type Branch } from "@/hooks/use-admin";
+import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, useSeedBranch, fetchBranchSeedTemplate, type Branch, type BranchSeedTemplate } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -70,7 +71,14 @@ const BUSINESS_SUBTYPES: Record<string, { value: string; label: string }[]> = {
 function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: () => void; branch?: Branch }) {
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
+  const seedBranch = useSeedBranch();
   const { toast } = useToast();
+
+  // Two-step flow for creation: "form" → "seed" (skip "seed" when editing).
+  const [step, setStep] = useState<"form" | "seed">("form");
+  const [createdBranch, setCreatedBranch] = useState<Branch | null>(null);
+  const [seedTemplate, setSeedTemplate] = useState<BranchSeedTemplate | null>(null);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   const form = useForm<BranchForm>({
     resolver: zodResolver(branchSchema),
@@ -88,6 +96,23 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   const selectedType = form.watch("businessType");
   const subtypeOptions = BUSINESS_SUBTYPES[selectedType] ?? [];
 
+  // Reset internal step state whenever the dialog opens fresh.
+  useEffect(() => {
+    if (!open) {
+      setStep("form");
+      setCreatedBranch(null);
+      setSeedTemplate(null);
+    }
+  }, [open]);
+
+  function handleClose() {
+    form.reset();
+    setStep("form");
+    setCreatedBranch(null);
+    setSeedTemplate(null);
+    onClose();
+  }
+
   async function onSubmit(values: BranchForm) {
     try {
       const payload = {
@@ -101,14 +126,46 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       if (isEditing) {
         await updateBranch.mutateAsync({ id: branch.id, ...payload });
         toast({ title: "Branch updated" });
-      } else {
-        await createBranch.mutateAsync(payload);
-        toast({ title: "Branch created" });
+        handleClose();
+        return;
       }
-      form.reset();
-      onClose();
+
+      const newBranch = await createBranch.mutateAsync(payload);
+      toast({ title: "Branch created" });
+      setCreatedBranch(newBranch);
+
+      // Look up whether we have a starter catalog for this business type.
+      setLoadingTemplate(true);
+      try {
+        const tpl = await fetchBranchSeedTemplate(newBranch.id);
+        setSeedTemplate(tpl);
+        if (tpl.available) {
+          setStep("seed");
+        } else {
+          handleClose();
+        }
+      } catch {
+        // No template / lookup failed — just close, branch was created fine.
+        handleClose();
+      } finally {
+        setLoadingTemplate(false);
+      }
     } catch (err: any) {
       toast({ title: err?.message ?? "Something went wrong", variant: "destructive" });
+    }
+  }
+
+  async function handleSeed() {
+    if (!createdBranch) return;
+    try {
+      const result = await seedBranch.mutateAsync({ branchId: createdBranch.id });
+      toast({
+        title: "Starter catalog added",
+        description: `Loaded ${result.productsCreated} item${result.productsCreated === 1 ? "" : "s"}${result.tablesCreated ? ` and ${result.tablesCreated} table${result.tablesCreated === 1 ? "" : "s"}` : ""}.`,
+      });
+      handleClose();
+    } catch (err: any) {
+      toast({ title: err?.message ?? "Failed to seed branch", variant: "destructive" });
     }
   }
 
@@ -116,8 +173,66 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Branch" : "Create Branch"}</DialogTitle>
+          <DialogTitle>
+            {step === "seed"
+              ? "Set up your branch"
+              : isEditing ? "Edit Branch" : "Create Branch"}
+          </DialogTitle>
         </DialogHeader>
+
+        {step === "seed" && createdBranch && seedTemplate?.available ? (
+          <div className="space-y-5">
+            <div className="flex items-start gap-3 rounded-2xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/20 p-4">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-violet-500/30">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-sm text-foreground" data-testid="text-seed-template-label">
+                  {seedTemplate.label}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {seedTemplate.description}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    {seedTemplate.itemCount} items
+                  </span>
+                  {(seedTemplate.tableCount ?? 0) > 0 && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      {seedTemplate.tableCount} tables
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              We can pre-load <span className="font-semibold text-foreground">{createdBranch.name}</span> with a starter catalog so you can start ringing up sales right away. You can always edit or delete anything afterwards.
+            </p>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleClose}
+                data-testid="button-skip-seed"
+                disabled={seedBranch.isPending}
+              >
+                Skip for now
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSeed}
+                disabled={seedBranch.isPending}
+                data-testid="button-confirm-seed"
+              >
+                {seedBranch.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4 mr-2" /> Add starter catalog</>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => (
@@ -210,17 +325,22 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
               </FormItem>
             )} />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
               <Button
                 data-testid="button-save-branch"
                 type="submit"
-                disabled={createBranch.isPending || updateBranch.isPending}
+                disabled={createBranch.isPending || updateBranch.isPending || loadingTemplate}
               >
-                {isEditing ? "Update" : "Create"}
+                {createBranch.isPending || loadingTemplate ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {loadingTemplate ? "Loading..." : "Creating..."}</>
+                ) : (
+                  isEditing ? "Update" : "Create"
+                )}
               </Button>
             </DialogFooter>
           </form>
         </Form>
+        )}
       </DialogContent>
     </Dialog>
   );

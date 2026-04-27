@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
+import { useBranchBusiness } from "@/hooks/use-branch-business";
 import {
   initAiStore,
   getSessions, getSession, createSession, updateSession,
@@ -1172,8 +1173,7 @@ export default function AiPage() {
   const { user } = useAuth();
   const { isOnline } = useOnlineStatus();
   const { data: settings } = useSettings();
-  const businessType = (settings as any)?.businessType as string | null | undefined;
-  const businessSubType = (settings as any)?.businessSubType as string | null | undefined;
+  const { businessType, businessSubType } = useBranchBusiness();
 
   const [sessions, setSessions] = useState<AiSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);

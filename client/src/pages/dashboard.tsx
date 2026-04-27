@@ -2,6 +2,7 @@ import { useSales } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
 import { useProducts } from "@/hooks/use-products";
 import { getBusinessFeatures } from "@/lib/business-features";
+import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -40,10 +41,8 @@ export default function Dashboard() {
   const { data: products = [] } = useProducts();
   const [, setLocation] = useLocation();
   const [selectedSale, setSelectedSale] = useState<any>(null);
-  const { terminology } = getBusinessFeatures(
-    (settings as any)?.businessType,
-    (settings as any)?.businessSubType,
-  );
+  const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();
+  const { terminology } = getBusinessFeatures(branchBusinessType, branchBusinessSubType);
 
   const lowStockProducts = useMemo(() => {
     return products.filter(p =>

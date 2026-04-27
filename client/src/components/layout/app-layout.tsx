@@ -17,6 +17,7 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { getBusinessFeatures } from "@/lib/business-features";
+import { useBranchBusiness } from "@/hooks/use-branch-business";
 
 function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
   return (
@@ -162,9 +163,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isAdminOrAbove = role === "owner" || role === "manager" || role === "admin";
   const isManagerOrAbove = role === "owner" || role === "manager";
 
+  const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();
   const { hiddenUrls: businessHiddenUrls, essentialUrls: businessEssentialUrls, labels: businessLabels } = getBusinessFeatures(
-    (settings as any)?.businessType,
-    (settings as any)?.businessSubType,
+    branchBusinessType,
+    branchBusinessSubType,
   );
 
   const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;

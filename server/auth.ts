@@ -459,12 +459,39 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.get("/api/auth/me", (req, res) => {
+  app.get("/api/auth/me", async (req, res) => {
     if ((req as any).isBanned) {
       return res.status(403).json({ banned: true, message: "Your account has been suspended for violating our Terms of Service." });
     }
     if (!req.user) return res.status(401).json({ user: null });
     const u = req.user as any;
+
+    // Resolve the active branch's businessType / businessSubType so the client
+    // can adapt navigation, terminology, and quick actions on a per-branch
+    // basis (e.g. show "Tables" only on a cafe branch, "Bookings" only on a
+    // salon branch). Falls back silently when the branch is missing.
+    let activeBranch: { id: number; name: string; businessType: string | null; businessSubType: string | null } | null = null;
+    try {
+      if (u.activeBranchId && u.tenantId) {
+        const { branches } = await import("@shared/schema");
+        const { and, eq } = await import("drizzle-orm");
+        const [b] = await db
+          .select({
+            id: branches.id,
+            name: branches.name,
+            businessType: branches.businessType,
+            businessSubType: branches.businessSubType,
+          })
+          .from(branches)
+          .where(and(eq(branches.id, u.activeBranchId), eq(branches.tenantId, u.tenantId)))
+          .limit(1);
+        if (b) activeBranch = b;
+      }
+    } catch (err) {
+      // Don't fail the auth request if the branch lookup errors out.
+      console.warn("[auth/me] active branch lookup failed:", (err as Error).message);
+    }
+
     res.json({
       user: {
         id: u.id,
@@ -475,6 +502,7 @@ export function setupAuth(app: Express) {
         tenantId: u.tenantId ?? null,
         role: u.role ?? "owner",
         activeBranchId: u.activeBranchId ?? null,
+        activeBranch,
       }
     });
   });

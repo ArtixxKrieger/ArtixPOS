@@ -61,15 +61,14 @@
         setInterval(consoleWarning, 3000);
 
         // ── DevTools size detection ────────────────────────────────────────────
-        var devtoolsThreshold = 160;
-        function detectDevTools() {
-          var widthDiff = window.outerWidth - window.innerWidth;
-          var heightDiff = window.outerHeight - window.innerHeight;
-          if (widthDiff > devtoolsThreshold || heightDiff > devtoolsThreshold) {
-            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;background:#1a1a2e;color:#fff;"><h1 style="font-size:2rem;margin-bottom:1rem;">Access Denied</h1><p style="font-size:1rem;opacity:0.7;">Developer tools are not permitted on this platform.</p></div>';
-          }
-        }
-        setInterval(detectDevTools, 1000);
+        // NOTE: The previous size-based heuristic produced false positives
+        // whenever the page ran inside an iframe (e.g. the Replit preview pane,
+        // browser PiP, embedded documentation, etc.) because window.outerWidth
+        // reflects the parent browser window while window.innerWidth reflects
+        // the iframe — a difference that always exceeds the threshold and
+        // wiped the page to a blank/"Access Denied" screen. The keyboard
+        // shortcuts and right-click guards above already discourage casual
+        // devtools use, so the fragile size check has been removed.
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

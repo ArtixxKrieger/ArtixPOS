@@ -14,6 +14,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { getBusinessFeatures } from "@/lib/business-features";
+import { useBranchBusiness } from "@/hooks/use-branch-business";
 
 const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.ComponentType<{ className?: string }> }> = {
   "/": { defaultLabel: "Home", icon: Home },
@@ -90,9 +91,10 @@ export function BottomNav() {
   const isAdminOrAbove = role === "owner" || role === "manager" || role === "admin";
   const isManagerOrAbove = role === "owner" || role === "manager";
 
+  const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();
   const { hiddenUrls, essentialUrls, primaryNavUrls, labels } = getBusinessFeatures(
-    (settings as any)?.businessType,
-    (settings as any)?.businessSubType,
+    branchBusinessType,
+    branchBusinessSubType,
   );
 
   const primaryNavItems = [

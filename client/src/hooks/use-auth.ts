@@ -5,6 +5,13 @@ import { debugLog } from "@/lib/debug-log";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
+export interface ActiveBranchInfo {
+  id: number;
+  name: string;
+  businessType: string | null;
+  businessSubType: string | null;
+}
+
 export interface AuthUser {
   id: string;
   name: string | null;
@@ -14,6 +21,7 @@ export interface AuthUser {
   tenantId: string | null;
   role: "owner" | "manager" | "admin" | "cashier";
   activeBranchId: number | null;
+  activeBranch: ActiveBranchInfo | null;
 }
 
 function decodeJwtUser(token: string): AuthUser | null {
@@ -33,6 +41,7 @@ function decodeJwtUser(token: string): AuthUser | null {
       tenantId: payload.tenantId ?? null,
       role: payload.role ?? "owner",
       activeBranchId: payload.activeBranchId ?? null,
+      activeBranch: null,
     };
   } catch {
     return null;

@@ -524,6 +524,189 @@ export function setupAuth(app: Express) {
     res.json({ ok: true });
   });
 
+  // ── Data export (GDPR/portability) ──────────────────────────────────────────
+  // Owners can download a JSON archive of every record tied to their store
+  // before they delete the account. Non-owners get just their personal rows.
+  app.get("/api/auth/export", async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const uid = (req.user as any).id;
+
+    try {
+      const [liveUser] = await db.select().from(users).where(eq(users.id, uid));
+      if (!liveUser) return res.status(404).json({ message: "User not found" });
+
+      const tenantId = liveUser.tenantId;
+      const isOwnerWithTenant = liveUser.role === "owner" && !!tenantId;
+
+      // Build the list of users whose data to include.
+      // Owners get the whole team; everyone else gets just themselves.
+      let userIds: string[] = [uid];
+      if (isOwnerWithTenant) {
+        const tenantUsers = await db
+          .select()
+          .from(users)
+          .where(eq(users.tenantId, tenantId!));
+        userIds = Array.from(new Set([uid, ...tenantUsers.map(u => u.id)]));
+      }
+
+      // Strip secrets out of user rows before exporting.
+      const sanitizeUser = (u: any) => {
+        const { passwordHash, resetToken, resetTokenExpires, ...safe } = u;
+        return safe;
+      };
+
+      const teamUsers = (
+        await db.select().from(users).where(inArray(users.id, userIds))
+      ).map(sanitizeUser);
+
+      // Fan out queries in parallel — large stores have a lot of rows.
+      const [
+        productsRows, productSizesRows, productModifiersRows,
+        ingredientsRows, productRecipesRows,
+        salesRows, refundsRows, pendingOrdersRows,
+        customersRows, expensesRows, shiftsRows, discountCodesRows,
+        suppliersRows, purchaseOrdersRows, purchaseOrderItemsRows,
+        tablesRows, serviceStaffRows, serviceRoomsRows, appointmentsRows,
+        membershipPlansRows, membershipsRows, membershipCheckInsRows,
+        timeLogsRows, payrollPeriodsRows, payrollEntriesRows,
+        userSettingsRows, wifiVouchersRows, userBranchesRows,
+      ] = await Promise.all([
+        db.select().from(products).where(inArray(products.userId, userIds)),
+        db.select().from(productSizes),
+        db.select().from(productModifiers),
+        db.select().from(ingredients).where(inArray(ingredients.userId, userIds)),
+        db.select().from(productRecipes),
+        db.select().from(sales).where(inArray(sales.userId, userIds)),
+        db.select().from(refunds).where(inArray(refunds.userId, userIds)),
+        db.select().from(pendingOrders).where(inArray(pendingOrders.userId, userIds)),
+        db.select().from(customers).where(inArray(customers.userId, userIds)),
+        db.select().from(expenses).where(inArray(expenses.userId, userIds)),
+        db.select().from(shifts).where(inArray(shifts.userId, userIds)),
+        db.select().from(discountCodes).where(inArray(discountCodes.userId, userIds)),
+        db.select().from(suppliers).where(inArray(suppliers.userId, userIds)),
+        db.select().from(purchaseOrders).where(inArray(purchaseOrders.userId, userIds)),
+        db.select().from(purchaseOrderItems),
+        db.select().from(tables).where(inArray(tables.userId, userIds)),
+        db.select().from(serviceStaff).where(inArray(serviceStaff.userId, userIds)),
+        db.select().from(serviceRooms).where(inArray(serviceRooms.userId, userIds)),
+        db.select().from(appointments).where(inArray(appointments.userId, userIds)),
+        db.select().from(membershipPlans).where(inArray(membershipPlans.userId, userIds)),
+        db.select().from(memberships).where(inArray(memberships.userId, userIds)),
+        db.select().from(membershipCheckIns).where(inArray(membershipCheckIns.userId, userIds)),
+        db.select().from(timeLogs).where(inArray(timeLogs.userId, userIds)),
+        db.select().from(payrollPeriods).where(inArray(payrollPeriods.userId, userIds)),
+        db.select().from(payrollEntries).where(inArray(payrollEntries.employeeUserId, userIds)),
+        db.select().from(userSettings).where(inArray(userSettings.userId, userIds)),
+        db.select().from(wifiVouchers).where(inArray(wifiVouchers.userId, userIds)),
+        db.select().from(userBranches).where(inArray(userBranches.userId, userIds)),
+      ]);
+
+      // Filter the "global" child tables down to just the rows that reference
+      // entities we own — this avoids leaking other tenants' data.
+      const productIdSet = new Set(productsRows.map(p => p.id));
+      const ingredientIdSet = new Set(ingredientsRows.map(i => i.id));
+      const purchaseOrderIdSet = new Set(purchaseOrdersRows.map(po => po.id));
+
+      const filteredSizes = productSizesRows.filter(r => productIdSet.has(r.productId));
+      const filteredModifiers = productModifiersRows.filter(r => productIdSet.has(r.productId));
+      const filteredRecipes = productRecipesRows.filter(
+        r => productIdSet.has(r.productId) && ingredientIdSet.has(r.ingredientId)
+      );
+      const filteredPoItems = purchaseOrderItemsRows.filter(r =>
+        purchaseOrderIdSet.has(r.purchaseOrderId)
+      );
+
+      // Tenant-scoped tables (only for owners with a tenant).
+      let tenantData: Record<string, any> = {};
+      if (isOwnerWithTenant) {
+        const [
+          tenantRow, branchesRows, rolePermissionsRows,
+          tenantSubscriptionsRows, subscriptionPaymentsRows,
+          aiMemoriesRows, auditLogsRows,
+        ] = await Promise.all([
+          db.select().from(tenants).where(eq(tenants.id, tenantId!)),
+          db.select().from(branches).where(eq(branches.tenantId, tenantId!)),
+          db.select().from(rolePermissions).where(eq(rolePermissions.tenantId, tenantId!)),
+          db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId!)),
+          db.select().from(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId!)),
+          db.select().from(aiMemories).where(eq(aiMemories.tenantId, tenantId!)),
+          db.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId!)),
+        ]);
+        tenantData = {
+          tenant: tenantRow[0] ?? null,
+          branches: branchesRows,
+          rolePermissions: rolePermissionsRows,
+          tenantSubscriptions: tenantSubscriptionsRows,
+          subscriptionPayments: subscriptionPaymentsRows,
+          aiMemories: aiMemoriesRows,
+          auditLogs: auditLogsRows,
+        };
+      }
+
+      const archive = {
+        meta: {
+          exportedAt: new Date().toISOString(),
+          schemaVersion: 1,
+          accountId: liveUser.id,
+          accountEmail: liveUser.email,
+          accountRole: liveUser.role,
+          tenantId: tenantId ?? null,
+          notes: isOwnerWithTenant
+            ? "Owner export — includes the entire store, branches, team, and tenant data."
+            : "Personal export — limited to records owned by your account.",
+        },
+        account: sanitizeUser(liveUser),
+        users: teamUsers,
+        userBranches: userBranchesRows,
+        userSettings: userSettingsRows,
+        ...tenantData,
+        products: productsRows,
+        productSizes: filteredSizes,
+        productModifiers: filteredModifiers,
+        ingredients: ingredientsRows,
+        productRecipes: filteredRecipes,
+        sales: salesRows,
+        refunds: refundsRows,
+        pendingOrders: pendingOrdersRows,
+        customers: customersRows,
+        expenses: expensesRows,
+        shifts: shiftsRows,
+        discountCodes: discountCodesRows,
+        suppliers: suppliersRows,
+        purchaseOrders: purchaseOrdersRows,
+        purchaseOrderItems: filteredPoItems,
+        tables: tablesRows,
+        serviceStaff: serviceStaffRows,
+        serviceRooms: serviceRoomsRows,
+        appointments: appointmentsRows,
+        membershipPlans: membershipPlansRows,
+        memberships: membershipsRows,
+        membershipCheckIns: membershipCheckInsRows,
+        timeLogs: timeLogsRows,
+        payrollPeriods: payrollPeriodsRows,
+        payrollEntries: payrollEntriesRows,
+        wifiVouchers: wifiVouchersRows,
+      };
+
+      const safeName = (liveUser.email || liveUser.id)
+        .toString()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 40) || "account";
+      const stamp = new Date().toISOString().slice(0, 10);
+      const filename = `artixpos-export-${safeName}-${stamp}.json`;
+
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.send(JSON.stringify(archive, null, 2));
+    } catch (err: any) {
+      console.error("[export-account] failed:", err?.message ?? err);
+      next(err);
+    }
+  });
+
   app.delete("/api/auth/account", async (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     const uid = (req.user as any).id;

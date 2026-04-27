@@ -118,6 +118,9 @@ export const SUPPORTED_ACTION_TAGS = [
   "IMPORT_PRODUCTS",
   "UPDATE_PRICES",
   "ADD_PRODUCT",
+  "UPDATE_PRODUCT",
+  "DELETE_PRODUCT",
+  "ADD_CUSTOMER",
   "LOG_EXPENSE",
   "CREATE_DISCOUNT_CODE",
   "UPDATE_DISCOUNT_CODE",
@@ -1139,6 +1142,24 @@ ADD SINGLE PRODUCT: If the user says something like "add [name] [price]" or "bag
 - Use the category the user specifies. If none given, match to EXISTING CATEGORIES or use "General".
 - Set trackStock: true and stock > 0 only if user explicitly provides stock quantity.
 
+UPDATE SINGLE PRODUCT: If the user wants to edit ONE specific existing product (rename, change category, adjust stock, toggle stock tracking, change price for one item), reply with a short confirmation then on its own line:
+[UPDATE_PRODUCT]{"name":"Existing Product Name","newName":"New Name","price":"150","category":"New Category","stock":25,"trackStock":true}[/UPDATE_PRODUCT]
+- CRITICAL FORMAT RULE: The opening tag [UPDATE_PRODUCT] MUST be immediately followed by the JSON on the SAME LINE.
+- "name" identifies the existing product (must match a product in PRODUCTS above — fuzzy match is OK on the server).
+- Only include fields the user wants to change. Omit fields that aren't being touched.
+- For bulk price changes from a file, use [UPDATE_PRICES] instead.
+
+DELETE SINGLE PRODUCT: If the user explicitly asks to remove/delete ONE product from the catalog, reply with a short confirmation then on its own line:
+[DELETE_PRODUCT]{"name":"Existing Product Name"}[/DELETE_PRODUCT]
+- CRITICAL FORMAT RULE: The opening tag [DELETE_PRODUCT] MUST be immediately followed by the JSON on the SAME LINE.
+- The user will see a confirmation card and must tap "Yes, delete" — never auto-execute.
+- Refuse anything that sounds like bulk delete ("delete all products", "wipe my catalog") — do NOT output the tag for that.
+
+ADD CUSTOMER: If the user wants to create/add a new customer or client, reply with a short confirmation then on its own line:
+[ADD_CUSTOMER]{"name":"Juan Dela Cruz","email":"juan@example.com","phone":"+639171234567","notes":"VIP — orders weekly"}[/ADD_CUSTOMER]
+- CRITICAL FORMAT RULE: The opening tag [ADD_CUSTOMER] MUST be immediately followed by the JSON on the SAME LINE.
+- "name" is required. email, phone, and notes are optional — only include if the user provides them.
+
 LOG EXPENSE: If the user wants to log/record an expense, reply with a short confirmation then on its own line:
 [LOG_EXPENSE]{"name":"Expense description","amount":"500","category":"Supplies"}[/LOG_EXPENSE]
 - CRITICAL FORMAT RULE: The opening tag [LOG_EXPENSE] MUST be immediately followed by the JSON on the SAME LINE.
@@ -1967,6 +1988,102 @@ export function registerAiRoutes(app: Express) {
     } catch (err: any) {
       console.error("Add product error:", err);
       res.status(500).json({ message: "Failed to add product." });
+    }
+  });
+
+  // ── Update single product from AI ─────────────────────────────────────────────
+  app.post("/api/ai/update-product", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { name, newName, price, category, stock, trackStock } = req.body as {
+        name: string;
+        newName?: string;
+        price?: string;
+        category?: string;
+        stock?: number;
+        trackStock?: boolean;
+      };
+      if (!name) return res.status(400).json({ message: "Missing product name." });
+
+      const allProducts = await storage.getProducts(uid);
+      const needle = name.trim().toLowerCase();
+      const match =
+        allProducts.find(p => p.name.trim().toLowerCase() === needle) ||
+        allProducts.find(p => p.name.toLowerCase().includes(needle)) ||
+        allProducts.find(p => needle.includes(p.name.toLowerCase()));
+      if (!match) return res.status(404).json({ message: `Product "${name}" not found.` });
+
+      const updates: Record<string, any> = {};
+      if (newName !== undefined && String(newName).trim()) updates.name = String(newName).trim();
+      if (price !== undefined && String(price).trim()) {
+        const p = parseFloat(String(price));
+        if (!isNaN(p) && p >= 0) updates.price = String(p);
+      }
+      if (category !== undefined && String(category).trim()) updates.category = String(category).trim();
+      if (stock !== undefined && stock !== null) {
+        const s = Number(stock);
+        if (!isNaN(s) && s >= 0) updates.stock = s;
+      }
+      if (trackStock !== undefined) updates.trackStock = !!trackStock;
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "Nothing to update." });
+      }
+
+      const updated = await storage.updateProduct(match.id, uid, updates);
+      invalidateCache(uid);
+      res.json({ product: updated, originalName: match.name });
+    } catch (err: any) {
+      console.error("Update product error:", err);
+      res.status(500).json({ message: "Failed to update product." });
+    }
+  });
+
+  // ── Delete single product from AI ─────────────────────────────────────────────
+  app.post("/api/ai/delete-product", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { name } = req.body as { name: string };
+      if (!name) return res.status(400).json({ message: "Missing product name." });
+
+      const allProducts = await storage.getProducts(uid);
+      const needle = name.trim().toLowerCase();
+      const match =
+        allProducts.find(p => p.name.trim().toLowerCase() === needle) ||
+        allProducts.find(p => p.name.toLowerCase().includes(needle)) ||
+        allProducts.find(p => needle.includes(p.name.toLowerCase()));
+      if (!match) return res.status(404).json({ message: `Product "${name}" not found.` });
+
+      await storage.deleteProduct(match.id, uid);
+      invalidateCache(uid);
+      res.json({ deleted: true, name: match.name });
+    } catch (err: any) {
+      console.error("Delete product error:", err);
+      res.status(500).json({ message: "Failed to delete product." });
+    }
+  });
+
+  // ── Add customer from AI ──────────────────────────────────────────────────────
+  app.post("/api/ai/add-customer", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { name, email, phone, notes } = req.body as {
+        name: string; email?: string; phone?: string; notes?: string;
+      };
+      if (!name || !String(name).trim()) {
+        return res.status(400).json({ message: "Customer name is required." });
+      }
+      const customer = await storage.createCustomer(uid, {
+        name: String(name).trim(),
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        notes: notes?.trim() || null,
+      } as any);
+      invalidateCache(uid);
+      res.json({ customer });
+    } catch (err: any) {
+      console.error("Add customer error:", err);
+      res.status(500).json({ message: "Failed to add customer." });
     }
   });
 

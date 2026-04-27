@@ -149,10 +149,15 @@ Both workflows trigger automatically on push to `main`/`master` and can also be 
 - **Powered by Groq + Llama 3.3 70B** — completely free, no usage limits
 - **Database-aware**: reads real-time sales, products, customers, expenses, shifts to answer questions
 - **File import**: upload PDF, Excel (.xlsx/.xls), or CSV files — AI parses and can bulk-import products
+- **Action tags**: AI emits inline `[TAG]{json}[/TAG]` markers; the chat UI renders confirmation cards. Single source of truth is `SUPPORTED_ACTION_TAGS` in `server/ai-routes.ts`. Currently: IMPORT_PRODUCTS, UPDATE_PRICES, ADD_PRODUCT, UPDATE_PRODUCT, DELETE_PRODUCT, ADD_CUSTOMER, LOG_EXPENSE, CREATE/UPDATE/DELETE/TOGGLE_DISCOUNT_CODE, SHOW_STAFF_INFO, FOLLOWUP. To add a new action: register the tag, add a system-prompt section, add the route in `registerAiRoutes`, then add the parser entry, payload type, card, handler and props in `client/src/pages/ai.tsx`.
+- **Markdown rendering** in chat (`renderMarkdown` in `client/src/pages/ai.tsx`): bold, italic (`*x*` / `_x_`), inline code, fenced code blocks, blockquotes, horizontal rules, `[label](href)` links (internal `/route` becomes a wouter nav, external opens in new tab), bare URL auto-linking, and known-page-name shortcuts that link to in-app routes.
 - **API Routes**:
   - `POST /api/ai/chat` — send messages with optional file content
   - `POST /api/ai/upload` — parse uploaded file (returns text content)
   - `POST /api/ai/import-products` — bulk create products from AI-extracted data
+  - `POST /api/ai/add-product` · `/api/ai/update-product` · `/api/ai/delete-product` — single-product CRUD scoped to the owner's userId
+  - `POST /api/ai/add-customer` — create customer scoped to the owner's userId
+  - `POST /api/ai/update-prices` · `/api/ai/log-expense` · `/api/ai/create-discount` · `/api/ai/update-discount` · `/api/ai/delete-discount` · `/api/ai/toggle-discount`
 - **Config**: requires `GROQ_API_KEY` secret in Replit Secrets
 
 ## Key Features

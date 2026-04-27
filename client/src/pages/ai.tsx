@@ -33,6 +33,19 @@ interface AddProductPayload {
   name: string; price: string; category?: string; stock?: number; trackStock?: boolean;
 }
 
+interface UpdateProductPayload {
+  name: string; newName?: string; price?: string; category?: string;
+  stock?: number; trackStock?: boolean;
+}
+
+interface DeleteProductPayload {
+  name: string;
+}
+
+interface AddCustomerPayload {
+  name: string; email?: string; phone?: string; notes?: string;
+}
+
 interface ExpensePayload {
   name: string; amount: string; category?: string;
 }
@@ -96,6 +109,9 @@ function parseImportAction(content: string): {
   importPayload: ImportPayload | null;
   pricePayload: PriceUpdatePayload | null;
   addProductPayload: AddProductPayload | null;
+  updateProductPayload: UpdateProductPayload | null;
+  deleteProductPayload: DeleteProductPayload | null;
+  addCustomerPayload: AddCustomerPayload | null;
   expensePayload: ExpensePayload | null;
   discountPayload: DiscountPayload | null;
   updateDiscountPayload: UpdateDiscountPayload | null;
@@ -108,6 +124,9 @@ function parseImportAction(content: string): {
   let importPayload: ImportPayload | null = null;
   let pricePayload: PriceUpdatePayload | null = null;
   let addProductPayload: AddProductPayload | null = null;
+  let updateProductPayload: UpdateProductPayload | null = null;
+  let deleteProductPayload: DeleteProductPayload | null = null;
+  let addCustomerPayload: AddCustomerPayload | null = null;
   let expensePayload: ExpensePayload | null = null;
   let discountPayload: DiscountPayload | null = null;
   let updateDiscountPayload: UpdateDiscountPayload | null = null;
@@ -120,6 +139,9 @@ function parseImportAction(content: string): {
     { tag: "IMPORT_PRODUCTS", setter: v => { try { importPayload = JSON.parse(v); } catch {} } },
     { tag: "UPDATE_PRICES", setter: v => { try { pricePayload = JSON.parse(v); } catch {} } },
     { tag: "ADD_PRODUCT", setter: v => { try { addProductPayload = JSON.parse(v); } catch {} } },
+    { tag: "UPDATE_PRODUCT", setter: v => { try { updateProductPayload = JSON.parse(v); } catch {} } },
+    { tag: "DELETE_PRODUCT", setter: v => { try { deleteProductPayload = JSON.parse(v); } catch {} } },
+    { tag: "ADD_CUSTOMER", setter: v => { try { addCustomerPayload = JSON.parse(v); } catch {} } },
     { tag: "LOG_EXPENSE", setter: v => { try { expensePayload = JSON.parse(v); } catch {} } },
     { tag: "CREATE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); discountPayload = p; } catch {} } },
     { tag: "UPDATE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); updateDiscountPayload = p; } catch {} } },
@@ -148,7 +170,12 @@ function parseImportAction(content: string): {
     display = afterFollowup;
   }
 
-  return { display, importPayload, pricePayload, addProductPayload, expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload, followups };
+  return {
+    display, importPayload, pricePayload, addProductPayload,
+    updateProductPayload, deleteProductPayload, addCustomerPayload,
+    expensePayload, discountPayload, updateDiscountPayload,
+    deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload, followups,
+  };
 }
 
 function formatBytes(bytes: number) {
@@ -176,9 +203,16 @@ const PAGE_LINK_MAP: Record<string, string> = {
   "AI": "/ai",
 };
 
-// Build a regex alternation of page names, longest first to avoid partial matches
+// Build a regex alternation of page names, longest first to avoid partial matches.
+// Order of alternations matters: links → bold → italic → code → bare URL → page names.
 const PAGE_NAMES_RE = new RegExp(
-  `\\*\\*(.+?)\\*\\*|\`([^\`]+)\`|\\b(${
+  `\\[([^\\]]+)\\]\\(([^)]+)\\)` +
+  `|\\*\\*(.+?)\\*\\*` +
+  `|(?<![a-zA-Z0-9*])\\*([^\\s*][^*]*?[^\\s*]|[^\\s*])\\*(?![a-zA-Z0-9*])` +
+  `|(?<![a-zA-Z0-9_])_([^\\s_][^_]*?[^\\s_]|[^\\s_])_(?![a-zA-Z0-9_])` +
+  `|\`([^\`]+)\`` +
+  `|\\b(https?:\\/\\/[^\\s)]+)` +
+  `|\\b(${
     Object.keys(PAGE_LINK_MAP)
       .sort((a, b) => b.length - a.length)
       .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -187,6 +221,9 @@ const PAGE_NAMES_RE = new RegExp(
   "g"
 );
 
+// Lighter-weight regex for user bubbles (no nav/link clicks)
+const USER_INLINE_RE = /\*\*(.+?)\*\*|\*([^\s*][^*]*?[^\s*]|[^\s*])\*|_([^\s_][^_]*?[^\s_]|[^\s_])_|`([^`]+)`|(https?:\/\/[^\s)]+)/g;
+
 function renderMarkdown(text: string, isUser: boolean, navigate?: (to: string) => void): ReactNode {
   const lines = text.split("\n");
   const nodes: ReactNode[] = [];
@@ -194,41 +231,84 @@ function renderMarkdown(text: string, isUser: boolean, navigate?: (to: string) =
 
   function renderInline(str: string): ReactNode[] {
     const parts: ReactNode[] = [];
-    const re = navigate ? new RegExp(PAGE_NAMES_RE.source, "g") : /\*\*(.+?)\*\*|`([^`]+)`/g;
+    if (isUser) {
+      // Simpler matcher for user-authored text
+      const re = new RegExp(USER_INLINE_RE.source, "g");
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(str)) !== null) {
+        if (m.index > last) parts.push(str.slice(last, m.index));
+        if (m[1] !== undefined) parts.push(<strong key={m.index} className="font-semibold">{m[1]}</strong>);
+        else if (m[2] !== undefined) parts.push(<em key={m.index} className="italic">{m[2]}</em>);
+        else if (m[3] !== undefined) parts.push(<em key={m.index} className="italic">{m[3]}</em>);
+        else if (m[4] !== undefined) parts.push(<code key={m.index} className="px-1 py-0.5 rounded bg-white/15 font-mono text-[11px]">{m[4]}</code>);
+        else if (m[5] !== undefined) parts.push(<a key={m.index} href={m[5]} target="_blank" rel="noreferrer" className="underline break-all">{m[5]}</a>);
+        last = m.index + m[0].length;
+      }
+      if (last < str.length) parts.push(str.slice(last));
+      return parts;
+    }
+    const re = new RegExp(PAGE_NAMES_RE.source, "g");
     let last = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(str)) !== null) {
       if (m.index > last) parts.push(str.slice(last, m.index));
-      if (m[1] !== undefined) {
-        // **bold** — also link if it's a known page name
-        const route = navigate && PAGE_LINK_MAP[m[1]];
+      if (m[1] !== undefined && m[2] !== undefined) {
+        // [label](href) — internal route if it starts with /, else external
+        const href = m[2];
+        const isInternal = href.startsWith("/");
+        if (isInternal && navigate) {
+          parts.push(
+            <span
+              key={m.index}
+              className="font-semibold text-primary underline decoration-dotted cursor-pointer"
+              onClick={() => navigate(href)}
+            >{m[1]}</span>
+          );
+        } else {
+          parts.push(
+            <a key={m.index} href={href} target="_blank" rel="noreferrer" className="text-primary underline decoration-dotted break-all">{m[1]}</a>
+          );
+        }
+      } else if (m[3] !== undefined) {
+        // **bold** — also link if it matches a known page name
+        const route = navigate && PAGE_LINK_MAP[m[3]];
         if (route) {
           parts.push(
             <strong
               key={m.index}
               className="font-semibold text-primary underline decoration-dotted cursor-pointer"
               onClick={() => navigate(route)}
-            >{m[1]}</strong>
+            >{m[3]}</strong>
           );
         } else {
-          parts.push(<strong key={m.index} className="font-semibold">{m[1]}</strong>);
+          parts.push(<strong key={m.index} className="font-semibold">{m[3]}</strong>);
         }
-      } else if (m[2] !== undefined) {
+      } else if (m[4] !== undefined) {
+        parts.push(<em key={m.index} className="italic">{m[4]}</em>);
+      } else if (m[5] !== undefined) {
+        parts.push(<em key={m.index} className="italic">{m[5]}</em>);
+      } else if (m[6] !== undefined) {
         // `code`
         parts.push(
           <code key={m.index} className="px-1 py-0.5 rounded bg-muted/80 dark:bg-white/10 font-mono text-[11px] text-foreground">
-            {m[2]}
+            {m[6]}
           </code>
         );
-      } else if (m[3] !== undefined && navigate) {
+      } else if (m[7] !== undefined) {
+        // bare URL
+        parts.push(
+          <a key={m.index} href={m[7]} target="_blank" rel="noreferrer" className="text-primary underline decoration-dotted break-all">{m[7]}</a>
+        );
+      } else if (m[8] !== undefined && navigate) {
         // Plain page name mention → subtle tappable link, no underline
-        const route = PAGE_LINK_MAP[m[3]];
+        const route = PAGE_LINK_MAP[m[8]];
         parts.push(
           <span
             key={m.index}
             className="text-primary/80 cursor-pointer"
             onClick={() => navigate(route)}
-          >{m[3]}</span>
+          >{m[8]}</span>
         );
       }
       last = m.index + m[0].length;
@@ -267,6 +347,50 @@ function renderMarkdown(text: string, isUser: boolean, navigate?: (to: string) =
     if (trimmed === "") {
       nodes.push(<div key={`gap-${i}`} className="h-2" />);
       i++;
+      continue;
+    }
+
+    // Horizontal rule: --- or *** or ___
+    if (/^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(trimmed)) {
+      nodes.push(<div key={`hr-${i}`} className="my-2 h-px bg-border/60" />);
+      i++;
+      continue;
+    }
+
+    // Fenced code block: ```lang\n...\n```
+    if (/^```/.test(trimmed)) {
+      const lang = trimmed.slice(3).trim();
+      const codeStart = i + 1;
+      let j = codeStart;
+      while (j < lines.length && !/^```/.test(lines[j].trim())) j++;
+      const codeText = lines.slice(codeStart, j).join("\n");
+      nodes.push(
+        <div key={`code-${i}`} className="my-1 rounded-xl border border-border/60 bg-muted/40 dark:bg-white/[0.04] overflow-hidden">
+          {lang && (
+            <div className="px-3 py-1 text-[10px] font-mono uppercase text-muted-foreground/70 border-b border-border/60">{lang}</div>
+          )}
+          <pre className="px-3 py-2 overflow-x-auto text-[11px] font-mono text-foreground/90 leading-snug whitespace-pre">{codeText}</pre>
+        </div>
+      );
+      i = j < lines.length ? j + 1 : j;
+      continue;
+    }
+
+    // Blockquote: > text  (one line per blockquote line, grouped together)
+    if (/^>\s?/.test(trimmed)) {
+      const quoteStart = i;
+      const quoteLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ""));
+        i++;
+      }
+      nodes.push(
+        <div key={`bq-${quoteStart}`} className="border-l-2 border-primary/40 pl-3 my-1 text-foreground/80 italic">
+          {quoteLines.map((q, qi) => (
+            <div key={qi} className="leading-relaxed">{renderInline(q)}</div>
+          ))}
+        </div>
+      );
       continue;
     }
 
@@ -528,11 +652,14 @@ function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPay
 }
 
 function MessageBubble({
-  msg, onImport, onUpdatePrices, onAddProduct, onLogExpense, onCreateDiscount,
+  msg, onImport, onUpdatePrices, onAddProduct, onUpdateProduct, onDeleteProduct,
+  onAddCustomer, onLogExpense, onCreateDiscount,
   onUpdateDiscount, onDeleteDiscount, onToggleDiscount, onShowStaffInfo,
-  isStreaming, importDone, priceDone, addProductDone, expenseDone, discountDone,
+  isStreaming, importDone, priceDone, addProductDone, updateProductDone, deleteProductDone,
+  addCustomerDone, expenseDone, discountDone,
   updateDiscountDone, deleteDiscountDone, toggleDiscountDone,
-  onMarkImported, onMarkPriceUpdated, onMarkAddProduct, onMarkExpense, onMarkDiscount,
+  onMarkImported, onMarkPriceUpdated, onMarkAddProduct, onMarkUpdateProduct,
+  onMarkDeleteProduct, onMarkAddCustomer, onMarkExpense, onMarkDiscount,
   onMarkUpdateDiscount, onMarkDeleteDiscount, onMarkToggleDiscount,
   onFollowup,
 }: {
@@ -540,6 +667,9 @@ function MessageBubble({
   onImport: (p: ImportPayload) => void;
   onUpdatePrices: (p: PriceUpdatePayload) => void;
   onAddProduct: (p: AddProductPayload) => void;
+  onUpdateProduct: (p: UpdateProductPayload) => void;
+  onDeleteProduct: (p: DeleteProductPayload) => void;
+  onAddCustomer: (p: AddCustomerPayload) => void;
   onLogExpense: (p: ExpensePayload) => void;
   onCreateDiscount: (p: DiscountPayload) => void;
   onUpdateDiscount: (p: UpdateDiscountPayload) => void;
@@ -550,6 +680,9 @@ function MessageBubble({
   importDone: boolean;
   priceDone: boolean;
   addProductDone: boolean;
+  updateProductDone: boolean;
+  deleteProductDone: boolean;
+  addCustomerDone: boolean;
   expenseDone: boolean;
   discountDone: boolean;
   updateDiscountDone: boolean;
@@ -558,6 +691,9 @@ function MessageBubble({
   onMarkImported: () => void;
   onMarkPriceUpdated: () => void;
   onMarkAddProduct: () => void;
+  onMarkUpdateProduct: () => void;
+  onMarkDeleteProduct: () => void;
+  onMarkAddCustomer: () => void;
   onMarkExpense: () => void;
   onMarkDiscount: () => void;
   onMarkUpdateDiscount: () => void;
@@ -571,10 +707,18 @@ function MessageBubble({
   // Follow-up button clicks are sent silently — don't show a user bubble for them
   if (isUser && msg.silent) return null;
 
-  const { display, importPayload: payload, pricePayload, addProductPayload, expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload, followups } = parseImportAction(msg.content);
+  const {
+    display, importPayload: payload, pricePayload, addProductPayload,
+    updateProductPayload, deleteProductPayload, addCustomerPayload,
+    expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload,
+    toggleDiscountPayload, staffInfoPayload, followups,
+  } = parseImportAction(msg.content);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmPrice, setConfirmPrice] = useState(false);
   const [confirmAddProduct, setConfirmAddProduct] = useState(false);
+  const [confirmUpdateProduct, setConfirmUpdateProduct] = useState(false);
+  const [confirmDeleteProduct, setConfirmDeleteProduct] = useState(false);
+  const [confirmAddCustomer, setConfirmAddCustomer] = useState(false);
   const [confirmExpense, setConfirmExpense] = useState(false);
   const [confirmDiscount, setConfirmDiscount] = useState(false);
   const [confirmUpdateDiscount, setConfirmUpdateDiscount] = useState(false);
@@ -590,6 +734,9 @@ function MessageBubble({
     (payload && payload.products?.length > 0 && importDone) ||
     (pricePayload && pricePayload.updates?.length > 0 && priceDone) ||
     (addProductPayload && addProductPayload.name && addProductDone) ||
+    (updateProductPayload && updateProductPayload.name && updateProductDone) ||
+    (deleteProductPayload && deleteProductPayload.name && deleteProductDone) ||
+    (addCustomerPayload && addCustomerPayload.name && addCustomerDone) ||
     (expensePayload && expensePayload.name && expenseDone) ||
     (discountPayload && discountPayload.code && discountDone) ||
     (updateDiscountPayload && updateDiscountPayload.code && updateDiscountDone) ||
@@ -612,7 +759,7 @@ function MessageBubble({
           <Sparkles className="h-3.5 w-3.5 text-white" />
         </div>
       )}
-      <div className={`max-w-[88%] sm:max-w-[80%] flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`max-w-[88%] sm:max-w-[80%] md:max-w-[75%] lg:max-w-[68%] xl:max-w-[60%] flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
         {msg.file && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-muted/50 border border-border/60 text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -777,6 +924,89 @@ function MessageBubble({
                     <Check className="h-3 w-3 mr-1" /> Yes, add it
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setConfirmAddProduct(false)} className="flex-1 h-8 text-xs border-purple-300 text-purple-700 dark:text-purple-400">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {updateProductPayload && updateProductPayload.name && !updateProductDone && (
+          <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 rounded-xl p-3 w-full">
+            <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-2">Edit product</p>
+            <div className="space-y-1 mb-3">
+              <div className="text-xs font-medium text-purple-800 dark:text-purple-300 truncate">{updateProductPayload.name}</div>
+              <div className="space-y-0.5 text-[11px] text-purple-700 dark:text-purple-400">
+                {updateProductPayload.newName && <div>Rename to <span className="font-semibold">{updateProductPayload.newName}</span></div>}
+                {updateProductPayload.price !== undefined && <div>Price → <span className="font-semibold">₱{updateProductPayload.price}</span></div>}
+                {updateProductPayload.category && <div>Category → <span className="font-semibold">{updateProductPayload.category}</span></div>}
+                {updateProductPayload.stock !== undefined && <div>Stock → <span className="font-semibold">{updateProductPayload.stock}</span></div>}
+                {updateProductPayload.trackStock !== undefined && <div>Track stock: <span className="font-semibold">{updateProductPayload.trackStock ? "On" : "Off"}</span></div>}
+              </div>
+            </div>
+            {!confirmUpdateProduct ? (
+              <Button size="sm" onClick={() => setConfirmUpdateProduct(true)} className="w-full h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white">
+                Apply Changes
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-purple-700 dark:text-purple-400 font-medium text-center">Update "{updateProductPayload.name}"?</p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={executedActions.has("updateProduct")} onClick={() => { markExecuted("updateProduct"); onMarkUpdateProduct(); setConfirmUpdateProduct(false); onUpdateProduct(updateProductPayload); }} className="flex-1 h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-60">
+                    <Check className="h-3 w-3 mr-1" /> Yes, update
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmUpdateProduct(false)} className="flex-1 h-8 text-xs border-purple-300 text-purple-700 dark:text-purple-400">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {deleteProductPayload && deleteProductPayload.name && !deleteProductDone && (
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl p-3 w-full">
+            <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-2">Delete product</p>
+            <div className="text-xs text-red-800 dark:text-red-300 mb-3 truncate">{deleteProductPayload.name}</div>
+            {!confirmDeleteProduct ? (
+              <Button size="sm" onClick={() => setConfirmDeleteProduct(true)} className="w-full h-8 text-xs bg-red-600 hover:bg-red-700 text-white">
+                Delete Product
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-red-700 dark:text-red-400 font-medium text-center">Permanently delete "{deleteProductPayload.name}"?</p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={executedActions.has("deleteProduct")} onClick={() => { markExecuted("deleteProduct"); onMarkDeleteProduct(); setConfirmDeleteProduct(false); onDeleteProduct(deleteProductPayload); }} className="flex-1 h-8 text-xs bg-red-600 hover:bg-red-700 text-white disabled:opacity-60">
+                    <Check className="h-3 w-3 mr-1" /> Yes, delete
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmDeleteProduct(false)} className="flex-1 h-8 text-xs border-red-300 text-red-700 dark:text-red-400">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {addCustomerPayload && addCustomerPayload.name && !addCustomerDone && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-3 w-full">
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-2">New customer ready to add</p>
+            <div className="space-y-0.5 mb-3 text-xs">
+              <div className="font-medium text-emerald-800 dark:text-emerald-300">{addCustomerPayload.name}</div>
+              {addCustomerPayload.phone && <div className="text-emerald-700 dark:text-emerald-400">{addCustomerPayload.phone}</div>}
+              {addCustomerPayload.email && <div className="text-emerald-700 dark:text-emerald-400 break-all">{addCustomerPayload.email}</div>}
+              {addCustomerPayload.notes && <div className="text-emerald-700 dark:text-emerald-400 italic">{addCustomerPayload.notes}</div>}
+            </div>
+            {!confirmAddCustomer ? (
+              <Button size="sm" onClick={() => setConfirmAddCustomer(true)} className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                Add Customer
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium text-center">Add "{addCustomerPayload.name}" to your customer list?</p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={executedActions.has("addCustomer")} onClick={() => { markExecuted("addCustomer"); onMarkAddCustomer(); setConfirmAddCustomer(false); onAddCustomer(addCustomerPayload); }} className="flex-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60">
+                    <Check className="h-3 w-3 mr-1" /> Yes, add
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAddCustomer(false)} className="flex-1 h-8 text-xs border-emerald-300 text-emerald-700 dark:text-emerald-400">
                     <X className="h-3 w-3 mr-1" /> Cancel
                   </Button>
                 </div>
@@ -1189,9 +1419,15 @@ export default function AiPage() {
   const [importing, setImporting] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
+  const [updatingProduct, setUpdatingProduct] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState(false);
+  const [addingCustomer, setAddingCustomer] = useState(false);
   const [loggingExpense, setLoggingExpense] = useState(false);
   const [creatingDiscount, setCreatingDiscount] = useState(false);
   const [addProductDoneIds, setAddProductDoneIds] = useState<Set<string>>(new Set());
+  const [updateProductDoneIds, setUpdateProductDoneIds] = useState<Set<string>>(new Set());
+  const [deleteProductDoneIds, setDeleteProductDoneIds] = useState<Set<string>>(new Set());
+  const [addCustomerDoneIds, setAddCustomerDoneIds] = useState<Set<string>>(new Set());
   const [expenseDoneIds, setExpenseDoneIds] = useState<Set<string>>(new Set());
   const [discountDoneIds, setDiscountDoneIds] = useState<Set<string>>(new Set());
   const [updateDiscountDoneIds, setUpdateDiscountDoneIds] = useState<Set<string>>(new Set());
@@ -1579,6 +1815,97 @@ export default function AiPage() {
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setAddingProduct(false);
+    }
+  };
+
+  const handleUpdateProduct = async (payload: UpdateProductPayload) => {
+    setUpdatingProduct(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/update-product", payload);
+      const data = await res.json();
+      const p = data.product;
+      const renamed = data.originalName && p?.name && data.originalName !== p.name;
+      const resultMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Done! ${renamed ? `**${data.originalName}** is now **${p.name}**` : `**${p?.name}** updated`} — ₱${p?.price}${p?.category ? ` · ${p.category}` : ""}${p?.trackStock ? ` · stock: ${p?.stock ?? 0}` : ""}.`,
+        timestamp: new Date().toISOString(),
+      };
+      const finalMessages = [...messages, resultMsg];
+      setMessages(finalMessages);
+      if (activeId) updateSession(activeId, finalMessages);
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    } catch (err: any) {
+      const body = await err.json?.().catch(() => null);
+      const errMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: body?.message || "Failed to update product. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
+      setUpdatingProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = async (payload: DeleteProductPayload) => {
+    setDeletingProduct(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/delete-product", payload);
+      const data = await res.json();
+      const resultMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Done! **${data.name}** has been removed from your store.`,
+        timestamp: new Date().toISOString(),
+      };
+      const finalMessages = [...messages, resultMsg];
+      setMessages(finalMessages);
+      if (activeId) updateSession(activeId, finalMessages);
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    } catch (err: any) {
+      const body = await err.json?.().catch(() => null);
+      const errMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: body?.message || "Failed to delete product. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
+      setDeletingProduct(false);
+    }
+  };
+
+  const handleAddCustomer = async (payload: AddCustomerPayload) => {
+    setAddingCustomer(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/add-customer", payload);
+      const data = await res.json();
+      const c = data.customer;
+      const extras = [c?.phone, c?.email].filter(Boolean).join(" · ");
+      const resultMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Done! Added **${c?.name}** to your customer list${extras ? ` (${extras})` : ""}.`,
+        timestamp: new Date().toISOString(),
+      };
+      const finalMessages = [...messages, resultMsg];
+      setMessages(finalMessages);
+      if (activeId) updateSession(activeId, finalMessages);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    } catch (err: any) {
+      const body = await err.json?.().catch(() => null);
+      const errMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: body?.message || "Failed to add customer. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
+      setAddingCustomer(false);
     }
   };
 
@@ -2000,6 +2327,9 @@ export default function AiPage() {
               onImport={handleImport}
               onUpdatePrices={handleUpdatePrices}
               onAddProduct={handleAddProduct}
+              onUpdateProduct={handleUpdateProduct}
+              onDeleteProduct={handleDeleteProduct}
+              onAddCustomer={handleAddCustomer}
               onLogExpense={handleLogExpense}
               onCreateDiscount={handleCreateDiscount}
               onUpdateDiscount={handleUpdateDiscount}
@@ -2010,6 +2340,9 @@ export default function AiPage() {
               importDone={importedIds.has(msg.id)}
               priceDone={priceUpdatedIds.has(msg.id)}
               addProductDone={addProductDoneIds.has(msg.id)}
+              updateProductDone={updateProductDoneIds.has(msg.id)}
+              deleteProductDone={deleteProductDoneIds.has(msg.id)}
+              addCustomerDone={addCustomerDoneIds.has(msg.id)}
               expenseDone={expenseDoneIds.has(msg.id)}
               discountDone={discountDoneIds.has(msg.id)}
               updateDiscountDone={updateDiscountDoneIds.has(msg.id)}
@@ -2018,6 +2351,9 @@ export default function AiPage() {
               onMarkImported={() => setImportedIds(prev => new Set(prev).add(msg.id))}
               onMarkPriceUpdated={() => setPriceUpdatedIds(prev => new Set(prev).add(msg.id))}
               onMarkAddProduct={() => setAddProductDoneIds(prev => new Set(prev).add(msg.id))}
+              onMarkUpdateProduct={() => setUpdateProductDoneIds(prev => new Set(prev).add(msg.id))}
+              onMarkDeleteProduct={() => setDeleteProductDoneIds(prev => new Set(prev).add(msg.id))}
+              onMarkAddCustomer={() => setAddCustomerDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkExpense={() => setExpenseDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkDiscount={() => setDiscountDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkUpdateDiscount={() => setUpdateDiscountDoneIds(prev => new Set(prev).add(msg.id))}

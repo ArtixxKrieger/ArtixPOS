@@ -9,8 +9,8 @@ import { registerSubscriptionRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog } from "./admin-storage";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
-import { users, branches as branchesTable } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { users, branches as branchesTable, tenants } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
@@ -443,36 +443,61 @@ export async function registerRoutes(
       if (input.onboardingComplete === 1) {
         try {
           const user = req.user as any;
-          let tenantId = user?.tenantId as string | null;
           const branchName = (input.storeName as string | undefined) || settings.storeName || "Main Branch";
 
-          // If the user has no tenant yet (email/password owners), create one now
+          // Always re-read the user row from the DB instead of trusting the
+          // JWT's tenantId. The JWT is stale right after registration and a
+          // double-clicked "Complete onboarding" used to race itself into
+          // creating two tenants for the same user.
+          const [freshUser] = await db.select().from(users).where(eq(users.id, userId(req)));
+          let tenantId = (freshUser?.tenantId as string | null) ?? null;
+
+          // If the user has no tenant yet (email/password owners), create one
+          // — but guarded by an UPDATE … WHERE tenantId IS NULL so concurrent
+          // requests can't both win.
           if (!tenantId) {
             const newTenant = await createTenant(branchName);
-            tenantId = newTenant.id;
-
-            // Link the user to this new tenant
-            await db.update(users).set({ tenantId } as any).where(eq(users.id, userId(req)));
+            const claim = await db.execute(
+              sql`UPDATE users SET tenant_id = ${newTenant.id} WHERE id = ${userId(req)} AND tenant_id IS NULL`
+            );
+            const claimed = (claim as any).rowCount === 1 || (claim as any).rowsAffected === 1;
+            if (claimed) {
+              tenantId = newTenant.id;
+            } else {
+              // Another concurrent request beat us to it — drop the spare
+              // tenant we just created and use the one already linked.
+              const [refreshed] = await db.select().from(users).where(eq(users.id, userId(req)));
+              tenantId = refreshed?.tenantId ?? null;
+              try { await db.delete(tenants).where(eq(tenants.id, newTenant.id)); } catch {}
+            }
             invalidateTenantCache(userId(req));
 
-            // Re-issue the auth cookie so the new tenantId is in the JWT
-            const updatedUser = { ...user, tenantId };
-            try { setAuthCookie(res, updatedUser); } catch (cookieErr) {
-              console.error("[onboarding] Failed to re-issue auth cookie:", cookieErr);
+            if (tenantId) {
+              // Re-issue the auth cookie so the new tenantId is in the JWT
+              const updatedUser = { ...user, tenantId };
+              try { setAuthCookie(res, updatedUser); } catch (cookieErr) {
+                console.error("[onboarding] Failed to re-issue auth cookie:", cookieErr);
+              }
             }
           }
 
-          // Create main branch if one doesn't already exist
-          const existingBranches = await getBranches(tenantId);
-          const hasMain = existingBranches.some((b: any) => b.isMain);
-          if (!hasMain) {
-            await createBranch(tenantId, {
-              name: branchName,
-              address: (input.address as string | undefined) || settings.address || null,
-              phone: (input.phone as string | undefined) || settings.phone || null,
-              isMain: true,
-              isActive: true,
-            });
+          // Create main branch if one doesn't already exist. Pass through the
+          // businessType + subType the user picked during onboarding so the
+          // branch is correctly tagged from the very first store.
+          if (tenantId) {
+            const existingBranches = await getBranches(tenantId);
+            const hasMain = existingBranches.some((b: any) => b.isMain);
+            if (!hasMain) {
+              await createBranch(tenantId, {
+                name: branchName,
+                address: (input.address as string | undefined) || settings.address || null,
+                phone: (input.phone as string | undefined) || settings.phone || null,
+                isMain: true,
+                isActive: true,
+                businessType: (input.businessType as string | undefined) || (settings as any).businessType || null,
+                businessSubType: (input.businessSubType as string | undefined) || (settings as any).businessSubType || null,
+              });
+            }
           }
         } catch (onboardErr: any) {
           console.error("[onboarding] Failed to create tenant/branch:", onboardErr);

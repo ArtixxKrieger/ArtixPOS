@@ -7,6 +7,8 @@ import {
   membershipPlans, memberships, membershipCheckIns,
   expenses, shifts, discountCodes, refunds, timeLogs,
   tables, suppliers, purchaseOrders, purchaseOrderItems, userBranches, inviteTokens, auditLogs,
+  ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
+  branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
 } from "@shared/schema";
 import { eq, or, inArray } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
@@ -90,14 +92,26 @@ export function signToken(user: any): string {
   );
 }
 
+// Shared cookie options — MUST be identical between setAuthCookie / clearAuthCookie
+// or browsers (especially Chrome on HTTPS) silently refuse to delete the cookie,
+// which is what made "logout" appear to do nothing on the first click.
+const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+};
+
 export function setAuthCookie(res: Response, user: any) {
   const token = signToken(user);
   res.cookie(AUTH_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    ...AUTH_COOKIE_OPTIONS,
     maxAge: 1 * 24 * 60 * 60 * 1000,
   });
+}
+
+export function clearAuthCookie(res: Response) {
+  res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
 }
 
 // ── Password hashing ──────────────────────────────────────────────────────────
@@ -173,6 +187,131 @@ async function findOrCreateUser(data: {
 }
 
 const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.cafebara.app";
+
+/**
+ * Wipe every row scoped to the given user IDs, in strict FK order
+ * (children → parents). Safe to call with one or many users at once.
+ *
+ * NOTE: This intentionally does NOT delete the `users` rows themselves —
+ * the caller decides when to do that, since "delete tenant" needs to clean
+ * tenant-scoped tables in between.
+ */
+async function deleteUsersData(uids: string[]): Promise<void> {
+  if (uids.length === 0) return;
+
+  const userProductIds = (
+    await db.select({ id: products.id }).from(products).where(inArray(products.userId, uids))
+  ).map(r => r.id);
+  const userIngredientIds = (
+    await db.select({ id: ingredients.id }).from(ingredients).where(inArray(ingredients.userId, uids))
+  ).map(r => r.id);
+  const userPoIds = (
+    await db.select({ id: purchaseOrders.id }).from(purchaseOrders).where(inArray(purchaseOrders.userId, uids))
+  ).map(r => r.id);
+  const userPayrollPeriodIds = (
+    await db.select({ id: payrollPeriods.id }).from(payrollPeriods).where(inArray(payrollPeriods.userId, uids))
+  ).map(r => r.id);
+
+  // 1. Deepest leaves
+  await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.userId, uids));
+  await db.delete(timeLogs).where(inArray(timeLogs.userId, uids));
+  await db.delete(refunds).where(inArray(refunds.userId, uids));
+  await db.delete(shifts).where(inArray(shifts.userId, uids));
+  await db.delete(discountCodes).where(inArray(discountCodes.userId, uids));
+  await db.delete(expenses).where(inArray(expenses.userId, uids));
+  await db.delete(wifiVouchers).where(inArray(wifiVouchers.userId, uids));
+
+  // 2. Payroll entries (FK → payrollPeriods.id AND users.id)
+  if (userPayrollPeriodIds.length > 0) {
+    await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
+  }
+  await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
+  await db.delete(payrollPeriods).where(inArray(payrollPeriods.userId, uids));
+
+  // 3. purchaseOrderItems MUST go before purchaseOrders
+  if (userPoIds.length > 0) {
+    await db.delete(purchaseOrderItems).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
+  }
+
+  // 4. Invite tokens — referenced by both createdBy AND usedBy
+  await db.delete(inviteTokens).where(or(
+    inArray(inviteTokens.createdBy, uids),
+    inArray(inviteTokens.usedBy, uids),
+  ));
+
+  // 5. Product children: recipes (FK → products.id, ingredients.id), sizes, modifiers
+  if (userProductIds.length > 0) {
+    await db.delete(productRecipes).where(inArray(productRecipes.productId, userProductIds));
+    await db.delete(productSizes).where(inArray(productSizes.productId, userProductIds));
+    await db.delete(productModifiers).where(inArray(productModifiers.productId, userProductIds));
+  }
+  if (userIngredientIds.length > 0) {
+    await db.delete(productRecipes).where(inArray(productRecipes.ingredientId, userIngredientIds));
+  }
+
+  // 6. Appointments (refs serviceStaff/Rooms/customers)
+  await db.delete(appointments).where(inArray(appointments.userId, uids));
+
+  // 7. Memberships
+  await db.delete(memberships).where(inArray(memberships.userId, uids));
+  await db.delete(membershipPlans).where(inArray(membershipPlans.userId, uids));
+
+  // 8. Staff & rooms
+  await db.delete(serviceStaff).where(inArray(serviceStaff.userId, uids));
+  await db.delete(serviceRooms).where(inArray(serviceRooms.userId, uids));
+
+  // 9. Purchase orders & suppliers
+  await db.delete(purchaseOrders).where(inArray(purchaseOrders.userId, uids));
+  await db.delete(suppliers).where(inArray(suppliers.userId, uids));
+
+  // 10. Pending orders & tables
+  await db.delete(pendingOrders).where(inArray(pendingOrders.userId, uids));
+  await db.delete(tables).where(inArray(tables.userId, uids));
+
+  // 11. Customers
+  await db.delete(customers).where(inArray(customers.userId, uids));
+
+  // 12. Sales, ingredients, products
+  await db.delete(sales).where(inArray(sales.userId, uids));
+  await db.delete(ingredients).where(inArray(ingredients.userId, uids));
+  await db.delete(products).where(inArray(products.userId, uids));
+
+  // 13. Audit logs (no FK — GDPR hygiene)
+  await db.delete(auditLogs).where(inArray(auditLogs.userId, uids));
+
+  // 14. Settings & branch links
+  await db.delete(userSettings).where(inArray(userSettings.userId, uids));
+  await db.delete(userBranches).where(inArray(userBranches.userId, uids));
+
+  // (caller deletes the user rows themselves)
+}
+
+/**
+ * Tear down a tenant once all its users' data has already been wiped:
+ * branches, role permissions, subscriptions, AI memories, audit logs scoped
+ * to the tenant, and finally the tenant row itself.
+ *
+ * Without this, an owner could "delete their account" but their old store
+ * + branches stay in the database forever, and re-registering with the same
+ * email re-creates a user with the same deterministic ID who would still
+ * see remnants of the orphaned tenant.
+ */
+async function deleteTenantShell(tenantId: string): Promise<void> {
+  await db.delete(userBranches).where(
+    inArray(
+      userBranches.branchId,
+      db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId))
+    )
+  );
+  await db.delete(branches).where(eq(branches.tenantId, tenantId));
+  await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
+  await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
+  await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
+  await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
+  await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId));
+  await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, tenantId));
+  await db.delete(tenants).where(eq(tenants.id, tenantId));
+}
 
 export function setupAuth(app: Express) {
   const baseUrl = getBaseUrl();
@@ -381,7 +520,7 @@ export function setupAuth(app: Express) {
   // ── Logout & account management ───────────────────────────────────────────────
 
   app.post("/auth/logout", (_req, res) => {
-    res.clearCookie(AUTH_COOKIE);
+    clearAuthCookie(res);
     res.json({ ok: true });
   });
 
@@ -389,72 +528,51 @@ export function setupAuth(app: Express) {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     const uid = (req.user as any).id;
     try {
-      // Pre-fetch IDs needed for cascading child-table deletes
-      const userProductIds = (await db.select({ id: products.id }).from(products).where(eq(products.userId, uid))).map(r => r.id);
-      const userPoIds = (await db.select({ id: purchaseOrders.id }).from(purchaseOrders).where(eq(purchaseOrders.userId, uid))).map(r => r.id);
-
-      // Delete in strict FK dependency order (children before parents)
-
-      // 1. Deepest leaves
-      await db.delete(membershipCheckIns).where(eq(membershipCheckIns.userId, uid));
-      await db.delete(timeLogs).where(eq(timeLogs.userId, uid));
-      await db.delete(refunds).where(eq(refunds.userId, uid));
-      await db.delete(shifts).where(eq(shifts.userId, uid));
-      await db.delete(discountCodes).where(eq(discountCodes.userId, uid));
-      await db.delete(expenses).where(eq(expenses.userId, uid));
-
-      // 2. purchaseOrderItems MUST go before purchaseOrders (FK: purchase_order_id → purchase_orders.id)
-      if (userPoIds.length > 0) {
-        await db.delete(purchaseOrderItems).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
+      // Look up the live user row — JWT can be stale (e.g. role changed since
+      // login). We need the up-to-date tenantId + role to decide whether to
+      // also tear down the whole tenant.
+      const [liveUser] = await db.select().from(users).where(eq(users.id, uid));
+      if (!liveUser) {
+        // Already gone — just make sure the cookie is cleared and reply OK.
+        clearAuthCookie(res);
+        return res.json({ ok: true });
       }
 
-      // 3. inviteTokens references users.id via both createdBy and usedBy columns
-      await db.delete(inviteTokens).where(or(eq(inviteTokens.createdBy, uid), eq(inviteTokens.usedBy, uid)));
+      const tenantId = liveUser.tenantId;
+      const isOwnerWithTenant = liveUser.role === "owner" && !!tenantId;
 
-      // 4. productSizes / productModifiers have no FK constraint but would orphan without this
-      if (userProductIds.length > 0) {
-        await db.delete(productSizes).where(inArray(productSizes.productId, userProductIds));
-        await db.delete(productModifiers).where(inArray(productModifiers.productId, userProductIds));
+      // Build the list of users whose data we need to delete.
+      //   • owners: every user attached to the tenant (the team comes down too)
+      //   • everyone else: just themselves
+      let userIdsToWipe: string[] = [uid];
+      if (isOwnerWithTenant) {
+        const tenantUsers = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.tenantId, tenantId!));
+        if (tenantUsers.length > 0) {
+          userIdsToWipe = Array.from(new Set([uid, ...tenantUsers.map(u => u.id)]));
+        }
       }
 
-      // 5. Appointments (refs serviceStaff, serviceRooms, customers)
-      await db.delete(appointments).where(eq(appointments.userId, uid));
+      await deleteUsersData(userIdsToWipe);
 
-      // 6. Memberships (refs customers, membershipPlans)
-      await db.delete(memberships).where(eq(memberships.userId, uid));
-      await db.delete(membershipPlans).where(eq(membershipPlans.userId, uid));
+      // Owner accounts also delete the tenant + branches + tenant-scoped tables,
+      // otherwise the next time the same email re-registers and goes through
+      // onboarding they'd see the orphaned old store.
+      if (isOwnerWithTenant) {
+        await deleteTenantShell(tenantId!);
+      }
 
-      // 7. Staff & rooms
-      await db.delete(serviceStaff).where(eq(serviceStaff.userId, uid));
-      await db.delete(serviceRooms).where(eq(serviceRooms.userId, uid));
+      // Finally remove the user rows themselves
+      if (userIdsToWipe.length > 0) {
+        await db.delete(users).where(inArray(users.id, userIdsToWipe));
+      }
 
-      // 8. Purchase orders & suppliers
-      await db.delete(purchaseOrders).where(eq(purchaseOrders.userId, uid));
-      await db.delete(suppliers).where(eq(suppliers.userId, uid));
-
-      // 9. Pending orders & tables
-      await db.delete(pendingOrders).where(eq(pendingOrders.userId, uid));
-      await db.delete(tables).where(eq(tables.userId, uid));
-
-      // 10. Customers (after all refs cleared)
-      await db.delete(customers).where(eq(customers.userId, uid));
-
-      // 11. Core transaction data
-      await db.delete(sales).where(eq(sales.userId, uid));
-      await db.delete(products).where(eq(products.userId, uid));
-
-      // 12. Audit logs (no FK — GDPR hygiene)
-      await db.delete(auditLogs).where(eq(auditLogs.userId, uid));
-
-      // 13. Settings & branch links
-      await db.delete(userSettings).where(eq(userSettings.userId, uid));
-      await db.delete(userBranches).where(eq(userBranches.userId, uid));
-
-      // 14. Finally the user row itself
-      await db.delete(users).where(eq(users.id, uid));
-      res.clearCookie(AUTH_COOKIE);
+      clearAuthCookie(res);
       res.json({ ok: true });
-    } catch (err) {
+    } catch (err: any) {
+      console.error("[delete-account] failed:", err?.message ?? err);
       next(err);
     }
   });

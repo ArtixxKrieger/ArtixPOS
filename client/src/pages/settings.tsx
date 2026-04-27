@@ -14,7 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, clearNativeToken } from "@/lib/queryClient";
+import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
 import { Sparkles } from "lucide-react";
 
@@ -77,7 +78,7 @@ export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoggingOut } = useAuth();
   const { isPro } = useSubscription();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -105,11 +106,15 @@ export default function Settings() {
   const isOwner = user?.role === "owner";
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== "DELETE") return;
+    if (deleteConfirmText !== "DELETE" || isDeleting) return;
     setIsDeleting(true);
     try {
-      const res = await fetch("/api/auth/account", { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Failed to delete account");
+      // Use apiRequest so the native Bearer token is attached on mobile.
+      // The previous raw fetch() left a stale token in storage so the user
+      // would silently re-authenticate on the next request.
+      await apiRequest("DELETE", "/api/auth/account");
+      clearNativeToken();
+      await clearAllCache();
       queryClient.clear();
       window.location.href = "/login";
     } catch {
@@ -577,11 +582,13 @@ export default function Settings() {
         )}
 
         <button
-          onClick={() => logout()}
-          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"
+          onClick={() => { if (!isLoggingOut) logout(); }}
+          disabled={isLoggingOut}
+          data-testid="button-signout"
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <LogOut className="h-4 w-4 text-muted-foreground" />
-          Sign Out
+          <LogOut className={`h-4 w-4 text-muted-foreground ${isLoggingOut ? "animate-pulse" : ""}`} />
+          {isLoggingOut ? "Signing out…" : "Sign Out"}
         </button>
 
         {isOwner && (

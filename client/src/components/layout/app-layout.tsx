@@ -155,7 +155,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
   const { isOnline, isSyncing, salesQueueCount } = useOnlineStatus();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
@@ -350,12 +350,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="flex items-center gap-1 shrink-0">
                 <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
                 <button
-                  onClick={() => logout()}
+                  onClick={() => { if (!isLoggingOut) logout(); }}
+                  disabled={isLoggingOut}
                   aria-label="Logout"
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200"
-                  title="Logout"
+                  data-testid="button-logout"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={isLoggingOut ? "Signing out…" : "Logout"}
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
                 </button>
               </div>
             </div>

@@ -133,6 +133,7 @@ export function useAuth() {
     isLoading,
     isAuthenticated: !!u,
     logout: logoutMutation.mutate,
+    isLoggingOut: logoutMutation.isPending,
     isOwner: u?.role === "owner",
     isManager: u?.role === "manager",
     isAdmin: u?.role === "admin",

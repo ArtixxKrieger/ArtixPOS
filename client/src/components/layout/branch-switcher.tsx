@@ -18,15 +18,17 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
-  if (!user || user.role !== "owner") return null;
-  if (!branches || branches.length < 2) return null;
-
-  const activeId = user.activeBranchId ?? null;
+  const activeId = user?.activeBranchId ?? null;
   const activeBranch = branches.find((b) => b.id === activeId);
 
   // Auto-pin to a real branch on mount if owner has no active branch yet
   // (prevents the "no branch" state that used to show "All Branches").
+  // IMPORTANT: this hook MUST run on every render (no early returns above it),
+  // otherwise React throws #310 "Rendered more hooks than during the previous
+  // render" the first time branches load and the component goes from returning
+  // null to rendering the dropdown.
   useEffect(() => {
+    if (!user || user.role !== "owner") return;
     if (activeId !== null) return;
     if (!branches.length) return;
     const fallback = branches.find((b) => b.isMain) ?? branches[0];
@@ -35,7 +37,10 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
     }).catch(() => {});
     // We intentionally only react to branches loading.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branches.length, activeId]);
+  }, [branches.length, activeId, user?.role]);
+
+  if (!user || user.role !== "owner") return null;
+  if (!branches || branches.length < 2) return null;
 
   const label = activeBranch ? activeBranch.name : (branches[0]?.name ?? "Select branch");
 

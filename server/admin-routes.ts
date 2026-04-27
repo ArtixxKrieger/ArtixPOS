@@ -19,8 +19,12 @@ import {
 import { bannedUserIds } from "./auth";
 import { invalidateTenantCache, storage } from "./storage";
 import { db } from "./db";
-import { users, sales, type UserRole } from "@shared/schema";
-import { eq, and, isNull, isNotNull, inArray } from "drizzle-orm";
+import {
+  users, sales, products, tables, productSizes, productModifiers,
+  productRecipes, purchaseOrderItems, pendingOrders,
+  type UserRole,
+} from "@shared/schema";
+import { eq, and, isNull, isNotNull, inArray, sql } from "drizzle-orm";
 import { signToken } from "./auth";
 import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
@@ -284,6 +288,135 @@ export function registerAdminRoutes(app: Express) {
       });
 
       res.json({ ok: true, productsCreated, tablesCreated, template: template.label });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // ─── Reset branch: wipe all products & tables for the branch, then
+  // optionally re-seed with the starter template. Useful for clearing demo
+  // data and starting from a clean catalog.
+  app.post("/api/admin/branches/:id/reset", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const id = Number(req.params.id);
+      const branch = await getBranch(id, user.tenantId!);
+      if (!branch) return res.status(404).json({ message: "Branch not found" });
+
+      const body = z.object({
+        reseed: z.boolean().optional().default(false),
+        templateKey: z.string().optional(),
+      }).parse(req.body ?? {});
+
+      // Find every product and table currently scoped to this branch (across
+      // every user in the tenant — staff-created items count too).
+      const tenantUserIds = (await getTenantUsers(user.tenantId!)).map(u => u.id);
+      if (tenantUserIds.length === 0) {
+        return res.status(400).json({ message: "No tenant users found" });
+      }
+
+      const branchProducts = await db.select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.branchId, branch.id), inArray(products.userId, tenantUserIds)));
+      const branchTables = await db.select({ id: tables.id })
+        .from(tables)
+        .where(and(eq(tables.branchId, branch.id), inArray(tables.userId, tenantUserIds)));
+
+      const productIds = branchProducts.map(p => p.id);
+      const tableIds = branchTables.map(t => t.id);
+
+      // Wipe everything inside a transaction so a failure leaves the branch in
+      // its previous state instead of half-deleted.
+      await db.transaction(async (tx) => {
+        if (productIds.length) {
+          // Children that reference products via FK must go first.
+          await tx.delete(productRecipes).where(inArray(productRecipes.productId, productIds));
+          await tx.delete(productSizes).where(inArray(productSizes.productId, productIds));
+          await tx.delete(productModifiers).where(inArray(productModifiers.productId, productIds));
+          // purchase_order_items keeps the historical row but unlinks the deleted product.
+          await tx.update(purchaseOrderItems)
+            .set({ productId: null } as any)
+            .where(inArray(purchaseOrderItems.productId, productIds));
+          await tx.delete(products).where(inArray(products.id, productIds));
+        }
+        if (tableIds.length) {
+          // Detach historical sales/pending orders from the deleted tables (FKs are nullable).
+          await tx.update(sales)
+            .set({ tableId: null } as any)
+            .where(inArray(sales.tableId, tableIds));
+          await tx.update(pendingOrders)
+            .set({ tableId: null } as any)
+            .where(inArray(pendingOrders.tableId, tableIds));
+          await tx.delete(tables).where(inArray(tables.id, tableIds));
+        }
+      });
+
+      let productsCreated = 0;
+      let tablesCreated = 0;
+      let templateLabel: string | null = null;
+
+      if (body.reseed) {
+        const template = body.templateKey
+          ? SEED_TEMPLATES[body.templateKey] ?? null
+          : getSeedTemplate(branch.businessType, branch.businessSubType);
+
+        if (template) {
+          templateLabel = template.label;
+          for (const item of template.items) {
+            try {
+              await storage.createProduct(user.id, {
+                name: item.name,
+                price: item.price,
+                category: item.category,
+                branchId: branch.id,
+              } as any);
+              productsCreated++;
+            } catch (err) {
+              console.error("[branch-reset] failed to create product", item.name, err);
+            }
+          }
+          if (template.tables?.length) {
+            for (const t of template.tables) {
+              try {
+                await storage.createTable(user.id, {
+                  name: t.name,
+                  seats: t.seats,
+                  branchId: branch.id,
+                } as any);
+                tablesCreated++;
+              } catch (err) {
+                console.error("[branch-reset] failed to create table", t.name, err);
+              }
+            }
+          }
+        }
+      }
+
+      await createAuditLog({
+        tenantId: user.tenantId!,
+        userId: user.id,
+        action: "reset",
+        entity: "branch",
+        entityId: String(branch.id),
+        metadata: {
+          productsDeleted: productIds.length,
+          tablesDeleted: tableIds.length,
+          reseed: body.reseed,
+          template: templateLabel,
+          productsCreated,
+          tablesCreated,
+        },
+      });
+
+      res.json({
+        ok: true,
+        productsDeleted: productIds.length,
+        tablesDeleted: tableIds.length,
+        productsCreated,
+        tablesCreated,
+        template: templateLabel,
+      });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);

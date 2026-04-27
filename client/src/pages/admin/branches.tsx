@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, RotateCcw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,6 +7,7 @@ import { useLocation } from "wouter";
 import {
   Building2, Plus, Pencil, Trash2, Phone, MapPin,
   CheckCircle, XCircle, Star, Crown, Lock, Sparkles as SparklesIcon,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, useSeedBranch, fetchBranchSeedTemplate, type Branch, type BranchSeedTemplate } from "@/hooks/use-admin";
+import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, useSeedBranch, useResetBranch, fetchBranchSeedTemplate, type Branch, type BranchSeedTemplate } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -449,6 +450,122 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
   );
 }
 
+function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; open: boolean; onClose: () => void }) {
+  const resetBranch = useResetBranch();
+  const { toast } = useToast();
+  const [confirmText, setConfirmText] = useState("");
+  const [reseed, setReseed] = useState(true);
+
+  // Reset local state whenever the dialog opens fresh.
+  useEffect(() => {
+    if (!open) {
+      setConfirmText("");
+      setReseed(true);
+    }
+  }, [open]);
+
+  const expected = branch?.name ?? "";
+  const canReset = !!branch && confirmText.trim() === expected.trim() && expected.length > 0;
+
+  async function handleReset() {
+    if (!branch || !canReset) return;
+    try {
+      const result = await resetBranch.mutateAsync({ branchId: branch.id, reseed });
+      const parts: string[] = [];
+      if (result.productsDeleted || result.tablesDeleted) {
+        parts.push(`Removed ${result.productsDeleted} product${result.productsDeleted === 1 ? "" : "s"}`);
+        if (result.tablesDeleted) parts.push(`${result.tablesDeleted} table${result.tablesDeleted === 1 ? "" : "s"}`);
+      } else {
+        parts.push("Branch was already empty");
+      }
+      if (result.productsCreated || result.tablesCreated) {
+        const seedParts: string[] = [];
+        if (result.productsCreated) seedParts.push(`${result.productsCreated} product${result.productsCreated === 1 ? "" : "s"}`);
+        if (result.tablesCreated) seedParts.push(`${result.tablesCreated} table${result.tablesCreated === 1 ? "" : "s"}`);
+        parts.push(`then re-seeded ${seedParts.join(" and ")}`);
+      }
+      toast({
+        title: "Branch reset",
+        description: parts.join(", ") + ".",
+      });
+      onClose();
+    } catch (err: any) {
+      toast({ title: err?.message ?? "Failed to reset branch", variant: "destructive" });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reset Branch</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="flex items-start gap-3 rounded-2xl bg-rose-500/5 border border-rose-500/20 p-4">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-rose-500/30">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-bold text-sm text-foreground">This will wipe the catalog</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Every product and dine-in table on{" "}
+                <span className="font-semibold text-foreground">{branch?.name ?? "this branch"}</span>{" "}
+                will be permanently deleted. Past sales and purchase orders are kept, but the items
+                they referenced will no longer be linked. This cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-border/30 p-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Re-seed with the starter catalog</p>
+              <p className="text-xs text-muted-foreground">
+                After wiping, repopulate with the default products & tables for this business type.
+              </p>
+            </div>
+            <Switch
+              data-testid="switch-reset-reseed"
+              checked={reseed}
+              onCheckedChange={setReseed}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-muted-foreground">
+              Type <span className="font-mono text-foreground">{expected}</span> to confirm
+            </label>
+            <Input
+              data-testid="input-reset-confirm"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={expected}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={resetBranch.isPending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleReset}
+            disabled={!canReset || resetBranch.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            data-testid="button-confirm-reset"
+          >
+            {resetBranch.isPending ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Resetting...</>
+            ) : (
+              <><RotateCcw className="h-4 w-4 mr-2" /> Reset branch</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Branches() {
   const { user } = useAuth();
   const { data: branches = [], isLoading } = useBranches();
@@ -458,6 +575,7 @@ export default function Branches() {
   const [editingBranch, setEditingBranch] = useState<Branch | undefined>();
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
   const [seedingBranch, setSeedingBranch] = useState<Branch | null>(null);
+  const [resettingBranch, setResettingBranch] = useState<Branch | null>(null);
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const isOwner = user?.role === "owner";
   const { toast } = useToast();
@@ -636,6 +754,14 @@ export default function Branches() {
                     </button>
                   )}
                   <button
+                    data-testid={`button-reset-branch-${branch.id}`}
+                    onClick={() => setResettingBranch(branch)}
+                    className="flex items-center justify-center gap-1.5 h-8 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold transition-colors shrink-0"
+                    title="Wipe all products & tables on this branch and start clean"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Reset
+                  </button>
+                  <button
                     data-testid={`button-edit-branch-${branch.id}`}
                     onClick={() => { setEditingBranch(branch); setFormOpen(true); }}
                     className="flex-1 min-w-[60px] flex items-center justify-center gap-1.5 h-8 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground text-xs font-semibold transition-colors"
@@ -698,6 +824,12 @@ export default function Branches() {
         open={!!seedingBranch}
         onClose={() => setSeedingBranch(null)}
         branch={seedingBranch}
+      />
+
+      <BranchResetDialog
+        open={!!resettingBranch}
+        onClose={() => setResettingBranch(null)}
+        branch={resettingBranch}
       />
 
       <AlertDialog open={!!deletingBranchId} onOpenChange={() => setDeletingBranchId(null)}>

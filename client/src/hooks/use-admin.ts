@@ -135,6 +135,31 @@ export function useSeedBranch() {
   });
 }
 
+export function useResetBranch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ branchId, reseed, templateKey }: { branchId: number; reseed?: boolean; templateKey?: string }) => {
+      const res = await apiRequest("POST", `/api/admin/branches/${branchId}/reset`, {
+        reseed: reseed ?? false,
+        ...(templateKey ? { templateKey } : {}),
+      });
+      return res.json() as Promise<{
+        ok: boolean;
+        productsDeleted: number;
+        tablesDeleted: number;
+        productsCreated: number;
+        tablesCreated: number;
+        template: string | null;
+      }>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/products"] });
+      qc.invalidateQueries({ queryKey: ["/api/tables"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/branches"] });
+    },
+  });
+}
+
 export function useUpdateBranch() {
   const qc = useQueryClient();
   return useMutation({

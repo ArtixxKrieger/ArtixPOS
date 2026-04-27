@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, useSetMainBranch, type Branch } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,8 +25,47 @@ const branchSchema = z.object({
   address: z.string().optional(),
   phone: z.string().optional(),
   isActive: z.boolean().default(true),
+  businessType: z.string().min(1, "Business type is required"),
+  businessSubType: z.string().optional(),
 });
 type BranchForm = z.infer<typeof branchSchema>;
+
+const BUSINESS_TYPES: { value: string; label: string }[] = [
+  { value: "food_beverage", label: "Food & Beverage" },
+  { value: "retail", label: "Retail" },
+  { value: "services", label: "Services" },
+  { value: "other", label: "Other" },
+];
+
+const BUSINESS_SUBTYPES: Record<string, { value: string; label: string }[]> = {
+  food_beverage: [
+    { value: "cafe", label: "Cafe / Coffee Shop" },
+    { value: "restaurant", label: "Restaurant" },
+    { value: "bakery", label: "Bakery" },
+    { value: "bar", label: "Bar / Pub" },
+    { value: "food_truck", label: "Food Truck" },
+  ],
+  retail: [
+    { value: "clothing", label: "Clothing / Fashion" },
+    { value: "electronics", label: "Electronics" },
+    { value: "grocery", label: "Grocery / Supermarket" },
+    { value: "bookstore", label: "Bookstore" },
+  ],
+  services: [
+    { value: "salon", label: "Salon / Barbershop" },
+    { value: "gym", label: "Gym / Fitness Center" },
+    { value: "spa", label: "Spa / Wellness" },
+    { value: "clinic", label: "Clinic / Healthcare" },
+    { value: "laundry", label: "Laundry / Dry Cleaning" },
+    { value: "car_wash", label: "Car Wash / Auto Detailing" },
+    { value: "pet_grooming", label: "Pet Grooming" },
+    { value: "photography", label: "Photography / Studio" },
+    { value: "cleaning", label: "Cleaning Service" },
+    { value: "tutoring", label: "Tutoring / Education" },
+    { value: "repair", label: "Repair & Maintenance" },
+  ],
+  other: [],
+};
 
 function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: () => void; branch?: Branch }) {
   const createBranch = useCreateBranch();
@@ -39,18 +79,30 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       address: branch?.address ?? "",
       phone: branch?.phone ?? "",
       isActive: branch?.isActive ?? true,
+      businessType: branch?.businessType ?? "",
+      businessSubType: branch?.businessSubType ?? "",
     },
   });
 
   const isEditing = !!branch;
+  const selectedType = form.watch("businessType");
+  const subtypeOptions = BUSINESS_SUBTYPES[selectedType] ?? [];
 
   async function onSubmit(values: BranchForm) {
     try {
+      const payload = {
+        name: values.name,
+        address: values.address,
+        phone: values.phone,
+        isActive: values.isActive,
+        businessType: values.businessType,
+        businessSubType: values.businessSubType ? values.businessSubType : null,
+      };
       if (isEditing) {
-        await updateBranch.mutateAsync({ id: branch.id, ...values });
+        await updateBranch.mutateAsync({ id: branch.id, ...payload });
         toast({ title: "Branch updated" });
       } else {
-        await createBranch.mutateAsync(values as { name: string; address?: string; phone?: string; isActive?: boolean });
+        await createBranch.mutateAsync(payload);
         toast({ title: "Branch created" });
       }
       form.reset();
@@ -95,6 +147,57 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                 <FormMessage />
               </FormItem>
             )} />
+            <FormField control={form.control} name="businessType" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Business Type</FormLabel>
+                <Select
+                  value={field.value ?? ""}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    form.setValue("businessSubType", "");
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger data-testid="select-branch-business-type">
+                      <SelectValue placeholder="What kind of business is this branch?" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {BUSINESS_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value} data-testid={`option-business-type-${t.value}`}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Each branch can be a different business — your salon and your cafe can live under one account.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )} />
+            {subtypeOptions.length > 0 && (
+              <FormField control={form.control} name="businessSubType" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>More specifically</FormLabel>
+                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-branch-business-subtype">
+                        <SelectValue placeholder="Choose a sub-category (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {subtypeOptions.map((t) => (
+                        <SelectItem key={t.value} value={t.value} data-testid={`option-business-subtype-${t.value}`}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            )}
             <FormField control={form.control} name="isActive" render={({ field }) => (
               <FormItem className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-border/30 p-3">
                 <div className="flex-1">

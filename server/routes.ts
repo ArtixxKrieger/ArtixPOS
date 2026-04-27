@@ -9,8 +9,8 @@ import { registerSubscriptionRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog } from "./admin-storage";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
-import { users } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { users, branches as branchesTable } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
@@ -43,9 +43,25 @@ function userId(req: Request): string {
 }
 
 /** Active branch the user has selected (owner can switch via /api/admin/switch-branch).
- *  Returns null when the user is viewing "all branches" or not scoped to one. */
+ *  Returns null when the user has no branch assigned yet. */
 function activeBranchId(req: Request): number | null {
   return (req.user as any)?.activeBranchId ?? null;
+}
+
+/** Resolve the branch a created record should belong to.
+ *  Always prefers the user's active branch over any client-supplied branchId
+ *  to prevent cross-branch leaks (e.g. owner viewing branch A creating a
+ *  product accidentally tagged as branch B). Falls back to the tenant's main
+ *  branch, or any branch, when no active branch is set. */
+async function resolveBranchId(req: Request): Promise<number | null> {
+  const active = activeBranchId(req);
+  if (active != null) return active;
+  const tid = tenantId(req);
+  if (!tid) return null;
+  const tenantBranches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tid));
+  if (tenantBranches.length === 0) return null;
+  const main = tenantBranches.find(b => b.isMain);
+  return (main ?? tenantBranches[0]).id;
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/;
@@ -110,8 +126,12 @@ export async function registerRoutes(
         price: z.coerce.string().min(1, "Price is required"),
       });
       const input = bodySchema.parse(req.body);
-      const product = await storage.createProduct(userId(req), input);
+      // SECURITY: Always force the new product into the user's currently active
+      // branch. Ignore any client-supplied branchId to prevent cross-branch leaks.
+      const branchId = await resolveBranchId(req);
+      const product = await storage.createProduct(userId(req), { ...input, branchId });
       cache.del(productsCacheKey(userId(req)));
+      if (branchId != null) cache.del(productsCacheKey(userId(req)) + `:b${branchId}`);
       await auditLog(req, "create", "product", String(product.id), { name: product.name, price: product.price });
       res.status(201).json(product);
     } catch (err) {
@@ -187,8 +207,15 @@ export async function registerRoutes(
         changeAmount: z.coerce.string().optional(),
       });
       const input = bodySchema.parse(req.body);
-      // Default cashierId to the authenticated user
-      const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req) };
+      // Default cashierId to the authenticated user, and force the active branch
+      // so an order placed while viewing branch A can never accidentally land on
+      // a different branch.
+      const enforcedBranch = await resolveBranchId(req);
+      const inputWithCashier = {
+        ...input,
+        cashierId: input.cashierId ?? userId(req),
+        branchId: enforcedBranch,
+      };
       const order = await storage.createPendingOrder(userId(req), inputWithCashier);
 
       // When a POS order is finalized as paid, also record it as a sale so it
@@ -216,7 +243,7 @@ export async function registerRoutes(
             tableId: input.tableId,
             cashierId: userId(req),
             notes: input.notes,
-            branchId: input.branchId,
+            branchId: enforcedBranch,
           });
           await auditLog(req, "create", "sale", String(sale.id), {
             total: sale.total,
@@ -313,7 +340,9 @@ export async function registerRoutes(
         }
       }
 
-      const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req) };
+      // Force the active branch so direct /api/sales calls cannot leak across branches.
+      const enforcedBranch = await resolveBranchId(req);
+      const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req), branchId: enforcedBranch };
       const sale = await storage.createSale(userId(req), inputWithCashier);
       await auditLog(req, "create", "sale", String(sale.id), {
         total: sale.total,
@@ -544,7 +573,8 @@ export async function registerRoutes(
   app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.extend({ amount: z.coerce.string() }).parse(req.body);
-      const expense = await storage.createExpense(userId(req), input);
+      const branchId = await resolveBranchId(req);
+      const expense = await storage.createExpense(userId(req), { ...input, branchId });
       await auditLog(req, "create", "expense", String(expense.id), { description: expense.description, amount: expense.amount, category: expense.category });
       res.status(201).json(expense);
     } catch (err) {

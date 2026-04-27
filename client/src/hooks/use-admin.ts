@@ -9,6 +9,8 @@ export interface Branch {
   phone: string | null;
   isActive: boolean;
   isMain: boolean;
+  businessType: string | null;
+  businessSubType: string | null;
   createdAt: string;
 }
 
@@ -96,7 +98,7 @@ export function useBranches() {
 export function useCreateBranch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; address?: string; phone?: string; isActive?: boolean }) =>
+    mutationFn: (data: { name: string; address?: string; phone?: string; isActive?: boolean; businessType?: string | null; businessSubType?: string | null }) =>
       apiRequest("POST", "/api/admin/branches", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/branches"] });

@@ -1,5 +1,5 @@
-import { Building2, Check, ChevronDown, Globe } from "lucide-react";
-import { useState } from "react";
+import { Building2, Check, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useBranches, useSwitchBranch } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +8,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -24,9 +23,23 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
 
   const activeId = user.activeBranchId ?? null;
   const activeBranch = branches.find((b) => b.id === activeId);
-  const label = activeBranch ? activeBranch.name : "All Branches";
 
-  const handleSwitch = async (branchId: number | null) => {
+  // Auto-pin to a real branch on mount if owner has no active branch yet
+  // (prevents the "no branch" state that used to show "All Branches").
+  useEffect(() => {
+    if (activeId !== null) return;
+    if (!branches.length) return;
+    const fallback = branches.find((b) => b.isMain) ?? branches[0];
+    switchBranch.mutateAsync(fallback.id).then(() => {
+      setTimeout(() => window.location.reload(), 100);
+    }).catch(() => {});
+    // We intentionally only react to branches loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branches.length, activeId]);
+
+  const label = activeBranch ? activeBranch.name : (branches[0]?.name ?? "Select branch");
+
+  const handleSwitch = async (branchId: number) => {
     if (branchId === activeId) {
       setOpen(false);
       return;
@@ -34,7 +47,7 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
     try {
       await switchBranch.mutateAsync(branchId);
       toast({
-        title: branchId === null ? "Viewing all branches" : `Switched to ${branches.find((b) => b.id === branchId)?.name}`,
+        title: `Switched to ${branches.find((b) => b.id === branchId)?.name}`,
       });
       setOpen(false);
       // Hard refresh to ensure all queries refetch with the new active branch.
@@ -60,29 +73,15 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
               : "w-full px-3 py-2 text-[12px] font-medium",
           ].join(" ")}
         >
-          {activeBranch ? (
-            <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-          ) : (
-            <Globe className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-          )}
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
           <span className="flex-1 text-left truncate">{label}</span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56" data-testid="menu-branch-switcher">
         <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-          Viewing
+          Viewing branch
         </DropdownMenuLabel>
-        <DropdownMenuItem
-          onClick={() => handleSwitch(null)}
-          data-testid="branch-option-all"
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <Globe className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-          <span className="flex-1">All Branches</span>
-          {activeId === null && <Check className="h-3.5 w-3.5 text-violet-500" />}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         {branches.map((b) => (
           <DropdownMenuItem
             key={b.id}

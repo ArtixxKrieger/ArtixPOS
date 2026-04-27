@@ -186,8 +186,10 @@ export function registerAdminRoutes(app: Express) {
         address: z.string().optional().nullable(),
         phone: z.string().optional().nullable(),
         isActive: z.boolean().optional().default(true),
+        businessType: z.string().optional().nullable(),
+        businessSubType: z.string().optional().nullable(),
       }).parse(req.body);
-      const branch = await createBranch(user.tenantId!, input as { name: string; address?: string | null; phone?: string | null; isActive?: boolean });
+      const branch = await createBranch(user.tenantId!, input as { name: string; address?: string | null; phone?: string | null; isActive?: boolean; businessType?: string | null; businessSubType?: string | null });
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "branch", entityId: String(branch.id), metadata: { name: branch.name } });
       res.status(201).json(branch);
     } catch (err) {
@@ -210,6 +212,8 @@ export function registerAdminRoutes(app: Express) {
         address: z.string().optional().nullable(),
         phone: z.string().optional().nullable(),
         isActive: z.boolean().optional(),
+        businessType: z.string().optional().nullable(),
+        businessSubType: z.string().optional().nullable(),
       }).parse(req.body);
       const branch = await updateBranch(id, user.tenantId!, input);
       if (!branch) return res.status(404).json({ message: "Branch not found" });

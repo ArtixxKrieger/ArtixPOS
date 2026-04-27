@@ -112,7 +112,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
   const isCash = receipt.paymentMethod === "cash";
   const hasDiscount = receipt.discount > 0;
-  const hasLoyalty = receipt.loyaltyDiscount > 0;
   const hasTax = receipt.tax > 0;
   const hasTip = (receipt.tip ?? 0) > 0;
 
@@ -241,13 +240,11 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <div class="row muted"><span>Subtotal</span><span class="price">${fmt(receipt.subtotal)}</span></div>
     ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasTax ? `<div class="row muted"><span>${receipt.taxRate ? `VAT (${receipt.taxRate}%)` : "VAT"}</span><span class="price">${fmt(receipt.tax)}</span></div>` : ""}
-    ${hasLoyalty ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Loyalty Redemption</span><span class="price">-${fmt(receipt.loyaltyDiscount)}</span></div>` : ""}
     ${hasTip ? `<div class="row muted"><span>Tip</span><span class="price">${fmt(receipt.tip ?? 0)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(receipt.total)}</span></div>
     <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
-    ${receipt.loyaltyPointsEarned && receipt.loyaltyPointsEarned > 0 ? `<p class="center" style="color:#000;margin-top:4px;font-size:${fs - 2}px">+${receipt.loyaltyPointsEarned} loyalty points earned</p>` : ""}
     ${receipt.wifiVoucher ? `<div class="line"></div>
       <p class="center bold">FREE WIFI VOUCHER</p>
       ${receipt.wifiVoucher.ssid ? `<div class="row muted"><span>Network</span><span>${receipt.wifiVoucher.ssid}</span></div>` : ""}
@@ -380,12 +377,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                   <span className="tabular-nums">{formatCurrency(receipt.tax, currency)}</span>
                 </div>
               )}
-              {hasLoyalty && (
-                <div className="flex justify-between text-amber-600 text-[12px]">
-                  <span>Loyalty Redemption</span>
-                  <span className="tabular-nums">-{formatCurrency(receipt.loyaltyDiscount, currency)}</span>
-                </div>
-              )}
               {hasTip && (
                 <div className="flex justify-between text-muted-foreground text-[12px]">
                   <span>Tip</span>
@@ -404,11 +395,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 <div className="flex justify-between text-emerald-600 font-semibold green text-[12px]">
                   <span>Change</span>
                   <span className="tabular-nums">{formatCurrency(receipt.changeAmount, currency)}</span>
-                </div>
-              )}
-              {receipt.loyaltyPointsEarned != null && receipt.loyaltyPointsEarned > 0 && (
-                <div className="text-amber-600 text-center mt-1 text-[11px]">
-                  +{receipt.loyaltyPointsEarned} loyalty points earned
                 </div>
               )}
             </div>

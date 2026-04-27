@@ -7,6 +7,7 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   error: Error | null;
+  componentStack: string | null;
 }
 
 const isChunkLoadError = (err: Error) => {
@@ -26,14 +27,15 @@ const isChunkLoadError = (err: Error) => {
  * to a blank white screen. Stale-chunk errors auto-recover by reloading once.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null };
+  state: ErrorBoundaryState = { error: null, componentStack: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { error };
+    return { error, componentStack: null };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary]", error, info);
+    this.setState({ componentStack: info.componentStack ?? null });
 
     if (isChunkLoadError(error)) {
       const key = "artixpos_chunk_reload_at";
@@ -48,7 +50,37 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   reset = () => {
-    this.setState({ error: null });
+    this.setState({ error: null, componentStack: null });
+  };
+
+  hardReload = () => {
+    // Aggressive recovery: unregister any service worker, wipe its caches,
+    // then force-reload bypassing the HTTP cache. This breaks users out of
+    // the situation where a stale cached HTML keeps re-triggering the same
+    // chunk-load error on every reload.
+    try {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) => Promise.all(regs.map((r) => r.unregister().catch(() => false))))
+          .catch(() => {})
+          .finally(() => {
+            if (window.caches) {
+              caches
+                .keys()
+                .then((keys) => Promise.all(keys.map((k) => caches.delete(k).catch(() => false))))
+                .catch(() => {})
+                .finally(() => window.location.reload());
+            } else {
+              window.location.reload();
+            }
+          });
+        return;
+      }
+    } catch {
+      // fall through
+    }
+    window.location.reload();
   };
 
   render() {
@@ -60,7 +92,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810] px-6">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810] px-6 py-12">
         <div className="max-w-md w-full text-center space-y-4">
           <div className="w-12 h-12 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
             <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,7 +105,27 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               ? "We're loading a fresh version of the app — please wait a moment."
               : "An unexpected error happened. You can try again, or refresh the page."}
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
+
+          {/* Show the actual error message — both helpful for users and lets
+              them paste it back to support so we can diagnose. */}
+          <div className="text-left bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-xs">
+            <p className="font-mono break-words text-rose-700 dark:text-rose-400" data-testid="text-error-message">
+              {error.name}: {error.message || "(no message)"}
+            </p>
+            {(error.stack || this.state.componentStack) && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-slate-500 dark:text-white/50 select-none">
+                  Show details
+                </summary>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-[10px] leading-relaxed text-slate-600 dark:text-white/60">
+{error.stack ?? ""}
+{this.state.componentStack ? `\n\nComponent stack:${this.state.componentStack}` : ""}
+                </pre>
+              </details>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
             <button
               type="button"
               onClick={this.reset}
@@ -89,6 +141,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               data-testid="button-error-reload"
             >
               Reload page
+            </button>
+            <button
+              type="button"
+              onClick={this.hardReload}
+              className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/15 text-slate-700 dark:text-white/80 text-sm font-medium hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+              data-testid="button-error-clear-cache"
+              title="Clears the app cache and reloads — fixes most stale-version issues."
+            >
+              Clear cache &amp; reload
             </button>
           </div>
         </div>

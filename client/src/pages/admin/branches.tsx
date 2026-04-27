@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useLocation } from "wouter";
 import {
   Building2, Plus, Pencil, Trash2, Phone, MapPin,
-  CheckCircle, XCircle, Star, Crown, Lock,
+  CheckCircle, XCircle, Star, Crown, Lock, Sparkles as SparklesIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -346,6 +346,109 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   );
 }
 
+function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; open: boolean; onClose: () => void }) {
+  const seedBranch = useSeedBranch();
+  const { toast } = useToast();
+  const [template, setTemplate] = useState<BranchSeedTemplate | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !branch) {
+      setTemplate(null);
+      return;
+    }
+    setLoading(true);
+    fetchBranchSeedTemplate(branch.id)
+      .then(setTemplate)
+      .catch(() => setTemplate({ available: false }))
+      .finally(() => setLoading(false));
+  }, [open, branch]);
+
+  async function handleSeed() {
+    if (!branch) return;
+    try {
+      const result = await seedBranch.mutateAsync({ branchId: branch.id });
+      toast({
+        title: "Starter catalog added",
+        description: `Loaded ${result.productsCreated} item${result.productsCreated === 1 ? "" : "s"}${result.tablesCreated ? ` and ${result.tablesCreated} table${result.tablesCreated === 1 ? "" : "s"}` : ""}.`,
+      });
+      onClose();
+    } catch (err: any) {
+      toast({ title: err?.message ?? "Failed to seed branch", variant: "destructive" });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Set up catalog</DialogTitle>
+        </DialogHeader>
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : !template?.available ? (
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              We don't have a starter template for this business type yet. You can edit the branch first to pick a different business type, then try again.
+            </p>
+            <DialogFooter>
+              <Button onClick={onClose} variant="ghost">Close</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="flex items-start gap-3 rounded-2xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/20 p-4">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-violet-500/30">
+                <SparklesIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-sm text-foreground" data-testid="text-seed-template-label-existing">
+                  {template.label}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {template.description}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    {template.itemCount} items
+                  </span>
+                  {(template.tableCount ?? 0) > 0 && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      {template.tableCount} tables
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The starter items are <span className="font-semibold text-foreground">added</span> to <span className="font-semibold text-foreground">{branch?.name}</span>. Existing products and tables are kept — duplicates may appear if you've added similar items already. You can edit or delete anything afterwards.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={onClose} disabled={seedBranch.isPending}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSeed}
+                disabled={seedBranch.isPending}
+                data-testid="button-confirm-seed-existing"
+              >
+                {seedBranch.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding...</>
+                ) : (
+                  <><SparklesIcon className="h-4 w-4 mr-2" /> Add starter catalog</>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Branches() {
   const { user } = useAuth();
   const { data: branches = [], isLoading } = useBranches();
@@ -354,6 +457,7 @@ export default function Branches() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | undefined>();
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
+  const [seedingBranch, setSeedingBranch] = useState<Branch | null>(null);
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const isOwner = user?.role === "owner";
   const { toast } = useToast();
@@ -510,7 +614,7 @@ export default function Branches() {
 
               {/* Actions */}
               {isOwner && (
-                <div className="mt-auto px-4 pb-4 pt-3 flex gap-2 border-t border-border/20">
+                <div className="mt-auto px-4 pb-4 pt-3 flex flex-wrap gap-2 border-t border-border/20">
                   {!branch.isMain && (
                     <button
                       data-testid={`button-set-main-branch-${branch.id}`}
@@ -521,10 +625,20 @@ export default function Branches() {
                       <Star className="h-3.5 w-3.5" /> Set Main
                     </button>
                   )}
+                  {branch.businessType && (
+                    <button
+                      data-testid={`button-seed-branch-${branch.id}`}
+                      onClick={() => setSeedingBranch(branch)}
+                      className="flex items-center justify-center gap-1.5 h-8 px-3 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 text-xs font-semibold transition-colors shrink-0"
+                      title="Add a starter catalog of products & tables for this branch"
+                    >
+                      <SparklesIcon className="h-3.5 w-3.5" /> Seed
+                    </button>
+                  )}
                   <button
                     data-testid={`button-edit-branch-${branch.id}`}
                     onClick={() => { setEditingBranch(branch); setFormOpen(true); }}
-                    className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground text-xs font-semibold transition-colors"
+                    className="flex-1 min-w-[60px] flex items-center justify-center gap-1.5 h-8 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground text-xs font-semibold transition-colors"
                   >
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
@@ -578,6 +692,12 @@ export default function Branches() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         branch={editingBranch}
+      />
+
+      <BranchSeedDialog
+        open={!!seedingBranch}
+        onClose={() => setSeedingBranch(null)}
+        branch={seedingBranch}
       />
 
       <AlertDialog open={!!deletingBranchId} onOpenChange={() => setDeletingBranchId(null)}>

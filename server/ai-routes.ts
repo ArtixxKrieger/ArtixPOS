@@ -460,7 +460,7 @@ ${recentTransactions.join("\n") || "No transactions yet"}
 TOP PRODUCTS BY UNITS SOLD (last 100 sales):
 ${topProducts.slice(0, 6).join("\n") || "No data"}
 ${smartRestockAlerts.length > 0 ? `\nLOW STOCK:\n${smartRestockAlerts.slice(0, 6).join("\n")}` : ""}
-PRODUCT SAMPLE (${allProducts.length} loaded): ${productsLine || "none"}
+PRODUCT SAMPLE (showing first 8 of ${allProducts.length} loaded; store may have more not shown): ${productsLine || (allProducts.length === 0 ? "store has no products yet" : "(none in this sample, but store has products)")}
 
 TOP CUSTOMERS (${allCustomers.length} loaded): ${customersLine || "none"}
 ${topCustomer ? `MOST LOYAL: ${topCustomer.name} (${fmt(parseFloat(topCustomer.totalSpent || "0"))}, ${topCustomer.visitCount} visits)` : ""}
@@ -612,6 +612,66 @@ function detectCapabilitiesQuery(messages: ChatMessage[]): boolean {
   // — that has a noun after "able to" we should let the AI handle.
   if (/\bable to\s+\w+\s+(\w+\s+){2,}/i.test(lastUserMsg)) return false;
   return CAPABILITIES_RE.test(lastUserMsg);
+}
+
+// ─── ADD-PRODUCT intent detection (the bug from the screenshot) ──────────────
+// "Test, 500, clothes" / "Espresso 120 drinks" / "name: X price: 100 cat: Y" /
+// "add coffee 80" / "create new product Latte 150 beverages" / Tagalog variants.
+// When this fires we (a) force the smart 70B model, (b) force fresh context so
+// the AI knows the store has products, (c) drop temperature for clean tag JSON,
+// (d) inject a turn-level directive that overrides any contradictions in the
+// static system prompt or in older history ("you can do it manually" advice).
+const ADD_VERBS_RE = /\b(add|create|new|insert|put|register|record|gawa|gumawa|dagdag|idagdag|magdagdag|magpasok|i-?add|i-?create)\b/i;
+const PRODUCT_NOUN_RE = /\b(product|products|item|items|sku|menu|produkto|paninda|tinda)\b/i;
+const COMMA_TRIPLE_RE = /^[\s"']*([^,\n]{1,40}),\s*([^,\n]{1,20}),\s*([^,\n]{1,40})[\s"'.]*$/;
+const NAME_PRICE_CAT_LABELS_RE = /\b(name|pangalan)\s*[:=]\s*\S+.*\b(price|presyo)\s*[:=]\s*[\d.,]+/i;
+const PRICE_TOKEN_RE = /(?:^|\s|,)(\d{1,7}(?:[.,]\d{1,2})?)(?:\s|,|$)/;
+
+function detectAddProductIntent(messages: ChatMessage[]): boolean {
+  const lastUserMsg = messages.filter(m => m.role === "user").at(-1)?.content?.trim() ?? "";
+  if (!lastUserMsg || lastUserMsg.length > 200) return false;
+
+  // 1) Explicit verb + product noun ("add product", "create new product")
+  if (ADD_VERBS_RE.test(lastUserMsg) && PRODUCT_NOUN_RE.test(lastUserMsg)) return true;
+
+  // 2) Labeled key:value form ("name: Latte price: 120 category: drinks")
+  if (NAME_PRICE_CAT_LABELS_RE.test(lastUserMsg)) return true;
+
+  // 3) Comma-triple "Test, 500, clothes" — name, price-ish number, category-ish word
+  const tripleMatch = lastUserMsg.match(COMMA_TRIPLE_RE);
+  if (tripleMatch && /^\s*\d{1,7}(?:[.,]\d{1,2})?\s*$/.test(tripleMatch[2])) return true;
+
+  // 4) Reply to a prior AI question of the form "what's the name, price, category?"
+  //    Look at the last assistant message — if it asked for those fields and the
+  //    current user message is short and contains a numeric price-like token, we
+  //    treat it as an ADD reply.
+  const lastAssistantMsg = messages.filter(m => m.role === "assistant").at(-1)?.content ?? "";
+  const aiAskedForProductFields =
+    /\b(name|pangalan).{0,40}(price|presyo).{0,40}(category|kategorya)/i.test(lastAssistantMsg) ||
+    /what(?:'s| is) the (name|product)/i.test(lastAssistantMsg);
+  if (aiAskedForProductFields && PRICE_TOKEN_RE.test(lastUserMsg) && lastUserMsg.length < 80) {
+    return true;
+  }
+
+  return false;
+}
+
+// Builds the turn-level directive injected at the TOP of the system prompt.
+// This sits ABOVE all the older sometimes-contradicting instructions so the
+// model can't drift into "go to Products and tap Add" advice.
+function buildAddProductDirective(): string {
+  return `🚨 CURRENT-TURN DIRECTIVE — HIGHEST PRIORITY, OVERRIDES EVERYTHING BELOW:
+The user is trying to ADD A PRODUCT in this turn. You CAN do this — the [ADD_PRODUCT] action tag exists and is fully supported.
+RULES FOR THIS TURN:
+1. DO NOT say "I don't see any products" — the store may have products even if not all are in your sample.
+2. DO NOT redirect them to "go to Products and tap +" — you are the one adding it.
+3. DO NOT ask "what's the name, price, category?" if those values are already in their message (parse them out).
+4. Reply with ONE short confirmation line then [ADD_PRODUCT]{...}[/ADD_PRODUCT] on its own line.
+5. If the message is "X, NUMBER, Y" → name="X", price="NUMBER", category="Y".
+6. If only name + price given (no category), match to an existing category or use "General".
+7. Set trackStock=false and stock=0 unless the user explicitly mentions a stock quantity.
+This directive supersedes any older advice in this conversation about doing it manually.
+`;
 }
 
 function buildCapabilitiesAnswer(currency: string): string {
@@ -1315,16 +1375,18 @@ ${SUPPORTED_ACTION_TAGS.map(t => `[${t}]`).join(", ")}
 ⛔ If it is not in that exact list, it does not exist. Do not invent tags. Do not guess. Any tag you output that is not in the list above will appear as broken raw text to the user. Zero exceptions, zero flexibility.
 
 CAPABILITIES — UNSUPPORTED REQUESTS:
-When the user asks you to do something that is NOT supported by a valid action tag:
-1. Tell them plainly you can't do it — no JSON, no tags, no "let me try", not even partially
-2. Use the APP NAVIGATION guide above to tell them exactly where in the app to do it themselves
+First, check whether the action IS in the valid action tag list above. If it is (add product, update product, delete product, add customer, log expense, etc.) — USE THE TAG. Do not redirect to manual steps for actions you can do directly.
 
-Use this pattern naturally:
-"I can't [action] directly — but you can do it yourself: go to [correct page from the navigation guide] → [specific step]."
+ONLY when the action is genuinely NOT in the valid tag list:
+1. Briefly note it's not a one-tap shortcut — keep it light, no over-apologizing
+2. Use the APP NAVIGATION guide to point to where they can do it themselves
 
-To find the correct location of any page: always check the APP NAVIGATION section above first. Primary nav pages are in the bottom bar. Everything else is under More or Admin (under More). Never say "Settings" or "sidebar" for a page that is actually under More.
+Natural pattern (only for genuinely unsupported actions):
+"That one isn't a one-tap shortcut yet — but you can do it from [correct page] → [specific step]."
 
-Never pretend to try. Never output a tag that isn't on the valid list. Never say "let me check" for something you clearly can't do. Just be straight about it and point them to the right place.
+To find the correct page: always check the APP NAVIGATION section above first. Primary nav pages are in the bottom bar. Everything else is under More or Admin (under More).
+
+Never pretend to try. Never output a tag that isn't on the valid list. But equally: never tell users to do something manually if a valid tag covers it — that contradicts your own capabilities and confuses them.
 
 FOLLOW-UP SUGGESTIONS: After answering a question (not after action tags), you may optionally end your response with:
 [FOLLOWUP]Short follow-up question 1?|Short follow-up question 2?[/FOLLOWUP]
@@ -1992,8 +2054,11 @@ export function registerAiRoutes(app: Express) {
       //  1. Current message has data keywords → load base context (cached) + targeted dynamic query
       //  2. Follow-up (cache hit) → reuse cached base + still run dynamic query for this message
       //  3. Pure conversation → minimal prompt, no DB
-      const wantsData = needsStoreData(trimmedMessages, fileContent);
-      const isJustChatting = isCasualOnly(trimmedMessages);
+      const wantsAddProduct = detectAddProductIntent(trimmedMessages);
+      // ADD-product turns ALWAYS need fresh store data (categories list etc.)
+      // and force the smart model regardless of message length.
+      const wantsData = wantsAddProduct || needsStoreData(trimmedMessages, fileContent);
+      const isJustChatting = !wantsAddProduct && isCasualOnly(trimmedMessages);
       const cachedCtx = contextCache.get(uid);
       const hasCachedCtx = !!cachedCtx && Date.now() < cachedCtx.expiry;
       // Never inject store context for pure greetings/casual messages even if cache is warm —
@@ -2034,6 +2099,16 @@ export function registerAiRoutes(app: Express) {
       } else {
         const memoryBlock = await memoryFetch;
         systemPrompt = buildMinimalSystemPrompt(memoryBlock || undefined);
+      }
+
+      // ── Turn-level directive injection (highest priority) ─────────────────────
+      // For ADD-product turns we PREPEND a short directive that supersedes
+      // anything older in the prompt or history. This is the cleanest way to
+      // stop the model from drifting into "go to Products and tap +" advice
+      // after it has already promised to add the product.
+      if (wantsAddProduct) {
+        systemPrompt = buildAddProductDirective() + "\n" + systemPrompt;
+        console.log(`[ai][${requestId}] ADD_PRODUCT intent → directive injected, smart model + low temp`);
       }
 
       // ── Trim history to control token count ───────────────────────────────────
@@ -2084,15 +2159,19 @@ export function registerAiRoutes(app: Express) {
       // longer than 80 chars, or that mentions analytics-style keywords, deserves
       // the smarter model. Trivial chitchat gets the fast 8B model.
       const wantsSmartModel =
+        wantsAddProduct ||
         lastUserMsg.length > 80 ||
         wantsData ||
         intent.type !== "none" ||
         wantsHowTo ||
         /\b(analy|why|explain|recommend|suggest|strateg|compare|insight|forecast|predict|optimize|improve)\b/i.test(lastUserMsg);
 
+      // Action-tag turns (ADD_PRODUCT etc.) need lower temp for clean JSON.
+      const temperature = wantsAddProduct ? 0.2 : 0.5;
+
       let aiResponse: Awaited<ReturnType<typeof fetch>>;
       try {
-        aiResponse = await resolveAIStream(groqMessages as any, maxTokens, 0.5, requestId, { preferSmart: wantsSmartModel });
+        aiResponse = await resolveAIStream(groqMessages as any, maxTokens, temperature, requestId, { preferSmart: wantsSmartModel });
       } catch (aiErr: any) {
         const elapsed = Date.now() - requestStart;
         console.error(`[ai][${requestId}] resolveAIStream threw: ${aiErr.message} | total elapsed: ${elapsed}ms | debug: ${aiErr.debugInfo ?? "n/a"}`);
@@ -2883,4 +2962,86 @@ export function registerAiRoutes(app: Express) {
   app.get("/api/ai/provider-status", requireAuth, async (_req: Request, res: Response) => {
     res.json(getProviderStatus());
   });
+
+  // ── Smart contextual suggestion pills ────────────────────────────────────────
+  // Returns 3 short, contextual prompts based on the actual state of the user's
+  // store right now (low stock, sales pace, recent inactivity, etc.).
+  // Zero LLM tokens — pure data-driven heuristics. Cached per user for 60s.
+  app.get("/api/ai/suggestions", requireAuth, async (req: Request, res: Response) => {
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ suggestions: [] });
+
+    // 60s in-memory cache keyed by user
+    const cacheKey = `sugg:${uid}`;
+    const cached = (suggestionCache.get(cacheKey));
+    if (cached && Date.now() < cached.expiry) {
+      return res.json({ suggestions: cached.items });
+    }
+
+    try {
+      const items = await buildSmartSuggestions(uid);
+      suggestionCache.set(cacheKey, { items, expiry: Date.now() + 60_000 });
+      res.json({ suggestions: items });
+    } catch (err: any) {
+      console.warn(`[ai] suggestions failed: ${err.message}`);
+      res.json({ suggestions: DEFAULT_SUGGESTIONS });
+    }
+  });
+}
+
+// ─── Smart suggestion engine (server-side, zero LLM tokens) ──────────────────
+const suggestionCache = new Map<string, { items: string[]; expiry: number }>();
+const DEFAULT_SUGGESTIONS = [
+  "How are sales today?",
+  "Show me my top products",
+  "Who are my best customers?",
+];
+
+async function buildSmartSuggestions(uid: string): Promise<string[]> {
+  const out: string[] = [];
+
+  // Pull a tiny set of signals — single quick gather, no heavy queries.
+  const ctx = await gatherContext(uid).catch(() => null);
+  if (!ctx) return DEFAULT_SUGGESTIONS;
+
+  const ctxText = ctx.contextText;
+
+  // 1) Empty store / fresh setup → onboarding suggestion
+  if (/store has no products yet|no products in your store/i.test(ctxText)) {
+    out.push("Add your first product");
+    out.push("How do I get started?");
+    out.push("What can you do?");
+    return out;
+  }
+
+  // 2) Low-stock alerts present → restock prompt (highest priority)
+  if (/LOW STOCK:/i.test(ctxText)) {
+    out.push("Which products are low on stock?");
+  }
+
+  // 3) Today's revenue mentioned → pace check
+  if (/TODAY:\s*[^\s|]+/i.test(ctxText)) {
+    out.push("How are sales today vs yesterday?");
+  }
+
+  // 4) Has top customers → loyalty action
+  if (/MOST LOYAL:/i.test(ctxText)) {
+    out.push("Who hasn't bought in 30 days?");
+  }
+
+  // 5) Generic high-value defaults to fill remaining slots
+  const fillers = [
+    "Show me top products this month",
+    "Best day & hour to sell",
+    "Give me today's daily digest",
+    "Log an expense",
+    "Add a new product",
+    "What are my biggest expenses?",
+  ];
+  for (const f of fillers) {
+    if (out.length >= 3) break;
+    if (!out.includes(f)) out.push(f);
+  }
+
+  return out.slice(0, 3);
 }

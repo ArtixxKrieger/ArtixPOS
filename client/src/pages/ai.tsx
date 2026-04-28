@@ -1592,6 +1592,8 @@ export default function AiPage() {
   const [addProductDoneIds, setAddProductDoneIds] = useState<Set<string>>(new Set());
   const [updateProductDoneIds, setUpdateProductDoneIds] = useState<Set<string>>(new Set());
   const [deleteProductDoneIds, setDeleteProductDoneIds] = useState<Set<string>>(new Set());
+  // Smart suggestion pills above the input — driven by /api/ai/suggestions
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [addCustomerDoneIds, setAddCustomerDoneIds] = useState<Set<string>>(new Set());
   const [expenseDoneIds, setExpenseDoneIds] = useState<Set<string>>(new Set());
   const [discountDoneIds, setDiscountDoneIds] = useState<Set<string>>(new Set());
@@ -1671,6 +1673,25 @@ export default function AiPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Fetch contextual suggestion pills on mount + after each assistant reply.
+  // Server caches per user for 60s so this is cheap to call frequently.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (loading) return;            // don't fetch while a stream is in flight
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/ai/suggestions", { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data?.suggestions)) {
+          setSuggestions(data.suggestions.slice(0, 3));
+        }
+      } catch { /* silent — pills are optional */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, loading, messages.length]);
 
   const refreshSessions = () => setSessions(getSessions());
 
@@ -2581,6 +2602,21 @@ export default function AiPage() {
               <button onClick={() => { setPendingFile(null); setFileContent(null); }} className="text-primary/60 hover:text-primary shrink-0 transition-colors">
                 <X className="h-3 w-3" />
               </button>
+            </div>
+          )}
+          {/* Smart contextual suggestion pills — only when input is empty, no file pending, and not loading */}
+          {!input.trim() && !pendingFile && !loading && suggestions.length > 0 && (
+            <div className="flex gap-1.5 mb-2 overflow-x-auto scrollbar-hide -mx-1 px-1" data-testid="suggestion-pills">
+              {suggestions.map((s, i) => (
+                <button
+                  key={`${i}-${s}`}
+                  onClick={() => sendMessage(s)}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-primary/8 hover:bg-primary/15 border border-primary/20 text-primary transition-colors whitespace-nowrap active:scale-95"
+                  data-testid={`button-suggestion-${i}`}
+                >
+                  {s}
+                </button>
+              ))}
             </div>
           )}
           <div className="flex items-end gap-1.5 bg-muted/40 dark:bg-white/[0.05] border border-border rounded-[24px] px-2 py-2 focus-within:border-primary/40 focus-within:bg-muted/60 transition-all">

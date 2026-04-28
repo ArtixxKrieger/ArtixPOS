@@ -176,11 +176,11 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
   ] = await Promise.all([
     // Owner tenantId (for staff lookup)
     db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId)),
-    // Products, customers, expenses, shifts, settings
-    storage.getProducts(userId).then(r => r.slice(0, 60)),
-    storage.getCustomers(userId).then(r => r.slice(0, 40)),
-    storage.getExpenses(userId).then(r => r.slice(0, 40)),
-    storage.getShifts(userId, { limit: 10 }),
+    // Products / customers / expenses — SQL-level LIMIT so this scales to millions
+    storage.getProducts(userId, { limit: 60 }),
+    storage.getCustomers(userId, { limit: 40, orderByTopSpenders: true }),
+    storage.getExpenses(userId, { limit: 20 }),
+    storage.getShifts(userId, { limit: 5 }),
     storage.getSettings(userId),
     // Recent 20 sales for product-level analysis
     storage.getSales(userId, { limit: 20 }),
@@ -261,8 +261,9 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
     }));
   }
 
-  // Discount codes for this user
-  const allDiscountCodes = await storage.getDiscountCodes(userId);
+  // Discount codes for this user (cap at 30 — owners with 1000s of codes don't
+  // need every single one in the AI prompt)
+  const allDiscountCodes = await storage.getDiscountCodes(userId, { limit: 30 });
 
   const currency = settings?.currency || "₱";
   const storeName = settings?.storeName || "Store";
@@ -423,64 +424,54 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
     ? businessSubType.replace(/_/g, " ")
     : businessType?.replace(/_/g, " ") ?? "general";
 
-  const contextText = `STORE: ${storeName} | Currency: ${currency} | Today: ${today} | Business: ${businessLabel}
+  // Compact context: ~40-60% smaller than the previous prompt — only the
+  // sections the AI consults on most questions. Heavier sections (full product
+  // list, full customer list, day-of-week breakdown, all discount codes,
+  // staff roster) are loaded ON DEMAND by runDynamicQuery when the user's
+  // question actually needs them.
+  const productsLine = allProducts.slice(0, 8).map((p) =>
+    `${p.name} ${fmt(parseFloat(p.price ?? "0"))}${p.trackStock ? ` (${p.stock ?? 0})` : ""}`
+  ).join(" | ");
+  const customersLine = allCustomers.slice(0, 5).map((c) =>
+    `${c.name} ${fmt(parseFloat(c.totalSpent ?? "0"))}/${c.visitCount}v`
+  ).join(" | ");
+  const expensesLine = allExpenses.slice(0, 4).map((e) =>
+    `${e.description} ${fmt(parseFloat(e.amount ?? "0"))}`
+  ).join(" | ");
+  const discountLine = allDiscountCodes.length === 0
+    ? "none"
+    : allDiscountCodes.slice(0, 6).map(d => {
+        const val = d.type === "percentage" ? `${d.value}%` : `${currency}${d.value}`;
+        return `${d.code}=${val}${d.isActive ? "" : "(off)"}`;
+      }).join(", ");
 
-REVENUE SUMMARY:
-- All-time: ${fmt(revenueRow?.totalRevenue ?? 0)} across ${(revenueRow?.totalTransactions ?? 0).toLocaleString("en-PH")} transactions
-- Avg transaction (all-time): ${avgStr}
-- Lowest transaction ever: ${lowestStr}
-- Today (${today}): ${fmt(todayRow?.revenue ?? 0)}
-- This month (${thisMonth}): ${fmt(thisMonthRevenue)} | Last month (${lastMonth}): ${fmt(lastMonthRevenue)}
-- First sale ever: ${firstSaleStr}
+  const contextText = `STORE: ${storeName} | ${currency} | Today: ${today} | ${businessLabel}
 
-MONTHLY REVENUE GOAL:
-${revenueGoalStr}
+REVENUE: All-time ${fmt(revenueRow?.totalRevenue ?? 0)} (${(revenueRow?.totalTransactions ?? 0).toLocaleString("en-PH")} txns) | Avg ${avgStr} | Lowest ${lowestStr}
+TODAY: ${fmt(todayRow?.revenue ?? 0)} | THIS MONTH (${thisMonth}): ${fmt(thisMonthRevenue)} | LAST MONTH (${lastMonth}): ${fmt(lastMonthRevenue)}
+FIRST SALE: ${firstSaleStr}
+GOAL: ${revenueGoalStr}
 
-CATEGORIES: ${uniqueCategories.length > 0 ? uniqueCategories.join(", ") : "None yet"}
+CATEGORIES: ${uniqueCategories.length > 0 ? uniqueCategories.slice(0, 12).join(", ") : "none yet"}
 
-RECENT TRANSACTIONS (last ${recentTransactions.length}, newest first):
+RECENT TRANSACTIONS (newest first):
 ${recentTransactions.join("\n") || "No transactions yet"}
 
-TOP PRODUCTS (by units sold, from last 100 sales):
-${topProducts.join("\n") || "No data"}
+TOP PRODUCTS BY UNITS SOLD (last 100 sales):
+${topProducts.slice(0, 6).join("\n") || "No data"}
+${smartRestockAlerts.length > 0 ? `\nLOW STOCK:\n${smartRestockAlerts.slice(0, 6).join("\n")}` : ""}
+PRODUCT SAMPLE (${allProducts.length} loaded): ${productsLine || "none"}
 
-SMART RESTOCK ALERTS (low stock with sales velocity):
-${smartRestockAlerts.join("\n") || "None — all stock levels OK"}
+TOP CUSTOMERS (${allCustomers.length} loaded): ${customersLine || "none"}
+${topCustomer ? `MOST LOYAL: ${topCustomer.name} (${fmt(parseFloat(topCustomer.totalSpent || "0"))}, ${topCustomer.visitCount} visits)` : ""}
 
-PRODUCTS (${allProducts.length} total, showing top 15):
-${allProducts.slice(0, 15).map((p) => `${p.name} | ${fmt(parseFloat(p.price ?? "0"))} | ${p.category || "Uncategorized"} | Stock: ${p.trackStock ? (p.stock ?? 0).toLocaleString("en-PH") : "—"}`).join("\n")}
+EXPENSES: ${expenseTrend}
+Recent: ${expensesLine || "none"} | All-time total: ${fmt(totalExpenses)}
 
-CUSTOMER INSIGHTS:
-- Most loyal: ${topCustomer ? `${topCustomer.name} | Spent: ${fmt(parseFloat(topCustomer.totalSpent || "0"))} | Visits: ${topCustomer.visitCount}` : "No customers yet"}
-- Top loyal regulars (3+ visits): ${inactiveRegulars.length > 0 ? "\n" + inactiveRegulars.map(r => `  • ${r}`).join("\n") : "None"}
+DISCOUNT CODES (${allDiscountCodes.length}): ${discountLine}
 
-CUSTOMERS (${allCustomers.length} total):
-${allCustomers.slice(0, 8).map((c) => `${c.name} | Spent: ${fmt(parseFloat(c.totalSpent ?? "0"))} | Visits: ${c.visitCount}`).join("\n")}
-
-EXPENSE TREND:
-${expenseTrend}
-Recent: ${allExpenses.slice(0, 5).map((e) => `${e.description}: ${fmt(parseFloat(e.amount ?? "0"))}`).join(", ") || "none"}
-Total all-time: ${fmt(totalExpenses)}
-
-BEST DAYS TO SELL (last 90 days, highest revenue first):
-${dowLines.join("\n") || "No data yet"}
-
-DISCOUNT CODES (${allDiscountCodes.length} total):
-${allDiscountCodes.length === 0 ? "No discount codes yet" : allDiscountCodes.map(d => {
-  const status = d.isActive ? "Active" : "Inactive";
-  const expiry = d.expiresAt ? ` | Expires: ${d.expiresAt}` : "";
-  const uses = d.maxUses ? ` | Uses: ${d.usedCount ?? 0}/${d.maxUses}` : (d.usedCount ? ` | Used: ${d.usedCount}x` : "");
-  const val = d.type === "percentage" ? `${d.value}%` : `${currency}${d.value}`;
-  return `${d.code} | ${val} off | ${d.type} | ${status}${uses}${expiry}`;
-}).join("\n")}
-
-STAFF: ${staffList.length === 0 ? "Solo store" : staffList.map((s) => {
-  const branchStr = s.branches.length > 0 ? ` | Branches: ${s.branches.map(id => branchNames[id] || `Branch#${id}`).join(", ")}` : " | All branches";
-  const banned = s.isBanned ? " | BANNED" : "";
-  return `${s.name || "Unnamed"} (${s.role}) | ${s.email || "no email"}${branchStr}${banned}`;
-}).join("\n")}
-
-LAST SHIFT: ${recentShifts[0] ? `${recentShifts[0].openedAt?.split("T")[0]} | ${recentShifts[0].status} | Sales: ${fmt(parseFloat(recentShifts[0].totalSales ?? "0"))}` : "No shifts yet"}`;
+STAFF: ${staffList.length === 0 ? "Solo store" : staffList.slice(0, 6).map((s) => `${s.name || "?"} (${s.role})${s.isBanned ? " BANNED" : ""}`).join(", ")}
+LAST SHIFT: ${recentShifts[0] ? `${recentShifts[0].openedAt?.split("T")[0]} ${recentShifts[0].status} (${fmt(parseFloat(recentShifts[0].totalSales ?? "0"))})` : "none"}`;
 
   const result: ContextResult = {
     contextText: contextText.trim(),
@@ -587,14 +578,26 @@ function detectQueryIntent(messages: ChatMessage[]): QueryIntent {
   const month = extractMonthStr(ctx);
   if (month) return { type: "daily_breakdown", month };
 
-  // Show more recent transactions
-  const moreMatch = ctx.match(/last\s+(\d+)\s+(transactions?|sales?)/);
-  if (moreMatch || /\b(recent transactions?|latest transactions?|show.*transactions?|all transactions?)\b/.test(ctx)) {
+  // Show more recent transactions / sales
+  const moreMatch = ctx.match(/last\s+(\d+)\s+(transactions?|sales?|orders?|bookings?)/);
+  if (moreMatch || /\b(recent (transactions?|sales?|orders?|bookings?)|latest (transactions?|sales?|orders?|bookings?)|show.*(transactions?|sales?)|all (transactions?|sales?))\b/.test(ctx)) {
     const limit = moreMatch ? Math.min(parseInt(moreMatch[1]), 30) : 20;
     return { type: "recent_extended", limit };
   }
 
   return { type: "none" };
+}
+
+// ─── How-to intent detection ─────────────────────────────────────────────────
+// Returns true when the user is asking how/where to do something in the app,
+// so we can inject the (large) how-to guide ONLY when needed instead of every
+// message. Saves ~3-5K characters of input tokens per request on average.
+const HOW_TO_RE = /\b(how (do|can|to|i)|where (is|do|can|i find)|which (page|tab|menu)|paano|saan|nasaan|pano|how come|how about|tutorial|guide me|walk me through|show me how|teach me|explain how|set ?up|configure|enable|disable)\b/i;
+function detectHowToIntent(messages: ChatMessage[]): boolean {
+  const lastUserMsg = messages
+    .filter(m => m.role === "user")
+    .at(-1)?.content ?? "";
+  return HOW_TO_RE.test(lastUserMsg);
 }
 
 // ─── Dynamic query runner ─────────────────────────────────────────────────────
@@ -1119,9 +1122,21 @@ CORE FEATURES (available to all businesses):
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-function buildSystemPrompt(contextText: string, fileContent?: string, businessType?: string | null, businessSubType?: string | null, memoryBlock?: string): string {
+// `includeHowTo` controls whether the multi-KB how-to guide is appended.
+// It's only injected when the user asks "how do I…" / "where is…" / "paano…"
+// (detected by detectHowToIntent) — including it on every message wastes
+// 3-5K characters of input tokens per request and burns through provider
+// rate limits on long conversations.
+function buildSystemPrompt(
+  contextText: string,
+  fileContent?: string,
+  businessType?: string | null,
+  businessSubType?: string | null,
+  memoryBlock?: string,
+  includeHowTo = false,
+): string {
   const businessCtx = getBusinessContext(businessType ?? null, businessSubType ?? null);
-  const howToGuide = getHowToGuide(businessType ?? null, businessSubType ?? null);
+  const howToGuide = includeHowTo ? getHowToGuide(businessType ?? null, businessSubType ?? null) : "";
   return `You are ArtixPOS AI — a personal business assistant built exclusively for this store. You know this business inside and out. Match the user's language naturally (English/Tagalog/Taglish). Never reveal what AI model powers you.
 
 PERSONALITY:
@@ -1912,7 +1927,8 @@ export function registerAiRoutes(app: Express) {
 
       // Detect what specific data the question needs (synchronous, no I/O)
       const intent = detectQueryIntent(trimmedMessages);
-      console.log(`[ai][${requestId}] queryIntent: ${JSON.stringify(intent)}`);
+      const wantsHowTo = detectHowToIntent(trimmedMessages);
+      console.log(`[ai][${requestId}] queryIntent: ${JSON.stringify(intent)} | howTo: ${wantsHowTo}`);
 
       // ── Fetch memories in parallel with context loading ───────────────────────
       const memoryFetch = getRelevantMemories({
@@ -1931,14 +1947,14 @@ export function registerAiRoutes(app: Express) {
           memoryFetch,
         ]);
         console.log(`[ai][${requestId}] context gathered in ${Date.now() - ctxStart}ms (base: ${baseCtx.contextText.length} chars, dynamic: ${dynamicSection?.length ?? 0} chars, memory: ${memoryBlock.length} chars, intent: ${intent.type})`);
-        systemPrompt = buildSystemPrompt(mergeContext(baseCtx.contextText, dynamicSection), fileContent, baseCtx.businessType, baseCtx.businessSubType, memoryBlock || undefined);
+        systemPrompt = buildSystemPrompt(mergeContext(baseCtx.contextText, dynamicSection), fileContent, baseCtx.businessType, baseCtx.businessSubType, memoryBlock || undefined, wantsHowTo);
       } else if (hasCachedCtx && !isJustChatting) {
         // Follow-up: reuse cached base context, but still run dynamic query for this message
         const [dynamicSection, memoryBlock] = await Promise.all([
           runDynamicQuery(intent, uid, cachedCtx!.data.currency, requestId),
           memoryFetch,
         ]);
-        systemPrompt = buildSystemPrompt(mergeContext(cachedCtx!.data.contextText, dynamicSection), fileContent, cachedCtx!.data.businessType, cachedCtx!.data.businessSubType, memoryBlock || undefined);
+        systemPrompt = buildSystemPrompt(mergeContext(cachedCtx!.data.contextText, dynamicSection), fileContent, cachedCtx!.data.businessType, cachedCtx!.data.businessSubType, memoryBlock || undefined, wantsHowTo);
       } else {
         const memoryBlock = await memoryFetch;
         systemPrompt = buildMinimalSystemPrompt(memoryBlock || undefined);

@@ -231,13 +231,25 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Products ─────────────────────────────────────────────────────────────
 
-  async getProducts(userId: string, branchId?: number | null): Promise<Product[]> {
+  async getProducts(
+    userId: string,
+    branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number },
+  ): Promise<Product[]> {
     try {
+      const isOpts = (v: unknown): v is { branchId?: number | null; limit?: number; offset?: number } =>
+        typeof v === "object" && v !== null;
+      const branchId: number | null | undefined = isOpts(branchIdOrOpts) ? branchIdOrOpts.branchId : branchIdOrOpts;
+      const limit: number | undefined = isOpts(branchIdOrOpts) ? branchIdOrOpts.limit : undefined;
+      const offset: number = (isOpts(branchIdOrOpts) ? branchIdOrOpts.offset : undefined) ?? 0;
       const userIds = await this.getTenantUserIds(userId);
       const conditions: any[] = [];
       conditions.push(userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds));
       if (branchId != null) conditions.push(eq(products.branchId, branchId));
-      return await db.select().from(products).where(and(...conditions));
+      let query: any = db.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
+      if (typeof limit === "number" && limit > 0) {
+        query = query.limit(limit).offset(offset);
+      }
+      return await query;
     } catch (error) {
       console.error("Error fetching products:", error);
       return [];
@@ -539,13 +551,24 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Customers ────────────────────────────────────────────────────────────
 
-  async getCustomers(userId: string): Promise<Customer[]> {
+  async getCustomers(
+    userId: string,
+    opts: { limit?: number; offset?: number; orderByTopSpenders?: boolean } = {},
+  ): Promise<Customer[]> {
     try {
+      const { limit, offset = 0, orderByTopSpenders = false } = opts;
       const userIds = await this.getTenantUserIds(userId);
-      if (userIds.length === 1) {
-        return await db.select().from(customers).where(eq(customers.userId, userIds[0])).orderBy(desc(customers.createdAt));
+      const whereCond = userIds.length === 1
+        ? eq(customers.userId, userIds[0])
+        : inArray(customers.userId, userIds);
+      const orderExpr = orderByTopSpenders
+        ? sql`CAST(total_spent AS NUMERIC) DESC NULLS LAST`
+        : desc(customers.createdAt);
+      let query: any = db.select().from(customers).where(whereCond).orderBy(orderExpr);
+      if (typeof limit === "number" && limit > 0) {
+        query = query.limit(limit).offset(offset);
       }
-      return await db.select().from(customers).where(inArray(customers.userId, userIds)).orderBy(desc(customers.createdAt));
+      return await query;
     } catch (error) {
       console.error("Error fetching customers:", error);
       return [];
@@ -618,13 +641,25 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Expenses ─────────────────────────────────────────────────────────────
 
-  async getExpenses(userId: string, branchId?: number | null): Promise<Expense[]> {
+  async getExpenses(
+    userId: string,
+    branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number },
+  ): Promise<Expense[]> {
     try {
+      const isOpts = (v: unknown): v is { branchId?: number | null; limit?: number; offset?: number } =>
+        typeof v === "object" && v !== null;
+      const branchId: number | null | undefined = isOpts(branchIdOrOpts) ? branchIdOrOpts.branchId : branchIdOrOpts;
+      const limit: number | undefined = isOpts(branchIdOrOpts) ? branchIdOrOpts.limit : undefined;
+      const offset: number = (isOpts(branchIdOrOpts) ? branchIdOrOpts.offset : undefined) ?? 0;
       const userIds = await this.getTenantUserIds(userId);
       const conditions: any[] = [];
       conditions.push(userIds.length === 1 ? eq(expenses.userId, userIds[0]) : inArray(expenses.userId, userIds));
       if (branchId != null) conditions.push(eq(expenses.branchId, branchId));
-      return await db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
+      let query: any = db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
+      if (typeof limit === "number" && limit > 0) {
+        query = query.limit(limit).offset(offset);
+      }
+      return await query;
     } catch (error) {
       console.error("Error fetching expenses:", error);
       return [];
@@ -764,13 +799,21 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Discount Codes ───────────────────────────────────────────────────────
 
-  async getDiscountCodes(userId: string): Promise<DiscountCode[]> {
+  async getDiscountCodes(
+    userId: string,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<DiscountCode[]> {
     try {
+      const { limit, offset = 0 } = opts;
       const userIds = await this.getTenantUserIds(userId);
-      if (userIds.length === 1) {
-        return await db.select().from(discountCodes).where(eq(discountCodes.userId, userIds[0])).orderBy(desc(discountCodes.createdAt));
+      const whereCond = userIds.length === 1
+        ? eq(discountCodes.userId, userIds[0])
+        : inArray(discountCodes.userId, userIds);
+      let query: any = db.select().from(discountCodes).where(whereCond).orderBy(desc(discountCodes.createdAt));
+      if (typeof limit === "number" && limit > 0) {
+        query = query.limit(limit).offset(offset);
       }
-      return await db.select().from(discountCodes).where(inArray(discountCodes.userId, userIds)).orderBy(desc(discountCodes.createdAt));
+      return await query;
     } catch (error) {
       console.error("Error fetching discount codes:", error);
       return [];

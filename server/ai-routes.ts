@@ -127,6 +127,7 @@ export const SUPPORTED_ACTION_TAGS = [
   "DELETE_DISCOUNT_CODE",
   "TOGGLE_DISCOUNT_CODE",
   "SHOW_STAFF_INFO",
+  "SHOW_CUSTOMER_ORDERS",
   "FOLLOWUP",
 ] as const;
 
@@ -1195,6 +1196,13 @@ SHOW STAFF INFO: If the user asks about staff emails, staff by branch, staff lis
 - branch can be "all" (show all branches), or a specific branch name.
 - This will display an interactive staff card where the owner can revoke/restore access and manage branch assignments.
 
+SHOW CUSTOMER ORDERS / REORDER: If the user asks for a specific customer's order history, what they bought before, their last order, "the usual" for a regular, or wants to repeat/reorder a customer's previous order ("Juan's usual", "what did Maria buy last time", "give Pedro the same as last time", "ulitin order ni Ana"), reply with a short intro then on its own line:
+[SHOW_CUSTOMER_ORDERS]{"name":"Juan Dela Cruz"}[/SHOW_CUSTOMER_ORDERS]
+- CRITICAL FORMAT RULE: The opening tag [SHOW_CUSTOMER_ORDERS] MUST be immediately followed by the JSON on the SAME LINE.
+- "name" is the customer's name as the user mentioned it. Server does fuzzy match against the CUSTOMERS list.
+- Use this tag whenever the user wants to look up one specific customer's purchase history or repeat their order — the card will display recent orders with a "Reorder" button that loads the items into the POS cart.
+- Do NOT use this tag for general "show me my customers" or "top spenders" — only for ONE specific named customer's order history.
+
 PRODUCT DISPLAY: When listing products, if stock tracking is disabled (trackStock=false), show "No stock tracking" instead of a dash or "—". For tracked products, show the actual stock number.
 
 VALID ACTION TAGS — STRICT LIST:
@@ -1456,6 +1464,44 @@ const JAILBREAK_PATTERNS: RegExp[] = [
   /\bhow\s+to\s+(bypass|circumvent|defeat|trick)\s+(the\s+)?(ai|filter|restriction|safety)\b/i,
 ];
 
+// Off-topic patterns — clearly NOT about a store/business.
+// These run BEFORE the AI is called, saving tokens and preventing
+// the model from drifting into homework/coding/general-knowledge mode.
+// Be conservative: only catch the obviously off-topic stuff. Anything
+// store-adjacent (recipes for a cafe, supplier translations) is left
+// to the AI's own topic-boundary instructions.
+const OFF_TOPIC_PATTERNS: RegExp[] = [
+  // Programming / coding requests
+  /\b(help me\s+)?(learn|teach me|how to (write|use|code|build))\s+(html|css|javascript|js|typescript|ts|python|java|c\+\+|c#|ruby|php|golang|rust|swift|kotlin|sql|react|vue|angular|node\.?js|django|flask|laravel|express|tailwind|bootstrap)\b/i,
+  /\b(write|generate|create|give me|show me|build me)\s+(a|an?|some|me a|me an?)\s*(code|function|script|algorithm|regex|program|class|component|html|css|sql query|api|endpoint)\b/i,
+  /\b(html|css|javascript|python|sql|react)\s+(code|tutorial|example|snippet|guide|course|lesson)\b/i,
+  /\bdebug\s+(this|my|the)\s+code\b/i,
+  /\bexplain\s+(this|the following|my)\s+(code|function|script|error|stack trace)\b/i,
+  /\bwhat\s+is\s+(html|css|javascript|python|java|react|sql|recursion|big\s*o|polymorphism|closure)\b/i,
+
+  // Pure general-knowledge / philosophy ("what is love?", "meaning of life")
+  /^[\s!?.,"']*what\s+is\s+(love|life|happiness|god|the meaning of life|consciousness|reality|truth|art|philosophy|democracy|capitalism|socialism|communism|religion|the universe|time|space)\??[\s!?.,"']*$/i,
+  /^[\s!?.,"']*what'?s\s+(love|life|happiness|the meaning of life)\??[\s!?.,"']*$/i,
+  /\bwho\s+(is|was)\s+(jesus|buddha|muhammad|einstein|napoleon|hitler|trump|biden|obama|the president of\b|the prime minister of\b)/i,
+
+  // Creative content unrelated to the store
+  /\b(write|compose|generate)\s+(me\s+)?(a|an?)\s+(poem|song|story|essay|joke|haiku|love letter|article|blog post|novel|script|screenplay)\b/i,
+
+  // Homework / generic math
+  /\bsolve\s+(this|the following|x\s*=)/i,
+  /^[\s!?.,"']*(what is|whats|what'?s|calculate)\s+\d+\s*[\+\-\*\/x×÷]\s*\d+/i,
+
+  // Translation of arbitrary text
+  /\btranslate\s+(this|the following|that|to (english|spanish|french|german|tagalog|filipino|chinese|japanese|korean))\b/i,
+
+  // Personal advice / relationship / health diagnostics
+  /\b(should i|do you think i should)\s+(marry|date|break up|dump|leave my|quit my job|move out|forgive|apologize)\b/i,
+  /\b(what (does|do) (it|they) mean when)\b/i,
+];
+
+const BLOCK_MSG_OFF_TOPIC =
+  "I'm only built for your store — sales, products, customers, expenses, staff, all that. Try asking me something about your business!";
+
 // Destructive data operation patterns
 const DESTRUCTIVE_PATTERNS: RegExp[] = [
   /\bdelete\s+all\b/i,
@@ -1496,6 +1542,14 @@ function serverSafetyCheck(messages: ChatMessage[]): SafetyResult | null {
   for (const pattern of DESTRUCTIVE_PATTERNS) {
     if (pattern.test(currentMessage)) {
       return { blocked: true, message: BLOCK_MSG_DESTRUCTIVE, isBannable: false };
+    }
+  }
+
+  // Off-topic check — only the CURRENT user message (don't penalize the user
+  // for an earlier off-topic mention if they pivoted to a real store question).
+  for (const pattern of OFF_TOPIC_PATTERNS) {
+    if (pattern.test(currentMessage)) {
+      return { blocked: true, message: BLOCK_MSG_OFF_TOPIC, isBannable: false };
     }
   }
 
@@ -2108,6 +2162,78 @@ export function registerAiRoutes(app: Express) {
     } catch (err: any) {
       console.error("Log expense error:", err);
       res.status(500).json({ message: "Failed to log expense." });
+    }
+  });
+
+  // ── Customer order history (for the [SHOW_CUSTOMER_ORDERS] tag / reorder card) ─
+  app.post("/api/ai/customer-orders", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { name, customerId, limit } = req.body as {
+        name?: string;
+        customerId?: number;
+        limit?: number;
+      };
+      if (!name && !customerId) {
+        return res.status(400).json({ message: "name or customerId is required." });
+      }
+
+      const allCustomers = await storage.getCustomers(uid);
+      let customer: typeof allCustomers[number] | undefined;
+
+      if (customerId) {
+        customer = allCustomers.find(c => c.id === customerId);
+      } else if (name) {
+        const needle = String(name).trim().toLowerCase();
+        // 1. Exact (case-insensitive)
+        customer = allCustomers.find(c => c.name?.toLowerCase() === needle);
+        // 2. Substring either way
+        if (!customer) {
+          customer = allCustomers.find(c =>
+            c.name?.toLowerCase().includes(needle) || needle.includes(c.name?.toLowerCase() ?? ""),
+          );
+        }
+        // 3. First-name / token overlap (e.g. "Juan" matches "Juan Dela Cruz")
+        if (!customer) {
+          const tokens = needle.split(/\s+/).filter(Boolean);
+          customer = allCustomers.find(c => {
+            const cn = (c.name ?? "").toLowerCase();
+            return tokens.some(t => t.length >= 2 && cn.split(/\s+/).includes(t));
+          });
+        }
+      }
+
+      if (!customer) {
+        return res.json({ customer: null, orders: [] });
+      }
+
+      const cap = Math.min(Math.max(Number(limit) || 5, 1), 10);
+      // Pull a generous slice of recent sales then filter by customer in memory
+      // (storage doesn't expose a per-customer query and we already cap the result).
+      const recent = await storage.getSales(uid, { limit: 200 });
+      const orders = recent
+        .filter(s => s.customerId === customer!.id)
+        .slice(0, cap)
+        .map(s => ({
+          id: s.id,
+          createdAt: s.createdAt,
+          total: s.total,
+          paymentMethod: s.paymentMethod,
+          items: Array.isArray(s.items) ? s.items : [],
+        }));
+
+      res.json({
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+        },
+        orders,
+      });
+    } catch (err: any) {
+      console.error("Customer orders error:", err);
+      res.status(500).json({ message: "Failed to fetch customer orders." });
     }
   });
 

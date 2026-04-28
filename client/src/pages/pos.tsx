@@ -255,6 +255,76 @@ export default function POS() {
     if (!isCashPayment) setPaymentAmount(total.toString());
   }, [isCashPayment, total]);
 
+  // ── Reorder hand-off from AI page ──────────────────────────────────────────
+  // The AI's "Reorder" button stashes a payload in sessionStorage then routes
+  // here. We pick it up once, populate the cart + selected customer, then
+  // clear the key so a refresh doesn't re-apply it.
+  const reorderConsumedRef = useRef(false);
+  useEffect(() => {
+    if (reorderConsumedRef.current) return;
+    if (products.length === 0) return; // wait for products so we can refresh stale entries
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem("pos:reorder"); } catch { return; }
+    if (!raw) return;
+    reorderConsumedRef.current = true;
+    try { sessionStorage.removeItem("pos:reorder"); } catch {}
+
+    let payload: { customerId?: number; customerName?: string; items?: any[] } | null = null;
+    try { payload = JSON.parse(raw); } catch { return; }
+    if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) return;
+
+    const productById = new Map(products.map(p => [p.id, p]));
+    const productByName = new Map(products.map(p => [p.name.toLowerCase(), p]));
+
+    const restored: CartItem[] = [];
+    let missing = 0;
+    for (const it of payload.items) {
+      const stored = it?.product ?? {};
+      // Prefer the live product (current price/stock) over the snapshot.
+      const live =
+        (stored.id != null && productById.get(stored.id)) ||
+        (stored.name && productByName.get(String(stored.name).toLowerCase())) ||
+        null;
+      const productToUse: Product | null = live ?? (stored.id && stored.name && stored.price ? stored as Product : null);
+      if (!productToUse) { missing++; continue; }
+      restored.push({
+        cartId: Math.random().toString(36),
+        product: productToUse,
+        quantity: Math.max(1, Number(it?.quantity) || 1),
+        size: it?.size && it.size.name ? { name: String(it.size.name), price: String(it.size.price ?? "0") } : undefined,
+        modifiers: Array.isArray(it?.modifiers)
+          ? it.modifiers.map((m: any) => ({ name: String(m?.name ?? ""), price: String(m?.price ?? "0") })).filter((m: any) => m.name)
+          : [],
+        note: it?.note ? String(it.note) : undefined,
+      });
+    }
+
+    if (restored.length === 0) {
+      toast({
+        title: "Couldn't reorder",
+        description: "None of those items still exist in your menu.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCart(restored);
+
+    if (payload.customerId != null) {
+      const c = customers.find(x => x.id === payload!.customerId) ?? null;
+      if (c) setSelectedCustomer(c);
+    }
+
+    setCartOpen(true);
+    toast({
+      title: `Reorder loaded${payload.customerName ? ` for ${payload.customerName}` : ""}`,
+      description:
+        missing > 0
+          ? `${restored.length} item${restored.length !== 1 ? "s" : ""} added — ${missing} not in current menu.`
+          : `${restored.length} item${restored.length !== 1 ? "s" : ""} ready to checkout.`,
+    });
+  }, [products, customers, toast]);
+
   useEffect(() => {
     if (isCashPayment && isPaymentFocused && paymentInputRef.current) {
       paymentInputRef.current.focus({ preventScroll: true });

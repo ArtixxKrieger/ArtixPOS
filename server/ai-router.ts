@@ -45,11 +45,11 @@ const PROVIDERS: ProviderConfig[] = [
     baseUrl: "https://api.groq.com/openai/v1/chat/completions",
     getApiKey: () => process.env.GROQ_API_KEY ?? null,
     // Active Groq models as of 2026 — DO NOT add decommissioned ones
+    // (llama-3.2-3b-preview was decommissioned and removed)
     models: [
       "llama-3.1-8b-instant",
       "llama-3.3-70b-versatile",
       "gemma2-9b-it",
-      "llama-3.2-3b-preview",
     ],
     windowMs: 60 * 1000,      // 1 minute
     maxRequests: 28,           // Groq free: 30/min, use 28 to be safe

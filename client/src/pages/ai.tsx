@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
+import { useToast } from "@/hooks/use-toast";
 import {
   initAiStore,
   getSessions, getSession, createSession, updateSession,
@@ -72,6 +73,26 @@ interface StaffInfoPayload {
   branch?: string;
 }
 
+interface ShowCustomerOrdersPayload {
+  name: string;
+}
+
+interface ReorderItem {
+  product: { id?: number | string; name: string; price: string };
+  quantity: number;
+  size?: { name: string; price: string };
+  modifiers?: { name: string; price: string }[];
+  note?: string;
+}
+
+interface CustomerOrderSummary {
+  id: number;
+  createdAt: string;
+  total: string;
+  paymentMethod: string;
+  items: ReorderItem[];
+}
+
 function extractTagJson(content: string, tag: string): { json: string | null; stripped: string } {
   const openTag = `[${tag}]`;
   // Strip markdown code fences that the AI might wrap around the tag
@@ -118,6 +139,7 @@ function parseImportAction(content: string): {
   deleteDiscountPayload: DeleteDiscountPayload | null;
   toggleDiscountPayload: ToggleDiscountPayload | null;
   staffInfoPayload: StaffInfoPayload | null;
+  customerOrdersPayload: ShowCustomerOrdersPayload | null;
   followups: string[];
 } {
   let display = content;
@@ -133,6 +155,7 @@ function parseImportAction(content: string): {
   let deleteDiscountPayload: DeleteDiscountPayload | null = null;
   let toggleDiscountPayload: ToggleDiscountPayload | null = null;
   let staffInfoPayload: StaffInfoPayload | null = null;
+  let customerOrdersPayload: ShowCustomerOrdersPayload | null = null;
   let followups: string[] = [];
 
   const tags: Array<{ tag: string; setter: (v: string) => void }> = [
@@ -164,6 +187,18 @@ function parseImportAction(content: string): {
     display = afterStaff;
   }
 
+  // SHOW_CUSTOMER_ORDERS: requires a name in JSON
+  const { json: ordersJson, stripped: afterOrders } = extractTagJson(display, "SHOW_CUSTOMER_ORDERS");
+  if (ordersJson !== null) {
+    try {
+      const parsed = ordersJson ? JSON.parse(ordersJson) : null;
+      if (parsed && typeof parsed.name === "string" && parsed.name.trim()) {
+        customerOrdersPayload = { name: parsed.name.trim() };
+      }
+    } catch {}
+    display = afterOrders;
+  }
+
   const { json: followupJson, stripped: afterFollowup } = extractTagJson(display, "FOLLOWUP");
   if (followupJson !== null) {
     if (followupJson) followups = followupJson.split("|").map(s => s.trim()).filter(Boolean);
@@ -174,7 +209,8 @@ function parseImportAction(content: string): {
     display, importPayload, pricePayload, addProductPayload,
     updateProductPayload, deleteProductPayload, addCustomerPayload,
     expensePayload, discountPayload, updateDiscountPayload,
-    deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload, followups,
+    deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload,
+    customerOrdersPayload, followups,
   };
 }
 
@@ -651,10 +687,133 @@ function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPay
   );
 }
 
+function CustomerOrdersCard({ name, onReorder }: { name: string; onReorder: (customerId: number, customerName: string, items: ReorderItem[]) => void }) {
+  const [data, setData] = useState<{ customer: { id: number; name: string; phone?: string | null } | null; orders: CustomerOrderSummary[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pickedId, setPickedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest("POST", "/api/ai/customer-orders", { name, limit: 5 })
+      .then(r => r.json())
+      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [name]);
+
+  if (loading) {
+    return (
+      <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 w-full">
+        <div className="flex items-center gap-2 py-1 text-xs text-teal-700 dark:text-teal-400">
+          <Loader2 className="h-3 w-3 animate-spin" /> Looking up "{name}"…
+        </div>
+      </div>
+    );
+  }
+
+  if (!data?.customer) {
+    return (
+      <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 w-full">
+        <p className="text-xs text-teal-700 dark:text-teal-400">
+          Couldn't find a customer matching <strong>"{name}"</strong>. Try the full name, or add them first.
+        </p>
+      </div>
+    );
+  }
+
+  if (data.orders.length === 0) {
+    return (
+      <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 w-full">
+        <p className="text-xs text-teal-700 dark:text-teal-400">
+          <strong>{data.customer.name}</strong> doesn't have any past orders yet.
+        </p>
+      </div>
+    );
+  }
+
+  const customer = data.customer;
+
+  return (
+    <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 w-full">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-teal-700 dark:text-teal-400">
+          {customer.name}'s recent orders
+        </p>
+        <span className="text-[10px] text-muted-foreground">
+          {data.orders.length} order{data.orders.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="space-y-2 max-h-72 overflow-y-auto">
+        {data.orders.map(order => {
+          const dateStr = new Date(order.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" });
+          const itemCount = order.items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+          const isPicked = pickedId === order.id;
+          return (
+            <div key={order.id} className="rounded-lg border border-teal-200/70 dark:border-teal-800/40 bg-white/70 dark:bg-teal-950/20 p-2">
+              <div className="flex items-center justify-between text-[11px] text-teal-800 dark:text-teal-300 mb-1">
+                <span className="font-medium">{dateStr}</span>
+                <span className="font-semibold">₱{order.total}</span>
+              </div>
+              <div className="space-y-0.5 mb-2">
+                {order.items.slice(0, 4).map((it, i) => (
+                  <div key={i} className="flex items-center justify-between text-[11px] gap-2">
+                    <span className="truncate text-teal-700 dark:text-teal-400">
+                      {it.quantity}× {it.product?.name ?? "Item"}
+                      {it.size?.name ? ` (${it.size.name})` : ""}
+                    </span>
+                  </div>
+                ))}
+                {order.items.length > 4 && (
+                  <p className="text-[10px] text-teal-600 dark:text-teal-500">+{order.items.length - 4} more…</p>
+                )}
+              </div>
+              {!isPicked ? (
+                <Button
+                  size="sm"
+                  onClick={() => setPickedId(order.id)}
+                  className="w-full h-7 text-[11px] bg-teal-600 hover:bg-teal-700 text-white"
+                  data-testid={`button-reorder-${order.id}`}
+                >
+                  Reorder this ({itemCount} item{itemCount !== 1 ? "s" : ""})
+                </Button>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-teal-700 dark:text-teal-400 font-medium text-center">
+                    Load these {itemCount} item{itemCount !== 1 ? "s" : ""} into the POS cart?
+                  </p>
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="sm"
+                      onClick={() => { setPickedId(null); onReorder(customer.id, customer.name, order.items); }}
+                      className="flex-1 h-7 text-[11px] bg-teal-600 hover:bg-teal-700 text-white"
+                      data-testid={`button-confirm-reorder-${order.id}`}
+                    >
+                      <Check className="h-3 w-3 mr-1" /> Yes, open POS
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPickedId(null)}
+                      className="flex-1 h-7 text-[11px] border-teal-300 text-teal-700 dark:text-teal-400"
+                    >
+                      <X className="h-3 w-3 mr-1" /> Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({
   msg, onImport, onUpdatePrices, onAddProduct, onUpdateProduct, onDeleteProduct,
   onAddCustomer, onLogExpense, onCreateDiscount,
   onUpdateDiscount, onDeleteDiscount, onToggleDiscount, onShowStaffInfo,
+  onReorder,
   isStreaming, importDone, priceDone, addProductDone, updateProductDone, deleteProductDone,
   addCustomerDone, expenseDone, discountDone,
   updateDiscountDone, deleteDiscountDone, toggleDiscountDone,
@@ -676,6 +835,7 @@ function MessageBubble({
   onDeleteDiscount: (p: DeleteDiscountPayload) => void;
   onToggleDiscount: (p: ToggleDiscountPayload) => void;
   onShowStaffInfo: (p: StaffInfoPayload) => void;
+  onReorder: (customerId: number, customerName: string, items: ReorderItem[]) => void;
   isStreaming?: boolean;
   importDone: boolean;
   priceDone: boolean;
@@ -711,7 +871,7 @@ function MessageBubble({
     display, importPayload: payload, pricePayload, addProductPayload,
     updateProductPayload, deleteProductPayload, addCustomerPayload,
     expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload,
-    toggleDiscountPayload, staffInfoPayload, followups,
+    toggleDiscountPayload, staffInfoPayload, customerOrdersPayload, followups,
   } = parseImportAction(msg.content);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmPrice, setConfirmPrice] = useState(false);
@@ -1204,6 +1364,9 @@ function MessageBubble({
         {staffInfoPayload !== null && (
           <StaffInfoCard branch={staffInfoPayload.branch} onAction={onShowStaffInfo} />
         )}
+        {customerOrdersPayload && customerOrdersPayload.name && (
+          <CustomerOrdersCard name={customerOrdersPayload.name} onReorder={onReorder} />
+        )}
         {!isUser && !isStreaming && followups.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1 mt-0.5">
             {followups.map((q, i) => (
@@ -1399,7 +1562,9 @@ function buildWelcomeMessage(businessType: string, businessSubType: string, stor
 
 export default function AiPage() {
   const [, setLocation] = useLocation();
+  const navigate = setLocation;
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { user } = useAuth();
   const { isOnline } = useOnlineStatus();
   const { data: settings } = useSettings();
@@ -2025,6 +2190,19 @@ export default function AiPage() {
     // Staff info is rendered inline in the StaffInfoCard component — no action needed here
   };
 
+  const handleReorder = (customerId: number, customerName: string, items: ReorderItem[]) => {
+    try {
+      // Stash the items + customer for the POS page to pick up on mount.
+      sessionStorage.setItem("pos:reorder", JSON.stringify({ customerId, customerName, items, ts: Date.now() }));
+    } catch {
+      // sessionStorage can throw in private mode — fall back to a quick toast and bail.
+      toast({ title: "Couldn't open POS — please try again.", variant: "destructive" });
+      return;
+    }
+    toast({ title: `Loading ${items.length} item${items.length !== 1 ? "s" : ""} for ${customerName}…` });
+    navigate("/pos");
+  };
+
   const handleDailyDigest = () => {
     sendMessage("Give me my daily business digest — today's sales, low stock alerts, inactive customers, and one key insight.");
   };
@@ -2336,6 +2514,7 @@ export default function AiPage() {
               onDeleteDiscount={handleDeleteDiscount}
               onToggleDiscount={handleToggleDiscount}
               onShowStaffInfo={handleShowStaffInfo}
+              onReorder={handleReorder}
               isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant" && msg.content.length > 0}
               importDone={importedIds.has(msg.id)}
               priceDone={priceUpdatedIds.has(msg.id)}

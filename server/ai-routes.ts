@@ -3,7 +3,7 @@ import { requireAuth, requirePro } from "./middleware";
 import { storage } from "./storage";
 import { db } from "./db";
 import { bannedUserIds } from "./auth";
-import { buildNavGuide } from "@shared/nav-config";
+import { buildNavGuide, APP_PAGES } from "@shared/nav-config";
 import {
   products as productsTable,
   sales as salesTable,
@@ -521,6 +521,7 @@ type QueryIntent =
   | { type: "daily_breakdown"; month?: string }
   | { type: "monthly_overview" }
   | { type: "recent_extended"; limit: number }
+  | { type: "top_customers"; limit: number }
   | { type: "none" };
 
 const MONTH_MAP: Record<string, string> = {
@@ -551,6 +552,15 @@ function extractMonthStr(text: string): string | undefined {
 function detectQueryIntent(messages: ChatMessage[]): QueryIntent {
   const userMsgs = messages.filter(m => m.role === "user").slice(-3).map(m => m.content);
   const ctx = userMsgs.join(" ").toLowerCase();
+
+  // Top regulars / repeat customers — must run BEFORE the "top transactions"
+  // check because "top customers" / "best customers" share the "best/top" verb.
+  // Tagalog: "suki" = regular customer, "madalas bumili" = frequent buyer.
+  if (/\b(regulars?|repeat customers?|loyal customers?|frequent customers?|frequent buyers?|top customers?|best customers?|biggest spenders?|who buys the most|most loyal|suki|sukis|madalas bumili|paulit-ulit)\b/.test(ctx)) {
+    const limMatch = ctx.match(/\b(?:top|first|show me)\s+(\d{1,2})\b/);
+    const limit = limMatch ? Math.min(Math.max(parseInt(limMatch[1]), 1), 20) : 10;
+    return { type: "top_customers", limit };
+  }
 
   // Highest / biggest transaction queries
   if (/\b(highest|biggest|largest|maximum|most expensive|best sale|top (sale|transaction)|highest.*sale|peak.*sale)\b/.test(ctx)
@@ -677,6 +687,36 @@ async function runDynamicQuery(
         `${r.saleMonth}: ${fmt(Number(r.monthlyTotal))} (${r.saleCount} transactions)`
       );
       return `QUERIED: MONTHLY REVENUE — newest→oldest (full history):\n${lines.join("\n")}`;
+    }
+
+    // ── Top regulars / repeat customers ──────────────────────────────────────
+    if (intent.type === "top_customers") {
+      const rows = await db.select({
+        customerId: salesTable.customerId,
+        name: customersTable.name,
+        phone: customersTable.phone,
+        visitCount: sql<number>`COUNT(*)`,
+        totalSpent: sql<number>`COALESCE(SUM(CAST(${salesTable.total} AS NUMERIC)), 0)`,
+        lastVisit: sql<string>`MAX(${salesTable.createdAt})`,
+      })
+        .from(salesTable)
+        .innerJoin(customersTable, eq(salesTable.customerId, customersTable.id))
+        .where(and(base, sql`${salesTable.customerId} IS NOT NULL`))
+        .groupBy(salesTable.customerId, customersTable.name, customersTable.phone)
+        .orderBy(sql`COUNT(*) DESC, COALESCE(SUM(CAST(${salesTable.total} AS NUMERIC)), 0) DESC`)
+        .limit(intent.limit);
+
+      if (!rows.length) {
+        return "QUERIED: TOP REGULARS — none yet. No sales are linked to a customer profile. Add a customer at checkout to start tracking regulars.";
+      }
+      const lines = rows.map((r, i) => {
+        const visits = Number(r.visitCount);
+        const spent = fmt(Number(r.totalSpent));
+        const last = r.lastVisit?.slice(0, 10) ?? "—";
+        const phone = r.phone ? ` (${r.phone})` : "";
+        return `#${i + 1} ${r.name}${phone} — ${visits} visit${visits !== 1 ? "s" : ""}, ${spent} total, last visit ${last}`;
+      });
+      return `QUERIED: TOP ${rows.length} REGULARS — ranked by visit count (most loyal first):\n${lines.join("\n")}`;
     }
 
     // ── Extended recent transactions ─────────────────────────────────────────
@@ -1502,6 +1542,157 @@ const OFF_TOPIC_PATTERNS: RegExp[] = [
 const BLOCK_MSG_OFF_TOPIC =
   "I'm only built for your store — sales, products, customers, expenses, staff, all that. Try asking me something about your business!";
 
+// ─── Direct nav-question handler (bypasses LLM for "where is X" questions) ────
+// Most "where is expenses" / "how do I get to settings" questions are pure
+// navigation — answering them with the LLM wastes tokens (full prompt + nav
+// guide + business context) and can fail when the rate limit is exhausted.
+// We answer those directly from APP_PAGES, returning a markdown link the
+// existing renderMarkdown picks up as a clickable nav link.
+//
+// Aliases let the user say "stock" / "menu" / "sales history" etc. without
+// having to know the exact page label.
+const NAV_ALIASES: Record<string, string> = {
+  // → /products
+  "products": "/products", "product": "/products", "menu": "/products",
+  "items": "/products", "stock": "/products", "inventory": "/products",
+  "catalog": "/products", "sku": "/products", "skus": "/products",
+  // → /pos
+  "pos": "/pos", "point of sale": "/pos", "cashier": "/pos", "checkout": "/pos",
+  "sales screen": "/pos", "register": "/pos", "till": "/pos",
+  // → /transactions
+  "transactions": "/transactions", "transaction": "/transactions",
+  "sales history": "/transactions", "receipts": "/transactions",
+  "past sales": "/transactions", "order history": "/transactions",
+  // → /customers
+  "customers": "/customers", "customer": "/customers", "clients": "/customers",
+  "regulars": "/customers", "suki": "/customers",
+  // → /expenses
+  "expenses": "/expenses", "expense": "/expenses", "cost": "/expenses",
+  "costs": "/expenses", "spending": "/expenses", "bills": "/expenses",
+  // → /analytics
+  "analytics": "/analytics", "reports": "/analytics", "report": "/analytics",
+  "charts": "/analytics", "insights": "/analytics", "stats": "/analytics",
+  // → /
+  "dashboard": "/", "home": "/", "today": "/", "overview": "/",
+  // → /settings
+  "settings": "/settings", "preferences": "/settings", "config": "/settings",
+  "store info": "/settings", "tax rate": "/settings", "currency": "/settings",
+  "logo": "/settings", "monthly goal": "/settings", "goal": "/settings",
+  // → /staff
+  "staff": "/staff", "employees": "/staff", "team": "/staff", "workers": "/staff",
+  // → /pending
+  "pending": "/pending", "pending orders": "/pending", "open orders": "/pending",
+  "parked": "/pending", "parked orders": "/pending",
+  // → /shifts
+  "shifts": "/shifts", "shift": "/shifts", "register shifts": "/shifts",
+  "cash drawer": "/shifts", "open shift": "/shifts", "close shift": "/shifts",
+  // → /timeclock
+  "time clock": "/timeclock", "timeclock": "/timeclock", "attendance": "/timeclock",
+  "clock in": "/timeclock", "clock out": "/timeclock", "time tracking": "/timeclock",
+  // → /discount-codes
+  "discount codes": "/discount-codes", "discounts": "/discount-codes",
+  "promo": "/discount-codes", "promo codes": "/discount-codes",
+  "coupon": "/discount-codes", "coupons": "/discount-codes",
+  // → /refunds
+  "refunds": "/refunds", "refund": "/refunds", "returns": "/refunds",
+  // → /suppliers
+  "suppliers": "/suppliers", "supplier": "/suppliers", "vendors": "/suppliers",
+  // → /purchases
+  "purchases": "/purchases", "purchase orders": "/purchases", "po": "/purchases",
+  // → /loyalty
+  "loyalty": "/loyalty", "loyalty program": "/loyalty", "points": "/loyalty",
+  "rewards": "/loyalty",
+  // → /payroll
+  "payroll": "/payroll", "salary": "/payroll", "wages": "/payroll",
+  // → /print-settings
+  "print settings": "/print-settings", "receipt settings": "/print-settings",
+  "printer": "/print-settings", "print": "/print-settings",
+  // → /memberships
+  "memberships": "/memberships", "membership": "/memberships",
+  // → /appointments
+  "appointments": "/appointments", "appointment": "/appointments",
+  "bookings": "/appointments", "booking": "/appointments", "schedule": "/appointments",
+  // → /tables
+  "tables": "/tables", "table": "/tables", "table layout": "/tables",
+  // → /kitchen
+  "kitchen": "/kitchen", "kitchen display": "/kitchen", "kds": "/kitchen",
+  // → /rooms
+  "rooms": "/rooms", "room": "/rooms",
+  // → /ai
+  "ai": "/ai", "ai assistant": "/ai", "chat": "/ai", "assistant": "/ai",
+  // → /admin/branches
+  "branches": "/admin/branches", "branch": "/admin/branches", "stores": "/admin/branches",
+  "locations": "/admin/branches",
+  // → /admin/audit-logs
+  "audit": "/admin/audit-logs", "audit log": "/admin/audit-logs",
+  "audit logs": "/admin/audit-logs", "history": "/admin/audit-logs",
+  // → /admin/users
+  "users": "/admin/users", "team overview": "/admin/users", "all staff": "/admin/users",
+  // → /admin/permissions
+  "permissions": "/admin/permissions", "roles": "/admin/permissions",
+  "access": "/admin/permissions",
+  // → /admin
+  "admin": "/admin", "admin panel": "/admin", "admin dashboard": "/admin",
+};
+
+// Question patterns that mean "tell me where this page is".
+// Captures the noun phrase after the location verb so we can match it against NAV_ALIASES.
+const NAV_QUESTION_RE =
+  /^[\s,.?!"']*(?:where(?:\s+(?:is|are|do\s+i\s+(?:find|see|view|access|go(?:\s+to)?|open|navigate)|can\s+i\s+(?:find|see|view|access)))?|how\s+(?:do\s+i\s+(?:find|see|view|access|go\s+to|open|get\s+to|navigate\s+to)|to\s+(?:find|see|view|access|open|get\s+to|navigate\s+to|reach))|(?:open|show\s+me|take\s+me\s+to|go\s+to|navigate\s+to)|which\s+(?:page|section|tab|menu)\s+(?:is|has|for))\s+(?:the\s+|my\s+|a\s+|an\s+)?([a-z][a-z0-9 _-]{1,40}?)\s*(?:page|section|tab|screen|menu)?\s*[\?\.\!]*\s*$/i;
+
+interface NavMatch {
+  url: string;
+  label: string;
+  description: string;
+  matchedTerm: string;
+}
+
+// Filler words that often trail a nav question — strip them so "expenses located" → "expenses".
+const NAV_TRAILING_FILLERS =
+  /\s+(?:located|found|kept|stored|hidden|placed|positioned|at|in\s+the\s+app|in\s+app|here|now|please|po|na|naman)$/i;
+
+function detectNavQuery(messages: ChatMessage[]): NavMatch | null {
+  const last = messages.filter(m => m.role === "user").at(-1)?.content ?? "";
+  if (!last || last.length > 120) return null; // long messages aren't simple nav questions
+
+  const m = last.match(NAV_QUESTION_RE);
+  if (!m) return null;
+
+  let term = m[1].trim().toLowerCase().replace(/\s+/g, " ");
+  // Strip leading "for " (e.g. "which page is for refunds" → "refunds")
+  term = term.replace(/^for\s+/, "");
+  // Strip trailing filler words ("expenses located" → "expenses") — loop in case there are several
+  while (NAV_TRAILING_FILLERS.test(term)) term = term.replace(NAV_TRAILING_FILLERS, "").trim();
+  if (!term) return null;
+
+  // Try the longest matching alias first so "sales history" beats "sales".
+  const aliases = Object.keys(NAV_ALIASES).sort((a, b) => b.length - a.length);
+  let url: string | null = null;
+  let matchedTerm = "";
+  for (const alias of aliases) {
+    if (term === alias || term.includes(alias) || alias.includes(term)) {
+      url = NAV_ALIASES[alias];
+      matchedTerm = alias;
+      break;
+    }
+  }
+  if (!url) return null;
+
+  const page = APP_PAGES.find(p => p.url === url);
+  if (!page) return null;
+  return { url, label: page.label, description: page.description, matchedTerm };
+}
+
+function buildNavReply(match: NavMatch): string {
+  // Friendly + concise. Markdown link is rendered as a clickable nav button by the chat UI.
+  const where =
+    match.url.startsWith("/admin/") ? "in **Admin** (under More → Admin)" :
+    match.url === "/" || match.url === "/pos" || match.url === "/pending"
+      ? "in the bottom nav bar"
+      : "under **More** in the bottom nav (or the left sidebar on desktop)";
+  return `[${match.label}](${match.url}) is ${where}. ${match.description}.`;
+}
+
 // Destructive data operation patterns
 const DESTRUCTIVE_PATTERNS: RegExp[] = [
   /\bdelete\s+all\b/i,
@@ -1684,6 +1875,22 @@ export function registerAiRoutes(app: Express) {
 
       const sendEvent = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
       const sendDone = () => res.write("data: [DONE]\n\n");
+
+      // ── Direct nav-question shortcut (zero LLM tokens) ────────────────────────
+      // "Where is expenses?", "How do I get to settings?", "Open analytics page"
+      // → answer instantly from APP_PAGES, never touch the LLM.
+      // BUT only if the message isn't actually a data query — "show me my regulars"
+      // also matches the nav regex but should run the SQL query instead.
+      const navIntentPreview = detectQueryIntent(messages);
+      if (navIntentPreview.type === "none") {
+        const navMatch = detectNavQuery(messages);
+        if (navMatch) {
+          console.log(`[ai][${requestId}] NAV shortcut → ${navMatch.url} (matched: "${navMatch.matchedTerm}")`);
+          sendEvent({ type: "chunk", content: buildNavReply(navMatch) });
+          sendDone();
+          return res.end();
+        }
+      }
 
       // Send a keep-alive heartbeat right away so Vercel doesn't drop the connection
       // while we're loading store context (DB queries can take a few seconds)

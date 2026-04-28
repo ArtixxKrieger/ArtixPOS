@@ -1392,7 +1392,7 @@ function getSuggestionGroups(businessType?: string | null, businessSubType?: str
   const salesGroup = {
     label: "Sales & Revenue",
     emoji: "📊",
-    items: ["Show me this month's revenue vs last month", "Which item sells the most?"],
+    items: ["Show me this month's revenue vs last month", "Which item sells the most?", "Show me my regulars"],
   };
   const staffGroup = {
     label: "Staff & Branches",

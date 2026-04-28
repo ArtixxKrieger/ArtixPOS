@@ -600,6 +600,53 @@ function detectHowToIntent(messages: ChatMessage[]): boolean {
   return HOW_TO_RE.test(lastUserMsg);
 }
 
+// ─── Capabilities / "what can you do" detection ──────────────────────────────
+// When the user asks what the assistant can do, we answer from a hardcoded,
+// always-correct, never-cut-off Markdown template. Saves a full LLM round-trip
+// AND prevents the AI from hallucinating fake capabilities or contradicting
+// itself ("YES I can add a product" → "actually I can't"). Zero tokens used.
+const CAPABILITIES_RE = /\b(what (can|do) you (do|help|offer|know)|what.*capabilit|what (are|is) (you|your).*capabilit|what.*you able|are you able to|what.*features|what.*can.*ai do|ano (ang )?(kaya|magagawa) (mo|nito|ng ai)|paano ka ?(makakatulong|tumulong))\b/i;
+function detectCapabilitiesQuery(messages: ChatMessage[]): boolean {
+  const lastUserMsg = messages.filter(m => m.role === "user").at(-1)?.content ?? "";
+  // Don't trigger if it's a specific action like "are you able to add product X"
+  // — that has a noun after "able to" we should let the AI handle.
+  if (/\bable to\s+\w+\s+(\w+\s+){2,}/i.test(lastUserMsg)) return false;
+  return CAPABILITIES_RE.test(lastUserMsg);
+}
+
+function buildCapabilitiesAnswer(currency: string): string {
+  return `Here's everything I can do for your store:
+
+**📊 Look up your data**
+1. **Sales & revenue** — today, this month, any specific month, or all-time
+2. **Top products** — best sellers, slowest movers, low-stock alerts with sales velocity
+3. **Customers** — top spenders, loyal regulars, last order, "the usual" reorder
+4. **Expenses** — recent expenses, totals, trend vs last month
+5. **Discount codes** — active codes, usage stats, expiry
+6. **Best days/hours to sell** — based on the last 90 days of data
+7. **Staff** — who's on which branch, who has access
+
+**⚡ Take actions** (you confirm with one tap)
+8. **Add a product** — just say "add Espresso, 120, drinks"
+9. **Update a product** — rename, change price, adjust stock
+10. **Delete a product** — single product only, never bulk
+11. **Add a customer** — name + optional email/phone
+12. **Log an expense** — "log expense rent 5000"
+13. **Bulk import products** — drop a CSV/Excel file in chat
+14. **Bulk price updates** — drop a file with name,price columns
+15. **Create / update / toggle / delete discount codes**
+
+**🧭 Navigate the app**
+- Ask "where is X" or "open Y" and I'll point you straight to the page
+
+**💡 Just chat**
+- Ask me anything about running your store — pricing, promotions, slow weeks, what to restock
+
+What would you like to try?
+
+[FOLLOWUP]Show me today's sales|What should I restock?|Top customers this month?[/FOLLOWUP]`;
+}
+
 // ─── Dynamic query runner ─────────────────────────────────────────────────────
 // Runs ONE targeted SQL query based on the detected intent.
 // Returns a formatted string block to append to the system prompt, or null.
@@ -1192,11 +1239,12 @@ UPDATE PRICES FROM FILE: If the user uploads a CSV/Excel file with columns like 
 [UPDATE_PRICES]{"updates":[{"name":"Product Name","price":"150"}]}[/UPDATE_PRICES]
 Only include products whose price is changing. Match product names to the PRODUCTS list above (fuzzy match is OK).
 
-ADD SINGLE PRODUCT: If the user says something like "add [name] [price]" or "bagong product: [name] [price] [category]", reply with a short confirmation then on its own line:
+ADD SINGLE PRODUCT: If the user says something like "add [name] [price]", "bagong product: [name] [price] [category]", or replies to your own "what's the name, price, category?" question with the values in any format ("Test, 55, clothes" / "Espresso 120 drinks" / "name: X price: 100 cat: Y"), reply with ONE short confirmation line then on its own line:
 [ADD_PRODUCT]{"name":"Product Name","price":"100","category":"Category","stock":0,"trackStock":false}[/ADD_PRODUCT]
 - CRITICAL FORMAT RULE: The opening tag [ADD_PRODUCT] MUST be immediately followed by the JSON on the SAME LINE. NEVER output [ADD_PRODUCT] alone without the JSON.
 - Use the category the user specifies. If none given, match to EXISTING CATEGORIES or use "General".
 - Set trackStock: true and stock > 0 only if user explicitly provides stock quantity.
+- 🔴 ABSOLUTE RULE: Once you've said "yes I can add a product" or asked "what's the name, price, category?" — the moment the user gives you those values, you MUST output the [ADD_PRODUCT] tag. Never give manual instructions like "go to Products and tap Add" after promising to add it. Doing both in the same conversation is a contradiction and confuses the user. If the tag is in the valid list (it is), use it. Don't redirect to manual steps.
 
 UPDATE SINGLE PRODUCT: If the user wants to edit ONE specific existing product (rename, change category, adjust stock, toggle stock tracking, change price for one item), reply with a short confirmation then on its own line:
 [UPDATE_PRODUCT]{"name":"Existing Product Name","newName":"New Name","price":"150","category":"New Category","stock":25,"trackStock":true}[/UPDATE_PRODUCT]
@@ -1907,6 +1955,34 @@ export function registerAiRoutes(app: Express) {
         }
       }
 
+      // ── Capabilities shortcut (zero LLM tokens) ──────────────────────────────
+      // "What can you do?", "What are your capabilities?", "Are you able to help?"
+      // → respond from a hardcoded, perfectly-formatted, never-cut-off template.
+      // Prevents the AI from hallucinating fake capabilities or contradicting
+      // itself in follow-ups like "let's do number 8".
+      if (detectCapabilitiesQuery(messages)) {
+        console.log(`[ai][${requestId}] CAPABILITIES shortcut — hardcoded answer`);
+        const earlyCachedCtx = contextCache.get(uid);
+        const currency = (earlyCachedCtx && Date.now() < earlyCachedCtx.expiry)
+          ? earlyCachedCtx.data.currency
+          : "₱";
+        sendEvent({ type: "chunk", content: buildCapabilitiesAnswer(currency) });
+        sendDone();
+        return res.end();
+      }
+
+      // ── Response cache lookup (60s TTL, instant + zero tokens for repeats) ──
+      // Same user asking the exact same question within 60s gets the cached
+      // answer immediately. Keyed by uid + normalized last user message.
+      const cacheKey = getDedupeKey(uid, lastUserMsg);
+      const cachedReply = dedupeCache.get(cacheKey);
+      if (cachedReply && Date.now() < cachedReply.expiry && lastUserMsg.length > 3) {
+        console.log(`[ai][${requestId}] RESPONSE CACHE HIT — replaying ${cachedReply.content.length} chars (key: "${lastUserMsg.slice(0, 40)}…")`);
+        sendEvent({ type: "chunk", content: cachedReply.content });
+        sendDone();
+        return res.end();
+      }
+
       // Send a keep-alive heartbeat right away so Vercel doesn't drop the connection
       // while we're loading store context (DB queries can take a few seconds)
       sendEvent({ type: "heartbeat" });
@@ -1961,13 +2037,16 @@ export function registerAiRoutes(app: Express) {
       }
 
       // ── Trim history to control token count ───────────────────────────────────
-      // Long AI responses (transaction lists etc.) can be 1000+ chars.
-      // Instead of sending them whole, keep the HEAD (first 200 chars = key data summary)
-      // and the TAIL (last 350 chars = AI's conclusion / any question it asked).
-      // This preserves conversational continuity without blowing up the token budget.
-      const HIST_HEAD = 200;
-      const HIST_TAIL = 350;
-      const HIST_MAX  = HIST_HEAD + HIST_TAIL + 20; // threshold: only trim if truly long
+      // Long AI responses (lists, capabilities, transaction dumps) can be 1500+ chars.
+      // Strategy:
+      //   • The MOST RECENT assistant message is sent FULL — it's almost always
+      //     the one the user is referring to ("let's do number 8", "tell me more
+      //     about that", "do the second one"). Trimming it loses the key context.
+      //   • OLDER assistant messages get HEAD+TAIL condensed so the conversation
+      //     can grow long without blowing past the token budget.
+      const HIST_HEAD = 250;
+      const HIST_TAIL = 500;
+      const HIST_MAX  = HIST_HEAD + HIST_TAIL + 20;
 
       function trimHistory(content: string): string {
         if (content.length <= HIST_MAX) return content;
@@ -1978,30 +2057,51 @@ export function registerAiRoutes(app: Express) {
         );
       }
 
+      // Find the index of the last assistant message — that one stays untouched.
+      let lastAssistantIdx = -1;
+      for (let i = trimmedMessages.length - 1; i >= 0; i--) {
+        if (trimmedMessages[i].role === "assistant") { lastAssistantIdx = i; break; }
+      }
+
       const groqMessages = [
         { role: "system" as const, content: systemPrompt },
-        ...trimmedMessages.map((m) => ({
+        ...trimmedMessages.map((m, idx) => ({
           role: m.role,
-          content: m.role === "assistant" ? trimHistory(m.content) : m.content,
+          content: (m.role === "assistant" && idx !== lastAssistantIdx) ? trimHistory(m.content) : m.content,
         })),
       ];
 
       const totalChars = groqMessages.reduce((s, m) => s + m.content.length, 0);
       console.log(`[ai][${requestId}] routing to AI provider — msgCount: ${groqMessages.length} | systemPromptLen: ${systemPrompt.length} | totalChars: ${totalChars}`);
 
-      // Token budget: data queries → 800, cache-hit follow-ups → 600, minimal → 300
-      const maxTokens = contextMode === "fresh" ? 800 : contextMode === "cache-hit" ? 600 : 300;
+      // Token budget — generous enough that no answer ever gets cut off mid-list.
+      // Data queries get the most because they often produce long structured replies.
+      // Bumped from 800/600/300 → 1500/1100/600 to fix mid-sentence truncation.
+      const maxTokens = contextMode === "fresh" ? 1500 : contextMode === "cache-hit" ? 1100 : 600;
+
+      // Mark this request as expecting a "smart" model when the question is
+      // complex enough to benefit from the larger 70B model. Heuristic: anything
+      // longer than 80 chars, or that mentions analytics-style keywords, deserves
+      // the smarter model. Trivial chitchat gets the fast 8B model.
+      const wantsSmartModel =
+        lastUserMsg.length > 80 ||
+        wantsData ||
+        intent.type !== "none" ||
+        wantsHowTo ||
+        /\b(analy|why|explain|recommend|suggest|strateg|compare|insight|forecast|predict|optimize|improve)\b/i.test(lastUserMsg);
 
       let aiResponse: Awaited<ReturnType<typeof fetch>>;
       try {
-        aiResponse = await resolveAIStream(groqMessages as any, maxTokens, 0.5, requestId);
+        aiResponse = await resolveAIStream(groqMessages as any, maxTokens, 0.5, requestId, { preferSmart: wantsSmartModel });
       } catch (aiErr: any) {
         const elapsed = Date.now() - requestStart;
-        console.error(`[ai][${requestId}] resolveAIStream threw: ${aiErr.message} | total elapsed: ${elapsed}ms`);
+        console.error(`[ai][${requestId}] resolveAIStream threw: ${aiErr.message} | total elapsed: ${elapsed}ms | debug: ${aiErr.debugInfo ?? "n/a"}`);
+        // User-facing error stays clean. Debug info is logged server-side only —
+        // we never want users to see "all providers exhausted" / "HTTP 429" /
+        // "requestId xyz" in the chat bubble.
         sendEvent({
           type: "error",
-          message: aiErr.message ?? "Something went wrong. Please try again.",
-          debug: aiErr.debugInfo ?? `HTTP ${aiErr.statusCode ?? "?"} | elapsed: ${elapsed}ms | requestId: ${requestId}`,
+          message: "The AI is taking a quick breather — try again in a few seconds.",
         });
         sendDone();
         return res.end();
@@ -2069,6 +2169,25 @@ export function registerAiRoutes(app: Express) {
       console.log(`[ai][${requestId}] request complete — total: ${Date.now() - requestStart}ms`);
       sendDone();
       res.end();
+
+      // ── Populate response cache (60s TTL) ────────────────────────────────────
+      // Only cache "safe" replies — skip anything that contains an action tag
+      // (because action tags trigger one-shot UI cards), error markers, or that
+      // got truncated by the safety filter. Same-question repeats within 60s
+      // get the cached answer instantly.
+      const hasActionTag = /\[(IMPORT_PRODUCTS|UPDATE_PRICES|ADD_PRODUCT|UPDATE_PRODUCT|DELETE_PRODUCT|ADD_CUSTOMER|LOG_EXPENSE|CREATE_DISCOUNT_CODE|UPDATE_DISCOUNT_CODE|DELETE_DISCOUNT_CODE|TOGGLE_DISCOUNT_CODE|SHOW_STAFF_INFO|SHOW_CUSTOMER_ORDERS)\]/i.test(accumulated);
+      if (
+        !outputBlock &&
+        !hasActionTag &&
+        accumulated.length > 30 &&
+        accumulated.length < 8000 &&
+        lastUserMsg.length > 3
+      ) {
+        setWithCap(dedupeCache, cacheKey, {
+          content: accumulated,
+          expiry: Date.now() + DEDUPE_TTL,
+        });
+      }
 
       // ── Async memory extraction (fire-and-forget, never blocks the response) ──
       // Only extract when there's a real conversation (≥2 messages) and we have

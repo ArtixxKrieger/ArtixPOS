@@ -30,7 +30,10 @@ interface ProviderConfig {
   name: string;
   baseUrl: string;
   getApiKey: () => string | null;
-  models: string[];
+  /** Models in fast→smart order. The router picks `smartModel` when the caller
+   *  hints they want quality, or rotates among `fastModels` for chitchat. */
+  fastModels: string[];
+  smartModel: string;
   /** Rate-limit window in ms */
   windowMs: number;
   /** Max requests in the window */
@@ -44,13 +47,11 @@ const PROVIDERS: ProviderConfig[] = [
     name: "groq",
     baseUrl: "https://api.groq.com/openai/v1/chat/completions",
     getApiKey: () => process.env.GROQ_API_KEY ?? null,
-    // Active Groq models as of 2026 — DO NOT add decommissioned ones
-    // (llama-3.2-3b-preview was decommissioned and removed)
-    models: [
-      "llama-3.1-8b-instant",
-      "llama-3.3-70b-versatile",
-      "gemma2-9b-it",
-    ],
+    // Active Groq models as of 2026 — DO NOT add decommissioned ones.
+    // llama-3.3-70b-versatile is the smartest and gets used when the question
+    // needs reasoning / analysis. The 8B is fast and great for greetings.
+    fastModels: ["llama-3.1-8b-instant", "gemma2-9b-it"],
+    smartModel: "llama-3.3-70b-versatile",
     windowMs: 60 * 1000,      // 1 minute
     maxRequests: 28,           // Groq free: 30/min, use 28 to be safe
   },
@@ -58,7 +59,8 @@ const PROVIDERS: ProviderConfig[] = [
     name: "cerebras",
     baseUrl: "https://api.cerebras.ai/v1/chat/completions",
     getApiKey: () => process.env.CEREBRAS_API_KEY ?? null,
-    models: ["llama3.1-8b", "llama-3.3-70b"],
+    fastModels: ["llama3.1-8b"],
+    smartModel: "llama-3.3-70b",
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
     maxRequests: 10_000,            // generous, tokens are the real constraint
     maxTokens: 950_000,             // 1M tokens/day limit, use 950K to be safe
@@ -67,7 +69,8 @@ const PROVIDERS: ProviderConfig[] = [
     name: "mistral",
     baseUrl: "https://api.mistral.ai/v1/chat/completions",
     getApiKey: () => process.env.MISTRAL_API_KEY ?? null,
-    models: ["mistral-small-latest", "open-mistral-nemo"],
+    fastModels: ["open-mistral-nemo"],
+    smartModel: "mistral-small-latest",
     windowMs: 30 * 24 * 60 * 60 * 1000, // 30 days
     maxRequests: 100_000,                 // generous
     maxTokens: 990_000_000,              // 1B tokens/month, use 990M to be safe
@@ -132,13 +135,14 @@ function blockProvider(name: string, durationMs: number, reason: string): void {
   console.warn(`[ai-router] provider "${name}" blocked for ${Math.round(durationMs / 1000)}s — ${reason}`);
 }
 
-// ─── Round-robin index per provider (for model rotation) ─────────────────────
+// ─── Round-robin index per provider (for fast-model rotation) ────────────────
 const modelIndex = new Map<string, number>();
 
-function nextModel(cfg: ProviderConfig): string {
-  const idx = (modelIndex.get(cfg.name) ?? 0) % cfg.models.length;
+function nextModel(cfg: ProviderConfig, preferSmart: boolean): string {
+  if (preferSmart) return cfg.smartModel;
+  const idx = (modelIndex.get(cfg.name) ?? 0) % cfg.fastModels.length;
   modelIndex.set(cfg.name, idx + 1);
-  return cfg.models[idx];
+  return cfg.fastModels[idx];
 }
 
 // ─── Ollama local service ─────────────────────────────────────────────────────
@@ -312,16 +316,17 @@ async function callCloudProvider(
   messages: AIMessage[],
   maxTokens: number,
   temperature: number,
-  requestId: string
+  requestId: string,
+  preferSmart: boolean,
 ): Promise<FetchResponse> {
   const apiKey = cfg.getApiKey()!;
-  const model = nextModel(cfg);
+  const model = nextModel(cfg, preferSmart);
   const estimatedTokens = Math.ceil(
     messages.reduce((s, m) => s + m.content.length, 0) / 4 + maxTokens
   );
 
   console.log(
-    `[ai-router][${requestId}] trying provider="${cfg.name}" model="${model}" estimatedTokens≈${estimatedTokens}`
+    `[ai-router][${requestId}] trying provider="${cfg.name}" model="${model}" preferSmart=${preferSmart} estimatedTokens≈${estimatedTokens}`
   );
 
   const controller = new AbortController();
@@ -422,8 +427,10 @@ export async function resolveAIStream(
   messages: AIMessage[],
   maxTokens: number,
   temperature: number,
-  requestId: string
+  requestId: string,
+  opts: { preferSmart?: boolean } = {},
 ): Promise<FetchResponse> {
+  const preferSmart = opts.preferSmart ?? false;
   // ── Try cloud providers in priority order ────────────────────────────────
   for (const cfg of PROVIDERS) {
     if (!isAvailable(cfg)) {
@@ -440,7 +447,7 @@ export async function resolveAIStream(
     }
 
     try {
-      return await callCloudProvider(cfg, messages, maxTokens, temperature, requestId);
+      return await callCloudProvider(cfg, messages, maxTokens, temperature, requestId, preferSmart);
     } catch (err: any) {
       console.warn(
         `[ai-router][${requestId}] provider="${cfg.name}" failed — ${err.message} — trying next`

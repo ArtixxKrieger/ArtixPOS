@@ -40,7 +40,7 @@ export default function KitchenPage() {
   const { toast } = useToast();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const { data: orders = [], isLoading, refetch } = useQuery<PendingOrder[]>({
+  const { data: orders = [], isLoading, isFetching, refetch } = useQuery<PendingOrder[]>({
     queryKey: ["/api/pending-orders"],
     refetchInterval: 15000, // auto-refresh every 15s
   });
@@ -93,9 +93,16 @@ export default function KitchenPage() {
           variant="outline"
           size="sm"
           onClick={() => { refetch(); setLastRefresh(new Date()); }}
+          disabled={isLoading || isFetching}
           data-testid="button-refresh-kitchen"
+          aria-label="Refresh kitchen orders"
         >
-          <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+          {isFetching ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+          )}
+          Refresh
         </Button>
       </div>
 

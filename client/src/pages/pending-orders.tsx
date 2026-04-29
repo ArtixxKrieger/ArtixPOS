@@ -154,12 +154,12 @@ export default function PendingOrders() {
       </div>
 
       {orders.length === 0 ? (
-        <div className="glass-card rounded-3xl py-20 text-center flex flex-col items-center gap-3">
-          <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2">
-            <Clock className="h-8 w-8 text-muted-foreground/30" strokeWidth={1.5} />
+        <div className="glass-card rounded-3xl py-20 text-center flex flex-col items-center gap-3" data-testid="empty-pending-orders">
+          <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
+            <CheckCircle2 className="h-8 w-8 text-emerald-500/70" strokeWidth={2} />
           </div>
-          <p className="text-base font-bold">No pending orders</p>
-          <p className="text-sm text-muted-foreground/70">Orders you save will appear here</p>
+          <p className="text-base font-bold">All caught up</p>
+          <p className="text-sm text-muted-foreground/70">No orders waiting — saved orders will appear here.</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 stagger-children">

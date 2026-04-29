@@ -190,16 +190,16 @@ function exportPDF(sales: any[], currency: string, label: string, storeName: str
     <div class="meta">Generated: ${format(new Date(), "MMMM d, yyyy")}<br/>${format(new Date(), "h:mm a")}<br/>${rows.length} transaction${rows.length !== 1 ? "s" : ""}</div>
   </div>
   <div class="summary">
-    <div class="summary-box"><div class="label">Total Revenue</div><div class="val">${currency}${grandTotal.toFixed(2)}</div></div>
+    <div class="summary-box"><div class="label">Total Revenue</div><div class="val">${formatCurrency(grandTotal, currency)}</div></div>
     <div class="summary-box"><div class="label">Transactions</div><div class="val">${rows.length}</div></div>
-    <div class="summary-box"><div class="label">Avg. Order</div><div class="val">${currency}${rows.length > 0 ? (grandTotal / rows.length).toFixed(2) : "0.00"}</div></div>
+    <div class="summary-box"><div class="label">Avg. Order</div><div class="val">${formatCurrency(rows.length > 0 ? grandTotal / rows.length : 0, currency)}</div></div>
   </div>
   <table>
     <thead><tr><th>Date & Time</th><th>Items</th><th>Method</th><th style="text-align:right">Total</th></tr></thead>
     <tbody>
-      ${rows.map(r => `<tr><td style="white-space:nowrap">${r.date}</td><td>${r.items}</td><td><span class="method-${r.method.toLowerCase()}">${r.method}</span></td><td style="text-align:right;font-weight:600">${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
+      ${rows.map(r => `<tr><td style="white-space:nowrap">${r.date}</td><td>${r.items}</td><td><span class="method-${r.method.toLowerCase()}">${r.method}</span></td><td style="text-align:right;font-weight:600">${formatCurrency(r.total, currency)}</td></tr>`).join("")}
     </tbody>
-    <tfoot><tr class="tfoot"><td colspan="3" style="text-align:right;padding-right:10px">Grand Total</td><td style="text-align:right">${currency}${grandTotal.toFixed(2)}</td></tr></tfoot>
+    <tfoot><tr class="tfoot"><td colspan="3" style="text-align:right;padding-right:10px">Grand Total</td><td style="text-align:right">${formatCurrency(grandTotal, currency)}</td></tr></tfoot>
   </table>
   <div class="footer">${storeName} · Powered by Quick POS</div>
   <script>window.onload = () => { window.print(); }<\/script>

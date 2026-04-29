@@ -289,7 +289,10 @@ export default function Refunds() {
 
                     {/* Reason */}
                     <TableCell className="px-4 py-3 max-w-[200px]">
-                      <span className="text-sm text-foreground/70 truncate block">
+                      <span
+                        className="text-sm text-foreground/70 truncate block"
+                        title={refund.reason || undefined}
+                      >
                         {refund.reason || <span className="text-muted-foreground/60 italic">No reason provided</span>}
                       </span>
                     </TableCell>

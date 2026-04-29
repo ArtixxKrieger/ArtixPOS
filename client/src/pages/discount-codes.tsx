@@ -257,18 +257,20 @@ export default function DiscountCodes() {
                       {code.expiresAt ? ` · exp ${format(new Date(code.expiresAt), "MMM d")}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       onClick={() => { navigator.clipboard.writeText(code.code); toast({ title: "Code copied!" }); }}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-foreground transition-colors"
+                      className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/50 transition-colors"
                       title="Copy code"
+                      aria-label={`Copy code ${code.code}`}
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => toggleMutation.mutate({ id: code.id, isActive: !code.isActive })}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-primary transition-colors"
+                      className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-primary hover:bg-muted/50 transition-colors"
                       title={code.isActive ? "Deactivate" : "Activate"}
+                      aria-label={code.isActive ? `Deactivate ${code.code}` : `Activate ${code.code}`}
                     >
                       {code.isActive
                         ? <ToggleRight className="h-4 w-4 text-primary" />
@@ -277,14 +279,16 @@ export default function DiscountCodes() {
                     </button>
                     <button
                       onClick={() => setEditCode(code)}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-foreground transition-colors"
+                      className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/50 transition-colors"
+                      aria-label={`Edit ${code.code}`}
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => deleteMutation.mutate(code.id)}
                       disabled={deleteMutation.isPending}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-destructive transition-colors"
+                      className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      aria-label={`Delete ${code.code}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

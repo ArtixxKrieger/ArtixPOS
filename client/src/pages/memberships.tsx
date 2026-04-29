@@ -23,7 +23,7 @@ import {
 } from "@shared/schema";
 import {
   BadgeCheck, Plus, Edit, Trash2, Search, Users, CreditCard,
-  Calendar, CheckCircle2, QrCode, ChevronRight, Clock, Star
+  Calendar, CheckCircle2, QrCode, ChevronRight, Clock, Star, Loader2
 } from "lucide-react";
 
 const BILLING_LABELS: Record<string, string> = {
@@ -319,7 +319,11 @@ function MemberForm({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2 pt-2">
           <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button type="submit" className="flex-1" disabled={mutation.isPending} data-testid="button-save-member">
-            {mutation.isPending ? "Enrolling…" : "Enroll Member"}
+            {mutation.isPending ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enrolling…</>
+            ) : (
+              "Enroll Member"
+            )}
           </Button>
         </div>
       </form>

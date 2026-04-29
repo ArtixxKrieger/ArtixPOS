@@ -172,9 +172,25 @@ export default function Transactions() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-in fade-in">
+      <div className="space-y-4 animate-in fade-in" data-testid="loading-transactions">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 skeleton-shimmer rounded-2xl" />
+          ))}
+        </div>
         <div className="h-12 skeleton-shimmer rounded-2xl" />
-        <div className="h-96 skeleton-shimmer rounded-2xl" />
+        <div className="glass-card rounded-2xl p-2 space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-2">
+              <div className="h-10 w-10 rounded-xl skeleton-shimmer shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 skeleton-shimmer rounded" />
+                <div className="h-2.5 w-1/2 skeleton-shimmer rounded" />
+              </div>
+              <div className="h-4 w-16 skeleton-shimmer rounded" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

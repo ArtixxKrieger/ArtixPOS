@@ -386,8 +386,12 @@ export default function BillingPage() {
             <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
           </div>
         ) : payments.length === 0 ? (
-          <div className="text-center py-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 text-sm">
-            No payments yet
+          <div
+            className="text-center py-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 text-sm flex flex-col items-center gap-2"
+            data-testid="empty-payment-history"
+          >
+            <CreditCard className="h-7 w-7 opacity-40" />
+            <span>No payments yet — your billing history will appear here.</span>
           </div>
         ) : (
           <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">

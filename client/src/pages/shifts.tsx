@@ -408,14 +408,15 @@ export default function Shifts() {
                   data-testid="input-closing-balance"
                 />
               </div>
-              {closingBalance && (
+              {closingBalance && (() => {
+                const isPositive = parseNumeric(closingBalance) >= parseNumeric(openShift.openingBalance) + parseNumeric(openShift.totalSales ?? "0");
+                return (
                 <div className="flex items-center justify-between gap-4 text-sm font-semibold px-1 min-w-0">
-                  <span className="text-muted-foreground shrink-0">Variance</span>
+                  <span className={cn("shrink-0", isPositive ? "text-emerald-600" : "text-rose-500")}>Variance</span>
                   <span
                     className={cn(
                       "tabular-nums min-w-0 text-right",
-                      parseNumeric(closingBalance) >= parseNumeric(openShift.openingBalance) + parseNumeric(openShift.totalSales ?? "0")
-                        ? "text-emerald-600" : "text-rose-500"
+                      isPositive ? "text-emerald-600" : "text-rose-500"
                     )}
                     style={{ wordBreak: "break-all", fontSize: "clamp(11px, 3vw, 14px)" }}
                   >
@@ -425,7 +426,8 @@ export default function Shifts() {
                     )}
                   </span>
                 </div>
-              )}
+                );
+              })()}
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Notes (optional)</label>
                 <Textarea

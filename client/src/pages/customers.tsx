@@ -319,16 +319,17 @@ export default function Customers() {
                   <span className="font-bold text-sm text-primary">{customer.name[0].toUpperCase()}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">{customer.name}</p>
-                  <div className="flex items-center gap-3 mt-0.5">
+                  <p className="font-semibold text-sm truncate">{customer.name}</p>
+                  <div className="flex items-center gap-3 mt-0.5 min-w-0">
                     {customer.phone && (
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
                         <Phone className="h-3 w-3" />{customer.phone}
                       </span>
                     )}
                     {customer.email && (
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
-                        <Mail className="h-3 w-3" />{customer.email}
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1 min-w-0 truncate">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="truncate" title={customer.email}>{customer.email}</span>
                       </span>
                     )}
                   </div>

@@ -214,6 +214,19 @@ Production is intended to run on Vercel. Replit is used for development/preview 
 - Pro voucher codes can be enabled with `PRO_VOUCHER_CODE` or comma-separated `PRO_VOUCHER_CODES` values; each code may include an optional day duration like `CODE:30`
 - Feature gating is business-type aware: Free includes core modules required by the selected business (for example Tables for Bar/Pub, Kitchen/Tables for Restaurant, Appointments/Staff for Services, Rooms where rooms/studios/chairs are core, Memberships for Gym, and Customers/Records for clinic/dental). Pro still unlocks all modules across all business types and branches.
 
+## Mobile UX & Page Polish (April 2026)
+- **AI page mobile clearance**: `client/src/pages/ai.tsx` height calc on mobile now subtracts `safe-area-top + 96px + safe-area-bottom` so the input + disclaimer never sit under the floating bottom nav. The `-my-5` overlap was removed on mobile (kept on desktop). `AiFloatButton` is hidden when already on `/ai`.
+- **Discount codes touch targets**: row action buttons (copy/toggle/edit/delete) bumped from `h-7 w-7` to `h-9 w-9` with proper aria-labels — they were below 44pt minimum on phones.
+- **Pending orders empty state**: replaced gray `Clock` with green `CheckCircle2` "All caught up" — friendlier than implying something is overdue.
+- **Refunds reason tooltip**: added `title={refund.reason}` on the truncated reason cell so cashiers can see the full text on hover.
+- **Customers row overflow**: added `min-w-0` + dedicated `<span class="truncate">` around long emails, and `shrink-0` on the phone block so the email truncates instead of pushing the spent total off-screen.
+- **Billing empty state**: payment-history empty state now shows a `CreditCard` icon and friendlier copy.
+- **Kitchen refresh feedback**: refresh button now swaps to a `Loader2` spinner and disables during refetch (was firing silently).
+- **Memberships enroll spinner**: enroll submit button shows `Loader2 + "Enrolling…"` while saving.
+- **Shifts variance label**: "Variance" label now color-matches the value (red when short, green when over/even).
+- **Analytics PDF currency**: PDF report uses `formatCurrency()` (matches in-app formatting) instead of raw `${currency}${x.toFixed(2)}` — handles thousands separators and PHP-style spacing properly.
+- **Transactions skeleton**: replaced two generic shimmer blocks with a 4-stat-card grid + 6-row table skeleton that matches the actual layout, so the loading state stops jumping when data arrives.
+
 ## Auth & Account Lifecycle (April 2026 hardening)
 - `setAuthCookie` and `clearAuthCookie` (server/auth.ts) share `AUTH_COOKIE_OPTIONS` (httpOnly + secure + sameSite=lax + path=/) so the cookie actually disappears on logout — previously logout required two clicks because `clearCookie` was called without matching options.
 - `DELETE /api/auth/account` performs a full cascade through `deleteUsersData(uids)` (covers products, sales, recipes, ingredients, wifiVouchers, payrollPeriods/Entries, etc.) and, when the caller is an `owner` with a tenant, also calls `deleteTenantShell(tenantId)` to drop branches, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories, tenant-scoped auditLogs/inviteTokens, and finally the tenant row. Without this, owners would re-register with the same deterministic email-based ID and still see their old store.

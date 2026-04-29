@@ -2909,14 +2909,15 @@ export default function AiPage() {
       `}</style>
       {/*
         Mobile: account for the 52px sticky app header (+ safe-area-top) AND the
-        floating bottom-nav (~80px + safe-area-bottom). Without this the chat
-        input was hidden behind the bottom nav. We also drop the top negative
-        margin on mobile so the messages don't slide under the sticky header.
+        floating bottom-nav. The floating chip's true visual footprint (button
+        py-2 + icon + label + outer mb-1.5 + safe-area) is ~96px on phones, so
+        we reserve a hair more space than the nav itself to keep the disclaimer
+        line off the chip. Without this the input + disclaimer slid behind it.
         Desktop: just subtract the 52px header and the parent's py-5 padding.
       */}
       <div
         className="flex overflow-hidden -mx-4 md:-mx-6 -mt-0 md:-mt-5 -mb-0 md:-mb-5
-                   h-[calc(100dvh-52px-env(safe-area-inset-top,0px)-80px-env(safe-area-inset-bottom,0px))]
+                   h-[calc(100dvh-52px-env(safe-area-inset-top,0px)-96px-env(safe-area-inset-bottom,0px))]
                    md:h-[calc(100dvh-52px)]"
       >
         {/* Desktop: always show sidebar */}

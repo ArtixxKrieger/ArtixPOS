@@ -7,7 +7,7 @@ import {
 } from "@/lib/ai-store";
 
 export function AiFloatButton() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [enabled, setEnabled] = useState(false);
   const [iconSize, setIconSizeState] = useState(56);
   const [iconOpacity, setIconOpacityState] = useState(100);
@@ -91,6 +91,9 @@ export function AiFloatButton() {
   }, [pos, setLocation]);
 
   if (!enabled) return null;
+  // Don't render the floating sparkle on the AI page itself — it just
+  // overlaps the chat input and links to the page you're already on.
+  if (location.startsWith("/ai")) return null;
 
   const innerSize = Math.round(iconSize * 0.43);
 

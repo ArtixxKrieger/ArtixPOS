@@ -2697,31 +2697,34 @@ export default function AiPage() {
   // ── Chat area ──────────────────────────────────────────────────────────────
   const chatArea = (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Chat header — visible on all screen sizes */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/60 shrink-0 bg-card/80 backdrop-blur-sm">
-        {/* Mobile: back to sidebar button */}
+      {/* Chat header — compact on mobile (slim, no extra avatar) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 border-b border-border/60 shrink-0 bg-card/80 backdrop-blur-sm">
+        {/* Mobile: back to sidebar button — bigger touch target */}
         <button
+          data-testid="button-mobile-history"
           onClick={() => setShowSidebar(true)}
-          className="md:hidden text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted/60 transition-colors"
+          className="md:hidden h-9 w-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-colors"
           title="Chat history"
+          aria-label="Chat history"
         >
-          <MessageSquare className="h-4 w-4" />
+          <MessageSquare className="h-[18px] w-[18px]" />
         </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="hidden md:flex h-6 w-6 rounded-full bg-primary items-center justify-center shrink-0">
             <Sparkles className="h-3 w-3 text-white" />
           </div>
-          <p className="text-sm font-semibold truncate text-foreground">
+          <p className="text-[13px] sm:text-sm font-semibold truncate text-foreground">
             {activeId ? (getSession(activeId)?.title ?? "ArtixPOS AI") : "ArtixPOS AI"}
           </p>
         </div>
-        {/* New Chat button — always visible in the chat header */}
+        {/* New Chat button — icon-only on mobile, label on sm+ */}
         <button
           data-testid="button-new-chat-header"
           onClick={startNewChat}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 hover:border-primary/40 active:scale-95 transition-all shrink-0"
+          className="flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-full sm:rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 hover:border-primary/40 active:scale-95 transition-all shrink-0"
+          aria-label="New chat"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-[18px] w-[18px] sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">New Chat</span>
         </button>
       </div>
@@ -2904,9 +2907,17 @@ export default function AiPage() {
           45%, 55% { opacity: 0; }
         }
       `}</style>
+      {/*
+        Mobile: account for the 52px sticky app header (+ safe-area-top) AND the
+        floating bottom-nav (~80px + safe-area-bottom). Without this the chat
+        input was hidden behind the bottom nav. We also drop the top negative
+        margin on mobile so the messages don't slide under the sticky header.
+        Desktop: just subtract the 52px header and the parent's py-5 padding.
+      */}
       <div
-        className="flex overflow-hidden -mx-4 md:-mx-6 -my-5"
-        style={{ height: "calc(100dvh - 56px)" }}
+        className="flex overflow-hidden -mx-4 md:-mx-6 -mt-0 md:-mt-5 -mb-0 md:-mb-5
+                   h-[calc(100dvh-52px-env(safe-area-inset-top,0px)-80px-env(safe-area-inset-bottom,0px))]
+                   md:h-[calc(100dvh-52px)]"
       >
         {/* Desktop: always show sidebar */}
         <div className="hidden md:flex w-64 shrink-0 h-full overflow-hidden flex-col">

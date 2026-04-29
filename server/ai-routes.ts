@@ -110,6 +110,16 @@ function getUserId(req: Request): string {
   return (req.user as any).id;
 }
 
+// The user's currently-selected branch. AI-created records (products, sales,
+// expenses, etc.) MUST be stamped with this so they appear in the active
+// branch view. Without it, records get branchId=null and become invisible
+// to a multi-branch user looking at one branch — the exact bug from the
+// "Add Product" screenshot where the success toast fired but the product
+// never showed up in the Products page.
+function activeBranchId(req: Request): number | null {
+  return (req.user as any)?.activeBranchId ?? null;
+}
+
 // ─── Supported AI action tags ─────────────────────────────────────────────────
 // This is the single source of truth. When you implement a new action (tag +
 // frontend handler + API route), add its name here — the system prompt will
@@ -614,62 +624,32 @@ function detectCapabilitiesQuery(messages: ChatMessage[]): boolean {
   return CAPABILITIES_RE.test(lastUserMsg);
 }
 
-// ─── ADD-PRODUCT intent detection (the bug from the screenshot) ──────────────
-// "Test, 500, clothes" / "Espresso 120 drinks" / "name: X price: 100 cat: Y" /
-// "add coffee 80" / "create new product Latte 150 beverages" / Tagalog variants.
-// When this fires we (a) force the smart 70B model, (b) force fresh context so
-// the AI knows the store has products, (c) drop temperature for clean tag JSON,
-// (d) inject a turn-level directive that overrides any contradictions in the
-// static system prompt or in older history ("you can do it manually" advice).
-const ADD_VERBS_RE = /\b(add|create|new|insert|put|register|record|gawa|gumawa|dagdag|idagdag|magdagdag|magpasok|i-?add|i-?create)\b/i;
-const PRODUCT_NOUN_RE = /\b(product|products|item|items|sku|menu|produkto|paninda|tinda)\b/i;
-const COMMA_TRIPLE_RE = /^[\s"']*([^,\n]{1,40}),\s*([^,\n]{1,20}),\s*([^,\n]{1,40})[\s"'.]*$/;
-const NAME_PRICE_CAT_LABELS_RE = /\b(name|pangalan)\s*[:=]\s*\S+.*\b(price|presyo)\s*[:=]\s*[\d.,]+/i;
-const PRICE_TOKEN_RE = /(?:^|\s|,)(\d{1,7}(?:[.,]\d{1,2})?)(?:\s|,|$)/;
-
-function detectAddProductIntent(messages: ChatMessage[]): boolean {
-  const lastUserMsg = messages.filter(m => m.role === "user").at(-1)?.content?.trim() ?? "";
-  if (!lastUserMsg || lastUserMsg.length > 200) return false;
-
-  // 1) Explicit verb + product noun ("add product", "create new product")
-  if (ADD_VERBS_RE.test(lastUserMsg) && PRODUCT_NOUN_RE.test(lastUserMsg)) return true;
-
-  // 2) Labeled key:value form ("name: Latte price: 120 category: drinks")
-  if (NAME_PRICE_CAT_LABELS_RE.test(lastUserMsg)) return true;
-
-  // 3) Comma-triple "Test, 500, clothes" — name, price-ish number, category-ish word
-  const tripleMatch = lastUserMsg.match(COMMA_TRIPLE_RE);
-  if (tripleMatch && /^\s*\d{1,7}(?:[.,]\d{1,2})?\s*$/.test(tripleMatch[2])) return true;
-
-  // 4) Reply to a prior AI question of the form "what's the name, price, category?"
-  //    Look at the last assistant message — if it asked for those fields and the
-  //    current user message is short and contains a numeric price-like token, we
-  //    treat it as an ADD reply.
-  const lastAssistantMsg = messages.filter(m => m.role === "assistant").at(-1)?.content ?? "";
-  const aiAskedForProductFields =
-    /\b(name|pangalan).{0,40}(price|presyo).{0,40}(category|kategorya)/i.test(lastAssistantMsg) ||
-    /what(?:'s| is) the (name|product)/i.test(lastAssistantMsg);
-  if (aiAskedForProductFields && PRICE_TOKEN_RE.test(lastUserMsg) && lastUserMsg.length < 80) {
-    return true;
-  }
-
-  return false;
+// ─── Looks-structured heuristic (language-agnostic) ──────────────────────────
+// We don't try to detect intent here — the LLM does that. We only flag short,
+// number-bearing messages that *might* be a product/expense entry, so we can
+// boost them onto the smart model with a clean context. Numbers and commas are
+// the same in every human language — no English/Tagalog/Spanish keywords here.
+function looksStructuredEntry(messages: ChatMessage[]): boolean {
+  const m = messages.filter(x => x.role === "user").at(-1)?.content?.trim() ?? "";
+  if (!m || m.length > 200) return false;
+  if (!/\d/.test(m)) return false;                // structured entries always have a price/qty
+  const wordCount = m.split(/\s+/).filter(Boolean).length;
+  return m.includes(",") || wordCount <= 8;
 }
 
 // Builds the turn-level directive injected at the TOP of the system prompt.
 // This sits ABOVE all the older sometimes-contradicting instructions so the
 // model can't drift into "go to Products and tap Add" advice.
-function buildAddProductDirective(): string {
+function buildStructuredEntryDirective(): string {
   return `🚨 CURRENT-TURN DIRECTIVE — HIGHEST PRIORITY, OVERRIDES EVERYTHING BELOW:
-The user is trying to ADD A PRODUCT in this turn. You CAN do this — the [ADD_PRODUCT] action tag exists and is fully supported.
+The user's message looks like structured data (a name + a number, possibly + a category). They are most likely asking you to CREATE something — a product, an expense, a customer, or a discount code. You have action tags for all of these and you CAN execute them.
 RULES FOR THIS TURN:
-1. DO NOT say "I don't see any products" — the store may have products even if not all are in your sample.
-2. DO NOT redirect them to "go to Products and tap +" — you are the one adding it.
-3. DO NOT ask "what's the name, price, category?" if those values are already in their message (parse them out).
-4. Reply with ONE short confirmation line then [ADD_PRODUCT]{...}[/ADD_PRODUCT] on its own line.
-5. If the message is "X, NUMBER, Y" → name="X", price="NUMBER", category="Y".
-6. If only name + price given (no category), match to an existing category or use "General".
-7. Set trackStock=false and stock=0 unless the user explicitly mentions a stock quantity.
+1. Pick the correct action tag based on context (recent conversation + what the values look like). Default to [ADD_PRODUCT] if a category-ish word is present, [LOG_EXPENSE] if the prior turn was about expenses.
+2. DO NOT redirect the user to "go to the Products page" or any other manual workflow — you are the one performing the action.
+3. DO NOT ask for fields that are already in the message — parse them out.
+4. Reply with ONE short confirmation line in the user's own language, then the action tag on its own line.
+5. For "X, NUMBER, Y" → name="X", price/amount="NUMBER", category="Y". For "X NUMBER" → name="X", price="NUMBER", no category.
+6. For products: trackStock=false and stock=0 unless the user explicitly mentions a stock quantity; if no category given, match to an existing one or use "General".
 This directive supersedes any older advice in this conversation about doing it manually.
 `;
 }
@@ -1426,74 +1406,41 @@ async function parseFileContent(file: Express.Multer.File): Promise<string> {
 
 interface ChatMessage { role: "user" | "assistant"; content: string }
 
-// ─── Detect if a message needs store data context ────────────────────────────
-const DATA_KEYWORDS = [
-  "sale","sales","revenue","transaction","transactions","product","products",
-  "customer","customers","expense","expenses","stock","inventory","shift","shifts",
-  "profit","income","total","today","yesterday","month","week","report","analytics",
-  "how much","how many","top","best","sold","bought","pending","order","orders",
-  "low stock","discount","promo","staff","team","earning","earned","made",
-  // branch / staff / email keywords
-  "branch","branches","main branch","email","emails","staff email","access",
-  "revoke","ban","banned","unban","restore access","who can","manage staff",
-  "pull","pull data","pull all","send me","give me","fetch","get me",
-  // action keywords — adding/editing/removing data
-  "add","create","new product","insert","put","list","show me","what are",
-  "edit","update","change","remove","delete","rename","price of",
-  "category","categories","import","upload",
-  // follow-up / pagination phrases — MUST trigger context so AI doesn't hallucinate
-  "show more","send more","more transaction","more sale","more recent",
-  "next one","next 5","next 10","5 more","10 more","more please","give me more",
-  "show next","show all","show the rest","the other","show other",
-  // temporal follow-ups — "on march", "in january", "last year", etc.
-  "january","february","march","april","june","july","august",
-  "september","october","november","december",
-  "last month","this month","last week","this week","last year","this year",
-  "last quarter","this quarter","q1","q2","q3","q4",
-  "on jan","on feb","on mar","on apr","on may","on jun",
-  "on jul","on aug","on sep","on oct","on nov","on dec",
-  "in jan","in feb","in mar","in apr","in may","in jun",
-  "in jul","in aug","in sep","in oct","in nov","in dec",
-  "compare","comparison","versus","vs","breakdown","summary","detail","filter","sort","rank",
-  // all-time / aggregate query phrases
-  "all time","all-time","of all time","ever","highest ever","lowest ever","biggest ever",
-  "average","mean","total ever","overall","lifetime","since the start","since day one",
-  "biggest","largest","smallest","minimum","maximum","best sale","worst sale","record",
-  // Tagalog
-  "iba pa","iba pang","susunod","dagdag pa","ipakita pa",
-  "benta","kita","produkto","gastos","imbentaryo","kliyente","bayad","transaksyon",
-  "magkano","ilang","kabuuan","linggo","buwan","araw","ulat","pinaka",
-  "idagdag","gumawa","baguhin","tanggalin","presyo","kategorya",
-  "sangay","empleyado","email ng",
-];
-
+// ─── Detect if a message needs store data context (language-agnostic) ────────
+// We deliberately avoid any keyword list (English/Tagalog/Spanish/...). Instead
+// we use universal signals that exist in every language: question marks,
+// digits, length, and email/handle patterns. The actual classification of WHAT
+// the user wants is delegated to the LLM — these heuristics only decide
+// whether to spend the latency budget loading store context for this turn.
 function needsStoreData(messages: ChatMessage[], fileContent?: string): boolean {
   if (fileContent) return true;
-  // Only check the CURRENT (last) user message.
-  // Follow-up questions like "really?" or "how many?" don't need a full
-  // context reload — the AI can use the data already in conversation history.
-  // Checking previous messages caused every follow-up to reload full context,
-  // doubling token usage and hitting Groq rate limits.
-  const lastUserMsg = messages
-    .filter(m => m.role === "user")
-    .at(-1)?.content.toLowerCase() ?? "";
-  return DATA_KEYWORDS.some(kw => lastUserMsg.includes(kw));
+  const m = messages.filter(x => x.role === "user").at(-1)?.content?.trim() ?? "";
+  if (!m) return false;
+
+  // 1. Any digit → likely refers to amounts, dates, IDs, or quantities.
+  if (/\d/.test(m)) return true;
+  // 2. Question mark in any script (?, ¿, ？) → information-seeking.
+  if (/[?¿？]/.test(m)) return true;
+  // 3. Email or @-handle → looking up / inviting a person.
+  if (/@/.test(m)) return true;
+  // 4. Substantive length → likely a real request, not a greeting.
+  if (m.length >= 30) return true;
+
+  return false;
 }
 
-// Detects pure greetings / casual chatter so we never inject store context into
-// a simple "hey" even if there's a warm cache from a prior business query.
-const CASUAL_ONLY_RE = /^[\s!?.,"']*(?:h+m+|h+mm+|h+mmm+|huh|what|why|wait|thinking|i'?m\s+thinking|just\s+thinking|i'?m\s+just\s+thinking|hey|hi+|hello|yo+|sup|hola|kumusta|uy|ay|oy|ok+ay?|sure|yep|yup|nope|yeah|nah|no|yes|cool|nice|great|good|bad|wow|damn|ugh|omg|lol|haha|hehe|idk|wdym|wyd|gtg|nvm|np|brb|k|ight|aight|ight|tnx|ty|thx|thanks|salamat|oo nga|ganon|talaga|grabe|sige|anong|ano|mukhang|parang|luh|sus|bro|dude|mate|babe|beh|pre|boss|teh|naman|di|wala|meron|pwede|paki|sana|kaya|lang|nga|daw|raw|ba|eh|kasi|kaya nga|ayan|yun|ito|ayan na|sabi ko na|alam mo|ewan|hayaan mo|bahala)[\s!?.,"']*$/i;
-
+// Detects pure greetings / casual chatter so we never inject store context for
+// a simple "hey" — language-agnostic, no keyword list. A message is "casual
+// only" when it's short, has no digits, no question/punctuation that signals
+// a real request, and no @ handle.
 function isCasualOnly(messages: ChatMessage[]): boolean {
-  const lastUserMsg = messages
-    .filter(m => m.role === "user")
-    .at(-1)?.content.trim() ?? "";
-  const wordCount = lastUserMsg.split(/\s+/).filter(Boolean).length;
-  // Classic single-word casual match
-  if (wordCount <= 6 && CASUAL_ONLY_RE.test(lastUserMsg)) return true;
-  // Short affirmations / closings (≤5 words, zero data keywords) — e.g. "perfect thanks", "nice one", "got it"
-  if (wordCount <= 5 && !DATA_KEYWORDS.some(kw => lastUserMsg.toLowerCase().includes(kw))) return true;
-  return false;
+  const m = messages.filter(x => x.role === "user").at(-1)?.content?.trim() ?? "";
+  if (!m) return true;
+  if (m.length > 25) return false;
+  const wordCount = m.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 4) return false;
+  if (/\d|[?¿？@:;]/.test(m)) return false;
+  return true;
 }
 
 // ─── Minimal system prompt (no store data, for casual messages) ───────────────
@@ -2054,8 +2001,8 @@ export function registerAiRoutes(app: Express) {
       //  1. Current message has data keywords → load base context (cached) + targeted dynamic query
       //  2. Follow-up (cache hit) → reuse cached base + still run dynamic query for this message
       //  3. Pure conversation → minimal prompt, no DB
-      const wantsAddProduct = detectAddProductIntent(trimmedMessages);
-      // ADD-product turns ALWAYS need fresh store data (categories list etc.)
+      const wantsAddProduct = looksStructuredEntry(trimmedMessages);
+      // Structured-entry turns ALWAYS need fresh store data (categories list etc.)
       // and force the smart model regardless of message length.
       const wantsData = wantsAddProduct || needsStoreData(trimmedMessages, fileContent);
       const isJustChatting = !wantsAddProduct && isCasualOnly(trimmedMessages);
@@ -2107,8 +2054,8 @@ export function registerAiRoutes(app: Express) {
       // stop the model from drifting into "go to Products and tap +" advice
       // after it has already promised to add the product.
       if (wantsAddProduct) {
-        systemPrompt = buildAddProductDirective() + "\n" + systemPrompt;
-        console.log(`[ai][${requestId}] ADD_PRODUCT intent → directive injected, smart model + low temp`);
+        systemPrompt = buildStructuredEntryDirective() + "\n" + systemPrompt;
+        console.log(`[ai][${requestId}] structured-entry hint → directive injected, smart model + low temp`);
       }
 
       // ── Trim history to control token count ───────────────────────────────────
@@ -2325,6 +2272,7 @@ export function registerAiRoutes(app: Express) {
   app.post("/api/ai/import-products", requireAuth, async (req: Request, res: Response) => {
     try {
       const uid = getUserId(req);
+      const branchId = activeBranchId(req);
       const { products: toImport } = req.body as {
         products: Array<{
           name: string;
@@ -2397,6 +2345,7 @@ export function registerAiRoutes(app: Express) {
               modifiers: null,
               hasSizes: false,
               hasModifiers: false,
+              branchId,
             });
           })
         );
@@ -2421,6 +2370,7 @@ export function registerAiRoutes(app: Express) {
   app.post("/api/ai/add-product", requireAuth, async (req: Request, res: Response) => {
     try {
       const uid = getUserId(req);
+      const branchId = activeBranchId(req);
       const { name, price, category, stock, trackStock } = req.body as {
         name: string; price: string; category?: string; stock?: number; trackStock?: boolean;
       };
@@ -2457,6 +2407,7 @@ export function registerAiRoutes(app: Express) {
         modifiers: null,
         hasSizes: false,
         hasModifiers: false,
+        branchId,
       });
       invalidateCache(uid);
       res.json({ product });
@@ -2542,6 +2493,7 @@ export function registerAiRoutes(app: Express) {
   app.post("/api/ai/add-customer", requireAuth, async (req: Request, res: Response) => {
     try {
       const uid = getUserId(req);
+      const branchId = activeBranchId(req);
       const { name, email, phone, notes } = req.body as {
         name: string; email?: string; phone?: string; notes?: string;
       };
@@ -2553,6 +2505,7 @@ export function registerAiRoutes(app: Express) {
         email: email?.trim() || null,
         phone: phone?.trim() || null,
         notes: notes?.trim() || null,
+        branchId,
       } as any);
       invalidateCache(uid);
       res.json({ customer });
@@ -2566,6 +2519,7 @@ export function registerAiRoutes(app: Express) {
   app.post("/api/ai/log-expense", requireAuth, async (req: Request, res: Response) => {
     try {
       const uid = getUserId(req);
+      const branchId = activeBranchId(req);
       const { name, amount, category } = req.body as {
         name: string; amount: string; category?: string;
       };
@@ -2577,7 +2531,8 @@ export function registerAiRoutes(app: Express) {
         description: name.trim(),
         amount: String(parsed),
         category: category?.trim() || "General",
-      });
+        branchId,
+      } as any);
       invalidateCache(uid);
       res.json({ expense });
     } catch (err: any) {
@@ -2669,6 +2624,7 @@ export function registerAiRoutes(app: Express) {
       if (!code || !type || !value) return res.status(400).json({ message: "Missing code, type, or value." });
       if (type !== "percentage" && type !== "fixed") return res.status(400).json({ message: "type must be 'percentage' or 'fixed'." });
 
+      const branchId = activeBranchId(req);
       const discount = await storage.createDiscountCode(uid, {
         code: code.trim().toUpperCase(),
         type,
@@ -2677,7 +2633,8 @@ export function registerAiRoutes(app: Express) {
         maxUses: maxUses ?? null,
         isActive: true,
         expiresAt: expiresAt ?? null,
-      });
+        branchId,
+      } as any);
       res.json({ discount });
     } catch (err: any) {
       console.error("Create discount error:", err);

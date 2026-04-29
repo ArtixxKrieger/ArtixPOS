@@ -2604,8 +2604,10 @@ export default function AiPage() {
               </button>
             </div>
           )}
-          {/* Smart contextual suggestion pills — only when input is empty, no file pending, and not loading */}
-          {!input.trim() && !pendingFile && !loading && suggestions.length > 0 && (
+          {/* Smart contextual suggestion pills — only when input is empty, no file pending, not loading,
+              AND there's an active conversation. The welcome screen has its own EmptyState chips, so
+              showing these on top of those is redundant and can overflow on small screens. */}
+          {!input.trim() && !pendingFile && !loading && messages.length > 0 && suggestions.length > 0 && (
             <div className="flex gap-1.5 mb-2 overflow-x-auto scrollbar-hide -mx-1 px-1" data-testid="suggestion-pills">
               {suggestions.map((s, i) => (
                 <button

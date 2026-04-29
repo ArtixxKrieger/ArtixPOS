@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import {
   Send, Paperclip, Loader2, Sparkles, Trash2, FileText,
   Plus, MessageSquare, ChevronLeft, Settings, Check, X, WifiOff,
+  RotateCcw, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -77,6 +78,19 @@ interface ShowCustomerOrdersPayload {
   name: string;
 }
 
+// Embedded in the assistant "Done!" message after AI adds a product or logs an
+// expense. Powers the 30-second Undo chip that one-tap reverses the action.
+interface UndoAddProductPayload {
+  productId: number;
+  name: string;
+  ts: number;
+}
+interface UndoLogExpensePayload {
+  expenseId: number;
+  description: string;
+  ts: number;
+}
+
 interface ReorderItem {
   product: { id?: number | string; name: string; price: string };
   quantity: number;
@@ -140,6 +154,8 @@ function parseImportAction(content: string): {
   toggleDiscountPayload: ToggleDiscountPayload | null;
   staffInfoPayload: StaffInfoPayload | null;
   customerOrdersPayload: ShowCustomerOrdersPayload | null;
+  undoAddProductPayload: UndoAddProductPayload | null;
+  undoLogExpensePayload: UndoLogExpensePayload | null;
   followups: string[];
 } {
   let display = content;
@@ -156,6 +172,8 @@ function parseImportAction(content: string): {
   let toggleDiscountPayload: ToggleDiscountPayload | null = null;
   let staffInfoPayload: StaffInfoPayload | null = null;
   let customerOrdersPayload: ShowCustomerOrdersPayload | null = null;
+  let undoAddProductPayload: UndoAddProductPayload | null = null;
+  let undoLogExpensePayload: UndoLogExpensePayload | null = null;
   let followups: string[] = [];
 
   const tags: Array<{ tag: string; setter: (v: string) => void }> = [
@@ -170,6 +188,8 @@ function parseImportAction(content: string): {
     { tag: "UPDATE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); updateDiscountPayload = p; } catch {} } },
     { tag: "DELETE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); deleteDiscountPayload = p; } catch {} } },
     { tag: "TOGGLE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); toggleDiscountPayload = p; } catch {} } },
+    { tag: "UNDO_ADD_PRODUCT", setter: v => { try { undoAddProductPayload = JSON.parse(v); } catch {} } },
+    { tag: "UNDO_LOG_EXPENSE", setter: v => { try { undoLogExpensePayload = JSON.parse(v); } catch {} } },
   ];
 
   for (const { tag, setter } of tags) {
@@ -210,7 +230,8 @@ function parseImportAction(content: string): {
     updateProductPayload, deleteProductPayload, addCustomerPayload,
     expensePayload, discountPayload, updateDiscountPayload,
     deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload,
-    customerOrdersPayload, followups,
+    customerOrdersPayload, undoAddProductPayload, undoLogExpensePayload,
+    followups,
   };
 }
 
@@ -809,6 +830,101 @@ function CustomerOrdersCard({ name, onReorder }: { name: string; onReorder: (cus
   );
 }
 
+// Mobile-first undo chip with a 30-second visual countdown ring. Disappears
+// once the timer expires. One tap calls the parent handler and locks out
+// further presses immediately so the user can't double-undo.
+function UndoChip({
+  label,
+  ts,
+  durationMs = 30_000,
+  variant,
+  onUndo,
+  onExpire,
+  testId,
+}: {
+  label: string;
+  ts: number;
+  durationMs?: number;
+  variant: "product" | "expense";
+  onUndo: () => Promise<void> | void;
+  onExpire?: () => void;
+  testId?: string;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const elapsed = Math.max(0, now - ts);
+  const remainingMs = Math.max(0, durationMs - elapsed);
+  const remainingSec = Math.ceil(remainingMs / 1000);
+  const expired = remainingMs <= 0;
+
+  useEffect(() => {
+    if (expired || done) return;
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [expired, done]);
+
+  useEffect(() => {
+    if (expired && !done) onExpire?.();
+  }, [expired, done, onExpire]);
+
+  if (done || expired) return null;
+
+  const colorClasses = variant === "product"
+    ? "bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800/50 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40"
+    : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40";
+
+  return (
+    <button
+      onClick={async () => {
+        if (busy || done) return;
+        setBusy(true);
+        try {
+          await onUndo();
+          setDone(true);
+        } finally {
+          setBusy(false);
+        }
+      }}
+      disabled={busy}
+      data-testid={testId ?? `button-undo-${variant}`}
+      className={`group inline-flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full border text-xs font-semibold transition-all active:scale-95 disabled:opacity-60 shadow-sm ${colorClasses}`}
+    >
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <RotateCcw className="h-3.5 w-3.5" />
+      )}
+      <span>{busy ? "Undoing…" : `Undo ${label}`}</span>
+      <span className="ml-0.5 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-white/70 dark:bg-black/30 text-[10px] font-bold tabular-nums">
+        {remainingSec}s
+      </span>
+    </button>
+  );
+}
+
+// Compact retry chip shown in place of repeated breather/error bubbles. Lets
+// the user tap once to re-send the failed turn instead of re-typing it. Used
+// for both rate-limit failures and connection errors.
+function RetryChip({
+  onRetry,
+  testId,
+}: {
+  onRetry: () => void;
+  testId?: string;
+}) {
+  return (
+    <button
+      onClick={onRetry}
+      data-testid={testId ?? "button-retry-ai"}
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary transition-colors active:scale-95"
+    >
+      <RefreshCw className="h-3.5 w-3.5" />
+      <span>Try again</span>
+    </button>
+  );
+}
+
 function MessageBubble({
   msg, onImport, onUpdatePrices, onAddProduct, onUpdateProduct, onDeleteProduct,
   onAddCustomer, onLogExpense, onCreateDiscount,
@@ -820,7 +936,7 @@ function MessageBubble({
   onMarkImported, onMarkPriceUpdated, onMarkAddProduct, onMarkUpdateProduct,
   onMarkDeleteProduct, onMarkAddCustomer, onMarkExpense, onMarkDiscount,
   onMarkUpdateDiscount, onMarkDeleteDiscount, onMarkToggleDiscount,
-  onFollowup,
+  onFollowup, onUndoAddProduct, onUndoLogExpense, onRetry,
 }: {
   msg: AiMessage;
   onImport: (p: ImportPayload) => void;
@@ -860,6 +976,9 @@ function MessageBubble({
   onMarkDeleteDiscount: () => void;
   onMarkToggleDiscount: () => void;
   onFollowup: (q: string) => void;
+  onUndoAddProduct: (productId: number, name: string) => Promise<void> | void;
+  onUndoLogExpense: (expenseId: number, description: string) => Promise<void> | void;
+  onRetry?: () => void;
 }) {
   const isUser = msg.role === "user";
   const [, navigate] = useLocation();
@@ -871,7 +990,8 @@ function MessageBubble({
     display, importPayload: payload, pricePayload, addProductPayload,
     updateProductPayload, deleteProductPayload, addCustomerPayload,
     expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload,
-    toggleDiscountPayload, staffInfoPayload, customerOrdersPayload, followups,
+    toggleDiscountPayload, staffInfoPayload, customerOrdersPayload,
+    undoAddProductPayload, undoLogExpensePayload, followups,
   } = parseImportAction(msg.content);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmPrice, setConfirmPrice] = useState(false);
@@ -1367,6 +1487,27 @@ function MessageBubble({
         {customerOrdersPayload && customerOrdersPayload.name && (
           <CustomerOrdersCard name={customerOrdersPayload.name} onReorder={onReorder} />
         )}
+        {!isUser && undoAddProductPayload?.productId && (
+          <UndoChip
+            label={undoAddProductPayload.name || "add"}
+            ts={undoAddProductPayload.ts ?? Date.parse(msg.timestamp)}
+            variant="product"
+            testId={`button-undo-add-product-${undoAddProductPayload.productId}`}
+            onUndo={() => onUndoAddProduct(undoAddProductPayload.productId, undoAddProductPayload.name || "")}
+          />
+        )}
+        {!isUser && undoLogExpensePayload?.expenseId && (
+          <UndoChip
+            label={undoLogExpensePayload.description || "expense"}
+            ts={undoLogExpensePayload.ts ?? Date.parse(msg.timestamp)}
+            variant="expense"
+            testId={`button-undo-log-expense-${undoLogExpensePayload.expenseId}`}
+            onUndo={() => onUndoLogExpense(undoLogExpensePayload.expenseId, undoLogExpensePayload.description || "")}
+          />
+        )}
+        {!isUser && !isStreaming && msg.errored && onRetry && (
+          <RetryChip onRetry={onRetry} testId={`button-retry-${msg.id}`} />
+        )}
         {!isUser && !isStreaming && followups.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1 mt-0.5">
             {followups.map((q, i) => (
@@ -1474,14 +1615,14 @@ function EmptyState({
 }) {
   const groups = getSuggestionGroups(businessType, businessSubType);
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 text-center gap-5">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-          <Sparkles className="h-7 w-7 text-white" />
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-8 text-center gap-4 sm:gap-5">
+      <div className="flex flex-col items-center gap-2.5 sm:gap-3">
+        <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+          <Sparkles className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
         </div>
         <div>
-          <h2 className="text-lg font-bold">Hey, I'm your AI</h2>
-          <p className="text-sm text-muted-foreground max-w-[240px] mt-0.5">
+          <h2 className="text-base sm:text-lg font-bold">Hey, I'm your AI</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-[260px] mt-0.5">
             Ask me anything about your store — sales, staff, stock, discounts.
           </p>
         </div>
@@ -1817,9 +1958,9 @@ export default function AiPage() {
         } catch {}
         const fullErr = `${errMsg}\n\n[DEBUG] ${errDebug}`;
         setMessages(prev => prev.map(m =>
-          m.id === assistantId ? { ...m, content: fullErr } : m
+          m.id === assistantId ? { ...m, content: fullErr, errored: true } : m
         ));
-        updateSession(sessionId!, [...newMessages, { ...assistantMsg, content: fullErr }]);
+        updateSession(sessionId!, [...newMessages, { ...assistantMsg, content: fullErr, errored: true }]);
         refreshSessions();
         return;
       }
@@ -1859,7 +2000,26 @@ export default function AiPage() {
               const errMsg = parsed.message ?? "Something went wrong. Please try again.";
               const debugLine = parsed.debug ? `\n\n[DEBUG] ${parsed.debug}` : "";
               accumulated = errMsg + debugLine;
-              flush(accumulated);
+              // Collapse consecutive identical errors instead of stacking them
+              // — the user shouldn't see 3 of the same "quick breather" bubbles.
+              setMessages(prev => {
+                const next = prev.map(m =>
+                  m.id === assistantId ? { ...m, content: accumulated, errored: true } : m
+                );
+                // Look for an older assistant error with the same content and
+                // collapse the duplicate (and the user message that triggered it).
+                const myIdx = next.findIndex(m => m.id === assistantId);
+                if (myIdx >= 2) {
+                  const priorAssistant = next[myIdx - 2];
+                  if (priorAssistant?.role === "assistant" &&
+                      priorAssistant.errored &&
+                      priorAssistant.content.trim() === accumulated.trim()) {
+                    // Remove the older duplicate error AND the user msg that prompted it
+                    next.splice(myIdx - 2, 2);
+                  }
+                }
+                return next;
+              });
             } else if (parsed.type === "account_banned") {
               // Force logout after a short delay so the user sees the ban message
               setTimeout(async () => {
@@ -1980,10 +2140,16 @@ export default function AiPage() {
     try {
       const res = await apiRequest("POST", "/api/ai/add-product", payload);
       const data = await res.json();
+      const productId = data.product?.id;
+      const productName = data.product?.name ?? payload.name;
+      // Embed an undo payload so the message bubble can render a 30s Undo chip.
+      const undoTag = productId
+        ? `\n\n[UNDO_ADD_PRODUCT]${JSON.stringify({ productId, name: productName, ts: Date.now() })}[/UNDO_ADD_PRODUCT]`
+        : "";
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! **${data.product?.name}** has been added to your store at ₱${data.product?.price}.`,
+        content: `Done! **${productName}** has been added to your store at ₱${data.product?.price}.${undoTag}`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2100,10 +2266,15 @@ export default function AiPage() {
     try {
       const res = await apiRequest("POST", "/api/ai/log-expense", payload);
       const data = await res.json();
+      const expenseId = data.expense?.id;
+      const description = data.expense?.description ?? payload.name;
+      const undoTag = expenseId
+        ? `\n\n[UNDO_LOG_EXPENSE]${JSON.stringify({ expenseId, description, ts: Date.now() })}[/UNDO_LOG_EXPENSE]`
+        : "";
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! Expense logged — **${data.expense?.description}** for ₱${data.expense?.amount} under **${data.expense?.category}**.`,
+        content: `Done! Expense logged — **${description}** for ₱${data.expense?.amount} under **${data.expense?.category}**.${undoTag}`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2115,6 +2286,47 @@ export default function AiPage() {
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setLoggingExpense(false);
+    }
+  };
+
+  // Undo handler: reverts an AI add-product action and replaces the original
+  // result message + undo tag with a short "Undone" confirmation. Invalidates
+  // the products cache so the inventory UI reflects the rollback immediately.
+  const handleUndoAddProduct = async (msgId: string, productId: number, name: string) => {
+    try {
+      await apiRequest("POST", "/api/ai/undo-add-product", { productId });
+      setMessages(prev => {
+        const next = prev.map(m =>
+          m.id === msgId
+            ? { ...m, content: `Undone — **${name || "product"}** removed from your store.` }
+            : m
+        );
+        if (activeId) updateSession(activeId, next);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Undone", description: name ? `${name} was removed.` : "Product removed." });
+    } catch {
+      toast({ title: "Undo failed", description: "Couldn't reverse that — try again.", variant: "destructive" });
+    }
+  };
+
+  const handleUndoLogExpense = async (msgId: string, expenseId: number, description: string) => {
+    try {
+      await apiRequest("POST", "/api/ai/undo-log-expense", { expenseId });
+      setMessages(prev => {
+        const next = prev.map(m =>
+          m.id === msgId
+            ? { ...m, content: `Undone — expense **${description || "entry"}** deleted.` }
+            : m
+        );
+        if (activeId) updateSession(activeId, next);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      toast({ title: "Undone", description: "Expense was deleted." });
+    } catch {
+      toast({ title: "Undo failed", description: "Couldn't reverse that — try again.", variant: "destructive" });
     }
   };
 
@@ -2560,6 +2772,22 @@ export default function AiPage() {
               onMarkDeleteDiscount={() => setDeleteDiscountDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkToggleDiscount={() => setToggleDiscountDoneIds(prev => new Set(prev).add(msg.id))}
               onFollowup={(q) => sendMessage(q, { silent: true })}
+              onUndoAddProduct={(productId, name) => handleUndoAddProduct(msg.id, productId, name)}
+              onUndoLogExpense={(expenseId, description) => handleUndoLogExpense(msg.id, expenseId, description)}
+              onRetry={() => {
+                // Find the user message immediately preceding this errored bubble
+                // and re-send it. The previous bubble is replaced when the new
+                // turn writes the updated assistant message.
+                const idxNow = messages.findIndex(m => m.id === msg.id);
+                if (idxNow <= 0) return;
+                const prior = messages[idxNow - 1];
+                if (prior?.role !== "user") return;
+                // Trim the failed assistant turn so the retry doesn't pile on.
+                const trimmed = messages.slice(0, idxNow);
+                setMessages(trimmed);
+                if (activeId) updateSession(activeId, trimmed);
+                sendMessage(prior.content, { silent: !!prior.silent });
+              }}
             />
           ))
         )}

@@ -19,6 +19,10 @@ export interface AiMessage {
   timestamp: string;
   file?: { name: string; size: number };
   silent?: boolean;
+  // Set to true when the assistant turn ended in a recoverable failure (rate
+  // limit, network error). Powers the inline "Try again" chip and lets the UI
+  // collapse repeated identical errors instead of stacking them.
+  errored?: boolean;
 }
 
 export interface AiSession {

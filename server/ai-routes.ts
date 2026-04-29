@@ -624,6 +624,89 @@ function detectCapabilitiesQuery(messages: ChatMessage[]): boolean {
   return CAPABILITIES_RE.test(lastUserMsg);
 }
 
+// ─── Action-capability question shortcut (zero LLM tokens) ───────────────────
+// Catches "can you add a product?", "could you log an expense for me?",
+// "are you able to create a discount", "do you add customers" — the user is
+// asking IF you can do the thing, not actually giving you the thing to do.
+// The structured-entry path requires a number; if there's no number AND the
+// message is short and asks-with-a-modal, return a friendly canned reply that
+// teaches the user the exact format. Saves a full LLM round-trip and keeps
+// the assistant useful even when the upstream provider is rate-limited.
+const ACTION_CAPABILITY_RE = /\b(can|could|will|would|are|r) (you|u|he|she|it|the ai|this ai)\b.{0,40}\b(add|create|make|log|record|delete|remove|update|edit|change|import|set|set up|setup)\b.{0,30}\b(product|item|expense|customer|client|discount|code|promo|sale|order|menu|stock)/i;
+const ACTION_CAPABILITY_RE_TL = /\b(pwede|puede|kaya|kayo|maaari|magagawa)\b.{0,40}\b(add|magdagdag|gumawa|mag-?log|mag-?record|mag-?delete|mag-?update|mag-?import|magtanggal|magbago)\b.{0,30}\b(product|item|gastos|expense|customer|client|discount|code|promo|order|menu|stock)/i;
+
+function detectActionCapabilityQuery(messages: ChatMessage[]): {
+  matched: boolean;
+  kind: "product" | "expense" | "customer" | "discount" | "generic";
+} {
+  const lastUserMsg = messages.filter(m => m.role === "user").at(-1)?.content?.trim() ?? "";
+  if (!lastUserMsg || lastUserMsg.length > 160) return { matched: false, kind: "generic" };
+  // Skip if message contains a number — that's a structured entry, not a question
+  if (/\d/.test(lastUserMsg)) return { matched: false, kind: "generic" };
+  // Skip if it's already structured like "add Espresso Drinks" with multiple specifics
+  const wordCount = lastUserMsg.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 14) return { matched: false, kind: "generic" };
+  if (!ACTION_CAPABILITY_RE.test(lastUserMsg) && !ACTION_CAPABILITY_RE_TL.test(lastUserMsg)) {
+    return { matched: false, kind: "generic" };
+  }
+  const lower = lastUserMsg.toLowerCase();
+  if (/\b(expense|gastos|cost|bill)\b/.test(lower)) return { matched: true, kind: "expense" };
+  if (/\b(customer|client|kliyente|suki)\b/.test(lower)) return { matched: true, kind: "customer" };
+  if (/\b(discount|code|promo|coupon)\b/.test(lower)) return { matched: true, kind: "discount" };
+  if (/\b(product|item|menu|stock|sku)\b/.test(lower)) return { matched: true, kind: "product" };
+  return { matched: true, kind: "generic" };
+}
+
+function buildActionCapabilityAnswer(kind: "product" | "expense" | "customer" | "discount" | "generic"): string {
+  if (kind === "product") {
+    return `Yes — I can add products straight to your store. Just tell me the **name**, **price**, and (optional) **category**. Examples:
+
+- *Add Espresso 120 Drinks*
+- *Add Iced Matcha, 140, Drinks*
+- *Add USB-C Cable 199*
+
+I'll show a confirmation chip before saving so you can double-check.
+
+[FOLLOWUP]Add Iced Matcha 140 Drinks|Add a sample product|How do I import a list?[/FOLLOWUP]`;
+  }
+  if (kind === "expense") {
+    return `Yes — I can log expenses for you. Just give me the **name** and **amount**, plus an optional **category**. Examples:
+
+- *Log expense rent 5000*
+- *Expense, electricity, 2300, Utilities*
+- *Add expense supplier payment 1800*
+
+A confirmation chip will appear before I save it.
+
+[FOLLOWUP]Log expense rent 5000|Show today's expenses|This month's total expenses?[/FOLLOWUP]`;
+  }
+  if (kind === "customer") {
+    return `Yes — I can add a customer to your list. Tell me the **name**, plus optional **phone** or **email**:
+
+- *Add customer Maria Santos*
+- *Add customer Juan, 0917-1234567*
+- *Add customer Anna Cruz, anna@gmail.com*
+
+You'll see a confirmation chip before saving.
+
+[FOLLOWUP]Add customer Maria Santos|Show top customers|Who hasn't bought in 30 days?[/FOLLOWUP]`;
+  }
+  if (kind === "discount") {
+    return `Yes — I can create discount codes. Just give me a **code**, **type** (% or ₱ off), and **value**:
+
+- *Create 10% off code SAVE10*
+- *Make discount FLAT100 ₱100 off*
+- *Create 15% code WELCOME15 minimum 500*
+
+A confirmation chip will appear before it goes live.
+
+[FOLLOWUP]Create 10% off SAVE10|Show all discount codes|Make a ₱50 off code[/FOLLOWUP]`;
+  }
+  return `Yes — I can do that. I can add products, log expenses, add customers, and create discount codes. Just give me the details (name + price/amount) and I'll show a confirmation chip before saving anything.
+
+[FOLLOWUP]Add a product|Log an expense|Create a discount code|What else can you do?[/FOLLOWUP]`;
+}
+
 // ─── Looks-structured heuristic (language-agnostic) ──────────────────────────
 // We don't try to detect intent here — the LLM does that. We only flag short,
 // number-bearing messages that *might* be a product/expense entry, so we can
@@ -1980,6 +2063,18 @@ export function registerAiRoutes(app: Express) {
         return res.end();
       }
 
+      // ── Action-capability shortcut (zero LLM tokens) ─────────────────────────
+      // "Can you add a product?", "Could you log an expense for me?" — answer
+      // from a hardcoded template that teaches the exact format. Prevents the
+      // upstream rate-limiter from ever firing on these trivial questions.
+      const actionCap = detectActionCapabilityQuery(messages);
+      if (actionCap.matched) {
+        console.log(`[ai][${requestId}] ACTION-CAPABILITY shortcut — kind: ${actionCap.kind}`);
+        sendEvent({ type: "chunk", content: buildActionCapabilityAnswer(actionCap.kind) });
+        sendDone();
+        return res.end();
+      }
+
       // ── Response cache lookup (60s TTL, instant + zero tokens for repeats) ──
       // Same user asking the exact same question within 60s gets the cached
       // answer immediately. Keyed by uid + normalized last user message.
@@ -2538,6 +2633,48 @@ export function registerAiRoutes(app: Express) {
     } catch (err: any) {
       console.error("Log expense error:", err);
       res.status(500).json({ message: "Failed to log expense." });
+    }
+  });
+
+  // ── Undo: delete a product the AI just added ──────────────────────────────────
+  // Powers the 30-second "Undo" chip in the AI chat. Only deletes if the product
+  // belongs to this user/tenant (storage.deleteProduct already enforces that).
+  app.post("/api/ai/undo-add-product", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { productId } = req.body as { productId?: number };
+      const id = Number(productId);
+      if (!id || isNaN(id)) {
+        return res.status(400).json({ message: "Missing productId." });
+      }
+      const existing = await storage.getProduct(id, uid);
+      if (!existing) {
+        return res.status(404).json({ message: "Product not found or already removed." });
+      }
+      await storage.deleteProduct(id, uid);
+      invalidateCache(uid);
+      res.json({ undone: true, name: existing.name });
+    } catch (err: any) {
+      console.error("Undo add-product error:", err);
+      res.status(500).json({ message: "Failed to undo." });
+    }
+  });
+
+  // ── Undo: delete an expense the AI just logged ────────────────────────────────
+  app.post("/api/ai/undo-log-expense", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { expenseId } = req.body as { expenseId?: number };
+      const id = Number(expenseId);
+      if (!id || isNaN(id)) {
+        return res.status(400).json({ message: "Missing expenseId." });
+      }
+      await storage.deleteExpense(id, uid);
+      invalidateCache(uid);
+      res.json({ undone: true });
+    } catch (err: any) {
+      console.error("Undo log-expense error:", err);
+      res.status(500).json({ message: "Failed to undo." });
     }
   });
 

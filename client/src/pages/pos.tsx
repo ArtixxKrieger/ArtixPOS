@@ -98,6 +98,7 @@ export default function POS() {
 
   // Barcode scanner
   const [barcodeInput, setBarcodeInput] = useState("");
+  const [scanFlash, setScanFlash] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const barcodeLookupMutation = useMutation({
     mutationFn: (barcode: string) => apiRequest("GET", `/api/products/barcode/${encodeURIComponent(barcode)}`).then(r => r.json()),
@@ -117,6 +118,61 @@ export default function POS() {
       barcodeLookupMutation.mutate(barcodeInput.trim());
     }
   }, [barcodeInput]);
+
+  // Global barcode scanner listener — works even when no input is focused.
+  // Hardware scanners fire characters very rapidly (< 50 ms apart) and end with Enter.
+  useEffect(() => {
+    let buffer = "";
+    let lastCharTime = 0;
+    const BURST_MS = 50;   // max gap between scanner keystrokes
+    const MIN_LEN  = 4;    // minimum barcode length
+
+    function onGlobalKeyDown(e: KeyboardEvent) {
+      // If the dedicated barcode input has focus, let its own handler deal with it
+      if (barcodeRef.current && document.activeElement === barcodeRef.current) return;
+
+      const now = Date.now();
+      const gap = now - lastCharTime;
+
+      if (e.key === "Enter") {
+        if (buffer.length >= MIN_LEN) {
+          e.preventDefault();
+          setScanFlash(true);
+          barcodeLookupMutation.mutate(buffer);
+          buffer = "";
+          lastCharTime = 0;
+          setTimeout(() => setScanFlash(false), 800);
+        }
+        return;
+      }
+
+      // Only track printable characters
+      if (e.key.length !== 1) return;
+
+      // If chars arrive slowly (human typing), reset and don't accumulate
+      if (gap > BURST_MS && buffer.length > 0) {
+        buffer = "";
+      }
+
+      const activeTag = (document.activeElement as HTMLElement)?.tagName ?? "";
+      const inInput = activeTag === "INPUT" || activeTag === "TEXTAREA"
+        || !!(document.activeElement as HTMLElement)?.isContentEditable;
+
+      // Buffer if: no input is focused, OR chars are coming in at scanner speed
+      if (!inInput || gap < BURST_MS) {
+        buffer += e.key;
+        lastCharTime = now;
+      } else {
+        // Human typing in an input — reset
+        buffer = "";
+        lastCharTime = now;
+      }
+    }
+
+    document.addEventListener("keydown", onGlobalKeyDown);
+    return () => document.removeEventListener("keydown", onGlobalKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Receipt
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -938,16 +994,27 @@ export default function POS() {
           </div>
           {showBarcode && (
             <div className="relative">
-              <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Barcode className={[
+                "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-150",
+                scanFlash ? "text-primary" : "text-muted-foreground"
+              ].join(" ")} />
               <Input
                 ref={barcodeRef}
                 placeholder="Scan barcode..."
-                className="pl-9 h-12 w-40 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20"
+                className={[
+                  "pl-9 h-12 w-40 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20 transition-colors duration-150",
+                  scanFlash ? "ring-2 ring-primary/30" : ""
+                ].join(" ")}
                 value={barcodeInput}
                 onChange={e => setBarcodeInput(e.target.value)}
                 onKeyDown={handleBarcodeKeyDown}
                 data-testid="input-barcode-scan"
               />
+              {scanFlash && (
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary animate-pulse pointer-events-none">
+                  SCANNING
+                </span>
+              )}
             </div>
           )}
         </div>

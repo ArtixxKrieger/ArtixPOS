@@ -26,9 +26,18 @@ Core technical implementations include:
 - **Resilience**: Service worker caching strategies are optimized for assets and lazy-loaded chunks. An `<ErrorBoundary>` handles lazy-import failures and provides offline-aware recovery mechanisms.
 
 ## External Dependencies
-- **Database**: PostgreSQL (main production), SQLite (development/local)
+- **Database**: PostgreSQL via Replit's managed database (DATABASE_URL auto-configured)
 - **ORM**: Drizzle ORM
-- **AI Model**: Groq (Llama 3.3 70B)
-- **OAuth Providers**: Google, Facebook
+- **AI Model**: Groq (Llama 3.3 70B) — requires GROQ_API_KEY secret
+- **OAuth Providers**: Google (optional, requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)
 - **Mobile Wrapper**: Capacitor
 - **Font Hosting**: Google Fonts
+
+## Replit Environment Notes
+- Runs on port 5000 (webview) in development via `npm run dev`
+- Dev command uses `node_modules/.bin/tsx` directly (tsx is installed locally)
+- `SESSION_SECRET` and `DATABASE_URL` are provisioned as Replit secrets
+- Deployment build: `npm run build`, run: `node ./dist/index.cjs`
+- Optional AI keys: `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`
+- Optional payment key: `PAYMONGO_SECRET_KEY` (for subscription billing)
+- Optional email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (for password reset emails)

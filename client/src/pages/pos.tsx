@@ -206,6 +206,26 @@ export default function POS() {
   const currency = settings?.currency || "₱";
 
   const updateQuantity = (cartId: string, change: number) => {
+    // Stock guard — only on increment
+    if (change > 0) {
+      const item = cart.find(i => i.cartId === cartId);
+      if (item && item.product.trackStock && typeof item.product.stock === "number") {
+        const totalInCart = cart.reduce((sum, i) =>
+          i.product.id === item.product.id ? sum + i.quantity : sum, 0);
+        if (totalInCart >= item.product.stock) {
+          toast({
+            title: item.product.stock === 0
+              ? `${item.product.name} is out of stock`
+              : `Only ${item.product.stock} in stock`,
+            description: item.product.stock > 0
+              ? `You already have all ${item.product.stock} unit${item.product.stock !== 1 ? "s" : ""} in the cart.`
+              : undefined,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
     setCart(prev =>
       prev
         .map(item =>
@@ -235,6 +255,27 @@ export default function POS() {
   }, [products, debouncedSearch, category]);
 
   const addToCart = (product: Product, size?: { name: string; price: string }, note?: string) => {
+    // Stock guard — block if adding would exceed available stock
+    if (product.trackStock && typeof product.stock === "number") {
+      const totalInCart = cart.reduce((sum, i) =>
+        i.product.id === product.id ? sum + i.quantity : sum, 0);
+      if (totalInCart >= product.stock) {
+        toast({
+          title: product.stock === 0
+            ? `${product.name} is out of stock`
+            : `Only ${product.stock} in stock`,
+          description: product.stock > 0
+            ? `You already have all ${product.stock} unit${product.stock !== 1 ? "s" : ""} in the cart.`
+            : undefined,
+          variant: "destructive",
+        });
+        setSelectedProduct(null);
+        setTempSize(null);
+        setTempNote("");
+        return;
+      }
+    }
+
     setCart(prev => {
       const existing = prev.find(item =>
         item.product.id === product.id &&

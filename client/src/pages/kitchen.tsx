@@ -165,17 +165,25 @@ export default function KitchenPage() {
                       </div>
 
                       {/* Items */}
-                      <ul className="space-y-1">
-                        {((order.items as any[]) ?? []).map((item, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <span className="font-bold text-primary min-w-[20px]">{item.quantity}×</span>
-                            <span className="flex-1">
-                              {item.name}
-                              {item.size && <span className="text-muted-foreground ml-1 text-xs">({item.size})</span>}
-                              {item.modifier && <span className="text-muted-foreground ml-1 text-xs">+{item.modifier}</span>}
-                            </span>
-                          </li>
-                        ))}
+                      <ul className="space-y-1.5">
+                        {((order.items as any[]) ?? []).map((item, i) => {
+                          const sizeName = item.size?.name ?? item.size ?? null;
+                          const mods: string[] = item.modifiers?.map((m: any) => m.name ?? m) ??
+                            (item.modifier ? [item.modifier] : []);
+                          return (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <span className="font-bold text-primary min-w-[20px]">{item.quantity}×</span>
+                              <span className="flex-1">
+                                <span className="font-medium">{item.name ?? item.product?.name}</span>
+                                {sizeName && <span className="text-muted-foreground ml-1 text-xs">({sizeName})</span>}
+                                {mods.length > 0 && (
+                                  <span className="text-muted-foreground ml-1 text-xs">+{mods.join(", ")}</span>
+                                )}
+                                {item.note && <span className="block text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5">"{item.note}"</span>}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ul>
 
                       {/* Action button */}

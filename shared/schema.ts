@@ -574,6 +574,22 @@ export const notifications = pgTable("notifications", {
 
 export type Notification = typeof notifications.$inferSelect;
 
+// ─── Stock Logs ────────────────────────────────────────────────────────────────
+
+export const stockLogs = pgTable("stock_logs", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  previousStock: integer("previous_stock").notNull(),
+  newStock: integer("new_stock").notNull(),
+  delta: integer("delta").notNull(),
+  reason: text("reason").default("manual"), // "manual" | "sale" | "restock" | "adjustment"
+  note: text("note"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export type StockLog = typeof stockLogs.$inferSelect;
+
 // ─── Payroll Periods ──────────────────────────────────────────────────────────
 
 export const payrollPeriods = pgTable("payroll_periods", {

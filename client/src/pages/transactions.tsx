@@ -11,7 +11,23 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 
 type DateFilter = "all" | "today" | "week" | "month" | "custom";
-type PaymentFilter = "all" | "cash" | "online";
+type PaymentFilter = "all" | "cash" | "card" | "gcash" | "maya" | "online";
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: "Cash",
+  card: "Card",
+  online: "Online",
+  gcash: "GCash",
+  maya: "Maya",
+};
+
+const PAYMENT_COLORS: Record<string, string> = {
+  cash: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  card: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  online: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  gcash: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  maya: "bg-green-500/10 text-green-600 dark:text-green-400",
+};
 
 const ALL_COLUMNS = [
   { key: "id", label: "ID" },
@@ -270,13 +286,16 @@ export default function Transactions() {
         <DropdownMenu
           trigger={
             <button className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <span>{paymentFilter === "all" ? "All methods" : paymentFilter === "cash" ? "Cash" : "Online"}</span>
+              <span>{paymentFilter === "all" ? "All methods" : (PAYMENT_LABELS[paymentFilter] ?? paymentFilter)}</span>
               <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
             </button>
           }
         >
           <DropdownItem active={paymentFilter === "all"} onClick={() => setPaymentFilter("all")}>All methods</DropdownItem>
           <DropdownItem active={paymentFilter === "cash"} onClick={() => setPaymentFilter("cash")}>Cash</DropdownItem>
+          <DropdownItem active={paymentFilter === "card"} onClick={() => setPaymentFilter("card")}>Card</DropdownItem>
+          <DropdownItem active={paymentFilter === "gcash"} onClick={() => setPaymentFilter("gcash")}>GCash</DropdownItem>
+          <DropdownItem active={paymentFilter === "maya"} onClick={() => setPaymentFilter("maya")}>Maya</DropdownItem>
           <DropdownItem active={paymentFilter === "online"} onClick={() => setPaymentFilter("online")}>Online</DropdownItem>
         </DropdownMenu>
 
@@ -332,8 +351,7 @@ export default function Transactions() {
                   const itemsSummary = items.length === 1
                     ? (items[0]?.product?.name || items[0]?.name || items[0]?.title || "1 item")
                     : `${items.length} items`;
-                  const isOnline = sale.paymentMethod === "online";
-
+                  const method = sale.paymentMethod || "cash";
                   const isRefunded = !!(sale as any).refundedAt;
 
                   return (
@@ -382,11 +400,9 @@ export default function Transactions() {
                         <TableCell className="px-4 py-3">
                           <span className={[
                             "px-2.5 py-1 rounded-lg text-[10px] font-semibold",
-                            isOnline
-                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                            PAYMENT_COLORS[method] ?? "bg-muted text-muted-foreground",
                           ].join(" ")}>
-                            {isOnline ? "Online" : "Cash"}
+                            {PAYMENT_LABELS[method] ?? method}
                           </span>
                         </TableCell>
                       )}

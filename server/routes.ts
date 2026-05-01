@@ -204,6 +204,13 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/products/:id/stock-logs", requireAuth, async (req, res, next) => {
+    try {
+      const logs = await storage.getStockLogs(Number(req.params.id), userId(req));
+      res.json(logs);
+    } catch (err) { next(err); }
+  });
+
   // ── Pending Orders ────────────────────────────────────────────────────────
 
   app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {

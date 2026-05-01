@@ -3,14 +3,16 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
-import { type InsertProduct, type Product } from "@shared/schema";
+import { type InsertProduct, type Product, type StockLog } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 
 interface SizeItem { name: string; price: string; }
 interface ProductFormData {
@@ -40,6 +42,18 @@ export default function Products() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
+
+  const { data: stockLogs = [], isLoading: stockLogsLoading } = useQuery<StockLog[]>({
+    queryKey: ["/api/products", stockHistoryProduct?.id, "stock-logs"],
+    queryFn: async () => {
+      if (!stockHistoryProduct) return [];
+      const res = await fetch(`/api/products/${stockHistoryProduct.id}/stock-logs`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!stockHistoryProduct,
+  });
 
   const requestDelete = (id: number) => {
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
@@ -476,6 +490,16 @@ export default function Products() {
                   </>
                 ) : (
                   <>
+                    {product.trackStock && (
+                      <button
+                        className="h-9 w-9 rounded-xl hover:bg-violet-500/10 hover:text-violet-600 flex items-center justify-center text-muted-foreground/60 transition-colors"
+                        onClick={() => setStockHistoryProduct(product)}
+                        data-testid={`button-stock-history-${product.id}`}
+                        title="Stock history"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground transition-colors"
                       onClick={() => openEdit(product)}
@@ -498,6 +522,89 @@ export default function Products() {
         </div>
       )}
 
+      {/* Stock History Dialog */}
+      <Dialog open={!!stockHistoryProduct} onOpenChange={(v) => !v && setStockHistoryProduct(null)}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <History className="h-4 w-4 text-primary" />
+              Stock History — {stockHistoryProduct?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-1 max-h-96 overflow-y-auto -mx-1 px-1">
+            {stockLogsLoading ? (
+              <div className="space-y-2 py-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-14 skeleton-shimmer rounded-xl" />
+                ))}
+              </div>
+            ) : stockLogs.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground">
+                <History className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm font-medium">No stock changes yet</p>
+                <p className="text-xs mt-1 opacity-70">Stock changes will appear here after restocks or adjustments</p>
+              </div>
+            ) : (
+              stockLogs.map((log) => {
+                const isIncrease = log.delta > 0;
+                const isDecrease = log.delta < 0;
+                const REASON_LABELS: Record<string, string> = {
+                  manual: "Manual adjustment",
+                  sale: "Sale deduction",
+                  restock: "Restock",
+                  adjustment: "Adjustment",
+                };
+                return (
+                  <div
+                    key={log.id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/30 transition-colors"
+                    data-testid={`stock-log-${log.id}`}
+                  >
+                    <div className={[
+                      "h-8 w-8 rounded-xl flex items-center justify-center shrink-0",
+                      isIncrease ? "bg-emerald-500/10" : isDecrease ? "bg-rose-500/10" : "bg-muted",
+                    ].join(" ")}>
+                      {isIncrease
+                        ? <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        : isDecrease
+                          ? <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
+                          : <Boxes className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={[
+                          "text-sm font-bold tabular-nums",
+                          isIncrease ? "text-emerald-600 dark:text-emerald-400" : isDecrease ? "text-rose-500" : "text-foreground",
+                        ].join(" ")}>
+                          {isIncrease ? "+" : ""}{log.delta}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {log.previousStock} → {log.newStock}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                        {REASON_LABELS[log.reason ?? "manual"] ?? log.reason}
+                        {log.note && ` · ${log.note}`}
+                      </p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/50 shrink-0 text-right">
+                      {log.createdAt ? format(new Date(log.createdAt), "MMM d, h:mm a") : ""}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="pt-1 border-t border-border/40">
+            <p className="text-[10px] text-muted-foreground/50 text-center">
+              Showing last {stockLogs.length} change{stockLogs.length !== 1 ? "s" : ""}
+              {stockHistoryProduct && ` · Current stock: ${stockHistoryProduct.stock ?? 0}`}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

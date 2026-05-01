@@ -78,6 +78,8 @@ import {
   type InsertMembershipCheckIn,
   notifications,
   type Notification,
+  stockLogs,
+  type StockLog,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 
@@ -90,6 +92,7 @@ export interface IStorage {
   deleteProduct(id: number, userId: string): Promise<void>;
   adjustStock(id: number, userId: string, delta: number): Promise<Product | undefined>;
   setStock(id: number, userId: string, newStock: number): Promise<Product | undefined>;
+  getStockLogs(productId: number, userId: string): Promise<StockLog[]>;
 
   // Pending Orders
   getPendingOrders(userId: string): Promise<PendingOrder[]>;
@@ -322,11 +325,22 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getProduct(id, userId);
       if (!existing) return undefined;
-      const newStock = Math.max(0, (existing.stock ?? 0) + delta);
+      const previousStock = existing.stock ?? 0;
+      const newStock = Math.max(0, previousStock + delta);
       const [updated] = await db.update(products)
         .set({ stock: newStock } as any)
         .where(eq(products.id, id))
         .returning();
+      if (updated) {
+        await db.insert(stockLogs).values({
+          productId: id,
+          userId,
+          previousStock,
+          newStock,
+          delta: newStock - previousStock,
+          reason: "adjustment",
+        } as any).catch(() => {});
+      }
       return updated;
     } catch (error) {
       console.error("Error adjusting stock:", error);
@@ -338,15 +352,40 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getProduct(id, userId);
       if (!existing) return undefined;
+      const previousStock = existing.stock ?? 0;
       const clampedStock = Math.max(0, newStock);
       const [updated] = await db.update(products)
         .set({ stock: clampedStock } as any)
         .where(eq(products.id, id))
         .returning();
+      if (updated) {
+        await db.insert(stockLogs).values({
+          productId: id,
+          userId,
+          previousStock,
+          newStock: clampedStock,
+          delta: clampedStock - previousStock,
+          reason: "restock",
+        } as any).catch(() => {});
+      }
       return updated;
     } catch (error) {
       console.error("Error setting stock:", error);
       return undefined;
+    }
+  }
+
+  async getStockLogs(productId: number, userId: string): Promise<StockLog[]> {
+    try {
+      const product = await this.getProduct(productId, userId);
+      if (!product) return [];
+      return await db.select().from(stockLogs)
+        .where(eq(stockLogs.productId, productId))
+        .orderBy(desc(stockLogs.createdAt))
+        .limit(50);
+    } catch (error) {
+      console.error("Error fetching stock logs:", error);
+      return [];
     }
   }
 

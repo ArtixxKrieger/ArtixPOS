@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -83,6 +84,7 @@ export default function POS() {
 
   const paymentInputRef = useRef<HTMLInputElement>(null);
   const [isPaymentFocused, setIsPaymentFocused] = useState(false);
+  const [showNumpad, setShowNumpad] = useState(false);
 
   // Customer selection
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -760,16 +762,98 @@ export default function POS() {
           <>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium shrink-0 text-muted-foreground">Paid</span>
+
+              {/* Mobile: native number keyboard */}
               <Input
                 ref={paymentInputRef}
                 type="number"
-                className="w-28 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-bold tabular-nums"
+                className="w-28 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-bold tabular-nums md:hidden"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 onFocus={() => setIsPaymentFocused(true)}
                 onBlur={() => setIsPaymentFocused(false)}
                 placeholder="0.00"
               />
+
+              {/* Desktop only: numpad popover */}
+              <div className="hidden md:block">
+                <Popover open={showNumpad} onOpenChange={(open) => { setShowNumpad(open); setIsPaymentFocused(open); }}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className="w-28 h-8 px-3 text-right bg-secondary/60 rounded-xl text-sm font-bold tabular-nums hover:bg-secondary transition-colors border border-transparent hover:border-border/40"
+                      data-testid="button-numpad-trigger"
+                    >
+                      <span className={paymentAmount ? "text-foreground" : "text-muted-foreground/40"}>
+                        {paymentAmount || "0.00"}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    align="end"
+                    className="w-52 p-3 rounded-2xl shadow-xl border border-border/40"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    {/* Live display */}
+                    <div className="bg-secondary/60 rounded-xl px-3 py-2 mb-2.5 text-right">
+                      <p className="text-2xl font-black tabular-nums leading-none">{paymentAmount || "0"}</p>
+                      {changeAmount > 0 && (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+                          Change: {formatCurrency(changeAmount, currency)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Exact shortcut */}
+                    {total > 0 && (
+                      <button
+                        onClick={() => setPaymentAmount(total.toFixed(2))}
+                        className="w-full h-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold mb-2 hover:bg-emerald-500/20 transition-all"
+                        data-testid="button-numpad-exact"
+                      >
+                        Exact — {formatCurrency(total, currency)}
+                      </button>
+                    )}
+
+                    {/* Digit grid: 7 8 9 / 4 5 6 / 1 2 3 / . 0 ⌫ */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {["7","8","9","4","5","6","1","2","3",".","0","backspace"].map((key) => (
+                        <button
+                          key={key}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (key === "backspace") {
+                              setPaymentAmount((p) => p.slice(0, -1));
+                            } else if (key === ".") {
+                              setPaymentAmount((p) => p.includes(".") ? p : (p || "0") + ".");
+                            } else {
+                              setPaymentAmount((p) => p === "0" ? key : p + key);
+                            }
+                          }}
+                          className={[
+                            "h-11 rounded-xl font-bold text-sm flex items-center justify-center transition-all active:scale-95 select-none",
+                            key === "backspace"
+                              ? "bg-destructive/8 text-destructive/70 hover:bg-destructive/15"
+                              : "bg-secondary/80 hover:bg-secondary border border-border/30"
+                          ].join(" ")}
+                          data-testid={`numpad-key-${key}`}
+                        >
+                          {key === "backspace" ? <Delete className="h-4 w-4" /> : key}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Done */}
+                    <button
+                      onClick={() => setShowNumpad(false)}
+                      className="w-full h-9 rounded-xl bg-primary text-white font-bold text-sm mt-2 hover:opacity-90 transition-all active:scale-[0.98]"
+                      data-testid="button-numpad-done"
+                    >
+                      Done
+                    </button>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             {total > 0 && (
               <div className="flex gap-1">

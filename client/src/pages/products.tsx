@@ -9,12 +9,55 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 interface SizeItem { name: string; price: string; }
+
+interface CsvRow {
+  name: string; category?: string; price?: string; sku?: string; barcode?: string;
+  taxRate?: string; trackStock?: boolean; stock?: number; lowStockThreshold?: number;
+}
+
+interface ImportResult { created: number; updated: number; errors: number; errorList: string[]; }
+
+function parseCsv(text: string): CsvRow[] {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
+  if (lines.length < 2) return [];
+  const parseRow = (line: string): string[] => {
+    const cells: string[] = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === "," && !inQ) { cells.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    cells.push(cur);
+    return cells;
+  };
+  const headers = parseRow(lines[0]).map(h => h.trim().toLowerCase());
+  return lines.slice(1).map(line => {
+    const vals = parseRow(line);
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] ?? "").trim(); });
+    const row: CsvRow = { name: obj.name || "" };
+    if (obj.category) row.category = obj.category;
+    if (obj.price) row.price = obj.price;
+    if (obj.sku) row.sku = obj.sku;
+    if (obj.barcode) row.barcode = obj.barcode;
+    if (obj.taxrate) row.taxRate = obj.taxrate;
+    row.trackStock = obj.trackstock === "true" || obj.trackstock === "1" || obj.trackstock === "yes";
+    if (obj.stock !== "") row.stock = parseInt(obj.stock) || 0;
+    if (obj.lowstockthreshold !== "") row.lowStockThreshold = parseInt(obj.lowstockthreshold) || 5;
+    return row;
+  }).filter(r => r.name);
+}
+
 interface ProductFormData {
   name: string;
   price: string;
@@ -43,6 +86,60 @@ export default function Products() {
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<CsvRow[]>([]);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importFileName, setImportFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const importMutation = useMutation({
+    mutationFn: async (rows: CsvRow[]) => {
+      const res = await fetch("/api/products/import", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json() as Promise<ImportResult>;
+    },
+    onSuccess: (result) => {
+      setImportResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFileName(file.name);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const rows = parseCsv(text);
+      setImportRows(rows);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleExport = () => {
+    const a = document.createElement("a");
+    a.href = "/api/products/export";
+    a.download = "products.csv";
+    a.click();
+  };
+
+  const resetImport = () => {
+    setImportRows([]);
+    setImportResult(null);
+    setImportFileName("");
+  };
 
   const { data: stockLogs = [], isLoading: stockLogsLoading } = useQuery<StockLog[]>({
     queryKey: ["/api/products", stockHistoryProduct?.id, "stock-logs"],
@@ -168,7 +265,7 @@ export default function Products() {
           </p>
         </div>
 
-        <div className="flex w-full sm:w-auto gap-2.5">
+        <div className="flex w-full sm:w-auto gap-2.5 flex-wrap">
           <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -179,6 +276,36 @@ export default function Products() {
               data-testid="input-search-inventory"
             />
           </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleFileChange}
+            data-testid="input-import-csv"
+          />
+
+          <button
+            onClick={handleExport}
+            className="h-10 px-3 rounded-2xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5 text-sm font-medium shadow-sm shrink-0"
+            data-testid="button-export-csv"
+            title="Export as CSV"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+
+          <button
+            onClick={() => { resetImport(); setImportOpen(true); }}
+            className="h-10 px-3 rounded-2xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5 text-sm font-medium shadow-sm shrink-0"
+            data-testid="button-open-import"
+            title="Import from CSV"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Import</span>
+          </button>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -521,6 +648,150 @@ export default function Products() {
           ))}
         </div>
       )}
+
+      {/* CSV Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) resetImport(); }}>
+        <DialogContent className="max-w-lg rounded-3xl max-h-[90dvh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Upload className="h-4 w-4 text-primary" />
+              Import Products from CSV
+            </DialogTitle>
+          </DialogHeader>
+
+          {importResult ? (
+            /* Results view */
+            <div className="flex-1 space-y-4 py-2">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-emerald-500/10 rounded-2xl p-3 text-center">
+                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{importResult.created}</p>
+                  <p className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Created</p>
+                </div>
+                <div className="bg-blue-500/10 rounded-2xl p-3 text-center">
+                  <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{importResult.updated}</p>
+                  <p className="text-[10px] font-semibold text-blue-600/70 dark:text-blue-400/70 mt-0.5">Updated</p>
+                </div>
+                <div className={["rounded-2xl p-3 text-center", importResult.errors > 0 ? "bg-rose-500/10" : "bg-muted/40"].join(" ")}>
+                  <p className={["text-2xl font-black", importResult.errors > 0 ? "text-rose-500" : "text-muted-foreground"].join(" ")}>{importResult.errors}</p>
+                  <p className={["text-[10px] font-semibold mt-0.5", importResult.errors > 0 ? "text-rose-500/70" : "text-muted-foreground/60"].join(" ")}>Errors</p>
+                </div>
+              </div>
+
+              {importResult.errorList.length > 0 && (
+                <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-3 space-y-1 max-h-40 overflow-y-auto">
+                  <p className="text-xs font-semibold text-rose-500 mb-2 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5" /> Errors
+                  </p>
+                  {importResult.errorList.map((e, i) => (
+                    <p key={i} className="text-[11px] text-rose-500/80">{e}</p>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  Import complete. Your inventory has been updated.
+                </p>
+              </div>
+
+              <Button
+                className="w-full rounded-2xl"
+                onClick={() => { setImportOpen(false); resetImport(); }}
+                data-testid="button-import-done"
+              >
+                Done
+              </Button>
+            </div>
+          ) : (
+            /* Upload + preview view */
+            <div className="flex-1 flex flex-col gap-4 min-h-0">
+              {/* Drop zone */}
+              <button
+                type="button"
+                className="border-2 border-dashed border-border rounded-2xl p-6 text-center flex flex-col items-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="button-choose-csv"
+              >
+                {importFileName ? (
+                  <>
+                    <FileText className="h-8 w-8 text-primary/60" />
+                    <p className="text-sm font-semibold text-foreground">{importFileName}</p>
+                    <p className="text-xs text-muted-foreground">{importRows.length} row{importRows.length !== 1 ? "s" : ""} detected · Click to change</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm font-semibold">Choose a CSV file</p>
+                    <p className="text-xs text-muted-foreground/60">Columns: name, category, price, sku, barcode, taxRate, trackStock, stock, lowStockThreshold</p>
+                  </>
+                )}
+              </button>
+
+              {/* Preview table */}
+              {importRows.length > 0 && (
+                <div className="flex-1 overflow-auto border border-border/40 rounded-2xl min-h-0">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 bg-muted/60 backdrop-blur-sm">
+                      <tr>
+                        {["Name", "Category", "Price", "SKU", "Track Stock"].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.slice(0, 50).map((row, i) => (
+                        <tr key={i} className="border-t border-border/20 hover:bg-muted/20">
+                          <td className="px-3 py-2 font-medium max-w-[120px] truncate">{row.name}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{row.category || "—"}</td>
+                          <td className="px-3 py-2 tabular-nums">{row.price || "—"}</td>
+                          <td className="px-3 py-2 font-mono text-muted-foreground">{row.sku || "—"}</td>
+                          <td className="px-3 py-2">
+                            <span className={["px-1.5 py-0.5 rounded-md text-[10px] font-semibold", row.trackStock ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"].join(" ")}>
+                              {row.trackStock ? "Yes" : "No"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {importRows.length > 50 && (
+                    <p className="text-center text-[11px] text-muted-foreground/50 py-2">+ {importRows.length - 50} more rows</p>
+                  )}
+                </div>
+              )}
+
+              {/* Format hint */}
+              {!importFileName && (
+                <div className="bg-muted/40 rounded-2xl p-3 text-[11px] text-muted-foreground space-y-1">
+                  <p className="font-semibold text-foreground/70">CSV tips</p>
+                  <p>• First row must be column headers</p>
+                  <p>• Products matched by SKU (then name) — existing ones are updated</p>
+                  <p>• Download your current products via Export to use as a template</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-2xl"
+                  onClick={() => { setImportOpen(false); resetImport(); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 rounded-2xl"
+                  disabled={importRows.length === 0 || importMutation.isPending}
+                  onClick={() => importMutation.mutate(importRows)}
+                  data-testid="button-confirm-import"
+                >
+                  {importMutation.isPending ? "Importing…" : `Import ${importRows.length} product${importRows.length !== 1 ? "s" : ""}`}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Stock History Dialog */}
       <Dialog open={!!stockHistoryProduct} onOpenChange={(v) => !v && setStockHistoryProduct(null)}>

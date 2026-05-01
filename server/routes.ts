@@ -211,6 +211,93 @@ export async function registerRoutes(
     } catch (err) { next(err); }
   });
 
+  // ── CSV Export ─────────────────────────────────────────────────────────────
+
+  app.get("/api/products/export", requireAuth, async (req, res, next) => {
+    try {
+      const prods = await storage.getProducts(userId(req));
+      const HEADERS = ["name","category","price","sku","barcode","taxRate","trackStock","stock","lowStockThreshold"];
+      const escape = (v: any) => {
+        const s = v == null ? "" : String(v);
+        return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const rows = prods.map(p => [
+        p.name, p.category, p.price, p.sku, p.barcode, p.taxRate,
+        p.trackStock ? "true" : "false", p.stock ?? "", p.lowStockThreshold ?? ""
+      ].map(escape).join(","));
+      const csv = [HEADERS.join(","), ...rows].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=\"products.csv\"");
+      res.send(csv);
+    } catch (err) { next(err); }
+  });
+
+  // ── CSV Import ─────────────────────────────────────────────────────────────
+
+  app.post("/api/products/import", requireAuth, async (req, res, next) => {
+    try {
+      const { rows } = z.object({
+        rows: z.array(z.object({
+          name: z.string().min(1),
+          category: z.string().optional(),
+          price: z.string().optional(),
+          sku: z.string().optional(),
+          barcode: z.string().optional(),
+          taxRate: z.string().optional(),
+          trackStock: z.boolean().optional(),
+          stock: z.number().int().optional(),
+          lowStockThreshold: z.number().int().optional(),
+        })),
+      }).parse(req.body);
+
+      const uid = userId(req);
+      const existing = await storage.getProducts(uid);
+      const bySku = new Map(existing.filter(p => p.sku).map(p => [p.sku!.toLowerCase(), p]));
+      const byName = new Map(existing.map(p => [p.name.toLowerCase(), p]));
+
+      let created = 0, updated = 0, errors = 0;
+      const errorList: string[] = [];
+
+      for (const row of rows) {
+        try {
+          const payload: any = {
+            name: row.name,
+            category: row.category || "General",
+            price: row.price || "0",
+            sku: row.sku || null,
+            barcode: row.barcode || null,
+            taxRate: row.taxRate || null,
+            trackStock: row.trackStock ?? false,
+            stock: row.trackStock ? (row.stock ?? 0) : null,
+            lowStockThreshold: row.trackStock ? (row.lowStockThreshold ?? 5) : null,
+            sizes: [],
+            modifiers: [],
+            hasSizes: false,
+            hasModifiers: false,
+          };
+          const match = (row.sku ? bySku.get(row.sku.toLowerCase()) : null)
+            ?? byName.get(row.name.toLowerCase());
+          if (match) {
+            await storage.updateProduct(match.id, uid, payload);
+            updated++;
+          } else {
+            await storage.createProduct(uid, payload);
+            created++;
+          }
+        } catch (e: any) {
+          errors++;
+          errorList.push(`"${row.name}": ${e.message}`);
+        }
+      }
+
+      cache.del(productsCacheKey(uid));
+      res.json({ created, updated, errors, errorList });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
   // ── Pending Orders ────────────────────────────────────────────────────────
 
   app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {

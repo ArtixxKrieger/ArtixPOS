@@ -221,6 +221,51 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
 }
 
 function LoadingScreen({ message }: { message?: string }) {
+  // If we've been spinning for 4 s and we're offline, the chunk is not cached.
+  // Show an actionable offline screen instead of an infinite spinner.
+  const [offlineStall, setOfflineStall] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (!navigator.onLine) setOfflineStall(true);
+    }, 4000);
+    return () => clearTimeout(id);
+  }, []);
+
+  if (offlineStall) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810] px-6">
+        <div className="max-w-xs w-full text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <svg className="w-7 h-7 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M18.364 5.636a9 9 0 010 12.728M5.636 5.636a9 9 0 000 12.728M12 8v4m0 4h.01" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-white">You're offline</h2>
+          <p className="text-sm text-slate-500 dark:text-white/60">
+            This page hasn't been downloaded yet. Connect to the internet and it will be available
+            offline from then on.
+          </p>
+          <div className="flex gap-2 justify-center pt-1">
+            <button
+              onClick={() => window.history.back()}
+              className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/15 text-sm font-medium text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+            >
+              Go back
+            </button>
+            <button
+              onClick={() => { setOfflineStall(false); window.location.reload(); }}
+              className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810]">
       <div className="flex flex-col items-center gap-3">
@@ -233,9 +278,66 @@ function LoadingScreen({ message }: { message?: string }) {
   );
 }
 
+// Eagerly warm-up every lazy route in the background so the service worker
+// can cache their JS chunks. After one successful online session, all pages
+// will load instantly — including when the device is completely offline.
+const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
+  () => import("@/pages/dashboard"),
+  () => import("@/pages/pos"),
+  () => import("@/pages/products"),
+  () => import("@/pages/analytics"),
+  () => import("@/pages/pending-orders"),
+  () => import("@/pages/settings"),
+  () => import("@/pages/transactions"),
+  () => import("@/pages/customers"),
+  () => import("@/pages/expenses"),
+  () => import("@/pages/shifts"),
+  () => import("@/pages/discount-codes"),
+  () => import("@/pages/refunds"),
+  () => import("@/pages/ai"),
+  () => import("@/pages/tables"),
+  () => import("@/pages/kitchen"),
+  () => import("@/pages/suppliers"),
+  () => import("@/pages/purchases"),
+  () => import("@/pages/timeclock"),
+  () => import("@/pages/onboarding"),
+  () => import("@/pages/appointments"),
+  () => import("@/pages/staff"),
+  () => import("@/pages/rooms"),
+  () => import("@/pages/memberships"),
+  () => import("@/pages/billing"),
+  () => import("@/pages/print-settings"),
+  () => import("@/pages/loyalty"),
+  () => import("@/pages/payroll"),
+  () => import("@/pages/admin/index"),
+  () => import("@/pages/admin/branches"),
+  () => import("@/pages/admin/users"),
+  () => import("@/pages/admin/analytics"),
+  () => import("@/pages/admin/audit-logs"),
+  () => import("@/pages/admin/permissions"),
+];
+
+function useRoutePreloader() {
+  useEffect(() => {
+    if (!navigator.onLine) return;
+    // Wait for the main content to paint first, then silently preload everything
+    // using requestIdleCallback (or setTimeout as fallback) to avoid competing
+    // with the current render.
+    const schedule = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2500));
+    const handle = schedule(() => {
+      ALL_LAZY_ROUTES.forEach((load) => load().catch(() => {}));
+    });
+    return () => {
+      if (window.cancelIdleCallback) window.cancelIdleCallback(handle as number);
+    };
+  }, []);
+}
+
 function AppRouter() {
   const { data: settings, isLoading: settingsLoading, isError: settingsError } = useSettings();
   const [location] = useLocation();
+  // Warm-up all lazy route chunks in the background so they're offline-ready
+  useRoutePreloader();
 
   if (settingsLoading) return <LoadingScreen />;
 

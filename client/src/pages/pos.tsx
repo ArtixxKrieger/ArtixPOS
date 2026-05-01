@@ -469,12 +469,11 @@ export default function POS() {
   const CartContent = (
     <div className="flex flex-col h-full">
       {/* Items */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 scrollbar-hide p-1">
+      <div className="flex-1 overflow-y-auto space-y-1.5 scrollbar-hide">
         {cart.length === 0 ? (
-          <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-muted-foreground/50 gap-3">
-            <ShoppingCart className="h-14 w-14" strokeWidth={1.2} />
-            <p className="text-sm font-medium">Your cart is empty</p>
-            <p className="text-xs opacity-70">Tap a product to add it</p>
+          <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-muted-foreground/50 gap-2">
+            <ShoppingCart className="h-10 w-10" strokeWidth={1.2} />
+            <p className="text-xs font-medium">Cart is empty — tap a product</p>
           </div>
         ) : (
           cart.map((item) => {
@@ -483,61 +482,59 @@ export default function POS() {
             return (
               <div
                 key={item.cartId}
-                className="flex flex-col p-3 bg-secondary/50 dark:bg-secondary/30 rounded-2xl gap-2 border border-border/30 item-enter"
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-secondary/50 dark:bg-secondary/30 rounded-xl border border-border/30 item-enter"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm leading-tight truncate">
-                      {item.product.name}
-                      {item.size && (
-                        <span className="ml-1.5 text-[10px] font-medium text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-md">
-                          {item.size.name}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-primary font-bold text-sm mt-0.5 tabular-nums">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-xs leading-tight truncate">
+                    {item.product.name}
+                    {item.size && (
+                      <span className="ml-1 text-[9px] font-medium text-muted-foreground bg-secondary px-1 py-0.5 rounded">
+                        {item.size.name}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className="text-primary font-bold text-xs tabular-nums">
                       {formatCurrency(itemPrice, currency)}
                     </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="flex items-center bg-background/80 dark:bg-background/40 rounded-xl border border-border/40 overflow-hidden">
-                      <button
-                        className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
-                        onClick={() => updateQuantity(item.cartId, -1)}
-                        aria-label={`Decrease quantity of ${item.product.name}`}
-                        data-testid={`button-decrease-${item.cartId}`}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-6 text-center text-sm font-bold tabular-nums" aria-label={`Quantity: ${item.quantity}`}>{item.quantity}</span>
-                      <button
-                        className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
-                        onClick={() => updateQuantity(item.cartId, 1)}
-                        aria-label={`Increase quantity of ${item.product.name}`}
-                        data-testid={`button-increase-${item.cartId}`}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <button
-                      className="h-7 w-7 flex items-center justify-center text-destructive/60 hover:text-destructive active:scale-90 transition-all"
-                      onClick={() => removeFromCart(item.cartId)}
-                      aria-label={`Remove ${item.product.name} from cart`}
-                      data-testid={`button-remove-${item.cartId}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <NotebookPen className="h-2.5 w-2.5 text-muted-foreground/30 shrink-0" />
+                    <input
+                      type="text"
+                      value={item.note || ""}
+                      onChange={(e) => updateNote(item.cartId, e.target.value)}
+                      placeholder="Note..."
+                      className="flex-1 text-[10px] bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/30 font-medium min-w-0"
+                    />
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <NotebookPen className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                  <input
-                    type="text"
-                    value={item.note || ""}
-                    onChange={(e) => updateNote(item.cartId, e.target.value)}
-                    placeholder="Add a note..."
-                    className="flex-1 text-[11px] bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/35 font-medium"
-                  />
+                <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center bg-background/80 dark:bg-background/40 rounded-lg border border-border/40 overflow-hidden">
+                    <button
+                      className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                      onClick={() => updateQuantity(item.cartId, -1)}
+                      aria-label={`Decrease quantity of ${item.product.name}`}
+                      data-testid={`button-decrease-${item.cartId}`}
+                    >
+                      <Minus className="h-2.5 w-2.5" />
+                    </button>
+                    <span className="w-5 text-center text-xs font-bold tabular-nums">{item.quantity}</span>
+                    <button
+                      className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                      onClick={() => updateQuantity(item.cartId, 1)}
+                      aria-label={`Increase quantity of ${item.product.name}`}
+                      data-testid={`button-increase-${item.cartId}`}
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                  <button
+                    className="h-6 w-6 flex items-center justify-center text-destructive/50 hover:text-destructive active:scale-90 transition-all"
+                    onClick={() => removeFromCart(item.cartId)}
+                    aria-label={`Remove ${item.product.name} from cart`}
+                    data-testid={`button-remove-${item.cartId}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
             );
@@ -546,29 +543,29 @@ export default function POS() {
       </div>
 
       {/* Summary */}
-      <div className="pt-4 border-t border-border/50 space-y-2.5 shrink-0">
+      <div className="pt-2 border-t border-border/50 space-y-1.5 shrink-0">
 
         {/* Customer Selector — hidden for cafe-style businesses (Starbucks-style: name on receipt only) */}
         {!isCafeStyle && (selectedCustomer ? (
-          <div className="flex items-center gap-2 bg-primary/8 rounded-xl px-3 py-2 border border-primary/15">
-            <UserCircle2 className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex items-center gap-2 bg-primary/8 rounded-xl px-2.5 py-1.5 border border-primary/15">
+            <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold leading-none truncate">{selectedCustomer.name}</p>
+              <p className="text-xs font-semibold leading-none truncate">{selectedCustomer.name}</p>
               {selectedCustomer.phone && (
                 <p className="text-[10px] text-muted-foreground mt-0.5">{selectedCustomer.phone}</p>
               )}
             </div>
             <button onClick={() => setSelectedCustomer(null)} className="shrink-0 text-muted-foreground/50 hover:text-destructive transition-colors">
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setShowCustomerPicker(true)}
-            className="w-full flex items-center gap-2 text-sm text-muted-foreground/60 hover:text-foreground bg-secondary/40 rounded-xl px-3 py-2 border border-border/40 hover:border-border transition-all"
+            className="w-full flex items-center gap-2 text-xs text-muted-foreground/60 hover:text-foreground bg-secondary/40 rounded-xl px-3 py-1.5 border border-border/40 hover:border-border transition-all"
             data-testid="button-select-customer"
           >
-            <UserCircle2 className="h-4 w-4" />
+            <UserCircle2 className="h-3.5 w-3.5" />
             <span>Add Customer (optional)</span>
           </button>
         ))}
@@ -580,17 +577,17 @@ export default function POS() {
             value={receiptName}
             onChange={(e) => setReceiptName(e.target.value.slice(0, 40))}
             placeholder="Name on receipt (optional)"
-            className="h-9 rounded-xl bg-secondary/60 border-none text-sm"
+            className="h-8 rounded-xl bg-secondary/60 border-none text-xs"
             data-testid="input-receipt-name"
           />
         )}
 
-        <div className="flex justify-between text-sm text-muted-foreground">
+        <div className="flex justify-between text-xs text-muted-foreground">
           <span>Subtotal</span>
           <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
         </div>
         {taxRate > 0 && (
-          <div className="flex justify-between text-sm text-muted-foreground">
+          <div className="flex justify-between text-xs text-muted-foreground">
             <span>VAT ({taxRate}%)</span>
             <span className="tabular-nums">{formatCurrency(tax, currency)}</span>
           </div>
@@ -598,23 +595,23 @@ export default function POS() {
 
         {/* Discount Code */}
         {appliedCode ? (
-          <div className="flex items-center justify-between gap-2 bg-rose-500/8 rounded-xl px-3 py-2 border border-rose-500/15">
+          <div className="flex items-center justify-between gap-2 bg-rose-500/8 rounded-xl px-2.5 py-1.5 border border-rose-500/15">
             <div className="flex items-center gap-1.5 min-w-0">
-              <CheckCircle2 className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-              <code className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400">{appliedCode.code}</code>
-              <span className="text-xs text-rose-500/70">-{formatCurrency(appliedCode.discountAmount, currency)}</span>
+              <CheckCircle2 className="h-3 w-3 text-rose-500 shrink-0" />
+              <code className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400">{appliedCode.code}</code>
+              <span className="text-[11px] text-rose-500/70">-{formatCurrency(appliedCode.discountAmount, currency)}</span>
             </div>
             <button
               onClick={() => { setAppliedCode(null); setDiscount(0); setDiscountCodeInput(""); }}
               className="text-muted-foreground/40 hover:text-destructive shrink-0"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <div className="flex-1 relative">
-              <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+              <Percent className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/40" />
               <input
                 type="text"
                 value={discountCodeInput}
@@ -625,7 +622,7 @@ export default function POS() {
                   }
                 }}
                 placeholder="Discount code"
-                className="w-full h-9 rounded-xl bg-secondary/60 border border-border/40 pl-8 pr-3 text-xs font-mono font-semibold uppercase outline-none focus:border-primary/40 transition-colors"
+                className="w-full h-8 rounded-xl bg-secondary/60 border border-border/40 pl-7 pr-2 text-[11px] font-mono font-semibold uppercase outline-none focus:border-primary/40 transition-colors"
                 data-testid="input-discount-code-pos"
               />
             </div>
@@ -636,7 +633,7 @@ export default function POS() {
                 }
               }}
               disabled={!discountCodeInput.trim() || validateDiscountMutation.isPending}
-              className="h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-bold border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-40"
+              className="h-8 px-2.5 rounded-xl bg-primary/10 text-primary text-[11px] font-bold border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-40"
               data-testid="button-apply-discount-code"
             >
               {validateDiscountMutation.isPending ? "..." : "Apply"}
@@ -646,13 +643,13 @@ export default function POS() {
 
         {/* Manual discount (only if no code applied) */}
         {!appliedCode && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium flex items-center gap-1.5">
-              <Tag className="h-3.5 w-3.5 text-primary" /> Manual Discount
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium flex items-center gap-1 text-muted-foreground shrink-0">
+              <Tag className="h-3 w-3 text-primary" /> Discount
             </span>
             <Input
               type="number"
-              className="w-24 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-semibold"
+              className="w-20 h-7 text-right bg-secondary/60 border-none rounded-xl text-xs font-semibold"
               value={discount || ""}
               onChange={(e) => setDiscount(Number(e.target.value) || 0)}
               placeholder="0"
@@ -661,7 +658,7 @@ export default function POS() {
         )}
 
         {discount > 0 && (
-          <div className="flex justify-between text-sm text-rose-600 dark:text-rose-400">
+          <div className="flex justify-between text-xs text-rose-600 dark:text-rose-400">
             <span>Discount</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(discount, currency)}</span>
           </div>
@@ -669,105 +666,104 @@ export default function POS() {
 
         {/* Loyalty Points Redemption */}
         {selectedCustomer && (selectedCustomer.loyaltyPoints ?? 0) > 0 && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium flex items-center gap-1.5">
-                <Star className="h-3.5 w-3.5 text-amber-500" />
-                Loyalty ({selectedCustomer.loyaltyPoints} pts)
-              </span>
-              <Input
-                type="number"
-                min={0}
-                max={maxRedeemablePoints}
-                className="w-24 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-semibold"
-                value={loyaltyPointsToRedeem || ""}
-                onChange={e => setLoyaltyPointsToRedeem(Math.min(Number(e.target.value) || 0, maxRedeemablePoints))}
-                placeholder="0"
-                data-testid="input-loyalty-points-redeem"
-              />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 min-w-0">
+              <Star className="h-3 w-3 text-amber-500 shrink-0" />
+              <span className="text-xs font-medium truncate">Loyalty ({selectedCustomer.loyaltyPoints} pts)</span>
+              {maxRedeemablePoints > 0 && (
+                <button
+                  onClick={() => setLoyaltyPointsToRedeem(maxRedeemablePoints)}
+                  className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline shrink-0"
+                  data-testid="button-redeem-all-points"
+                >
+                  Max
+                </button>
+              )}
             </div>
-            {maxRedeemablePoints > 0 && (
-              <button
-                onClick={() => setLoyaltyPointsToRedeem(maxRedeemablePoints)}
-                className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline"
-                data-testid="button-redeem-all-points"
-              >
-                Redeem all {maxRedeemablePoints} pts (saves {formatCurrency(maxRedeemablePoints / loyaltyRedemptionRate, currency)})
-              </button>
-            )}
+            <Input
+              type="number"
+              min={0}
+              max={maxRedeemablePoints}
+              className="w-20 h-7 text-right bg-secondary/60 border-none rounded-xl text-xs font-semibold shrink-0"
+              value={loyaltyPointsToRedeem || ""}
+              onChange={e => setLoyaltyPointsToRedeem(Math.min(Number(e.target.value) || 0, maxRedeemablePoints))}
+              placeholder="0"
+              data-testid="input-loyalty-points-redeem"
+            />
           </div>
         )}
 
         {loyaltyDiscount > 0 && (
-          <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
-            <span>Loyalty Redemption ({loyaltyPointsToRedeem} pts)</span>
+          <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
+            <span>Loyalty ({loyaltyPointsToRedeem} pts)</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(loyaltyDiscount, currency)}</span>
           </div>
         )}
 
-        {/* Tip selector */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Tip</span>
-            <Input
-              type="number"
-              min={0}
-              className="w-24 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-semibold"
-              value={tip || ""}
-              onChange={(e) => setTip(Math.max(0, Number(e.target.value) || 0))}
-              placeholder="0"
-              data-testid="input-tip-amount"
-            />
-          </div>
-          <div className="flex gap-1.5">
-            {[0.05, 0.10, 0.15].map(pct => (
-              <button
-                key={pct}
-                onClick={() => setTip(parseFloat((discountedSubtotal * pct).toFixed(2)))}
-                className="flex-1 h-7 rounded-xl bg-secondary/80 border border-border/40 text-[11px] font-bold hover:bg-secondary transition-all active:scale-95"
-                data-testid={`button-tip-${Math.round(pct * 100)}`}
-              >
-                {Math.round(pct * 100)}%
-              </button>
-            ))}
+        {/* Tip selector — single compact row */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground shrink-0">Tip</span>
+          {[0.05, 0.10, 0.15].map(pct => (
             <button
-              onClick={() => setTip(0)}
-              className="flex-1 h-7 rounded-xl bg-secondary/40 border border-border/40 text-[11px] font-medium hover:bg-secondary transition-all active:scale-95"
-              data-testid="button-tip-clear"
+              key={pct}
+              onClick={() => setTip(tip === parseFloat((discountedSubtotal * pct).toFixed(2)) ? 0 : parseFloat((discountedSubtotal * pct).toFixed(2)))}
+              className={[
+                "flex-1 h-7 rounded-xl border text-[10px] font-bold transition-all active:scale-95",
+                tip > 0 && Math.abs(tip - discountedSubtotal * pct) < 0.01
+                  ? "bg-primary/15 border-primary/30 text-primary"
+                  : "bg-secondary/80 border-border/40 hover:bg-secondary"
+              ].join(" ")}
+              data-testid={`button-tip-${Math.round(pct * 100)}`}
             >
-              No tip
+              {Math.round(pct * 100)}%
             </button>
-          </div>
+          ))}
+          <button
+            onClick={() => setTip(0)}
+            className="flex-1 h-7 rounded-xl bg-secondary/40 border border-border/40 text-[10px] font-medium hover:bg-secondary transition-all active:scale-95"
+            data-testid="button-tip-clear"
+          >
+            None
+          </button>
+          <Input
+            type="number"
+            min={0}
+            className="w-16 h-7 text-right bg-secondary/60 border-none rounded-xl text-xs font-semibold shrink-0"
+            value={tip || ""}
+            onChange={(e) => setTip(Math.max(0, Number(e.target.value) || 0))}
+            placeholder="0"
+            data-testid="input-tip-amount"
+          />
         </div>
 
         {/* WiFi voucher toggle (cafés) */}
         {((settings as any)?.wifiSsid || (settings as any)?.wifiPassword) && (
-          <label className="flex items-center justify-between text-sm gap-2 cursor-pointer" data-testid="toggle-wifi-voucher">
-            <span className="font-medium">Issue free WiFi voucher</span>
+          <label className="flex items-center justify-between text-xs gap-2 cursor-pointer" data-testid="toggle-wifi-voucher">
+            <span className="font-medium text-muted-foreground">Issue free WiFi voucher</span>
             <input
               type="checkbox"
               checked={issueWifi}
               onChange={(e) => setIssueWifi(e.target.checked)}
-              className="h-4 w-4 accent-primary"
+              className="h-3.5 w-3.5 accent-primary"
             />
           </label>
         )}
 
-        <div className="flex justify-between items-center pt-2 border-t border-border/50">
-          <span className="text-base font-bold">Total</span>
-          <span className="text-xl font-black text-primary tabular-nums">
+        <div className="flex justify-between items-center pt-1 border-t border-border/50">
+          <span className="text-sm font-bold">Total</span>
+          <span className="text-lg font-black text-primary tabular-nums">
             {formatCurrency(Math.max(0, total), currency)}
           </span>
         </div>
 
         {isCashPayment && (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium shrink-0">Amount Paid</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium shrink-0 text-muted-foreground">Paid</span>
               <Input
                 ref={paymentInputRef}
                 type="number"
-                className="w-32 h-10 text-right bg-secondary/60 border-none rounded-xl font-bold tabular-nums"
+                className="w-28 h-8 text-right bg-secondary/60 border-none rounded-xl text-sm font-bold tabular-nums"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 onFocus={() => setIsPaymentFocused(true)}
@@ -776,10 +772,10 @@ export default function POS() {
               />
             </div>
             {total > 0 && (
-              <div className="flex gap-1.5">
+              <div className="flex gap-1">
                 <button
                   onClick={() => setPaymentAmount(total.toFixed(2))}
-                  className="flex-1 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-all active:scale-95"
+                  className="flex-1 h-7 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold hover:bg-emerald-500/20 transition-all active:scale-95"
                   data-testid="button-quick-exact"
                 >
                   Exact
@@ -788,7 +784,7 @@ export default function POS() {
                   <button
                     key={amount}
                     onClick={() => setPaymentAmount(amount.toString())}
-                    className="flex-1 h-8 rounded-xl bg-secondary/80 border border-border/40 text-[11px] font-bold hover:bg-secondary transition-all active:scale-95 tabular-nums"
+                    className="flex-1 h-7 rounded-xl bg-secondary/80 border border-border/40 text-[10px] font-bold hover:bg-secondary transition-all active:scale-95 tabular-nums"
                     data-testid={`button-quick-${amount}`}
                   >
                     {currency}{amount}
@@ -797,7 +793,7 @@ export default function POS() {
               </div>
             )}
             {changeAmount > 0 && (
-              <div className="flex justify-between text-sm font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <span>Change</span>
                 <span className="tabular-nums">{formatCurrency(changeAmount, currency)}</span>
               </div>
@@ -806,7 +802,7 @@ export default function POS() {
         )}
 
         <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-          <SelectTrigger className="w-full h-10 bg-secondary/60 border-none rounded-xl font-medium" data-testid="select-payment-method">
+          <SelectTrigger className="w-full h-8 bg-secondary/60 border-none rounded-xl text-xs font-medium" data-testid="select-payment-method">
             <SelectValue placeholder="Payment Method" />
           </SelectTrigger>
           <SelectContent>
@@ -817,12 +813,12 @@ export default function POS() {
         </Select>
 
         <Button
-          className="w-full h-12 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-primary/25 hover:opacity-90 transition-all active:scale-[0.98]"
+          className="w-full h-10 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-primary/25 hover:opacity-90 transition-all active:scale-[0.98]"
           onClick={handleCheckout}
           disabled={cart.length === 0 || createPending.isPending}
           data-testid="button-checkout"
         >
-          {createPending.isPending ? "Processing..." : `Finalize · ${formatCurrency(total, currency)}`}
+          {createPending.isPending ? "Processing..." : `Charge · ${formatCurrency(total, currency)}`}
         </Button>
       </div>
     </div>
@@ -1005,17 +1001,17 @@ export default function POS() {
           <div className="flex justify-center pt-3 pb-1 shrink-0">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
           </div>
-          <SheetHeader className="px-5 pb-4 pt-2 border-b border-border/40 shrink-0">
-            <SheetTitle className="text-xl font-black flex items-center gap-2">
-              <ShoppingCart className="text-primary h-5 w-5" /> Order Summary
+          <SheetHeader className="px-4 pb-2 pt-1 border-b border-border/40 shrink-0">
+            <SheetTitle className="text-base font-black flex items-center gap-2">
+              <ShoppingCart className="text-primary h-4 w-4" /> Order Summary
               {cartCount > 0 && (
-                <span className="ml-auto bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
-                  {cartCount} items
+                <span className="ml-auto bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {cartCount}
                 </span>
               )}
             </SheetTitle>
           </SheetHeader>
-          <div className="flex-1 min-h-0 px-5 py-4">
+          <div className="flex-1 min-h-0 px-4 py-2">
             {CartContent}
           </div>
         </SheetContent>

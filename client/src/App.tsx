@@ -383,7 +383,7 @@ function AppRouter() {
           <Route path="/shifts" component={() => <ProGuard url="/shifts" component={Shifts} />} />
           <Route path="/discount-codes" component={() => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />} />
           <Route path="/refunds" component={() => <ManagerOrAboveGuard component={Refunds} />} />
-          <Route path="/ai" component={() => <ProGuard url="/ai" component={AiPage} />} />
+          <Route path="/ai" component={() => <OwnerGuard component={AiPage} />} />
           <Route path="/tables" component={() => <ProGuard url="/tables" component={TablesPage} />} />
           <Route path="/kitchen" component={() => <ProGuard url="/kitchen" component={KitchenPage} />} />
           <Route path="/suppliers" component={() => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />} />

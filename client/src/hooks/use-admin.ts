@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, setNativeToken } from "@/lib/queryClient";
+import { apiRequest, nativeFetch, setNativeToken } from "@/lib/queryClient";
 
 export interface Branch {
   id: number;
@@ -306,8 +306,12 @@ export function useAuditLogs(filters?: AuditLogFilters) {
   const qs = params.toString();
   return useQuery<AuditLog[]>({
     queryKey: ["/api/admin/audit-logs", qs],
-    queryFn: () =>
-      fetch(`/api/admin/audit-logs${qs ? "?" + qs : ""}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const res = await nativeFetch(`/api/admin/audit-logs${qs ? "?" + qs : ""}`);
+      if (!res.ok) throw new Error(`Failed to fetch audit logs: ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
   });
 }
 

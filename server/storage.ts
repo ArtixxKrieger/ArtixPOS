@@ -89,6 +89,7 @@ export interface IStorage {
   updateProduct(id: number, userId: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: number, userId: string): Promise<void>;
   adjustStock(id: number, userId: string, delta: number): Promise<Product | undefined>;
+  setStock(id: number, userId: string, newStock: number): Promise<Product | undefined>;
 
   // Pending Orders
   getPendingOrders(userId: string): Promise<PendingOrder[]>;
@@ -329,6 +330,22 @@ export class DatabaseStorage implements IStorage {
       return updated;
     } catch (error) {
       console.error("Error adjusting stock:", error);
+      return undefined;
+    }
+  }
+
+  async setStock(id: number, userId: string, newStock: number): Promise<Product | undefined> {
+    try {
+      const existing = await this.getProduct(id, userId);
+      if (!existing) return undefined;
+      const clampedStock = Math.max(0, newStock);
+      const [updated] = await db.update(products)
+        .set({ stock: clampedStock } as any)
+        .where(eq(products.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error("Error setting stock:", error);
       return undefined;
     }
   }

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bell, Package, AlertTriangle, CheckCheck, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Bell, Package, AlertTriangle, CheckCheck, X, RefreshCcw, Check } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,6 +17,9 @@ function timeAgo(iso: string): string {
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [restockingId, setRestockingId] = useState<number | null>(null);
+  const [restockQty, setRestockQty] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: notifs = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
@@ -35,8 +38,44 @@ export function NotificationBell() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });
 
+  const restockMutation = useMutation({
+    mutationFn: ({ productId, stock, notifId }: { productId: number; stock: number; notifId: number }) =>
+      apiRequest("PATCH", `/api/products/${productId}/stock`, { stock }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      if (!notifs.find(n => n.id === vars.notifId)?.readAt) {
+        readOneMutation.mutate(vars.notifId);
+      }
+      setRestockingId(null);
+      setRestockQty("");
+    },
+  });
+
+  useEffect(() => {
+    if (restockingId !== null && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [restockingId]);
+
+  function openRestock(notifId: number) {
+    setRestockingId(notifId);
+    setRestockQty("");
+  }
+
+  function cancelRestock() {
+    setRestockingId(null);
+    setRestockQty("");
+  }
+
+  function saveRestock(n: Notification) {
+    const qty = parseInt(restockQty, 10);
+    if (isNaN(qty) || qty < 0 || !n.productId) return;
+    restockMutation.mutate({ productId: n.productId, stock: qty, notifId: n.id });
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) cancelRestock(); }}>
       <PopoverTrigger asChild>
         <button
           className="relative w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent hover:border-border/40 transition-all duration-200"
@@ -99,34 +138,95 @@ export function NotificationBell() {
             </div>
           ) : (
             notifs.map(n => (
-              <button
+              <div
                 key={n.id}
-                onClick={() => { if (!n.readAt) readOneMutation.mutate(n.id); }}
                 className={[
-                  "w-full flex items-start gap-3 px-4 py-3 text-left border-b border-border/30 last:border-0 transition-colors",
-                  n.readAt ? "opacity-50 hover:opacity-70" : "hover:bg-muted/30",
+                  "border-b border-border/30 last:border-0",
+                  n.readAt ? "opacity-50" : "",
                 ].join(" ")}
-                data-testid={`notification-${n.id}`}
               >
-                <div className={[
-                  "h-7 w-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
-                  n.type === "restock" ? "bg-rose-500/10" : "bg-amber-500/10",
-                ].join(" ")}>
-                  {n.type === "restock"
-                    ? <Package className="h-3.5 w-3.5 text-rose-500" />
-                    : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                {/* Main notification row */}
+                <div
+                  className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/20 cursor-pointer"
+                  onClick={() => {
+                    if (restockingId === n.id) return;
+                    if (!n.readAt) readOneMutation.mutate(n.id);
+                  }}
+                  data-testid={`notification-${n.id}`}
+                >
+                  <div className={[
+                    "h-7 w-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                    n.type === "restock" ? "bg-rose-500/10" : "bg-amber-500/10",
+                  ].join(" ")}>
+                    {n.type === "restock"
+                      ? <Package className="h-3.5 w-3.5 text-rose-500" />
+                      : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold leading-tight">{n.title}</p>
+                    {n.message && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{n.message}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(n.createdAt!)}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                    {!n.readAt && (
+                      <div className="h-2 w-2 rounded-full bg-primary" />
+                    )}
+                    {n.productId && restockingId !== n.id && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openRestock(n.id); }}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-1.5 py-0.5 rounded-md transition-colors"
+                        data-testid={`button-restock-${n.id}`}
+                        title="Quick restock"
+                      >
+                        <RefreshCcw className="h-2.5 w-2.5" />
+                        Restock
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold leading-tight">{n.title}</p>
-                  {n.message && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{n.message}</p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(n.createdAt!)}</p>
-                </div>
-                {!n.readAt && (
-                  <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />
+
+                {/* Inline restock form */}
+                {restockingId === n.id && n.productId && (
+                  <div className="px-4 pb-3 flex items-center gap-2" data-testid={`restock-form-${n.id}`}>
+                    <div className="flex-1 flex items-center gap-1.5 bg-muted/40 border border-border/60 rounded-lg px-2 py-1.5">
+                      <Package className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <input
+                        ref={inputRef}
+                        type="number"
+                        min="0"
+                        value={restockQty}
+                        onChange={e => setRestockQty(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") saveRestock(n);
+                          if (e.key === "Escape") cancelRestock();
+                        }}
+                        placeholder="New quantity"
+                        className="w-full bg-transparent text-xs font-semibold outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        data-testid={`input-restock-qty-${n.id}`}
+                      />
+                    </div>
+                    <button
+                      onClick={() => saveRestock(n)}
+                      disabled={restockMutation.isPending || !restockQty || parseInt(restockQty) < 0}
+                      className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40"
+                      data-testid={`button-restock-save-${n.id}`}
+                    >
+                      {restockMutation.isPending
+                        ? <div className="h-3 w-3 border-[1.5px] border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                        : <Check className="h-3 w-3" />}
+                    </button>
+                    <button
+                      onClick={cancelRestock}
+                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:opacity-80 transition-opacity"
+                      data-testid={`button-restock-cancel-${n.id}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             ))
           )}
         </div>

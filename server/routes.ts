@@ -189,6 +189,21 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/products/:id/stock", requireAuth, async (req, res) => {
+    try {
+      const { stock } = z.object({ stock: z.number().int().min(0) }).parse(req.body);
+      const product = await storage.setStock(Number(req.params.id), userId(req), stock);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      cache.del(productsCacheKey(userId(req)));
+      res.json(product);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
   // ── Pending Orders ────────────────────────────────────────────────────────
 
   app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {

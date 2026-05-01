@@ -80,13 +80,14 @@ export default function AdminIndex() {
   const { data: analytics = [] } = useBranchAnalytics();
   const { data: settings } = useSettings();
   const ensureTenant = useEnsureTenant();
-  const { data: recentLogs = [] } = useAuditLogs();
+  const { data: recentLogs } = useAuditLogs();
 
   const currency = (settings as any)?.currency || "₱";
   const totalRevenue = analytics.reduce((s, a) => s + a.totalRevenue, 0);
   const todayRevenue = analytics.reduce((s, a) => s + a.todayRevenue, 0);
   const isOwner = user?.role === "owner";
-  const activityFeed = recentLogs.slice(0, 6);
+  const safeRecentLogs = Array.isArray(recentLogs) ? recentLogs : [];
+  const activityFeed = safeRecentLogs.slice(0, 6);
 
   useEffect(() => {
     if (user && !user.tenantId) {

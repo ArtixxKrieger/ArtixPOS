@@ -363,7 +363,7 @@ export default function POS() {
       customerId: selectedCustomer?.id ?? null,
       customerName: !selectedCustomer && receiptName.trim() ? receiptName.trim() : null,
       loyaltyPointsUsed: loyaltyPointsToRedeem,
-      loyaltyPointsEarned: pointsEarned,
+      loyaltyPointsEarned: selectedCustomer ? pointsEarned : 0,
     };
 
     const snapshotCustomer = selectedCustomer;
@@ -435,7 +435,7 @@ export default function POS() {
           currency,
           taxRate: globalTaxRate,
           discountCode: appliedCode?.code ?? null,
-          loyaltyPointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
+          loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
           wifiVoucher,
         };
         setReceiptData(receipt);

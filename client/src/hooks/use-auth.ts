@@ -109,9 +109,9 @@ export function useAuth() {
       } catch {
         // If offline or CORS fails, still proceed with local logout
       }
-      // Clear local state AFTER the server call so the request still has auth
+      // Clear local state immediately — don't await cache clear so logout is instant
       clearNativeToken();
-      await clearAllCache();
+      clearAllCache().catch(() => {});
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth-me"], null);

@@ -425,7 +425,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       <BottomNav />
-      <AiFloatButton />
+      {isOwner && <AiFloatButton />}
     </div>
   );
 }

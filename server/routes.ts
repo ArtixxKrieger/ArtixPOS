@@ -244,6 +244,7 @@ export async function registerRoutes(
             notes: input.notes,
             branchId: enforcedBranch,
           });
+          void storage.deductProductStockForSale(userId(req), input.items as any[]).catch(e => console.error("Stock deduction failed:", e));
           if (input.discountCode) {
             try {
               const dc = await storage.getDiscountCodeByCode(input.discountCode, userId(req));
@@ -353,6 +354,7 @@ export async function registerRoutes(
       const enforcedBranch = await resolveBranchId(req);
       const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req), branchId: enforcedBranch };
       const sale = await storage.createSale(userId(req), inputWithCashier);
+      void storage.deductProductStockForSale(userId(req), input.items as any[]).catch(e => console.error("Stock deduction failed:", e));
       await auditLog(req, "create", "sale", String(sale.id), {
         total: sale.total,
         itemCount: Array.isArray(sale.items) ? sale.items.length : 0,
@@ -370,6 +372,23 @@ export async function registerRoutes(
 
   // Note: GET /api/sales/deleted and DELETE /api/sales/:id are registered in admin-routes.ts
   // with proper manager+ authorization. Do not add duplicates here.
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    const list = await storage.getNotifications(userId(req));
+    res.json(list);
+  });
+
+  app.post("/api/notifications/read-all", requireAuth, async (req, res) => {
+    await storage.markAllNotificationsRead(userId(req));
+    res.json({ ok: true });
+  });
+
+  app.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    await storage.markNotificationRead(Number(req.params.id), userId(req));
+    res.json({ ok: true });
+  });
 
   // ── Settings ──────────────────────────────────────────────────────────────
 

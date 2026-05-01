@@ -559,6 +559,21 @@ export const wifiVouchers = pgTable("wifi_vouchers", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // "restock" | "low_stock"
+  title: text("title").notNull(),
+  message: text("message"),
+  productId: integer("product_id"),
+  readAt: text("read_at"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+
 // ─── Payroll Periods ──────────────────────────────────────────────────────────
 
 export const payrollPeriods = pgTable("payroll_periods", {

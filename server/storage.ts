@@ -76,6 +76,8 @@ import {
   type InsertMembership,
   type MembershipCheckIn,
   type InsertMembershipCheckIn,
+  notifications,
+  type Notification,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 
@@ -94,6 +96,12 @@ export interface IStorage {
   createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder>;
   updatePendingOrder(id: number, userId: string, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined>;
   deletePendingOrder(id: number, userId: string): Promise<void>;
+
+  // Notifications
+  getNotifications(userId: string): Promise<Notification[]>;
+  createNotification(userId: string, data: { type: string; title: string; message?: string; productId?: number }): Promise<void>;
+  markNotificationRead(id: number, userId: string): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
 
   // Sales
   getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number }): Promise<Sale[]>;
@@ -1796,6 +1804,110 @@ export class DatabaseStorage implements IStorage {
       commissionPercent: data.commissionPercent,
     } as any).where(eq(users.id, targetUserId)).returning();
     return updated;
+  }
+
+  // ─── Notifications ──────────────────────────────────────────────────────────
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    try {
+      const ownerIds = await this.getTenantUserIds(userId);
+      const ownerId = ownerIds[0];
+      return await db.select().from(notifications)
+        .where(eq(notifications.userId, ownerId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(50);
+    } catch (e) {
+      console.error("getNotifications error:", e);
+      return [];
+    }
+  }
+
+  async createNotification(userId: string, data: { type: string; title: string; message?: string; productId?: number }): Promise<void> {
+    try {
+      const ownerIds = await this.getTenantUserIds(userId);
+      const ownerId = ownerIds[0];
+      await db.insert(notifications).values({ userId: ownerId, ...data } as any);
+    } catch (e) {
+      console.error("createNotification error:", e);
+    }
+  }
+
+  async markNotificationRead(id: number, userId: string): Promise<void> {
+    try {
+      const ownerIds = await this.getTenantUserIds(userId);
+      const ownerId = ownerIds[0];
+      await (db.update(notifications) as any)
+        .set({ readAt: new Date().toISOString() })
+        .where(and(eq(notifications.id, id), eq(notifications.userId, ownerId)));
+    } catch (e) {
+      console.error("markNotificationRead error:", e);
+    }
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    try {
+      const ownerIds = await this.getTenantUserIds(userId);
+      const ownerId = ownerIds[0];
+      await (db.update(notifications) as any)
+        .set({ readAt: new Date().toISOString() })
+        .where(and(eq(notifications.userId, ownerId), isNull(notifications.readAt)));
+    } catch (e) {
+      console.error("markAllNotificationsRead error:", e);
+    }
+  }
+
+  /** Deduct product stock after a sale and create restock notifications for items that hit 0 or low threshold. */
+  async deductProductStockForSale(userId: string, items: any[]): Promise<void> {
+    if (!Array.isArray(items) || items.length === 0) return;
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const productQty = new Map<number, number>();
+      for (const it of items) {
+        const pid = Number(it?.productId ?? it?.id ?? it?.product?.id);
+        const qty = Number(it?.quantity ?? 1);
+        if (!Number.isFinite(pid) || !Number.isFinite(qty) || qty <= 0) continue;
+        productQty.set(pid, (productQty.get(pid) ?? 0) + qty);
+      }
+      if (productQty.size === 0) return;
+
+      const productIds = [...productQty.keys()];
+      const userCondition = userIds.length === 1
+        ? eq(products.userId, userIds[0])
+        : inArray(products.userId, userIds);
+      const rows = await db.select().from(products)
+        .where(and(userCondition, inArray(products.id, productIds)));
+
+      for (const product of rows) {
+        if (!product.trackStock) continue;
+        const sold = productQty.get(product.id) ?? 0;
+        if (sold === 0) continue;
+        const prevStock = product.stock ?? 0;
+        const newStock = Math.max(0, prevStock - sold);
+        await (db.update(products) as any)
+          .set({ stock: newStock })
+          .where(eq(products.id, product.id));
+        const threshold = product.lowStockThreshold ?? 10;
+        // Notify if stock just hit 0
+        if (newStock === 0 && prevStock > 0) {
+          await this.createNotification(userId, {
+            type: "restock",
+            title: `${product.name} is out of stock`,
+            message: `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`,
+            productId: product.id,
+          });
+        } else if (newStock > 0 && newStock <= threshold && prevStock > threshold) {
+          // Notify only when crossing the low-stock threshold (not on every sale below it)
+          await this.createNotification(userId, {
+            type: "low_stock",
+            title: `${product.name} is running low`,
+            message: `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`,
+            productId: product.id,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("deductProductStockForSale error:", e);
+    }
   }
 }
 

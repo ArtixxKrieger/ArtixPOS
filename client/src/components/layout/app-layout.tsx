@@ -9,6 +9,7 @@ import {
   Sun, Moon, ReceiptText, Gift, Banknote,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
+import { NotificationBell } from "@/components/notification-bell";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -348,6 +349,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <p className="text-[10px] text-muted-foreground truncate leading-tight">{user.email ?? user.provider}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                <NotificationBell />
                 <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
                 <button
                   onClick={() => { if (!isLoggingOut) logout(); }}
@@ -393,6 +395,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             )}
 
+            <NotificationBell />
             <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
           </div>
         </header>

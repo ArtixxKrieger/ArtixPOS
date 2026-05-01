@@ -1,242 +1,34 @@
 # ArtixPOS System
 
 ## Overview
-A full-stack Point of Sale (POS) system for café management with React/TypeScript frontend, Express backend, and PostgreSQL via Drizzle ORM.
+ArtixPOS is a full-stack Point of Sale (POS) system designed for café management, with capabilities extending to other business types like salons, retail, and restaurants. It aims to provide a robust, intuitive, and scalable solution for managing products, sales, orders, and staff, offering real-time analytics and multi-tenant support. The system is envisioned to be a comprehensive tool for small to medium-sized businesses, enabling efficient operations, data-driven decision-making, and seamless customer interactions. Key capabilities include a fast POS interface, product customization, pending order management, detailed analytics, and PWA support for multi-platform accessibility.
 
-## Features
-- **Product Management**: Create/edit products with sizes and modifiers
-- **POS Interface**: Fast, intuitive ordering with product customization
-- **Pending Orders**: Save and manage unpaid/parked transactions
-- **Analytics**: Real-time sales tracking with charts, filtered by date
-- **Dashboard**: Daily revenue, tax, and transaction overview
-- **PWA Support**: Installable as a standalone app on mobile and desktop
-- **Multi-Tenant RBAC**: Each business = 1 tenant, multiple branches, full data isolation
-- **Roles**: Owner (full access), Admin (branch-scoped), Cashier (POS only)
-- **Admin Panel**: Branch management, user management, cross-branch analytics, audit logs
-- **Staff Auth**: Email/password login for admin-created staff accounts
-- **Audit Logging**: Full history of all admin actions (owner-only)
-- **AI Memory Layer**: SimpleMem-style atomic fact extraction per conversation. Memories stored in `ai_memories` table, injected into system prompt. Persists across sessions even if chat is deleted. Tenant-isolated + business-type tagged. Consolidation: decay stale facts, cap at 120 per tenant.
-- **AI Reorder for Regulars**: Owner can ask the AI assistant for a customer's recent orders ("Juan's usual", "what did Maria buy last time"). The AI emits a `[SHOW_CUSTOMER_ORDERS]{"name":"…"}` tag → server fuzzy-matches the customer (`POST /api/ai/customer-orders`) and returns up to 5 recent sales. Each order has a "Reorder" button that stashes the items + customer in `sessionStorage["pos:reorder"]`, navigates to `/pos`, and the POS page populates the cart on mount (refreshing stale products from the live catalog).
-- **AI Off-Topic Filter**: A pre-LLM regex filter (`OFF_TOPIC_PATTERNS` in `server/ai-routes.ts`) blocks clearly-off-topic requests (programming help, philosophical questions, poems, generic homework) before they hit the model. Saves tokens and prevents the assistant from drifting away from store-only topics.
-- **AI Action-Capability Shortcut**: A second pre-LLM regex (`detectActionCapabilityQuery` in `server/ai-routes.ts`) catches "can you / pwede ka ba" + add/log/create + product/expense/customer/discount and answers locally with a short capability blurb. Prevents the "AI is taking a quick breather" error from showing on trivial yes/no capability questions when the LLM provider is exhausted.
-- **AI Undo Chip**: After the assistant adds a product or logs an expense, the success bubble shows a 30-second "Undo" chip. Powered by `[UNDO_ADD_PRODUCT]{...}` / `[UNDO_LOG_EXPENSE]{...}` tags appended to the result message, parsed by `parseImportAction`, and routed through `POST /api/ai/undo-add-product` and `POST /api/ai/undo-log-expense` (both call `storage.deleteProduct`/`deleteExpense` with tenant ownership checks and bust the AI cache). The chip auto-dismisses after the timer expires.
-- **AI Error Resilience**: Errored assistant turns (rate-limit, network) carry an `errored: true` flag on `AiMessage` and render an inline "Try again" chip that re-sends the prior user message. Consecutive identical error bubbles collapse so the chat doesn't stack three "quick breather" messages.
-- **Per-branch business type**: Each branch has its own `businessType`/`businessSubType` (cafe, salon, retail, etc.). Navigation, quick actions and dashboard adapt per active branch via `useBranchBusiness()` (`client/src/hooks/use-branch-business.ts`), which reads `user.activeBranch` from `/api/auth/me` and falls back to global settings.
-- **Per-branch onboarding & seed catalog**: When an owner creates a new branch, they pick its business type and (after creation) get a one-tap "Add starter catalog" prompt. Seed templates live in `server/branch-seeds.ts` (cafe coffee menu, restaurant + tables, salon services, gym memberships, retail SKUs, etc.). Endpoints: `GET /api/admin/branches/:id/seed-template` (preview) and `POST /api/admin/branches/:id/seed` (apply).
-- **Resilience**: Service worker is dev-gated (registers only in production, unregisters stale ones in dev) to prevent stale-chunk white-screens. Top-level `<ErrorBoundary>` (`client/src/components/error-boundary.tsx`) catches lazy-import failures and auto-reloads once on chunk-load errors.
+## User Preferences
+I prefer simple language and clear explanations. I want iterative development with frequent, small updates. Ask before making major architectural changes or introducing new external dependencies. For AI features, ensure responses are always relevant to store operations and prevent the AI from engaging in off-topic discussions. When the AI performs an action like adding a product or logging an expense, provide an "Undo" option for a short period. Ensure that all data is isolated per tenant and branch. Do not make changes to folder `node_modules` and the file `package-lock.json`.
 
-## Architecture
-- **Frontend**: React + TypeScript + TailwindCSS
-- **Backend**: Express.js with SQLite (Drizzle ORM)
-- **State Management**: TanStack React Query
-- **Styling**: Shadcn UI components + custom design system
-- **Mobile**: Capacitor (Android & iOS native app builds via GitHub Actions)
-- **Auth**: JWT in httpOnly cookies (1-day TTL); OAuth (Google, Facebook) + local email/password for staff
-- **RBAC Middleware**: `requireAuth`, `requireOwner`, `requireAdminOrAbove`, `requireTenant` in `server/middleware.ts`
-- **Multi-tenant DB**: `tenants`, `branches`, `user_branches`, `audit_logs` tables; all existing tables have nullable `branchId`
-- **Crypto**: `server/crypto.ts` — unified password hashing (scrypt, `hash.salt` format) with backward-compat for legacy `salt:hash` format
+## System Architecture
+The ArtixPOS system is built with a React + TypeScript + TailwindCSS frontend and an Express.js backend utilizing SQLite (Drizzle ORM) for data persistence. TanStack React Query manages state on the frontend. The UI/UX is characterized by a modern design system using Shadcn UI components, a Violet-600 primary color, "Plus Jakarta Sans" font, and generous border radii for a clean aesthetic. Glassmorphism-inspired utility classes are used for certain elements, carefully avoiding `backdrop-filter` for mobile performance. Full light/dark mode support is included, managed via CSS variables and local storage.
 
-## Key Files (Admin Panel)
-- `server/middleware.ts` — RBAC middleware (requireAuth, requireOwner, requireAdminOrAbove, requireTenant)
-- `server/admin-storage.ts` — Admin CRUD: tenants, branches, users, user-branch assignments, analytics, audit logs
-- `server/admin-routes.ts` — All admin API endpoints under `/api/admin/*`
-- `client/src/hooks/use-admin.ts` — Frontend hooks for all admin operations
-- `client/src/pages/admin/` — Admin pages: index, branches, users, analytics, audit-logs
+Core technical implementations include:
+- **Authentication**: JWTs in httpOnly cookies for sessions, supporting both local email/password login for staff and OAuth (Google, Facebook).
+- **Authorization**: Role-Based Access Control (RBAC) middleware (`requireAuth`, `requireOwner`, `requireAdminOrAbove`, `requireTenant`) enforces permissions across different user roles (Owner, Admin, Cashier).
+- **Multi-tenancy**: The database schema includes `tenants`, `branches`, `user_branches`, and `audit_logs` tables, with all other data tables linking back to `branchId` or `tenantId` to ensure full data isolation.
+- **AI Integration**: An AI Assistant, powered by Groq and Llama 3.3 70B, is deeply integrated. It uses a SimpleMem-style atomic fact extraction for memory, stored in `ai_memories` and injected into system prompts. The AI is database-aware, capable of answering questions based on real-time sales, products, and expenses. It supports file uploads (PDF, Excel, CSV) for parsing and bulk imports. Critical AI design patterns include:
+    - **Action Tags**: AI emits `[TAG]{json}[/TAG]` markers to trigger specific actions (e.g., product CRUD, expense logging, discount management), which are parsed and rendered as confirmation cards in the UI.
+    - **Reorder for Regulars**: AI can recall a customer's recent orders and provide a quick reorder option.
+    - **Off-Topic Filter**: Pre-LLM regex filters block irrelevant queries to conserve tokens and maintain focus.
+    - **Action-Capability Shortcut**: A pre-LLM regex provides quick answers to capability questions, reducing LLM load.
+    - **Undo Chip**: A temporary "Undo" option appears after certain AI actions.
+    - **Error Resilience**: AI errors are handled gracefully with "Try again" options and collapsing identical error messages.
+- **PWA Support**: The application is installable as a Progressive Web App, offering offline capabilities through a service worker, auto-updates, and full-screen mode.
+- **Mobile App**: Capacitor is used to wrap the React frontend into native Android and iOS applications, with CI/CD pipelines via GitHub Actions for automated builds.
+- **Branch-Specific Configuration**: Each branch can have its own `businessType` and `businessSubType`, dynamically adapting navigation, quick actions, and the dashboard. New branches can be seeded with starter catalogs based on their business type.
+- **Resilience**: Service worker caching strategies are optimized for assets and lazy-loaded chunks. An `<ErrorBoundary>` handles lazy-import failures and provides offline-aware recovery mechanisms.
 
-## Admin API Routes
-- `POST /api/auth/local-login` — Email/password login for staff
-- `POST /api/admin/ensure-tenant` — Creates tenant for first-time OAuth login
-- `GET/POST/PUT/DELETE /api/admin/branches` — Branch CRUD (owner/admin)
-- `GET/POST/PUT/DELETE /api/admin/users` — User CRUD (owner/admin)
-- `POST /api/admin/users/:id/branches` — Assign branch to user (owner)
-- `POST /api/admin/switch-branch` — Switch active branch
-- `GET /api/admin/analytics` — Cross-branch analytics
-- `GET /api/admin/audit-logs` — Audit log (owner only)
-
-## Design System
-- **Theme Colors**: Violet-600 primary (hsl 262 83% 58% light / hsl 265 75% 68% dark)
-- **Font**: Plus Jakarta Sans (primary) + Inter (fallback), loaded from Google Fonts
-- **Border Radius**: 2xl (1rem), xl (0.75rem), lg (0.625rem) — clean modern radius
-- **Glass utilities**: `.glass-card`, `.glass-sidebar`, `.glass-nav`, `.glass-header`, `.glass-cart-bar` — NO backdrop-filter blur for mobile GPU performance
-- **Gradients**: Ambient background glows (dark mode), card gradient tints (violet, emerald, amber, rose)
-- **Animations**: page-enter (slide-up), animate-fade-scale, card-press, skeleton-shimmer, stagger-children
-- **Dark Mode**: Full light/dark mode with CSS variables; toggle stored in localStorage
-- **Login Page**: Desktop split-panel layout (left: violet brand panel, right: form); mobile centered card
-- **Sidebar**: 220px wide, grouped nav sections (Main/Operations/Management/Finance/Tools/Admin), `.nav-item-active` gradient class
-- **Nav active state**: `.nav-item-active` class — violet gradient bg + border
-
-## Currency & Settings
-- Store name: "ArtixPOS"
-- Currency symbol: ₱ (Philippine Peso)
-- Tax rate: Configurable in settings
-- Payment methods: Cash, Online
-
-## Mobile App (Capacitor)
-
-### Setup
-The app uses [Capacitor](https://capacitorjs.com/) to wrap the React frontend as a native Android and iOS app.
-
-- **App ID**: `com.cafebara.app`
-- **Web build output**: `dist/public` (Vite build)
-- **Config file**: `capacitor.config.ts`
-
-### Building Locally
-Before running Capacitor commands, build the web assets first:
-```bash
-npx vite build
-npx cap add android   # first time only
-npx cap add ios       # first time only (macOS required)
-npx cap sync          # sync web assets to native projects
-```
-
-### GitHub Actions CI
-Two workflows are set up in `.github/workflows/`:
-
-| Workflow | Runner | Output |
-|---|---|---|
-| `build-android.yml` | `ubuntu-latest` | `app-debug.apk` |
-| `build-ios.yml` | `macos-latest` | Simulator `.app` build |
-
-Both workflows trigger automatically on push to `main`/`master` and can also be triggered manually. The built APK/app is uploaded as a GitHub Actions artifact (kept 30 days).
-
-> **Note**: Signing for release builds requires adding your keystore/certificate as GitHub Actions secrets and updating the workflow accordingly.
-
-## File Structure
-```
-├── client/
-│   ├── index.html          # PWA entry point with manifest & SW registration
-│   ├── public/
-│   │   ├── manifest.json   # PWA manifest
-│   │   ├── sw.js           # Service worker for offline support
-│   │   └── logo*.png       # App icons
-│   └── src/
-│       ├── pages/          # Dashboard, POS, Analytics, Products, Pending Orders
-│       └── components/     # Shadcn UI + custom components
-├── server/
-│   ├── index.ts            # Express app & Vite integration
-│   ├── storage.ts          # Database interface (SQLite)
-│   └── routes.ts           # API endpoints
-├── shared/
-│   └── schema.ts           # Drizzle ORM schema & Zod validation
-├── vite.config.ts          # Vite build config
-├── capacitor.config.ts     # Capacitor mobile app config
-└── .github/
-    └── workflows/
-        ├── build-android.yml   # Android APK build (ubuntu-latest)
-        └── build-ios.yml       # iOS build (macos-latest)
-```
-
-## How to Install as an App
-
-### Desktop (Chrome, Edge, Brave)
-1. Open the app in your browser
-2. Look for the **Install** button in the address bar (or use the three dots menu)
-3. Click "Install ArtixPOS"
-4. The app will appear on your desktop and taskbar
-
-### Mobile (Android)
-1. Open the app in Chrome or Brave browser
-2. Tap the three dots menu (top right)
-3. Select "Install app" or "Add to home screen"
-4. Confirm installation
-5. App will be pinned to your home screen
-
-### iOS (iPad/iPhone)
-1. Open the app in Safari
-2. Tap the **Share** button (bottom center)
-3. Scroll down and tap "Add to Home Screen"
-4. Choose a name and tap "Add"
-5. The app will appear on your home screen
-
-## AI Assistant
-
-- **Floating chat button** (sparkle icon) appears on all pages after login
-- **Powered by Groq + Llama 3.3 70B** — completely free, no usage limits
-- **Database-aware**: reads real-time sales, products, customers, expenses, shifts to answer questions
-- **File import**: upload PDF, Excel (.xlsx/.xls), or CSV files — AI parses and can bulk-import products
-- **Action tags**: AI emits inline `[TAG]{json}[/TAG]` markers; the chat UI renders confirmation cards. Single source of truth is `SUPPORTED_ACTION_TAGS` in `server/ai-routes.ts`. Currently: IMPORT_PRODUCTS, UPDATE_PRICES, ADD_PRODUCT, UPDATE_PRODUCT, DELETE_PRODUCT, ADD_CUSTOMER, LOG_EXPENSE, CREATE/UPDATE/DELETE/TOGGLE_DISCOUNT_CODE, SHOW_STAFF_INFO, FOLLOWUP. To add a new action: register the tag, add a system-prompt section, add the route in `registerAiRoutes`, then add the parser entry, payload type, card, handler and props in `client/src/pages/ai.tsx`.
-- **Markdown rendering** in chat (`renderMarkdown` in `client/src/pages/ai.tsx`): bold, italic (`*x*` / `_x_`), inline code, fenced code blocks, blockquotes, horizontal rules, `[label](href)` links (internal `/route` becomes a wouter nav, external opens in new tab), bare URL auto-linking, and known-page-name shortcuts that link to in-app routes.
-- **API Routes**:
-  - `POST /api/ai/chat` — send messages with optional file content
-  - `POST /api/ai/upload` — parse uploaded file (returns text content)
-  - `POST /api/ai/import-products` — bulk create products from AI-extracted data
-  - `POST /api/ai/add-product` · `/api/ai/update-product` · `/api/ai/delete-product` — single-product CRUD scoped to the owner's userId
-  - `POST /api/ai/add-customer` — create customer scoped to the owner's userId
-  - `POST /api/ai/update-prices` · `/api/ai/log-expense` · `/api/ai/create-discount` · `/api/ai/update-discount` · `/api/ai/delete-discount` · `/api/ai/toggle-discount`
-- **Config**: requires `GROQ_API_KEY` secret in Replit Secrets
-
-## Key Features
-- **Offline Support**: Service worker caches critical pages and API responses
-- **Fast & Responsive**: Loads instantly, even on slow networks
-- **No App Store Required**: Install directly from the web
-- **Auto-Updates**: App checks for updates on each launch
-- **Full-Screen Mode**: Runs like a native app without browser UI
-
-## PWA Files
-- `manifest.json`: App metadata, icons, shortcuts
-- `sw.js`: Service worker for caching and offline functionality
-- Meta tags in `index.html`: iOS support, theme colors, app capabilities
-
-## Analytics & Reporting
-- **Real-time Charts**: Revenue trends (last 30 days), top products, payment methods
-- **Big Data Optimization**: Efficient data processing for large datasets
-- **Dark Mode Support**: All charts readable in dark mode
-- **Date Filtering**: View metrics for any specific day
-
-## Data Persistence
-- SQLite database persists locally
-- Service worker caches app shell and API responses
-- Works offline, syncs when connection resumes
-
-## Replit Environment
-
-Production is intended to run on Vercel. Replit is used for development/preview only, so production URL and OAuth callback behavior should continue to prefer Vercel configuration (`APP_URL` / `VERCEL_URL`) rather than Replit preview domains.
-
-### Running the App
-- **Dev server**: `npm run dev` (starts on port 5000)
-- **Database**: PostgreSQL via `DATABASE_URL`
-- **db:push**: `npm run db:push` syncs the Drizzle schema to the configured PostgreSQL database
-
-### Optional Environment Variables
-- `SUPABASE_POOLER_URL` / `SUPABASE_DATABASE_URL`: Optional PostgreSQL fallback connection strings
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: Enable Google OAuth login
-- `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET`: Enable Facebook OAuth login
-- `SESSION_SECRET`: Custom session secret (auto-generated if not set)
-- `APP_URL`: Production public URL; development prefers the Replit preview domain automatically
-
-## Notes
-- No external authentication required (local login)
-- Tax calculation applied automatically at checkout
-- Order history preserved in database
-- Charts optimized to show last 30 days of revenue data
-- Tooltips have adaptive colors for dark/light modes
-- Free plan includes 1 branch, 50 products, 2 staff accounts, and a separate simple analytics screen; Pro keeps the advanced analytics dashboard with exports/custom ranges plus multi-branch, AI, customers, expenses, and automation modules
-- Pro voucher codes can be enabled with `PRO_VOUCHER_CODE` or comma-separated `PRO_VOUCHER_CODES` values; each code may include an optional day duration like `CODE:30`
-- Feature gating is business-type aware: Free includes core modules required by the selected business (for example Tables for Bar/Pub, Kitchen/Tables for Restaurant, Appointments/Staff for Services, Rooms where rooms/studios/chairs are core, Memberships for Gym, and Customers/Records for clinic/dental). Pro still unlocks all modules across all business types and branches.
-
-## Offline Mode Enhancement (May 2026)
-- **Root cause**: Lazy-loaded page chunks are only fetched on first navigation. If a user goes offline before visiting a page, `React.lazy()` throws a `ChunkLoadError` (or hangs) because the JS chunk is not cached.
-- **Fix 1 — SW cache-first for assets** (`public/sw.js`): JS, CSS, and font files are now served **cache-first** instead of network-first. Since Vite content-hashes all asset filenames, it is safe to serve them from cache indefinitely — a changed file will have a new URL. Cache name bumped to `pos-shell-v2` to evict the old network-first cache.
-- **Fix 2 — Eager route preloading** (`client/src/App.tsx`): Added `useRoutePreloader()` hook that runs in `AppRouter` after the app boots. On first online session it calls `import()` on every lazy page silently (via `requestIdleCallback`) so the SW can cache all page chunks. After that one session, every page is available offline.
-- **Fix 3 — Offline-aware `LoadingScreen`** (`client/src/App.tsx`): If the `<Suspense>` fallback spinner has been visible for 4 s while the device is offline, it now swaps to a clear "You're offline — this page hasn't been downloaded yet" screen with Go Back and Retry buttons, instead of spinning forever.
-- **Fix 4 — ErrorBoundary offline handling** (`client/src/components/error-boundary.tsx`): When `ChunkLoadError` fires while offline, the boundary no longer auto-reloads (which would fail), instead shows an amber offline screen with Go Back / Retry. Technical error dump is hidden in this case. Auto-reload still happens for online chunk errors (post-deploy stale chunk).
-
-## Mobile UX & Page Polish (April 2026)
-- **AI page mobile clearance**: `client/src/pages/ai.tsx` height calc on mobile now subtracts `safe-area-top + 96px + safe-area-bottom` so the input + disclaimer never sit under the floating bottom nav. The `-my-5` overlap was removed on mobile (kept on desktop). `AiFloatButton` is hidden when already on `/ai`.
-- **Discount codes touch targets**: row action buttons (copy/toggle/edit/delete) bumped from `h-7 w-7` to `h-9 w-9` with proper aria-labels — they were below 44pt minimum on phones.
-- **Pending orders empty state**: replaced gray `Clock` with green `CheckCircle2` "All caught up" — friendlier than implying something is overdue.
-- **Refunds reason tooltip**: added `title={refund.reason}` on the truncated reason cell so cashiers can see the full text on hover.
-- **Customers row overflow**: added `min-w-0` + dedicated `<span class="truncate">` around long emails, and `shrink-0` on the phone block so the email truncates instead of pushing the spent total off-screen.
-- **Billing empty state**: payment-history empty state now shows a `CreditCard` icon and friendlier copy.
-- **Kitchen refresh feedback**: refresh button now swaps to a `Loader2` spinner and disables during refetch (was firing silently).
-- **Memberships enroll spinner**: enroll submit button shows `Loader2 + "Enrolling…"` while saving.
-- **Shifts variance label**: "Variance" label now color-matches the value (red when short, green when over/even).
-- **Analytics PDF currency**: PDF report uses `formatCurrency()` (matches in-app formatting) instead of raw `${currency}${x.toFixed(2)}` — handles thousands separators and PHP-style spacing properly.
-- **Transactions skeleton**: replaced two generic shimmer blocks with a 4-stat-card grid + 6-row table skeleton that matches the actual layout, so the loading state stops jumping when data arrives.
-
-## Auth & Account Lifecycle (April 2026 hardening)
-- `setAuthCookie` and `clearAuthCookie` (server/auth.ts) share `AUTH_COOKIE_OPTIONS` (httpOnly + secure + sameSite=lax + path=/) so the cookie actually disappears on logout — previously logout required two clicks because `clearCookie` was called without matching options.
-- `DELETE /api/auth/account` performs a full cascade through `deleteUsersData(uids)` (covers products, sales, recipes, ingredients, wifiVouchers, payrollPeriods/Entries, etc.) and, when the caller is an `owner` with a tenant, also calls `deleteTenantShell(tenantId)` to drop branches, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories, tenant-scoped auditLogs/inviteTokens, and finally the tenant row. Without this, owners would re-register with the same deterministic email-based ID and still see their old store.
-- `client/src/pages/settings.tsx#handleDeleteAccount` uses `apiRequest` (so the native Bearer token attaches) plus `clearNativeToken` + `clearAllCache` so mobile clients can't silently re-authenticate after a delete.
-- `useAuth` exposes `isLoggingOut` so logout/sign-out buttons (in `app-layout.tsx` and `settings.tsx`) can disable themselves while the request is in flight.
-- Onboarding (`server/routes.ts` POST /api/settings) re-reads the user from the DB instead of trusting the JWT's tenantId, then claims the new tenant with `UPDATE users SET tenant_id = ? WHERE id = ? AND tenant_id IS NULL`. If a concurrent request beats us we drop the spare tenant we just created. The first branch is now created with `businessType` + `businessSubType` from the onboarding payload.
+## External Dependencies
+- **Database**: PostgreSQL (main production), SQLite (development/local)
+- **ORM**: Drizzle ORM
+- **AI Model**: Groq (Llama 3.3 70B)
+- **OAuth Providers**: Google, Facebook
+- **Mobile Wrapper**: Capacitor
+- **Font Hosting**: Google Fonts

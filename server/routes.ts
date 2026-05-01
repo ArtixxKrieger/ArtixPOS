@@ -1076,14 +1076,115 @@ export async function registerRoutes(
 
   app.post("/api/customers/:id/loyalty", requireAuth, requirePro, async (req, res) => {
     try {
-      const { delta } = z.object({ delta: z.number() }).parse(req.body);
-      const customer = await storage.adjustLoyaltyPoints(Number(req.params.id), delta, userId(req));
+      const { delta, reason, saleId, note } = z.object({
+        delta: z.number(),
+        reason: z.string().optional(),
+        saleId: z.number().optional(),
+        note: z.string().optional(),
+      }).parse(req.body);
+      const customer = await storage.adjustLoyaltyPoints(Number(req.params.id), delta, userId(req), { reason, saleId, note });
       if (!customer) return res.status(404).json({ message: "Customer not found" });
       res.json(customer);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
+  });
+
+  app.get("/api/customers/:id/loyalty-log", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const logs = await storage.getLoyaltyPointsLog(Number(req.params.id), userId(req));
+      res.json(logs);
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/customers/:id/redeem-reward", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const { rewardId } = z.object({ rewardId: z.number().int() }).parse(req.body);
+      const result = await storage.redeemLoyaltyReward(Number(req.params.id), rewardId, userId(req));
+      if (!result) return res.status(400).json({ message: "Cannot redeem: insufficient points or invalid reward" });
+      res.json(result);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // ── Loyalty Tiers ─────────────────────────────────────────────────────────
+
+  app.get("/api/loyalty/tiers", requireAuth, requirePro, async (req, res, next) => {
+    try { res.json(await storage.getLoyaltyTiers(userId(req))); } catch (err) { next(err); }
+  });
+
+  app.post("/api/loyalty/tiers", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const body = z.object({
+        name: z.string().min(1), minLifetimePoints: z.number().int().min(0),
+        multiplier: z.string().default("1"), color: z.string().default("#CD7F32"),
+        perks: z.string().optional().nullable(), sortOrder: z.number().int().default(0),
+      }).parse(req.body);
+      res.status(201).json(await storage.createLoyaltyTier(userId(req), body));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  app.patch("/api/loyalty/tiers/:id", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const body = req.body;
+      const updated = await storage.updateLoyaltyTier(Number(req.params.id), userId(req), body);
+      if (!updated) return res.status(404).json({ message: "Tier not found" });
+      res.json(updated);
+    } catch (err) { next(err); }
+  });
+
+  app.delete("/api/loyalty/tiers/:id", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      await storage.deleteLoyaltyTier(Number(req.params.id), userId(req));
+      res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
+  // ── Loyalty Rewards Catalog ───────────────────────────────────────────────
+
+  app.get("/api/loyalty/rewards", requireAuth, async (req, res, next) => {
+    try { res.json(await storage.getLoyaltyRewards(userId(req))); } catch (err) { next(err); }
+  });
+
+  app.post("/api/loyalty/rewards", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const body = z.object({
+        name: z.string().min(1),
+        description: z.string().optional().nullable(),
+        type: z.enum(["discount_fixed", "discount_percent", "free_product", "stamp_card", "custom"]),
+        pointsCost: z.number().int().min(1),
+        value: z.string().default("0"),
+        productId: z.number().int().optional().nullable(),
+        isActive: z.boolean().default(true),
+        maxRedemptions: z.number().int().optional().nullable(),
+        expiresAt: z.string().optional().nullable(),
+      }).parse(req.body);
+      res.status(201).json(await storage.createLoyaltyReward(userId(req), body));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  app.patch("/api/loyalty/rewards/:id", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const updated = await storage.updateLoyaltyReward(Number(req.params.id), userId(req), req.body);
+      if (!updated) return res.status(404).json({ message: "Reward not found" });
+      res.json(updated);
+    } catch (err) { next(err); }
+  });
+
+  app.delete("/api/loyalty/rewards/:id", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      await storage.deleteLoyaltyReward(Number(req.params.id), userId(req));
+      res.status(204).end();
+    } catch (err) { next(err); }
   });
 
   // ── Kitchen Status Update ─────────────────────────────────────────────────

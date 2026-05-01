@@ -80,6 +80,14 @@ import {
   type Notification,
   stockLogs,
   type StockLog,
+  loyaltyTiers,
+  type LoyaltyTier,
+  type InsertLoyaltyTier,
+  loyaltyRewards,
+  type LoyaltyReward,
+  type InsertLoyaltyReward,
+  loyaltyPointsLog,
+  type LoyaltyPointsLog,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 
@@ -124,6 +132,26 @@ export interface IStorage {
   updateCustomer(id: number, userId: string, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: number, userId: string): Promise<void>;
   updateCustomerStats(id: number, amount: number): Promise<void>;
+
+  // Loyalty Tiers
+  getLoyaltyTiers(userId: string): Promise<LoyaltyTier[]>;
+  createLoyaltyTier(userId: string, tier: InsertLoyaltyTier): Promise<LoyaltyTier>;
+  updateLoyaltyTier(id: number, userId: string, tier: Partial<InsertLoyaltyTier>): Promise<LoyaltyTier | undefined>;
+  deleteLoyaltyTier(id: number, userId: string): Promise<void>;
+
+  // Loyalty Rewards
+  getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]>;
+  createLoyaltyReward(userId: string, reward: InsertLoyaltyReward): Promise<LoyaltyReward>;
+  updateLoyaltyReward(id: number, userId: string, reward: Partial<InsertLoyaltyReward>): Promise<LoyaltyReward | undefined>;
+  deleteLoyaltyReward(id: number, userId: string): Promise<void>;
+  redeemLoyaltyReward(customerId: number, rewardId: number, userId: string): Promise<{ customer: Customer; reward: LoyaltyReward; log: LoyaltyPointsLog } | null>;
+
+  // Loyalty Points Log
+  getLoyaltyPointsLog(customerId: number, userId: string): Promise<LoyaltyPointsLog[]>;
+  addLoyaltyPointsLog(userId: string, customerId: number, delta: number, reason: string, opts?: { saleId?: number; rewardId?: number; note?: string; expiresAt?: string }): Promise<LoyaltyPointsLog>;
+
+  // Loyalty utility
+  recalcCustomerTier(customerId: number, tiers: LoyaltyTier[]): Promise<void>;
 
   // Expenses
   getExpenses(userId: string): Promise<Expense[]>;
@@ -1293,7 +1321,7 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Loyalty points ───────────────────────────────────────────────────────
 
-  async adjustLoyaltyPoints(customerId: number, delta: number, userId: string): Promise<Customer | undefined> {
+  async adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1
@@ -1302,12 +1330,153 @@ export class DatabaseStorage implements IStorage {
       const [customer] = await db.select().from(customers).where(condition);
       if (!customer) return undefined;
       const newPoints = Math.max(0, (customer.loyaltyPoints ?? 0) + delta);
-      const [updated] = await db.update(customers).set({ loyaltyPoints: newPoints } as any).where(eq(customers.id, customerId)).returning();
+      const newLifetime = delta > 0 ? (customer.lifetimePoints ?? 0) + delta : (customer.lifetimePoints ?? 0);
+      const [updated] = await db.update(customers).set({ loyaltyPoints: newPoints, lifetimePoints: newLifetime } as any).where(eq(customers.id, customerId)).returning();
+
+      // Log the change
+      void db.insert(loyaltyPointsLog).values({
+        userId,
+        customerId,
+        delta,
+        balance: newPoints,
+        reason: opts?.reason ?? (delta > 0 ? "purchase" : "redeem_discount"),
+        saleId: opts?.saleId ?? null,
+        rewardId: opts?.rewardId ?? null,
+        note: opts?.note ?? null,
+      } as any).catch(() => {});
+
+      // Recalc tier in background
+      this.getLoyaltyTiers(userId).then(tiers => {
+        if (tiers.length > 0) this.recalcCustomerTier(customerId, tiers).catch(() => {});
+      }).catch(() => {});
+
       return updated;
     } catch (error) {
       console.error("Error adjusting loyalty points:", error);
       return undefined;
     }
+  }
+
+  // ─── Loyalty Tiers ─────────────────────────────────────────────────────────
+
+  async getLoyaltyTiers(userId: string): Promise<LoyaltyTier[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    const condition = userIds.length === 1 ? eq(loyaltyTiers.userId, userIds[0]) : inArray(loyaltyTiers.userId, userIds);
+    return db.select().from(loyaltyTiers).where(condition).orderBy(loyaltyTiers.sortOrder);
+  }
+
+  async createLoyaltyTier(userId: string, tier: InsertLoyaltyTier): Promise<LoyaltyTier> {
+    const [created] = await db.insert(loyaltyTiers).values({ ...tier, userId } as any).returning();
+    return created;
+  }
+
+  async updateLoyaltyTier(id: number, userId: string, tier: Partial<InsertLoyaltyTier>): Promise<LoyaltyTier | undefined> {
+    const userIds = await this.getTenantUserIds(userId);
+    const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
+    const [updated] = await db.update(loyaltyTiers).set(tier as any).where(condition).returning();
+    return updated;
+  }
+
+  async deleteLoyaltyTier(id: number, userId: string): Promise<void> {
+    const userIds = await this.getTenantUserIds(userId);
+    const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
+    await db.delete(loyaltyTiers).where(condition);
+  }
+
+  // ─── Loyalty Rewards ───────────────────────────────────────────────────────
+
+  async getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    const condition = userIds.length === 1 ? eq(loyaltyRewards.userId, userIds[0]) : inArray(loyaltyRewards.userId, userIds);
+    return db.select().from(loyaltyRewards).where(condition).orderBy(loyaltyRewards.pointsCost);
+  }
+
+  async createLoyaltyReward(userId: string, reward: InsertLoyaltyReward): Promise<LoyaltyReward> {
+    const [created] = await db.insert(loyaltyRewards).values({ ...reward, userId } as any).returning();
+    return created;
+  }
+
+  async updateLoyaltyReward(id: number, userId: string, reward: Partial<InsertLoyaltyReward>): Promise<LoyaltyReward | undefined> {
+    const userIds = await this.getTenantUserIds(userId);
+    const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
+    const [updated] = await db.update(loyaltyRewards).set(reward as any).where(condition).returning();
+    return updated;
+  }
+
+  async deleteLoyaltyReward(id: number, userId: string): Promise<void> {
+    const userIds = await this.getTenantUserIds(userId);
+    const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
+    await db.delete(loyaltyRewards).where(condition);
+  }
+
+  async redeemLoyaltyReward(customerId: number, rewardId: number, userId: string): Promise<{ customer: Customer; reward: LoyaltyReward; log: LoyaltyPointsLog } | null> {
+    try {
+      const [reward] = await db.select().from(loyaltyRewards).where(eq(loyaltyRewards.id, rewardId));
+      if (!reward || !reward.isActive) return null;
+      if (reward.maxRedemptions != null && (reward.redemptionCount ?? 0) >= reward.maxRedemptions) return null;
+
+      const userIds = await this.getTenantUserIds(userId);
+      const cond = userIds.length === 1 ? and(eq(customers.id, customerId), eq(customers.userId, userIds[0])) : and(eq(customers.id, customerId), inArray(customers.userId, userIds));
+      const [customer] = await db.select().from(customers).where(cond);
+      if (!customer) return null;
+      if ((customer.loyaltyPoints ?? 0) < reward.pointsCost) return null;
+
+      const newPoints = (customer.loyaltyPoints ?? 0) - reward.pointsCost;
+      const [updatedCustomer] = await db.update(customers).set({ loyaltyPoints: newPoints } as any).where(eq(customers.id, customerId)).returning();
+      await db.update(loyaltyRewards).set({ redemptionCount: (reward.redemptionCount ?? 0) + 1 } as any).where(eq(loyaltyRewards.id, rewardId));
+      const [log] = await db.insert(loyaltyPointsLog).values({
+        userId,
+        customerId,
+        delta: -reward.pointsCost,
+        balance: newPoints,
+        reason: reward.type === "free_product" ? "redeem_product" : "redeem_discount",
+        rewardId,
+        note: `Redeemed: ${reward.name}`,
+      } as any).returning();
+      return { customer: updatedCustomer, reward, log };
+    } catch (err) {
+      console.error("redeemLoyaltyReward error:", err);
+      return null;
+    }
+  }
+
+  // ─── Loyalty Points Log ────────────────────────────────────────────────────
+
+  async getLoyaltyPointsLog(customerId: number, userId: string): Promise<LoyaltyPointsLog[]> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const cond = userIds.length === 1 ? and(eq(customers.id, customerId), eq(customers.userId, userIds[0])) : and(eq(customers.id, customerId), inArray(customers.userId, userIds));
+      const [customer] = await db.select().from(customers).where(cond);
+      if (!customer) return [];
+      return db.select().from(loyaltyPointsLog).where(eq(loyaltyPointsLog.customerId, customerId)).orderBy(desc(loyaltyPointsLog.createdAt)).limit(100);
+    } catch { return []; }
+  }
+
+  async addLoyaltyPointsLog(userId: string, customerId: number, delta: number, reason: string, opts?: { saleId?: number; rewardId?: number; note?: string; expiresAt?: string }): Promise<LoyaltyPointsLog> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+    const balance = Math.max(0, (customer?.loyaltyPoints ?? 0) + delta);
+    const [log] = await db.insert(loyaltyPointsLog).values({
+      userId, customerId, delta, balance, reason,
+      saleId: opts?.saleId ?? null,
+      rewardId: opts?.rewardId ?? null,
+      note: opts?.note ?? null,
+      expiresAt: opts?.expiresAt ?? null,
+    } as any).returning();
+    return log;
+  }
+
+  async recalcCustomerTier(customerId: number, tiers: LoyaltyTier[]): Promise<void> {
+    try {
+      const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+      if (!customer) return;
+      const lifetimePts = customer.lifetimePoints ?? 0;
+      const sorted = [...tiers].sort((a, b) => b.minLifetimePoints - a.minLifetimePoints);
+      const matched = sorted.find(t => lifetimePts >= t.minLifetimePoints);
+      const newTier = matched?.name?.toLowerCase() ?? "none";
+      if (newTier !== customer.tier) {
+        await db.update(customers).set({ tier: newTier } as any).where(eq(customers.id, customerId));
+      }
+    } catch { /* ignore */ }
   }
 
   // ─── Service Staff ────────────────────────────────────────────────────────

@@ -41,3 +41,9 @@ Core technical implementations include:
 - Optional AI keys: `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`
 - Optional payment key: `PAYMONGO_SECRET_KEY` (for subscription billing)
 - Optional email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (for password reset emails)
+
+## Advanced Loyalty System (Added)
+- **Database tables**: `loyalty_tiers`, `loyalty_rewards`, `loyalty_points_log`; new columns on `customers` (`lifetime_points`, `tier`, `birthday`, `stamp_count`, `referred_by`) and on `user_settings` (`loyalty_expiry_days`, `loyalty_birthday_bonus`, `loyalty_referral_bonus`, `loyalty_stamp_target`, `loyalty_stamp_enabled`)
+- **Backend**: Full CRUD routes for `/api/loyalty/tiers`, `/api/loyalty/rewards`; enhanced `/api/customers/:id/loyalty` (manual adjust with reason+note), `/api/customers/:id/loyalty-log`, `/api/customers/:id/redeem-reward`; auto-tier recalculation on every points change
+- **Customers page** (`/customers`): Tier badges, lifetime/current points, visit stats, purchase history, 3-tab profile dialog (Overview + manual adjust, Points Log, Redeem rewards), birthday field in add/edit form
+- **Loyalty page** (`/loyalty`): 4-tab layout — Dashboard (stats, tier distribution bar chart, top members), Tiers (CRUD with color picker, multiplier, perks, Bronze/Silver/Gold/Platinum presets), Rewards Catalog (CRUD with type: fixed/percent/free product/stamp/custom, active toggle, max redemptions, expiry), Settings (point earn rate, redemption rate, birthday bonus, referral bonus, stamp card toggle, points expiry)

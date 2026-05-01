@@ -186,6 +186,11 @@ export const customers = pgTable("customers", {
   totalSpent: text("total_spent").default("0"),
   visitCount: integer("visit_count").default(0),
   loyaltyPoints: integer("loyalty_points").default(0),
+  lifetimePoints: integer("lifetime_points").default(0),
+  tier: text("tier").default("none"), // none | bronze | silver | gold | platinum
+  birthday: text("birthday"), // ISO date string YYYY-MM-DD
+  stampCount: integer("stamp_count").default(0),
+  referredBy: integer("referred_by"), // customer.id who referred
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -318,6 +323,11 @@ export const userSettings = pgTable("user_settings", {
   timezone: text("timezone"),
   loyaltyPointsPerUnit: text("loyalty_points_per_unit").default("1"),
   loyaltyRedemptionRate: text("loyalty_redemption_rate").default("100"),
+  loyaltyExpiryDays: integer("loyalty_expiry_days").default(0),
+  loyaltyBirthdayBonus: integer("loyalty_birthday_bonus").default(0),
+  loyaltyReferralBonus: integer("loyalty_referral_bonus").default(0),
+  loyaltyStampTarget: integer("loyalty_stamp_target").default(10),
+  loyaltyStampEnabled: integer("loyalty_stamp_enabled").default(0),
   businessType: text("business_type"),
   businessSubType: text("business_sub_type"),
   onboardingComplete: integer("onboarding_complete").default(0),
@@ -590,6 +600,62 @@ export const stockLogs = pgTable("stock_logs", {
 
 export type StockLog = typeof stockLogs.$inferSelect;
 
+// ─── Loyalty Tiers ─────────────────────────────────────────────────────────────
+
+export const loyaltyTiers = pgTable("loyalty_tiers", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(), // e.g. "Bronze", "Silver"
+  minLifetimePoints: integer("min_lifetime_points").notNull().default(0),
+  multiplier: text("multiplier").notNull().default("1"), // point earning multiplier
+  color: text("color").notNull().default("#CD7F32"), // hex color
+  perks: text("perks"), // free-text description of perks
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export type LoyaltyTier = typeof loyaltyTiers.$inferSelect;
+
+// ─── Loyalty Rewards Catalog ───────────────────────────────────────────────────
+
+export const loyaltyRewards = pgTable("loyalty_rewards", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("discount_fixed"),
+  // type: "discount_fixed" | "discount_percent" | "free_product" | "stamp_card" | "custom"
+  pointsCost: integer("points_cost").notNull().default(100),
+  value: text("value").notNull().default("0"),
+  // for discount_fixed: currency amount; discount_percent: 0-100; free_product: productId; custom: text
+  productId: integer("product_id").references(() => products.id),
+  isActive: boolean("is_active").default(true),
+  maxRedemptions: integer("max_redemptions"), // null = unlimited
+  redemptionCount: integer("redemption_count").default(0),
+  expiresAt: text("expires_at"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export type LoyaltyReward = typeof loyaltyRewards.$inferSelect;
+
+// ─── Loyalty Points Log ────────────────────────────────────────────────────────
+
+export const loyaltyPointsLog = pgTable("loyalty_points_log", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  customerId: integer("customer_id").notNull().references(() => customers.id),
+  delta: integer("delta").notNull(), // positive = earn, negative = spend
+  balance: integer("balance").notNull().default(0), // points balance after this change
+  reason: text("reason").notNull().default("purchase"),
+  // reason: "purchase" | "redeem_discount" | "redeem_product" | "birthday" | "referral" | "manual" | "expiry" | "stamp_bonus"
+  saleId: integer("sale_id"),
+  rewardId: integer("reward_id").references(() => loyaltyRewards.id),
+  note: text("note"),
+  expiresAt: text("expires_at"), // for points expiry
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export type LoyaltyPointsLog = typeof loyaltyPointsLog.$inferSelect;
+
 // ─── Payroll Periods ──────────────────────────────────────────────────────────
 
 export const payrollPeriods = pgTable("payroll_periods", {
@@ -686,6 +752,8 @@ export const insertCustomerSchema = z.object({
   phone: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  birthday: z.string().optional().nullable(),
+  referredBy: z.number().int().optional().nullable(),
 });
 
 export const insertExpenseSchema = z.object({
@@ -749,6 +817,11 @@ export const insertUserSettingSchema = z.object({
   timezone: z.string().optional().nullable(),
   loyaltyPointsPerUnit: z.string().optional(),
   loyaltyRedemptionRate: z.string().optional(),
+  loyaltyExpiryDays: z.union([z.number(), z.string()]).optional().nullable(),
+  loyaltyBirthdayBonus: z.union([z.number(), z.string()]).optional().nullable(),
+  loyaltyReferralBonus: z.union([z.number(), z.string()]).optional().nullable(),
+  loyaltyStampTarget: z.union([z.number(), z.string()]).optional().nullable(),
+  loyaltyStampEnabled: z.union([z.boolean(), z.number()]).optional().nullable(),
   businessType: z.string().optional().nullable(),
   businessSubType: z.string().optional().nullable(),
   onboardingComplete: z.number().optional(),
@@ -1031,3 +1104,29 @@ export type InsertWifiVoucher = z.infer<typeof insertWifiVoucherSchema>;
 export type InsertPayrollPeriod = z.infer<typeof insertPayrollPeriodSchema>;
 export type UpdatePayrollEntry = z.infer<typeof updatePayrollEntrySchema>;
 export type UpdateUserWage = z.infer<typeof updateUserWageSchema>;
+
+// ─── Loyalty Insert Schemas ───────────────────────────────────────────────────
+
+export const insertLoyaltyTierSchema = z.object({
+  name: z.string().min(1),
+  minLifetimePoints: z.number().int().min(0).default(0),
+  multiplier: z.string().default("1"),
+  color: z.string().default("#CD7F32"),
+  perks: z.string().optional().nullable(),
+  sortOrder: z.number().int().default(0),
+});
+
+export const insertLoyaltyRewardSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  type: z.enum(["discount_fixed", "discount_percent", "free_product", "stamp_card", "custom"]),
+  pointsCost: z.number().int().min(1),
+  value: z.string().default("0"),
+  productId: z.number().int().optional().nullable(),
+  isActive: z.boolean().default(true),
+  maxRedemptions: z.number().int().optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
+});
+
+export type InsertLoyaltyTier = z.infer<typeof insertLoyaltyTierSchema>;
+export type InsertLoyaltyReward = z.infer<typeof insertLoyaltyRewardSchema>;

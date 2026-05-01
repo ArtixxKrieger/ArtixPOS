@@ -1055,7 +1055,10 @@ export default function POS() {
                   className="group text-left bg-card rounded-3xl shadow-sm border border-border/30 overflow-hidden hover:shadow-xl hover:-translate-y-1 active:scale-[0.97] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 animate-fade-scale"
                 >
                   {/* Product icon area */}
-                  <div className="aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden">
+                  <div className={[
+                    "aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
+                    product.trackStock && product.stock === 0 ? "opacity-50" : ""
+                  ].join(" ")}>
                     <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <Package
                       className="h-14 w-14 md:h-16 md:w-16 text-primary/25 group-hover:scale-110 group-hover:text-primary/40 transition-all duration-500"
@@ -1065,18 +1068,43 @@ export default function POS() {
                     <div className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 shadow-lg">
                       <Plus className="h-3.5 w-3.5 text-white" />
                     </div>
+                    {/* Low-stock / out-of-stock badge */}
+                    {product.trackStock && typeof product.stock === "number" && (
+                      product.stock === 0 ? (
+                        <div className="absolute top-2 left-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-md leading-tight tracking-wide">
+                          Out of stock
+                        </div>
+                      ) : typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold ? (
+                        <div className="absolute top-2 left-2 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-md leading-tight tracking-wide">
+                          Only {product.stock} left
+                        </div>
+                      ) : null
+                    )}
                   </div>
 
                   {/* Product info */}
                   <div className="p-3">
-                    <h3 className="font-bold text-sm leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2">
+                    <h3 className={[
+                      "font-bold text-sm leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2",
+                      product.trackStock && product.stock === 0 ? "text-muted-foreground/60" : ""
+                    ].join(" ")}>
                       {product.name}
                     </h3>
-                    <p className="text-primary font-black text-base tabular-nums">
-                      {product.sizes && product.sizes.length > 0
-                        ? `${formatCurrency(product.sizes[0].price, currency)}+`
-                        : formatCurrency(product.price, currency)}
-                    </p>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className={[
+                        "font-black text-base tabular-nums",
+                        product.trackStock && product.stock === 0 ? "text-muted-foreground/50" : "text-primary"
+                      ].join(" ")}>
+                        {product.sizes && product.sizes.length > 0
+                          ? `${formatCurrency(product.sizes[0].price, currency)}+`
+                          : formatCurrency(product.price, currency)}
+                      </p>
+                      {product.trackStock && typeof product.stock === "number" && product.stock > 0 && typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold && (
+                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 tabular-nums shrink-0">
+                          {product.stock} left
+                        </span>
+                      )}
+                    </div>
                     {product.category && (
                       <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium">{product.category}</p>
                     )}

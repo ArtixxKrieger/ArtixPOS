@@ -90,6 +90,25 @@ export function useCreateSale() {
       ]);
       const fresh = queryClient.getQueryData<any[]>([BASE_URL]);
       if (fresh) setCached(BASE_URL, fresh);
+      // Deduct product stock in cache
+      if (Array.isArray(result.items)) {
+        const deductions = new Map<number, number>();
+        for (const item of result.items as any[]) {
+          const pid = Number(item?.productId ?? item?.id ?? item?.product?.id);
+          const qty = Number(item?.quantity ?? 1);
+          if (Number.isFinite(pid) && pid > 0 && qty > 0)
+            deductions.set(pid, (deductions.get(pid) ?? 0) + qty);
+        }
+        if (deductions.size > 0) {
+          queryClient.setQueryData<any[]>(["/api/products"], (old) =>
+            old ? old.map((p: any) => {
+              const sold = deductions.get(p.id);
+              if (!sold || !p.trackStock) return p;
+              return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
+            }) : old
+          );
+        }
+      }
     },
   });
 }

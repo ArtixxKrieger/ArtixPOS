@@ -438,6 +438,7 @@ export default function Products() {
                                 data-testid="input-product-stock"
                               />
                             </FormControl>
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Set your actual count — sales will deduct from this number</p>
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="lowStockThreshold" render={({ field }) => (

@@ -56,6 +56,25 @@ export function useCreatePendingOrder() {
       queryClient.setQueryData<any[]>([LIST_URL], (old) =>
         old ? [...old.filter((o: any) => o.id !== result.id), result] : [result]
       );
+      // Deduct stock in products cache for paid orders
+      if (result.status === "paid" && Array.isArray(result.items)) {
+        const deductions = new Map<number, number>();
+        for (const item of result.items as any[]) {
+          const pid = Number(item?.productId ?? item?.id ?? item?.product?.id);
+          const qty = Number(item?.quantity ?? 1);
+          if (Number.isFinite(pid) && pid > 0 && qty > 0)
+            deductions.set(pid, (deductions.get(pid) ?? 0) + qty);
+        }
+        if (deductions.size > 0) {
+          queryClient.setQueryData<any[]>(["/api/products"], (old) =>
+            old ? old.map((p: any) => {
+              const sold = deductions.get(p.id);
+              if (!sold || !p.trackStock) return p;
+              return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
+            }) : old
+          );
+        }
+      }
     },
   });
 }

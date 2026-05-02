@@ -83,13 +83,13 @@ export function useCreateSale() {
       return result;
     },
     onSuccess: (result) => {
+      // Prepend to cache instantly — no refetch needed
       queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) => [
         result,
         ...(old ?? []),
       ]);
       const fresh = queryClient.getQueryData<any[]>([BASE_URL]);
       if (fresh) setCached(BASE_URL, fresh);
-      queryClient.invalidateQueries({ queryKey: [BASE_URL] });
     },
   });
 }
@@ -97,6 +97,14 @@ export function useCreateSale() {
 export function useDeleteSale() {
   const queryClient = useQueryClient();
   return useMutation({
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: [BASE_URL] });
+      const previous = queryClient.getQueryData<any[]>([BASE_URL]);
+      queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) =>
+        old ? old.filter((s: any) => s.id !== id) : []
+      );
+      return { previous };
+    },
     mutationFn: async (id: number) => {
       const res = await nativeFetch(`/api/sales/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -104,8 +112,12 @@ export function useDeleteSale() {
         throw new Error((body as any)?.message ?? "Failed to delete sale");
       }
     },
+    onError: (_err, _id, context) => {
+      if (context?.previous)
+        queryClient.setQueriesData({ queryKey: [BASE_URL] }, context.previous);
+    },
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: [BASE_URL] });
+      patchCached(BASE_URL, (prev: any[]) => prev.filter((s: any) => s.id !== id));
     },
   });
 }

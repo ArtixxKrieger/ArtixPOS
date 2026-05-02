@@ -493,7 +493,14 @@ export default function POS() {
                 }
               });
           }
-          queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+          // Update customer loyalty points in cache instantly
+          queryClient.setQueryData<Customer[]>(["/api/customers"], (old) =>
+            old ? old.map((c) =>
+              c.id === snapshotCustomer.id
+                ? { ...c, loyaltyPoints: (c.loyaltyPoints ?? 0) + netDelta }
+                : c
+            ) : old
+          );
         }
 
         // Optionally issue a free wifi voucher

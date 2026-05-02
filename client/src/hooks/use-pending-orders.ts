@@ -51,7 +51,12 @@ export function useCreatePendingOrder() {
       await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
       return result;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
+    onSuccess: (result) => {
+      // Append to cache instantly — no refetch needed
+      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
+        old ? [...old.filter((o: any) => o.id !== result.id), result] : [result]
+      );
+    },
   });
 }
 
@@ -92,6 +97,14 @@ export function useDeletePendingOrder() {
 export function useUpdatePendingOrder() {
   const queryClient = useQueryClient();
   return useMutation({
+    onMutate: async ({ id, ...data }: { id: number } & Partial<InsertPendingOrder>) => {
+      await queryClient.cancelQueries({ queryKey: [LIST_URL] });
+      const previous = queryClient.getQueryData<any[]>([LIST_URL]);
+      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
+        old ? old.map((o: any) => (o.id === id ? { ...o, ...data } : o)) : []
+      );
+      return { previous };
+    },
     mutationFn: async ({ id, ...data }: { id: number } & Partial<InsertPendingOrder>) => {
       const url = buildUrl(api.pendingOrders.update.path, { id });
       let res: Response;
@@ -102,7 +115,6 @@ export function useUpdatePendingOrder() {
           body: JSON.stringify(data),
         });
       } catch {
-        // True network failure — go offline
         await queueMutation("PUT", url, data, "pending-order");
         await patchCached(LIST_URL, (prev: any[]) => prev.map((o: any) => (o.id === id ? { ...o, ...data } : o)));
         return { id, ...data } as any;
@@ -116,6 +128,15 @@ export function useUpdatePendingOrder() {
       await patchCached(LIST_URL, (prev: any[]) => prev.map((o: any) => (o.id === id ? result : o)));
       return result;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
+    onError: (_err, _vars, context) => {
+      if (context?.previous)
+        queryClient.setQueryData<any[]>([LIST_URL], context.previous);
+    },
+    onSuccess: (result) => {
+      // Sync confirmed server result into cache
+      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
+        old ? old.map((o: any) => (o.id === result.id ? result : o)) : []
+      );
+    },
   });
 }

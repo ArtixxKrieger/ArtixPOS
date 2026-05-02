@@ -1116,17 +1116,15 @@ export default function POS() {
                     <div className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 shadow-lg">
                       <Plus className="h-3.5 w-3.5 text-white" />
                     </div>
-                    {/* Low-stock / out-of-stock badge */}
-                    {product.trackStock && typeof product.stock === "number" && (
-                      product.stock === 0 ? (
-                        <div className="absolute top-2 left-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-md leading-tight tracking-wide">
-                          Out of stock
-                        </div>
-                      ) : typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold ? (
-                        <div className="absolute top-2 left-2 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-md leading-tight tracking-wide">
-                          Only {product.stock} left
-                        </div>
-                      ) : null
+                    {product.trackStock && typeof product.stock === "number" && product.stock <= Math.max(0, product.lowStockThreshold ?? 5) && (
+                      <div className={[
+                        "absolute top-2 left-2 px-2 py-1 rounded-full text-[9px] font-bold tracking-wide backdrop-blur-sm border shadow-sm",
+                        product.stock === 0
+                          ? "bg-rose-500/90 text-white border-rose-300/30"
+                          : "bg-amber-500/90 text-white border-amber-300/30",
+                      ].join(" ")}>
+                        {product.stock === 0 ? "Out of stock" : `${product.stock} left`}
+                      </div>
                     )}
                   </div>
 

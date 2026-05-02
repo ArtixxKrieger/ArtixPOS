@@ -221,31 +221,78 @@ function OpeningHoursEditor({
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [hexInput, setHexInput] = useState(value || "#8b5cf6");
+
+  useEffect(() => {
+    setHexInput(value || "#8b5cf6");
+  }, [value]);
+
+  function handleHexInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    setHexInput(v);
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v);
+  }
+
+  function handleNativePicker(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    setHexInput(v);
+    onChange(v);
+  }
+
+  const displayColor = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#8b5cf6";
+
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {BRANCH_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          onClick={() => onChange(c)}
-          data-testid={`color-swatch-${c.replace("#", "")}`}
-          className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center"
-          style={{
-            backgroundColor: c,
-            borderColor: value === c ? "white" : "transparent",
-            boxShadow: value === c ? `0 0 0 2px ${c}` : undefined,
-          }}
+    <div className="space-y-3">
+      {/* Main picker row */}
+      <div className="flex items-center gap-3">
+        <div
+          className="relative h-12 w-12 rounded-xl shrink-0 shadow-md border border-border/30 overflow-hidden cursor-pointer"
+          style={{ backgroundColor: displayColor }}
+          title="Click to pick any color"
         >
-          {value === c && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
-        </button>
-      ))}
-      <input
-        type="color"
-        value={value || "#8b5cf6"}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 w-7 rounded-full cursor-pointer border-0 bg-transparent"
-        title="Custom color"
-      />
+          <input
+            type="color"
+            value={displayColor}
+            onChange={handleNativePicker}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            data-testid="input-color-native"
+          />
+        </div>
+        <div className="flex-1">
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">Hex code — or click the swatch to pick any color</p>
+          <Input
+            value={hexInput}
+            onChange={handleHexInput}
+            placeholder="#8b5cf6"
+            className="font-mono text-sm h-9"
+            maxLength={7}
+            data-testid="input-color-hex"
+          />
+        </div>
+      </div>
+
+      {/* Preset swatches */}
+      <div>
+        <p className="text-[11px] font-semibold text-muted-foreground mb-2">Quick presets</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {BRANCH_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => { onChange(c); setHexInput(c); }}
+              data-testid={`color-swatch-${c.replace("#", "")}`}
+              className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center"
+              style={{
+                backgroundColor: c,
+                borderColor: value === c ? "white" : "transparent",
+                boxShadow: value === c ? `0 0 0 2.5px ${c}` : undefined,
+              }}
+            >
+              {value === c && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1250,35 +1297,6 @@ function BranchCard({
 }
 
 // ─── Comparison Bar ───────────────────────────────────────────────────────────
-
-function BranchComparisonRow({
-  branch,
-  maxRevenue,
-}: {
-  branch: Branch;
-  maxRevenue: React.MutableRefObject<number>;
-}) {
-  const { data } = useBranchStats(branch.id);
-  const revenue = data?.thisMonth.revenue ?? 0;
-  const orders = data?.thisMonth.orders ?? 0;
-  const color = branch.color ?? "#8b5cf6";
-  const pct = maxRevenue.current > 0 ? (revenue / maxRevenue.current) * 100 : 0;
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium truncate flex-1">{branch.name}</span>
-        <span className="text-muted-foreground ml-2">{fmt(revenue)} · {orders} orders</span>
-      </div>
-      <div className="h-2 rounded-full bg-secondary overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
-}
 
 function BranchComparisonChart({ branches }: { branches: Branch[] }) {
   const stats1 = useBranchStats(branches[0]?.id ?? null);

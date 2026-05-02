@@ -13,6 +13,7 @@ import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { useBranchTheme } from "@/hooks/use-branch-theme";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -338,6 +339,8 @@ function AppRouter() {
   const [location] = useLocation();
   // Warm-up all lazy route chunks in the background so they're offline-ready
   useRoutePreloader();
+  // Apply the active branch's color as the app-wide primary theme color
+  useBranchTheme();
 
   if (settingsLoading) return <LoadingScreen />;
 

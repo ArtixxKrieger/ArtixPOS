@@ -1,4 +1,4 @@
-import { Building2, Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useBranches, useSwitchBranch } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,6 +11,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+function BranchColorDot({ color, className }: { color: string | null; className?: string }) {
+  return (
+    <span
+      className={`h-2.5 w-2.5 rounded-full shrink-0 ${className ?? ""}`}
+      style={{ backgroundColor: color ?? "hsl(var(--primary))" }}
+    />
+  );
+}
+
 export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
   const { data: branches = [] } = useBranches();
@@ -22,11 +31,8 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   const activeBranch = branches.find((b) => b.id === activeId);
 
   // Auto-pin to a real branch on mount if owner has no active branch yet
-  // (prevents the "no branch" state that used to show "All Branches").
   // IMPORTANT: this hook MUST run on every render (no early returns above it),
-  // otherwise React throws #310 "Rendered more hooks than during the previous
-  // render" the first time branches load and the component goes from returning
-  // null to rendering the dropdown.
+  // otherwise React throws #310.
   useEffect(() => {
     if (!user || user.role !== "owner") return;
     if (activeId !== null) return;
@@ -35,7 +41,6 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
     switchBranch.mutateAsync(fallback.id).then(() => {
       setTimeout(() => window.location.reload(), 100);
     }).catch(() => {});
-    // We intentionally only react to branches loading.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branches.length, activeId, user?.role]);
 
@@ -43,6 +48,7 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   if (!branches || branches.length < 2) return null;
 
   const label = activeBranch ? activeBranch.name : (branches[0]?.name ?? "Select branch");
+  const activeColor = activeBranch?.color ?? null;
 
   const handleSwitch = async (branchId: number) => {
     if (branchId === activeId) {
@@ -51,11 +57,8 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
     }
     try {
       await switchBranch.mutateAsync(branchId);
-      toast({
-        title: `Switched to ${branches.find((b) => b.id === branchId)?.name}`,
-      });
+      toast({ title: `Switched to ${branches.find((b) => b.id === branchId)?.name}` });
       setOpen(false);
-      // Hard refresh to ensure all queries refetch with the new active branch.
       setTimeout(() => window.location.reload(), 150);
     } catch (err: any) {
       toast({
@@ -78,7 +81,7 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
               : "w-full px-3 py-2 text-[12px] font-medium",
           ].join(" ")}
         >
-          <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+          <BranchColorDot color={activeColor} />
           <span className="flex-1 text-left truncate">{label}</span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
         </button>
@@ -94,12 +97,12 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
             data-testid={`branch-option-${b.id}`}
             className="flex items-center gap-2 cursor-pointer"
           >
-            <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+            <BranchColorDot color={b.color ?? null} />
             <span className="flex-1 truncate">{b.name}</span>
             {b.isMain && (
               <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">main</span>
             )}
-            {activeId === b.id && <Check className="h-3.5 w-3.5 text-violet-500" />}
+            {activeId === b.id && <Check className="h-3.5 w-3.5 text-primary" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

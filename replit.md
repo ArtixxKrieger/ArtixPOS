@@ -22,7 +22,7 @@ Core technical implementations include:
     - **Error Resilience**: AI errors are handled gracefully with "Try again" options and collapsing identical error messages.
 - **PWA Support**: The application is installable as a Progressive Web App, offering offline capabilities through a service worker, auto-updates, and full-screen mode.
 - **Mobile App**: Capacitor is used to wrap the React frontend into native Android and iOS applications, with CI/CD pipelines via GitHub Actions for automated builds.
-- **Branch-Specific Configuration**: Each branch can have its own `businessType` and `businessSubType`, dynamically adapting navigation, quick actions, and the dashboard. New branches can be seeded with starter catalogs based on their business type.
+- **Advanced Branch System**: Branches support rich metadata — `email`, `website`, `description`, `color` (accent theming), `timezone`, `taxRate`, and `openingHours` (7-day schedule). The branches page features: color-accented cards with live "Open Now / Closed" status, quick stats (today revenue, orders, staff), a side-drawer with a 7-day revenue bar chart and top-products list, a branch comparison chart across all locations, a 4-tab creation/edit form (Basic / Details / Hours / Settings), an opening-hours editor, a color picker, branch duplication, and dedicated seed/reset dialogs. API endpoints: `GET /api/admin/branches/:id/stats` and `POST /api/admin/branches/:id/duplicate`.
 - **Resilience**: Service worker caching strategies are optimized for assets and lazy-loaded chunks. An `<ErrorBoundary>` handles lazy-import failures and provides offline-aware recovery mechanisms.
 
 ## External Dependencies

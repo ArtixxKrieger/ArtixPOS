@@ -21,7 +21,7 @@ import { invalidateTenantCache, storage } from "./storage";
 import { db } from "./db";
 import {
   users, sales, products, tables, productSizes, productModifiers,
-  productRecipes, purchaseOrderItems, pendingOrders,
+  productRecipes, purchaseOrderItems, pendingOrders, userBranches,
   type UserRole,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, sql } from "drizzle-orm";
@@ -190,11 +190,18 @@ export function registerAdminRoutes(app: Express) {
         name: z.string().min(1),
         address: z.string().optional().nullable(),
         phone: z.string().optional().nullable(),
+        email: z.string().email().optional().nullable(),
+        website: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
+        color: z.string().optional().nullable(),
+        timezone: z.string().optional().nullable(),
+        taxRate: z.string().optional().nullable(),
+        openingHours: z.record(z.object({ open: z.string(), close: z.string(), closed: z.boolean() })).optional().nullable(),
         isActive: z.boolean().optional().default(true),
         businessType: z.string().optional().nullable(),
         businessSubType: z.string().optional().nullable(),
       }).parse(req.body);
-      const branch = await createBranch(user.tenantId!, input as { name: string; address?: string | null; phone?: string | null; isActive?: boolean; businessType?: string | null; businessSubType?: string | null });
+      const branch = await createBranch(user.tenantId!, input as any);
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "branch", entityId: String(branch.id), metadata: { name: branch.name } });
       res.status(201).json(branch);
     } catch (err) {
@@ -427,7 +434,6 @@ export function registerAdminRoutes(app: Express) {
     try {
       const user = getAuthUser(req);
       const id = Number(req.params.id);
-      // Admins can only update their assigned branches
       if (user.role === "admin") {
         const assigned = await getUserBranches(user.id);
         if (!assigned.includes(id)) return res.status(403).json({ message: "You are not assigned to this branch" });
@@ -436,18 +442,161 @@ export function registerAdminRoutes(app: Express) {
         name: z.string().min(1).optional(),
         address: z.string().optional().nullable(),
         phone: z.string().optional().nullable(),
+        email: z.string().email().optional().nullable(),
+        website: z.string().url().optional().nullable().or(z.literal("").transform(() => null)),
+        description: z.string().optional().nullable(),
+        color: z.string().optional().nullable(),
+        timezone: z.string().optional().nullable(),
+        taxRate: z.string().optional().nullable(),
+        openingHours: z.record(z.object({
+          open: z.string(),
+          close: z.string(),
+          closed: z.boolean(),
+        })).optional().nullable(),
         isActive: z.boolean().optional(),
         businessType: z.string().optional().nullable(),
         businessSubType: z.string().optional().nullable(),
       }).parse(req.body);
-      const branch = await updateBranch(id, user.tenantId!, input);
+      const branch = await updateBranch(id, user.tenantId!, input as any);
       if (!branch) return res.status(404).json({ message: "Branch not found" });
-      await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "update", entity: "branch", entityId: String(id), metadata: input });
+      await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "update", entity: "branch", entityId: String(id), metadata: { name: input.name } });
       res.json(branch);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
     }
+  });
+
+  // ─── Branch stats ─────────────────────────────────────────────────────────
+  app.get("/api/admin/branches/:id/stats", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const id = Number(req.params.id);
+      const branch = await getBranch(id, user.tenantId!);
+      if (!branch) return res.status(404).json({ message: "Branch not found" });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString();
+
+      const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+
+      const [allTimeRow, todayRow, monthRow, staffCount, topProductRows, last7Days] = await Promise.all([
+        db.select({
+          revenue: sql<string>`COALESCE(SUM(CAST(${sales.total} AS REAL)), 0)`,
+          orders: sql<string>`COUNT(*)`,
+        }).from(sales).where(and(eq(sales.branchId, id), isNull(sales.deletedAt))),
+
+        db.select({
+          revenue: sql<string>`COALESCE(SUM(CAST(${sales.total} AS REAL)), 0)`,
+          orders: sql<string>`COUNT(*)`,
+        }).from(sales).where(and(eq(sales.branchId, id), isNull(sales.deletedAt), sql`${sales.createdAt} >= ${todayStr}`)),
+
+        db.select({
+          revenue: sql<string>`COALESCE(SUM(CAST(${sales.total} AS REAL)), 0)`,
+          orders: sql<string>`COUNT(*)`,
+        }).from(sales).where(and(eq(sales.branchId, id), isNull(sales.deletedAt), sql`${sales.createdAt} >= ${thisMonth}`)),
+
+        db.select({ count: sql<string>`COUNT(DISTINCT user_id)` })
+          .from(userBranches)
+          .where(eq(userBranches.branchId, id)),
+
+        db.execute(sql`
+          SELECT items.product_name, CAST(SUM(items.qty) AS INTEGER) as total_qty
+          FROM sales s, LATERAL jsonb_array_elements(s.items) AS items
+          WHERE s.branch_id = ${id} AND s.deleted_at IS NULL
+          GROUP BY items.product_name
+          ORDER BY total_qty DESC
+          LIMIT 5
+        `),
+
+        db.execute(sql`
+          SELECT
+            DATE_TRUNC('day', CAST(created_at AS TIMESTAMP)) as day,
+            COALESCE(SUM(CAST(total AS REAL)), 0) as revenue,
+            COUNT(*) as orders
+          FROM sales
+          WHERE branch_id = ${id}
+            AND deleted_at IS NULL
+            AND CAST(created_at AS TIMESTAMP) >= NOW() - INTERVAL '7 days'
+          GROUP BY day
+          ORDER BY day ASC
+        `),
+      ]);
+
+      const allUsers = await getTenantUsers(user.tenantId!);
+      const branchStaff = allUsers.filter(u => u.branches.includes(id) || u.role === "owner");
+
+      res.json({
+        allTime: {
+          revenue: Number(allTimeRow[0]?.revenue) || 0,
+          orders: Number(allTimeRow[0]?.orders) || 0,
+        },
+        today: {
+          revenue: Number(todayRow[0]?.revenue) || 0,
+          orders: Number(todayRow[0]?.orders) || 0,
+        },
+        thisMonth: {
+          revenue: Number(monthRow[0]?.revenue) || 0,
+          orders: Number(monthRow[0]?.orders) || 0,
+        },
+        staffCount: branchStaff.length,
+        topProducts: (topProductRows.rows as any[]).map(r => ({
+          name: r.product_name,
+          qty: Number(r.total_qty),
+        })),
+        last7Days: (last7Days.rows as any[]).map(r => ({
+          day: r.day,
+          revenue: Number(r.revenue),
+          orders: Number(r.orders),
+        })),
+      });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Duplicate branch (copy settings only, not data) ──────────────────────
+  app.post("/api/admin/branches/:id/duplicate", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const id = Number(req.params.id);
+      const source = await getBranch(id, user.tenantId!);
+      if (!source) return res.status(404).json({ message: "Branch not found" });
+
+      const sub = await getSubscription(user.tenantId!);
+      if (!isProSubscription(sub)) {
+        const existingBranches = await getBranches(user.tenantId!);
+        if (existingBranches.length >= 1) {
+          return res.status(403).json({ message: "Upgrade to Pro to duplicate branches.", code: "BRANCH_LIMIT_REACHED" });
+        }
+      }
+
+      const newBranch = await createBranch(user.tenantId!, {
+        name: `${source.name} (Copy)`,
+        address: source.address,
+        phone: source.phone,
+        email: (source as any).email,
+        website: (source as any).website,
+        description: (source as any).description,
+        color: (source as any).color,
+        timezone: (source as any).timezone,
+        taxRate: (source as any).taxRate,
+        openingHours: (source as any).openingHours,
+        isActive: false,
+        businessType: source.businessType,
+        businessSubType: source.businessSubType,
+      });
+
+      await createAuditLog({
+        tenantId: user.tenantId!,
+        userId: user.id,
+        action: "duplicate",
+        entity: "branch",
+        entityId: String(newBranch.id),
+        metadata: { sourceId: id, sourceName: source.name },
+      });
+
+      res.status(201).json(newBranch);
+    } catch (err) { next(err); }
   });
 
   app.delete("/api/admin/branches/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {

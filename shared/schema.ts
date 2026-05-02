@@ -13,12 +13,23 @@ export const tenants = pgTable("tenants", {
 
 // ─── Branches ─────────────────────────────────────────────────────────────────
 
+export type OpeningHours = {
+  [day: string]: { open: string; close: string; closed: boolean };
+};
+
 export const branches = pgTable("branches", {
   id: serial("id").primaryKey(),
   tenantId: text("tenant_id").notNull().references(() => tenants.id),
   name: text("name").notNull(),
   address: text("address"),
   phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  description: text("description"),
+  color: text("color"),
+  timezone: text("timezone"),
+  taxRate: text("tax_rate"),
+  openingHours: jsonb("opening_hours").$type<OpeningHours>(),
   isActive: boolean("is_active").default(true),
   isMain: boolean("is_main").default(false),
   // Each branch can be a different business (e.g. main is a cafe, second is a salon).

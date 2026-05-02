@@ -45,7 +45,7 @@ export async function getBranch(id: number, tenantId: string): Promise<Branch | 
   return branch;
 }
 
-export async function createBranch(tenantId: string, data: { name: string; address?: string | null; phone?: string | null; isActive?: boolean; isMain?: boolean; businessType?: string | null; businessSubType?: string | null }): Promise<Branch> {
+export async function createBranch(tenantId: string, data: { name: string; address?: string | null; phone?: string | null; email?: string | null; website?: string | null; description?: string | null; color?: string | null; timezone?: string | null; taxRate?: string | null; openingHours?: any; isActive?: boolean; isMain?: boolean; businessType?: string | null; businessSubType?: string | null }): Promise<Branch> {
   if (data.isMain) {
     // Unset any existing main branch for this tenant
     await (db.update(branches) as any).set({ isMain: false }).where(eq(branches.tenantId, tenantId));
@@ -63,7 +63,7 @@ export async function setMainBranch(id: number, tenantId: string): Promise<Branc
   return branch;
 }
 
-export async function updateBranch(id: number, tenantId: string, data: Partial<{ name: string; address: string | null; phone: string | null; isActive: boolean; isMain: boolean; businessType: string | null; businessSubType: string | null }>): Promise<Branch | undefined> {
+export async function updateBranch(id: number, tenantId: string, data: Partial<{ name: string; address: string | null; phone: string | null; email: string | null; website: string | null; description: string | null; color: string | null; timezone: string | null; taxRate: string | null; openingHours: any; isActive: boolean; isMain: boolean; businessType: string | null; businessSubType: string | null }>): Promise<Branch | undefined> {
   const [branch] = await db.update(branches)
     .set(data as any)
     .where(and(eq(branches.id, id), eq(branches.tenantId, tenantId)))

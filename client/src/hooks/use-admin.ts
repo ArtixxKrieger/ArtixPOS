@@ -1,17 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, nativeFetch, setNativeToken } from "@/lib/queryClient";
 
+export interface OpeningHoursDay {
+  open: string;
+  close: string;
+  closed: boolean;
+}
+
 export interface Branch {
   id: number;
   tenantId: string;
   name: string;
   address: string | null;
   phone: string | null;
+  email: string | null;
+  website: string | null;
+  description: string | null;
+  color: string | null;
+  timezone: string | null;
+  taxRate: string | null;
+  openingHours: Record<string, OpeningHoursDay> | null;
   isActive: boolean;
   isMain: boolean;
   businessType: string | null;
   businessSubType: string | null;
   createdAt: string;
+}
+
+export interface BranchStats {
+  allTime: { revenue: number; orders: number };
+  today: { revenue: number; orders: number };
+  thisMonth: { revenue: number; orders: number };
+  staffCount: number;
+  topProducts: { name: string; qty: number }[];
+  last7Days: { day: string; revenue: number; orders: number }[];
 }
 
 export interface TenantUser {
@@ -95,11 +117,52 @@ export function useBranches() {
   });
 }
 
+type BranchPayload = {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  description?: string | null;
+  color?: string | null;
+  timezone?: string | null;
+  taxRate?: string | null;
+  openingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
+  isActive?: boolean;
+  businessType?: string | null;
+  businessSubType?: string | null;
+};
+
 export function useCreateBranch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; address?: string; phone?: string; isActive?: boolean; businessType?: string | null; businessSubType?: string | null }): Promise<Branch> => {
+    mutationFn: async (data: BranchPayload): Promise<Branch> => {
       const res = await apiRequest("POST", "/api/admin/branches", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/branches"] });
+    },
+  });
+}
+
+export function useBranchStats(branchId: number | null) {
+  return useQuery<BranchStats>({
+    queryKey: ["/api/admin/branches", branchId, "stats"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/admin/branches/${branchId}/stats`);
+      return res.json();
+    },
+    enabled: branchId !== null,
+    staleTime: 60_000,
+  });
+}
+
+export function useDuplicateBranch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (branchId: number): Promise<Branch> => {
+      const res = await apiRequest("POST", `/api/admin/branches/${branchId}/duplicate`, {});
       return res.json();
     },
     onSuccess: () => {
@@ -163,7 +226,7 @@ export function useResetBranch() {
 export function useUpdateBranch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: number; name?: string; address?: string | null; phone?: string | null; isActive?: boolean }) =>
+    mutationFn: ({ id, ...data }: { id: number } & Partial<BranchPayload>) =>
       apiRequest("PUT", `/api/admin/branches/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/branches"] });

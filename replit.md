@@ -35,7 +35,7 @@ Core technical implementations include:
 
 ## Replit Environment Notes
 - Runs on port 5000 (webview) in development via `npm run dev`
-- Dev command uses `node_modules/.bin/tsx` directly (tsx is installed locally)
+- Dev command uses `node node_modules/tsx/dist/cli.mjs` directly (tsx is installed locally; the `.bin/tsx` symlink points to the wrong binary)
 - `SESSION_SECRET` and `DATABASE_URL` are provisioned as Replit secrets
 - Deployment build: `npm run build`, run: `node ./dist/index.cjs`
 - Optional AI keys: `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`

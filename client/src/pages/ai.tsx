@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, nativeFetch, resolveUrl } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
@@ -2098,10 +2098,9 @@ export default function AiPage() {
     setMessages([...newMessages, assistantMsg]);
 
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await nativeFetch(resolveUrl("/api/ai/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ messages: history, fileContent: fc ?? undefined }),
       });
 

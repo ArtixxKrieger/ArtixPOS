@@ -147,6 +147,24 @@ const branchSchema = z.object({
     });
   }
 });
+
+// Edit schema: name/businessType/businessSubType are locked and not re-validated
+const branchEditSchema = z.object({
+  name: z.string().min(1),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  website: z.string().optional(),
+  description: z.string().optional(),
+  color: z.string().optional(),
+  timezone: z.string().optional(),
+  taxRate: z.string().optional(),
+  openingHours: z.record(z.object({ open: z.string(), close: z.string(), closed: z.boolean() })).optional(),
+  isActive: z.boolean().default(true),
+  businessType: z.string().optional(),
+  businessSubType: z.string().optional(),
+});
+
 type BranchForm = z.infer<typeof branchSchema>;
 
 // ─── Opening Hours Editor ─────────────────────────────────────────────────────
@@ -438,7 +456,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   const form = useForm<BranchForm>({
-    resolver: zodResolver(branchSchema),
+    resolver: zodResolver(isEditing ? branchEditSchema : branchSchema),
     defaultValues: {
       name: branch?.name ?? "",
       address: branch?.address ?? "",

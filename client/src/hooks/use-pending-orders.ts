@@ -58,15 +58,20 @@ export function useCreatePendingOrder() {
 export function useDeletePendingOrder() {
   const queryClient = useQueryClient();
   return useMutation({
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: [LIST_URL] });
+      const previous = queryClient.getQueryData<any[]>([LIST_URL]);
+      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
+        old ? old.filter((o: any) => o.id !== id) : []
+      );
+      return { previous };
+    },
     mutationFn: async (id: number) => {
       const url = buildUrl(api.pendingOrders.delete.path, { id });
       let res: Response;
       try {
-        res = await nativeFetch(url, {
-          method: api.pendingOrders.delete.method,
-        });
+        res = await nativeFetch(url, { method: api.pendingOrders.delete.method });
       } catch {
-        // True network failure — go offline
         await queueMutation("DELETE", url, undefined, "pending-order");
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
         return;
@@ -77,7 +82,10 @@ export function useDeletePendingOrder() {
       }
       await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [LIST_URL] }),
+    onError: (_err, _id, context) => {
+      if (context?.previous)
+        queryClient.setQueryData<any[]>([LIST_URL], context.previous);
+    },
   });
 }
 

@@ -333,6 +333,21 @@ export default function LoyaltyPage() {
         </div>
       </div>
 
+      {/* Feature pills */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { icon: Coins,  label: "Earn", desc: "Points per purchase & tier multipliers" },
+          { icon: Award,  label: "Progress", desc: "Auto-climb tiers by lifetime points" },
+          { icon: Gift,   label: "Redeem", desc: "Discounts, free products & custom rewards" },
+        ].map(s => (
+          <div key={s.label} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/50 border border-border/40">
+            <s.icon className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-xs font-semibold">{s.label}</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">— {s.desc}</span>
+          </div>
+        ))}
+      </div>
+
       {/* Tabs */}
       <div className="flex gap-1 bg-muted/40 rounded-2xl p-1">
         {TABS.map(t => (

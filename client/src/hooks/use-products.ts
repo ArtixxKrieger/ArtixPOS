@@ -123,13 +123,19 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: [LIST_URL] });
+      const previous = queryClient.getQueryData<Product[]>([LIST_URL]);
+      queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
+        old ? old.filter((p) => p.id !== id) : []
+      );
+      return { previous };
+    },
     mutationFn: async (id: number) => {
       const url = buildUrl(api.products.delete.path, { id });
       let res: Response;
       try {
-        res = await nativeFetch(url, {
-          method: api.products.delete.method,
-        });
+        res = await nativeFetch(url, { method: api.products.delete.method });
       } catch {
         await queueMutation("DELETE", url);
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
@@ -139,13 +145,11 @@ export function useDeleteProduct() {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as any)?.message ?? `Server error ${res.status}`);
       }
+      await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
     },
-    onSuccess: (_, id) => {
-      // Update React Query cache instantly — no network round-trip needed
-      queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        old ? old.filter((p) => p.id !== id) : []
-      );
-      patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
+    onError: (_err, _id, context) => {
+      if (context?.previous)
+        queryClient.setQueryData<Product[]>([LIST_URL], context.previous);
     },
   });
 }

@@ -92,6 +92,36 @@ export async function registerRoutes(
   registerSubscriptionRoutes(app);
   registerPayrollRoutes(app);
 
+  // ── Public branch profile (no auth) ───────────────────────────────────────
+  app.get("/api/public/branch/:id", async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Invalid branch id" });
+      const [row] = await db
+        .select({
+          id: branchesTable.id,
+          name: branchesTable.name,
+          address: branchesTable.address,
+          phone: branchesTable.phone,
+          email: (branchesTable as any).email,
+          website: (branchesTable as any).website,
+          description: (branchesTable as any).description,
+          color: (branchesTable as any).color,
+          timezone: (branchesTable as any).timezone,
+          openingHours: (branchesTable as any).openingHours,
+          businessType: branchesTable.businessType,
+          businessSubType: branchesTable.businessSubType,
+          isActive: branchesTable.isActive,
+          tenantName: tenants.name,
+        })
+        .from(branchesTable)
+        .leftJoin(tenants, eq(tenants.id, branchesTable.tenantId))
+        .where(and(eq(branchesTable.id, id), eq(branchesTable.isActive, true)));
+      if (!row) return res.status(404).json({ message: "Branch not found" });
+      res.json(row);
+    } catch (err) { next(err); }
+  });
+
   // ── Products ──────────────────────────────────────────────────────────────
 
   app.get(api.products.list.path, requireAuth, async (req, res) => {

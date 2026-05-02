@@ -21,6 +21,7 @@ const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 import Login from "@/pages/login";
 import ResetPassword from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
+import BranchPublicPage from "@/pages/branch-public";
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const POS = lazy(() => import("@/pages/pos"));
@@ -461,6 +462,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/b/:id" component={BranchPublicPage} />
       <Route component={ProtectedRouter} />
     </Switch>
   );

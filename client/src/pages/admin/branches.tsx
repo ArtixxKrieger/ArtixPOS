@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Loader2, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check } from "lucide-react";
+import { Sparkles, Loader2, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check, Share2, Link2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -842,6 +842,16 @@ function BranchDetailDrawer({
     }
   }
 
+  function handleCopyLink() {
+    if (!branch) return;
+    const url = `${window.location.origin}/b/${branch.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Link copied!", description: url });
+    }).catch(() => {
+      toast({ title: "Could not copy link", variant: "destructive" });
+    });
+  }
+
   const chartData = stats?.last7Days.map((d) => ({
     day: new Date(d.day).toLocaleDateString("en-US", { weekday: "short" }),
     revenue: d.revenue,
@@ -893,6 +903,9 @@ function BranchDetailDrawer({
                         {switchBranch.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Switch"}
                       </Button>
                     )}
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={handleCopyLink} data-testid="button-share-branch-drawer" title="Copy shareable link">
+                      <Share2 className="h-3.5 w-3.5" />
+                    </Button>
                     <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onEdit} data-testid="button-edit-branch-drawer">
                       <Pencil className="h-3 w-3 mr-1" />Edit
                     </Button>
@@ -1264,6 +1277,15 @@ function BranchCard({
     }
   }
 
+  function handleCopyLink() {
+    const url = `${window.location.origin}/b/${branch.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Link copied!", description: url });
+    }).catch(() => {
+      toast({ title: "Could not copy link", variant: "destructive" });
+    });
+  }
+
   return (
     <div
       data-testid={`card-branch-${branch.id}`}
@@ -1428,6 +1450,13 @@ function BranchCard({
               className="flex items-center gap-1.5 h-7 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-semibold transition-colors"
             >
               <RotateCcw className="h-3 w-3" />Reset
+            </button>
+            <button
+              data-testid={`button-share-branch-${branch.id}`}
+              onClick={handleCopyLink}
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-xl bg-slate-500/10 hover:bg-slate-500/20 text-slate-600 dark:text-slate-400 text-[11px] font-semibold transition-colors"
+            >
+              <Share2 className="h-3 w-3" />Share
             </button>
           </div>
         </div>

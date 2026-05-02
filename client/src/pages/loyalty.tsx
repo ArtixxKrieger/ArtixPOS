@@ -322,29 +322,14 @@ export default function LoyaltyPage() {
 
   return (
     <div className="space-y-4 page-enter max-w-4xl">
-      {/* Hero */}
-      <div className="rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 text-white p-6 shadow-xl">
-        <div className="flex items-start gap-3 mb-2">
-          <div className="h-10 w-10 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black leading-tight">Loyalty Program</h1>
-            <p className="text-white/75 text-sm mt-0.5">Points · Tiers · Rewards · Stamps · Referrals · Birthday Bonuses</p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center gap-3 pb-1">
+        <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          <Sparkles className="h-4 w-4 text-primary" />
         </div>
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          {[
-            { icon: Coins, title: "Earn", desc: "Points per purchase, tier multipliers, birthday & referral bonuses" },
-            { icon: Award, title: "Progress", desc: "Climb tiers automatically — Bronze to Platinum with lifetime points" },
-            { icon: Gift, title: "Redeem", desc: "Discounts, free products, stamp cards, or custom rewards" },
-          ].map(s => (
-            <div key={s.title} className="rounded-2xl bg-white/10 backdrop-blur p-3">
-              <s.icon className="h-4 w-4 mb-1.5 opacity-80" />
-              <p className="text-[10px] uppercase tracking-widest font-bold opacity-70">{s.title}</p>
-              <p className="text-[11px] mt-0.5 leading-snug opacity-90">{s.desc}</p>
-            </div>
-          ))}
+        <div>
+          <h1 className="text-lg font-black leading-tight">Loyalty Program</h1>
+          <p className="text-xs text-muted-foreground">Points · Tiers · Rewards · Stamps</p>
         </div>
       </div>
 

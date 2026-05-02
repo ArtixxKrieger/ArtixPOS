@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import {
   Send, Paperclip, Loader2, Sparkles, Trash2, FileText,
   Plus, MessageSquare, ChevronLeft, Settings, Check, X, WifiOff,
-  RotateCcw, RefreshCw,
+  RotateCcw, RefreshCw, ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -81,6 +81,10 @@ interface ShowCustomerOrdersPayload {
 interface AdjustStockPayload {
   name: string;
   adjustment: number;
+}
+
+interface SuggestReorderPayload {
+  items: Array<{ name: string; currentStock: number; reorderQty: number }>;
 }
 
 interface UpdateCustomerPayload {
@@ -169,6 +173,7 @@ function parseImportAction(content: string): {
   customerOrdersPayload: ShowCustomerOrdersPayload | null;
   adjustStockPayload: AdjustStockPayload | null;
   updateCustomerPayload: UpdateCustomerPayload | null;
+  suggestReorderPayload: SuggestReorderPayload | null;
   undoAddProductPayload: UndoAddProductPayload | null;
   undoLogExpensePayload: UndoLogExpensePayload | null;
   followups: string[];
@@ -189,6 +194,7 @@ function parseImportAction(content: string): {
   let customerOrdersPayload: ShowCustomerOrdersPayload | null = null;
   let adjustStockPayload: AdjustStockPayload | null = null;
   let updateCustomerPayload: UpdateCustomerPayload | null = null;
+  let suggestReorderPayload: SuggestReorderPayload | null = null;
   let undoAddProductPayload: UndoAddProductPayload | null = null;
   let undoLogExpensePayload: UndoLogExpensePayload | null = null;
   let followups: string[] = [];
@@ -207,6 +213,7 @@ function parseImportAction(content: string): {
     { tag: "TOGGLE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); toggleDiscountPayload = p; } catch {} } },
     { tag: "ADJUST_STOCK", setter: v => { try { const p = JSON.parse(v); if (p?.name && p.adjustment !== undefined) adjustStockPayload = p; } catch {} } },
     { tag: "UPDATE_CUSTOMER", setter: v => { try { const p = JSON.parse(v); if (p?.name) updateCustomerPayload = p; } catch {} } },
+    { tag: "SUGGEST_REORDER", setter: v => { try { const p = JSON.parse(v); if (Array.isArray(p?.items) && p.items.length) suggestReorderPayload = p; } catch {} } },
     { tag: "UNDO_ADD_PRODUCT", setter: v => { try { undoAddProductPayload = JSON.parse(v); } catch {} } },
     { tag: "UNDO_LOG_EXPENSE", setter: v => { try { undoLogExpensePayload = JSON.parse(v); } catch {} } },
   ];
@@ -250,6 +257,7 @@ function parseImportAction(content: string): {
     expensePayload, discountPayload, updateDiscountPayload,
     deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload,
     customerOrdersPayload, adjustStockPayload, updateCustomerPayload,
+    suggestReorderPayload,
     undoAddProductPayload, undoLogExpensePayload,
     followups,
   };
@@ -949,15 +957,15 @@ function MessageBubble({
   msg, onImport, onUpdatePrices, onAddProduct, onUpdateProduct, onDeleteProduct,
   onAddCustomer, onLogExpense, onCreateDiscount,
   onUpdateDiscount, onDeleteDiscount, onToggleDiscount, onShowStaffInfo,
-  onReorder, onAdjustStock, onUpdateCustomer,
+  onReorder, onAdjustStock, onUpdateCustomer, onCreateReorder,
   isStreaming, importDone, priceDone, addProductDone, updateProductDone, deleteProductDone,
   addCustomerDone, expenseDone, discountDone,
   updateDiscountDone, deleteDiscountDone, toggleDiscountDone,
-  adjustStockDone, updateCustomerDone,
+  adjustStockDone, updateCustomerDone, reorderDone,
   onMarkImported, onMarkPriceUpdated, onMarkAddProduct, onMarkUpdateProduct,
   onMarkDeleteProduct, onMarkAddCustomer, onMarkExpense, onMarkDiscount,
   onMarkUpdateDiscount, onMarkDeleteDiscount, onMarkToggleDiscount,
-  onMarkAdjustStock, onMarkUpdateCustomer,
+  onMarkAdjustStock, onMarkUpdateCustomer, onMarkReorder,
   onFollowup, onUndoAddProduct, onUndoLogExpense, onRetry,
   currency,
 }: {
@@ -977,6 +985,7 @@ function MessageBubble({
   onReorder: (customerId: number, customerName: string, items: ReorderItem[]) => void;
   onAdjustStock: (p: AdjustStockPayload) => void;
   onUpdateCustomer: (p: UpdateCustomerPayload) => void;
+  onCreateReorder: (p: SuggestReorderPayload) => void;
   isStreaming?: boolean;
   importDone: boolean;
   priceDone: boolean;
@@ -991,6 +1000,7 @@ function MessageBubble({
   toggleDiscountDone: boolean;
   adjustStockDone: boolean;
   updateCustomerDone: boolean;
+  reorderDone: boolean;
   onMarkImported: () => void;
   onMarkPriceUpdated: () => void;
   onMarkAddProduct: () => void;
@@ -1004,6 +1014,7 @@ function MessageBubble({
   onMarkToggleDiscount: () => void;
   onMarkAdjustStock: () => void;
   onMarkUpdateCustomer: () => void;
+  onMarkReorder: () => void;
   onFollowup: (q: string) => void;
   onUndoAddProduct: (productId: number, name: string) => Promise<void> | void;
   onUndoLogExpense: (expenseId: number, description: string) => Promise<void> | void;
@@ -1037,6 +1048,7 @@ function MessageBubble({
   const [confirmToggleDiscount, setConfirmToggleDiscount] = useState(false);
   const [confirmAdjustStock, setConfirmAdjustStock] = useState(false);
   const [confirmUpdateCustomer, setConfirmUpdateCustomer] = useState(false);
+  const [confirmReorder, setConfirmReorder] = useState(false);
   // Tracks locally executed actions to disable buttons immediately on first click
   const [executedActions, setExecutedActions] = useState<Set<string>>(new Set());
   const markExecuted = (action: string) => setExecutedActions(prev => new Set(prev).add(action));
@@ -1056,7 +1068,8 @@ function MessageBubble({
     (deleteDiscountPayload && deleteDiscountPayload.code && deleteDiscountDone) ||
     (toggleDiscountPayload && toggleDiscountPayload.code && toggleDiscountDone) ||
     (adjustStockPayload && adjustStockPayload.name && adjustStockDone) ||
-    (updateCustomerPayload && updateCustomerPayload.name && updateCustomerDone);
+    (updateCustomerPayload && updateCustomerPayload.name && updateCustomerDone) ||
+    (suggestReorderPayload && suggestReorderPayload.items?.length > 0 && reorderDone);
 
   if (!isUser && !display.trim() && actionIsDone) {
     return null;
@@ -1583,6 +1596,45 @@ function MessageBubble({
             )}
           </div>
         )}
+        {suggestReorderPayload && suggestReorderPayload.items?.length > 0 && !reorderDone && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-3 w-full">
+            <div className="flex items-center gap-1.5 mb-2">
+              <ShoppingCart className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Reorder suggestion</p>
+            </div>
+            <div className="space-y-1.5 mb-3">
+              {suggestReorderPayload.items.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-xs gap-2">
+                  <span className="font-medium text-emerald-800 dark:text-emerald-300 truncate">{item.name}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-red-600 dark:text-red-400">{item.currentStock} left</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">+{item.reorderQty}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!confirmReorder ? (
+              <Button size="sm" onClick={() => setConfirmReorder(true)} className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                <ShoppingCart className="h-3 w-3 mr-1" /> Create Purchase Order
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium text-center">
+                  Create a purchase order for {suggestReorderPayload.items.length} item{suggestReorderPayload.items.length !== 1 ? "s" : ""}?
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={executedActions.has("createReorder")} onClick={() => { markExecuted("createReorder"); onMarkReorder(); setConfirmReorder(false); onCreateReorder(suggestReorderPayload!); }} className="flex-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60">
+                    <Check className="h-3 w-3 mr-1" /> Yes, create
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmReorder(false)} className="flex-1 h-8 text-xs border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {!isUser && undoAddProductPayload?.productId && (
           <UndoChip
             label={undoAddProductPayload.name || "add"}
@@ -1844,6 +1896,8 @@ export default function AiPage() {
   const [updateCustomerDoneIds, setUpdateCustomerDoneIds] = useState<Set<string>>(new Set());
   const [adjustingStock, setAdjustingStock] = useState(false);
   const [updatingCustomerRecord, setUpdatingCustomerRecord] = useState(false);
+  const [reorderDoneIds, setReorderDoneIds] = useState<Set<string>>(new Set());
+  const [creatingReorder, setCreatingReorder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [floatEnabled, setFloatEnabledState] = useState(() => getFloatEnabled());
@@ -2581,6 +2635,37 @@ export default function AiPage() {
     }
   };
 
+  const handleCreateReorder = async (payload: SuggestReorderPayload) => {
+    setCreatingReorder(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/create-reorder", {
+        items: payload.items.map(i => ({ name: i.name, reorderQty: i.reorderQty })),
+      });
+      const data = await res.json();
+      const resultMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Done! Purchase order created with **${data.itemCount}** item${data.itemCount !== 1 ? "s" : ""}. You can view and receive it in **Purchases**.${data.notFound?.length ? `\n\n${data.notFound.length} item${data.notFound.length !== 1 ? "s" : ""} not matched: ${data.notFound.join(", ")}` : ""}`,
+        timestamp: new Date().toISOString(),
+      };
+      const finalMessages = [...messages, resultMsg];
+      setMessages(finalMessages);
+      if (activeId) updateSession(activeId, finalMessages);
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+    } catch (err: any) {
+      const body = await err.json?.().catch(() => null);
+      const errMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: body?.message || "Failed to create purchase order. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
+      setCreatingReorder(false);
+    }
+  };
+
   const handleShowStaffInfo = (_payload: StaffInfoPayload) => {
     // Staff info is rendered inline in the StaffInfoCard component — no action needed here
   };
@@ -2915,6 +3000,7 @@ export default function AiPage() {
               onReorder={handleReorder}
               onAdjustStock={handleAdjustStock}
               onUpdateCustomer={handleUpdateCustomer}
+              onCreateReorder={handleCreateReorder}
               isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant" && msg.content.length > 0}
               importDone={importedIds.has(msg.id)}
               priceDone={priceUpdatedIds.has(msg.id)}
@@ -2942,6 +3028,8 @@ export default function AiPage() {
               onMarkToggleDiscount={() => setToggleDiscountDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkAdjustStock={() => setAdjustStockDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkUpdateCustomer={() => setUpdateCustomerDoneIds(prev => new Set(prev).add(msg.id))}
+              reorderDone={reorderDoneIds.has(msg.id)}
+              onMarkReorder={() => setReorderDoneIds(prev => new Set(prev).add(msg.id))}
               currency={currency}
               onFollowup={(q) => sendMessage(q, { silent: true })}
               onUndoAddProduct={(productId, name) => handleUndoAddProduct(msg.id, productId, name)}

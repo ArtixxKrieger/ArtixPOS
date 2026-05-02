@@ -140,6 +140,7 @@ export const SUPPORTED_ACTION_TAGS = [
   "SHOW_CUSTOMER_ORDERS",
   "ADJUST_STOCK",
   "UPDATE_CUSTOMER",
+  "SUGGEST_REORDER",
   "FOLLOWUP",
 ] as const;
 
@@ -639,7 +640,7 @@ const ACTION_CAPABILITY_RE_TL = /\b(pwede|puede|kaya|kayo|maaari|magagawa)\b.{0,
 
 function detectActionCapabilityQuery(messages: ChatMessage[]): {
   matched: boolean;
-  kind: "product" | "expense" | "customer" | "discount" | "generic";
+  kind: "product" | "expense" | "customer" | "discount" | "reorder" | "generic";
 } {
   const lastUserMsg = messages.filter(m => m.role === "user").at(-1)?.content?.trim() ?? "";
   if (!lastUserMsg || lastUserMsg.length > 160) return { matched: false, kind: "generic" };
@@ -655,11 +656,12 @@ function detectActionCapabilityQuery(messages: ChatMessage[]): {
   if (/\b(expense|gastos|cost|bill)\b/.test(lower)) return { matched: true, kind: "expense" };
   if (/\b(customer|client|kliyente|suki)\b/.test(lower)) return { matched: true, kind: "customer" };
   if (/\b(discount|code|promo|coupon)\b/.test(lower)) return { matched: true, kind: "discount" };
+  if (/\b(reorder|restock|restocking|purchase.?order|low.?stock)\b/.test(lower)) return { matched: true, kind: "reorder" };
   if (/\b(product|item|menu|stock|sku)\b/.test(lower)) return { matched: true, kind: "product" };
   return { matched: true, kind: "generic" };
 }
 
-function buildActionCapabilityAnswer(kind: "product" | "expense" | "customer" | "discount" | "stock" | "update_customer" | "generic", currency = "$"): string {
+function buildActionCapabilityAnswer(kind: "product" | "expense" | "customer" | "discount" | "stock" | "update_customer" | "reorder" | "generic", currency = "$"): string {
   if (kind === "product") {
     return `Yes — I can add products straight to your store. Just tell me the **name**, **price**, and (optional) **category**. Examples:
 
@@ -725,6 +727,17 @@ A confirmation chip will appear before saving.
 A confirmation chip will appear before saving.
 
 [FOLLOWUP]Update Maria's phone|Add note to top customer|Show all customers[/FOLLOWUP]`;
+  }
+  if (kind === "reorder") {
+    return `Yes — I can check your stock levels and suggest a purchase order for low-stock items. Just ask:
+
+- *What needs restocking?*
+- *Create a reorder for low-stock items*
+- *Which products are running low?*
+
+I'll show a confirmation card with the suggested quantities before creating any purchase order.
+
+[FOLLOWUP]What needs restocking?|Show low stock items|Create reorder for all low stock[/FOLLOWUP]`;
   }
   return `Yes — I can do that. I can add products, log expenses, add customers, adjust stock, and create discount codes. Just give me the details (name + price/amount) and I'll show a confirmation chip before saving anything.
 
@@ -1467,6 +1480,14 @@ UPDATE CUSTOMER: If the user wants to edit an existing customer's details (phone
 - CRITICAL FORMAT RULE: The opening tag [UPDATE_CUSTOMER] MUST be immediately followed by the JSON on the SAME LINE.
 - "name" identifies the existing customer (fuzzy match OK). Include ONLY the fields the user wants to change. Use "newName" to rename.
 - The user will see a confirmation card before saving.
+
+SUGGEST REORDER: When the user asks about low-stock items, what needs restocking, or wants to create a purchase order for low-stock items, scan the product list in your context for products where trackStock=true and stock <= lowStockThreshold (default 10). Reply with a brief summary, then on its own line:
+[SUGGEST_REORDER]{"items":[{"name":"Espresso Beans","currentStock":3,"reorderQty":50},{"name":"Milk","currentStock":0,"reorderQty":30}]}[/SUGGEST_REORDER]
+- CRITICAL FORMAT RULE: The opening tag [SUGGEST_REORDER] MUST be immediately followed by the JSON on the SAME LINE.
+- Only include products where trackStock=true AND stock is at or below their lowStockThreshold.
+- For reorderQty, use the user's specified amount, or default to max(20, lowStockThreshold * 5) as a reasonable restocking quantity.
+- The user will see a confirmation card listing each item before a purchase order is created. Never auto-execute.
+- If NO products are low on stock, simply say so in plain text — do NOT output this tag with an empty items array.
 
 PRODUCT DISPLAY: When listing products, if stock tracking is disabled (trackStock=false), show "No stock tracking" instead of a dash or "—". For tracked products, show the actual stock number.
 
@@ -2821,6 +2842,56 @@ export function registerAiRoutes(app: Express) {
     } catch (err: any) {
       console.error("AI adjust-stock error:", err);
       res.status(500).json({ message: "Failed to adjust stock." });
+    }
+  });
+
+  // ── Create reorder purchase order from AI ────────────────────────────────────
+  app.post("/api/ai/create-reorder", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { items } = req.body as { items: Array<{ name: string; reorderQty: number }> };
+      if (!items?.length) return res.status(400).json({ message: "No items provided." });
+
+      const allProducts = await storage.getProducts(uid);
+      const matchedItems: Array<{ product: any; reorderQty: number }> = [];
+      const notFound: string[] = [];
+
+      for (const item of items) {
+        const needle = (item.name || "").toLowerCase().trim();
+        let product = allProducts.find(p => p.name.toLowerCase() === needle);
+        if (!product) {
+          product = allProducts.find(p =>
+            p.name.toLowerCase().includes(needle) || needle.includes(p.name.toLowerCase())
+          );
+        }
+        if (product) {
+          matchedItems.push({ product, reorderQty: Math.max(1, Math.round(item.reorderQty)) });
+        } else {
+          notFound.push(item.name);
+        }
+      }
+
+      if (!matchedItems.length) {
+        return res.status(404).json({ message: "No matching products found." });
+      }
+
+      const po = await storage.createPurchaseOrder(uid, {
+        status: "pending",
+        notes: "Auto-generated by AI reorder suggestion",
+        items: matchedItems.map(({ product, reorderQty }) => ({
+          productId: product.id,
+          productName: product.name,
+          quantity: reorderQty,
+          unitCost: "0",
+          totalCost: "0",
+        })),
+      } as any);
+
+      invalidateCache(uid);
+      res.json({ success: true, poId: po.id, itemCount: matchedItems.length, notFound });
+    } catch (err: any) {
+      console.error("AI create-reorder error:", err);
+      res.status(500).json({ message: "Failed to create purchase order." });
     }
   });
 

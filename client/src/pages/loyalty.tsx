@@ -29,7 +29,7 @@ const PRESET_TIERS = [
 ];
 
 const REWARD_TYPE_OPTIONS = [
-  { value: "discount_fixed",   label: "Fixed Discount (₱ off)",     icon: Tag },
+  { value: "discount_fixed",   label: "Fixed Discount (amount off)", icon: Tag },
   { value: "discount_percent", label: "Percent Discount (% off)",   icon: Percent },
   { value: "free_product",     label: "Free Product",               icon: Package },
   { value: "stamp_card",       label: "Stamp Card Reward",          icon: Stamp },
@@ -123,7 +123,7 @@ function RewardFormDialog({ open, onClose, initial, onSave, products }: {
     else form.reset({ name: "", description: "", type: "discount_fixed", pointsCost: 100, value: "0", isActive: true, maxRedemptions: "", expiresAt: "" });
   }, [initial, open]);
 
-  const valueLabel: Record<string, string> = { discount_fixed: "Discount Amount (₱)", discount_percent: "Discount Percent (%)", free_product: "Product ID", stamp_card: "Stamps required", custom: "Reward Description" };
+  const valueLabel: Record<string, string> = { discount_fixed: "Discount Amount", discount_percent: "Discount Percent (%)", free_product: "Product ID", stamp_card: "Stamps required", custom: "Reward Description" };
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
@@ -309,7 +309,7 @@ export default function LoyaltyPage() {
   };
 
   const TYPE_LABEL: Record<string, string> = {
-    discount_fixed: "₱ Discount", discount_percent: "% Discount", free_product: "Free Product",
+    discount_fixed: `${currency} Discount`, discount_percent: "% Discount", free_product: "Free Product",
     stamp_card: "Stamp Card", custom: "Custom",
   };
 
@@ -562,12 +562,12 @@ export default function LoyaltyPage() {
                 <div>
                   <label className="text-xs font-semibold mb-1.5 block">Points per {currency}1 spent</label>
                   <Input type="number" step="0.01" min="0" {...settingsForm.register("loyaltyPointsPerUnit")} className="rounded-xl h-9" data-testid="input-points-per-unit" />
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">e.g. 1 = 1 pt per ₱1, 0.1 = 1 pt per ₱10</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">e.g. 1 = 1 pt per {currency}1, 0.1 = 1 pt per {currency}10</p>
                 </div>
                 <div>
                   <label className="text-xs font-semibold mb-1.5 block">Points for {currency}1 off</label>
                   <Input type="number" step="1" min="1" {...settingsForm.register("loyaltyRedemptionRate")} className="rounded-xl h-9" data-testid="input-redemption-rate" />
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">e.g. 100 = 100 pts = ₱1 discount</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">e.g. 100 = 100 pts = {currency}1 discount</p>
                 </div>
               </div>
 
@@ -575,7 +575,7 @@ export default function LoyaltyPage() {
               <div className="rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-200/40 dark:border-violet-500/20 p-3">
                 <div className="flex items-center gap-1.5 mb-2"><Calculator className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" /><p className="text-[10px] font-bold uppercase tracking-widest text-violet-700 dark:text-violet-300">Live Example</p></div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div><p className="text-muted-foreground">₱1,000 spent</p><p className="font-bold">{Math.floor(1000 * pointsPerUnit)} pts</p></div>
+                  <div><p className="text-muted-foreground">{currency}1,000 spent</p><p className="font-bold">{Math.floor(1000 * pointsPerUnit)} pts</p></div>
                   <div><p className="text-muted-foreground">Worth</p><p className="font-bold text-emerald-600 dark:text-emerald-400">{currency}{(Math.floor(1000 * pointsPerUnit) / Math.max(redemptionRate, 1)).toFixed(2)} off</p></div>
                   <div><p className="text-muted-foreground">Effective</p><p className="font-bold">{((Math.floor(1000 * pointsPerUnit) / Math.max(redemptionRate, 1)) / 10).toFixed(1)}% back</p></div>
                 </div>

@@ -949,14 +949,17 @@ function MessageBubble({
   msg, onImport, onUpdatePrices, onAddProduct, onUpdateProduct, onDeleteProduct,
   onAddCustomer, onLogExpense, onCreateDiscount,
   onUpdateDiscount, onDeleteDiscount, onToggleDiscount, onShowStaffInfo,
-  onReorder,
+  onReorder, onAdjustStock, onUpdateCustomer,
   isStreaming, importDone, priceDone, addProductDone, updateProductDone, deleteProductDone,
   addCustomerDone, expenseDone, discountDone,
   updateDiscountDone, deleteDiscountDone, toggleDiscountDone,
+  adjustStockDone, updateCustomerDone,
   onMarkImported, onMarkPriceUpdated, onMarkAddProduct, onMarkUpdateProduct,
   onMarkDeleteProduct, onMarkAddCustomer, onMarkExpense, onMarkDiscount,
   onMarkUpdateDiscount, onMarkDeleteDiscount, onMarkToggleDiscount,
+  onMarkAdjustStock, onMarkUpdateCustomer,
   onFollowup, onUndoAddProduct, onUndoLogExpense, onRetry,
+  currency,
 }: {
   msg: AiMessage;
   onImport: (p: ImportPayload) => void;
@@ -972,6 +975,8 @@ function MessageBubble({
   onToggleDiscount: (p: ToggleDiscountPayload) => void;
   onShowStaffInfo: (p: StaffInfoPayload) => void;
   onReorder: (customerId: number, customerName: string, items: ReorderItem[]) => void;
+  onAdjustStock: (p: AdjustStockPayload) => void;
+  onUpdateCustomer: (p: UpdateCustomerPayload) => void;
   isStreaming?: boolean;
   importDone: boolean;
   priceDone: boolean;
@@ -984,6 +989,8 @@ function MessageBubble({
   updateDiscountDone: boolean;
   deleteDiscountDone: boolean;
   toggleDiscountDone: boolean;
+  adjustStockDone: boolean;
+  updateCustomerDone: boolean;
   onMarkImported: () => void;
   onMarkPriceUpdated: () => void;
   onMarkAddProduct: () => void;
@@ -995,10 +1002,13 @@ function MessageBubble({
   onMarkUpdateDiscount: () => void;
   onMarkDeleteDiscount: () => void;
   onMarkToggleDiscount: () => void;
+  onMarkAdjustStock: () => void;
+  onMarkUpdateCustomer: () => void;
   onFollowup: (q: string) => void;
   onUndoAddProduct: (productId: number, name: string) => Promise<void> | void;
   onUndoLogExpense: (expenseId: number, description: string) => Promise<void> | void;
   onRetry?: () => void;
+  currency: string;
 }) {
   const isUser = msg.role === "user";
   const [, navigate] = useLocation();
@@ -1012,6 +1022,7 @@ function MessageBubble({
     expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload,
     toggleDiscountPayload, staffInfoPayload, customerOrdersPayload,
     undoAddProductPayload, undoLogExpensePayload, followups,
+    adjustStockPayload, updateCustomerPayload,
   } = parseImportAction(msg.content);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmPrice, setConfirmPrice] = useState(false);
@@ -1024,6 +1035,8 @@ function MessageBubble({
   const [confirmUpdateDiscount, setConfirmUpdateDiscount] = useState(false);
   const [confirmDeleteDiscount, setConfirmDeleteDiscount] = useState(false);
   const [confirmToggleDiscount, setConfirmToggleDiscount] = useState(false);
+  const [confirmAdjustStock, setConfirmAdjustStock] = useState(false);
+  const [confirmUpdateCustomer, setConfirmUpdateCustomer] = useState(false);
   // Tracks locally executed actions to disable buttons immediately on first click
   const [executedActions, setExecutedActions] = useState<Set<string>>(new Set());
   const markExecuted = (action: string) => setExecutedActions(prev => new Set(prev).add(action));
@@ -1041,7 +1054,9 @@ function MessageBubble({
     (discountPayload && discountPayload.code && discountDone) ||
     (updateDiscountPayload && updateDiscountPayload.code && updateDiscountDone) ||
     (deleteDiscountPayload && deleteDiscountPayload.code && deleteDiscountDone) ||
-    (toggleDiscountPayload && toggleDiscountPayload.code && toggleDiscountDone);
+    (toggleDiscountPayload && toggleDiscountPayload.code && toggleDiscountDone) ||
+    (adjustStockPayload && adjustStockPayload.name && adjustStockDone) ||
+    (updateCustomerPayload && updateCustomerPayload.name && updateCustomerDone);
 
   if (!isUser && !display.trim() && actionIsDone) {
     return null;
@@ -1156,7 +1171,7 @@ function MessageBubble({
               {pricePayload.updates.slice(0, 8).map((u, i) => (
                 <div key={i} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate text-blue-800 dark:text-blue-300">{u.name}</span>
-                  <span className="font-semibold text-blue-800 dark:text-blue-300 shrink-0">→ ₱{u.price}</span>
+                  <span className="font-semibold text-blue-800 dark:text-blue-300 shrink-0">→ {currency}{u.price}</span>
                 </div>
               ))}
               {pricePayload.updates.length > 8 && (
@@ -1204,7 +1219,7 @@ function MessageBubble({
             <div className="space-y-1 mb-3">
               <div className="flex items-center justify-between text-xs gap-2">
                 <span className="font-medium text-purple-800 dark:text-purple-300">{addProductPayload.name}</span>
-                <span className="font-semibold text-purple-800 dark:text-purple-300 shrink-0">₱{addProductPayload.price}</span>
+                <span className="font-semibold text-purple-800 dark:text-purple-300 shrink-0">{currency}{addProductPayload.price}</span>
               </div>
               {addProductPayload.category && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400">
@@ -1238,7 +1253,7 @@ function MessageBubble({
               <div className="text-xs font-medium text-purple-800 dark:text-purple-300 truncate">{updateProductPayload.name}</div>
               <div className="space-y-0.5 text-[11px] text-purple-700 dark:text-purple-400">
                 {updateProductPayload.newName && <div>Rename to <span className="font-semibold">{updateProductPayload.newName}</span></div>}
-                {updateProductPayload.price !== undefined && <div>Price → <span className="font-semibold">₱{updateProductPayload.price}</span></div>}
+                {updateProductPayload.price !== undefined && <div>Price → <span className="font-semibold">{currency}{updateProductPayload.price}</span></div>}
                 {updateProductPayload.category && <div>Category → <span className="font-semibold">{updateProductPayload.category}</span></div>}
                 {updateProductPayload.stock !== undefined && <div>Stock → <span className="font-semibold">{updateProductPayload.stock}</span></div>}
                 {updateProductPayload.trackStock !== undefined && <div>Track stock: <span className="font-semibold">{updateProductPayload.trackStock ? "On" : "Off"}</span></div>}
@@ -1320,7 +1335,7 @@ function MessageBubble({
             <div className="space-y-1 mb-3">
               <div className="flex items-center justify-between text-xs gap-2">
                 <span className="font-medium text-orange-800 dark:text-orange-300">{expensePayload.name}</span>
-                <span className="font-semibold text-orange-800 dark:text-orange-300 shrink-0">₱{expensePayload.amount}</span>
+                <span className="font-semibold text-orange-800 dark:text-orange-300 shrink-0">{currency}{expensePayload.amount}</span>
               </div>
               {expensePayload.category && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400">
@@ -1334,7 +1349,7 @@ function MessageBubble({
               </Button>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-orange-700 dark:text-orange-400 font-medium text-center">Log ₱{expensePayload.amount} for "{expensePayload.name}"?</p>
+                <p className="text-xs text-orange-700 dark:text-orange-400 font-medium text-center">Log {currency}{expensePayload.amount} for "{expensePayload.name}"?</p>
                 <div className="flex gap-2">
                   <Button size="sm" disabled={executedActions.has("expense")} onClick={() => { markExecuted("expense"); onMarkExpense(); setConfirmExpense(false); onLogExpense(expensePayload); }} className="flex-1 h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-60">
                     <Check className="h-3 w-3 mr-1" /> Yes, log it
@@ -1354,13 +1369,13 @@ function MessageBubble({
               <div className="flex items-center justify-between text-xs gap-2">
                 <span className="font-mono font-bold text-cyan-800 dark:text-cyan-300 text-sm">{discountPayload.code}</span>
                 <span className="font-semibold text-cyan-800 dark:text-cyan-300 shrink-0">
-                  {discountPayload.type === "percentage" ? `${discountPayload.value}% off` : `₱${discountPayload.value} off`}
+                  {discountPayload.type === "percentage" ? `${discountPayload.value}% off` : `${currency}${discountPayload.value} off`}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {discountPayload.minOrder && parseFloat(discountPayload.minOrder) > 0 && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400">
-                    Min order ₱{discountPayload.minOrder}
+                    Min order {currency}{discountPayload.minOrder}
                   </span>
                 )}
                 {discountPayload.maxUses && (
@@ -1402,7 +1417,7 @@ function MessageBubble({
                 <span className="font-mono font-bold text-indigo-800 dark:text-indigo-300 text-sm">{updateDiscountPayload.code}</span>
                 {updateDiscountPayload.value && (
                   <span className="font-semibold text-indigo-800 dark:text-indigo-300 shrink-0">
-                    {updateDiscountPayload.type === "percentage" ? `${updateDiscountPayload.value}% off` : `₱${updateDiscountPayload.value} off`}
+                    {updateDiscountPayload.type === "percentage" ? `${updateDiscountPayload.value}% off` : `${currency}${updateDiscountPayload.value} off`}
                   </span>
                 )}
               </div>
@@ -1419,7 +1434,7 @@ function MessageBubble({
                 )}
                 {updateDiscountPayload.minOrder && parseFloat(updateDiscountPayload.minOrder) > 0 && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400">
-                    Min order ₱{updateDiscountPayload.minOrder}
+                    Min order {currency}{updateDiscountPayload.minOrder}
                   </span>
                 )}
               </div>
@@ -1505,7 +1520,68 @@ function MessageBubble({
           <StaffInfoCard branch={staffInfoPayload.branch} onAction={onShowStaffInfo} />
         )}
         {customerOrdersPayload && customerOrdersPayload.name && (
-          <CustomerOrdersCard name={customerOrdersPayload.name} onReorder={onReorder} />
+          <CustomerOrdersCard name={customerOrdersPayload.name} onReorder={onReorder} currency={currency} />
+        )}
+        {adjustStockPayload && adjustStockPayload.name && !adjustStockDone && (
+          <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/50 rounded-xl p-3 w-full">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-400 mb-2">Stock adjustment</p>
+            <div className="space-y-1 mb-3">
+              <div className="flex items-center justify-between text-xs gap-2">
+                <span className="font-medium text-slate-800 dark:text-slate-300">{adjustStockPayload.name}</span>
+                <span className={`font-semibold shrink-0 ${adjustStockPayload.adjustment >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+                  {adjustStockPayload.adjustment >= 0 ? "+" : ""}{adjustStockPayload.adjustment} units
+                </span>
+              </div>
+            </div>
+            {!confirmAdjustStock ? (
+              <Button size="sm" onClick={() => setConfirmAdjustStock(true)} className="w-full h-8 text-xs bg-slate-600 hover:bg-slate-700 text-white">
+                Adjust Stock
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-700 dark:text-slate-400 font-medium text-center">
+                  {adjustStockPayload.adjustment >= 0 ? "Add" : "Remove"} {Math.abs(adjustStockPayload.adjustment)} units {adjustStockPayload.adjustment >= 0 ? "to" : "from"} "{adjustStockPayload.name}"?
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={executedActions.has("adjustStock")} onClick={() => { markExecuted("adjustStock"); onMarkAdjustStock(); setConfirmAdjustStock(false); onAdjustStock(adjustStockPayload); }} className="flex-1 h-8 text-xs bg-slate-600 hover:bg-slate-700 text-white disabled:opacity-60">
+                    <Check className="h-3 w-3 mr-1" /> Yes, adjust
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAdjustStock(false)} className="flex-1 h-8 text-xs border-slate-300 text-slate-700 dark:text-slate-400">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {updateCustomerPayload && updateCustomerPayload.name && !updateCustomerDone && (
+          <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 w-full">
+            <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-2">Update customer</p>
+            <div className="space-y-0.5 mb-3 text-xs">
+              <div className="font-medium text-teal-800 dark:text-teal-300">{updateCustomerPayload.name}</div>
+              {updateCustomerPayload.newName && <div className="text-teal-700 dark:text-teal-400">Rename to <span className="font-semibold">{updateCustomerPayload.newName}</span></div>}
+              {updateCustomerPayload.phone !== undefined && <div className="text-teal-700 dark:text-teal-400">Phone → <span className="font-semibold">{updateCustomerPayload.phone || "(cleared)"}</span></div>}
+              {updateCustomerPayload.email !== undefined && <div className="text-teal-700 dark:text-teal-400">Email → <span className="font-semibold">{updateCustomerPayload.email || "(cleared)"}</span></div>}
+              {updateCustomerPayload.notes !== undefined && <div className="text-teal-700 dark:text-teal-400">Notes → <span className="font-semibold">{updateCustomerPayload.notes || "(cleared)"}</span></div>}
+            </div>
+            {!confirmUpdateCustomer ? (
+              <Button size="sm" onClick={() => setConfirmUpdateCustomer(true)} className="w-full h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white">
+                Update Customer
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-teal-700 dark:text-teal-400 font-medium text-center">Update "{updateCustomerPayload.name}"?</p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={executedActions.has("updateCustomer")} onClick={() => { markExecuted("updateCustomer"); onMarkUpdateCustomer(); setConfirmUpdateCustomer(false); onUpdateCustomer(updateCustomerPayload); }} className="flex-1 h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-60">
+                    <Check className="h-3 w-3 mr-1" /> Yes, update
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmUpdateCustomer(false)} className="flex-1 h-8 text-xs border-teal-300 text-teal-700 dark:text-teal-400">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
         {!isUser && undoAddProductPayload?.productId && (
           <UndoChip
@@ -1549,7 +1625,7 @@ function MessageBubble({
   );
 }
 
-function getSuggestionGroups(businessType?: string | null, businessSubType?: string | null) {
+function getSuggestionGroups(businessType?: string | null, businessSubType?: string | null, currency = "$") {
   const salesGroup = {
     label: "Sales & Revenue",
     emoji: "📊",
@@ -1571,52 +1647,52 @@ function getSuggestionGroups(businessType?: string | null, businessSubType?: str
   if (businessType === "food_beverage") {
     const sub = businessSubType;
     if (sub === "cafe") {
-      middleGroup = { label: "Menu & Stock", emoji: "☕", items: ["Anong menu item ang mababa ang stock?", "Add Iced Matcha ₱140 Drinks"] };
+      middleGroup = { label: "Menu & Stock", emoji: "☕", items: ["Anong menu item ang mababa ang stock?", `Add Iced Matcha ${currency}140 Drinks`] };
     } else if (sub === "restaurant") {
-      middleGroup = { label: "Menu & Stock", emoji: "🍽️", items: ["Anong menu item ang mababa ang stock?", "Add Grilled Liempo ₱220 Mains"] };
+      middleGroup = { label: "Menu & Stock", emoji: "🍽️", items: ["Anong menu item ang mababa ang stock?", `Add Grilled Liempo ${currency}220 Mains`] };
     } else if (sub === "bakery") {
-      middleGroup = { label: "Menu & Stock", emoji: "🥐", items: ["Anong tinapay ang mababa ang stock?", "Add Ube Ensaymada ₱55 Pastries"] };
+      middleGroup = { label: "Menu & Stock", emoji: "🥐", items: ["Anong tinapay ang mababa ang stock?", `Add Ube Ensaymada ${currency}55 Pastries`] };
     } else if (sub === "bar") {
-      middleGroup = { label: "Menu & Stock", emoji: "🍺", items: ["Anong drinks ang mababa ang stock?", "Add San Miguel Light ₱70 Beers"] };
+      middleGroup = { label: "Menu & Stock", emoji: "🍺", items: ["Anong drinks ang mababa ang stock?", `Add San Miguel Light ${currency}70 Beers`] };
     } else if (sub === "food_truck") {
-      middleGroup = { label: "Menu & Stock", emoji: "🚚", items: ["Anong menu item ang mababa ang stock?", "Add BBQ Skewer ₱50 Grills"] };
+      middleGroup = { label: "Menu & Stock", emoji: "🚚", items: ["Anong menu item ang mababa ang stock?", `Add BBQ Skewer ${currency}50 Grills`] };
     } else {
-      middleGroup = { label: "Menu & Stock", emoji: "📦", items: ["Anong menu item ang mababa ang stock?", "Add Iced Matcha ₱140 Drinks"] };
+      middleGroup = { label: "Menu & Stock", emoji: "📦", items: ["Anong menu item ang mababa ang stock?", `Add Iced Matcha ${currency}140 Drinks`] };
     }
   } else if (businessType === "retail") {
     const sub = businessSubType;
     if (sub === "clothing") {
-      middleGroup = { label: "Items & Stock", emoji: "👗", items: ["Anong item ang mababa ang stock?", "Add White Oversized Tee ₱599 Tops"] };
+      middleGroup = { label: "Items & Stock", emoji: "👗", items: ["Anong item ang mababa ang stock?", `Add White Oversized Tee ${currency}599 Tops`] };
     } else if (sub === "electronics") {
-      middleGroup = { label: "Products & Stock", emoji: "📱", items: ["Anong gadget ang mababa ang stock?", "Add USB-C Hub ₱799 Accessories"] };
+      middleGroup = { label: "Products & Stock", emoji: "📱", items: ["Anong gadget ang mababa ang stock?", `Add USB-C Hub ${currency}799 Accessories`] };
     } else if (sub === "grocery") {
-      middleGroup = { label: "Products & Stock", emoji: "🛒", items: ["Anong grocery item ang mababa ang stock?", "Add Coca-Cola 1.5L ₱75 Beverages"] };
+      middleGroup = { label: "Products & Stock", emoji: "🛒", items: ["Anong grocery item ang mababa ang stock?", `Add Coca-Cola 1.5L ${currency}75 Beverages`] };
     } else if (sub === "bookstore") {
-      middleGroup = { label: "Books & Stock", emoji: "📚", items: ["Anong libro ang mababa ang stock?", "Add Atomic Habits ₱499 Self-Help"] };
+      middleGroup = { label: "Books & Stock", emoji: "📚", items: ["Anong libro ang mababa ang stock?", `Add Atomic Habits ${currency}499 Self-Help`] };
     } else {
-      middleGroup = { label: "Products & Stock", emoji: "📦", items: ["Anong produkto ang mababa ang stock?", "Add New Product ₱299 General"] };
+      middleGroup = { label: "Products & Stock", emoji: "📦", items: ["Anong produkto ang mababa ang stock?", `Add New Product ${currency}299 General`] };
     }
   } else if (businessType === "services") {
     const sub = businessSubType;
     if (sub === "salon") {
-      middleGroup = { label: "Services & Availability", emoji: "✂️", items: ["Who is available today?", "Add Haircut with Blow Dry ₱350 Haircuts"] };
+      middleGroup = { label: "Services & Availability", emoji: "✂️", items: ["Who is available today?", `Add Haircut with Blow Dry ${currency}350 Haircuts`] };
     } else if (sub === "gym") {
-      middleGroup = { label: "Memberships & Plans", emoji: "💪", items: ["Show expiring memberships this month", "Add 1-Month Gym Plan ₱999 Monthly"] };
+      middleGroup = { label: "Memberships & Plans", emoji: "💪", items: ["Show expiring memberships this month", `Add 1-Month Gym Plan ${currency}999 Monthly`] };
     } else if (sub === "spa") {
-      middleGroup = { label: "Treatments & Bookings", emoji: "🧖", items: ["Which treatment is booked the most?", "Add Hot Stone Massage ₱800 Treatments"] };
+      middleGroup = { label: "Treatments & Bookings", emoji: "🧖", items: ["Which treatment is booked the most?", `Add Hot Stone Massage ${currency}800 Treatments`] };
     } else if (sub === "clinic") {
-      middleGroup = { label: "Appointments & Services", emoji: "🏥", items: ["Show appointments today", "Add Dental Cleaning ₱500 Dental"] };
+      middleGroup = { label: "Appointments & Services", emoji: "🏥", items: ["Show appointments today", `Add Dental Cleaning ${currency}500 Dental`] };
     } else if (sub === "laundry") {
-      middleGroup = { label: "Services & Orders", emoji: "👕", items: ["Show pending laundry orders today", "Add Express Wash ₱150 Services"] };
+      middleGroup = { label: "Services & Orders", emoji: "👕", items: ["Show pending laundry orders today", `Add Express Wash ${currency}150 Services`] };
     } else if (sub === "pet_grooming") {
-      middleGroup = { label: "Services & Pets", emoji: "🐾", items: ["Show appointments today", "Add Full Groom Package ₱600 Grooming"] };
+      middleGroup = { label: "Services & Pets", emoji: "🐾", items: ["Show appointments today", `Add Full Groom Package ${currency}600 Grooming`] };
     } else if (sub === "car_wash") {
-      middleGroup = { label: "Services & Bookings", emoji: "🚗", items: ["Show today's car wash bookings", "Add Full Detail ₱1500 Detailing"] };
+      middleGroup = { label: "Services & Bookings", emoji: "🚗", items: ["Show today's car wash bookings", `Add Full Detail ${currency}1500 Detailing`] };
     } else {
-      middleGroup = { label: "Services & Bookings", emoji: "📋", items: ["Who is available today?", "Add New Service ₱500 Services"] };
+      middleGroup = { label: "Services & Bookings", emoji: "📋", items: ["Who is available today?", `Add New Service ${currency}500 Services`] };
     }
   } else {
-    middleGroup = { label: "Products & Stock", emoji: "📦", items: ["Anong produkto ang mababa ang stock?", "Add New Item ₱299 General"] };
+    middleGroup = { label: "Products & Stock", emoji: "📦", items: ["Anong produkto ang mababa ang stock?", `Add New Item ${currency}299 General`] };
   }
 
   return [salesGroup, staffGroup, middleGroup, discountsGroup];
@@ -1627,13 +1703,15 @@ function EmptyState({
   onDailyDigest,
   businessType,
   businessSubType,
+  currency,
 }: {
   onSuggestion: (s: string) => void;
   onDailyDigest: () => void;
   businessType?: string | null;
   businessSubType?: string | null;
+  currency?: string;
 }) {
-  const groups = getSuggestionGroups(businessType, businessSubType);
+  const groups = getSuggestionGroups(businessType, businessSubType, currency);
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-8 text-center gap-4 sm:gap-5">
       <div className="flex flex-col items-center gap-2.5 sm:gap-3">
@@ -1685,7 +1763,7 @@ function EmptyState({
 }
 
 
-function buildWelcomeMessage(businessType: string, businessSubType: string, storeName: string): string {
+function buildWelcomeMessage(businessType: string, businessSubType: string, storeName: string, currency = "$"): string {
   const name = storeName || "your store";
 
   const tutorialsBySubType: Record<string, string> = {
@@ -1702,11 +1780,11 @@ function buildWelcomeMessage(businessType: string, businessSubType: string, stor
     bookstore: `Here's how to get started with **${name}**:\n\n**Adding Your Inventory**\n1. Go to **Products** → add books with categories (e.g. "Fiction", "Non-Fiction", "Kids").\n2. Set stock levels and enable low-stock alerts.\n\n**Checkout**\n1. Open **POS** → search by title or author.\n2. Apply discounts (e.g. member prices) with **Discount Codes**.\n\n**Customer Loyalty**\n1. Add customers in **Customers** to track their purchase history.\n2. Loyal readers can accumulate loyalty points.\n\n**Analytics**\n1. Open **Analytics** to see best-selling titles and genres.\n\nAsk me about your sales trends, stock levels, or anything else!`,
     // Services
     salon: `Here's how to get started with **${name}**:\n\n**Booking Appointments**\n1. Go to **Appointments** in the **More** menu.\n2. Add client name, service, date, and assigned stylist.\n3. Confirmed bookings appear in your calendar view.\n\n**At Checkout**\n1. Open **POS** → add services and any retail products sold.\n2. Process payment — cash, card, or online.\n\n**Managing Staff**\n1. Add your team in **Staff**.\n2. Assign them to appointments and track their shifts in **Time Clock**.\n\n**Discount Codes**\n1. Create promo codes for new clients or loyalty deals.\n2. Apply at checkout with one tap.\n\n**Tracking Revenue**\n1. Open **Analytics** to see revenue per service, per stylist, and per day.\n\nI'm here to help with anything — appointment trends, top services, staff performance.`,
-    gym: `Here's how to get started with **${name}**:\n\n**Memberships & Services**\n1. Go to **Products** → add membership plans (e.g. "Monthly - ₱999", "Day Pass - ₱150").\n2. Sell them at **POS** like any product.\n\n**Appointments / Classes**\n1. Go to **Appointments** to schedule classes or PT sessions.\n2. Assign a trainer and track attendance.\n\n**Staff & Shifts**\n1. Add trainers in **Staff** and use **Time Clock** for shift management.\n\n**Expense Tracking**\n1. Log equipment, utilities, and supplies in **Expenses**.\n\n**Analytics**\n1. Open **Analytics** to see peak hours, popular plans, and monthly revenue.\n\nAsk me about member trends, revenue, or how to set up anything specific!`,
+    gym: `Here's how to get started with **${name}**:\n\n**Memberships & Services**\n1. Go to **Products** → add membership plans (e.g. "Monthly - ${currency}999", "Day Pass - ${currency}150").\n2. Sell them at **POS** like any product.\n\n**Appointments / Classes**\n1. Go to **Appointments** to schedule classes or PT sessions.\n2. Assign a trainer and track attendance.\n\n**Staff & Shifts**\n1. Add trainers in **Staff** and use **Time Clock** for shift management.\n\n**Expense Tracking**\n1. Log equipment, utilities, and supplies in **Expenses**.\n\n**Analytics**\n1. Open **Analytics** to see peak hours, popular plans, and monthly revenue.\n\nAsk me about member trends, revenue, or how to set up anything specific!`,
     spa: `Here's how to get started with **${name}**:\n\n**Booking Appointments**\n1. Go to **Appointments** to schedule massages, facials, and other services.\n2. Assign therapists and set service duration.\n\n**Checkout**\n1. Open **POS** → add services and any products sold (oils, skincare).\n2. Apply loyalty discounts or promo codes.\n\n**Staff Management**\n1. Add therapists in **Staff** and track shifts with **Time Clock**.\n\n**Customer Profiles**\n1. Build client records in **Customers** — track preferences and visit history.\n\n**Revenue Reports**\n1. Open **Analytics** to see top services, peak days, and revenue trends.\n\nI'm here to help with scheduling, revenue analysis, or anything your spa needs!`,
     clinic: `Here's how to get started with **${name}**:\n\n**Appointments**\n1. Go to **Appointments** to schedule patient visits.\n2. Assign to specific doctors or staff.\n\n**Billing at Checkout**\n1. Open **POS** → add consultation fees, procedures, or medicines.\n2. Process payment and generate a receipt.\n\n**Patient Records**\n1. Use **Customers** to maintain patient profiles and visit history.\n\n**Staff & Shifts**\n1. Add your medical team in **Staff** and track schedules with **Time Clock**.\n\n**Expense Tracking**\n1. Log medical supplies and operating costs in **Expenses**.\n\nAsk me about billing trends, patient visits, or how to configure anything for your clinic.`,
-    laundry: `Here's how to get started with **${name}**:\n\n**Services & Pricing**\n1. Go to **Products** → add services like "Wash & Fold - ₱80/kg", "Dry Cleaning - ₱150".\n2. Enable quantity input for weight-based pricing.\n\n**Taking Orders**\n1. Open **POS** → add services, set quantity, then **Charge** or use **Pending Order** for pickup tracking.\n\n**Pickup Queue**\n1. Use **Pending** to track orders ready for pickup.\n\n**Customer Profiles**\n1. Build regulars in **Customers** for loyalty rewards.\n\n**Analytics**\n1. See daily revenue and busiest days in **Analytics**.\n\nI can help you track orders, manage pricing, and analyze your busiest days — just ask!`,
-    car_wash: `Here's how to get started with **${name}**:\n\n**Services**\n1. Go to **Products** → add services like "Basic Wash - ₱150", "Full Detail - ₱800".\n2. Set categories (e.g. "Exterior", "Interior", "Premium").\n\n**Checkout**\n1. Open **POS** → select service, add extras, then **Charge**.\n2. Use **Pending Order** for vehicles still in queue.\n\n**Expenses**\n1. Log soap, supplies, and staff costs in **Expenses**.\n\n**Staff**\n1. Add your team in **Staff** and use **Time Clock** for shift management.\n\n**Analytics**\n1. Open **Analytics** to see peak days, top services, and monthly revenue.\n\nNeed help with anything? I can pull your sales, compare expenses, or guide you through any feature.`,
+    laundry: `Here's how to get started with **${name}**:\n\n**Services & Pricing**\n1. Go to **Products** → add services like "Wash & Fold - ${currency}80/kg", "Dry Cleaning - ${currency}150".\n2. Enable quantity input for weight-based pricing.\n\n**Taking Orders**\n1. Open **POS** → add services, set quantity, then **Charge** or use **Pending Order** for pickup tracking.\n\n**Pickup Queue**\n1. Use **Pending** to track orders ready for pickup.\n\n**Customer Profiles**\n1. Build regulars in **Customers** for loyalty rewards.\n\n**Analytics**\n1. See daily revenue and busiest days in **Analytics**.\n\nI can help you track orders, manage pricing, and analyze your busiest days — just ask!`,
+    car_wash: `Here's how to get started with **${name}**:\n\n**Services**\n1. Go to **Products** → add services like "Basic Wash - ${currency}150", "Full Detail - ${currency}800".\n2. Set categories (e.g. "Exterior", "Interior", "Premium").\n\n**Checkout**\n1. Open **POS** → select service, add extras, then **Charge**.\n2. Use **Pending Order** for vehicles still in queue.\n\n**Expenses**\n1. Log soap, supplies, and staff costs in **Expenses**.\n\n**Staff**\n1. Add your team in **Staff** and use **Time Clock** for shift management.\n\n**Analytics**\n1. Open **Analytics** to see peak days, top services, and monthly revenue.\n\nNeed help with anything? I can pull your sales, compare expenses, or guide you through any feature.`,
   };
 
   const generic: Record<string, string> = {
@@ -1730,6 +1808,7 @@ export default function AiPage() {
   const { isOnline } = useOnlineStatus();
   const { data: settings } = useSettings();
   const { businessType, businessSubType } = useBranchBusiness();
+  const currency = settings?.currency ?? "$";
 
   const [sessions, setSessions] = useState<AiSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -1761,6 +1840,10 @@ export default function AiPage() {
   const [updateDiscountDoneIds, setUpdateDiscountDoneIds] = useState<Set<string>>(new Set());
   const [deleteDiscountDoneIds, setDeleteDiscountDoneIds] = useState<Set<string>>(new Set());
   const [toggleDiscountDoneIds, setToggleDiscountDoneIds] = useState<Set<string>>(new Set());
+  const [adjustStockDoneIds, setAdjustStockDoneIds] = useState<Set<string>>(new Set());
+  const [updateCustomerDoneIds, setUpdateCustomerDoneIds] = useState<Set<string>>(new Set());
+  const [adjustingStock, setAdjustingStock] = useState(false);
+  const [updatingCustomerRecord, setUpdatingCustomerRecord] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [floatEnabled, setFloatEnabledState] = useState(() => getFloatEnabled());
@@ -1811,7 +1894,7 @@ export default function AiPage() {
         }
         localStorage.removeItem("ai_welcome_pending");
         localStorage.setItem(welcomedKey, "1");
-        const welcomeContent = buildWelcomeMessage(bType, bSub, sName);
+        const welcomeContent = buildWelcomeMessage(bType, bSub, sName, currency);
         const welcomeMsg: AiMessage = {
           id: crypto.randomUUID(),
           role: "assistant",
@@ -2169,7 +2252,7 @@ export default function AiPage() {
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! **${productName}** has been added to your store at ₱${data.product?.price}.${undoTag}`,
+        content: `Done! **${productName}** has been added to your store at ${currency}${data.product?.price}.${undoTag}`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2200,7 +2283,7 @@ export default function AiPage() {
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! ${renamed ? `**${data.originalName}** is now **${p.name}**` : `**${p?.name}** updated`} — ₱${p?.price}${p?.category ? ` · ${p.category}` : ""}${p?.trackStock ? ` · stock: ${p?.stock ?? 0}` : ""}.`,
+        content: `Done! ${renamed ? `**${data.originalName}** is now **${p.name}**` : `**${p?.name}** updated`} — ${currency}${p?.price}${p?.category ? ` · ${p.category}` : ""}${p?.trackStock ? ` · stock: ${p?.stock ?? 0}` : ""}.`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2294,7 +2377,7 @@ export default function AiPage() {
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! Expense logged — **${description}** for ₱${data.expense?.amount} under **${data.expense?.category}**.${undoTag}`,
+        content: `Done! Expense logged — **${description}** for ${currency}${data.expense?.amount} under **${data.expense?.category}**.${undoTag}`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2359,7 +2442,7 @@ export default function AiPage() {
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! Discount code **${d?.code}** created — ${d?.type === "percentage" ? `${d?.value}% off` : `₱${d?.value} off`}. It's now active and ready to use at the POS.`,
+        content: `Done! Discount code **${d?.code}** created — ${d?.type === "percentage" ? `${d?.value}% off` : `${currency}${d?.value} off`}. It's now active and ready to use at the POS.`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2382,7 +2465,7 @@ export default function AiPage() {
       const resultMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Done! Discount code **${d?.code}** has been updated — ${d?.type === "percentage" ? `${d?.value}% off` : `₱${d?.value} off`}.`,
+        content: `Done! Discount code **${d?.code}** has been updated — ${d?.type === "percentage" ? `${d?.value}% off` : `${currency}${d?.value} off`}.`,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...messages, resultMsg];
@@ -2439,6 +2522,65 @@ export default function AiPage() {
     }
   };
 
+  const handleAdjustStock = async (payload: AdjustStockPayload) => {
+    setAdjustingStock(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/adjust-stock", payload);
+      const data = await res.json();
+      const resultMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Done! Stock for **${data.name}** updated: ${data.oldStock} → **${data.newStock}** units.`,
+        timestamp: new Date().toISOString(),
+      };
+      const finalMessages = [...messages, resultMsg];
+      setMessages(finalMessages);
+      if (activeId) updateSession(activeId, finalMessages);
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    } catch (err: any) {
+      const body = await err.json?.().catch(() => null);
+      const errMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: body?.message || "Failed to adjust stock. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
+      setAdjustingStock(false);
+    }
+  };
+
+  const handleUpdateCustomer = async (payload: UpdateCustomerPayload) => {
+    setUpdatingCustomerRecord(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/update-customer", payload);
+      const data = await res.json();
+      const displayName = data.updated?.name ?? payload.newName ?? payload.name;
+      const resultMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Done! **${payload.name}**${displayName !== payload.name ? ` (now **${displayName}**)` : ""} has been updated.`,
+        timestamp: new Date().toISOString(),
+      };
+      const finalMessages = [...messages, resultMsg];
+      setMessages(finalMessages);
+      if (activeId) updateSession(activeId, finalMessages);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    } catch (err: any) {
+      const body = await err.json?.().catch(() => null);
+      const errMsg: AiMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: body?.message || "Failed to update customer. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    } finally {
+      setUpdatingCustomerRecord(false);
+    }
+  };
+
   const handleShowStaffInfo = (_payload: StaffInfoPayload) => {
     // Staff info is rendered inline in the StaffInfoCard component — no action needed here
   };
@@ -2469,7 +2611,7 @@ export default function AiPage() {
       const confirmMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Monthly revenue goal set to **₱${parsed.toLocaleString("en-PH", { minimumFractionDigits: 2 })}**! I'll track your progress towards it.`,
+        content: `Monthly revenue goal set to **${currency}${parsed.toLocaleString(undefined, { minimumFractionDigits: 2 })}**! I'll track your progress towards it.`,
         timestamp: new Date().toISOString(),
       };
       const s = createSession();
@@ -2625,7 +2767,7 @@ export default function AiPage() {
             <p className="text-[11px] text-muted-foreground">AI will track progress toward this target</p>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₱</span>
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{currency}</span>
                 <input
                   data-testid="input-revenue-goal"
                   type="number"
@@ -2752,7 +2894,7 @@ export default function AiPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-8 py-4 space-y-3">
         {messages.length === 0 ? (
-          <EmptyState onSuggestion={sendMessage} onDailyDigest={handleDailyDigest} businessType={businessType} businessSubType={businessSubType} />
+          <EmptyState onSuggestion={sendMessage} onDailyDigest={handleDailyDigest} businessType={businessType} businessSubType={businessSubType} currency={currency} />
         ) : (
           messages.map((msg, idx) => (
             <MessageBubble
@@ -2771,6 +2913,8 @@ export default function AiPage() {
               onToggleDiscount={handleToggleDiscount}
               onShowStaffInfo={handleShowStaffInfo}
               onReorder={handleReorder}
+              onAdjustStock={handleAdjustStock}
+              onUpdateCustomer={handleUpdateCustomer}
               isStreaming={loading && idx === messages.length - 1 && msg.role === "assistant" && msg.content.length > 0}
               importDone={importedIds.has(msg.id)}
               priceDone={priceUpdatedIds.has(msg.id)}
@@ -2783,6 +2927,8 @@ export default function AiPage() {
               updateDiscountDone={updateDiscountDoneIds.has(msg.id)}
               deleteDiscountDone={deleteDiscountDoneIds.has(msg.id)}
               toggleDiscountDone={toggleDiscountDoneIds.has(msg.id)}
+              adjustStockDone={adjustStockDoneIds.has(msg.id)}
+              updateCustomerDone={updateCustomerDoneIds.has(msg.id)}
               onMarkImported={() => setImportedIds(prev => new Set(prev).add(msg.id))}
               onMarkPriceUpdated={() => setPriceUpdatedIds(prev => new Set(prev).add(msg.id))}
               onMarkAddProduct={() => setAddProductDoneIds(prev => new Set(prev).add(msg.id))}
@@ -2794,6 +2940,9 @@ export default function AiPage() {
               onMarkUpdateDiscount={() => setUpdateDiscountDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkDeleteDiscount={() => setDeleteDiscountDoneIds(prev => new Set(prev).add(msg.id))}
               onMarkToggleDiscount={() => setToggleDiscountDoneIds(prev => new Set(prev).add(msg.id))}
+              onMarkAdjustStock={() => setAdjustStockDoneIds(prev => new Set(prev).add(msg.id))}
+              onMarkUpdateCustomer={() => setUpdateCustomerDoneIds(prev => new Set(prev).add(msg.id))}
+              currency={currency}
               onFollowup={(q) => sendMessage(q, { silent: true })}
               onUndoAddProduct={(productId, name) => handleUndoAddProduct(msg.id, productId, name)}
               onUndoLogExpense={(expenseId, description) => handleUndoLogExpense(msg.id, expenseId, description)}

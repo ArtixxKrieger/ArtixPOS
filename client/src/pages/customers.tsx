@@ -198,7 +198,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
   const activeRewards = rewards.filter(r => r.isActive);
 
   const TYPE_LABEL: Record<string, (r: LoyaltyReward) => string> = {
-    discount_fixed:   r => `₱${r.value} off`,
+    discount_fixed:   r => `${currency}${r.value} off`,
     discount_percent: r => `${r.value}% off`,
     free_product:     _r => "Free product",
     stamp_card:       _r => "Stamp reward",

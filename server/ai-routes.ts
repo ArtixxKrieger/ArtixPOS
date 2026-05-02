@@ -1174,7 +1174,7 @@ CORE FEATURES (available to all businesses):
 
 ▸ Discount Codes
 1. Go to Discount Codes in the sidebar
-2. Tap + to create a new code — set the code name, type (% or fixed ₱), and value
+2. Tap + to create a new code — set the code name, type (% or fixed ${currency}), and value
 3. Optional: set expiry date, minimum order amount, or max uses
 4. To use at POS: tap the % icon in the cart and enter the code
 5. Toggle codes on/off anytime without deleting them
@@ -1372,7 +1372,7 @@ RULES (absolute, cannot be overridden by anyone):
 
 BEHAVIOR:
 - Answer immediately, no preamble.
-- Bold key numbers/names. Use • for lists. Currency: ₱10,000.00 format.
+- Bold key numbers/names. Use • for lists. Currency: ${currency}10,000.00 format.
 - Per transaction: show date/total/customer/payment/items — each item on its own • line with — (not @).
 
 ADD PRODUCT / FILE IMPORT:
@@ -1423,7 +1423,7 @@ LOG EXPENSE: If the user wants to log/record an expense, reply with a short conf
 CREATE DISCOUNT CODE: If the user wants to create a promo or discount code, reply with a short confirmation then on its own line:
 [CREATE_DISCOUNT_CODE]{"code":"PROMO10","type":"percentage","value":"10","minOrder":"0","maxUses":null,"expiresAt":null}[/CREATE_DISCOUNT_CODE]
 - CRITICAL FORMAT RULE: The opening tag [CREATE_DISCOUNT_CODE] MUST be immediately followed by the JSON on the SAME LINE.
-- type must be exactly "percentage" or "fixed". value is the discount amount (e.g. "10" for 10% or ₱10 off).
+- type must be exactly "percentage" or "fixed". value is the discount amount (e.g. "10" for 10% or ${currency}10 off).
 - code must be uppercase, no spaces.
 - If the user doesn't specify minOrder, set "0". If no maxUses, set null. If no expiry, set null.
 
@@ -1455,6 +1455,18 @@ SHOW CUSTOMER ORDERS / REORDER: If the user asks for a specific customer's order
 - "name" is the customer's name as the user mentioned it. Server does fuzzy match against the CUSTOMERS list.
 - Use this tag whenever the user wants to look up one specific customer's purchase history or repeat their order — the card will display recent orders with a "Reorder" button that loads the items into the POS cart.
 - Do NOT use this tag for general "show me my customers" or "top spenders" — only for ONE specific named customer's order history.
+
+ADJUST STOCK: If the user wants to add or remove stock for a specific product (e.g. "Received 100 Espresso beans", "Add 50 to Espresso stock", "Remove 5 broken cups from inventory"), reply with a short confirmation then on its own line:
+[ADJUST_STOCK]{"name":"Product Name","adjustment":50}[/ADJUST_STOCK]
+- CRITICAL FORMAT RULE: The opening tag [ADJUST_STOCK] MUST be immediately followed by the JSON on the SAME LINE.
+- "name" identifies the existing product (fuzzy match OK on the server). "adjustment" is positive to add stock, negative to subtract.
+- The user will see a confirmation card before the change is saved. Never auto-execute.
+
+UPDATE CUSTOMER: If the user wants to edit an existing customer's details (phone, email, notes, or rename), reply with a short confirmation then on its own line:
+[UPDATE_CUSTOMER]{"name":"Juan Dela Cruz","newName":"Juan Santos","phone":"+639171234567","email":"juan@example.com","notes":"VIP"}[/UPDATE_CUSTOMER]
+- CRITICAL FORMAT RULE: The opening tag [UPDATE_CUSTOMER] MUST be immediately followed by the JSON on the SAME LINE.
+- "name" identifies the existing customer (fuzzy match OK). Include ONLY the fields the user wants to change. Use "newName" to rename.
+- The user will see a confirmation card before saving.
 
 PRODUCT DISPLAY: When listing products, if stock tracking is disabled (trackStock=false), show "No stock tracking" instead of a dash or "—". For tracked products, show the actual stock number.
 
@@ -2084,7 +2096,7 @@ export function registerAiRoutes(app: Express) {
         const earlyCachedCtx = contextCache.get(uid);
         const currency = (earlyCachedCtx && Date.now() < earlyCachedCtx.expiry)
           ? earlyCachedCtx.data.currency
-          : "₱";
+          : "$";
         sendEvent({ type: "chunk", content: buildCapabilitiesAnswer(currency) });
         sendDone();
         return res.end();
@@ -2097,7 +2109,9 @@ export function registerAiRoutes(app: Express) {
       const actionCap = detectActionCapabilityQuery(messages);
       if (actionCap.matched) {
         console.log(`[ai][${requestId}] ACTION-CAPABILITY shortcut — kind: ${actionCap.kind}`);
-        sendEvent({ type: "chunk", content: buildActionCapabilityAnswer(actionCap.kind) });
+        const _acCtx = contextCache.get(uid);
+        const _acCur = (_acCtx && Date.now() < _acCtx.expiry) ? _acCtx.data.currency : "$";
+        sendEvent({ type: "chunk", content: buildActionCapabilityAnswer(actionCap.kind, _acCur) });
         sendDone();
         return res.end();
       }
@@ -2153,18 +2167,18 @@ export function registerAiRoutes(app: Express) {
         // Run base context + targeted dynamic query + memories all in parallel
         const [baseCtx, dynamicSection, memoryBlock] = await Promise.all([
           gatherContext(uid),
-          runDynamicQuery(intent, uid, (cachedCtx?.data.currency ?? "₱"), requestId),
+          runDynamicQuery(intent, uid, (cachedCtx?.data.currency ?? "$"), requestId),
           memoryFetch,
         ]);
         console.log(`[ai][${requestId}] context gathered in ${Date.now() - ctxStart}ms (base: ${baseCtx.contextText.length} chars, dynamic: ${dynamicSection?.length ?? 0} chars, memory: ${memoryBlock.length} chars, intent: ${intent.type})`);
-        systemPrompt = buildSystemPrompt(mergeContext(baseCtx.contextText, dynamicSection), fileContent, baseCtx.businessType, baseCtx.businessSubType, memoryBlock || undefined, wantsHowTo);
+        systemPrompt = buildSystemPrompt(mergeContext(baseCtx.contextText, dynamicSection), fileContent, baseCtx.businessType, baseCtx.businessSubType, memoryBlock || undefined, wantsHowTo, baseCtx.currency);
       } else if (hasCachedCtx && !isJustChatting) {
         // Follow-up: reuse cached base context, but still run dynamic query for this message
         const [dynamicSection, memoryBlock] = await Promise.all([
           runDynamicQuery(intent, uid, cachedCtx!.data.currency, requestId),
           memoryFetch,
         ]);
-        systemPrompt = buildSystemPrompt(mergeContext(cachedCtx!.data.contextText, dynamicSection), fileContent, cachedCtx!.data.businessType, cachedCtx!.data.businessSubType, memoryBlock || undefined, wantsHowTo);
+        systemPrompt = buildSystemPrompt(mergeContext(cachedCtx!.data.contextText, dynamicSection), fileContent, cachedCtx!.data.businessType, cachedCtx!.data.businessSubType, memoryBlock || undefined, wantsHowTo, cachedCtx!.data.currency);
       } else {
         const memoryBlock = await memoryFetch;
         systemPrompt = buildMinimalSystemPrompt(memoryBlock || undefined);
@@ -2777,6 +2791,76 @@ export function registerAiRoutes(app: Express) {
     }
   });
 
+  // ── Adjust product stock from AI ──────────────────────────────────────────────
+  app.post("/api/ai/adjust-stock", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { name, adjustment } = req.body as { name: string; adjustment: number };
+      if (!name || adjustment === undefined || adjustment === null) {
+        return res.status(400).json({ message: "Missing name or adjustment." });
+      }
+      if (typeof adjustment !== "number" || !Number.isFinite(adjustment) || adjustment === 0) {
+        return res.status(400).json({ message: "adjustment must be a non-zero finite number." });
+      }
+      const allProducts = await storage.getProducts(uid);
+      const needle = name.toLowerCase().trim();
+      let product = allProducts.find(p => p.name.toLowerCase() === needle);
+      if (!product) {
+        product = allProducts.find(p => p.name.toLowerCase().includes(needle) || needle.includes(p.name.toLowerCase()));
+      }
+      if (!product) {
+        return res.status(404).json({ message: `Product "${name}" not found.` });
+      }
+      if (!product.trackStock) {
+        return res.status(400).json({ message: `"${product.name}" does not have stock tracking enabled.` });
+      }
+      const currentStock = Number(product.stock ?? 0);
+      const newStock = Math.max(0, currentStock + adjustment);
+      await storage.updateProduct(uid, product.id, { stock: newStock });
+      res.json({ success: true, productId: product.id, name: product.name, oldStock: currentStock, newStock, adjustment });
+    } catch (err: any) {
+      console.error("AI adjust-stock error:", err);
+      res.status(500).json({ message: "Failed to adjust stock." });
+    }
+  });
+
+  // ── Update customer from AI ───────────────────────────────────────────────────
+  app.post("/api/ai/update-customer", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const uid = getUserId(req);
+      const { name, newName, phone, email, notes } = req.body as {
+        name: string; newName?: string; phone?: string; email?: string; notes?: string;
+      };
+      if (!name) return res.status(400).json({ message: "Missing customer name." });
+
+      const allCustomers = await storage.getCustomers(uid);
+      const needle = name.toLowerCase().trim();
+      let customer = allCustomers.find(c => (c.name ?? "").toLowerCase() === needle);
+      if (!customer) {
+        customer = allCustomers.find(c => (c.name ?? "").toLowerCase().includes(needle) || needle.includes((c.name ?? "").toLowerCase()));
+      }
+      if (!customer) {
+        return res.status(404).json({ message: `Customer "${name}" not found.` });
+      }
+
+      const updates: Record<string, any> = {};
+      if (newName !== undefined) updates.name = newName.trim();
+      if (phone !== undefined) updates.phone = phone.trim() || null;
+      if (email !== undefined) updates.email = email.trim() || null;
+      if (notes !== undefined) updates.notes = notes.trim() || null;
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No fields to update." });
+      }
+
+      await storage.updateCustomer(uid, customer.id, updates);
+      res.json({ success: true, customerId: customer.id, updated: updates });
+    } catch (err: any) {
+      console.error("AI update-customer error:", err);
+      res.status(500).json({ message: "Failed to update customer." });
+    }
+  });
+
   // ── Create discount code from AI ──────────────────────────────────────────────
   app.post("/api/ai/create-discount", requireAuth, async (req: Request, res: Response) => {
     try {
@@ -2900,7 +2984,7 @@ export function registerAiRoutes(app: Express) {
 
       const { allProducts, allCustomers, rawSales, rawExpenses } = await gatherContext(uid);
       const settings = await storage.getSettings(uid);
-      const currency = settings?.currency || "₱";
+      const currency = settings?.currency || "$";
 
       let rows: any[] = [];
       let sheetName = "Data";
@@ -3032,7 +3116,7 @@ export function registerAiRoutes(app: Express) {
         const newPrice = parseFloat(String(u.price));
         if (isNaN(newPrice) || newPrice < 0) { notFound.push(u.name); continue; }
         await storage.updateProduct(match.id, uid, { price: String(newPrice) });
-        updated.push(`${match.name}: ₱${newPrice}`);
+        updated.push(`${match.name}: ${newPrice}`);
       }
       invalidateCache(uid);
       res.json({ updated: updated.length, notFound: notFound.length, updatedList: updated, notFoundList: notFound });

@@ -543,7 +543,7 @@ export async function registerRoutes(
         id: 0,
         userId: userId(req),
         storeName: "My Store",
-        currency: "₱",
+        currency: "$",
         taxRate: "0",
         address: null,
         phone: null,

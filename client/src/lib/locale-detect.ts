@@ -118,5 +118,5 @@ export function detectLocale(): LocaleInfo {
   if (region === "Pacific") return { timezone, currency: "$" };
   if (region === "Africa") return { timezone, currency: "$" };
 
-  return { timezone, currency: "₱" };
+  return { timezone, currency: "$" };
 }

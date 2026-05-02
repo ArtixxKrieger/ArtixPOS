@@ -1,4 +1,4 @@
-export function formatCurrency(amount: string | number, currencySymbol: string = '₱'): string {
+export function formatCurrency(amount: string | number, currencySymbol: string = '$'): string {
   const value = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(value)) return `${currencySymbol}0.00`;
   

@@ -78,6 +78,19 @@ interface ShowCustomerOrdersPayload {
   name: string;
 }
 
+interface AdjustStockPayload {
+  name: string;
+  adjustment: number;
+}
+
+interface UpdateCustomerPayload {
+  name: string;
+  newName?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+}
+
 // Embedded in the assistant "Done!" message after AI adds a product or logs an
 // expense. Powers the 30-second Undo chip that one-tap reverses the action.
 interface UndoAddProductPayload {
@@ -154,6 +167,8 @@ function parseImportAction(content: string): {
   toggleDiscountPayload: ToggleDiscountPayload | null;
   staffInfoPayload: StaffInfoPayload | null;
   customerOrdersPayload: ShowCustomerOrdersPayload | null;
+  adjustStockPayload: AdjustStockPayload | null;
+  updateCustomerPayload: UpdateCustomerPayload | null;
   undoAddProductPayload: UndoAddProductPayload | null;
   undoLogExpensePayload: UndoLogExpensePayload | null;
   followups: string[];
@@ -172,6 +187,8 @@ function parseImportAction(content: string): {
   let toggleDiscountPayload: ToggleDiscountPayload | null = null;
   let staffInfoPayload: StaffInfoPayload | null = null;
   let customerOrdersPayload: ShowCustomerOrdersPayload | null = null;
+  let adjustStockPayload: AdjustStockPayload | null = null;
+  let updateCustomerPayload: UpdateCustomerPayload | null = null;
   let undoAddProductPayload: UndoAddProductPayload | null = null;
   let undoLogExpensePayload: UndoLogExpensePayload | null = null;
   let followups: string[] = [];
@@ -188,6 +205,8 @@ function parseImportAction(content: string): {
     { tag: "UPDATE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); updateDiscountPayload = p; } catch {} } },
     { tag: "DELETE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); deleteDiscountPayload = p; } catch {} } },
     { tag: "TOGGLE_DISCOUNT_CODE", setter: v => { try { const p = JSON.parse(v); if (p?.code) p.code = stripMd(p.code); toggleDiscountPayload = p; } catch {} } },
+    { tag: "ADJUST_STOCK", setter: v => { try { const p = JSON.parse(v); if (p?.name && p.adjustment !== undefined) adjustStockPayload = p; } catch {} } },
+    { tag: "UPDATE_CUSTOMER", setter: v => { try { const p = JSON.parse(v); if (p?.name) updateCustomerPayload = p; } catch {} } },
     { tag: "UNDO_ADD_PRODUCT", setter: v => { try { undoAddProductPayload = JSON.parse(v); } catch {} } },
     { tag: "UNDO_LOG_EXPENSE", setter: v => { try { undoLogExpensePayload = JSON.parse(v); } catch {} } },
   ];
@@ -230,7 +249,8 @@ function parseImportAction(content: string): {
     updateProductPayload, deleteProductPayload, addCustomerPayload,
     expensePayload, discountPayload, updateDiscountPayload,
     deleteDiscountPayload, toggleDiscountPayload, staffInfoPayload,
-    customerOrdersPayload, undoAddProductPayload, undoLogExpensePayload,
+    customerOrdersPayload, adjustStockPayload, updateCustomerPayload,
+    undoAddProductPayload, undoLogExpensePayload,
     followups,
   };
 }
@@ -708,7 +728,7 @@ function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPay
   );
 }
 
-function CustomerOrdersCard({ name, onReorder }: { name: string; onReorder: (customerId: number, customerName: string, items: ReorderItem[]) => void }) {
+function CustomerOrdersCard({ name, currency, onReorder }: { name: string; currency: string; onReorder: (customerId: number, customerName: string, items: ReorderItem[]) => void }) {
   const [data, setData] = useState<{ customer: { id: number; name: string; phone?: string | null } | null; orders: CustomerOrderSummary[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pickedId, setPickedId] = useState<number | null>(null);
@@ -773,7 +793,7 @@ function CustomerOrdersCard({ name, onReorder }: { name: string; onReorder: (cus
             <div key={order.id} className="rounded-lg border border-teal-200/70 dark:border-teal-800/40 bg-white/70 dark:bg-teal-950/20 p-2">
               <div className="flex items-center justify-between text-[11px] text-teal-800 dark:text-teal-300 mb-1">
                 <span className="font-medium">{dateStr}</span>
-                <span className="font-semibold">₱{order.total}</span>
+                <span className="font-semibold">{currency}{order.total}</span>
               </div>
               <div className="space-y-0.5 mb-2">
                 {order.items.slice(0, 4).map((it, i) => (
@@ -1079,7 +1099,7 @@ function MessageBubble({
                         {p.category}
                       </span>
                     )}
-                    <span className="font-semibold text-green-800 dark:text-green-300">₱{p.price}</span>
+                    <span className="font-semibold text-green-800 dark:text-green-300">{currency}{p.price}</span>
                     {p.stock !== undefined && (
                       <span className="text-[10px] text-green-600 dark:text-green-500">
                         stock: {p.stock}

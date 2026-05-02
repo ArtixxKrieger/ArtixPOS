@@ -49,10 +49,10 @@ interface CacheEntry { data: ContextResult; expiry: number }
 const contextCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 10 * 60 * 1000;
 
-// ─── Per-user rate limiting (30 req/hour sliding window) ──────────────────────
+// ─── Per-user rate limiting (60 req/hour sliding window) ──────────────────────
 interface RateEntry { count: number; resetAt: number }
 const rateLimitStore = new Map<string, RateEntry>();
-const RATE_LIMIT = 30;
+const RATE_LIMIT = 60;
 const RATE_WINDOW = 60 * 60 * 1000;
 
 // Maximum entries kept in each in-memory Map — oldest entry evicted on overflow
@@ -138,6 +138,8 @@ export const SUPPORTED_ACTION_TAGS = [
   "TOGGLE_DISCOUNT_CODE",
   "SHOW_STAFF_INFO",
   "SHOW_CUSTOMER_ORDERS",
+  "ADJUST_STOCK",
+  "UPDATE_CUSTOMER",
   "FOLLOWUP",
 ] as const;
 
@@ -275,7 +277,7 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
   // need every single one in the AI prompt)
   const allDiscountCodes = await storage.getDiscountCodes(userId, { limit: 30 });
 
-  const currency = settings?.currency || "₱";
+  const currency = settings?.currency || "$";
   const storeName = settings?.storeName || "Store";
   const monthlyGoal = settings?.monthlyRevenueGoal ? parseFloat(settings.monthlyRevenueGoal) : null;
   const businessType: string | null = (settings as any)?.businessType ?? null;
@@ -657,7 +659,7 @@ function detectActionCapabilityQuery(messages: ChatMessage[]): {
   return { matched: true, kind: "generic" };
 }
 
-function buildActionCapabilityAnswer(kind: "product" | "expense" | "customer" | "discount" | "generic"): string {
+function buildActionCapabilityAnswer(kind: "product" | "expense" | "customer" | "discount" | "stock" | "update_customer" | "generic", currency = "$"): string {
   if (kind === "product") {
     return `Yes — I can add products straight to your store. Just tell me the **name**, **price**, and (optional) **category**. Examples:
 
@@ -692,17 +694,39 @@ You'll see a confirmation chip before saving.
 [FOLLOWUP]Add customer Maria Santos|Show top customers|Who hasn't bought in 30 days?[/FOLLOWUP]`;
   }
   if (kind === "discount") {
-    return `Yes — I can create discount codes. Just give me a **code**, **type** (% or ₱ off), and **value**:
+    return `Yes — I can create discount codes. Just give me a **code**, **type** (% or ${currency} off), and **value**:
 
 - *Create 10% off code SAVE10*
-- *Make discount FLAT100 ₱100 off*
+- *Make discount FLAT100 ${currency}100 off*
 - *Create 15% code WELCOME15 minimum 500*
 
 A confirmation chip will appear before it goes live.
 
-[FOLLOWUP]Create 10% off SAVE10|Show all discount codes|Make a ₱50 off code[/FOLLOWUP]`;
+[FOLLOWUP]Create 10% off SAVE10|Show all discount codes|Make a ${currency}50 off code[/FOLLOWUP]`;
   }
-  return `Yes — I can do that. I can add products, log expenses, add customers, and create discount codes. Just give me the details (name + price/amount) and I'll show a confirmation chip before saving anything.
+  if (kind === "stock") {
+    return `Yes — I can adjust stock for any product. Just tell me the product name and how much to add or remove:
+
+- *Add 50 to Espresso stock*
+- *Received 100 units of Croissant*
+- *Remove 5 from Milk Tea (broken)*
+
+A confirmation chip will appear before saving.
+
+[FOLLOWUP]Add 50 to Espresso stock|Show low stock items|Update Matcha stock to 30[/FOLLOWUP]`;
+  }
+  if (kind === "update_customer") {
+    return `Yes — I can update a customer's details. Just tell me the name and what to change:
+
+- *Update Maria's phone to 0917-1234567*
+- *Change Juan's email to juan@gmail.com*
+- *Add note to Anna: VIP, orders weekly*
+
+A confirmation chip will appear before saving.
+
+[FOLLOWUP]Update Maria's phone|Add note to top customer|Show all customers[/FOLLOWUP]`;
+  }
+  return `Yes — I can do that. I can add products, log expenses, add customers, adjust stock, and create discount codes. Just give me the details (name + price/amount) and I'll show a confirmation chip before saving anything.
 
 [FOLLOWUP]Add a product|Log an expense|Create a discount code|What else can you do?[/FOLLOWUP]`;
 }
@@ -758,6 +782,8 @@ function buildCapabilitiesAnswer(currency: string): string {
 13. **Bulk import products** — drop a CSV/Excel file in chat
 14. **Bulk price updates** — drop a file with name,price columns
 15. **Create / update / toggle / delete discount codes**
+16. **Adjust stock** — add or subtract units: "Add 50 to Espresso stock"
+17. **Update a customer** — phone, email, notes, name: "Update Maria's phone to 0917-1234567"
 
 **🧭 Navigate the app**
 - Ask "where is X" or "open Y" and I'll point you straight to the page
@@ -1304,6 +1330,7 @@ function buildSystemPrompt(
   businessSubType?: string | null,
   memoryBlock?: string,
   includeHowTo = false,
+  currency = "$",
 ): string {
   const businessCtx = getBusinessContext(businessType ?? null, businessSubType ?? null);
   const howToGuide = includeHowTo ? getHowToGuide(businessType ?? null, businessSubType ?? null) : "";

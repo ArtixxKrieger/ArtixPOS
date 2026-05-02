@@ -221,49 +221,38 @@ function OpeningHoursEditor({
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [hexInput, setHexInput] = useState(value || "#8b5cf6");
+  const [hexInput, setHexInput] = useState(value || BRANCH_COLORS[0]);
 
   useEffect(() => {
-    setHexInput(value || "#8b5cf6");
+    setHexInput(value || BRANCH_COLORS[0]);
   }, [value]);
 
   function handleHexInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value;
+    let v = e.target.value;
+    if (v && !v.startsWith("#")) v = "#" + v;
     setHexInput(v);
     if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v);
   }
 
-  function handleNativePicker(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value;
-    setHexInput(v);
-    onChange(v);
-  }
-
-  const displayColor = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#8b5cf6";
+  const displayColor = /^#[0-9a-fA-F]{6}$/.test(value) ? value : BRANCH_COLORS[0];
+  const fg = contrastColor(displayColor);
 
   return (
-    <div className="space-y-3">
-      {/* Main picker row */}
+    <div className="space-y-4">
+      {/* Swatch preview + hex input */}
       <div className="flex items-center gap-3">
         <div
-          className="relative h-12 w-12 rounded-xl shrink-0 shadow-md border border-border/30 overflow-hidden cursor-pointer"
+          className="h-14 w-14 rounded-2xl shrink-0 shadow-lg border-2 border-white/20 flex items-center justify-center"
           style={{ backgroundColor: displayColor }}
-          title="Click to pick any color"
         >
-          <input
-            type="color"
-            value={displayColor}
-            onChange={handleNativePicker}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            data-testid="input-color-native"
-          />
+          <span className="text-lg font-black" style={{ color: fg }}>A</span>
         </div>
         <div className="flex-1">
-          <p className="text-[11px] font-semibold text-muted-foreground mb-1">Hex code — or click the swatch to pick any color</p>
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Custom hex code</p>
           <Input
             value={hexInput}
             onChange={handleHexInput}
-            placeholder="#8b5cf6"
+            placeholder={BRANCH_COLORS[0]}
             className="font-mono text-sm h-9"
             maxLength={7}
             data-testid="input-color-hex"
@@ -271,26 +260,31 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
         </div>
       </div>
 
-      {/* Preset swatches */}
+      {/* Preset grid */}
       <div>
-        <p className="text-[11px] font-semibold text-muted-foreground mb-2">Quick presets</p>
-        <div className="flex items-center gap-2 flex-wrap">
-          {BRANCH_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => { onChange(c); setHexInput(c); }}
-              data-testid={`color-swatch-${c.replace("#", "")}`}
-              className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center"
-              style={{
-                backgroundColor: c,
-                borderColor: value === c ? "white" : "transparent",
-                boxShadow: value === c ? `0 0 0 2.5px ${c}` : undefined,
-              }}
-            >
-              {value === c && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
-            </button>
-          ))}
+        <p className="text-[11px] font-semibold text-muted-foreground mb-2">Presets</p>
+        <div className="grid grid-cols-5 gap-2">
+          {BRANCH_COLORS.map((c) => {
+            const selected = value === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => { onChange(c); setHexInput(c); }}
+                data-testid={`color-swatch-${c.replace("#", "")}`}
+                className="h-11 rounded-xl transition-all duration-150 flex items-center justify-center"
+                style={{
+                  backgroundColor: c,
+                  outline: selected ? `3px solid ${c}` : "none",
+                  outlineOffset: selected ? "2px" : "0",
+                  transform: selected ? "scale(1.08)" : "scale(1)",
+                  boxShadow: selected ? `0 4px 14px ${c}66` : "0 1px 4px rgba(0,0,0,0.18)",
+                }}
+              >
+                {selected && <Check className="h-4 w-4 text-white drop-shadow" strokeWidth={3} />}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -607,41 +601,45 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                     name={watchedName ?? ""}
                   />
 
-                  <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Branch Name</FormLabel>
-                      <FormControl>
-                        <Input data-testid="input-branch-name" placeholder="Main Branch" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <FormField control={form.control} name="businessType" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Business Type</FormLabel>
-                      <Select value={field.value ?? ""} onValueChange={(v) => { field.onChange(v); form.setValue("businessSubType", ""); }}>
+                  {!isEditing && (
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Branch Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger data-testid="select-branch-business-type">
-                            <SelectValue placeholder="What kind of business?" />
-                          </SelectTrigger>
+                          <Input data-testid="input-branch-name" placeholder="Main Branch" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {BUSINESS_TYPES.map((t) => (
-                            <SelectItem key={t.value} value={t.value} data-testid={`option-business-type-${t.value}`}>{t.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
 
-                  {subtypeOptions.length > 0 && (
+                  {!isEditing && (
+                    <FormField control={form.control} name="businessType" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Type</FormLabel>
+                        <Select value={field.value ?? ""} onValueChange={(v) => { field.onChange(v); form.setValue("businessSubType", ""); }}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-branch-business-type">
+                              <SelectValue placeholder="What kind of business?" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BUSINESS_TYPES.map((t) => (
+                              <SelectItem key={t.value} value={t.value} data-testid={`option-business-type-${t.value}`}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
+
+                  {!isEditing && subtypeOptions.length > 0 && (
                     <FormField control={form.control} name="businessSubType" render={({ field }) => (
-                      <FormItem className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/5 to-indigo-500/5 p-3 space-y-2">
+                      <FormItem className="rounded-2xl border border-border/40 bg-secondary/30 p-3 space-y-2">
                         <div className="flex items-center gap-2">
-                          <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                          <FormLabel className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
+                          <FormLabel className="text-xs font-bold uppercase tracking-wider text-primary">
                             What kind of {BUSINESS_TYPES.find(t => t.value === selectedType)?.label.toLowerCase()}?
                           </FormLabel>
                         </div>

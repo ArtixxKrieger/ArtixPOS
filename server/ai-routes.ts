@@ -1187,7 +1187,7 @@ CORE FEATURES (available to all businesses):
 
 ▸ Discount Codes
 1. Go to Discount Codes in the sidebar
-2. Tap + to create a new code — set the code name, type (% or fixed ${currency}), and value
+2. Tap + to create a new code — set the code name, type (% or fixed $), and value
 3. Optional: set expiry date, minimum order amount, or max uses
 4. To use at POS: tap the % icon in the cart and enter the code
 5. Toggle codes on/off anytime without deleting them
@@ -2837,7 +2837,7 @@ export function registerAiRoutes(app: Express) {
       }
       const currentStock = Number(product.stock ?? 0);
       const newStock = Math.max(0, currentStock + adjustment);
-      await storage.updateProduct(uid, product.id, { stock: newStock });
+      await storage.updateProduct(product.id, uid, { stock: newStock });
       res.json({ success: true, productId: product.id, name: product.name, oldStock: currentStock, newStock, adjustment });
     } catch (err: any) {
       console.error("AI adjust-stock error:", err);
@@ -2924,7 +2924,7 @@ export function registerAiRoutes(app: Express) {
         return res.status(400).json({ message: "No fields to update." });
       }
 
-      await storage.updateCustomer(uid, customer.id, updates);
+      await storage.updateCustomer(customer.id, uid, updates);
       res.json({ success: true, customerId: customer.id, updated: updates });
     } catch (err: any) {
       console.error("AI update-customer error:", err);

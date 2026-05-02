@@ -1033,7 +1033,7 @@ function MessageBubble({
     expensePayload, discountPayload, updateDiscountPayload, deleteDiscountPayload,
     toggleDiscountPayload, staffInfoPayload, customerOrdersPayload,
     undoAddProductPayload, undoLogExpensePayload, followups,
-    adjustStockPayload, updateCustomerPayload,
+    adjustStockPayload, updateCustomerPayload, suggestReorderPayload,
   } = parseImportAction(msg.content);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmPrice, setConfirmPrice] = useState(false);

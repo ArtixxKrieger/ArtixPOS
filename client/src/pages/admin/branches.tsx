@@ -297,6 +297,138 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
+// ─── Color Live Preview ───────────────────────────────────────────────────────
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+  return [
+    parseInt(clean.slice(0, 2), 16),
+    parseInt(clean.slice(2, 4), 16),
+    parseInt(clean.slice(4, 6), 16),
+  ];
+}
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  const [rs, gs, bs] = [r, g, b].map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+function contrastColor(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "#ffffff";
+  const lum = relativeLuminance(...rgb);
+  return lum > 0.179 ? "#1a1a2e" : "#ffffff";
+}
+
+function alphaHex(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  return `${hex}${a}`;
+}
+
+function ColorPreview({ color, name }: { color: string; name: string }) {
+  const displayColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#8b5cf6";
+  const fg = contrastColor(displayColor);
+  const bg12 = alphaHex(displayColor, 0.12);
+  const bg20 = alphaHex(displayColor, 0.20);
+  const branchLabel = name || "Branch Name";
+
+  return (
+    <div
+      className="rounded-2xl border overflow-hidden"
+      style={{ borderColor: alphaHex(displayColor, 0.3) }}
+      data-testid="color-preview-panel"
+    >
+      {/* Header strip */}
+      <div
+        className="flex items-center gap-3 px-4 py-3"
+        style={{ backgroundColor: displayColor }}
+      >
+        <div
+          className="h-8 w-8 rounded-xl flex items-center justify-center text-sm font-black"
+          style={{ backgroundColor: "rgba(255,255,255,0.22)", color: fg }}
+        >
+          {branchLabel.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm truncate" style={{ color: fg }}>{branchLabel}</p>
+          <p className="text-[10px] opacity-75" style={{ color: fg }}>Live preview</p>
+        </div>
+        {/* Active badge */}
+        <span
+          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: "rgba(255,255,255,0.22)", color: fg }}
+        >
+          Active
+        </span>
+      </div>
+
+      {/* Body */}
+      <div
+        className="px-4 py-3 space-y-3"
+        style={{ backgroundColor: bg12 }}
+      >
+        {/* Buttons row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-bold shadow-sm transition-opacity"
+            style={{ backgroundColor: displayColor, color: fg }}
+          >
+            <ShoppingCart className="h-3 w-3" />
+            New Sale
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-bold border"
+            style={{ borderColor: alphaHex(displayColor, 0.5), color: displayColor, backgroundColor: bg20 }}
+          >
+            <TrendingUp className="h-3 w-3" />
+            Analytics
+          </button>
+          <span
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: bg20, color: displayColor }}
+          >
+            Open Now
+          </span>
+        </div>
+
+        {/* Mini stat cards */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Today", value: "$0.00" },
+            { label: "Orders", value: "0" },
+            { label: "Staff", value: "0" },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-xl p-2 text-center space-y-0.5"
+              style={{ backgroundColor: "rgba(255,255,255,0.08)", border: `1px solid ${alphaHex(displayColor, 0.18)}` }}
+            >
+              <p className="text-xs font-black" style={{ color: displayColor }}>{s.value}</p>
+              <p className="text-[9px] text-muted-foreground font-medium">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Sidebar nav hint */}
+        <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ backgroundColor: bg20 }}>
+          <div className="h-3.5 w-3.5 rounded" style={{ backgroundColor: displayColor }} />
+          <span className="text-[10px] font-semibold" style={{ color: displayColor }}>
+            Sidebar & nav use this color
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Branch Form Dialog ───────────────────────────────────────────────────────
 
 function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: () => void; branch?: Branch }) {
@@ -332,6 +464,8 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
 
   const isEditing = !!branch;
   const selectedType = form.watch("businessType");
+  const watchedColor = form.watch("color");
+  const watchedName = form.watch("name");
   const subtypeOptions = BUSINESS_SUBTYPES[selectedType] ?? [];
 
   useEffect(() => {
@@ -466,6 +600,12 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                       </FormControl>
                     </FormItem>
                   )} />
+
+                  {/* Live preview */}
+                  <ColorPreview
+                    color={watchedColor ?? BRANCH_COLORS[0]}
+                    name={watchedName ?? ""}
+                  />
 
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>

@@ -455,6 +455,8 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   const [seedTemplate, setSeedTemplate] = useState<BranchSeedTemplate | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
 
+  const isEditing = !!branch;
+
   const form = useForm<BranchForm>({
     resolver: zodResolver(isEditing ? branchEditSchema : branchSchema),
     defaultValues: {
@@ -473,8 +475,6 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       businessSubType: branch?.businessSubType ?? "",
     },
   });
-
-  const isEditing = !!branch;
   const selectedType = form.watch("businessType");
   const watchedColor = form.watch("color");
   const watchedName = form.watch("name");

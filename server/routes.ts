@@ -1289,6 +1289,7 @@ export async function registerRoutes(
     try {
       const input = insertServiceStaffSchema.parse(req.body);
       const member = await storage.createServiceStaff(userId(req), input);
+      await auditLog(req, "create", "service_staff", String(member.id), { name: member.name });
       res.status(201).json(member);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1301,6 +1302,7 @@ export async function registerRoutes(
       const input = insertServiceStaffSchema.partial().parse(req.body);
       const member = await storage.updateServiceStaff(Number(req.params.id), userId(req), input);
       if (!member) return res.status(404).json({ message: "Staff member not found" });
+      await auditLog(req, "update", "service_staff", String(member.id), { name: member.name });
       res.json(member);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1310,7 +1312,9 @@ export async function registerRoutes(
 
   app.delete("/api/service-staff/:id", requireAuth, requireProOrBusinessFeature("/staff"), async (req, res, next) => {
     try {
+      const existing = await storage.getServiceStaffMember(Number(req.params.id), userId(req));
       await storage.deleteServiceStaff(Number(req.params.id), userId(req));
+      await auditLog(req, "delete", "service_staff", String(req.params.id), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
   });
@@ -1326,6 +1330,7 @@ export async function registerRoutes(
     try {
       const input = insertServiceRoomSchema.parse(req.body);
       const room = await storage.createServiceRoom(userId(req), input);
+      await auditLog(req, "create", "service_room", String(room.id), { name: room.name });
       res.status(201).json(room);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1338,6 +1343,7 @@ export async function registerRoutes(
       const input = insertServiceRoomSchema.partial().parse(req.body);
       const room = await storage.updateServiceRoom(Number(req.params.id), userId(req), input);
       if (!room) return res.status(404).json({ message: "Room not found" });
+      await auditLog(req, "update", "service_room", String(room.id), { name: room.name });
       res.json(room);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1347,7 +1353,9 @@ export async function registerRoutes(
 
   app.delete("/api/service-rooms/:id", requireAuth, requireProOrBusinessFeature("/rooms"), async (req, res, next) => {
     try {
+      const existing = await storage.getServiceRooms(userId(req)).then(list => list.find(r => r.id === Number(req.params.id)));
       await storage.deleteServiceRoom(Number(req.params.id), userId(req));
+      await auditLog(req, "delete", "service_room", String(req.params.id), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
   });
@@ -1374,6 +1382,7 @@ export async function registerRoutes(
     try {
       const input = insertAppointmentSchema.parse(req.body);
       const appt = await storage.createAppointment(userId(req), input);
+      await auditLog(req, "create", "appointment", String(appt.id), { title: appt.title, customerId: appt.customerId });
       res.status(201).json(appt);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1386,6 +1395,7 @@ export async function registerRoutes(
       const input = insertAppointmentSchema.partial().parse(req.body);
       const appt = await storage.updateAppointment(Number(req.params.id), userId(req), input);
       if (!appt) return res.status(404).json({ message: "Appointment not found" });
+      await auditLog(req, "update", "appointment", String(appt.id), { title: appt.title, customerId: appt.customerId });
       res.json(appt);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1649,17 +1659,21 @@ export async function registerRoutes(
   app.post("/api/payroll/periods/:id/finalize", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const updated = await storage.finalizePayrollPeriod(Number(req.params.id), userId(req));
     if (!updated) return res.status(404).json({ message: "Period not found" });
+    await auditLog(req, "finalize", "payroll_period", String(updated.id), { name: updated.name });
     res.json(updated);
   });
 
   app.post("/api/payroll/periods/:id/pay", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const updated = await storage.markPayrollPeriodPaid(Number(req.params.id), userId(req));
     if (!updated) return res.status(404).json({ message: "Period not found" });
+    await auditLog(req, "pay", "payroll_period", String(updated.id), { name: updated.name });
     res.json(updated);
   });
 
   app.delete("/api/payroll/periods/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const existing = await storage.getPayrollPeriod(Number(req.params.id), userId(req));
     await storage.deletePayrollPeriod(Number(req.params.id), userId(req));
+    await auditLog(req, "delete", "payroll_period", String(req.params.id), { name: existing?.name });
     res.status(204).end();
   });
 

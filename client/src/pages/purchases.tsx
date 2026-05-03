@@ -52,21 +52,29 @@ export default function PurchasesPage() {
 
   const receiveMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/purchase-orders/${id}/receive`),
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/purchase-orders"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/purchase-orders"]);
+      queryClient.setQueryData<any[]>(["/api/purchase-orders"], (old) => old ? old.map(p => p.id === id ? { ...p, status: "received" } : p) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: "Failed to receive PO", variant: "destructive" }); },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({ title: "Purchase order marked as received — stock updated" });
     },
-    onError: () => toast({ title: "Failed to receive PO", variant: "destructive" }),
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/purchase-orders/${id}/cancel`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      toast({ title: "Purchase order cancelled" });
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/purchase-orders"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/purchase-orders"]);
+      queryClient.setQueryData<any[]>(["/api/purchase-orders"], (old) => old ? old.map(p => p.id === id ? { ...p, status: "cancelled" } : p) : []);
+      return { previous };
     },
-    onError: () => toast({ title: "Failed to cancel PO", variant: "destructive" }),
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: "Failed to cancel PO", variant: "destructive" }); },
+    onSuccess: () => { toast({ title: "Purchase order cancelled" }); },
   });
 
   function closeDialog() {

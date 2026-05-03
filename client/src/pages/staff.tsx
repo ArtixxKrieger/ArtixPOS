@@ -182,18 +182,26 @@ export default function StaffPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/service-staff/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/service-staff"] });
-      toast({ title: "Staff member removed" });
-      setConfirmDelete(undefined);
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/service-staff"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/service-staff"]);
+      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => old ? old.filter(s => s.id !== id) : []);
+      return { previous };
     },
-    onError: () => toast({ title: "Error", description: "Failed to delete", variant: "destructive" }),
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); toast({ title: "Error", description: "Failed to delete", variant: "destructive" }); },
+    onSuccess: () => { toast({ title: "Staff member removed" }); setConfirmDelete(undefined); },
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) =>
       apiRequest("PUT", `/api/service-staff/${id}`, { isActive }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/service-staff"] }),
+    onMutate: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/service-staff"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/service-staff"]);
+      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => old ? old.map(s => s.id === id ? { ...s, isActive } : s) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); },
   });
 
   const filtered = staffList.filter((s) =>

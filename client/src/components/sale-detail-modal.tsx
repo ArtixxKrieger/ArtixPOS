@@ -252,14 +252,14 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 </div>
   ${showOrderNumber ? `<div class="row muted" style="font-size:${fs - 3}px;margin-bottom:4px"><span>Order #</span><span>${txn}</span></div>` : ""}
   <div class="row muted" style="font-size:${fs - 3}px"><span>Receipt #</span><span>${receiptNumber}</span></div>
-  ${orNumber ? `<div class="row muted" style="font-size:${fs - 3}px"><span>O.R. #</span><span>${orNumber}</span></div>` : ""}
-  ${invoiceNumber ? `<div class="row muted" style="font-size:${fs - 3}px"><span>Invoice #</span><span>${invoiceNumber}</span></div>` : ""}
+  <div class="row muted" style="font-size:${fs - 3}px"><span>O.R. #</span><span>${orNumber}</span></div>
+  <div class="row muted" style="font-size:${fs - 3}px"><span>Invoice #</span><span>${invoiceNumber || "-"}</span></div>
 <div class="line"></div>
 ${itemsHtml}
 <div class="line"></div>
 <div class="row muted"><span>Subtotal</span><span class="price">${fmt(subtotal)}</span></div>
 ${discount > 0 ? `<div class="row" style="color:#000;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span class="price">-${fmt(discount)}</span></div>` : ""}
-${tax > 0 ? `<div class="row muted"><span>${(settings as any)?.taxRate ? `VAT (${(settings as any).taxRate}%)` : "VAT"}</span><span class="price">${fmt(tax)}</span></div>` : ""}
+  <div class="row muted"><span>${(settings as any)?.taxRate ? `VAT (${(settings as any).taxRate}%)` : "VAT"}</span><span class="price">${fmt(tax)}</span></div>
 <div class="line"></div>
 <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(total)}</span></div>
 <div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span class="price">${fmt(paymentAmount)}</span></div>

@@ -595,10 +595,10 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="w-full grid grid-cols-4 h-9">
-                  <TabsTrigger value="basic" className="text-xs">Basic</TabsTrigger>
-                  <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
-                  <TabsTrigger value="hours" className="text-xs">Hours</TabsTrigger>
-                  <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
+                  <TabsTrigger value="basic" className="text-xs" data-testid="tab-branch-basic">Basic</TabsTrigger>
+                  <TabsTrigger value="details" className="text-xs" data-testid="tab-branch-details">Details</TabsTrigger>
+                  <TabsTrigger value="hours" className="text-xs" data-testid="tab-branch-hours">Hours</TabsTrigger>
+                  <TabsTrigger value="settings" className="text-xs" data-testid="tab-branch-settings">Settings</TabsTrigger>
                 </TabsList>
 
                 {/* Basic Tab */}

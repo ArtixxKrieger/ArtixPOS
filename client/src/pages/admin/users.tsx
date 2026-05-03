@@ -183,6 +183,7 @@ function InviteLinkDialog({ open, onClose }: { open: boolean; onClose: () => voi
                   value={result.link}
                   className="text-xs h-9 bg-background border-border/60 font-mono"
                   onClick={(e) => (e.target as HTMLInputElement).select()}
+                  data-testid="input-invite-link"
                 />
                 <Button
                   size="sm"
@@ -203,10 +204,10 @@ function InviteLinkDialog({ open, onClose }: { open: boolean; onClose: () => voi
               Share this link with your staff. When they click it and sign in, they'll automatically join your team.
             </p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setResult(null); form.reset(); }}>
+              <Button variant="outline" onClick={() => { setResult(null); form.reset(); }} data-testid="button-generate-another-invite">
                 Generate Another
               </Button>
-              <Button onClick={handleClose}>Done</Button>
+              <Button onClick={handleClose} data-testid="button-close-invite-dialog">Done</Button>
             </DialogFooter>
           </div>
         )}
@@ -249,12 +250,13 @@ function BranchAssignDialog({ user, open, onClose }: { user: TenantUser; open: b
             const assigned = user.branches.includes(branch.id);
             return (
               <div key={branch.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/20 hover:bg-secondary/50 transition-colors">
-                <Checkbox
+            <Checkbox
                   id={`assign-${branch.id}`}
                   checked={assigned}
                   disabled={isPending}
                   onCheckedChange={(checked) => toggle(branch.id, !!checked === false)}
                   className="shrink-0"
+                  data-testid={`checkbox-branch-${branch.id}`}
                 />
                 <label htmlFor={`assign-${branch.id}`} className="flex-1 text-sm font-medium cursor-pointer flex items-center gap-2 min-w-0">
                   <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />

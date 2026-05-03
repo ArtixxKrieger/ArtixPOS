@@ -258,6 +258,8 @@ export async function registerRoutes(
       const csv = [HEADERS.join(","), ...rows].join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", "attachment; filename=\"products.csv\"");
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Pragma", "no-cache");
       res.send(csv);
     } catch (err) { next(err); }
   });

@@ -219,7 +219,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   await db.update(shifts).set({ status: "closed" } as any).where(inArray(shifts.userId, uids));
   await db.update(discountCodes).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(discountCodes.userId, uids));
   await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(inArray(expenses.userId, uids));
-  await db.delete(wifiVouchers).where(inArray(wifiVouchers.userId, uids));
+  await db.update(wifiVouchers).set({ status: "expired" } as any).where(inArray(wifiVouchers.userId, uids));
 
   // 2. Payroll entries (FK → payrollPeriods.id AND users.id)
   if (userPayrollPeriodIds.length > 0) {
@@ -234,7 +234,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   }
 
   // 4. Invite tokens — referenced by both createdBy AND usedBy
-  await db.delete(inviteTokens).where(or(
+  await db.update(inviteTokens).set({ expiresAt: new Date().toISOString() } as any).where(or(
     inArray(inviteTokens.createdBy, uids),
     inArray(inviteTokens.usedBy, uids),
   ));
@@ -277,10 +277,10 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(inArray(products.userId, uids));
 
   // 13. Audit logs (no FK — GDPR hygiene)
-  await db.delete(auditLogs).where(inArray(auditLogs.userId, uids));
+  await db.update(auditLogs).set({ metadata: { deleted: true } } as any).where(inArray(auditLogs.userId, uids));
 
   // 14. Settings & branch links
-  await db.delete(userSettings).where(inArray(userSettings.userId, uids));
+  await db.update(userSettings).set({ onboardingComplete: 0 } as any).where(inArray(userSettings.userId, uids));
   await db.delete(userBranches).where(inArray(userBranches.userId, uids));
 
   // (caller deletes the user rows themselves)
@@ -303,13 +303,13 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
       db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId))
     )
   );
-  await db.delete(branches).where(eq(branches.tenantId, tenantId));
+  await db.update(branches).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(branches.tenantId, tenantId));
   await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
   await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
   await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
   await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
-  await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId));
-  await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, tenantId));
+  await db.update(auditLogs).set({ metadata: { tenantDeleted: true } } as any).where(eq(auditLogs.tenantId, tenantId));
+  await db.update(inviteTokens).set({ expiresAt: new Date().toISOString() } as any).where(eq(inviteTokens.tenantId, tenantId));
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
 

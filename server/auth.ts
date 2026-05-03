@@ -700,6 +700,7 @@ export function setupAuth(app: Express) {
       res.setHeader("Content-Type", "application/json; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Pragma", "no-cache");
       res.send(JSON.stringify(archive, null, 2));
     } catch (err: any) {
       console.error("[export-account] failed:", err?.message ?? err);

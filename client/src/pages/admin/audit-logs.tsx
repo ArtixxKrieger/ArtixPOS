@@ -82,7 +82,13 @@ function describeEvent(action: string, entity: string, metadata: Record<string, 
   if (action === "assign_branch") return `Assigned a user to a branch`;
   if (action === "remove_branch") return `Removed a user from a branch`;
   if (action === "update" && entity === "tenant") return `Updated organization name to "${meta.name}"`;
-  if (action === "delete_sale") return `Deleted sale (${meta.total ?? "?"})`;
+  if (action === "delete_sale") {
+    const parts = [`Deleted sale (${meta.total ?? "?"})`];
+    if (meta.receiptNumber) parts.push(`Receipt #${meta.receiptNumber}`);
+    if (meta.orNumber) parts.push(`O.R. #${meta.orNumber}`);
+    if (meta.invoiceNumber) parts.push(`Invoice #${meta.invoiceNumber}`);
+    return parts.join(" · ");
+  }
   if (action === "create_invite") return `Sent invite for role: ${meta.role}`;
   if (action === "ban") return `Revoked access for a user`;
   if (action === "unban") return `Restored access for a user`;

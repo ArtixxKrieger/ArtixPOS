@@ -97,6 +97,20 @@ export default function Shifts() {
     : 0;
 
   const closedShifts = useMemo(() => shifts.filter(s => s.status === "closed"), [shifts]);
+  const dayEndSummary = useMemo(() => {
+    const recent = closedShifts.slice(0, 1)[0];
+    if (!recent) return null;
+    return {
+      openedAt: recent.openedAt,
+      closedAt: recent.closedAt,
+      openingBalance: recent.openingBalance,
+      closingBalance: recent.closingBalance ?? "0",
+      sales: recent.totalSales ?? "0",
+      expenses: recent.totalExpenses ?? "0",
+      net: parseNumeric(recent.totalSales ?? "0") - parseNumeric(recent.totalExpenses ?? "0"),
+      count: recent.salesCount ?? 0,
+    };
+  }, [closedShifts]);
 
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
@@ -196,6 +210,22 @@ export default function Shifts() {
       {/* Shift History */}
       {closedShifts.length > 0 && (
         <div className="glass-card rounded-2xl overflow-hidden">
+          {dayEndSummary && (
+            <div className="px-4 py-3 border-b border-border/40 bg-secondary/20">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h3 className="font-semibold text-sm">Day-End Summary</h3>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {format(new Date(dayEndSummary.openedAt!), "MMM d")}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <AmountCell label="Gross" value={formatCurrency(parseNumeric(dayEndSummary.sales) + parseNumeric(dayEndSummary.expenses), currency)} />
+                <AmountCell label="Net" value={formatCurrency(dayEndSummary.sales, currency)} />
+                <AmountCell label="Expenses" value={formatCurrency(dayEndSummary.expenses, currency)} color="text-rose-500" />
+                <AmountCell label="Transactions" value={String(dayEndSummary.count)} color="text-primary" />
+              </div>
+            </div>
+          )}
 
           {/* Header with filter controls */}
           <div className="px-4 py-3 border-b border-border/40 space-y-2.5">

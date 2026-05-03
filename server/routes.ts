@@ -140,6 +140,17 @@ export async function registerRoutes(
     res.json(product);
   });
 
+  app.get("/api/products/low-stock", requireAuth, async (req, res) => {
+    const products = await storage.getProducts(userId(req));
+    const lowStockProducts = products.filter(p =>
+      p.trackStock &&
+      typeof p.stock === "number" &&
+      typeof p.lowStockThreshold === "number" &&
+      p.stock <= p.lowStockThreshold
+    ).sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0));
+    res.json(lowStockProducts);
+  });
+
   app.post(api.products.create.path, requireAuth, async (req, res) => {
     try {
       const tid = tenantId(req);

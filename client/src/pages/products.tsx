@@ -443,7 +443,7 @@ export default function Products() {
                         )} />
                         <FormField control={form.control} name="lowStockThreshold" render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="font-semibold text-sm">Low Stock Alert</FormLabel>
+                            <FormLabel className="font-semibold text-sm">Low Stock Threshold</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -455,6 +455,7 @@ export default function Products() {
                                 data-testid="input-product-threshold"
                               />
                             </FormControl>
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Get alerts when stock reaches this number. Will appear on the dashboard.</p>
                           </FormItem>
                         )} />
                       </div>

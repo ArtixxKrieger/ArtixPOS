@@ -1054,7 +1054,9 @@ export async function registerRoutes(
 
   app.delete("/api/suppliers/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
+      const existing = await storage.getSuppliers(userId(req)).then(list => list.find(s => s.id === Number(req.params.id)));
       await storage.deleteSupplier(Number(req.params.id), userId(req));
+      await auditLog(req, "delete", "supplier", String(req.params.id), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
   });
@@ -1088,6 +1090,7 @@ export async function registerRoutes(
   app.post("/api/purchase-orders/:id/cancel", requireAuth, requirePro, async (req, res) => {
     const po = await storage.cancelPurchaseOrder(Number(req.params.id), userId(req));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
+    await auditLog(req, "cancel", "purchase_order", String(po.id), { totalAmount: po.totalAmount });
     res.json(po);
   });
 
@@ -1391,7 +1394,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
+    const existing = await storage.getAppointment(Number(req.params.id), userId(req));
     await storage.deleteAppointment(Number(req.params.id), userId(req));
+    await auditLog(req, "delete", "appointment", String(req.params.id), { title: existing?.title, customerId: existing?.customerId });
     res.status(204).end();
   });
 
@@ -1406,6 +1411,7 @@ export async function registerRoutes(
     try {
       const input = insertMembershipPlanSchema.parse(req.body);
       const plan = await storage.createMembershipPlan(userId(req), input);
+      await auditLog(req, "create", "membership_plan", String(plan.id), { name: plan.name, price: plan.price });
       res.status(201).json(plan);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1418,6 +1424,7 @@ export async function registerRoutes(
       const input = insertMembershipPlanSchema.partial().parse(req.body);
       const plan = await storage.updateMembershipPlan(Number(req.params.id), userId(req), input);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
+      await auditLog(req, "update", "membership_plan", String(plan.id), { name: plan.name, price: plan.price });
       res.json(plan);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1426,7 +1433,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/membership-plans/:id", requireAuth, requireProOrBusinessFeature("/memberships"), requireManagerOrAbove, async (req, res) => {
+    const existing = await storage.getMembershipPlans(userId(req)).then(list => list.find(p => p.id === Number(req.params.id)));
     await storage.deleteMembershipPlan(Number(req.params.id), userId(req));
+    await auditLog(req, "delete", "membership_plan", String(req.params.id), { name: existing?.name });
     res.status(204).end();
   });
 
@@ -1447,6 +1456,7 @@ export async function registerRoutes(
     try {
       const input = insertMembershipSchema.parse(req.body);
       const m = await storage.createMembership(userId(req), input);
+      await auditLog(req, "create", "membership", String(m.id), { customerId: m.customerId, planId: m.planId, status: m.status });
       res.status(201).json(m);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1459,6 +1469,7 @@ export async function registerRoutes(
       const input = insertMembershipSchema.partial().parse(req.body);
       const m = await storage.updateMembership(Number(req.params.id), userId(req), input);
       if (!m) return res.status(404).json({ message: "Membership not found" });
+      await auditLog(req, "update", "membership", String(m.id), { status: m.status, planId: m.planId });
       res.json(m);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1467,7 +1478,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/memberships/:id", requireAuth, requireProOrBusinessFeature("/memberships"), requireManagerOrAbove, async (req, res) => {
+    const existing = await storage.getMembership(Number(req.params.id), userId(req));
     await storage.deleteMembership(Number(req.params.id), userId(req));
+    await auditLog(req, "delete", "membership", String(req.params.id), { customerId: existing?.customerId, planId: existing?.planId });
     res.status(204).end();
   });
 
@@ -1574,6 +1587,7 @@ export async function registerRoutes(
     try {
       const input = insertWifiVoucherSchema.parse(req.body);
       const created = await storage.createWifiVoucher(userId(req), input);
+      await auditLog(req, "create", "wifi_voucher", String(created.id), { code: created.code });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1586,6 +1600,7 @@ export async function registerRoutes(
     if (!code) return res.status(400).json({ message: "code is required" });
     const v = await storage.redeemWifiVoucher(code, userId(req));
     if (!v) return res.status(404).json({ message: "Voucher not found" });
+    await auditLog(req, "redeem", "wifi_voucher", String(v.id), { code: v.code });
     res.json(v);
   });
 

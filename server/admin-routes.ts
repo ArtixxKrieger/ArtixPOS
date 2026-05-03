@@ -772,7 +772,7 @@ export function registerAdminRoutes(app: Express) {
 
   // ─── Branch Switch ────────────────────────────────────────────────────────
 
-  app.post("/api/admin/switch-branch", requireAuth, requireTenant, async (req, res, next) => {
+  app.post("/api/admin/switch-branch", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
       const { branchId } = z.object({ branchId: z.number().nullable() }).parse(req.body);

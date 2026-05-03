@@ -28,6 +28,7 @@ import {
   wifiVouchers,
   payrollPeriods,
   payrollEntries,
+  auditLogs,
   type Ingredient,
   type InsertIngredient,
   type ProductRecipe,
@@ -594,6 +595,20 @@ export class DatabaseStorage implements IStorage {
       await (db.update(sales) as any)
         .set({ deletedAt: new Date().toISOString(), deletedBy })
         .where(eq(sales.id, id));
+      await db.insert(auditLogs).values({
+        userId,
+        action: "delete_sale",
+        entity: "sale",
+        entityId: String(id),
+        description: "Soft-deleted sale",
+        metadata: {
+          saleId: id,
+          receiptNumber: (sale as any).receiptNumber ?? null,
+          orNumber: (sale as any).orNumber ?? null,
+          invoiceNumber: (sale as any).invoiceNumber ?? null,
+          deletedBy,
+        } as any,
+      } as any);
       return true;
     } catch (error) {
       console.error("Error soft-deleting sale:", error);

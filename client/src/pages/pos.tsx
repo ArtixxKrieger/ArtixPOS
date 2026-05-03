@@ -1123,7 +1123,7 @@ export default function POS() {
                           ? "bg-rose-500/90 text-white border-rose-300/30"
                           : "bg-amber-500/90 text-white border-amber-300/30",
                       ].join(" ")}>
-                        {product.stock === 0 ? "Out of stock" : "Low stock"}
+                        {product.stock === 0 ? "Out of stock" : `${product.stock} left`}
                       </div>
                     )}
                   </div>

@@ -122,6 +122,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const accreditationNumber = s.accreditationNumber ?? "";
   const machineSerialNumber = s.machineSerialNumber ?? "";
   const vatRegistered = (s.vatRegistered ?? 1) === 1;
+  const taxRate = parseFloat(s.taxRate ?? "12") || 12;
 
   // BIR receipt fields
   const isScPwd = receipt.discountType === "sc" || receipt.discountType === "pwd";
@@ -268,7 +269,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <div class="line"></div>
     ${vatRegistered ? `
     <div class="row muted" style="font-size:${fs - 2}px"><span>VATable Sales</span><span class="price">${fmt(vatableSales)}</span></div>
-    <div class="row muted" style="font-size:${fs - 2}px"><span>VAT Amount (12%)</span><span class="price">${fmt(receipt.tax)}</span></div>
+    <div class="row muted" style="font-size:${fs - 2}px"><span>VAT Amount (${taxRate}%)</span><span class="price">${fmt(receipt.tax)}</span></div>
     ${vatExemptSales > 0 ? `<div class="row muted" style="font-size:${fs - 2}px"><span>VAT-Exempt Sales</span><span class="price">${fmt(vatExemptSales)}</span></div>` : ""}
     <div class="line"></div>
     ` : ""}
@@ -445,7 +446,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                     <span className="tabular-nums">{formatCurrency(vatableSales, currency)}</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground text-[11px]">
-                    <span>VAT Amount (12%)</span>
+                    <span>VAT Amount ({taxRate}%)</span>
                     <span className="tabular-nums">{formatCurrency(receipt.tax, currency)}</span>
                   </div>
                   {vatExemptSales > 0 && (

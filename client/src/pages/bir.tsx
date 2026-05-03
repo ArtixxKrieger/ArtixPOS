@@ -10,9 +10,10 @@ import {
   CheckCircle2, XCircle, AlertTriangle, FileText, Download,
   Printer, Receipt, CreditCard, Banknote, Smartphone,
   Hash, BarChart3, Tag, ShieldCheck, ExternalLink,
-  RefreshCw, Clock, TrendingUp, Users,
+  RefreshCw, Clock, TrendingUp, Users, Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { type Shift } from "@shared/schema";
 
 interface XReportData {
   shift: any | null;
@@ -29,6 +30,24 @@ interface XReportData {
   vatAmountTotal: number;
   paymentBreakdown: Record<string, { count: number; total: number }>;
   discountBreakdown: Record<string, { count: number; total: number; discount: number }>;
+}
+
+interface ZReportData {
+  shift: Shift;
+  orFrom: string | null;
+  orTo: string | null;
+  totalTransactions: number;
+  grossSales: number;
+  netSales: number;
+  totalDiscount: number;
+  totalLoyaltyDiscount: number;
+  paymentBreakdown: Record<string, { count: number; total: number }>;
+  discountBreakdown: Record<string, { count: number; total: number; discount: number }>;
+  vatableSalesTotal: number;
+  vatExemptTotal: number;
+  zeroRatedTotal: number;
+  vatAmountTotal: number;
+  topItems: { name: string; qty: number; total: number }[];
 }
 
 interface MonthlySummary {
@@ -125,6 +144,19 @@ export default function BIRPage() {
   const taxRate = parseNumeric((settings as any)?.taxRate || 0);
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(startOfMonth(new Date()), "yyyy-MM"));
+  const [zReportShiftId, setZReportShiftId] = useState<number | null>(null);
+
+  const { data: shifts = [] } = useQuery<Shift[]>({ queryKey: ["/api/shifts"] });
+  const closedShifts = useMemo(() => (shifts as Shift[]).filter((s: Shift) => s.status === "closed").slice(0, 10), [shifts]);
+
+  const { data: zReport, isLoading: zReportLoading } = useQuery<ZReportData>({
+    queryKey: ["/api/shifts", zReportShiftId, "z-report"],
+    enabled: !!zReportShiftId,
+    queryFn: () => fetch(`/api/shifts/${zReportShiftId}/z-report`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("artixpos_token") || ""}` },
+      credentials: "include",
+    }).then(r => r.json()),
+  });
 
   const monthOptions = useMemo(() => {
     const opts = [];
@@ -190,8 +222,11 @@ export default function BIRPage() {
     const dateStr = format(now, "MMMM d, yyyy");
     const timeStr = format(now, "hh:mm a");
     const openTime = sh.openedAt ? format(new Date(sh.openedAt), "hh:mm a") : "--";
-    const pmRows = Object.entries(d.paymentBreakdown)
+    const pmRows = Object.entries(d.paymentBreakdown || {})
       .map(([pm, v]) => `<div class="row"><span>${PAYMENT_LABEL[pm] || pm} (${v.count})</span><span>${currency}${v.total.toFixed(2)}</span></div>`).join("");
+    const discountRows = Object.entries(d.discountBreakdown || {})
+      .filter(([, v]) => v.count > 0)
+      .map(([dt, v]) => `<div class="row"><span>${DISCOUNT_LABEL[dt] || dt} (${v.count})</span><span>-${currency}${v.discount.toFixed(2)}</span></div>`).join("");
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>X-Report ${dateStr}</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -228,6 +263,9 @@ export default function BIRPage() {
     <div class="section">— PAYMENT BREAKDOWN —</div>
     ${pmRows || '<div class="center small">No transactions yet</div>'}
     <div class="line"></div>
+    <div class="section">— DISCOUNT BREAKDOWN —</div>
+    ${discountRows || '<div class="center small">No discounts applied</div>'}
+    <div class="line"></div>
     <div class="section">— BIR VAT (RUNNING) —</div>
     <div class="row"><span>VATable Sales</span><span>${currency}${d.vatableSalesTotal.toFixed(2)}</span></div>
     <div class="row"><span>Output VAT (${taxRate}%)</span><span>${currency}${d.vatAmountTotal.toFixed(2)}</span></div>
@@ -238,6 +276,70 @@ export default function BIRPage() {
     <div class="center small">Shift is still open. Do NOT close drawer.</div>
     </body></html>`;
     const win = window.open("", "_blank", "width=420,height=680");
+    if (win) { win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 400); }
+  }
+
+  function printZReport(d: ZReportData) {
+    const sh = d.shift;
+    const dateStr = format(new Date(sh.openedAt!), "MMMM d, yyyy");
+    const openTime = format(new Date(sh.openedAt!), "hh:mm a");
+    const closeTime = sh.closedAt ? format(new Date(sh.closedAt), "hh:mm a") : "--";
+    const pmRows = Object.entries(d.paymentBreakdown || {})
+      .map(([pm, v]) => `<div class="row"><span>${PAYMENT_LABEL[pm] || pm.toUpperCase()} (${v.count})</span><span>${currency}${v.total.toFixed(2)}</span></div>`).join("");
+    const discountRowsZ = Object.entries(d.discountBreakdown || {})
+      .filter(([, v]) => v.count > 0)
+      .map(([dt, v]) => `<div class="row"><span>${DISCOUNT_LABEL[dt] || dt} (${v.count})</span><span>-${currency}${v.discount.toFixed(2)}</span></div>`).join("");
+    const topItemRows = (d.topItems || []).slice(0, 5)
+      .map((it, i) => `<div class="row"><span>${i + 1}. ${it.name}</span><span>x${it.qty}</span></div>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Z-Report — ${dateStr}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Courier New', monospace; font-size: 11px; width: 300px; margin: 0 auto; padding: 20px 16px; color: #000; }
+      .center { text-align: center; } .bold { font-weight: bold; }
+      .line { border-top: 1px dashed #000; margin: 6px 0; } .double { border-top: 3px double #000; margin: 6px 0; }
+      .row { display: flex; justify-content: space-between; margin: 2px 0; padding: 0 2px; }
+      .title { font-size: 15px; font-weight: bold; margin: 4px 0 2px; } .small { font-size: 9px; }
+      .section { margin: 4px 0; font-size: 9px; font-weight: bold; letter-spacing: 0.08em; text-align: center; }
+      .highlight { background: #f5f5f5; padding: 3px 4px; margin: 2px 0; }
+      @media print { body { padding: 8px; } }
+    </style></head><body>
+    <div class="center">
+      <div class="title">${storeName}</div>
+      ${tin ? `<div class="small">TIN: ${tin}</div>` : ""}
+      ${ptuNumber ? `<div class="small">PTU No.: ${ptuNumber}</div>` : ""}
+      ${accreditationNumber ? `<div class="small">Accreditation No.: ${accreditationNumber}</div>` : ""}
+      ${machineSerialNumber ? `<div class="small">Machine S/N: ${machineSerialNumber}</div>` : ""}
+    </div>
+    <div class="double"></div>
+    <div class="center bold" style="font-size:13px">Z - R E P O R T</div>
+    <div class="center small">${dateStr} &nbsp;|&nbsp; ${openTime} &mdash; ${closeTime}</div>
+    <div class="line"></div>
+    ${d.orFrom ? `<div class="row highlight bold"><span>OR Number Range</span><span>${d.orFrom} &mdash; ${d.orTo}</span></div>` : ""}
+    <div class="row"><span>Total Transactions</span><span>${d.totalTransactions}</span></div>
+    <div class="line"></div>
+    <div class="section">— SALES SUMMARY —</div>
+    <div class="row bold"><span>Gross Sales</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
+    <div class="row"><span>Total Discount</span><span>-${currency}${d.totalDiscount.toFixed(2)}</span></div>
+    <div class="row"><span>Output VAT (${taxRate}%)</span><span>${currency}${d.vatAmountTotal.toFixed(2)}</span></div>
+    <div class="row bold"><span>Net Sales</span><span>${currency}${d.netSales.toFixed(2)}</span></div>
+    <div class="line"></div>
+    <div class="section">— PAYMENT BREAKDOWN —</div>
+    ${pmRows || '<div class="center small">No transactions</div>'}
+    <div class="line"></div>
+    <div class="section">— DISCOUNT BREAKDOWN —</div>
+    ${discountRowsZ || '<div class="center small">No discounts</div>'}
+    <div class="line"></div>
+    <div class="section">— BIR VAT BREAKDOWN —</div>
+    <div class="row"><span>VATable Sales</span><span>${currency}${d.vatableSalesTotal.toFixed(2)}</span></div>
+    <div class="row"><span>Output VAT (${taxRate}%)</span><span>${currency}${d.vatAmountTotal.toFixed(2)}</span></div>
+    <div class="row"><span>VAT-Exempt Sales</span><span>${currency}${d.vatExemptTotal.toFixed(2)}</span></div>
+    <div class="row"><span>Zero-Rated Sales</span><span>${currency}${d.zeroRatedTotal.toFixed(2)}</span></div>
+    ${topItemRows ? `<div class="line"></div><div class="section">— TOP ITEMS —</div>${topItemRows}` : ""}
+    <div class="double"></div>
+    <div class="center small">*** END OF Z-REPORT ***</div>
+    <div class="center small">Printed: ${format(new Date(), "MMM d, yyyy h:mm a")}</div>
+    </body></html>`;
+    const win = window.open("", "_blank", "width=420,height=700");
     if (win) { win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 400); }
   }
 
@@ -425,17 +527,32 @@ export default function BIRPage() {
             </div>
 
             {/* Payment breakdown */}
-            {Object.keys(xReport.paymentBreakdown).length > 0 && (
+            {Object.keys(xReport.paymentBreakdown || {}).length > 0 && (
               <div className="mb-3">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Payment Methods</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {Object.entries(xReport.paymentBreakdown).map(([pm, v]) => (
+                  {Object.entries(xReport.paymentBreakdown || {}).map(([pm, v]) => (
                     <div key={pm} className="bg-secondary/30 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
                       <PaymentIcon method={pm} />
                       <div className="min-w-0">
                         <p className="text-[10px] font-semibold">{PAYMENT_LABEL[pm] || pm}</p>
                         <p className="text-[9px] text-muted-foreground">{v.count} txn · {formatCurrency(v.total, currency)}</p>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Discount breakdown */}
+            {Object.keys(xReport.discountBreakdown || {}).some(k => (xReport.discountBreakdown || {})[k]?.count > 0) && (
+              <div className="mb-3">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Discount Breakdown</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {Object.entries(xReport.discountBreakdown || {}).filter(([, v]) => v.count > 0).map(([dt, v]) => (
+                    <div key={dt} className="bg-secondary/30 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[10px] font-semibold">{DISCOUNT_LABEL[dt] || dt}</p>
+                      <p className="text-[9px] text-muted-foreground">{v.count} txn · -{formatCurrency(v.discount, currency)}</p>
                     </div>
                   ))}
                 </div>
@@ -544,11 +661,11 @@ export default function BIRPage() {
             </div>
 
             {/* Payment breakdown */}
-            {Object.keys(monthlySummary.paymentBreakdown).length > 0 && (
+            {Object.keys(monthlySummary.paymentBreakdown || {}).length > 0 && (
               <div className="mb-3">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Payment Method Breakdown</p>
                 <div className="space-y-1.5">
-                  {Object.entries(monthlySummary.paymentBreakdown)
+                  {Object.entries(monthlySummary.paymentBreakdown || {})
                     .sort(([, a], [, b]) => b.total - a.total)
                     .map(([pm, v]) => {
                       const pct = monthlySummary.grossSales > 0 ? (v.total / monthlySummary.grossSales) * 100 : 0;
@@ -600,6 +717,134 @@ export default function BIRPage() {
           <div className="text-center py-4 text-muted-foreground/60 mt-2">
             <Receipt className="h-7 w-7 mx-auto mb-1.5" strokeWidth={1.2} />
             <p className="text-xs">No sales recorded for {format(new Date(selectedMonth + "-01"), "MMMM yyyy")}</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Z-Report Archive ──────────────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-4">
+        <SectionTitle icon={Archive} label="Z-Report Archive" sub="BIR-required end-of-shift reports — keep on file for 10 years" />
+        {closedShifts.length === 0 ? (
+          <div className="text-center py-5 text-muted-foreground/60">
+            <Archive className="h-7 w-7 mx-auto mb-2" strokeWidth={1.2} />
+            <p className="text-xs">No closed shifts yet — Z-Reports are generated when you close a shift</p>
+            <Link href="/shifts">
+              <Button variant="outline" size="sm" className="mt-3 rounded-xl text-xs gap-1.5">
+                <ExternalLink className="h-3 w-3" /> Go to Shifts
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {closedShifts.map(shift => (
+              <div key={shift.id} className="flex items-center justify-between gap-3 bg-secondary/30 rounded-xl px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">
+                    {shift.openedAt ? format(new Date(shift.openedAt), "MMMM d, yyyy") : "—"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {shift.openedAt ? format(new Date(shift.openedAt), "h:mm a") : ""}
+                    {shift.closedAt ? ` — ${format(new Date(shift.closedAt), "h:mm a")}` : ""}
+                    {" · "}
+                    {formatCurrency(shift.totalSales ?? "0", currency)} sales
+                  </p>
+                </div>
+                <button
+                  onClick={() => setZReportShiftId(shift.id)}
+                  className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 transition-colors shrink-0"
+                  data-testid={`button-bir-z-report-${shift.id}`}
+                >
+                  <FileText className="h-3 w-3" /> Z-Report
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Z-Report modal */}
+        {zReportShiftId && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-4 pb-4 sm:pb-0" onClick={() => setZReportShiftId(null)}>
+            <div className="bg-background rounded-3xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-background/95 backdrop-blur border-b border-border/30 px-5 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                <div>
+                  <p className="font-bold text-sm">Z-Report</p>
+                  {zReport && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {format(new Date(zReport.shift.openedAt!), "MMM d, yyyy")}
+                      {" · "}
+                      {format(new Date(zReport.shift.openedAt!), "h:mm a")}
+                      {zReport.shift.closedAt && ` — ${format(new Date(zReport.shift.closedAt), "h:mm a")}`}
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => setZReportShiftId(null)} className="h-8 w-8 rounded-full bg-secondary/60 flex items-center justify-center text-muted-foreground hover:text-foreground">
+                  <XCircle className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                {zReportLoading && (
+                  <div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-12 skeleton-shimmer rounded-xl"/>)}</div>
+                )}
+                {zReport && !zReportLoading && (
+                  <>
+                    {zReport.orFrom && (
+                      <div className="bg-primary/8 border border-primary/20 rounded-xl px-3 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Hash className="h-3.5 w-3.5 text-primary" />
+                          <p className="text-xs font-semibold">OR Range</p>
+                        </div>
+                        <p className="text-xs font-bold tabular-nums text-primary">{zReport.orFrom} → {zReport.orTo}</p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <StatCard label="Transactions" value={String(zReport.totalTransactions)} color="text-primary" />
+                      <StatCard label="Gross Sales" value={formatCurrency(zReport.grossSales, currency)} color="text-emerald-600 dark:text-emerald-400" />
+                      <StatCard label="Total Discount" value={formatCurrency(zReport.totalDiscount, currency)} color="text-rose-500" />
+                      <StatCard label="Output VAT" value={formatCurrency(zReport.vatAmountTotal, currency)} color="text-primary" />
+                    </div>
+                    <div className="bg-secondary/30 rounded-xl px-3 py-2">
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-2">BIR VAT Breakdown</p>
+                      {[
+                        { label: "VATable Sales", value: zReport.vatableSalesTotal },
+                        { label: `Output VAT (${taxRate}%)`, value: zReport.vatAmountTotal, primary: true },
+                        { label: "VAT-Exempt Sales", value: zReport.vatExemptTotal },
+                        { label: "Zero-Rated Sales", value: zReport.zeroRatedTotal },
+                      ].map(row => (
+                        <div key={row.label} className="flex items-center justify-between py-0.5">
+                          <p className={cn("text-[10px]", row.primary ? "font-semibold text-primary" : "text-muted-foreground")}>{row.label}</p>
+                          <p className={cn("text-[10px] font-bold tabular-nums", row.primary ? "text-primary" : "")}>{formatCurrency(row.value, currency)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {Object.keys(zReport.paymentBreakdown || {}).length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Payment Methods</p>
+                        <div className="space-y-1">
+                          {Object.entries(zReport.paymentBreakdown || {}).map(([pm, v]) => (
+                            <div key={pm} className="bg-secondary/30 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <PaymentIcon method={pm} />
+                                <span className="text-[10px] font-medium">{PAYMENT_LABEL[pm] || pm}</span>
+                                <span className="text-[9px] text-muted-foreground">({v.count})</span>
+                              </div>
+                              <span className="text-[10px] font-bold tabular-nums">{formatCurrency(v.total, currency)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      className="w-full rounded-xl text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold"
+                      onClick={() => printZReport(zReport)}
+                      data-testid="button-print-bir-z-report"
+                    >
+                      <Printer className="h-3.5 w-3.5" /> Print Z-Report
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

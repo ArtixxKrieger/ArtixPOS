@@ -1719,14 +1719,14 @@ export class DatabaseStorage implements IStorage {
   async getIngredients(userId: string): Promise<Ingredient[]> {
     const userIds = await this.getTenantUserIds(userId);
     return db.select().from(ingredients)
-      .where(inArray(ingredients.userId, userIds))
+      .where(and(inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt)))
       .orderBy(desc(ingredients.id));
   }
 
   async getIngredient(id: number, userId: string): Promise<Ingredient | undefined> {
     const userIds = await this.getTenantUserIds(userId);
     const [row] = await db.select().from(ingredients)
-      .where(and(eq(ingredients.id, id), inArray(ingredients.userId, userIds)));
+      .where(and(eq(ingredients.id, id), inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt)));
     return row;
   }
 
@@ -1745,8 +1745,7 @@ export class DatabaseStorage implements IStorage {
   async deleteIngredient(id: number, userId: string): Promise<void> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return;
-    await db.delete(productRecipes).where(eq(productRecipes.ingredientId, id));
-    await db.delete(ingredients).where(eq(ingredients.id, id));
+    await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(eq(ingredients.id, id));
   }
 
   async adjustIngredientStock(id: number, userId: string, delta: number): Promise<Ingredient | undefined> {

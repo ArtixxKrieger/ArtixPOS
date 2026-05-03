@@ -564,6 +564,7 @@ export const ingredients = pgTable("ingredients", {
   lowStockThreshold: text("low_stock_threshold").default("0"),
   costPerUnit: text("cost_per_unit").default("0"),
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

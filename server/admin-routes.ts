@@ -880,6 +880,7 @@ export function registerAdminRoutes(app: Express) {
       ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename="sales-journal-${new Date().toISOString().slice(0, 10)}.csv"`);
+      res.setHeader("Cache-Control", "no-store");
       res.send(csv);
     } catch (err) { next(err); }
   });

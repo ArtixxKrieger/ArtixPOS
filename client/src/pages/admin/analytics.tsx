@@ -112,7 +112,7 @@ export default function AdminAnalytics() {
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const estimatedVatRate = ((settings as any)?.taxRate && !Number.isNaN(Number((settings as any).taxRate))) ? Number((settings as any).taxRate) : 0;
   const estimatedVat = estimatedVatRate > 0 ? totalRevenue * (estimatedVatRate / 100) : analyticsData.reduce((s, a) => s + ((a.totalRevenue || 0) * 0.12), 0);
-  const taxBase = totalRevenue / 1.12;
+  const taxBase = estimatedVatRate > 0 ? totalRevenue / (1 + estimatedVatRate / 100) : totalRevenue / 1.12;
   const vatExclusive = totalRevenue - taxBase;
   const activeBranches = analyticsData.filter(a => a.branch.isActive).length;
   const taxRows = analyticsData.map(a => ({

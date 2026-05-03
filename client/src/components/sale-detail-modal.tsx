@@ -143,9 +143,9 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 
     const fmt = (n: number) => formatCurrency(n, cur);
     const txn = `TXN-${String(sale.id ?? 0).padStart(4, "0")}`;
-  const receiptNumber = (sale as any).receiptNumber || txn;
-  const orNumber = (sale as any).orNumber || receiptNumber;
-  const invoiceNumber = (sale as any).invoiceNumber || "";
+    const receiptNumber = (sale as any).receiptNumber || txn;
+    const orNumber = (sale as any).orNumber || receiptNumber;
+    const invoiceNumber = (sale as any).invoiceNumber || "";
     const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
 
     // ── BLE / thermal print path ──────────────────────────────────────────────

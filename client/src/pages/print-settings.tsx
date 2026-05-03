@@ -63,6 +63,9 @@ interface PrintConfig {
   receiptShowOrderNumber: boolean;
   receiptShowCashier: boolean;
   receiptShowUnitPrice: boolean;
+  receiptNumber: string;
+  orNumber: string;
+  invoiceNumber: string;
   storeName: string;
   address: string;
   phone: string;
@@ -105,6 +108,15 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
           <span>Order #</span><span>1001</span>
         </div>
       )}
+      <div className="flex justify-between text-gray-400 mb-1" style={{ fontSize: `${fs - 3}px` }}>
+        <span>Receipt #</span><span>{cfg.receiptNumber || "SR-0001"}</span>
+      </div>
+      <div className="flex justify-between text-gray-400 mb-1" style={{ fontSize: `${fs - 3}px` }}>
+        <span>O.R. #</span><span>{cfg.orNumber || "OR-0001"}</span>
+      </div>
+      <div className="flex justify-between text-gray-400 mb-1" style={{ fontSize: `${fs - 3}px` }}>
+        <span>Invoice #</span><span>{cfg.invoiceNumber || "INV-0001"}</span>
+      </div>
       {cfg.receiptShowCashier && (
         <div className="flex justify-between text-gray-400 mb-1" style={{ fontSize: `${fs - 3}px` }}>
           <span>Cashier</span><span>John Doe</span>
@@ -287,6 +299,9 @@ export default function PrintSettings() {
     receiptShowOrderNumber: true,
     receiptShowCashier: false,
     receiptShowUnitPrice: false,
+    receiptNumber: "",
+    orNumber: "",
+    invoiceNumber: "",
     storeName: "",
     address: "",
     phone: "",
@@ -312,6 +327,9 @@ export default function PrintSettings() {
       receiptShowOrderNumber: (s.receiptShowOrderNumber ?? 1) === 1,
       receiptShowCashier: (s.receiptShowCashier ?? 0) === 1,
       receiptShowUnitPrice: (s.receiptShowUnitPrice ?? 0) === 1,
+      receiptNumber: s.receiptNumber ?? "",
+      orNumber: s.orNumber ?? "",
+      invoiceNumber: s.invoiceNumber ?? "",
       storeName: s.storeName ?? "",
       address: s.address ?? "",
       phone: s.phone ?? "",
@@ -339,6 +357,9 @@ export default function PrintSettings() {
       receiptShowOrderNumber: cfg.receiptShowOrderNumber ? 1 : 0,
       receiptShowCashier: cfg.receiptShowCashier ? 1 : 0,
       receiptShowUnitPrice: cfg.receiptShowUnitPrice ? 1 : 0,
+      receiptNumber: cfg.receiptNumber || null,
+      orNumber: cfg.orNumber || null,
+      invoiceNumber: cfg.invoiceNumber || null,
       receiptShowPoweredBy: 1,
       printDarkness: 65535,
       receiptFontSize: 25,

@@ -966,7 +966,15 @@ export async function registerRoutes(
       }
       const input = insertRefundSchema.extend({ amount: z.coerce.string() }).parse(req.body);
       const refund = await storage.createRefund(userId(req), input);
-      await auditLog(req, "create", "refund", String(refund.id), { saleId: refund.saleId, amount: refund.amount, reason: refund.reason });
+      const sale = (await storage.getSales(userId(req), { limit: 1000 })).find((s) => s.id === refund.saleId);
+      await auditLog(req, "create", "refund", String(refund.id), {
+        saleId: refund.saleId,
+        saleReceiptNumber: (sale as any)?.receiptNumber ?? null,
+        saleOrNumber: (sale as any)?.orNumber ?? null,
+        saleInvoiceNumber: (sale as any)?.invoiceNumber ?? null,
+        amount: refund.amount,
+        reason: refund.reason,
+      });
       res.status(201).json(refund);
     } catch (err) {
       if (err instanceof z.ZodError) {

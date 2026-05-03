@@ -11,6 +11,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ── Animated Counter ─────────────────────────────── */
@@ -112,6 +113,12 @@ export default function AdminAnalytics() {
   const estimatedVatRate = ((settings as any)?.taxRate && !Number.isNaN(Number((settings as any).taxRate))) ? Number((settings as any).taxRate) : 0;
   const estimatedVat = estimatedVatRate > 0 ? totalRevenue * (estimatedVatRate / 100) : analyticsData.reduce((s, a) => s + ((a.totalRevenue || 0) * 0.12), 0);
   const activeBranches = analyticsData.filter(a => a.branch.isActive).length;
+  const taxRows = analyticsData.map(a => ({
+    branch: a.branch.name,
+    taxableSales: a.totalRevenue,
+    vat: estimatedVatRate > 0 ? a.totalRevenue * (estimatedVatRate / 100) : a.totalRevenue * 0.12,
+    orders: a.totalOrders,
+  }));
 
   const todayRevPct = totalRevenue > 0 && analyticsData.length > 0
     ? ((todayRevenue / analyticsData.length) / (totalRevenue / Math.max(analyticsData.reduce((s, a) => s + (a.totalOrders > 0 ? 1 : 0), 0), 1))) * 100 - 100
@@ -202,6 +209,19 @@ export default function AdminAnalytics() {
     ? `${currency}${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`
     : String(v);
 
+  function exportTaxCsv() {
+    const headers = ["Branch", "Taxable Sales", "Estimated VAT", "Orders"];
+    const rows = taxRows.map(r => [r.branch, r.taxableSales.toFixed(2), r.vat.toFixed(2), String(r.orders)]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tax-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-5 page-enter pb-6">
 
@@ -280,6 +300,10 @@ export default function AdminAnalytics() {
             <FileSpreadsheet className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           </div>
           <span className="font-semibold text-sm">Tax Summary</span>
+          <button onClick={exportTaxCsv} className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:opacity-80">
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </button>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">

@@ -881,6 +881,81 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/shifts/:id/z-report", requireAuth, requirePro, async (req, res) => {
+    const shiftId = Number(req.params.id);
+    const uid = userId(req);
+    const allShifts = await storage.getShifts(uid, { limit: 2000 });
+    const shift = allShifts.find(s => s.id === shiftId);
+    if (!shift) return res.status(404).json({ message: "Shift not found" });
+
+    const startDate = shift.openedAt!;
+    const endDate = shift.closedAt ?? new Date().toISOString();
+    const salesList = await storage.getSales(uid, { limit: 10000, startDate, endDate });
+
+    // OR number range
+    const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
+    const orFrom = orNumbers.length ? orNumbers.reduce((a, b) => a < b ? a : b) : null;
+    const orTo   = orNumbers.length ? orNumbers.reduce((a, b) => a > b ? a : b) : null;
+
+    // Payment method breakdown
+    const paymentBreakdown: Record<string, { count: number; total: number }> = {};
+    for (const sale of salesList) {
+      const pm = sale.paymentMethod || "cash";
+      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, total: 0 };
+      paymentBreakdown[pm].count++;
+      paymentBreakdown[pm].total += parseFloat(sale.total || "0");
+    }
+
+    // Discount type breakdown
+    const discountBreakdown: Record<string, { count: number; total: number; discount: number }> = {};
+    for (const sale of salesList) {
+      const dt = (sale as any).discountType || "regular";
+      if (!discountBreakdown[dt]) discountBreakdown[dt] = { count: 0, total: 0, discount: 0 };
+      discountBreakdown[dt].count++;
+      discountBreakdown[dt].total += parseFloat(sale.total || "0");
+      discountBreakdown[dt].discount += parseFloat(sale.discount || "0");
+    }
+
+    // Real VAT breakdown from actual sales columns
+    const vatableSalesTotal = salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales || "0"), 0);
+    const vatExemptTotal    = salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales || "0"), 0);
+    const zeroRatedTotal    = salesList.reduce((a, s) => a + parseFloat((s as any).zeroRatedSales || "0"), 0);
+    const vatAmountTotal    = salesList.reduce((a, s) => a + parseFloat(s.tax || "0"), 0);
+
+    // Top items by quantity
+    const itemMap: Record<string, { name: string; qty: number; total: number }> = {};
+    for (const sale of salesList) {
+      const items = Array.isArray(sale.items) ? (sale.items as any[]) : [];
+      for (const item of items) {
+        const key = String(item.productId ?? item.name ?? "unknown");
+        if (!itemMap[key]) itemMap[key] = { name: item.name || "Item", qty: 0, total: 0 };
+        const qty = item.quantity || 1;
+        itemMap[key].qty += qty;
+        const price = parseFloat(item.size?.price ?? item.price ?? "0");
+        itemMap[key].total += price * qty;
+      }
+    }
+    const topItems = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 8);
+
+    res.json({
+      shift,
+      orFrom,
+      orTo,
+      totalTransactions: salesList.length,
+      grossSales: salesList.reduce((a, s) => a + parseFloat(s.total || "0"), 0),
+      netSales: salesList.reduce((a, s) => a + parseFloat(s.subtotal || "0"), 0),
+      totalDiscount: salesList.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
+      totalLoyaltyDiscount: salesList.reduce((a, s) => a + parseFloat((s as any).loyaltyDiscount || "0"), 0),
+      paymentBreakdown,
+      discountBreakdown,
+      vatableSalesTotal,
+      vatExemptTotal,
+      zeroRatedTotal,
+      vatAmountTotal,
+      topItems,
+    });
+  });
+
   app.post("/api/shifts/:id/close", requireAuth, requirePro, async (req, res) => {
     try {
       const { closingBalance, notes } = closeShiftSchema.parse(req.body);

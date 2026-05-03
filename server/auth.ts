@@ -10,7 +10,7 @@ import {
   ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
   branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
 } from "@shared/schema";
-import { eq, or, inArray } from "drizzle-orm";
+import { eq, or, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -213,20 +213,20 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   ).map(r => r.id);
 
   // 1. Deepest leaves
-  await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.userId, uids));
-  await db.delete(timeLogs).where(inArray(timeLogs.userId, uids));
+  await db.update(membershipCheckIns).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(membershipCheckIns.userId, uids));
+  await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(inArray(timeLogs.userId, uids));
   await db.delete(refunds).where(inArray(refunds.userId, uids));
-  await db.delete(shifts).where(inArray(shifts.userId, uids));
-  await db.delete(discountCodes).where(inArray(discountCodes.userId, uids));
-  await db.delete(expenses).where(inArray(expenses.userId, uids));
+  await db.update(shifts).set({ status: "closed" } as any).where(inArray(shifts.userId, uids));
+  await db.update(discountCodes).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(discountCodes.userId, uids));
+  await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(inArray(expenses.userId, uids));
   await db.delete(wifiVouchers).where(inArray(wifiVouchers.userId, uids));
 
   // 2. Payroll entries (FK → payrollPeriods.id AND users.id)
   if (userPayrollPeriodIds.length > 0) {
-    await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
+    await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
-  await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
-  await db.delete(payrollPeriods).where(inArray(payrollPeriods.userId, uids));
+  await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.employeeUserId, uids));
+  await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString() } as any).where(inArray(payrollPeriods.userId, uids));
 
   // 3. purchaseOrderItems MUST go before purchaseOrders
   if (userPoIds.length > 0) {
@@ -250,31 +250,31 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   }
 
   // 6. Appointments (refs serviceStaff/Rooms/customers)
-  await db.delete(appointments).where(inArray(appointments.userId, uids));
+  await db.update(appointments).set({ deletedAt: new Date().toISOString() } as any).where(inArray(appointments.userId, uids));
 
   // 7. Memberships
-  await db.delete(memberships).where(inArray(memberships.userId, uids));
-  await db.delete(membershipPlans).where(inArray(membershipPlans.userId, uids));
+  await db.update(memberships).set({ deletedAt: new Date().toISOString() } as any).where(inArray(memberships.userId, uids));
+  await db.update(membershipPlans).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(membershipPlans.userId, uids));
 
   // 8. Staff & rooms
-  await db.delete(serviceStaff).where(inArray(serviceStaff.userId, uids));
-  await db.delete(serviceRooms).where(inArray(serviceRooms.userId, uids));
+  await db.update(serviceStaff).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(serviceStaff.userId, uids));
+  await db.update(serviceRooms).set({ deletedAt: new Date().toISOString() } as any).where(inArray(serviceRooms.userId, uids));
 
   // 9. Purchase orders & suppliers
   await db.delete(purchaseOrders).where(inArray(purchaseOrders.userId, uids));
-  await db.delete(suppliers).where(inArray(suppliers.userId, uids));
+  await db.update(suppliers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(suppliers.userId, uids));
 
   // 10. Pending orders & tables
-  await db.delete(pendingOrders).where(inArray(pendingOrders.userId, uids));
-  await db.delete(tables).where(inArray(tables.userId, uids));
+  await db.update(pendingOrders).set({ deletedAt: new Date().toISOString() } as any).where(inArray(pendingOrders.userId, uids));
+  await db.update(tables).set({ deletedAt: new Date().toISOString() } as any).where(inArray(tables.userId, uids));
 
   // 11. Customers
-  await db.delete(customers).where(inArray(customers.userId, uids));
+  await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(customers.userId, uids));
 
   // 12. Sales, ingredients, products
   await db.delete(sales).where(inArray(sales.userId, uids));
-  await db.delete(ingredients).where(inArray(ingredients.userId, uids));
-  await db.delete(products).where(inArray(products.userId, uids));
+  await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(inArray(ingredients.userId, uids));
+  await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(inArray(products.userId, uids));
 
   // 13. Audit logs (no FK — GDPR hygiene)
   await db.delete(auditLogs).where(inArray(auditLogs.userId, uids));

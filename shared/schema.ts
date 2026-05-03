@@ -121,6 +121,7 @@ export const products = pgTable("products", {
   hasModifiers: boolean("has_modifiers").default(false),
   sizes: jsonb("sizes").$type<{ name: string; price: string }[]>(),
   modifiers: jsonb("modifiers").$type<{ name: string; price: string }[]>(),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -327,6 +328,7 @@ export const pendingOrders = pgTable("pending_orders", {
   changeAmount: text("change_amount"),
   status: text("status").default("unpaid"),
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -389,6 +391,7 @@ export const serviceStaff = pgTable("service_staff", {
   color: text("color").default("#6366f1"),
   isActive: boolean("is_active").default(true),
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -402,6 +405,7 @@ export const serviceRooms = pgTable("service_rooms", {
   type: text("type").default("room"), // room | chair | station | court | lane
   status: text("status").default("available"), // available | occupied | maintenance
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -425,6 +429,7 @@ export const appointments = pgTable("appointments", {
   price: text("price").default("0"),
   tip: text("tip").default("0"),
   reminderSent: boolean("reminder_sent").default(false),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -441,6 +446,7 @@ export const membershipPlans = pgTable("membership_plans", {
   features: jsonb("features").$type<string[]>(),
   maxCheckIns: integer("max_check_ins"),
   isActive: boolean("is_active").default(true),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

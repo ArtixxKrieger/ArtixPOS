@@ -215,7 +215,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // 1. Deepest leaves
   await db.update(membershipCheckIns).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(membershipCheckIns.userId, uids));
   await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(inArray(timeLogs.userId, uids));
-  await db.delete(refunds).where(inArray(refunds.userId, uids));
+  await db.update(refunds).set({ status: "refunded" } as any).where(inArray(refunds.userId, uids));
   await db.update(shifts).set({ status: "closed" } as any).where(inArray(shifts.userId, uids));
   await db.update(discountCodes).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(discountCodes.userId, uids));
   await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(inArray(expenses.userId, uids));
@@ -226,7 +226,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
     await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
   await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.employeeUserId, uids));
-  await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString() } as any).where(inArray(payrollPeriods.userId, uids));
+  await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString(), notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollPeriods.userId, uids));
 
   // 3. purchaseOrderItems MUST go before purchaseOrders
   if (userPoIds.length > 0) {
@@ -272,7 +272,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(customers.userId, uids));
 
   // 12. Sales, ingredients, products
-  await db.delete(sales).where(inArray(sales.userId, uids));
+  await db.update(sales).set({ deletedAt: new Date().toISOString() } as any).where(inArray(sales.userId, uids));
   await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(inArray(ingredients.userId, uids));
   await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(inArray(products.userId, uids));
 

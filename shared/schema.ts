@@ -81,6 +81,8 @@ export const auditLogs = pgTable("audit_logs", {
   entity: text("entity").notNull(),
   entityId: text("entity_id"),
   metadata: jsonb("metadata").$type<Record<string, any>>(),
+  previousHash: text("previous_hash"),
+  recordHash: text("record_hash"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

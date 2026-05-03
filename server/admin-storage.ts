@@ -213,7 +213,20 @@ export async function createAuditLog(data: {
   entityId?: string;
   metadata?: Record<string, any>;
 }): Promise<void> {
-  await db.insert(auditLogs).values(data as any);
+  const [last] = await db.select({ recordHash: auditLogs.recordHash }).from(auditLogs).where(eq(auditLogs.tenantId, data.tenantId)).orderBy(desc(auditLogs.createdAt), desc(auditLogs.id)).limit(1);
+  const previousHash = last?.recordHash ?? null;
+  const payload = JSON.stringify({
+    tenantId: data.tenantId,
+    userId: data.userId,
+    action: data.action,
+    entity: data.entity,
+    entityId: data.entityId ?? null,
+    metadata: data.metadata ?? null,
+    previousHash,
+    createdAt: new Date().toISOString(),
+  });
+  const recordHash = crypto.createHash("sha256").update(payload).digest("hex");
+  await db.insert(auditLogs).values({ ...data, previousHash, recordHash } as any);
 }
 
 export interface AuditLogWithActor extends AuditLog {
@@ -250,6 +263,8 @@ export async function getAuditLogs(
       entity: auditLogs.entity,
       entityId: auditLogs.entityId,
       metadata: auditLogs.metadata,
+      previousHash: auditLogs.previousHash,
+      recordHash: auditLogs.recordHash,
       createdAt: auditLogs.createdAt,
       actorName: users.name,
       actorEmail: users.email,

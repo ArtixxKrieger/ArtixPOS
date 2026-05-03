@@ -14,7 +14,7 @@ import {
   getUserByEmail, verifyPassword,
   createInviteToken, redeemInviteToken, getInviteTokens,
   banUser, unbanUser,
-  getRolePermissions, upsertRolePermission,
+  getRolePermissions, upsertRolePermission, getRolePermissionForRole,
 } from "./admin-storage";
 import { bannedUserIds } from "./auth";
 import { invalidateTenantCache, storage } from "./storage";

@@ -83,6 +83,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const { printer: blePrinter, print: blePrint } = useBlePrinter();
   const [showRefund, setShowRefund] = useState(false);
   const [refundReason, setRefundReason] = useState("");
+  const canRefund = isManagerOrAbove && perms?.canRefund !== false;
 
   const isAlreadyRefunded = !!sale?.refundedAt;
 
@@ -460,7 +461,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
           </div>
 
           {/* Refund footer — only for manager/owner with canRefund permission */}
-          {isManagerOrAbove && perms?.canRefund !== false && (
+          {canRefund && (
             <div className="px-5 pb-5">
               {isAlreadyRefunded ? (
                 <div className="w-full h-10 rounded-xl flex items-center justify-center gap-2 bg-rose-500/8 border border-rose-500/15 text-rose-500 text-sm font-medium">

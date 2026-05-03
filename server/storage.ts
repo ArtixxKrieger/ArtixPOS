@@ -718,7 +718,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getCustomer(id, userId);
       if (!existing) return;
-      await db.delete(customers).where(eq(customers.id, id));
+      await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(eq(customers.id, id));
     } catch (error) {
       console.error("Error deleting customer:", error);
       throw error;
@@ -798,7 +798,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
       if (!existing || !userIds.includes(existing.userId)) return;
-      await db.delete(expenses).where(eq(expenses.id, id));
+      await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(eq(expenses.id, id));
     } catch (error) {
       console.error("Error deleting expense:", error);
       throw error;

@@ -513,9 +513,10 @@ export class DatabaseStorage implements IStorage {
       const saleInput = sale as any;
       const existingCount = await db.select({ count: sql<number>`COUNT(*)` }).from(sales).where(eq(sales.userId, userId));
       const nextSeq = Number(existingCount[0]?.count ?? 0) + 1;
-      const receiptNumber = saleInput.receiptNumber ?? `SR-${String(nextSeq).padStart(6, "0")}`;
+      const padded = String(nextSeq).padStart(6, "0");
+      const receiptNumber = saleInput.receiptNumber ?? `SR-${padded}`;
       const orNumber = saleInput.orNumber ?? receiptNumber;
-      const invoiceNumber = saleInput.invoiceNumber ?? `INV-${String(nextSeq).padStart(6, "0")}`;
+      const invoiceNumber = saleInput.invoiceNumber ?? `INV-${padded}`;
       const [created] = await db.insert(sales).values({ ...saleInput, userId, receiptNumber, orNumber, invoiceNumber } as any).returning();
       // Fire-and-forget: customer stats update runs in the background so it
       // never delays the checkout response returned to the cashier.

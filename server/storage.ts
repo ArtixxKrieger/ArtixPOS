@@ -1389,14 +1389,14 @@ export class DatabaseStorage implements IStorage {
   async deleteLoyaltyTier(id: number, userId: string): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
-    await db.delete(loyaltyTiers).where(condition);
+    await db.update(loyaltyTiers).set({ deletedAt: new Date().toISOString() } as any).where(condition);
   }
 
   // ─── Loyalty Rewards ───────────────────────────────────────────────────────
 
   async getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]> {
     const userIds = await this.getTenantUserIds(userId);
-    const condition = userIds.length === 1 ? eq(loyaltyRewards.userId, userIds[0]) : inArray(loyaltyRewards.userId, userIds);
+    const condition = userIds.length === 1 ? and(eq(loyaltyRewards.userId, userIds[0]), isNull(loyaltyRewards.deletedAt)) : and(inArray(loyaltyRewards.userId, userIds), isNull(loyaltyRewards.deletedAt));
     return db.select().from(loyaltyRewards).where(condition).orderBy(loyaltyRewards.pointsCost);
   }
 
@@ -1415,7 +1415,7 @@ export class DatabaseStorage implements IStorage {
   async deleteLoyaltyReward(id: number, userId: string): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
-    await db.delete(loyaltyRewards).where(condition);
+    await db.update(loyaltyRewards).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(condition);
   }
 
   async redeemLoyaltyReward(customerId: number, rewardId: number, userId: string): Promise<{ customer: Customer; reward: LoyaltyReward; log: LoyaltyPointsLog } | null> {

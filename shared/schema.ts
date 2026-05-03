@@ -642,6 +642,7 @@ export const loyaltyTiers = pgTable("loyalty_tiers", {
   color: text("color").notNull().default("#CD7F32"), // hex color
   perks: text("perks"), // free-text description of perks
   sortOrder: integer("sort_order").notNull().default(0),
+  deletedAt: text("deleted_at"),
 });
 
 export type LoyaltyTier = typeof loyaltyTiers.$inferSelect;
@@ -660,6 +661,7 @@ export const loyaltyRewards = pgTable("loyalty_rewards", {
   // for discount_fixed: currency amount; discount_percent: 0-100; free_product: productId; custom: text
   productId: integer("product_id").references(() => products.id),
   isActive: boolean("is_active").default(true),
+  deletedAt: text("deleted_at"),
   maxRedemptions: integer("max_redemptions"), // null = unlimited
   redemptionCount: integer("redemption_count").default(0),
   expiresAt: text("expires_at"),

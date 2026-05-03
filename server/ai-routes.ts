@@ -3113,6 +3113,8 @@ export function registerAiRoutes(app: Express) {
           return res.status(200)
             .setHeader("Content-Type", "text/csv")
             .setHeader("Content-Disposition", `attachment; filename="${fileName}.csv"`)
+            .setHeader("Cache-Control", "no-store")
+            .setHeader("Pragma", "no-cache")
             .send("No data available");
         }
         const headers = Object.keys(rows[0]).join(",");
@@ -3124,6 +3126,8 @@ export function registerAiRoutes(app: Express) {
         const csv = [headers, ...csvRows].join("\n");
         res.setHeader("Content-Type", "text/csv");
         res.setHeader("Content-Disposition", `attachment; filename="${fileName}.csv"`);
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Pragma", "no-cache");
         return res.send(csv);
       }
 
@@ -3158,6 +3162,8 @@ export function registerAiRoutes(app: Express) {
       const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}.xlsx"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Pragma", "no-cache");
       res.send(buf);
     } catch (err: any) {
       console.error("Export error:", err);

@@ -92,7 +92,13 @@ function describeEvent(action: string, entity: string, metadata: Record<string, 
   if (action === "create" && entity === "customer") return `Added customer "${meta.name}"`;
   if (action === "update" && entity === "customer") return `Updated customer "${meta.name}"`;
   if (action === "delete" && entity === "customer") return `Deleted customer "${meta.name ?? ""}"`;
-  if (action === "create" && entity === "sale") return `Completed a sale (${meta.total ?? "?"})`;
+  if (action === "create" && entity === "sale") {
+    const parts = [`Completed a sale (${meta.total ?? "?"})`];
+    if (meta.receiptNumber) parts.push(`Receipt #${meta.receiptNumber}`);
+    if (meta.orNumber) parts.push(`O.R. #${meta.orNumber}`);
+    if (meta.invoiceNumber) parts.push(`Invoice #${meta.invoiceNumber}`);
+    return parts.join(" · ");
+  }
   if (action === "create" && entity === "refund") return `Issued refund of ${meta.amount ?? "?"} on sale #${meta.saleId ?? "?"}`;
   if (action === "create" && entity === "expense") return `Logged expense "${meta.description}" (${meta.amount ?? "?"})`;
   if (action === "delete" && entity === "expense") return `Deleted expense "${meta.description ?? ""}"`;

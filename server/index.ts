@@ -3,12 +3,15 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import passport from "passport";
+import { randomUUID } from "crypto";
 import { registerRoutes } from "./routes.js";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, jwtAuthMiddleware } from "./auth";
 import { ensureIndexes } from "./indexes";
 import { initOllama, stopOllama } from "./ai-router";
+import { db as _healthDb } from "./db";
+import { sql as _healthSql } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -17,9 +20,16 @@ const httpServer = createServer(app);
 app.set("trust proxy", 1);
 
 const isDevelopment = process.env.NODE_ENV !== "production";
+
+// 'unsafe-eval' is only required by Vite HMR in development.
+// Production builds use pre-compiled assets and must not allow eval.
+const scriptSrc: string[] = isDevelopment
+  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
+  : ["'self'", "'unsafe-inline'"];
+
 const cspDirectives = {
   defaultSrc: ["'self'"],
-  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+  scriptSrc,
   styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
   fontSrc: ["'self'", "https://fonts.gstatic.com"],
   imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -42,6 +52,17 @@ app.use(
     frameguard: isDevelopment ? false : { action: "sameorigin" },
   })
 );
+
+// ── Health check ──────────────────────────────────────────────────────────────
+// Mounted before rate limiters so uptime monitors are never throttled.
+app.get("/api/health", async (_req, res) => {
+  try {
+    await _healthDb.execute(_healthSql`SELECT 1`);
+    res.json({ status: "ok", uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(503).json({ status: "degraded", error: err?.message ?? "db unreachable" });
+  }
+});
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 // Strict limit on auth endpoints (login attempts, OAuth flows)
@@ -103,6 +124,17 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 app.use(cookieParser());
 
+// ── X-Request-ID ─────────────────────────────────────────────────────────────
+// Assigns a unique correlation ID to every request. Existing IDs from trusted
+// upstream proxies (Replit, Vercel, load balancers) are preserved.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const existing = req.headers["x-request-id"];
+  const id = Array.isArray(existing) ? existing[0] : existing ?? randomUUID();
+  (req as any).requestId = id;
+  res.setHeader("X-Request-ID", id);
+  next();
+});
+
 // JWT auth — populates req.user from the auth_token cookie on every request
 app.use(jwtAuthMiddleware);
 
@@ -119,7 +151,7 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -133,9 +165,12 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api") || path.startsWith("/auth")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      const rid = (req as any).requestId ? ` [${(req as any).requestId.slice(0, 8)}]` : "";
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms${rid}`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        // Truncate to 300 chars to prevent PII / large payloads flooding logs
+        const raw = JSON.stringify(capturedJsonResponse);
+        logLine += ` :: ${raw.length > 300 ? raw.slice(0, 300) + "…" : raw}`;
       }
       log(logLine);
     }

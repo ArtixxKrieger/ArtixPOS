@@ -206,6 +206,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
+  // ── Per-page document title ───────────────────────────────────────────────
+  useEffect(() => {
+    const pageTitle = businessLabels[location] ?? PAGE_TITLES[location];
+    document.title = pageTitle ? `${pageTitle} — ${storeName}` : storeName;
+  }, [location, storeName, businessLabels]);
+
   function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean }) {
     if (businessHiddenUrls.has(item.url as any)) return false;
     if ((item as any).proOnly && isFree && !businessEssentialUrls.has(item.url)) return false;
@@ -229,6 +235,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <button
         onClick={() => startTransition(() => setLocation(item.url))}
         data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+        aria-current={isActive ? "page" : undefined}
         className={[
           "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
           isActive
@@ -316,6 +323,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <button
                       key={item.url}
                       data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                      aria-current={isActive ? "page" : undefined}
                       onClick={() => startTransition(() => setLocation(item.url))}
                       className={[
                         "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",

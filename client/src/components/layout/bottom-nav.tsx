@@ -191,6 +191,7 @@ export function BottomNav() {
                 key={item.url}
                 onClick={() => startTransition(() => setLocation(item.url))}
                 data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                aria-current={isActive ? "page" : undefined}
                 className={[
                   "relative flex flex-col items-center justify-center gap-[2px] rounded-[18px] flex-1 z-10",
                   "transition-[color,transform] duration-200 active:scale-90 select-none cursor-pointer py-2",
@@ -273,6 +274,7 @@ export function BottomNav() {
                     <button
                       key={item.url}
                       onClick={() => navigate(item.url)}
+                      aria-current={isActive ? "page" : undefined}
                       className={[
                         "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
                         isActive
@@ -302,6 +304,7 @@ export function BottomNav() {
                     <button
                       key={item.url}
                       onClick={() => navigate(item.url)}
+                      aria-current={isActive ? "page" : undefined}
                       className={[
                         "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
                         isActive

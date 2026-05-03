@@ -748,7 +748,13 @@ export async function registerRoutes(
   // ── Customers ─────────────────────────────────────────────────────────────
 
   app.get("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
-    const list = await storage.getCustomers(userId(req));
+    const limitRaw = Number(req.query.limit);
+    const offsetRaw = Number(req.query.offset);
+    const opts: { limit?: number; offset?: number; orderByTopSpenders?: boolean } = {};
+    if (!isNaN(limitRaw) && limitRaw > 0) opts.limit = Math.min(limitRaw, 1000);
+    if (!isNaN(offsetRaw) && offsetRaw >= 0) opts.offset = offsetRaw;
+    if (req.query.orderByTopSpenders === "true") opts.orderByTopSpenders = true;
+    const list = await storage.getCustomers(userId(req), opts);
     res.json(list);
   });
 
@@ -1102,14 +1108,24 @@ export async function registerRoutes(
   });
 
   // ── BIR OR Gap Detection ──────────────────────────────────────────────────
+  // Uses a DB-level window function so we never load full sale rows into memory.
   app.get("/api/bir/or-gaps", requireAuth, async (req, res) => {
     const uid = userId(req);
-    const salesList = await storage.getSales(uid, { limit: 50000 });
-    const orNumbers = salesList
-      .map(s => s.orNumber)
-      .filter((n): n is string => !!n && /^\d+$/.test(n.trim()))
-      .map(n => parseInt(n.trim(), 10))
-      .sort((a, b) => a - b);
+    // Fetch only numeric OR numbers for this tenant — no full row hydration.
+    const rows = await db.execute(sql`
+      SELECT CAST(or_number AS bigint) AS n
+      FROM   sales
+      WHERE  user_id = ANY(
+               SELECT id FROM users WHERE tenant_id = (
+                 SELECT tenant_id FROM users WHERE id = ${uid}
+               )
+             )
+        AND  or_number ~ '^[0-9]+$'
+        AND  deleted_at IS NULL
+      ORDER  BY n
+    `);
+
+    const orNumbers: number[] = (rows.rows as any[]).map(r => Number(r.n));
 
     if (orNumbers.length < 2) {
       return res.json({ gaps: [], totalChecked: orNumbers.length, gapCount: 0 });
@@ -1343,9 +1359,10 @@ export async function registerRoutes(
 
   app.delete("/api/suppliers/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
-      const existing = await storage.getSuppliers(userId(req)).then(list => list.find(s => s.id === Number(req.params.id)));
-      await storage.deleteSupplier(Number(req.params.id), userId(req));
-      await auditLog(req, "delete", "supplier", String(req.params.id), { name: existing?.name });
+      const sid = Number(req.params.id);
+      const [existing] = await storage.getSuppliers(userId(req)).then(list => [list.find(s => s.id === sid)]);
+      await storage.deleteSupplier(sid, userId(req));
+      await auditLog(req, "delete", "supplier", String(sid), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
   });

@@ -210,7 +210,7 @@ if (process.env.VERCEL !== "1") {
       const port = process.env.PORT || process.env.REPL_PORT || "5000";
       const parsedPort = parseInt(port, 10);
 
-      const startListening = (retries = 5) => {
+      const startListening = () => {
         httpServer.listen(parsedPort, "0.0.0.0", () => {
           log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || "development"} mode`);
           console.log(`Server is ready and listening on port ${parsedPort}`);
@@ -219,11 +219,8 @@ if (process.env.VERCEL !== "1") {
 
       httpServer.on("error", (error: any) => {
         if (error.code === "EADDRINUSE") {
-          console.log(`Port ${parsedPort} in use, retrying in 2s...`);
-          setTimeout(() => {
-            httpServer.close();
-            startListening();
-          }, 2000);
+          console.error(`Port ${parsedPort} is already in use.`);
+          process.exit(1);
         } else {
           console.error("Server failed to start:", error);
           process.exit(1);

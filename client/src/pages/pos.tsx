@@ -1123,7 +1123,7 @@ export default function POS() {
                           ? "bg-rose-500/90 text-white border-rose-300/30"
                           : "bg-amber-500/90 text-white border-amber-300/30",
                       ].join(" ")}>
-                        {product.stock === 0 ? "Out of stock" : `${product.stock} left`}
+                        {product.stock === 0 ? "Out of stock" : "Low stock"}
                       </div>
                     )}
                   </div>
@@ -1145,11 +1145,6 @@ export default function POS() {
                           ? `${formatCurrency(product.sizes[0].price, currency)}+`
                           : formatCurrency(product.price, currency)}
                       </p>
-                      {product.trackStock && typeof product.stock === "number" && product.stock > 0 && typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold && (
-                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 tabular-nums shrink-0">
-                          {product.stock} left
-                        </span>
-                      )}
                     </div>
                     {product.category && (
                       <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium">{product.category}</p>

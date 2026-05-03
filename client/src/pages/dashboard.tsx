@@ -80,13 +80,6 @@ export default function Dashboard() {
       .sort((a, b) => b.revenue - a.revenue);
   }, [todaySales]);
 
-  const reportHighlights = [
-    { label: "Net Revenue", value: formatCurrency(totalRevenue, currency), icon: ShoppingCart },
-    { label: "Refunds", value: formatCurrency(todayRefundTotal, currency), icon: Percent },
-    { label: "Peak Hour", value: todaySales.length ? `${bestSeller ? bestSeller.qty : 0} sold` : "No sales", icon: Clock3 },
-    { label: "Payments", value: paymentBreakdown.length ? paymentBreakdown[0].method : "none", icon: PieChart },
-  ];
-
   const bestSeller = useMemo(() => {
     const counts: Record<string, { name: string; qty: number; revenue: number }> = {};
     for (const sale of todaySales) {
@@ -120,6 +113,19 @@ export default function Dashboard() {
   }
 
   const currency = (settings as any)?.currency || "₱";
+  const daySummary = {
+    gross: totalGrossRevenue,
+    net: totalRevenue,
+    tax: totalTax,
+    refunds: todayRefundTotal,
+    orders: todaySales.length,
+  };
+  const reportHighlights = [
+    { label: "Net Revenue", value: formatCurrency(totalRevenue, currency), icon: ShoppingCart },
+    { label: "Refunds", value: formatCurrency(todayRefundTotal, currency), icon: Percent },
+    { label: "Peak Hour", value: todaySales.length ? `${bestSeller ? bestSeller.qty : 0} sold` : "No sales", icon: Clock3 },
+    { label: "Payments", value: paymentBreakdown.length ? paymentBreakdown[0].method : "none", icon: PieChart },
+  ];
 
   const CurrencyIcon = ({ className }: { className?: string }) => (
     <span className="font-black text-sm leading-none flex items-center justify-center w-4 h-4 shrink-0">
@@ -187,6 +193,33 @@ export default function Dashboard() {
             <p className={`text-xl font-bold tabular-nums ${card.color}`}>{card.display}</p>
           </div>
         ))}
+      </div>
+
+      <div className="glass-card rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BarChart3 className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <h3 className="font-semibold text-sm">Day-End Summary</h3>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Gross Sales</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.gross, currency)}</p>
+          </div>
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Net Sales</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.net, currency)}</p>
+          </div>
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">VAT Collected</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.tax, currency)}</p>
+          </div>
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Refunds</p>
+            <p className="text-sm font-bold tabular-nums">-{formatCurrency(daySummary.refunds, currency)}</p>
+          </div>
+        </div>
       </div>
 
       {/* Low Stock Alert */}

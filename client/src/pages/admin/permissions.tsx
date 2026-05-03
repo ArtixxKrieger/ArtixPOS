@@ -97,6 +97,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
             onValueChange={([v]) => setLocalDiscount(v)}
             onValueCommit={([v]) => handleDiscountCommit(v)}
             className="w-full"
+            data-testid={`slider-discount-${role}`}
           />
           <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
             <span>0% (no discounts)</span>
@@ -114,6 +115,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
             checked={current.canRefund}
             disabled={updatePerm.isPending}
             onCheckedChange={v => handleUpdate("canRefund", v)}
+            data-testid={`toggle-refund-${role}`}
           />
         </div>
 
@@ -127,6 +129,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
             checked={current.canDeleteSale}
             disabled={updatePerm.isPending}
             onCheckedChange={v => handleUpdate("canDeleteSale", v)}
+            data-testid={`toggle-delete-sale-${role}`}
           />
         </div>
 
@@ -140,6 +143,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
             checked={current.canVoidOrder}
             disabled={updatePerm.isPending}
             onCheckedChange={v => handleUpdate("canVoidOrder", v)}
+            data-testid={`toggle-void-order-${role}`}
           />
         </div>
       </div>

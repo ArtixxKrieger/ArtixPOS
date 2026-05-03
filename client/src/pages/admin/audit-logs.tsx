@@ -100,6 +100,13 @@ function describeEvent(action: string, entity: string, metadata: Record<string, 
     return parts.join(" · ");
   }
   if (action === "create" && entity === "refund") return `Issued refund of ${meta.amount ?? "?"} on sale #${meta.saleId ?? "?"}`;
+  if (action === "delete_sale") {
+    const parts = [`Deleted sale #${meta.saleId ?? "?"}`];
+    if (meta.receiptNumber) parts.push(`Receipt #${meta.receiptNumber}`);
+    if (meta.orNumber) parts.push(`O.R. #${meta.orNumber}`);
+    if (meta.invoiceNumber) parts.push(`Invoice #${meta.invoiceNumber}`);
+    return parts.join(" · ");
+  }
   if (action === "create" && entity === "expense") return `Logged expense "${meta.description}" (${meta.amount ?? "?"})`;
   if (action === "delete" && entity === "expense") return `Deleted expense "${meta.description ?? ""}"`;
   if (action === "update" && entity === "expense") return `Updated expense "${meta.description}"`;

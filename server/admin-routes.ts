@@ -881,6 +881,7 @@ export function registerAdminRoutes(app: Express) {
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename="sales-journal-${new Date().toISOString().slice(0, 10)}.csv"`);
       res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Pragma", "no-cache");
       res.send(csv);
     } catch (err) { next(err); }
   });

@@ -212,7 +212,7 @@ export default function AdminAnalytics() {
     : String(v);
 
   function exportTaxCsv() {
-    const headers = ["Branch", "Taxable Sales", "Estimated VAT", "Orders"];
+    const headers = ["Branch", "VATable Sales", "Estimated VAT", "Orders"];
     const rows = taxRows.map(r => [r.branch, r.taxableSales.toFixed(2), r.vat.toFixed(2), String(r.orders)]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });

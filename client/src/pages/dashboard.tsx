@@ -6,7 +6,7 @@ import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3, ArrowRight, AlertTriangle, Package } from "lucide-react";
+import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3, ArrowRight, AlertTriangle, Package, PieChart, Clock3, Percent, ShoppingCart } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
@@ -67,6 +67,25 @@ export default function Dashboard() {
   const allTimeRefunds = sales.filter(s => !!(s as any).refundedAt).reduce((acc, s) => acc + parseNumeric(s.total), 0);
   const allTimeRevenue = allTimeGross - allTimeRefunds;
   const allTimeCount = sales.length;
+  const paymentBreakdown = useMemo(() => {
+    const counts: Record<string, { count: number; revenue: number }> = {};
+    for (const sale of todaySales) {
+      const method = (sale.paymentMethod || "cash").toLowerCase();
+      if (!counts[method]) counts[method] = { count: 0, revenue: 0 };
+      counts[method].count += 1;
+      counts[method].revenue += parseNumeric(sale.total);
+    }
+    return Object.entries(counts)
+      .map(([method, value]) => ({ method, ...value }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [todaySales]);
+
+  const reportHighlights = [
+    { label: "Net Revenue", value: formatCurrency(totalRevenue, currency), icon: ShoppingCart },
+    { label: "Refunds", value: formatCurrency(todayRefundTotal, currency), icon: Percent },
+    { label: "Peak Hour", value: todaySales.length ? `${bestSeller ? bestSeller.qty : 0} sold` : "No sales", icon: Clock3 },
+    { label: "Payments", value: paymentBreakdown.length ? paymentBreakdown[0].method : "none", icon: PieChart },
+  ];
 
   const bestSeller = useMemo(() => {
     const counts: Record<string, { name: string; qty: number; revenue: number }> = {};
@@ -246,6 +265,43 @@ export default function Dashboard() {
             <p className="text-[10px] text-rose-500 mt-0.5">-{formatCurrency(allTimeRefunds, currency)} refunded</p>
           )}
         </div>
+      </div>
+
+      {/* Quick Report */}
+      <div className="glass-card rounded-2xl p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BarChart3 className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <h3 className="font-semibold text-sm">Quick Report</h3>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {reportHighlights.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{item.label}</p>
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-bold tabular-nums">{item.value}</p>
+              </div>
+            );
+          })}
+        </div>
+        {paymentBreakdown.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment mix today</p>
+            <div className="grid gap-2">
+              {paymentBreakdown.map((p) => (
+                <div key={p.method} className="flex items-center justify-between rounded-xl border border-border/30 px-3 py-2">
+                  <span className="text-sm font-medium capitalize">{p.method}</span>
+                  <span className="text-sm font-bold tabular-nums">{formatCurrency(p.revenue, currency)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Transactions Table */}

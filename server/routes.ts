@@ -9,7 +9,7 @@ import { registerSubscriptionRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog, getRolePermissionForRole } from "./admin-storage";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc, isNotNull } from "drizzle-orm";
 import { users, branches as branchesTable, tenants } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
@@ -470,6 +470,28 @@ export async function registerRoutes(
       endDate: endDate || undefined,
     });
     res.json(salesList);
+  });
+
+  app.get("/api/sales/export", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const salesList = await storage.getSales(userId(req), { limit: 1000 });
+    const headers = ["id","createdAt","receiptNumber","orNumber","invoiceNumber","subtotal","tax","discount","total","paymentMethod","customerName"];
+    const rows = salesList.map((sale) => [
+      sale.id,
+      sale.createdAt ?? "",
+      (sale as any).receiptNumber ?? "",
+      (sale as any).orNumber ?? "",
+      (sale as any).invoiceNumber ?? "",
+      sale.subtotal ?? "",
+      sale.tax ?? "",
+      sale.discount ?? "",
+      sale.total ?? "",
+      sale.paymentMethod ?? "",
+      sale.customerName ?? "",
+    ]);
+    const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="sales-journal-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
   });
 
   app.post(api.sales.create.path, requireAuth, async (req, res) => {
@@ -982,6 +1004,21 @@ export async function registerRoutes(
       }
       throw err;
     }
+  });
+
+  app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const saleUser = req.user as any;
+    if (saleUser?.tenantId && saleUser.role !== "owner") {
+      const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
+      if (perm && perm.canDeleteSale === false) {
+        return res.status(403).json({ message: "You don't have permission to delete sales" });
+      }
+    }
+    const id = Number(req.params.id);
+    const deleted = await storage.softDeleteSale(id, userId(req), userId(req));
+    if (!deleted) return res.status(404).json({ message: "Sale not found" });
+    await auditLog(req, "delete", "sale", String(id), { softDelete: true });
+    res.status(204).end();
   });
 
   // ── Barcode Lookup ────────────────────────────────────────────────────────

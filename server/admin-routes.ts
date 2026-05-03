@@ -24,7 +24,7 @@ import {
   productRecipes, purchaseOrderItems, pendingOrders, userBranches,
   type UserRole,
 } from "@shared/schema";
-import { eq, and, isNull, isNotNull, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, inArray, sql, desc } from "drizzle-orm";
 import { signToken } from "./auth";
 import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
@@ -836,7 +836,7 @@ export function registerAdminRoutes(app: Express) {
         action: "delete_sale",
         entity: "sale",
         entityId: String(saleId),
-        metadata: { total: sale.total, deletedBy: user.name || user.id },
+        metadata: { total: sale.total, receiptNumber: (sale as any).receiptNumber ?? null, orNumber: (sale as any).orNumber ?? null, invoiceNumber: (sale as any).invoiceNumber ?? null, deletedBy: user.name || user.id },
       });
 
       res.status(204).end();
@@ -855,6 +855,32 @@ export function registerAdminRoutes(app: Express) {
       );
 
       res.json(deletedSales);
+    } catch (err) { next(err); }
+  });
+
+  app.get("/api/sales/export", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const tenantUsers = await getTenantUsers(user.tenantId!);
+      const userIds = tenantUsers.map(u => u.id);
+      const rows = await db.select().from(sales).where(and(inArray(sales.userId, userIds), isNull(sales.deletedAt))).orderBy(desc(sales.createdAt));
+      const headers = ["id","createdAt","receiptNumber","orNumber","invoiceNumber","subtotal","tax","discount","total","paymentMethod","customerName"];
+      const csv = [headers.join(","), ...rows.map((sale) => [
+        sale.id,
+        sale.createdAt ?? "",
+        (sale as any).receiptNumber ?? "",
+        (sale as any).orNumber ?? "",
+        (sale as any).invoiceNumber ?? "",
+        sale.subtotal ?? "",
+        sale.tax ?? "",
+        sale.discount ?? "",
+        sale.total ?? "",
+        sale.paymentMethod ?? "",
+        sale.customerName ?? "",
+      ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="sales-journal-${new Date().toISOString().slice(0, 10)}.csv"`);
+      res.send(csv);
     } catch (err) { next(err); }
   });
 

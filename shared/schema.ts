@@ -35,6 +35,7 @@ export const branches = pgTable("branches", {
   // Each branch can be a different business (e.g. main is a cafe, second is a salon).
   businessType: text("business_type"),
   businessSubType: text("business_sub_type"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

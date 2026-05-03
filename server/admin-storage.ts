@@ -73,7 +73,9 @@ export async function updateBranch(id: number, tenantId: string, data: Partial<{
 
 export async function deleteBranch(id: number, tenantId: string): Promise<void> {
   await db.delete(userBranches).where(eq(userBranches.branchId, id));
-  await db.delete(branches).where(and(eq(branches.id, id), eq(branches.tenantId, tenantId)));
+  await db.update(branches)
+    .set({ deletedAt: new Date().toISOString(), isActive: false } as any)
+    .where(and(eq(branches.id, id), eq(branches.tenantId, tenantId)));
 }
 
 // ─── Users (tenant scoped) ────────────────────────────────────────────────────

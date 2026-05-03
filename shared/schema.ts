@@ -257,6 +257,9 @@ export const sales = pgTable("sales", {
   userId: text("user_id").notNull().references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   cashierId: text("cashier_id"), // user.id of cashier who rang up the sale (for commission/tips)
+  receiptNumber: text("receipt_number"),
+  orNumber: text("or_number"),
+  invoiceNumber: text("invoice_number"),
   customerId: integer("customer_id").references(() => customers.id),
   customerName: text("customer_name"), // Free-text guest name (Starbucks-style, not a stored customer)
   tableId: integer("table_id").references(() => tables.id),

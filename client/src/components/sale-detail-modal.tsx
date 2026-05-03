@@ -142,6 +142,9 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
 
     const fmt = (n: number) => formatCurrency(n, cur);
     const txn = `TXN-${String(sale.id ?? 0).padStart(4, "0")}`;
+  const receiptNumber = (sale as any).receiptNumber || txn;
+  const orNumber = (sale as any).orNumber || receiptNumber;
+  const invoiceNumber = (sale as any).invoiceNumber || "";
     const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
 
     // ── BLE / thermal print path ──────────────────────────────────────────────
@@ -247,7 +250,10 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   ${showWebsite && receiptWebsite ? `<p class="muted" style="font-size:${fs - 3}px">${receiptWebsite}</p>` : ""}
   ${sale.customerName ? `<p style="font-size:${fs - 3}px">Customer: ${sale.customerName}</p>` : ""}
 </div>
-${showOrderNumber ? `<div class="row muted" style="font-size:${fs - 3}px;margin-bottom:4px"><span>Order #</span><span>${txn}</span></div>` : ""}
+  ${showOrderNumber ? `<div class="row muted" style="font-size:${fs - 3}px;margin-bottom:4px"><span>Order #</span><span>${txn}</span></div>` : ""}
+  <div class="row muted" style="font-size:${fs - 3}px"><span>Receipt #</span><span>${receiptNumber}</span></div>
+  ${orNumber ? `<div class="row muted" style="font-size:${fs - 3}px"><span>O.R. #</span><span>${orNumber}</span></div>` : ""}
+  ${invoiceNumber ? `<div class="row muted" style="font-size:${fs - 3}px"><span>Invoice #</span><span>${invoiceNumber}</span></div>` : ""}
 <div class="line"></div>
 ${itemsHtml}
 <div class="line"></div>

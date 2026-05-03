@@ -518,6 +518,9 @@ export async function registerRoutes(
         total: sale.total,
         itemCount: Array.isArray(sale.items) ? sale.items.length : 0,
         paymentMethod: sale.paymentMethod,
+        receiptNumber: (sale as any).receiptNumber ?? null,
+        orNumber: (sale as any).orNumber ?? null,
+        invoiceNumber: (sale as any).invoiceNumber ?? null,
         discountCode: sale.discountCode,
       });
       res.status(201).json(sale);

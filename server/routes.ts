@@ -1160,6 +1160,7 @@ export async function registerRoutes(
       const { rewardId } = z.object({ rewardId: z.number().int() }).parse(req.body);
       const result = await storage.redeemLoyaltyReward(Number(req.params.id), rewardId, userId(req));
       if (!result) return res.status(400).json({ message: "Cannot redeem: insufficient points or invalid reward" });
+      await auditLog(req, "create", "customer", String(req.params.id), { rewardId });
       res.json(result);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1180,7 +1181,9 @@ export async function registerRoutes(
         multiplier: z.string().default("1"), color: z.string().default("#CD7F32"),
         perks: z.string().optional().nullable(), sortOrder: z.number().int().default(0),
       }).parse(req.body);
-      res.status(201).json(await storage.createLoyaltyTier(userId(req), body));
+      const tier = await storage.createLoyaltyTier(userId(req), body);
+      await auditLog(req, "create", "loyalty_tier", String(tier.id), { name: tier.name, minLifetimePoints: tier.minLifetimePoints });
+      res.status(201).json(tier);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
@@ -1192,13 +1195,16 @@ export async function registerRoutes(
       const body = req.body;
       const updated = await storage.updateLoyaltyTier(Number(req.params.id), userId(req), body);
       if (!updated) return res.status(404).json({ message: "Tier not found" });
+      await auditLog(req, "update", "loyalty_tier", String(updated.id), { name: updated.name });
       res.json(updated);
     } catch (err) { next(err); }
   });
 
   app.delete("/api/loyalty/tiers/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
+      const existing = await storage.getLoyaltyTiers(userId(req)).then(list => list.find(t => t.id === Number(req.params.id)));
       await storage.deleteLoyaltyTier(Number(req.params.id), userId(req));
+      await auditLog(req, "delete", "loyalty_tier", String(req.params.id), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
   });
@@ -1222,7 +1228,9 @@ export async function registerRoutes(
         maxRedemptions: z.number().int().optional().nullable(),
         expiresAt: z.string().optional().nullable(),
       }).parse(req.body);
-      res.status(201).json(await storage.createLoyaltyReward(userId(req), body));
+      const reward = await storage.createLoyaltyReward(userId(req), body);
+      await auditLog(req, "create", "loyalty_reward", String(reward.id), { name: reward.name, type: reward.type });
+      res.status(201).json(reward);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
@@ -1233,13 +1241,16 @@ export async function registerRoutes(
     try {
       const updated = await storage.updateLoyaltyReward(Number(req.params.id), userId(req), req.body);
       if (!updated) return res.status(404).json({ message: "Reward not found" });
+      await auditLog(req, "update", "loyalty_reward", String(updated.id), { name: updated.name, isActive: updated.isActive });
       res.json(updated);
     } catch (err) { next(err); }
   });
 
   app.delete("/api/loyalty/rewards/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
+      const existing = await storage.getLoyaltyRewards(userId(req)).then(list => list.find(r => r.id === Number(req.params.id)));
       await storage.deleteLoyaltyReward(Number(req.params.id), userId(req));
+      await auditLog(req, "delete", "loyalty_reward", String(req.params.id), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
   });
@@ -1490,6 +1501,7 @@ export async function registerRoutes(
     try {
       const input = insertIngredientSchema.parse(req.body);
       const created = await storage.createIngredient(userId(req), input);
+      await auditLog(req, "create", "ingredient", String(created.id), { name: created.name });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1502,6 +1514,7 @@ export async function registerRoutes(
       const input = insertIngredientSchema.partial().parse(req.body);
       const updated = await storage.updateIngredient(Number(req.params.id), userId(req), input);
       if (!updated) return res.status(404).json({ message: "Ingredient not found" });
+      await auditLog(req, "update", "ingredient", String(updated.id), { name: updated.name });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1510,7 +1523,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/ingredients/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const existing = await storage.getIngredients(userId(req)).then(list => list.find(i => i.id === Number(req.params.id)));
     await storage.deleteIngredient(Number(req.params.id), userId(req));
+    await auditLog(req, "delete", "ingredient", String(req.params.id), { name: existing?.name });
     res.status(204).end();
   });
 

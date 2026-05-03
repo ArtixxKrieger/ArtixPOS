@@ -805,6 +805,15 @@ export function registerAdminRoutes(app: Express) {
   app.delete("/api/sales/:id", requireAuth, requireTenant, requireManagerOrAbove, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
+
+      // Granular permission check — owners always allowed, others check canDeleteSale
+      if (user.role !== "owner") {
+        const perm = await getRolePermissionForRole(user.tenantId!, user.role);
+        if (perm && perm.canDeleteSale === false) {
+          return res.status(403).json({ message: "You don't have permission to delete sales" });
+        }
+      }
+
       const saleId = Number(req.params.id);
 
       // Find the sale belonging to any user in this tenant

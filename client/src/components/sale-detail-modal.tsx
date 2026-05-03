@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useMyPermissions } from "@/hooks/use-admin";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
@@ -78,6 +79,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const currency = (settings as any)?.currency || "₱";
   const { toast } = useToast();
   const { isManagerOrAbove } = useAuth();
+  const { data: perms } = useMyPermissions();
   const { printer: blePrinter, print: blePrint } = useBlePrinter();
   const [showRefund, setShowRefund] = useState(false);
   const [refundReason, setRefundReason] = useState("");
@@ -457,8 +459,8 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             </Button>
           </div>
 
-          {/* Refund footer — only for manager/owner, only if not already refunded */}
-          {isManagerOrAbove && (
+          {/* Refund footer — only for manager/owner with canRefund permission */}
+          {isManagerOrAbove && perms?.canRefund !== false && (
             <div className="px-5 pb-5">
               {isAlreadyRefunded ? (
                 <div className="w-full h-10 rounded-xl flex items-center justify-center gap-2 bg-rose-500/8 border border-rose-500/15 text-rose-500 text-sm font-medium">

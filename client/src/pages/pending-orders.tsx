@@ -1,6 +1,7 @@
 import { usePendingOrders, useDeletePendingOrder, useUpdatePendingOrder } from "@/hooks/use-pending-orders";
 import { useCreateSale } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
+import { useMyPermissions } from "@/hooks/use-admin";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -39,10 +40,12 @@ interface PendingOrder {
 export default function PendingOrders() {
   const { data: orders = [], isLoading } = usePendingOrders();
   const { data: settings } = useSettings();
+  const { data: perms } = useMyPermissions();
   const deleteOrder = useDeletePendingOrder();
   const updateOrder = useUpdatePendingOrder();
   const createSale = useCreateSale();
   const { toast } = useToast();
+  const canVoidOrder = perms?.canVoidOrder !== false;
   const [payments, setPayments] = useState<Record<number, string>>({});
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -278,8 +281,10 @@ export default function PendingOrders() {
                 <div className="grid grid-cols-2 border-t border-border/30">
                   <Button
                     variant="ghost"
-                    className="h-12 rounded-none rounded-bl-3xl hover:bg-destructive/8 hover:text-destructive text-muted-foreground text-xs font-bold tracking-wide border-r border-border/30"
-                    onClick={() => handleDiscard(order.id)}
+                    className="h-12 rounded-none rounded-bl-3xl hover:bg-destructive/8 hover:text-destructive text-muted-foreground text-xs font-bold tracking-wide border-r border-border/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => canVoidOrder && handleDiscard(order.id)}
+                    disabled={!canVoidOrder}
+                    title={!canVoidOrder ? "You don't have permission to void orders" : undefined}
                     data-testid={`button-discard-${order.id}`}
                   >
                     <Trash2 className="mr-1.5 h-3.5 w-3.5" />

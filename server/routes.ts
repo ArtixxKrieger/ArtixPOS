@@ -7,7 +7,7 @@ import { registerAdminRoutes } from "./admin-routes";
 import { registerAiRoutes } from "./ai-routes";
 import { registerSubscriptionRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
-import { createBranch, getBranches, createTenant, createAuditLog } from "./admin-storage";
+import { createBranch, getBranches, createTenant, createAuditLog, getRolePermissionForRole } from "./admin-storage";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
 import { users, branches as branchesTable, tenants } from "@shared/schema";
@@ -438,6 +438,13 @@ export async function registerRoutes(
   });
 
   app.delete(api.pendingOrders.delete.path, requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (user?.tenantId && user.role !== "owner") {
+      const perm = await getRolePermissionForRole(user.tenantId, user.role);
+      if (perm && perm.canVoidOrder === false) {
+        return res.status(403).json({ message: "You don't have permission to void orders" });
+      }
+    }
     const id = Number(req.params.id);
     const existing = await storage.getPendingOrder(id, userId(req));
     await storage.deletePendingOrder(id, userId(req));
@@ -477,6 +484,19 @@ export async function registerRoutes(
         customerId: z.coerce.number().optional().nullable(),
       });
       const input = bodySchema.parse(req.body);
+
+      // Enforce maxDiscountPercent for non-owners
+      const saleUser = req.user as any;
+      if (saleUser?.tenantId && saleUser.role !== "owner") {
+        const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
+        if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
+          const discountAmt = parseFloat(input.discount || "0") + parseFloat((input as any).loyaltyDiscount || "0");
+          const subtotalAmt = parseFloat(input.subtotal || "0");
+          if (subtotalAmt > 0 && (discountAmt / subtotalAmt) * 100 > perm.maxDiscountPercent) {
+            return res.status(403).json({ message: `Discount exceeds your allowed maximum of ${perm.maxDiscountPercent}%` });
+          }
+        }
+      }
 
       // Increment discount code usage atomically if provided
       if (input.discountCode) {
@@ -934,6 +954,13 @@ export async function registerRoutes(
 
   app.post("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
+      const refundUser = req.user as any;
+      if (refundUser?.tenantId && refundUser.role !== "owner") {
+        const perm = await getRolePermissionForRole(refundUser.tenantId, refundUser.role);
+        if (perm && perm.canRefund === false) {
+          return res.status(403).json({ message: "You don't have permission to process refunds" });
+        }
+      }
       const input = insertRefundSchema.extend({ amount: z.coerce.string() }).parse(req.body);
       const refund = await storage.createRefund(userId(req), input);
       await auditLog(req, "create", "refund", String(refund.id), { saleId: refund.saleId, amount: refund.amount, reason: refund.reason });

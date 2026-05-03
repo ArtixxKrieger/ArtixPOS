@@ -402,8 +402,14 @@ export default function Customers() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/customers/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/customers"] }); toast({ title: "Customer deleted" }); setProfileCustomer(null); },
-    onError: () => toast({ title: "Delete failed", variant: "destructive" }),
+    onMutate: async (id: number) => {
+      await qc.cancelQueries({ queryKey: ["/api/customers"] });
+      const previous = qc.getQueryData<any[]>(["/api/customers"]);
+      qc.setQueryData<any[]>(["/api/customers"], (old) => old ? old.filter(c => c.id !== id) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/customers"], ctx.previous); toast({ title: "Delete failed", variant: "destructive" }); },
+    onSuccess: () => { setProfileCustomer(null); toast({ title: "Customer deleted" }); },
   });
 
   const filtered = customers.filter(c =>

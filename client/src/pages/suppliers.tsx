@@ -50,12 +50,14 @@ export default function SuppliersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/suppliers/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
-      toast({ title: "Supplier deleted" });
-      setDeleteTarget(null);
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/suppliers"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/suppliers"]);
+      queryClient.setQueryData<any[]>(["/api/suppliers"], (old) => old ? old.filter(s => s.id !== id) : []);
+      return { previous };
     },
-    onError: () => toast({ title: "Failed to delete supplier", variant: "destructive" }),
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/suppliers"], ctx.previous); toast({ title: "Failed to delete supplier", variant: "destructive" }); },
+    onSuccess: () => { setDeleteTarget(null); toast({ title: "Supplier deleted" }); },
   });
 
   function openCreate() { setEditing(null); setForm(DEFAULT_FORM); setDialogOpen(true); }

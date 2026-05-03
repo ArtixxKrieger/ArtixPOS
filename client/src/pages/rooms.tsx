@@ -188,16 +188,25 @@ export default function RoomsPage() {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest("PUT", `/api/service-rooms/${id}`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/service-rooms"] }),
+    onMutate: async ({ id, status }: { id: number; status: string }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/service-rooms"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/service-rooms"]);
+      queryClient.setQueryData<any[]>(["/api/service-rooms"], (old) => old ? old.map(r => r.id === id ? { ...r, status } : r) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-rooms"], ctx.previous); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/service-rooms/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/service-rooms"] });
-      toast({ title: "Removed" });
-      setConfirmDelete(undefined);
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/service-rooms"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/service-rooms"]);
+      queryClient.setQueryData<any[]>(["/api/service-rooms"], (old) => old ? old.filter(r => r.id !== id) : []);
+      return { previous };
     },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-rooms"], ctx.previous); },
+    onSuccess: () => { toast({ title: "Removed" }); setConfirmDelete(undefined); },
   });
 
   const available = (rooms as ServiceRoom[]).filter((r) => r.status === "available");

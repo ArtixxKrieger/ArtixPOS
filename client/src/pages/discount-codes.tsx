@@ -150,16 +150,26 @@ export default function DiscountCodes() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/discount-codes/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/discount-codes"] });
-      toast({ title: "Code deleted" });
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/discount-codes"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/discount-codes"]);
+      queryClient.setQueryData<any[]>(["/api/discount-codes"], (old) => old ? old.filter(c => c.id !== id) : []);
+      return { previous };
     },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/discount-codes"], ctx.previous); toast({ title: "Failed to delete code", variant: "destructive" }); },
+    onSuccess: () => { toast({ title: "Code deleted" }); },
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
       apiRequest("PUT", `/api/discount-codes/${id}`, { isActive }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/discount-codes"] }),
+    onMutate: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/discount-codes"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/discount-codes"]);
+      queryClient.setQueryData<any[]>(["/api/discount-codes"], (old) => old ? old.map(c => c.id === id ? { ...c, isActive } : c) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/discount-codes"], ctx.previous); },
   });
 
   const activeCodes = codes.filter(c => c.isActive);

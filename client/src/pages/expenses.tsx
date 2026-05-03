@@ -106,12 +106,14 @@ export default function Expenses() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/expenses/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-      toast({ title: "Expense deleted" });
-      setDeleteTarget(null);
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/expenses"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/expenses"]);
+      queryClient.setQueryData<any[]>(["/api/expenses"], (old) => old ? old.filter(e => e.id !== id) : []);
+      return { previous };
     },
-    onError: () => toast({ title: "Failed to delete expense", variant: "destructive" }),
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/expenses"], ctx.previous); toast({ title: "Failed to delete expense", variant: "destructive" }); },
+    onSuccess: () => { setDeleteTarget(null); toast({ title: "Expense deleted" }); },
   });
 
   const filtered = useMemo(() => {

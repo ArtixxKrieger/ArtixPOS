@@ -813,16 +813,25 @@ export default function AppointmentsPage() {
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) =>
       apiRequest("PUT", `/api/appointments/${id}`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/appointments"] }),
+    onMutate: async ({ id, status }: { id: number; status: string }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/appointments"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/appointments"]);
+      queryClient.setQueryData<any[]>(["/api/appointments"], (old) => old ? old.map(a => a.id === id ? { ...a, status } : a) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/appointments"], ctx.previous); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/appointments/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      toast({ title: `${terminology.entry} deleted` });
-      setConfirmDelete(undefined);
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/appointments"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/appointments"]);
+      queryClient.setQueryData<any[]>(["/api/appointments"], (old) => old ? old.filter(a => a.id !== id) : []);
+      return { previous };
     },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/appointments"], ctx.previous); },
+    onSuccess: () => { toast({ title: `${terminology.entry} deleted` }); setConfirmDelete(undefined); },
   });
 
   const parsedDate      = parseISO(selectedDate);

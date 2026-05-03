@@ -409,17 +409,37 @@ export default function MembershipsPage() {
 
   const deletePlanMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/membership-plans/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/membership-plans"] }); setConfirmDelete(undefined); toast({ title: "Plan deleted" }); },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/membership-plans"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/membership-plans"]);
+      queryClient.setQueryData<any[]>(["/api/membership-plans"], (old) => old ? old.filter(p => p.id !== id) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/membership-plans"], ctx.previous); },
+    onSuccess: () => { setConfirmDelete(undefined); toast({ title: "Plan deleted" }); },
   });
 
   const deleteMemberMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/memberships/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/memberships"] }); setConfirmDelete(undefined); toast({ title: "Membership removed" }); },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/memberships"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/memberships"]);
+      queryClient.setQueryData<any[]>(["/api/memberships"], (old) => old ? old.filter(m => m.id !== id) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous); },
+    onSuccess: () => { setConfirmDelete(undefined); toast({ title: "Membership removed" }); },
   });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) => apiRequest("PUT", `/api/memberships/${id}`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/memberships"] }),
+    onMutate: async ({ id, status }: { id: number; status: string }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/memberships"] });
+      const previous = queryClient.getQueryData<any[]>(["/api/memberships"]);
+      queryClient.setQueryData<any[]>(["/api/memberships"], (old) => old ? old.map(m => m.id === id ? { ...m, status } : m) : []);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous); },
   });
 
   const checkInMutation = useMutation({

@@ -241,12 +241,12 @@ async function deleteUsersData(uids: string[]): Promise<void> {
 
   // 5. Product children: recipes (FK → products.id, ingredients.id), sizes, modifiers
   if (userProductIds.length > 0) {
-    await db.delete(productRecipes).where(inArray(productRecipes.productId, userProductIds));
-    await db.delete(productSizes).where(inArray(productSizes.productId, userProductIds));
-    await db.delete(productModifiers).where(inArray(productModifiers.productId, userProductIds));
+    await db.update(productRecipes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productRecipes.productId, userProductIds));
+    await db.update(productSizes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productSizes.productId, userProductIds));
+    await db.update(productModifiers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productModifiers.productId, userProductIds));
   }
   if (userIngredientIds.length > 0) {
-    await db.delete(productRecipes).where(inArray(productRecipes.ingredientId, userIngredientIds));
+    await db.update(productRecipes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productRecipes.ingredientId, userIngredientIds));
   }
 
   // 6. Appointments (refs serviceStaff/Rooms/customers)

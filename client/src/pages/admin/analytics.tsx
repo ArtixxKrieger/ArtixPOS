@@ -8,6 +8,7 @@ import {
 import {
   Building2, TrendingUp, ShoppingBag, ArrowUpRight, ArrowDownRight,
   Minus, BarChart3, CreditCard, Lightbulb, Package,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -108,6 +109,8 @@ export default function AdminAnalytics() {
   const todayRevenue = analyticsData.reduce((s, a) => s + a.todayRevenue, 0);
   const todayOrders = analyticsData.reduce((s, a) => s + a.todayOrders, 0);
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const estimatedVatRate = ((settings as any)?.taxRate && !Number.isNaN(Number((settings as any).taxRate))) ? Number((settings as any).taxRate) : 0;
+  const estimatedVat = estimatedVatRate > 0 ? totalRevenue * (estimatedVatRate / 100) : analyticsData.reduce((s, a) => s + ((a.totalRevenue || 0) * 0.12), 0);
   const activeBranches = analyticsData.filter(a => a.branch.isActive).length;
 
   const todayRevPct = totalRevenue > 0 && analyticsData.length > 0
@@ -268,6 +271,30 @@ export default function AdminAnalytics() {
             <p className="text-[10px] text-muted-foreground mt-1">{card.sub}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Tax Summary ── */}
+      <div className="glass-card rounded-3xl p-5 md:p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-7 w-7 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <FileSpreadsheet className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <span className="font-semibold text-sm">Tax Summary</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Taxable Sales</p>
+            <p className="text-xl font-black tabular-nums mt-1">{fmt(totalRevenue)}</p>
+          </div>
+          <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Estimated VAT</p>
+            <p className="text-xl font-black tabular-nums mt-1">{fmt(estimatedVat)}</p>
+          </div>
+          <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tax Rate</p>
+            <p className="text-xl font-black tabular-nums mt-1">{estimatedVatRate > 0 ? `${estimatedVatRate}%` : "Unset"}</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Branch Comparison Bar Chart ── */}

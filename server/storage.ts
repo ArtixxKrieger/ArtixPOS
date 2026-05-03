@@ -2024,8 +2024,8 @@ export class DatabaseStorage implements IStorage {
   async deletePayrollPeriod(id: number, userId: string): Promise<void> {
     const period = await this.getPayrollPeriod(id, userId);
     if (!period) return;
-    await db.delete(payrollEntries).where(eq(payrollEntries.periodId, id));
-    await db.delete(payrollPeriods).where(eq(payrollPeriods.id, id));
+    await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(eq(payrollEntries.periodId, id));
+    await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString() } as any).where(eq(payrollPeriods.id, id));
   }
 
   async updateUserWage(targetUserId: string, requesterId: string, data: { wageType: string; wageRate: string; commissionPercent: string }): Promise<any> {

@@ -694,6 +694,7 @@ export const payrollPeriods = pgTable("payroll_periods", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   finalizedAt: text("finalized_at"),
   paidAt: text("paid_at"),
+  deletedAt: text("deleted_at"),
 });
 
 // ─── Payroll Entries (per employee per period) ────────────────────────────────

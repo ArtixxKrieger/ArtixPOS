@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { type Shift } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, TrendingUp, Play, Square, Receipt, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { Clock, TrendingUp, Play, Square, Receipt, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function useShifts() {
@@ -97,9 +97,25 @@ export default function Shifts() {
     : 0;
 
   const closedShifts = useMemo(() => shifts.filter(s => s.status === "closed"), [shifts]);
+  const taxRate = parseNumeric((settings as any)?.taxRate || 0);
+  const vatRegistered = !!(settings as any)?.vatRegistered;
+  const storeName = (settings as any)?.storeName || "Store";
+  const tin = (settings as any)?.tin || "";
+  const ptuNumber = (settings as any)?.ptuNumber || "";
+  const accreditationNumber = (settings as any)?.accreditationNumber || "";
+  const machineSerialNumber = (settings as any)?.machineSerialNumber || "";
+
   const dayEndSummary = useMemo(() => {
     const recent = closedShifts.slice(0, 1)[0];
     if (!recent) return null;
+    const totalSales = parseNumeric(recent.totalSales ?? "0");
+    // VAT breakdown from totalSales (which includes VAT)
+    // VAT amount = totalSales * taxRate / (100 + taxRate)
+    const vatAmount = vatRegistered && taxRate > 0
+      ? totalSales * taxRate / (100 + taxRate)
+      : 0;
+    const vatableSales = vatRegistered ? totalSales - vatAmount : 0;
+    const vatExemptSales = vatRegistered ? 0 : totalSales;
     return {
       openedAt: recent.openedAt,
       closedAt: recent.closedAt,
@@ -107,10 +123,60 @@ export default function Shifts() {
       closingBalance: recent.closingBalance ?? "0",
       sales: recent.totalSales ?? "0",
       expenses: recent.totalExpenses ?? "0",
-      net: parseNumeric(recent.totalSales ?? "0") - parseNumeric(recent.totalExpenses ?? "0"),
+      net: totalSales - parseNumeric(recent.totalExpenses ?? "0"),
       count: recent.salesCount ?? 0,
+      vatableSales,
+      vatAmount,
+      vatExemptSales,
+      shift: recent,
     };
-  }, [closedShifts]);
+  }, [closedShifts, vatRegistered, taxRate]);
+
+  function printZReport() {
+    if (!dayEndSummary) return;
+    const s = dayEndSummary;
+    const dateStr = format(new Date(s.openedAt!), "MMMM d, yyyy");
+    const openTime = format(new Date(s.openedAt!), "hh:mm a");
+    const closeTime = s.closedAt ? format(new Date(s.closedAt), "hh:mm a") : "--";
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Z-Report ${dateStr}</title>
+    <style>
+      body { font-family: monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 16px; }
+      .center { text-align: center; }
+      .bold { font-weight: bold; }
+      .line { border-top: 1px dashed #000; margin: 8px 0; }
+      .row { display: flex; justify-content: space-between; margin: 2px 0; }
+      .title { font-size: 14px; font-weight: bold; margin: 4px 0; }
+      .small { font-size: 10px; }
+    </style></head><body>
+    <div class="center">
+      <div class="title">${storeName}</div>
+      ${tin ? `<div class="small">TIN: ${tin}</div>` : ""}
+      ${ptuNumber ? `<div class="small">PTU No.: ${ptuNumber}</div>` : ""}
+      ${accreditationNumber ? `<div class="small">Accreditation No.: ${accreditationNumber}</div>` : ""}
+      ${machineSerialNumber ? `<div class="small">Machine S/N: ${machineSerialNumber}</div>` : ""}
+    </div>
+    <div class="line"></div>
+    <div class="center bold">Z-REPORT</div>
+    <div class="center small">${dateStr}</div>
+    <div class="center small">${openTime} — ${closeTime}</div>
+    <div class="line"></div>
+    <div class="row"><span>Transactions</span><span>${s.count}</span></div>
+    <div class="row bold"><span>Gross Sales</span><span>${currency}${parseNumeric(s.sales).toFixed(2)}</span></div>
+    <div class="row"><span>Expenses</span><span>${currency}${parseNumeric(s.expenses).toFixed(2)}</span></div>
+    <div class="row bold"><span>Net Sales</span><span>${currency}${s.net.toFixed(2)}</span></div>
+    <div class="line"></div>
+    <div class="center bold small">BIR VAT BREAKDOWN</div>
+    <div class="row"><span>VATable Sales</span><span>${currency}${s.vatableSales.toFixed(2)}</span></div>
+    <div class="row"><span>VAT Amount (${taxRate}%)</span><span>${currency}${s.vatAmount.toFixed(2)}</span></div>
+    <div class="row"><span>VAT-Exempt Sales</span><span>${currency}${s.vatExemptSales.toFixed(2)}</span></div>
+    <div class="row"><span>Zero-Rated Sales</span><span>${currency}0.00</span></div>
+    <div class="line"></div>
+    <div class="center small">*** END OF Z-REPORT ***</div>
+    <div class="center small">This is a system-generated document.</div>
+    </body></html>`;
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); }
+  }
 
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
@@ -214,16 +280,35 @@ export default function Shifts() {
             <div className="px-4 py-3 border-b border-border/40 bg-secondary/20">
               <div className="flex items-center justify-between gap-3 mb-2">
                 <h3 className="font-semibold text-sm">Day-End Summary</h3>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {format(new Date(dayEndSummary.openedAt!), "MMM d")}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                    {format(new Date(dayEndSummary.openedAt!), "MMM d")}
+                  </span>
+                  <button
+                    onClick={printZReport}
+                    className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 transition-colors"
+                    data-testid="button-print-z-report"
+                  >
+                    <Printer className="h-3 w-3" /> Z-Report
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2">
                 <AmountCell label="Gross" value={formatCurrency(parseNumeric(dayEndSummary.sales) + parseNumeric(dayEndSummary.expenses), currency)} />
-                <AmountCell label="Net" value={formatCurrency(dayEndSummary.sales, currency)} />
+                <AmountCell label="Net Sales" value={formatCurrency(dayEndSummary.sales, currency)} />
                 <AmountCell label="Expenses" value={formatCurrency(dayEndSummary.expenses, currency)} color="text-rose-500" />
                 <AmountCell label="Transactions" value={String(dayEndSummary.count)} color="text-primary" />
               </div>
+              {vatRegistered && taxRate > 0 && (
+                <div className="mt-1.5">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">BIR VAT Breakdown</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <AmountCell label="VATable Sales" value={formatCurrency(dayEndSummary.vatableSales, currency)} />
+                    <AmountCell label={`VAT (${taxRate}%)`} value={formatCurrency(dayEndSummary.vatAmount, currency)} color="text-primary" />
+                    <AmountCell label="VAT-Exempt" value={formatCurrency(dayEndSummary.vatExemptSales, currency)} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

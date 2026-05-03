@@ -78,6 +78,10 @@ export default function POS() {
   const [tip, setTip] = useState<number>(0);
   const [issueWifi, setIssueWifi] = useState<boolean>(false);
 
+  // SC/PWD discount (BIR compliance — 20% off + VAT exempt)
+  const [scPwdType, setScPwdType] = useState<"none" | "sc" | "pwd">("none");
+  const [scPwdId, setScPwdId] = useState<string>("");
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [tempSize, setTempSize] = useState<{ name: string; price: string } | null>(null);
   const [tempNote, setTempNote] = useState("");
@@ -329,11 +333,16 @@ export default function POS() {
     : 0;
 
   const globalTaxRate = parseNumeric(settings?.taxRate || 0);
+  // SC/PWD discount: 20% of subtotal; VAT-exempt (no VAT charged)
+  const isScPwd = scPwdType !== "none";
+  const scPwdDiscount = isScPwd ? subtotal * 0.20 : 0;
+  // SC/PWD takes precedence over manual discount and coupon codes
+  const effectiveDiscount = isScPwd ? scPwdDiscount : discount;
   // Apply discount to subtotal BEFORE calculating tax (correct standard behaviour)
-  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const discountedSubtotal = Math.max(0, subtotal - effectiveDiscount);
   const discountRatio = subtotal > 0 ? discountedSubtotal / subtotal : 1;
-  // Per-product tax rate: use product's taxRate if set, else global rate — applied on discounted amount
-  const tax = cart.reduce((acc, item) => {
+  // SC/PWD purchases are VAT-exempt — zero VAT; otherwise per-product or global rate
+  const tax = isScPwd ? 0 : cart.reduce((acc, item) => {
     const basePrice = parseNumeric(item.size?.price || item.product.price);
     const modsPrice = (item.modifiers || []).reduce((sum, m) => sum + parseNumeric(m.price), 0);
     const itemSubtotal = (basePrice + modsPrice) * item.quantity * discountRatio;
@@ -450,8 +459,8 @@ export default function POS() {
       items: cart,
       subtotal: subtotal.toString(),
       tax: tax.toString(),
-      discount: discount.toString(),
-      discountCode: appliedCode?.code ?? null,
+      discount: effectiveDiscount.toString(),
+      discountCode: isScPwd ? null : (appliedCode?.code ?? null),
       loyaltyDiscount: loyaltyDiscount.toString(),
       tip: tip.toString(),
       total: actualTotal.toString(),
@@ -463,6 +472,12 @@ export default function POS() {
       customerName: !selectedCustomer && receiptName.trim() ? receiptName.trim() : null,
       loyaltyPointsUsed: loyaltyPointsToRedeem,
       loyaltyPointsEarned: selectedCustomer ? pointsEarned : 0,
+      // BIR compliance fields
+      discountType: isScPwd ? scPwdType : "regular",
+      scPwdId: isScPwd && scPwdId.trim() ? scPwdId.trim() : null,
+      vatableSales: (!isScPwd ? discountedSubtotal : 0).toString(),
+      vatExemptSales: (isScPwd ? discountedSubtotal : 0).toString(),
+      zeroRatedSales: "0",
     };
 
     const snapshotCustomer = selectedCustomer;
@@ -474,8 +489,13 @@ export default function POS() {
     const wifiPassword = (settings as any)?.wifiPassword as string | undefined;
     const wifiDuration = parseNumeric((settings as any)?.wifiDurationMinutes ?? 60) || 60;
 
+    const snapshotScPwdType = scPwdType;
+    const snapshotScPwdId = scPwdId;
+    const snapshotEffectiveDiscount = effectiveDiscount;
+    const snapshotDiscountedSubtotal = discountedSubtotal;
+
     createPending.mutate(orderData, {
-      onSuccess: async () => {
+      onSuccess: async (result) => {
         // Award/deduct loyalty points — queue offline if network unavailable
         if (snapshotCustomer) {
           const netDelta = pointsEarned - loyaltyPointsToRedeem;
@@ -528,7 +548,7 @@ export default function POS() {
           items: cart,
           subtotal,
           tax,
-          discount,
+          discount: snapshotEffectiveDiscount,
           loyaltyDiscount,
           tip: snapshotTip,
           total: actualTotal,
@@ -540,9 +560,15 @@ export default function POS() {
           receiptFooter: (settings as any)?.receiptFooter,
           currency,
           taxRate: globalTaxRate,
-          discountCode: appliedCode?.code ?? null,
+          discountCode: snapshotScPwdType !== "none" ? null : (appliedCode?.code ?? null),
           loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
           wifiVoucher,
+          // BIR compliance
+          orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber,
+          discountType: snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
+          scPwdId: snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
+          vatableSales: snapshotScPwdType === "none" ? snapshotDiscountedSubtotal : 0,
+          vatExemptSales: snapshotScPwdType !== "none" ? snapshotDiscountedSubtotal : 0,
         };
         setReceiptData(receipt);
         setShowReceipt(true);
@@ -557,6 +583,8 @@ export default function POS() {
         setReceiptName("");
         setTip(0);
         setIssueWifi(false);
+        setScPwdType("none");
+        setScPwdId("");
         setCartOpen(false);
       },
       onError: () => {
@@ -747,8 +775,43 @@ export default function POS() {
           </div>
         )}
 
-        {/* Manual discount (only if no code applied) */}
+        {/* SC/PWD Discount — BIR compliance (20% off + VAT-exempt) */}
         {!appliedCode && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground shrink-0">SC/PWD</span>
+              {(["none", "sc", "pwd"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setScPwdType(t); if (t !== "none") setDiscount(0); }}
+                  className={[
+                    "flex-1 h-7 rounded-xl border text-[10px] font-bold transition-all active:scale-95",
+                    scPwdType === t
+                      ? t !== "none"
+                        ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400"
+                        : "bg-primary/15 border-primary/30 text-primary"
+                      : "bg-secondary/80 border-border/40 hover:bg-secondary text-muted-foreground",
+                  ].join(" ")}
+                  data-testid={`button-scpwd-${t}`}
+                >
+                  {t === "none" ? "None" : t.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            {isScPwd && (
+              <Input
+                value={scPwdId}
+                onChange={e => setScPwdId(e.target.value)}
+                placeholder={`${scPwdType === "sc" ? "Senior Citizen" : "PWD"} ID number (required)`}
+                className="h-8 rounded-xl bg-amber-500/8 border border-amber-500/20 text-xs"
+                data-testid="input-scpwd-id"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Manual discount — hidden when SC/PWD is active */}
+        {!appliedCode && !isScPwd && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium flex items-center gap-1 text-muted-foreground shrink-0">
               <Tag className="h-3 w-3 text-primary" /> Discount
@@ -763,7 +826,13 @@ export default function POS() {
           </div>
         )}
 
-        {discount > 0 && (
+        {isScPwd && (
+          <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
+            <span>{scPwdType === "sc" ? "Senior Citizen" : "PWD"} Discount (20%)</span>
+            <span className="tabular-nums font-semibold">-{formatCurrency(scPwdDiscount, currency)}</span>
+          </div>
+        )}
+        {!isScPwd && discount > 0 && (
           <div className="flex justify-between text-xs text-rose-600 dark:text-rose-400">
             <span>Discount</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(discount, currency)}</span>

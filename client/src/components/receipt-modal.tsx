@@ -38,6 +38,12 @@ export interface ReceiptData {
   orderNumber?: number | null;
   cashierName?: string;
   wifiVoucher?: { code: string; durationMinutes: number; ssid?: string; password?: string };
+  // BIR Compliance
+  orNumber?: string;
+  discountType?: "regular" | "sc" | "pwd";
+  scPwdId?: string;
+  vatableSales?: number;
+  vatExemptSales?: number;
 }
 
 interface ReceiptModalProps {
@@ -109,6 +115,18 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const storeAddress = s.address ?? "";
   const storePhone = s.phone ?? "";
   const storeEmail = s.emailContact ?? "";
+
+  // BIR compliance fields from settings
+  const storeTin = s.tin ?? "";
+  const ptuNumber = s.ptuNumber ?? "";
+  const accreditationNumber = s.accreditationNumber ?? "";
+  const machineSerialNumber = s.machineSerialNumber ?? "";
+  const vatRegistered = (s.vatRegistered ?? 1) === 1;
+
+  // BIR receipt fields
+  const isScPwd = receipt.discountType === "sc" || receipt.discountType === "pwd";
+  const vatableSales = receipt.vatableSales ?? (isScPwd ? 0 : receipt.subtotal - receipt.discount);
+  const vatExemptSales = receipt.vatExemptSales ?? (isScPwd ? receipt.subtotal - receipt.discount : 0);
 
   const isCash = receipt.paymentMethod === "cash";
   const hasDiscount = receipt.discount > 0;
@@ -230,21 +248,34 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
       ${showAddress && storeAddress ? `<p class="muted">${storeAddress}</p>` : ""}
       ${showPhone && storePhone ? `<p class="muted">Tel: ${storePhone}</p>` : ""}
       ${showEmail && storeEmail ? `<p class="muted">${storeEmail}</p>` : ""}
+      ${storeTin ? `<p class="muted" style="font-size:${fs - 3}px">VAT Reg. TIN: ${storeTin}</p>` : ""}
+      ${ptuNumber ? `<p class="muted" style="font-size:${fs - 3}px">PTU No.: ${ptuNumber}</p>` : ""}
+      ${accreditationNumber ? `<p class="muted" style="font-size:${fs - 3}px">Accreditation No.: ${accreditationNumber}</p>` : ""}
+      ${machineSerialNumber ? `<p class="muted" style="font-size:${fs - 3}px">Machine S/N: ${machineSerialNumber}</p>` : ""}
       ${receipt.customerName ? `<p class="muted">Customer: ${receipt.customerName}</p>` : ""}
     </div>
+    ${receipt.orNumber ? `<div class="row muted" style="margin-bottom:2px;font-size:${fs - 2}px"><span>O.R. No.</span><span>${receipt.orNumber}</span></div>` : ""}
     ${showOrderNumber && receipt.orderNumber ? `<div class="row muted" style="margin-bottom:4px"><span>Order #</span><span>${receipt.orderNumber}</span></div>` : ""}
     ${showCashier && receipt.cashierName ? `<div class="row muted" style="margin-bottom:4px"><span>Cashier</span><span>${receipt.cashierName}</span></div>` : ""}
     <div class="line"></div>
     ${itemsHtml}
     <div class="line"></div>
+    ${isScPwd ? `<p class="bold" style="text-align:center;font-size:${fs - 1}px;letter-spacing:0.5px">** SC/PWD DISCOUNT APPLIED **</p>` : ""}
     <div class="row muted"><span>Subtotal</span><span class="price">${fmt(receipt.subtotal)}</span></div>
-    ${hasDiscount ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
-    ${hasTax ? `<div class="row muted"><span>${receipt.taxRate ? `VAT (${receipt.taxRate}%)` : "VAT"}</span><span class="price">${fmt(receipt.tax)}</span></div>` : ""}
+    ${hasDiscount && isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} Discount (20%)</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
+    ${hasDiscount && !isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasTip ? `<div class="row muted"><span>Tip</span><span class="price">${fmt(receipt.tip ?? 0)}</span></div>` : ""}
     <div class="line"></div>
-    <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(receipt.total)}</span></div>
+    ${vatRegistered ? `
+    <div class="row muted" style="font-size:${fs - 2}px"><span>VATable Sales</span><span class="price">${fmt(vatableSales)}</span></div>
+    <div class="row muted" style="font-size:${fs - 2}px"><span>VAT Amount (12%)</span><span class="price">${fmt(receipt.tax)}</span></div>
+    ${vatExemptSales > 0 ? `<div class="row muted" style="font-size:${fs - 2}px"><span>VAT-Exempt Sales</span><span class="price">${fmt(vatExemptSales)}</span></div>` : ""}
+    <div class="line"></div>
+    ` : ""}
+    <div class="row total-row"><span>TOTAL DUE</span><span class="price">${fmt(receipt.total)}</span></div>
     <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
+    ${isScPwd && receipt.scPwdId ? `<div class="row muted" style="font-size:${fs - 2}px;margin-top:4px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} ID No.</span><span>${receipt.scPwdId}</span></div>` : ""}
     ${receipt.wifiVoucher ? `<div class="line"></div>
       <p class="center bold">FREE WIFI VOUCHER</p>
       ${receipt.wifiVoucher.ssid ? `<div class="row muted"><span>Network</span><span>${receipt.wifiVoucher.ssid}</span></div>` : ""}
@@ -299,27 +330,43 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
               {showWebsite && receiptWebsite && (
                 <p className="text-muted-foreground text-[11px]">{receiptWebsite}</p>
               )}
+              {storeTin && (
+                <p className="text-muted-foreground text-[10px]">VAT Reg. TIN: {storeTin}</p>
+              )}
+              {ptuNumber && (
+                <p className="text-muted-foreground text-[10px]">PTU No.: {ptuNumber}</p>
+              )}
+              {accreditationNumber && (
+                <p className="text-muted-foreground text-[10px]">Accreditation No.: {accreditationNumber}</p>
+              )}
+              {machineSerialNumber && (
+                <p className="text-muted-foreground text-[10px]">Machine S/N: {machineSerialNumber}</p>
+              )}
               {receipt.customerName && (
                 <p className="mt-0.5 text-[11px]">Customer: {receipt.customerName}</p>
               )}
             </div>
 
-            {(showOrderNumber && receipt.orderNumber) || (showCashier && receipt.cashierName) ? (
-              <div className="space-y-0.5 mb-1">
-                {showOrderNumber && receipt.orderNumber && (
-                  <div className="flex justify-between text-muted-foreground text-[11px]">
-                    <span>Order #</span>
-                    <span className="tabular-nums">{receipt.orderNumber}</span>
-                  </div>
-                )}
-                {showCashier && receipt.cashierName && (
-                  <div className="flex justify-between text-muted-foreground text-[11px]">
-                    <span>Cashier</span>
-                    <span>{receipt.cashierName}</span>
-                  </div>
-                )}
-              </div>
-            ) : null}
+            <div className="space-y-0.5 mb-1">
+              {receipt.orNumber && (
+                <div className="flex justify-between text-muted-foreground text-[11px]" data-testid="text-or-number">
+                  <span>O.R. No.</span>
+                  <span className="tabular-nums font-semibold">{receipt.orNumber}</span>
+                </div>
+              )}
+              {showOrderNumber && receipt.orderNumber && (
+                <div className="flex justify-between text-muted-foreground text-[11px]">
+                  <span>Order #</span>
+                  <span className="tabular-nums">{receipt.orderNumber}</span>
+                </div>
+              )}
+              {showCashier && receipt.cashierName && (
+                <div className="flex justify-between text-muted-foreground text-[11px]">
+                  <span>Cashier</span>
+                  <span>{receipt.cashierName}</span>
+                </div>
+              )}
+            </div>
 
             <div className="border-t border-dashed border-border/60 my-2" />
 
@@ -360,21 +407,29 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
             <div className="border-t border-dashed border-border/60 my-2" />
 
+            {isScPwd && (
+              <div className="text-center py-1">
+                <span className="text-[10px] font-bold tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded px-2 py-0.5">
+                  ** {receipt.discountType === "sc" ? "SENIOR CITIZEN" : "PWD"} DISCOUNT APPLIED **
+                </span>
+              </div>
+            )}
+
             <div className="space-y-1">
               <div className="flex justify-between text-muted-foreground text-[12px]">
                 <span>Subtotal</span>
                 <span className="tabular-nums">{formatCurrency(receipt.subtotal, currency)}</span>
               </div>
-              {hasDiscount && (
+              {hasDiscount && isScPwd && (
                 <div className="flex justify-between text-rose-500 text-[12px]">
-                  <span>Discount {receipt.discountCode ? `(${receipt.discountCode})` : ""}</span>
+                  <span>{receipt.discountType === "sc" ? "SC" : "PWD"} Discount (20%)</span>
                   <span className="tabular-nums">-{formatCurrency(receipt.discount, currency)}</span>
                 </div>
               )}
-              {hasTax && (
-                <div className="flex justify-between text-muted-foreground text-[12px]">
-                  <span>{receipt.taxRate ? `VAT (${receipt.taxRate}%)` : "VAT"}</span>
-                  <span className="tabular-nums">{formatCurrency(receipt.tax, currency)}</span>
+              {hasDiscount && !isScPwd && (
+                <div className="flex justify-between text-rose-500 text-[12px]">
+                  <span>Discount {receipt.discountCode ? `(${receipt.discountCode})` : ""}</span>
+                  <span className="tabular-nums">-{formatCurrency(receipt.discount, currency)}</span>
                 </div>
               )}
               {hasTip && (
@@ -383,8 +438,26 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                   <span className="tabular-nums" data-testid="text-receipt-tip">{formatCurrency(receipt.tip ?? 0, currency)}</span>
                 </div>
               )}
+              {vatRegistered && (
+                <div className="border-t border-dashed border-border/40 pt-1 space-y-0.5">
+                  <div className="flex justify-between text-muted-foreground text-[11px]">
+                    <span>VATable Sales</span>
+                    <span className="tabular-nums">{formatCurrency(vatableSales, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground text-[11px]">
+                    <span>VAT Amount (12%)</span>
+                    <span className="tabular-nums">{formatCurrency(receipt.tax, currency)}</span>
+                  </div>
+                  {vatExemptSales > 0 && (
+                    <div className="flex justify-between text-muted-foreground text-[11px]">
+                      <span>VAT-Exempt Sales</span>
+                      <span className="tabular-nums">{formatCurrency(vatExemptSales, currency)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between font-bold pt-1 border-t border-dashed border-border/60 text-[14px]">
-                <span>TOTAL</span>
+                <span>TOTAL DUE</span>
                 <span className="tabular-nums">{formatCurrency(receipt.total, currency)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground text-[12px]">
@@ -395,6 +468,12 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 <div className="flex justify-between text-emerald-600 font-semibold green text-[12px]">
                   <span>Change</span>
                   <span className="tabular-nums">{formatCurrency(receipt.changeAmount, currency)}</span>
+                </div>
+              )}
+              {isScPwd && receipt.scPwdId && (
+                <div className="flex justify-between text-muted-foreground text-[11px] pt-1 border-t border-dashed border-border/40">
+                  <span>{receipt.discountType === "sc" ? "SC" : "PWD"} ID No.</span>
+                  <span className="font-semibold">{receipt.scPwdId}</span>
                 </div>
               )}
             </div>

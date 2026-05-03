@@ -43,6 +43,13 @@ Core technical implementations include:
 - Optional payment key: `PAYMONGO_SECRET_KEY` (for subscription billing)
 - Optional email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (for password reset emails)
 
+## BIR Compliance (Philippine Bureau of Internal Revenue)
+- **Schema**: Added BIR fields to `userSettings` (tin, ptuNumber, accreditationNumber, accreditationDate, machineSerialNumber, vatRegistered) and `sales` (discountType, scPwdId, vatableSales, vatExemptSales, zeroRatedSales)
+- **Print Settings** (`/print-settings`): Full "BIR Compliance" section — TIN, PTU No., Accreditation No./Date, Machine Serial No., VAT Registered toggle
+- **Receipt Modal**: BIR-compliant receipts showing TIN/PTU/Accreditation in header, OR number, SC/PWD discount badge with ID, and proper VAT breakdown (VATable Sales / VAT Amount / VAT-Exempt Sales)
+- **POS SC/PWD Discount**: Three-button toggle (None / SC / PWD) in cart summary; selecting SC or PWD applies 20% discount, zeroes VAT (VAT-exempt), shows ID input field, passes discountType/scPwdId/vatableSales/vatExemptSales to sale record
+- **Z-Report** (Shifts page): Day-End Summary shows BIR VAT breakdown grid (VATable Sales / VAT Amount / VAT-Exempt); "Z-Report" print button generates a monospace thermal-style printout with store TIN/PTU/Accreditation/Machine S/N, transaction count, gross/net/expense totals, and full VAT breakdown
+
 ## Advanced Loyalty System (Added)
 - **Database tables**: `loyalty_tiers`, `loyalty_rewards`, `loyalty_points_log`; new columns on `customers` (`lifetime_points`, `tier`, `birthday`, `stamp_count`, `referred_by`) and on `user_settings` (`loyalty_expiry_days`, `loyalty_birthday_bonus`, `loyalty_referral_bonus`, `loyalty_stamp_target`, `loyalty_stamp_enabled`)
 - **Backend**: Full CRUD routes for `/api/loyalty/tiers`, `/api/loyalty/rewards`; enhanced `/api/customers/:id/loyalty` (manual adjust with reason+note), `/api/customers/:id/loyalty-log`, `/api/customers/:id/redeem-reward`; auto-tier recalculation on every points change

@@ -288,6 +288,12 @@ export const sales = pgTable("sales", {
   deletedBy: text("deleted_by"),
   refundedAt: text("refunded_at"),
   refundedBy: text("refunded_by"),
+  // BIR Compliance fields
+  discountType: text("discount_type").default("regular"), // regular | sc | pwd
+  scPwdId: text("sc_pwd_id"),
+  vatableSales: text("vatable_sales").default("0"),
+  vatExemptSales: text("vat_exempt_sales").default("0"),
+  zeroRatedSales: text("zero_rated_sales").default("0"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -376,6 +382,13 @@ export const userSettings = pgTable("user_settings", {
   wifiPassword: text("wifi_password"),
   wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
   wifiAutoIssue: integer("wifi_auto_issue").default(0),
+  // BIR Compliance (Philippines Bureau of Internal Revenue)
+  tin: text("tin"),
+  ptuNumber: text("ptu_number"),
+  accreditationNumber: text("accreditation_number"),
+  accreditationDate: text("accreditation_date"),
+  machineSerialNumber: text("machine_serial_number"),
+  vatRegistered: integer("vat_registered").default(1),
 });
 
 // ─── Service Staff ────────────────────────────────────────────────────────────

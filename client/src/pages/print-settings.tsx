@@ -73,6 +73,13 @@ interface PrintConfig {
   receiptFooter: string;
   currency: string;
   receiptFontSize: number;
+  // BIR Compliance
+  tin: string;
+  ptuNumber: string;
+  accreditationNumber: string;
+  accreditationDate: string;
+  machineSerialNumber: string;
+  vatRegistered: boolean;
 }
 
 function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
@@ -101,6 +108,10 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
         {cfg.receiptShowPhone && cfg.phone && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">Tel: {cfg.phone}</p>}
         {cfg.receiptShowEmail && cfg.emailContact && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">{cfg.emailContact}</p>}
         {cfg.receiptShowWebsite && cfg.receiptWebsite && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">{cfg.receiptWebsite}</p>}
+        {cfg.tin && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">VAT Reg. TIN: {cfg.tin}</p>}
+        {cfg.ptuNumber && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">PTU No.: {cfg.ptuNumber}</p>}
+        {cfg.accreditationNumber && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">Accreditation No.: {cfg.accreditationNumber}</p>}
+        {cfg.machineSerialNumber && <p style={{ fontSize: `${fs - 3}px` }} className="text-gray-500">Machine S/N: {cfg.machineSerialNumber}</p>}
       </div>
 
       {cfg.receiptShowOrderNumber && (
@@ -144,9 +155,15 @@ function ReceiptPreview({ cfg }: { cfg: PrintConfig }) {
       <div style={{ borderTop: "1px dashed #999", margin: "6px 0" }} />
 
       <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>Subtotal</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(subtotal, cfg.currency || "₱")}</span></div>
-      <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 2}px` }}><span>VAT (12%)</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(tax, cfg.currency || "₱")}</span></div>
+      {cfg.vatRegistered && (
+        <>
+          <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 3}px` }}><span>VATable Sales</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(subtotal, cfg.currency || "₱")}</span></div>
+          <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 3}px` }}><span>VAT Amount (12%)</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(tax, cfg.currency || "₱")}</span></div>
+          <div className="flex justify-between items-start gap-1.5 text-gray-500" style={{ fontSize: `${fs - 3}px` }}><span>VAT-Exempt Sales</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(0, cfg.currency || "₱")}</span></div>
+        </>
+      )}
       <div style={{ borderTop: "1px dashed #999", margin: "4px 0" }} />
-      <div className="flex justify-between items-start gap-1.5 font-bold" style={{ fontSize: `${fs + 2}px` }}><span>TOTAL</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(total, cfg.currency || "₱")}</span></div>
+      <div className="flex justify-between items-start gap-1.5 font-bold" style={{ fontSize: `${fs + 2}px` }}><span>TOTAL DUE</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(total, cfg.currency || "₱")}</span></div>
       <div className="flex justify-between items-start gap-1.5 text-gray-500 mt-0.5" style={{ fontSize: `${fs - 2}px` }}><span>Payment (CASH)</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(400, cfg.currency || "₱")}</span></div>
       <div className="flex justify-between items-start gap-1.5 text-emerald-600 font-semibold" style={{ fontSize: `${fs - 2}px` }}><span>Change</span><span className="flex-shrink-0 whitespace-nowrap">{formatCurrency(400 - total, cfg.currency || "₱")}</span></div>
 
@@ -309,6 +326,12 @@ export default function PrintSettings() {
     receiptFooter: "",
     currency: "₱",
     receiptFontSize: 25,
+    tin: "",
+    ptuNumber: "",
+    accreditationNumber: "",
+    accreditationDate: "",
+    machineSerialNumber: "",
+    vatRegistered: true,
   });
 
   useEffect(() => {
@@ -337,6 +360,12 @@ export default function PrintSettings() {
       receiptFooter: s.receiptFooter ?? "",
       currency: s.currency ?? "₱",
       receiptFontSize: s.receiptFontSize ?? 25,
+      tin: s.tin ?? "",
+      ptuNumber: s.ptuNumber ?? "",
+      accreditationNumber: s.accreditationNumber ?? "",
+      accreditationDate: s.accreditationDate ?? "",
+      machineSerialNumber: s.machineSerialNumber ?? "",
+      vatRegistered: (s.vatRegistered ?? 1) === 1,
     });
   }, [settings]);
 
@@ -363,6 +392,12 @@ export default function PrintSettings() {
       receiptShowPoweredBy: 1,
       printDarkness: 65535,
       receiptFontSize: 25,
+      tin: cfg.tin || null,
+      ptuNumber: cfg.ptuNumber || null,
+      accreditationNumber: cfg.accreditationNumber || null,
+      accreditationDate: cfg.accreditationDate || null,
+      machineSerialNumber: cfg.machineSerialNumber || null,
+      vatRegistered: cfg.vatRegistered ? 1 : 0,
     } as any);
     toast({ title: "Print settings saved" });
   };
@@ -536,6 +571,60 @@ export default function PrintSettings() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Settings Form */}
         <div className="flex-1 space-y-1 min-w-0">
+
+          <SectionLabel>BIR Compliance</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+            <SettingRow label="VAT Reg. TIN" hint="e.g. 123-456-789-000">
+              <Input
+                value={cfg.tin}
+                onChange={e => set("tin", e.target.value)}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                placeholder="000-000-000-000"
+                data-testid="input-bir-tin"
+              />
+            </SettingRow>
+            <SettingRow label="Permit to Use (PTU) No." hint="BIR machine authorization number">
+              <Input
+                value={cfg.ptuNumber}
+                onChange={e => set("ptuNumber", e.target.value)}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                placeholder="PTU-00000"
+                data-testid="input-bir-ptu"
+              />
+            </SettingRow>
+            <SettingRow label="Accreditation No." hint="BIR accreditation certificate number">
+              <Input
+                value={cfg.accreditationNumber}
+                onChange={e => set("accreditationNumber", e.target.value)}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                placeholder="ACC-000000"
+                data-testid="input-bir-accreditation"
+              />
+            </SettingRow>
+            <SettingRow label="Accreditation Date" hint="Date accreditation was issued">
+              <Input
+                type="date"
+                value={cfg.accreditationDate}
+                onChange={e => set("accreditationDate", e.target.value)}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                data-testid="input-bir-accreditation-date"
+              />
+            </SettingRow>
+            <SettingRow label="Machine Serial No." hint="POS machine serial or identification number">
+              <Input
+                value={cfg.machineSerialNumber}
+                onChange={e => set("machineSerialNumber", e.target.value)}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                placeholder="SN-00000000"
+                data-testid="input-bir-machine-serial"
+              />
+            </SettingRow>
+            <SettingRow label="VAT Registered" hint="Business is VAT-registered with BIR">
+              <div className="flex justify-end">
+                <Toggle value={cfg.vatRegistered} onChange={v => set("vatRegistered", v)} data-testid="toggle-vat-registered" />
+              </div>
+            </SettingRow>
+          </div>
 
           <SectionLabel>Paper & Layout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">

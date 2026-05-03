@@ -786,6 +786,14 @@ export function registerAdminRoutes(app: Express) {
       if (!dbUser) return res.status(404).json({ message: "User not found" });
 
       const token = signToken({ ...dbUser, activeBranchId: branchId });
+      await createAuditLog({
+        tenantId: user.tenantId!,
+        userId: user.id,
+        action: "switch_branch",
+        entity: "user",
+        entityId: user.id,
+        metadata: { branchId },
+      });
       res.cookie("auth_token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

@@ -145,6 +145,7 @@ export default function BIRPage() {
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(startOfMonth(new Date()), "yyyy-MM"));
   const [zReportShiftId, setZReportShiftId] = useState<number | null>(null);
+  const [orGapExpanded, setOrGapExpanded] = useState(false);
 
   const { data: shifts = [] } = useQuery<Shift[]>({ queryKey: ["/api/shifts"] });
   const closedShifts = useMemo(() => (shifts as Shift[]).filter((s: Shift) => s.status === "closed").slice(0, 10), [shifts]);
@@ -156,6 +157,18 @@ export default function BIRPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem("artixpos_token") || ""}` },
       credentials: "include",
     }).then(r => r.json()),
+  });
+
+  const { data: orGapData, isLoading: orGapLoading, refetch: refetchOrGaps } = useQuery<{
+    gaps: { from: number; to: number; count: number }[];
+    totalChecked: number;
+    gapCount: number;
+    orMin?: number;
+    orMax?: number;
+  }>({
+    queryKey: ["/api/bir/or-gaps"],
+    enabled: orGapExpanded,
+    staleTime: 5 * 60 * 1000,
   });
 
   const monthOptions = useMemo(() => {
@@ -768,11 +781,11 @@ export default function BIRPage() {
               <div className="sticky top-0 bg-background/95 backdrop-blur border-b border-border/30 px-5 py-4 flex items-center justify-between rounded-t-3xl z-10">
                 <div>
                   <p className="font-bold text-sm">Z-Report</p>
-                  {zReport && (
+                  {zReport?.shift?.openedAt && (
                     <p className="text-[11px] text-muted-foreground">
-                      {format(new Date(zReport.shift.openedAt!), "MMM d, yyyy")}
+                      {format(new Date(zReport.shift.openedAt), "MMM d, yyyy")}
                       {" · "}
-                      {format(new Date(zReport.shift.openedAt!), "h:mm a")}
+                      {format(new Date(zReport.shift.openedAt), "h:mm a")}
                       {zReport.shift.closedAt && ` — ${format(new Date(zReport.shift.closedAt), "h:mm a")}`}
                     </p>
                   )}
@@ -785,7 +798,14 @@ export default function BIRPage() {
                 {zReportLoading && (
                   <div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-12 skeleton-shimmer rounded-xl"/>)}</div>
                 )}
-                {zReport && !zReportLoading && (
+                {!zReportLoading && zReport && !(zReport as any).shift && (
+                  <div className="text-center py-6 text-muted-foreground/60">
+                    <AlertTriangle className="h-7 w-7 mx-auto mb-2 text-amber-500" />
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Could not load Z-Report</p>
+                    <p className="text-xs mt-1">{(zReport as any).message || "Please try again"}</p>
+                  </div>
+                )}
+                {!zReportLoading && zReport?.shift && (
                   <>
                     {zReport.orFrom && (
                       <div className="bg-primary/8 border border-primary/20 rounded-xl px-3 py-2 flex items-center justify-between">
@@ -833,6 +853,22 @@ export default function BIRPage() {
                         </div>
                       </div>
                     )}
+                    {Object.entries(zReport.discountBreakdown || {}).filter(([,v]) => v.count > 0).length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Discount Breakdown</p>
+                        <div className="space-y-1">
+                          {Object.entries(zReport.discountBreakdown || {}).filter(([,v]) => v.count > 0).map(([dt, v]) => (
+                            <div key={dt} className="bg-secondary/30 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+                              <div>
+                                <span className="text-[10px] font-medium">{DISCOUNT_LABEL[dt] || dt}</span>
+                                <span className="text-[9px] text-muted-foreground ml-1">({v.count} txn)</span>
+                              </div>
+                              <span className="text-[10px] font-bold tabular-nums text-rose-500">-{formatCurrency(v.discount, currency)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <Button
                       size="sm"
                       className="w-full rounded-xl text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold"
@@ -845,6 +881,120 @@ export default function BIRPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── OR Number Gap Detection ───────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-4">
+        <button
+          className="w-full flex items-center justify-between"
+          onClick={() => setOrGapExpanded(v => !v)}
+          data-testid="button-or-gap-toggle"
+        >
+          <SectionTitle
+            icon={Hash}
+            label="OR Number Gap Detection"
+            sub="BIR audit tool — detects missing OR numbers in your sequence"
+          />
+          <div className="flex items-center gap-2 shrink-0">
+            {orGapData && orGapData.gapCount > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                {orGapData.gapCount} gap{orGapData.gapCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            {orGapData && orGapData.gapCount === 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                No gaps
+              </span>
+            )}
+            <div className={cn("h-4 w-4 text-muted-foreground transition-transform", orGapExpanded ? "rotate-180" : "")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+          </div>
+        </button>
+
+        {orGapExpanded && (
+          <div className="mt-3 space-y-3">
+            {orGapLoading && (
+              <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-10 skeleton-shimmer rounded-xl"/>)}</div>
+            )}
+            {!orGapLoading && orGapData && (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-secondary/40 rounded-xl px-3 py-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Checked</p>
+                    <p className="text-sm font-bold tabular-nums">{orGapData.totalChecked}</p>
+                  </div>
+                  <div className="bg-secondary/40 rounded-xl px-3 py-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Range</p>
+                    <p className="text-[10px] font-bold tabular-nums">
+                      {orGapData.orMin != null ? `${orGapData.orMin}–${orGapData.orMax}` : "—"}
+                    </p>
+                  </div>
+                  <div className={cn("rounded-xl px-3 py-2 text-center", orGapData.gapCount > 0 ? "bg-rose-500/10 border border-rose-500/20" : "bg-emerald-500/10 border border-emerald-500/20")}>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Gaps</p>
+                    <p className={cn("text-sm font-bold tabular-nums", orGapData.gapCount > 0 ? "text-rose-500" : "text-emerald-500")}>{orGapData.gapCount}</p>
+                  </div>
+                </div>
+
+                {orGapData.totalChecked < 2 && (
+                  <div className="text-center py-3 text-muted-foreground/60">
+                    <Hash className="h-6 w-6 mx-auto mb-1.5" strokeWidth={1.2} />
+                    <p className="text-xs">Not enough numeric OR numbers on record to detect gaps</p>
+                    <p className="text-[10px] mt-0.5">Only numeric OR numbers (e.g. 00001) can be gap-checked</p>
+                  </div>
+                )}
+
+                {orGapData.totalChecked >= 2 && orGapData.gapCount === 0 && (
+                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/15">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">OR sequence is complete</p>
+                      <p className="text-[10px] text-muted-foreground">No missing OR numbers detected — your records are BIR-audit ready</p>
+                    </div>
+                  </div>
+                )}
+
+                {orGapData.gaps.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                      <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Missing OR Numbers</p>
+                      <p className="text-[9px] text-muted-foreground ml-auto">BIR may flag these during audit</p>
+                    </div>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {orGapData.gaps.map((g, i) => (
+                        <div key={i} className="flex items-center justify-between bg-rose-500/8 border border-rose-500/15 rounded-lg px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Hash className="h-3 w-3 text-rose-500" />
+                            <span className="text-[10px] font-semibold tabular-nums">
+                              {g.from === g.to ? `OR #${g.from}` : `OR #${g.from} – #${g.to}`}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-rose-600 dark:text-rose-400 font-medium">
+                            {g.count} missing
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[9px] text-muted-foreground mt-2">
+                      Tip: Voided transactions should still appear in your records with a VOID remark. Missing ORs may indicate unrecorded transactions.
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full rounded-xl text-xs gap-1.5"
+                  onClick={() => refetchOrGaps()}
+                  data-testid="button-or-gap-refresh"
+                >
+                  <RefreshCw className="h-3 w-3" /> Re-scan OR Numbers
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

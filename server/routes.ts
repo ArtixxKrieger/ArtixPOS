@@ -1101,6 +1101,37 @@ export async function registerRoutes(
     res.send(csv);
   });
 
+  // ── BIR OR Gap Detection ──────────────────────────────────────────────────
+  app.get("/api/bir/or-gaps", requireAuth, async (req, res) => {
+    const uid = userId(req);
+    const salesList = await storage.getSales(uid, { limit: 50000 });
+    const orNumbers = salesList
+      .map(s => s.orNumber)
+      .filter((n): n is string => !!n && /^\d+$/.test(n.trim()))
+      .map(n => parseInt(n.trim(), 10))
+      .sort((a, b) => a - b);
+
+    if (orNumbers.length < 2) {
+      return res.json({ gaps: [], totalChecked: orNumbers.length, gapCount: 0 });
+    }
+
+    const gaps: { from: number; to: number; count: number }[] = [];
+    for (let i = 0; i < orNumbers.length - 1; i++) {
+      const diff = orNumbers[i + 1] - orNumbers[i];
+      if (diff > 1) {
+        gaps.push({ from: orNumbers[i] + 1, to: orNumbers[i + 1] - 1, count: diff - 1 });
+      }
+    }
+
+    res.json({
+      gaps: gaps.slice(0, 50),
+      totalChecked: orNumbers.length,
+      gapCount: gaps.reduce((a, g) => a + g.count, 0),
+      orMin: orNumbers[0],
+      orMax: orNumbers[orNumbers.length - 1],
+    });
+  });
+
   // ── Discount Codes ────────────────────────────────────────────────────────
 
   app.get("/api/discount-codes", requireAuth, requirePro, async (req, res) => {

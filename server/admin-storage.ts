@@ -135,17 +135,8 @@ export async function updateUserRole(userId: string, tenantId: string, role: "ow
 }
 
 export async function deleteUser(userId: string, tenantId: string): Promise<void> {
-  // Clean up staff-user records in FK dependency order before removing the user row.
-  // Note: sales/refunds created by this user contain financial records — we delete refunds
-  // (cashier-created) but leave sales in place. If sales exist the delete will throw a FK
-  // error, which the caller should surface as a 409 so the admin knows to reassign first.
-  await db.delete(timeLogs).where(eq(timeLogs.userId, userId));
-  await db.delete(shifts).where(eq(shifts.userId, userId));
-  await db.delete(refunds).where(eq(refunds.userId, userId));
-  // Invite tokens created or accepted by this staff member
-  await db.delete(inviteTokens).where(or(eq(inviteTokens.createdBy, userId), eq(inviteTokens.usedBy, userId)));
-  await db.delete(userBranches).where(eq(userBranches.userId, userId));
-  await db.delete(users).where(and(eq(users.id, userId), eq(users.tenantId, tenantId)));
+  await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(eq(timeLogs.userId, userId));
+  await db.update(users).set({ deletedAt: new Date().toISOString(), isBanned: true } as any).where(and(eq(users.id, userId), eq(users.tenantId, tenantId)));
 }
 
 export async function banUser(userId: string, tenantId: string, reason?: string): Promise<User | undefined> {

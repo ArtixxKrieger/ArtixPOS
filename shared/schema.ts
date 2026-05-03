@@ -482,6 +482,7 @@ export const timeLogs = pgTable("time_logs", {
   clockIn: text("clock_in").notNull(),
   clockOut: text("clock_out"),
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

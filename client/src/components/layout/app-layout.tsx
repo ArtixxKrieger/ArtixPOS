@@ -6,7 +6,7 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  Sun, Moon, ReceiptText, Gift, Banknote,
+  Sun, Moon, ReceiptText, Gift, Banknote, FileCheck,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -86,6 +86,7 @@ const NAV_SECTIONS = [
       { label: "Expenses", url: "/expenses", icon: Wallet, managerOnly: true, proOnly: true },
       { label: "Suppliers", url: "/suppliers", icon: Truck, managerOnly: true, proOnly: true },
       { label: "Purchases", url: "/purchases", icon: ShoppingBag, managerOnly: true, proOnly: true },
+      { label: "BIR Compliance", url: "/bir", icon: FileCheck, ownerOnly: true },
     ],
   },
   {
@@ -133,6 +134,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/print-settings": "Print Settings",
   "/loyalty": "Loyalty Program",
   "/payroll": "Payroll",
+  "/bir": "BIR Compliance",
   "/billing": "Billing",
   "/settings": "Settings",
   "/admin": "Admin Panel",

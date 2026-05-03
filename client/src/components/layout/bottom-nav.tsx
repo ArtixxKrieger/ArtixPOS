@@ -5,7 +5,7 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ReceiptText, Gift, Banknote,
+  ReceiptText, Gift, Banknote, FileCheck,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -41,6 +41,7 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/print-settings": { defaultLabel: "Print Settings", icon: ReceiptText },
   "/loyalty": { defaultLabel: "Loyalty", icon: Gift },
   "/payroll": { defaultLabel: "Payroll", icon: Banknote },
+  "/bir": { defaultLabel: "BIR", icon: FileCheck },
   "/billing": { defaultLabel: "Billing", icon: CreditCard },
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
@@ -66,6 +67,7 @@ const MORE_NAV_FULL = [
   { url: "/ai", cashierHidden: false, proOnly: true },
   { url: "/loyalty", cashierHidden: true, proOnly: true },
   { url: "/payroll", cashierHidden: true, ownerOnly: true, proOnly: true },
+  { url: "/bir", cashierHidden: true, ownerOnly: true },
   { url: "/print-settings", cashierHidden: true, ownerOnly: true },
   { url: "/billing", cashierHidden: true, ownerOnly: true },
   { url: "/settings", cashierHidden: false },

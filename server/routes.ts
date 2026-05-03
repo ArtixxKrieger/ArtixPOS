@@ -970,6 +970,137 @@ export async function registerRoutes(
     }
   });
 
+  // ── BIR Compliance ────────────────────────────────────────────────────────
+
+  app.get("/api/bir/x-report", requireAuth, async (req, res) => {
+    const uid = userId(req);
+    const openShift = await storage.getOpenShift(uid);
+    if (!openShift) return res.json({ shift: null });
+    const startDate = openShift.openedAt!;
+    const salesList = await storage.getSales(uid, { limit: 10000, startDate });
+    const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
+    const orFrom = orNumbers.length ? orNumbers.reduce((a, b) => a < b ? a : b) : null;
+    const orTo   = orNumbers.length ? orNumbers.reduce((a, b) => a > b ? a : b) : null;
+    const paymentBreakdown: Record<string, { count: number; total: number }> = {};
+    for (const sale of salesList) {
+      const pm = sale.paymentMethod || "cash";
+      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, total: 0 };
+      paymentBreakdown[pm].count++;
+      paymentBreakdown[pm].total += parseFloat(sale.total || "0");
+    }
+    const discountBreakdown: Record<string, { count: number; total: number; discount: number }> = {};
+    for (const sale of salesList) {
+      const dt = (sale as any).discountType || "regular";
+      if (!discountBreakdown[dt]) discountBreakdown[dt] = { count: 0, total: 0, discount: 0 };
+      discountBreakdown[dt].count++;
+      discountBreakdown[dt].total += parseFloat(sale.total || "0");
+      discountBreakdown[dt].discount += parseFloat(sale.discount || "0");
+    }
+    res.json({
+      shift: openShift,
+      orFrom, orTo,
+      totalTransactions: salesList.length,
+      grossSales: salesList.reduce((a, s) => a + parseFloat(s.total || "0"), 0),
+      netSales:   salesList.reduce((a, s) => a + parseFloat(s.subtotal || "0"), 0),
+      totalDiscount: salesList.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
+      totalLoyaltyDiscount: salesList.reduce((a, s) => a + parseFloat((s as any).loyaltyDiscount || "0"), 0),
+      vatableSalesTotal: salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales || "0"), 0),
+      vatExemptTotal:    salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales  || "0"), 0),
+      zeroRatedTotal:    salesList.reduce((a, s) => a + parseFloat((s as any).zeroRatedSales  || "0"), 0),
+      vatAmountTotal:    salesList.reduce((a, s) => a + parseFloat(s.tax  || "0"), 0),
+      paymentBreakdown,
+      discountBreakdown,
+    });
+  });
+
+  app.get("/api/bir/summary", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const { month } = req.query as Record<string, string>;
+    if (!month || !/^\d{4}-\d{2}$/.test(month))
+      return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
+    const [year, mon] = month.split("-").map(Number);
+    const startDate = new Date(year, mon - 1, 1, 0, 0, 0, 0).toISOString();
+    const endDate   = new Date(year, mon, 0, 23, 59, 59, 999).toISOString();
+    const salesList = await storage.getSales(userId(req), { limit: 10000, startDate, endDate });
+    const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
+    const orFrom = orNumbers.length ? orNumbers.reduce((a, b) => a < b ? a : b) : null;
+    const orTo   = orNumbers.length ? orNumbers.reduce((a, b) => a > b ? a : b) : null;
+    const paymentBreakdown: Record<string, { count: number; total: number }> = {};
+    for (const s of salesList) {
+      const pm = s.paymentMethod || "cash";
+      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, total: 0 };
+      paymentBreakdown[pm].count++;
+      paymentBreakdown[pm].total += parseFloat(s.total || "0");
+    }
+    const scPwdSales = salesList.filter(s => ["sc","pwd"].includes((s as any).discountType));
+    res.json({
+      month, orFrom, orTo,
+      totalTransactions: salesList.length,
+      grossSales:    salesList.reduce((a, s) => a + parseFloat(s.total       || "0"), 0),
+      netSales:      salesList.reduce((a, s) => a + parseFloat(s.subtotal    || "0"), 0),
+      outputVat:     salesList.reduce((a, s) => a + parseFloat(s.tax         || "0"), 0),
+      vatableSales:  salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales  || "0"), 0),
+      vatExemptSales:salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales|| "0"), 0),
+      zeroRatedSales:salesList.reduce((a, s) => a + parseFloat((s as any).zeroRatedSales|| "0"), 0),
+      totalDiscount: salesList.reduce((a, s) => a + parseFloat(s.discount    || "0"), 0),
+      scPwdCount:    scPwdSales.length,
+      scPwdDiscount: scPwdSales.reduce((a, s) => a + parseFloat(s.discount   || "0"), 0),
+      paymentBreakdown,
+    });
+  });
+
+  app.get("/api/bir/esales-export", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const { month } = req.query as Record<string, string>;
+    if (!month || !/^\d{4}-\d{2}$/.test(month))
+      return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
+    const [year, mon] = month.split("-").map(Number);
+    const startDate = new Date(year, mon - 1, 1, 0, 0, 0, 0).toISOString();
+    const endDate   = new Date(year, mon, 0, 23, 59, 59, 999).toISOString();
+    const [salesList, settingsData] = await Promise.all([
+      storage.getSales(userId(req), { limit: 10000, startDate, endDate }),
+      storage.getSettings(userId(req)),
+    ]);
+    const tin = (settingsData as any)?.tin || "";
+    const storeName = (settingsData as any)?.storeName || "";
+    const ptu = (settingsData as any)?.ptuNumber || "";
+    const headers = [
+      "Date","OR Number","Customer Name","Payment Method",
+      "Gross Sales (incl. VAT)","VATable Sales","Output VAT",
+      "VAT-Exempt Sales","Zero-Rated Sales","Discount","Discount Type","Net Amount",
+    ];
+    const rows = salesList.map(s => {
+      const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-PH", { month:"2-digit", day:"2-digit", year:"numeric" }) : "";
+      return [
+        date,
+        (s as any).orNumber || (s as any).receiptNumber || "",
+        s.customerName || "WALK-IN",
+        s.paymentMethod || "cash",
+        parseFloat(s.total || "0").toFixed(2),
+        parseFloat((s as any).vatableSales  || "0").toFixed(2),
+        parseFloat(s.tax                    || "0").toFixed(2),
+        parseFloat((s as any).vatExemptSales|| "0").toFixed(2),
+        parseFloat((s as any).zeroRatedSales|| "0").toFixed(2),
+        parseFloat(s.discount               || "0").toFixed(2),
+        (s as any).discountType || "regular",
+        parseFloat(s.subtotal || "0").toFixed(2),
+      ];
+    });
+    const csv = [
+      `# BIR eSales Report`,
+      `# Taxpayer: ${storeName}`,
+      `# TIN: ${tin}`,
+      `# PTU No.: ${ptu}`,
+      `# Period: ${month}`,
+      `# Generated: ${new Date().toISOString()}`,
+      `#`,
+      headers.join(","),
+      ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="BIR-eSales-${month}.csv"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.send(csv);
+  });
+
   // ── Discount Codes ────────────────────────────────────────────────────────
 
   app.get("/api/discount-codes", requireAuth, requirePro, async (req, res) => {

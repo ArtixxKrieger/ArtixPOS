@@ -147,6 +147,7 @@ export const tables = pgTable("tables", {
   name: text("name").notNull(),
   seats: integer("seats").default(4),
   status: text("status").notNull().default("available"), // available | occupied | reserved
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -161,6 +162,7 @@ export const suppliers = pgTable("suppliers", {
   email: text("email"),
   address: text("address"),
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -205,6 +207,7 @@ export const customers = pgTable("customers", {
   birthday: text("birthday"), // ISO date string YYYY-MM-DD
   stampCount: integer("stamp_count").default(0),
   referredBy: integer("referred_by"), // customer.id who referred
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -217,6 +220,7 @@ export const expenses = pgTable("expenses", {
   category: text("category").notNull().default("General"),
   description: text("description").notNull(),
   amount: text("amount").notNull(),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -249,6 +253,7 @@ export const discountCodes = pgTable("discount_codes", {
   maxUses: integer("max_uses"),
   usedCount: integer("used_count").default(0),
   isActive: boolean("is_active").default(true),
+  deletedAt: text("deleted_at"),
   expiresAt: text("expires_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -453,6 +458,7 @@ export const memberships = pgTable("memberships", {
   checkInsUsed: integer("check_ins_used").default(0),
   totalPaid: text("total_paid").default("0"),
   notes: text("notes"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

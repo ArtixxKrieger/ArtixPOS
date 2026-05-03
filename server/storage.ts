@@ -907,8 +907,8 @@ export class DatabaseStorage implements IStorage {
       const { limit, offset = 0 } = opts;
       const userIds = await this.getTenantUserIds(userId);
       const whereCond = userIds.length === 1
-        ? eq(discountCodes.userId, userIds[0])
-        : inArray(discountCodes.userId, userIds);
+        ? and(eq(discountCodes.userId, userIds[0]), isNull(discountCodes.deletedAt))
+        : and(inArray(discountCodes.userId, userIds), isNull(discountCodes.deletedAt));
       let query: any = db.select().from(discountCodes).where(whereCond).orderBy(desc(discountCodes.createdAt));
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
@@ -925,8 +925,8 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const upperCode = code.toUpperCase();
       const condition = userIds.length === 1
-        ? and(eq(discountCodes.code, upperCode), eq(discountCodes.userId, userIds[0]))
-        : and(eq(discountCodes.code, upperCode), inArray(discountCodes.userId, userIds));
+        ? and(eq(discountCodes.code, upperCode), eq(discountCodes.userId, userIds[0]), isNull(discountCodes.deletedAt))
+        : and(eq(discountCodes.code, upperCode), inArray(discountCodes.userId, userIds), isNull(discountCodes.deletedAt));
       const [dc] = await db.select().from(discountCodes).where(condition);
       return dc;
     } catch (error) {
@@ -952,7 +952,7 @@ export class DatabaseStorage implements IStorage {
   async updateDiscountCode(id: number, userId: string, code: Partial<InsertDiscountCode>): Promise<DiscountCode | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const [existing] = await db.select().from(discountCodes).where(eq(discountCodes.id, id));
+      const [existing] = await db.select().from(discountCodes).where(and(eq(discountCodes.id, id), isNull(discountCodes.deletedAt)));
       if (!existing || !userIds.includes(existing.userId)) return undefined;
       const [updated] = await db.update(discountCodes)
         .set(code as any)
@@ -970,7 +970,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(discountCodes).where(eq(discountCodes.id, id));
       if (!existing || !userIds.includes(existing.userId)) return;
-      await db.delete(discountCodes).where(eq(discountCodes.id, id));
+      await db.update(discountCodes).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(discountCodes.id, id));
     } catch (error) {
       console.error("Error deleting discount code:", error);
       throw error;
@@ -1057,7 +1057,7 @@ export class DatabaseStorage implements IStorage {
   async getTables(userId: string): Promise<Table[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const condition = userIds.length === 1 ? eq(tables.userId, userIds[0]) : inArray(tables.userId, userIds);
+      const condition = userIds.length === 1 ? and(eq(tables.userId, userIds[0]), isNull(tables.deletedAt)) : and(inArray(tables.userId, userIds), isNull(tables.deletedAt));
       return await db.select().from(tables).where(condition).orderBy(tables.name);
     } catch (error) {
       console.error("Error fetching tables:", error);
@@ -1068,7 +1068,7 @@ export class DatabaseStorage implements IStorage {
   async getTable(id: number, userId: string): Promise<Table | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const [table] = await db.select().from(tables).where(eq(tables.id, id));
+      const [table] = await db.select().from(tables).where(and(eq(tables.id, id), isNull(tables.deletedAt)));
       if (!table || !userIds.includes(table.userId)) return undefined;
       return table;
     } catch (error) {
@@ -1090,7 +1090,7 @@ export class DatabaseStorage implements IStorage {
   async updateTable(id: number, userId: string, table: Partial<InsertTable>): Promise<Table | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const [existing] = await db.select().from(tables).where(eq(tables.id, id));
+      const [existing] = await db.select().from(tables).where(and(eq(tables.id, id), isNull(tables.deletedAt)));
       if (!existing || !userIds.includes(existing.userId)) return undefined;
       const [updated] = await db.update(tables).set(table as any).where(eq(tables.id, id)).returning();
       return updated;
@@ -1105,7 +1105,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(tables).where(eq(tables.id, id));
       if (!existing || !userIds.includes(existing.userId)) return;
-      await db.delete(tables).where(eq(tables.id, id));
+      await db.update(tables).set({ deletedAt: new Date().toISOString() } as any).where(eq(tables.id, id));
     } catch (error) {
       console.error("Error deleting table:", error);
       throw error;
@@ -1117,7 +1117,7 @@ export class DatabaseStorage implements IStorage {
   async getSuppliers(userId: string): Promise<Supplier[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const condition = userIds.length === 1 ? eq(suppliers.userId, userIds[0]) : inArray(suppliers.userId, userIds);
+      const condition = userIds.length === 1 ? and(eq(suppliers.userId, userIds[0]), isNull(suppliers.deletedAt)) : and(inArray(suppliers.userId, userIds), isNull(suppliers.deletedAt));
       return await db.select().from(suppliers).where(condition).orderBy(suppliers.name);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -1138,7 +1138,7 @@ export class DatabaseStorage implements IStorage {
   async updateSupplier(id: number, userId: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, id));
+      const [existing] = await db.select().from(suppliers).where(and(eq(suppliers.id, id), isNull(suppliers.deletedAt)));
       if (!existing || !userIds.includes(existing.userId)) return undefined;
       const [updated] = await db.update(suppliers).set(supplier as any).where(eq(suppliers.id, id)).returning();
       return updated;
@@ -1153,7 +1153,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, id));
       if (!existing || !userIds.includes(existing.userId)) return;
-      await db.delete(suppliers).where(eq(suppliers.id, id));
+      await db.update(suppliers).set({ deletedAt: new Date().toISOString() } as any).where(eq(suppliers.id, id));
     } catch (error) {
       console.error("Error deleting supplier:", error);
       throw error;
@@ -1697,7 +1697,7 @@ export class DatabaseStorage implements IStorage {
   async deleteMembership(id: number, userId: string): Promise<void> {
     const existing = await this.getMembership(id, userId);
     if (!existing) return;
-    await db.delete(memberships).where(eq(memberships.id, id));
+    await db.update(memberships).set({ deletedAt: new Date().toISOString() } as any).where(eq(memberships.id, id));
   }
 
   async checkInMember(userId: string, data: InsertMembershipCheckIn): Promise<MembershipCheckIn> {

@@ -138,6 +138,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const fs = 25;
     const cur = currency;
     const taxRateNum = parseNumeric(s.taxRate || 0);
+    const vatLabel = s.taxRate ? `VAT (${s.taxRate}%)` : "VAT";
     const printDarkness = s.printDarkness ?? 65535;
 
     const fmt = (n: number) => formatCurrency(n, cur);
@@ -259,7 +260,7 @@ ${itemsHtml}
 <div class="line"></div>
 <div class="row muted"><span>Subtotal</span><span class="price">${fmt(subtotal)}</span></div>
 ${discount > 0 ? `<div class="row" style="color:#000;font-size:${fs - 2}px"><span>Discount${sale.discountCode ? ` (${sale.discountCode})` : ""}</span><span class="price">-${fmt(discount)}</span></div>` : ""}
-  <div class="row muted"><span>${(settings as any)?.taxRate ? `VAT (${(settings as any).taxRate}%)` : "VAT"}</span><span class="price">${fmt(tax)}</span></div>
+  <div class="row muted"><span>${vatLabel}</span><span class="price">${fmt(tax)}</span></div>
 <div class="line"></div>
 <div class="row total-row"><span>TOTAL</span><span class="price">${fmt(total)}</span></div>
 <div class="row muted"><span>Payment (${(method).toUpperCase()})</span><span class="price">${fmt(paymentAmount)}</span></div>

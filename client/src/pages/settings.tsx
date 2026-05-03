@@ -39,6 +39,12 @@ const SUBTYPE_LABELS: Record<string, string> = {
 const settingsSchema = z.object({
   storeName: z.string().min(1, "Store name is required"),
   taxRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
+  receiptTitle: z.string().min(1, "Receipt title is required"),
+  receiptWidth: z.enum(["58mm", "80mm"]),
+  receiptShowOrderNumber: z.coerce.number().int().min(0).max(1),
+  receiptShowAddress: z.coerce.number().int().min(0).max(1),
+  receiptShowPhone: z.coerce.number().int().min(0).max(1),
+  receiptShowEmail: z.coerce.number().int().min(0).max(1),
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
@@ -177,7 +183,8 @@ export default function Settings() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       storeName: "", taxRate: "0", address: "", phone: "",
-      emailContact: "", receiptFooter: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
+      emailContact: "", receiptTitle: "OFFICIAL RECEIPT", receiptWidth: "80mm", receiptShowOrderNumber: 1,
+      receiptShowAddress: 1, receiptShowPhone: 1, receiptShowEmail: 0, receiptFooter: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
       wifiSsid: "", wifiPassword: "", wifiDurationMinutes: "60",
     }
   });
@@ -187,6 +194,12 @@ export default function Settings() {
       form.reset({
         storeName: (settings as any).storeName || "",
         taxRate: (settings as any).taxRate || "0",
+        receiptTitle: (settings as any).receiptTitle || "OFFICIAL RECEIPT",
+        receiptWidth: (settings as any).receiptWidth || "80mm",
+        receiptShowOrderNumber: Number((settings as any).receiptShowOrderNumber ?? 1),
+        receiptShowAddress: Number((settings as any).receiptShowAddress ?? 1),
+        receiptShowPhone: Number((settings as any).receiptShowPhone ?? 1),
+        receiptShowEmail: Number((settings as any).receiptShowEmail ?? 0),
         address: (settings as any).address || "",
         phone: (settings as any).phone || "",
         emailContact: (settings as any).emailContact || "",
@@ -249,6 +262,12 @@ export default function Settings() {
     const payload: Partial<InsertUserSetting> = {
       storeName: data.storeName,
       taxRate: data.taxRate,
+      receiptTitle: data.receiptTitle,
+      receiptWidth: data.receiptWidth,
+      receiptShowOrderNumber: data.receiptShowOrderNumber,
+      receiptShowAddress: data.receiptShowAddress,
+      receiptShowPhone: data.receiptShowPhone,
+      receiptShowEmail: data.receiptShowEmail,
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,

@@ -112,6 +112,8 @@ export default function AdminAnalytics() {
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const estimatedVatRate = ((settings as any)?.taxRate && !Number.isNaN(Number((settings as any).taxRate))) ? Number((settings as any).taxRate) : 0;
   const estimatedVat = estimatedVatRate > 0 ? totalRevenue * (estimatedVatRate / 100) : analyticsData.reduce((s, a) => s + ((a.totalRevenue || 0) * 0.12), 0);
+  const taxBase = totalRevenue / 1.12;
+  const vatExclusive = totalRevenue - taxBase;
   const activeBranches = analyticsData.filter(a => a.branch.isActive).length;
   const taxRows = analyticsData.map(a => ({
     branch: a.branch.name,
@@ -307,16 +309,16 @@ export default function AdminAnalytics() {
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Taxable Sales</p>
-            <p className="text-xl font-black tabular-nums mt-1">{fmt(totalRevenue)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">VATable Sales</p>
+            <p className="text-xl font-black tabular-nums mt-1">{fmt(taxBase)}</p>
           </div>
           <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Estimated VAT</p>
             <p className="text-xl font-black tabular-nums mt-1">{fmt(estimatedVat)}</p>
           </div>
           <div className="rounded-2xl border border-border/30 bg-secondary/30 p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tax Rate</p>
-            <p className="text-xl font-black tabular-nums mt-1">{estimatedVatRate > 0 ? `${estimatedVatRate}%` : "Unset"}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">VAT Portion</p>
+            <p className="text-xl font-black tabular-nums mt-1">{fmt(vatExclusive)}</p>
           </div>
         </div>
       </div>

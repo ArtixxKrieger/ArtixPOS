@@ -230,7 +230,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
 
   // 3. purchaseOrderItems MUST go before purchaseOrders
   if (userPoIds.length > 0) {
-    await db.delete(purchaseOrderItems).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
+    await db.update(purchaseOrderItems).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
   }
 
   // 4. Invite tokens — referenced by both createdBy AND usedBy
@@ -261,7 +261,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   await db.update(serviceRooms).set({ deletedAt: new Date().toISOString() } as any).where(inArray(serviceRooms.userId, uids));
 
   // 9. Purchase orders & suppliers
-  await db.delete(purchaseOrders).where(inArray(purchaseOrders.userId, uids));
+  await db.update(purchaseOrders).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrders.userId, uids));
   await db.update(suppliers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(suppliers.userId, uids));
 
   // 10. Pending orders & tables

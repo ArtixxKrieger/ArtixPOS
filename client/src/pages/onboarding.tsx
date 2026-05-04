@@ -68,6 +68,8 @@ const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.E
     { id: "clothing", label: "Clothing / Fashion", icon: Shirt },
     { id: "electronics", label: "Electronics", icon: Cpu },
     { id: "grocery", label: "Grocery / Supermarket", icon: ShoppingCart },
+    { id: "pharmacy", label: "Pharmacy / Drugstore", icon: Stethoscope },
+    { id: "perishable_goods", label: "Wet Market / Perishables", icon: UtensilsCrossed },
     { id: "bookstore", label: "Bookstore", icon: BookOpen },
     { id: "other", label: "Other Retail", icon: Store },
   ],

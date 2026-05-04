@@ -121,6 +121,11 @@ export const products = pgTable("products", {
   hasModifiers: boolean("has_modifiers").default(false),
   sizes: jsonb("sizes").$type<{ name: string; price: string }[]>(),
   modifiers: jsonb("modifiers").$type<{ name: string; price: string }[]>(),
+  // ── Perishable / Pharmacy fields ─────────────────────────────────────────
+  expiryDate: text("expiry_date"),
+  batchNumber: text("batch_number"),
+  requiresPrescription: boolean("requires_prescription").default(false),
+  genericName: text("generic_name"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -799,6 +804,10 @@ export const insertProductSchema = z.object({
   sizes: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
   modifiers: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
   branchId: z.number().optional().nullable(),
+  expiryDate: z.string().optional().nullable(),
+  batchNumber: z.string().optional().nullable(),
+  requiresPrescription: z.boolean().optional().nullable(),
+  genericName: z.string().optional().nullable(),
 });
 
 export const insertTableSchema = z.object({

@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
+import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency } from "@/lib/format";
 import { type InsertProduct, type Product, type StockLog } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2, CalendarClock, Pill, FlaskConical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, differenceInDays, parseISO, isValid } from "date-fns";
 
 interface SizeItem { name: string; price: string; }
 
@@ -69,15 +70,38 @@ interface ProductFormData {
   stock: number | null;
   lowStockThreshold: number | null;
   sizes: SizeItem[];
+  expiryDate: string;
+  batchNumber: string;
+  requiresPrescription: boolean;
+  genericName: string;
+}
+
+function getExpiryStatus(expiryDate: string | null | undefined): { label: string; color: string; days: number } | null {
+  if (!expiryDate) return null;
+  try {
+    const parsed = parseISO(expiryDate);
+    if (!isValid(parsed)) return null;
+    const days = differenceInDays(parsed, new Date());
+    if (days < 0) return { label: "Expired", color: "text-rose-500", days };
+    if (days <= 7) return { label: `${days}d left`, color: "text-rose-500", days };
+    if (days <= 30) return { label: `${days}d left`, color: "text-amber-500", days };
+    return { label: `${days}d left`, color: "text-emerald-600", days };
+  } catch {
+    return null;
+  }
 }
 
 export default function Products() {
   const { data: products = [], isLoading } = useProducts();
   const { data: settings } = useSettings();
+  const { businessSubType } = useBranchBusiness();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const { toast } = useToast();
+
+  const isPharmacy = businessSubType === "pharmacy" || businessSubType === "drugstore";
+  const isPerishable = isPharmacy || businessSubType === "perishable_goods" || businessSubType === "grocery" || businessSubType === "grocery_enhanced";
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
@@ -169,7 +193,7 @@ export default function Products() {
   const currency = settings?.currency || "₱";
 
   const form = useForm<ProductFormData>({
-    defaultValues: { name: "", price: "", category: "General", sku: "", barcode: "", taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [] }
+    defaultValues: { name: "", price: "", category: "General", sku: "", barcode: "", taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [], expiryDate: "", batchNumber: "", requiresPrescription: false, genericName: "" }
   });
 
   const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({
@@ -203,6 +227,10 @@ export default function Products() {
       modifiers: [],
       hasSizes: (data.sizes?.length || 0) > 0,
       hasModifiers: false,
+      expiryDate: data.expiryDate || null,
+      batchNumber: data.batchNumber || null,
+      requiresPrescription: data.requiresPrescription ?? false,
+      genericName: data.genericName || null,
     };
     if (editingId) {
       updateProduct.mutate({ id: editingId, ...payload }, {
@@ -243,13 +271,17 @@ export default function Products() {
       stock: p.stock ?? null,
       lowStockThreshold: p.lowStockThreshold ?? null,
       sizes: (p.sizes as SizeItem[]) || [],
+      expiryDate: (p as any).expiryDate || "",
+      batchNumber: (p as any).batchNumber || "",
+      requiresPrescription: (p as any).requiresPrescription ?? false,
+      genericName: (p as any).genericName || "",
     });
     setIsDialogOpen(true);
   };
 
   const openCreate = () => {
     setEditingId(null);
-    form.reset({ name: "", price: "", category: "General", sku: "", barcode: "", taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [] });
+    form.reset({ name: "", price: "", category: "General", sku: "", barcode: "", taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [], expiryDate: "", batchNumber: "", requiresPrescription: false, genericName: "" });
     setIsDialogOpen(true);
   };
 
@@ -499,6 +531,79 @@ export default function Products() {
                     ))}
                   </div>
 
+                  {/* Expiry & Batch — shown for perishable and pharmacy */}
+                  {isPerishable && (
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CalendarClock className="h-4 w-4 text-primary/60" />
+                        <p className="text-sm font-bold">Expiry & Batch Tracking</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField control={form.control} name="expiryDate" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="font-semibold text-sm">Expiry Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} value={field.value ?? ""} className="h-11 rounded-xl bg-secondary border-none" data-testid="input-expiry-date" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+
+                        <FormField control={form.control} name="batchNumber" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="font-semibold text-sm">Lot / Batch No. <span className="text-muted-foreground font-normal">(opt.)</span></FormLabel>
+                            <FormControl>
+                              <Input {...field} value={field.value ?? ""} placeholder="e.g. LOT-2024-01" className="h-11 rounded-xl bg-secondary border-none font-mono" data-testid="input-batch-number" />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pharmacy-only fields */}
+                  {isPharmacy && (
+                    <div className="space-y-3">
+                      <FormField control={form.control} name="genericName" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-sm">Generic Name <span className="text-muted-foreground font-normal">(opt.)</span></FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value ?? ""} placeholder="e.g. Paracetamol" className="h-11 rounded-xl bg-secondary border-none" data-testid="input-generic-name" />
+                          </FormControl>
+                        </FormItem>
+                      )} />
+
+                      <FormField control={form.control} name="requiresPrescription" render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between bg-violet-500/10 rounded-xl px-4 py-3">
+                            <div>
+                              <FormLabel className="font-semibold text-sm cursor-pointer text-violet-700 dark:text-violet-300">Requires Prescription (Rx)</FormLabel>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">Mark if this item needs a valid prescription</p>
+                            </div>
+                            <FormControl>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={field.value}
+                                data-testid="toggle-requires-prescription"
+                                onClick={() => field.onChange(!field.value)}
+                                className={[
+                                  "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
+                                  field.value ? "bg-violet-600" : "bg-secondary border border-border",
+                                ].join(" ")}
+                              >
+                                <span className={[
+                                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
+                                  field.value ? "left-5" : "left-0.5",
+                                ].join(" ")} />
+                              </button>
+                            </FormControl>
+                          </div>
+                        </FormItem>
+                      )} />
+                    </div>
+                  )}
+
                   <Button
                     type="submit"
                     className="w-full rounded-2xl h-12 font-bold text-white shadow-lg bg-primary mt-2"
@@ -545,7 +650,12 @@ export default function Products() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm leading-tight truncate">{product.name || ""}</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-bold text-sm leading-tight truncate">{product.name || ""}</p>
+                  {(product as any).requiresPrescription && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 shrink-0">Rx</span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="bg-secondary/80 px-2 py-0.5 rounded-full text-[10px] font-semibold text-muted-foreground">
                     {product.category || "General"}
@@ -560,6 +670,16 @@ export default function Products() {
                       {(product.sizes as any[]).length} sizes
                     </span>
                   )}
+                  {(() => {
+                    const status = getExpiryStatus((product as any).expiryDate);
+                    if (!status) return null;
+                    return (
+                      <span className={["text-[10px] font-bold flex items-center gap-0.5", status.color].join(" ")}>
+                        <CalendarClock className="h-3 w-3" />
+                        {status.label}
+                      </span>
+                    );
+                  })()}
                 </div>
                 {product.trackStock && (
                   <div className="flex items-center gap-1 mt-1">

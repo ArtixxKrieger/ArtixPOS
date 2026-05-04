@@ -224,6 +224,71 @@ const groceryItems: SeedItem[] = [
   { name: "Soft Drink", price: "2.00", category: "Beverages" },
 ];
 
+const pharmacyItems: SeedItem[] = [
+  { name: "Paracetamol 500mg (Biogesic)", price: "5.75", category: "Pain Relief" },
+  { name: "Mefenamic Acid 500mg (Ponstan)", price: "12.50", category: "Pain Relief" },
+  { name: "Ibuprofen 200mg (Advil)", price: "9.50", category: "Pain Relief" },
+  { name: "Amoxicillin 500mg (Amoxil)", price: "18.00", category: "Antibiotics" },
+  { name: "Cetirizine 10mg (Zyrtec)", price: "8.00", category: "Antihistamine" },
+  { name: "Loratadine 10mg (Claritin)", price: "9.25", category: "Antihistamine" },
+  { name: "Omeprazole 20mg (Losec)", price: "22.00", category: "Gastro" },
+  { name: "Antacid Tablet (Kremil-S)", price: "7.00", category: "Gastro" },
+  { name: "Loperamide 2mg (Diatabs)", price: "6.50", category: "Gastro" },
+  { name: "Ascorbic Acid 500mg (Vitamin C)", price: "5.00", category: "Vitamins" },
+  { name: "Multivitamins (Centrum)", price: "22.50", category: "Vitamins" },
+  { name: "Calcium+D3 Supplement", price: "18.00", category: "Vitamins" },
+  { name: "Alcohol 70% Isopropyl (500ml)", price: "65.00", category: "First Aid" },
+  { name: "Betadine Antiseptic Solution (60ml)", price: "85.00", category: "First Aid" },
+  { name: "Sterile Gauze Pads (10s)", price: "45.00", category: "First Aid" },
+  { name: "Surgical Mask (50pcs)", price: "120.00", category: "PPE" },
+  { name: "Nitrile Gloves (Medium, 100pcs)", price: "350.00", category: "PPE" },
+  { name: "Digital Thermometer", price: "199.00", category: "Devices" },
+  { name: "Blood Pressure Monitor", price: "1299.00", category: "Devices" },
+  { name: "Insulin Syringes 1ml (10s)", price: "85.00", category: "Diabetic Care" },
+];
+
+const perishableItems: SeedItem[] = [
+  { name: "Fresh Bangus (per kg)", price: "180.00", category: "Fish & Seafood" },
+  { name: "Tilapia (per kg)", price: "130.00", category: "Fish & Seafood" },
+  { name: "Pork Kasim (per kg)", price: "280.00", category: "Meat" },
+  { name: "Chicken Breast (per kg)", price: "220.00", category: "Poultry" },
+  { name: "Chicken Whole (per kg)", price: "190.00", category: "Poultry" },
+  { name: "Beef Brisket (per kg)", price: "380.00", category: "Meat" },
+  { name: "Pork Liempo (per kg)", price: "320.00", category: "Meat" },
+  { name: "Ground Beef (per kg)", price: "350.00", category: "Meat" },
+  { name: "Kamatis (per kg)", price: "80.00", category: "Vegetables" },
+  { name: "Sibuyas (per kg)", price: "90.00", category: "Vegetables" },
+  { name: "Bawang (per kg)", price: "120.00", category: "Vegetables" },
+  { name: "Ampalaya (per kg)", price: "75.00", category: "Vegetables" },
+  { name: "Kangkong (bundle)", price: "25.00", category: "Vegetables" },
+  { name: "Saging na Saba (per kg)", price: "60.00", category: "Fruits" },
+  { name: "Mangga (per kg)", price: "95.00", category: "Fruits" },
+  { name: "Eggs (per piece)", price: "12.00", category: "Dairy & Eggs" },
+  { name: "Fresh Milk (1L)", price: "95.00", category: "Dairy & Eggs" },
+  { name: "Tokwa (per block)", price: "28.00", category: "Soy Products" },
+];
+
+const groceryEnhancedItems: SeedItem[] = [
+  { name: "Rice (5kg bag)", price: "265.00", category: "Grains & Staples" },
+  { name: "Cooking Oil (1L)", price: "95.00", category: "Cooking" },
+  { name: "Soy Sauce (350ml)", price: "45.00", category: "Condiments" },
+  { name: "Vinegar (350ml)", price: "32.00", category: "Condiments" },
+  { name: "Instant Noodles (pack)", price: "16.00", category: "Instant Food" },
+  { name: "Canned Sardines (155g)", price: "32.00", category: "Canned Goods" },
+  { name: "Canned Corned Beef (150g)", price: "55.00", category: "Canned Goods" },
+  { name: "Evaporated Milk (370ml)", price: "48.00", category: "Dairy" },
+  { name: "Eggs (per tray, 30pcs)", price: "320.00", category: "Dairy & Eggs" },
+  { name: "Laundry Detergent (1kg)", price: "89.00", category: "Household" },
+  { name: "Dishwashing Liquid (500ml)", price: "75.00", category: "Household" },
+  { name: "Bar Soap (90g)", price: "28.00", category: "Personal Care" },
+  { name: "Shampoo (200ml)", price: "115.00", category: "Personal Care" },
+  { name: "Bottled Water (500ml)", price: "18.00", category: "Beverages" },
+  { name: "Soft Drink 1.5L", price: "65.00", category: "Beverages" },
+  { name: "Coffee Sachet (10s)", price: "85.00", category: "Beverages" },
+  { name: "Sugar (1kg)", price: "75.00", category: "Baking" },
+  { name: "All-Purpose Flour (1kg)", price: "58.00", category: "Baking" },
+];
+
 const bookstoreItems: SeedItem[] = [
   { name: "Bestseller (Hardcover)", price: "28.00", category: "Books" },
   { name: "Paperback Novel", price: "16.00", category: "Books" },
@@ -355,6 +420,26 @@ export const SEED_TEMPLATES: Record<string, SeedTemplate> = {
     label: "Grocery Starter Inventory",
     description: "Daily essentials across dairy, produce, and beverages.",
     items: groceryItems,
+  },
+  pharmacy: {
+    label: "Pharmacy Starter Inventory",
+    description: "Common OTC medicines, vitamins, first aid, and medical devices.",
+    items: pharmacyItems,
+  },
+  drugstore: {
+    label: "Drugstore Starter Inventory",
+    description: "Common OTC medicines, vitamins, first aid, and medical devices.",
+    items: pharmacyItems,
+  },
+  perishable_goods: {
+    label: "Palengke / Wet Market Starter Inventory",
+    description: "Fresh meat, fish, vegetables, and fruits — sold by weight.",
+    items: perishableItems,
+  },
+  grocery_enhanced: {
+    label: "Sari-Sari / Grocery Starter Inventory",
+    description: "Grains, canned goods, condiments, beverages, and household essentials.",
+    items: groceryEnhancedItems,
   },
   bookstore: {
     label: "Bookstore Starter Inventory",

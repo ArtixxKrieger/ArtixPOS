@@ -77,7 +77,21 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id, created_at)`,
 ];
 
+const COLUMN_MIGRATIONS = [
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_date text`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS batch_number text`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS requires_prescription boolean DEFAULT false`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS generic_name text`,
+];
+
 export async function ensureIndexes(): Promise<void> {
+  for (const stmt of COLUMN_MIGRATIONS) {
+    try {
+      await db.execute(sql.raw(stmt));
+    } catch (err: any) {
+      console.warn("[migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
+    }
+  }
   for (const stmt of INDEXES) {
     try {
       await db.execute(sql.raw(stmt));
@@ -85,5 +99,5 @@ export async function ensureIndexes(): Promise<void> {
       console.warn("[indexes]", stmt.slice(0, 60), "—", err?.message ?? err);
     }
   }
-  console.log("[indexes] Performance indexes verified.");
+  console.log("[indexes] Performance indexes and column migrations verified.");
 }

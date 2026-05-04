@@ -131,6 +131,42 @@ export function getBusinessFeatures(
     primaryNavUrls = ["/pos", "/products"];
     sidebarOrder = ["/", "/pos", "/products", "/customers", "/transactions", "/analytics", "/expenses", "/suppliers", "/purchases", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
 
+    switch (businessSubType) {
+      case "pharmacy":
+      case "drugstore":
+        primaryNavUrls = ["/pos", "/products"];
+        sidebarOrder = ["/", "/pos", "/products", "/expiry", "/customers", "/transactions", "/analytics", "/expenses", "/suppliers", "/purchases", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
+        terminology = {
+          ...DEFAULT_TERMINOLOGY,
+          customer: "Patient",
+          service: "Medicine",
+          topItemsLabel: "Top Medicines",
+        };
+        quickSuggestions = ["Paracetamol", "Amoxicillin", "Mefenamic Acid", "Ibuprofen", "Cetirizine", "Omeprazole", "Vitamin C", "Multivitamins", "Antacid", "Antibiotic"];
+        break;
+
+      case "perishable_goods":
+        primaryNavUrls = ["/pos", "/products"];
+        sidebarOrder = ["/", "/pos", "/products", "/expiry", "/customers", "/transactions", "/analytics", "/expenses", "/suppliers", "/purchases", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
+        terminology = {
+          ...DEFAULT_TERMINOLOGY,
+          topItemsLabel: "Top Products",
+          itemUnit: "kg",
+        };
+        quickSuggestions = ["Bangus", "Tilapia", "Pork Kasim", "Chicken Breast", "Beef Brisket", "Kamatis", "Sibuyas", "Bawang", "Kangkong", "Mangga"];
+        break;
+
+      case "grocery":
+      case "grocery_enhanced":
+        primaryNavUrls = ["/pos", "/products"];
+        sidebarOrder = ["/", "/pos", "/products", "/expiry", "/customers", "/transactions", "/analytics", "/expenses", "/suppliers", "/purchases", "/shifts", "/timeclock", "/discount-codes", "/refunds", "/ai", "/settings"];
+        quickSuggestions = ["Rice", "Cooking Oil", "Eggs", "Instant Noodles", "Canned Goods", "Sardines", "Detergent", "Bottled Water", "Soft Drink", "Coffee"];
+        break;
+
+      default:
+        break;
+    }
+
   } else if (businessType === "services") {
     showBarcode = false;
     hidden.add("/kitchen");
@@ -361,6 +397,11 @@ export function getBusinessFeatures(
         quickSuggestions = [];
         break;
     }
+  }
+
+  const EXPIRY_SUBTYPES = new Set(["pharmacy", "drugstore", "perishable_goods", "grocery", "grocery_enhanced"]);
+  if (!EXPIRY_SUBTYPES.has(businessSubType ?? "")) {
+    hidden.add("/expiry");
   }
 
   return { hiddenUrls: hidden, essentialUrls: getEssentialBusinessUrls(businessType, businessSubType), showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };

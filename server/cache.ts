@@ -1,3 +1,5 @@
+const MAX_ENTRIES = 5_000; // prevent unbounded growth under high tenant load
+
 type Entry<T> = { value: T; expiresAt: number };
 
 class TtlCache {
@@ -5,6 +7,11 @@ class TtlCache {
 
   set<T>(key: string, value: T, ttlMs: number): void {
     this.store.set(key, { value, expiresAt: Date.now() + ttlMs });
+    // Evict oldest entry when the map exceeds the cap.
+    if (this.store.size > MAX_ENTRIES) {
+      const firstKey = this.store.keys().next().value;
+      if (firstKey !== undefined) this.store.delete(firstKey);
+    }
   }
 
   get<T>(key: string): T | undefined {
@@ -30,9 +37,21 @@ class TtlCache {
   size(): number {
     return this.store.size;
   }
+
+  /** Purge all entries whose TTL has elapsed. Called periodically. */
+  purgeExpired(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.store) {
+      if (now > entry.expiresAt) this.store.delete(key);
+    }
+  }
 }
 
 export const cache = new TtlCache();
+
+// Proactively sweep expired entries every 5 minutes so stale data
+// does not accumulate in memory between reads.
+setInterval(() => cache.purgeExpired(), 5 * 60 * 1000).unref();
 
 export const TTL = {
   PRODUCTS: 30_000,   // 30s — catalog changes only on admin edits

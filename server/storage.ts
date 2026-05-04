@@ -120,6 +120,7 @@ export interface IStorage {
 
   // Sales
   getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null }): Promise<Sale[]>;
+  getSaleById(id: number, userId: string): Promise<Sale | undefined>;
   createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
   softDeleteSale(id: number, userId: string, deletedBy: string): Promise<boolean>;
   getDeletedSales(userId: string): Promise<Sale[]>;
@@ -637,6 +638,22 @@ export class DatabaseStorage implements IStorage {
         )
       );
     });
+  }
+
+  async getSaleById(id: number, userId: string): Promise<Sale | undefined> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const userCondition = userIds.length === 1
+        ? eq(sales.userId, userIds[0])
+        : inArray(sales.userId, userIds);
+      const [sale] = await db.select().from(sales).where(
+        and(eq(sales.id, id), userCondition, isNull(sales.deletedAt))
+      );
+      return sale;
+    } catch (error) {
+      console.error("Error fetching sale by id:", error);
+      return undefined;
+    }
   }
 
   async softDeleteSale(id: number, userId: string, deletedBy: string): Promise<boolean> {

@@ -17,7 +17,7 @@ import crypto from "crypto";
 import { sendPasswordResetEmail } from "./email";
 import { hashPassword, verifyPassword } from "./crypto";
 
-const AUTH_COOKIE = "auth_token";
+export const AUTH_COOKIE = "auth_token";
 
 let _ephemeralSecret: string | undefined;
 
@@ -36,7 +36,7 @@ function getJwtSecret(): string {
   return secret;
 }
 
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   const appUrl = process.env.APP_URL?.replace(/\/$/, "");
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
   if (process.env.NODE_ENV === "production" && appUrl) return appUrl;
@@ -95,7 +95,7 @@ export function signToken(user: any): string {
 // Shared cookie options — MUST be identical between setAuthCookie / clearAuthCookie
 // or browsers (especially Chrome on HTTPS) silently refuse to delete the cookie,
 // which is what made "logout" appear to do nothing on the first click.
-const AUTH_COOKIE_OPTIONS = {
+export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,

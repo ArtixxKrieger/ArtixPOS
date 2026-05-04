@@ -2,15 +2,68 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 
 const INDEXES = [
+  // ── Sales ─────────────────────────────────────────────────────────────────
   `CREATE INDEX IF NOT EXISTS idx_sales_user_del_created ON sales(user_id, deleted_at, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_sales_branch_del_created ON sales(branch_id, deleted_at, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id, user_id, deleted_at)`,
+  // Tenant-scoped OR number lookup (OR-gap detection, hash-verify audit)
+  `CREATE INDEX IF NOT EXISTS idx_sales_tenant_del ON sales(tenant_id, deleted_at, created_at)`,
   // Non-unique lookup index retained for fast range queries scoped to a user
   `CREATE INDEX IF NOT EXISTS idx_sales_or_number ON sales(user_id, or_number) WHERE or_number IS NOT NULL`,
   // UNIQUE constraint: prevents duplicate OR numbers within the same tenant.
-  // Combined with the atomic or_sequences upsert this provides defence-in-depth
-  // against any future code path that bypasses the sequence logic.
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_tenant_or_number ON sales(tenant_id, or_number) WHERE tenant_id IS NOT NULL AND or_number IS NOT NULL`,
+
+  // ── Refunds ───────────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_refunds_user ON refunds(user_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_refunds_sale ON refunds(sale_id)`,
+
+  // ── Pending Orders ────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_pending_orders_user_del ON pending_orders(user_id, deleted_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_pending_orders_branch ON pending_orders(branch_id, deleted_at)`,
+
+  // ── Discount Codes ────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_discount_codes_user ON discount_codes(user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_discount_codes_code ON discount_codes(code)`,
+
+  // ── Tables ────────────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_tables_user_del ON tables(user_id, deleted_at)`,
+
+  // ── Purchase Orders ───────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_purchase_orders_user ON purchase_orders(user_id, created_at)`,
+
+  // ── Time Logs ─────────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_timelogs_user ON time_logs(user_id, clock_in)`,
+
+  // ── Service entities ──────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_service_staff_user_del ON service_staff(user_id, deleted_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_service_rooms_user_del ON service_rooms(user_id, deleted_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_appointments_user_del ON appointments(user_id, deleted_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_appointments_date_staff ON appointments(date, staff_id)`,
+
+  // ── Memberships ───────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_memberships_user_del ON memberships(user_id, deleted_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_memberships_customer ON memberships(customer_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_membership_plans_user ON membership_plans(user_id, deleted_at)`,
+
+  // ── User Branches (junction table) ────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_user_branches_user ON user_branches(user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_user_branches_branch ON user_branches(branch_id)`,
+
+  // ── Invite Tokens ─────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_invite_tokens_tenant ON invite_tokens(tenant_id)`,
+
+  // ── Ingredients & Recipes ─────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_ingredients_user_del ON ingredients(user_id, deleted_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_product_recipes_product ON product_recipes(product_id)`,
+
+  // ── WiFi Vouchers ─────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_wifi_vouchers_user ON wifi_vouchers(user_id, created_at)`,
+
+  // ── Payroll ───────────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_payroll_periods_user ON payroll_periods(user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_payroll_entries_period ON payroll_entries(period_id)`,
+
+  // ── Core ──────────────────────────────────────────────────────────────────
   `CREATE INDEX IF NOT EXISTS idx_shifts_user_opened ON shifts(user_id, opened_at)`,
   `CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id)`,
@@ -19,11 +72,8 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_customers_user ON customers(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_customers_user_name ON customers(user_id, name)`,
   `CREATE INDEX IF NOT EXISTS idx_suppliers_user_del ON suppliers(user_id, deleted_at)`,
-  `CREATE INDEX IF NOT EXISTS idx_appointments_date_staff ON appointments(date, staff_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_memberships_customer ON memberships(customer_id)`,
   `CREATE INDEX IF NOT EXISTS idx_po_items_po_id ON purchase_order_items(purchase_order_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at)`,
-  // Audit logs are queried by tenant_id on every admin / audit-trail request
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id, created_at)`,
 ];
 

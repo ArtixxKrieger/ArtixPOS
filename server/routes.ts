@@ -10,7 +10,7 @@ import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog, getRolePermissionForRole } from "./admin-storage";
 import { db } from "./db";
 import { eq, and, sql, desc, isNotNull } from "drizzle-orm";
-import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable } from "@shared/schema";
+import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable, expenses } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
@@ -892,12 +892,14 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
-    const id = Number(req.params.id);
-    const existing = await storage.getExpenses(userId(req)).then(list => list.find(e => e.id === id));
-    await storage.deleteExpense(id, userId(req));
-    await auditLog(req, "delete", "expense", String(id), { description: existing?.description, amount: existing?.amount });
-    res.status(204).end();
+  app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
+      await storage.deleteExpense(id, userId(req));
+      await auditLog(req, "delete", "expense", String(id), { description: existing?.description, amount: existing?.amount });
+      res.status(204).end();
+    } catch (err) { next(err); }
   });
 
   // ── Shifts ────────────────────────────────────────────────────────────────
@@ -1233,14 +1235,21 @@ export async function registerRoutes(
     const uid = userId(req);
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 
-    // Fetch raw rows — only the fields needed for hash recomputation.
+    // Fetch raw rows for all users in the same tenant — scoping to only the
+    // requesting user's ID would miss sales created by other staff members,
+    // producing an incomplete integrity report for the BIR auditor.
     const rows = await db.execute(sql`
       SELECT
         id, user_id, receipt_number, or_number, invoice_number,
         subtotal, tax, discount, vatable_sales, vat_exempt_sales, zero_rated_sales,
         total, discount_type, created_at, sale_hash
       FROM sales
-      WHERE user_id = ${uid}
+      WHERE user_id = ANY(
+              SELECT id FROM users WHERE tenant_id = (
+                SELECT tenant_id FROM users WHERE id = ${uid}
+              )
+            )
+        AND deleted_at IS NULL
         ${startDate ? sql`AND created_at >= ${startDate}` : sql``}
         ${endDate   ? sql`AND created_at <= ${endDate}`   : sql``}
       ORDER BY id ASC
@@ -1389,7 +1398,7 @@ export async function registerRoutes(
       }
       const input = insertRefundSchema.extend({ amount: z.coerce.string() }).parse(req.body);
       const refund = await storage.createRefund(userId(req), input);
-      const sale = (await storage.getSales(userId(req), { limit: 1000 })).find((s) => s.id === refund.saleId);
+      const sale = await storage.getSaleById(refund.saleId, userId(req));
       await auditLog(req, "create", "refund", String(refund.id), {
         saleId: refund.saleId,
         saleReceiptNumber: (sale as any)?.receiptNumber ?? null,

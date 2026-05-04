@@ -25,7 +25,7 @@ import {
   type UserRole,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, sql, desc } from "drizzle-orm";
-import { signToken } from "./auth";
+import { signToken, AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getBaseUrl } from "./auth";
 import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
 export function registerAdminRoutes(app: Express) {
@@ -50,12 +50,7 @@ export function registerAdminRoutes(app: Express) {
       }
 
       const token = signToken(user);
-      res.cookie("auth_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      res.cookie(AUTH_COOKIE, token, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, tenantId: user.tenantId } });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -93,8 +88,7 @@ export function registerAdminRoutes(app: Express) {
 
       // Return the invite link for the frontend to display
       // Prefer APP_URL (e.g. Vercel production), fall back to localhost for dev
-      const baseUrl = process.env.APP_URL || "http://localhost:5000";
-      const link = `${baseUrl}/login?invite=${invite.token}`;
+      const link = `${getBaseUrl()}/login?invite=${invite.token}`;
       res.json({ token: invite.token, link, expiresAt: invite.expiresAt });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -116,12 +110,7 @@ export function registerAdminRoutes(app: Express) {
       if (!updatedUser) return res.status(404).json({ message: "User not found" });
 
       const newToken = signToken(updatedUser);
-      res.cookie("auth_token", newToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      res.cookie(AUTH_COOKIE, newToken, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ ok: true, token: newToken, role: result.role, tenantId: result.tenantId });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -794,12 +783,7 @@ export function registerAdminRoutes(app: Express) {
         entityId: user.id,
         metadata: { branchId },
       });
-      res.cookie("auth_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      res.cookie(AUTH_COOKIE, token, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, activeBranchId: branchId });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });

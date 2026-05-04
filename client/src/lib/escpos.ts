@@ -102,6 +102,17 @@ export interface EscPosReceipt {
   cashierName?: string;
   dateStr?: string;
   customerName?: string;
+  // BIR Compliance fields
+  tin?: string;
+  ptuNumber?: string;
+  accreditationNumber?: string;
+  machineSerialNumber?: string;
+  orNumber?: string;
+  vatRegistered?: boolean;
+  vatableSales?: number;
+  vatExemptSales?: number;
+  discountType?: string;
+  scPwdId?: string;
   items: Array<{
     name: string;
     sizeName?: string;
@@ -153,10 +164,16 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   if (r.showPhone && r.phone) push(center(`Tel: ${r.phone}`, width));
   if (r.showEmail && r.email) push(center(r.email, width));
   if (r.showWebsite && r.website) push(center(r.website, width));
+  // BIR compliance header fields (required on official receipts)
+  if (r.tin) push(center(`VAT TIN: ${r.tin}`, width));
+  if (r.ptuNumber) push(center(`PTU No.: ${r.ptuNumber}`, width));
+  if (r.accreditationNumber) push(center(`Accred.: ${r.accreditationNumber}`, width));
+  if (r.machineSerialNumber) push(center(`S/N: ${r.machineSerialNumber}`, width));
   if (r.customerName) push(center(`Customer: ${r.customerName}`, width));
 
   push(bytes(ESC, 0x61, 0x00));
 
+  if (r.orNumber) push(row("O.R. No.", r.orNumber, width));
   if ((r.showOrderNumber && r.orderNumber) || (r.showCashier && r.cashierName)) {
     push(line());
     if (r.showOrderNumber && r.orderNumber) push(row(`Order #${r.orderNumber}`, "", width));
@@ -182,10 +199,21 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
 
   push(row("Subtotal", fmt(r.subtotal, r.currency), width));
   if (r.discount > 0) {
-    const label = r.discountCode ? `Discount (${r.discountCode})` : "Discount";
+    const isScPwd = r.discountType === "sc" || r.discountType === "pwd";
+    const label = isScPwd
+      ? `${r.discountType === "sc" ? "SC" : "PWD"} Discount (20%)`
+      : r.discountCode ? `Discount (${r.discountCode})` : "Discount";
     push(row(label, `-${fmt(r.discount, r.currency)}`, width));
   }
-  if (r.tax > 0) {
+  if (r.vatRegistered) {
+    // BIR-required VAT breakdown on official receipts
+    if ((r.vatableSales ?? 0) > 0) push(row("VATable Sales", fmt(r.vatableSales!, r.currency), width));
+    if (r.tax > 0) {
+      const vatLabel = r.taxRate != null && r.taxRate > 0 ? `Output VAT (${r.taxRate}%)` : "Output VAT";
+      push(row(vatLabel, fmt(r.tax, r.currency), width));
+    }
+    if ((r.vatExemptSales ?? 0) > 0) push(row("VAT-Exempt Sales", fmt(r.vatExemptSales!, r.currency), width));
+  } else if (r.tax > 0) {
     const vatLabel = r.taxRate != null && r.taxRate > 0 ? `VAT (${r.taxRate}%)` : "VAT";
     push(row(vatLabel, fmt(r.tax, r.currency), width));
   }
@@ -194,11 +222,15 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   }
 
   push(dashes(width));
-  push(row("TOTAL", fmt(r.total, r.currency), width));
+  push(row("TOTAL DUE", fmt(r.total, r.currency), width));
 
   push(row(`Payment (${r.paymentMethod.toUpperCase()})`, fmt(r.paymentAmount, r.currency), width));
   if (r.paymentMethod === "cash" && r.changeAmount > 0) {
     push(row("Change", fmt(r.changeAmount, r.currency), width));
+  }
+  // SC/PWD ID for BIR audit trail
+  if (r.scPwdId && (r.discountType === "sc" || r.discountType === "pwd")) {
+    push(row(`${r.discountType === "sc" ? "SC" : "PWD"} ID No.`, r.scPwdId, width));
   }
 
   if (r.loyaltyPointsEarned && r.loyaltyPointsEarned > 0) {

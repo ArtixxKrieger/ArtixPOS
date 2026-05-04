@@ -158,6 +158,17 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         cashierName: receipt.cashierName,
         dateStr: format(now, "MMM d, yyyy h:mm a"),
         customerName: receipt.customerName,
+        // BIR compliance fields
+        tin: storeTin || undefined,
+        ptuNumber: ptuNumber || undefined,
+        accreditationNumber: accreditationNumber || undefined,
+        machineSerialNumber: machineSerialNumber || undefined,
+        orNumber: receipt.orNumber,
+        vatRegistered: !!(s.vatRegistered),
+        vatableSales,
+        vatExemptSales,
+        discountType: receipt.discountType,
+        scPwdId: receipt.scPwdId,
         items: receipt.items.map(item => ({
           name: item.product.name,
           sizeName: item.size?.name,

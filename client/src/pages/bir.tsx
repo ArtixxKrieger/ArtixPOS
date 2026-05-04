@@ -259,6 +259,7 @@ export default function BIRPage() {
       <div class="title">${storeName}</div>
       ${tin ? `<div class="small">TIN: ${tin}</div>` : ""}
       ${ptuNumber ? `<div class="small">PTU No.: ${ptuNumber}</div>` : ""}
+      ${accreditationNumber ? `<div class="small">Accreditation No.: ${accreditationNumber}</div>` : ""}
       ${machineSerialNumber ? `<div class="small">Machine S/N: ${machineSerialNumber}</div>` : ""}
     </div>
     <div class="double"></div>
@@ -271,10 +272,10 @@ export default function BIRPage() {
     <div class="row"><span>Transactions so far</span><span>${d.totalTransactions}</span></div>
     <div class="line"></div>
     <div class="section">— CURRENT SALES —</div>
-    <div class="row bold"><span>Gross Sales</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
+    <div class="row bold"><span>Gross Sales (incl. VAT)</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
     <div class="row"><span>Discounts</span><span>-${currency}${d.totalDiscount.toFixed(2)}</span></div>
     <div class="row"><span>Output VAT</span><span>${currency}${d.vatAmountTotal.toFixed(2)}</span></div>
-    <div class="row bold"><span>Net Sales</span><span>${currency}${d.netSales.toFixed(2)}</span></div>
+    <div class="row bold"><span>Net Sales (excl. VAT)</span><span>${currency}${d.netSales.toFixed(2)}</span></div>
     <div class="line"></div>
     <div class="section">— PAYMENT BREAKDOWN —</div>
     ${pmRows || '<div class="center small">No transactions yet</div>'}
@@ -334,10 +335,10 @@ export default function BIRPage() {
     <div class="row"><span>Total Transactions</span><span>${d.totalTransactions}</span></div>
     <div class="line"></div>
     <div class="section">— SALES SUMMARY —</div>
-    <div class="row bold"><span>Gross Sales</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
+    <div class="row bold"><span>Gross Sales (incl. VAT)</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
     <div class="row"><span>Total Discount</span><span>-${currency}${d.totalDiscount.toFixed(2)}</span></div>
     <div class="row"><span>Output VAT (${taxRate}%)</span><span>${currency}${d.vatAmountTotal.toFixed(2)}</span></div>
-    <div class="row bold"><span>Net Sales</span><span>${currency}${d.netSales.toFixed(2)}</span></div>
+    <div class="row bold"><span>Net Sales (excl. VAT)</span><span>${currency}${d.netSales.toFixed(2)}</span></div>
     <div class="line"></div>
     <div class="section">— PAYMENT BREAKDOWN —</div>
     ${pmRows || '<div class="center small">No transactions</div>'}
@@ -379,6 +380,8 @@ export default function BIRPage() {
       <div class="title">${storeName}</div>
       ${tin ? `<div class="small">TIN: ${tin}</div>` : ""}
       ${ptuNumber ? `<div class="small">PTU No.: ${ptuNumber}</div>` : ""}
+      ${accreditationNumber ? `<div class="small">Accreditation No.: ${accreditationNumber}</div>` : ""}
+      ${machineSerialNumber ? `<div class="small">Machine S/N: ${machineSerialNumber}</div>` : ""}
     </div>
     <div class="double"></div>
     <div class="center bold" style="font-size:12px">MONTHLY VAT SUMMARY</div>
@@ -1185,6 +1188,7 @@ export default function BIRPage() {
                   { label: "Filing Due", value: (() => { const [yr, mo] = monthlySummary.month.split("-"); return format(new Date(parseInt(yr), parseInt(mo) - 1 + 1, 20), "MMMM d, yyyy"); })() },
                   ...(ptuNumber ? [{ label: "PTU No.", value: ptuNumber }] : []),
                   ...(accreditationNumber ? [{ label: "Accreditation No.", value: accreditationNumber }] : []),
+                  ...(machineSerialNumber ? [{ label: "Machine S/N", value: machineSerialNumber }] : []),
                 ].map(r => (
                   <div key={r.label} className="flex items-start justify-between gap-3">
                     <p className="text-[10px] text-muted-foreground shrink-0">{r.label}</p>

@@ -562,9 +562,10 @@ export default function POS() {
           taxRate: globalTaxRate,
           discountCode: snapshotScPwdType !== "none" ? null : (appliedCode?.code ?? null),
           loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
+          orderNumber: (result as any)?.orderNumber ?? null,
           wifiVoucher,
-          // BIR compliance
-          orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber,
+          // BIR compliance — orNumber comes from the auto-created sale (merged into response)
+          orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber ?? null,
           discountType: snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
           scPwdId: snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
           vatableSales: snapshotScPwdType === "none" ? snapshotDiscountedSubtotal : 0,

@@ -243,8 +243,14 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
   if (r.showPhone    && r.phone)         out.push(center(`Tel: ${r.phone}`));
   if (r.showEmail    && r.email)         out.push(center(r.email));
   if (r.showWebsite  && r.website)       out.push(center(r.website));
+  // BIR compliance header fields (required on official receipts)
+  if (r.tin)                     out.push(center(`VAT TIN: ${r.tin}`));
+  if (r.ptuNumber)               out.push(center(`PTU No.: ${r.ptuNumber}`));
+  if (r.accreditationNumber)     out.push(center(`Accred.: ${r.accreditationNumber}`));
+  if (r.machineSerialNumber)     out.push(center(`S/N: ${r.machineSerialNumber}`));
   if (r.customerName)            out.push(center(`Customer: ${r.customerName}`));
 
+  if (r.orNumber)                out.push(twoCol("O.R. No.", r.orNumber));
   if ((r.showOrderNumber && r.orderNumber) || (r.showCashier && r.cashierName)) {
     out.push("");
     if (r.showOrderNumber && r.orderNumber) out.push(twoCol(`Order #${r.orderNumber}`, ""));
@@ -272,10 +278,21 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
 
   out.push(twoCol("Subtotal", fmt(r.subtotal)));
   if (r.discount > 0) {
-    const label = r.discountCode ? `Discount (${r.discountCode})` : "Discount";
+    const isScPwd = r.discountType === "sc" || r.discountType === "pwd";
+    const label = isScPwd
+      ? `${r.discountType === "sc" ? "SC" : "PWD"} Discount (20%)`
+      : r.discountCode ? `Discount (${r.discountCode})` : "Discount";
     out.push(twoCol(label, `-${fmt(r.discount)}`));
   }
-  if (r.tax > 0) {
+  if (r.vatRegistered) {
+    // BIR-required VAT breakdown on official receipts
+    if ((r.vatableSales ?? 0) > 0) out.push(twoCol("VATable Sales", fmt(r.vatableSales!)));
+    if (r.tax > 0) {
+      const vatLabel = r.taxRate != null && r.taxRate > 0 ? `Output VAT (${r.taxRate}%)` : "Output VAT";
+      out.push(twoCol(vatLabel, fmt(r.tax)));
+    }
+    if ((r.vatExemptSales ?? 0) > 0) out.push(twoCol("VAT-Exempt Sales", fmt(r.vatExemptSales!)));
+  } else if (r.tax > 0) {
     const vatLabel = r.taxRate != null && r.taxRate > 0 ? `VAT (${r.taxRate}%)` : "VAT";
     out.push(twoCol(vatLabel, fmt(r.tax)));
   }
@@ -284,10 +301,14 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
   }
 
   out.push(dash);
-  out.push(twoCol("TOTAL", fmt(r.total)));
+  out.push(twoCol("TOTAL DUE", fmt(r.total)));
   out.push(twoCol(`Payment (${r.paymentMethod.toUpperCase()})`, fmt(r.paymentAmount)));
   if (r.paymentMethod === "cash" && r.changeAmount > 0) {
     out.push(twoCol("Change", fmt(r.changeAmount)));
+  }
+  // SC/PWD ID for BIR audit trail
+  if (r.scPwdId && (r.discountType === "sc" || r.discountType === "pwd")) {
+    out.push(twoCol(`${r.discountType === "sc" ? "SC" : "PWD"} ID No.`, r.scPwdId));
   }
 
   if (r.loyaltyPointsEarned && r.loyaltyPointsEarned > 0) {

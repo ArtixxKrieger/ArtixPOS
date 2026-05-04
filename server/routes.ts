@@ -372,11 +372,18 @@ export async function registerRoutes(
 
       // When a POS order is finalized as paid, also record it as a sale so it
       // immediately appears in Dashboard, Analytics, and Sales History.
+      // Capture BIR receipt fields from the auto-created sale so the client
+      // can display the correct OR number on the receipt without a second fetch.
+      let saleOrNumber: string | null = null;
+      let saleReceiptNumber: string | null = null;
+      let saleId: number | null = null;
+
       if (input.status === "paid") {
         try {
           // Create the sale FIRST. Only after it succeeds do we increment the
           // discount-code usage — otherwise a failed sale would leave the
           // discount counter inflated and rob the merchant of legitimate uses.
+          const rawBody = req.body as any;
           const sale = await storage.createSale(userId(req), {
             items: input.items,
             subtotal: input.subtotal,
@@ -384,18 +391,29 @@ export async function registerRoutes(
             discount: input.discount,
             discountCode: input.discountCode,
             loyaltyDiscount: input.loyaltyDiscount,
-            tip: (input as any).tip,
+            tip: rawBody.tip,
             total: input.total,
             paymentMethod: input.paymentMethod,
             paymentAmount: input.paymentAmount,
             changeAmount: input.changeAmount,
             customerId: input.customerId,
-            customerName: (input as any).customerName,
+            customerName: rawBody.customerName,
             tableId: input.tableId,
             cashierId: userId(req),
             notes: input.notes,
             branchId: enforcedBranch,
+            // BIR compliance fields — must be persisted for X/Z reports and eSales
+            discountType: rawBody.discountType ?? "regular",
+            scPwdId: rawBody.scPwdId ?? null,
+            vatableSales: rawBody.vatableSales ?? "0",
+            vatExemptSales: rawBody.vatExemptSales ?? "0",
+            zeroRatedSales: rawBody.zeroRatedSales ?? "0",
           });
+          // Capture sale's BIR receipt identifiers to include in the response
+          saleOrNumber = (sale as any).orNumber ?? null;
+          saleReceiptNumber = (sale as any).receiptNumber ?? null;
+          saleId = sale.id;
+
           void storage.deductProductStockForSale(userId(req), input.items as any[]).catch(e => console.error("Stock deduction failed:", e));
           if (input.discountCode) {
             try {
@@ -419,7 +437,14 @@ export async function registerRoutes(
         }
       }
 
-      res.status(201).json(order);
+      // Merge BIR receipt identifiers from the auto-created sale into the
+      // order response so the POS client can display the correct OR number.
+      res.status(201).json({
+        ...order,
+        orNumber: saleOrNumber ?? (order as any).orNumber ?? null,
+        receiptNumber: saleReceiptNumber ?? (order as any).receiptNumber ?? null,
+        saleId,
+      });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
@@ -487,7 +512,11 @@ export async function registerRoutes(
 
   app.get("/api/sales/export", requireAuth, requireManagerOrAbove, async (req, res) => {
     const salesList = await storage.getSales(userId(req), { limit: 1000 });
-    const headers = ["id","createdAt","receiptNumber","orNumber","invoiceNumber","subtotal","tax","discount","total","paymentMethod","customerName"];
+    const headers = [
+      "id","createdAt","receiptNumber","orNumber","invoiceNumber",
+      "subtotal","tax","discount","total","paymentMethod","customerName",
+      "discountType","scPwdId","vatableSales","vatExemptSales","zeroRatedSales",
+    ];
     const rows = salesList.map((sale) => [
       sale.id,
       sale.createdAt ?? "",
@@ -500,6 +529,11 @@ export async function registerRoutes(
       sale.total ?? "",
       sale.paymentMethod ?? "",
       sale.customerName ?? "",
+      (sale as any).discountType ?? "regular",
+      (sale as any).scPwdId ?? "",
+      (sale as any).vatableSales ?? "0",
+      (sale as any).vatExemptSales ?? "0",
+      (sale as any).zeroRatedSales ?? "0",
     ]);
     const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n");
     res.setHeader("Content-Type", "text/csv");
@@ -909,10 +943,9 @@ export async function registerRoutes(
     const endDate = shift.closedAt ?? new Date().toISOString();
     const salesList = await storage.getSales(uid, { limit: 10000, startDate, endDate });
 
-    // OR number range
+    // OR number range (numeric sort to avoid lexicographic errors)
     const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
-    const orFrom = orNumbers.length ? orNumbers.reduce((a, b) => a < b ? a : b) : null;
-    const orTo   = orNumbers.length ? orNumbers.reduce((a, b) => a > b ? a : b) : null;
+    const { orFrom, orTo } = orNumericRange(orNumbers);
 
     // Payment method breakdown
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
@@ -960,7 +993,7 @@ export async function registerRoutes(
       orTo,
       totalTransactions: salesList.length,
       grossSales: salesList.reduce((a, s) => a + parseFloat(s.total || "0"), 0),
-      netSales: salesList.reduce((a, s) => a + parseFloat(s.subtotal || "0"), 0),
+      netSales: salesList.reduce((a, s) => a + parseFloat(s.total || "0") - parseFloat(s.tax || "0"), 0),
       totalDiscount: salesList.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
       totalLoyaltyDiscount: salesList.reduce((a, s) => a + parseFloat((s as any).loyaltyDiscount || "0"), 0),
       paymentBreakdown,
@@ -989,6 +1022,19 @@ export async function registerRoutes(
 
   // ── BIR Compliance ────────────────────────────────────────────────────────
 
+  // Helper: compute OR number min/max using numeric ordering (avoids lexicographic bugs
+  // where "9" > "100"). Falls back to lexicographic sort for alphanumeric OR numbers.
+  function orNumericRange(orNums: string[]): { orFrom: string | null; orTo: string | null } {
+    if (orNums.length === 0) return { orFrom: null, orTo: null };
+    const allNumeric = orNums.every(n => /^\d+$/.test(n));
+    if (allNumeric) {
+      const sorted = orNums.map(Number).sort((a, b) => a - b);
+      return { orFrom: String(sorted[0]), orTo: String(sorted[sorted.length - 1]) };
+    }
+    const sorted = [...orNums].sort();
+    return { orFrom: sorted[0], orTo: sorted[sorted.length - 1] };
+  }
+
   app.get("/api/bir/x-report", requireAuth, async (req, res) => {
     const uid = userId(req);
     const openShift = await storage.getOpenShift(uid);
@@ -996,8 +1042,7 @@ export async function registerRoutes(
     const startDate = openShift.openedAt!;
     const salesList = await storage.getSales(uid, { limit: 10000, startDate });
     const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
-    const orFrom = orNumbers.length ? orNumbers.reduce((a, b) => a < b ? a : b) : null;
-    const orTo   = orNumbers.length ? orNumbers.reduce((a, b) => a > b ? a : b) : null;
+    const { orFrom, orTo } = orNumericRange(orNumbers);
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
     for (const sale of salesList) {
       const pm = sale.paymentMethod || "cash";
@@ -1018,7 +1063,7 @@ export async function registerRoutes(
       orFrom, orTo,
       totalTransactions: salesList.length,
       grossSales: salesList.reduce((a, s) => a + parseFloat(s.total || "0"), 0),
-      netSales:   salesList.reduce((a, s) => a + parseFloat(s.subtotal || "0"), 0),
+      netSales:   salesList.reduce((a, s) => a + parseFloat(s.total || "0") - parseFloat(s.tax || "0"), 0),
       totalDiscount: salesList.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
       totalLoyaltyDiscount: salesList.reduce((a, s) => a + parseFloat((s as any).loyaltyDiscount || "0"), 0),
       vatableSalesTotal: salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales || "0"), 0),
@@ -1035,12 +1080,15 @@ export async function registerRoutes(
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
     const [year, mon] = month.split("-").map(Number);
-    const startDate = new Date(year, mon - 1, 1, 0, 0, 0, 0).toISOString();
-    const endDate   = new Date(year, mon, 0, 23, 59, 59, 999).toISOString();
+    // Use Philippine Standard Time (UTC+8) for month boundaries
+    const monStr = String(mon).padStart(2, "0");
+    const lastDay = new Date(year, mon, 0).getDate();
+    const lastDayStr = String(lastDay).padStart(2, "0");
+    const startDate = new Date(`${year}-${monStr}-01T00:00:00+08:00`).toISOString();
+    const endDate   = new Date(`${year}-${monStr}-${lastDayStr}T23:59:59.999+08:00`).toISOString();
     const salesList = await storage.getSales(userId(req), { limit: 10000, startDate, endDate });
     const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
-    const orFrom = orNumbers.length ? orNumbers.reduce((a, b) => a < b ? a : b) : null;
-    const orTo   = orNumbers.length ? orNumbers.reduce((a, b) => a > b ? a : b) : null;
+    const { orFrom, orTo } = orNumericRange(orNumbers);
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
     for (const s of salesList) {
       const pm = s.paymentMethod || "cash";
@@ -1053,7 +1101,7 @@ export async function registerRoutes(
       month, orFrom, orTo,
       totalTransactions: salesList.length,
       grossSales:    salesList.reduce((a, s) => a + parseFloat(s.total       || "0"), 0),
-      netSales:      salesList.reduce((a, s) => a + parseFloat(s.subtotal    || "0"), 0),
+      netSales:      salesList.reduce((a, s) => a + parseFloat(s.total || "0") - parseFloat(s.tax || "0"), 0),
       outputVat:     salesList.reduce((a, s) => a + parseFloat(s.tax         || "0"), 0),
       vatableSales:  salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales  || "0"), 0),
       vatExemptSales:salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales|| "0"), 0),
@@ -1070,8 +1118,12 @@ export async function registerRoutes(
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
     const [year, mon] = month.split("-").map(Number);
-    const startDate = new Date(year, mon - 1, 1, 0, 0, 0, 0).toISOString();
-    const endDate   = new Date(year, mon, 0, 23, 59, 59, 999).toISOString();
+    // Use Philippine Standard Time (UTC+8) for month boundaries
+    const monStr2 = String(mon).padStart(2, "0");
+    const lastDay2 = new Date(year, mon, 0).getDate();
+    const lastDayStr2 = String(lastDay2).padStart(2, "0");
+    const startDate = new Date(`${year}-${monStr2}-01T00:00:00+08:00`).toISOString();
+    const endDate   = new Date(`${year}-${monStr2}-${lastDayStr2}T23:59:59.999+08:00`).toISOString();
     const [salesList, settingsData] = await Promise.all([
       storage.getSales(userId(req), { limit: 10000, startDate, endDate }),
       storage.getSettings(userId(req)),
@@ -1079,13 +1131,23 @@ export async function registerRoutes(
     const tin = (settingsData as any)?.tin || "";
     const storeName = (settingsData as any)?.storeName || "";
     const ptu = (settingsData as any)?.ptuNumber || "";
+    const accredNo = (settingsData as any)?.accreditationNumber || "";
+    const machSN = (settingsData as any)?.machineSerialNumber || "";
     const headers = [
       "Date","OR Number","Customer Name","Payment Method",
       "Gross Sales (incl. VAT)","VATable Sales","Output VAT",
-      "VAT-Exempt Sales","Zero-Rated Sales","Discount","Discount Type","Net Amount",
+      "VAT-Exempt Sales","Zero-Rated Sales","Discount","Discount Type",
+      "SC/PWD ID","Net Amount",
     ];
     const rows = salesList.map(s => {
-      const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-PH", { month:"2-digit", day:"2-digit", year:"numeric" }) : "";
+      // Format date in Philippine Standard Time (UTC+8) for BIR compliance
+      const date = s.createdAt
+        ? new Date(s.createdAt).toLocaleDateString("en-PH", { month:"2-digit", day:"2-digit", year:"numeric", timeZone:"Asia/Manila" })
+        : "";
+      const netAmount = (
+        parseFloat(s.total || "0") -
+        parseFloat(s.tax   || "0")
+      ).toFixed(2);
       return [
         date,
         (s as any).orNumber || (s as any).receiptNumber || "",
@@ -1098,7 +1160,8 @@ export async function registerRoutes(
         parseFloat((s as any).zeroRatedSales|| "0").toFixed(2),
         parseFloat(s.discount               || "0").toFixed(2),
         (s as any).discountType || "regular",
-        parseFloat(s.subtotal || "0").toFixed(2),
+        (s as any).scPwdId || "",
+        netAmount,
       ];
     });
     const csv = [
@@ -1106,8 +1169,11 @@ export async function registerRoutes(
       `# Taxpayer: ${storeName}`,
       `# TIN: ${tin}`,
       `# PTU No.: ${ptu}`,
+      ...(accredNo ? [`# Accreditation No.: ${accredNo}`] : []),
+      ...(machSN   ? [`# Machine S/N: ${machSN}`]         : []),
       `# Period: ${month}`,
-      `# Generated: ${new Date().toISOString()}`,
+      `# Timezone: Asia/Manila (PST UTC+8)`,
+      `# Generated: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })} PST`,
       `#`,
       headers.join(","),
       ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")),

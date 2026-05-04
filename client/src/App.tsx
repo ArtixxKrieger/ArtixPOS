@@ -204,6 +204,15 @@ function OwnerGuard({ component: Component }: { component: ComponentType }) {
   return <Component />;
 }
 
+function ProAndOwnerGuard({ component: Component }: { component: ComponentType }) {
+  const { user } = useAuth();
+  const { isPro, isLoading } = useSubscription();
+  if (isLoading) return null;
+  if (user?.role !== "owner") return <Redirect to="/" />;
+  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
+  return <Component />;
+}
+
 function CashierGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   if (user?.role === "cashier") return <Redirect to="/" />;
@@ -404,7 +413,7 @@ function AppRouter() {
           <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
           <Route path="/loyalty" component={() => <ProGuard url="/loyalty" component={LoyaltyPage} />} />
           <Route path="/payroll" component={() => <ProGuard url="/payroll" component={PayrollPage} />} />
-          <Route path="/bir" component={() => <OwnerGuard component={BIRPage} />} />
+          <Route path="/bir" component={() => <ProAndOwnerGuard component={BIRPage} />} />
           <Route path="/expiry" component={() => <CashierGuard component={ExpiryTrackerPage} />} />
           <Route path="/billing" component={() => <BillingPage />} />
           <Route component={NotFound} />

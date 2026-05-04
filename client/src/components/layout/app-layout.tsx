@@ -87,7 +87,7 @@ const NAV_SECTIONS = [
       { label: "Expenses", url: "/expenses", icon: Wallet, managerOnly: true, proOnly: true },
       { label: "Suppliers", url: "/suppliers", icon: Truck, managerOnly: true, proOnly: true },
       { label: "Purchases", url: "/purchases", icon: ShoppingBag, managerOnly: true, proOnly: true },
-      { label: "BIR Compliance", url: "/bir", icon: FileCheck, ownerOnly: true },
+      { label: "BIR Compliance", url: "/bir", icon: FileCheck, ownerOnly: true, proOnly: true },
     ],
   },
   {

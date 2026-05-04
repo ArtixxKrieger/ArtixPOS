@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
+import { getBusinessFeatures, type BusinessTerminology } from "@/lib/business-features";
 
 /**
  * Returns the businessType / businessSubType for the user's currently active
@@ -28,4 +29,16 @@ export function useBranchBusiness(): {
     businessType: (settings as any)?.businessType ?? null,
     businessSubType: (settings as any)?.businessSubType ?? null,
   };
+}
+
+/**
+ * Convenience hook that returns the full BusinessTerminology object for the
+ * active branch. Use this in any component that needs business-specific labels.
+ *
+ * Example:
+ *   const { posAction, productPlural, cartLabel } = useBusinessTerminology();
+ */
+export function useBusinessTerminology(): BusinessTerminology {
+  const { businessType, businessSubType } = useBranchBusiness();
+  return getBusinessFeatures(businessType, businessSubType).terminology;
 }

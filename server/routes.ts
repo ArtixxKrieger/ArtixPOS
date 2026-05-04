@@ -1038,7 +1038,7 @@ export async function registerRoutes(
     return { orFrom: sorted[0], orTo: sorted[sorted.length - 1] };
   }
 
-  app.get("/api/bir/x-report", requireAuth, async (req, res) => {
+  app.get("/api/bir/x-report", requireAuth, requirePro, async (req, res) => {
     const uid = userId(req);
     const openShift = await storage.getOpenShift(uid);
     if (!openShift) return res.json({ shift: null });
@@ -1078,7 +1078,7 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/bir/summary", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.get("/api/bir/summary", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
@@ -1116,7 +1116,7 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/bir/esales-export", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.get("/api/bir/esales-export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
@@ -1191,7 +1191,7 @@ export async function registerRoutes(
   // Generates a sequential, fixed-width text log of all POS transactions for a
   // given month — grouped by calendar day with daily subtotals and a period
   // summary. This is the standard CAS E-Journal format required by BIR.
-  app.get("/api/bir/ejournal", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.get("/api/bir/ejournal", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
@@ -1403,7 +1403,7 @@ export async function registerRoutes(
 
   // ── BIR OR Gap Detection ──────────────────────────────────────────────────
   // Uses a DB-level window function so we never load full sale rows into memory.
-  app.get("/api/bir/or-gaps", requireAuth, async (req, res) => {
+  app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
     const uid = userId(req);
     // Fetch only numeric OR numbers for this tenant — no full row hydration.
     const rows = await db.execute(sql`
@@ -1446,7 +1446,7 @@ export async function registerRoutes(
   // Recomputes every sale's SHA-256 hash from stored fiscal fields and compares
   // it against the recorded sale_hash. Any mismatch proves the row was modified
   // after initial creation — the audit result can be exported for BIR review.
-  app.get("/api/bir/hash-verify", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = userId(req);
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 

@@ -30,6 +30,7 @@ export const PRO_FEATURES = [
   "Time clock",
   "Discount codes",
   "Tables & kitchen display",
+  "BIR compliance (E-Journal, Z/X-reports, eSales export, hash integrity audit)",
 ];
 
 export const FREE_LIMITS = {

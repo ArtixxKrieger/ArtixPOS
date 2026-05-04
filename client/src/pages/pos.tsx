@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
+import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -58,6 +59,7 @@ export default function POS() {
     (settings as any)?.businessType,
     (settings as any)?.businessSubType,
   );
+  const { posAction, cartLabel, addToCartLabel } = useBusinessTerminology();
 
   // Cafe-style businesses (cafe, bakery, food truck) operate Starbucks-style:
   // walk-in customers aren't stored — only a name on the receipt.
@@ -608,7 +610,7 @@ export default function POS() {
         {cart.length === 0 ? (
           <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-muted-foreground/50 gap-2">
             <ShoppingCart className="h-10 w-10" strokeWidth={1.2} />
-            <p className="text-xs font-medium">Cart is empty — tap a product</p>
+            <p className="text-xs font-medium">{cartLabel} is empty — tap a product</p>
           </div>
         ) : (
           cart.map((item) => {
@@ -1076,7 +1078,7 @@ export default function POS() {
           disabled={cart.length === 0 || createPending.isPending}
           data-testid="button-checkout"
         >
-          {createPending.isPending ? "Processing..." : `Charge · ${formatCurrency(total, currency)}`}
+          {createPending.isPending ? "Processing..." : `${posAction} · ${formatCurrency(total, currency)}`}
         </Button>
       </div>
     </div>
@@ -1183,7 +1185,10 @@ export default function POS() {
                       strokeWidth={1.2}
                     />
                     {/* Quick add indicator */}
-                    <div className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 shadow-lg">
+                    <div
+                      aria-label={addToCartLabel}
+                      className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 shadow-lg"
+                    >
                       <Plus className="h-3.5 w-3.5 text-white" />
                     </div>
                     {product.trackStock && typeof product.stock === "number" && product.stock <= Math.max(0, product.lowStockThreshold ?? 5) && (
@@ -1293,7 +1298,7 @@ export default function POS() {
           </div>
           <SheetHeader className="px-4 pb-2 pt-1 border-b border-border/40 shrink-0">
             <SheetTitle className="text-base font-black flex items-center gap-2">
-              <ShoppingCart className="text-primary h-4 w-4" /> Order Summary
+              <ShoppingCart className="text-primary h-4 w-4" /> {cartLabel}
               {cartCount > 0 && (
                 <span className="ml-auto bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                   {cartCount}

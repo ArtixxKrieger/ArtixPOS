@@ -1244,6 +1244,7 @@ export async function registerRoutes(
     }
 
     function amt(n: number): string { return n.toFixed(2).padStart(12); }
+    function amtHdr(s: string): string { return s.padStart(12); }
 
     // ── SHA-256 hash chain ───────────────────────────────────────────────────
     // Each transaction row is hashed as SHA-256(prevHash + "|" + rowContent).
@@ -1283,7 +1284,7 @@ export async function registerRoutes(
     const COL_HDR =
       `${"EJ#".padEnd(7)}${"DATE".padEnd(12)}${"TIME".padEnd(10)}${"OR #".padEnd(14)}` +
       `${"PAYMENT".padEnd(12)}${"DISC TYPE".padEnd(12)}` +
-      `${amt("GROSS")}${amt("DISC")}${amt("TAX")}${amt("NET")}` +
+      `${amtHdr("GROSS")}${amtHdr("DISC")}${amtHdr("TAX")}${amtHdr("NET")}` +
       `  [CHAIN-HASH    ]`;
     lines.push(COL_HDR);
     lines.push(DASH);

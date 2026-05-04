@@ -6,6 +6,7 @@ import {
   productModifiers,
   pendingOrders,
   sales,
+  orSequences,
   userSettings,
   users,
   customers,
@@ -105,7 +106,7 @@ export interface IStorage {
   getStockLogs(productId: number, userId: string): Promise<StockLog[]>;
 
   // Pending Orders
-  getPendingOrders(userId: string): Promise<PendingOrder[]>;
+  getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]>;
   getPendingOrder(id: number, userId: string): Promise<PendingOrder | undefined>;
   createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder>;
   updatePendingOrder(id: number, userId: string, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined>;
@@ -118,7 +119,7 @@ export interface IStorage {
   markAllNotificationsRead(userId: string): Promise<void>;
 
   // Sales
-  getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number }): Promise<Sale[]>;
+  getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null }): Promise<Sale[]>;
   createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
   softDeleteSale(id: number, userId: string, deletedBy: string): Promise<boolean>;
   getDeletedSales(userId: string): Promise<Sale[]>;
@@ -128,7 +129,7 @@ export interface IStorage {
   updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting>;
 
   // Customers
-  getCustomers(userId: string): Promise<Customer[]>;
+  getCustomers(userId: string, opts?: { limit?: number; offset?: number; orderByTopSpenders?: boolean }): Promise<Customer[]>;
   getCustomer(id: number, userId: string): Promise<Customer | undefined>;
   createCustomer(userId: string, customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: number, userId: string, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
@@ -156,7 +157,7 @@ export interface IStorage {
   recalcCustomerTier(customerId: number, tiers: LoyaltyTier[]): Promise<void>;
 
   // Expenses
-  getExpenses(userId: string): Promise<Expense[]>;
+  getExpenses(userId: string, branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number }): Promise<Expense[]>;
   createExpense(userId: string, expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, userId: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number, userId: string): Promise<void>;
@@ -168,7 +169,7 @@ export interface IStorage {
   closeShift(id: number, userId: string, closingBalance: string, notes?: string): Promise<Shift | undefined>;
 
   // Discount Codes
-  getDiscountCodes(userId: string): Promise<DiscountCode[]>;
+  getDiscountCodes(userId: string, opts?: { limit?: number; offset?: number }): Promise<DiscountCode[]>;
   getDiscountCodeByCode(code: string, userId: string): Promise<DiscountCode | undefined>;
   createDiscountCode(userId: string, code: InsertDiscountCode): Promise<DiscountCode>;
   updateDiscountCode(id: number, userId: string, code: Partial<InsertDiscountCode>): Promise<DiscountCode | undefined>;
@@ -356,12 +357,14 @@ export class DatabaseStorage implements IStorage {
       const existing = await this.getProduct(id, userId);
       if (!existing) return undefined;
       const previousStock = existing.stock ?? 0;
-      const newStock = Math.max(0, previousStock + delta);
+      // Use a SQL expression for the increment so concurrent stock adjustments
+      // can't race and overwrite each other (eliminates the read-modify-write gap).
       const [updated] = await db.update(products)
-        .set({ stock: newStock } as any)
+        .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) + ${delta})` } as any)
         .where(eq(products.id, id))
         .returning();
       if (updated) {
+        const newStock = updated.stock ?? 0;
         await db.insert(stockLogs).values({
           productId: id,
           userId,
@@ -514,15 +517,23 @@ export class DatabaseStorage implements IStorage {
     try {
       const saleInput = sale as any;
 
-      // ── Server-side OR / receipt number generation ─────────────────────────
-      // Always generate these server-side so clients cannot inject arbitrary
-      // OR numbers. Count ALL sales (including voided) so the sequence is
-      // strictly monotonic and gap-free for BIR audits.
-      const [{ total: totalCount }] = await db
-        .select({ total: sql<number>`COUNT(*)` })
-        .from(sales)
-        .where(eq(sales.userId, userId));
-      const nextSeq = Number(totalCount ?? 0) + 1;
+      // ── Resolve tenant for the per-tenant OR sequence ──────────────────────
+      const [userRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
+      const resolvedTenantId = userRow?.tenantId ?? userId;
+
+      // ── Atomic per-tenant OR number via upsert sequence ─────────────────────
+      // PostgreSQL row-level lock on the or_sequences row serialises concurrent
+      // inserts so two simultaneous checkouts can never receive the same number.
+      // This permanently replaces the old COUNT(*)+1 TOCTOU race condition.
+      const seqResult = await db.execute(sql`
+        INSERT INTO or_sequences (tenant_id, next_val)
+        VALUES (${resolvedTenantId}, 1)
+        ON CONFLICT (tenant_id) DO UPDATE
+          SET next_val = or_sequences.next_val + 1
+        RETURNING next_val
+      `);
+      const seqRows = (seqResult as any).rows ?? seqResult;
+      const nextSeq = Number((Array.isArray(seqRows) ? seqRows[0] : seqRows)?.next_val ?? 1);
       const padded = String(nextSeq).padStart(6, "0");
       const receiptNumber = `SR-${padded}`;
       const orNumber      = receiptNumber;
@@ -554,6 +565,7 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(sales).values({
         ...saleInput,
         userId,
+        tenantId: resolvedTenantId,
         receiptNumber,
         orNumber,
         invoiceNumber,
@@ -1075,6 +1087,15 @@ export class DatabaseStorage implements IStorage {
 
   async getRefundsBySale(saleId: number, userId: string): Promise<Refund[]> {
     try {
+      const userIds = await this.getTenantUserIds(userId);
+      // Verify the sale belongs to this tenant before returning its refunds.
+      // Without this check any authenticated user could enumerate another
+      // tenant's refund data by guessing sale IDs.
+      const saleOwnerCond = userIds.length === 1
+        ? and(eq(sales.id, saleId), eq(sales.userId, userIds[0]))
+        : and(eq(sales.id, saleId), inArray(sales.userId, userIds));
+      const [saleRow] = await db.select({ id: sales.id }).from(sales).where(saleOwnerCond);
+      if (!saleRow) return [];
       return await db.select().from(refunds).where(eq(refunds.saleId, saleId));
     } catch (error) {
       console.error("Error fetching refunds by sale:", error);
@@ -1211,12 +1232,18 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1 ? eq(purchaseOrders.userId, userIds[0]) : inArray(purchaseOrders.userId, userIds);
       const pos = await db.select().from(purchaseOrders).where(condition).orderBy(desc(purchaseOrders.createdAt));
-      const result: (PurchaseOrder & { items: PurchaseOrderItem[] })[] = [];
-      for (const po of pos) {
-        const items = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, po.id));
-        result.push({ ...po, items });
+      if (pos.length === 0) return [];
+      // Batch-fetch all items in one query instead of one query per PO (N+1 → 2 queries total).
+      const poIds = pos.map(p => p.id);
+      const allItems = await db.select().from(purchaseOrderItems)
+        .where(inArray(purchaseOrderItems.purchaseOrderId, poIds));
+      const itemsByPo = new Map<number, PurchaseOrderItem[]>();
+      for (const item of allItems) {
+        const list = itemsByPo.get(item.purchaseOrderId) ?? [];
+        list.push(item);
+        itemsByPo.set(item.purchaseOrderId, list);
       }
-      return result;
+      return pos.map(po => ({ ...po, items: itemsByPo.get(po.id) ?? [] }));
     } catch (error) {
       console.error("Error fetching purchase orders:", error);
       return [];

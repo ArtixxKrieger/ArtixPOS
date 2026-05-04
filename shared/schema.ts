@@ -259,11 +259,21 @@ export const discountCodes = pgTable("discount_codes", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
+// ─── OR Number Sequences (per-tenant atomic BIR counter) ──────────────────────
+// Each row holds the last-used sequence value for one tenant.
+// The atomic INSERT ... ON CONFLICT DO UPDATE in createSale eliminates
+// the TOCTOU race of the old COUNT(*)+1 approach.
+export const orSequences = pgTable("or_sequences", {
+  tenantId: text("tenant_id").primaryKey(),
+  nextVal: integer("next_val").notNull().default(0),
+});
+
 // ─── Sales ────────────────────────────────────────────────────────────────────
 
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
+  tenantId: text("tenant_id").references(() => tenants.id),
   branchId: integer("branch_id").references(() => branches.id),
   cashierId: text("cashier_id"), // user.id of cashier who rang up the sale (for commission/tips)
   receiptNumber: text("receipt_number"),

@@ -5,7 +5,12 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_sales_user_del_created ON sales(user_id, deleted_at, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_sales_branch_del_created ON sales(branch_id, deleted_at, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id, user_id, deleted_at)`,
+  // Non-unique lookup index retained for fast range queries scoped to a user
   `CREATE INDEX IF NOT EXISTS idx_sales_or_number ON sales(user_id, or_number) WHERE or_number IS NOT NULL`,
+  // UNIQUE constraint: prevents duplicate OR numbers within the same tenant.
+  // Combined with the atomic or_sequences upsert this provides defence-in-depth
+  // against any future code path that bypasses the sequence logic.
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_tenant_or_number ON sales(tenant_id, or_number) WHERE tenant_id IS NOT NULL AND or_number IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_shifts_user_opened ON shifts(user_id, opened_at)`,
   `CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id)`,
@@ -18,6 +23,8 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_memberships_customer ON memberships(customer_id)`,
   `CREATE INDEX IF NOT EXISTS idx_po_items_po_id ON purchase_order_items(purchase_order_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at)`,
+  // Audit logs are queried by tenant_id on every admin / audit-trail request
+  `CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id, created_at)`,
 ];
 
 export async function ensureIndexes(): Promise<void> {

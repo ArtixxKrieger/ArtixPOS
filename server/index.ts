@@ -62,13 +62,52 @@ app.use(
 
 // ── Health check ──────────────────────────────────────────────────────────────
 // Mounted before rate limiters so uptime monitors are never throttled.
+// Returns per-service status so external panels can monitor each dependency.
 app.get("/api/health", async (_req, res) => {
+  const t = () => Date.now();
+
+  // ── Supabase (PostgreSQL) ──────────────────────────────────────────────────
+  let supabase: { status: string; latencyMs: number; error?: string };
+  const dbStart = t();
   try {
     await _healthDb.execute(_healthSql`SELECT 1`);
-    res.json({ status: "ok", uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
+    supabase = { status: "ok", latencyMs: t() - dbStart };
   } catch (err: any) {
-    res.status(503).json({ status: "degraded", error: err?.message ?? "db unreachable" });
+    supabase = { status: "error", latencyMs: t() - dbStart, error: err?.message ?? "unreachable" };
   }
+
+  // ── Upstash Redis ──────────────────────────────────────────────────────────
+  let redis: { status: string; latencyMs: number; error?: string };
+  const { getRedis } = await import("./redis");
+  const redisClient = getRedis();
+  if (!redisClient) {
+    redis = { status: "not_configured", latencyMs: 0 };
+  } else {
+    const redisStart = t();
+    try {
+      await redisClient.ping();
+      redis = { status: "ok", latencyMs: t() - redisStart };
+    } catch (err: any) {
+      redis = { status: "error", latencyMs: t() - redisStart, error: err?.message ?? "unreachable" };
+    }
+  }
+
+  // ── Overall status ─────────────────────────────────────────────────────────
+  // "ok"       — all configured services healthy
+  // "degraded" — Redis down but DB ok (app still works, cache misses to DB)
+  // "down"     — database unreachable (critical, app non-functional)
+  const dbOk    = supabase.status === "ok";
+  const redisOk = redis.status === "ok" || redis.status === "not_configured";
+  const overall = !dbOk ? "down" : !redisOk ? "degraded" : "ok";
+
+  const payload = {
+    status: overall,
+    uptime: Math.floor(process.uptime()),
+    ts: new Date().toISOString(),
+    services: { supabase, redis },
+  };
+
+  res.status(dbOk ? 200 : 503).json(payload);
 });
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────

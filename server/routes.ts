@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
+import { createHash } from "crypto";
 import { storage, invalidateTenantCache } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
@@ -1220,8 +1221,10 @@ export async function registerRoutes(
     const now       = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
     const periodLabel = new Date(`${year}-${monStr}-01`).toLocaleString("en-PH", { month: "long", year: "numeric", timeZone: "Asia/Manila" });
 
-    const SEP  = "=".repeat(96);
-    const DASH = "-".repeat(96);
+    // Width constants — all fixed-width lines fit within 135 chars
+    const W   = 135;
+    const SEP  = "=".repeat(W);
+    const DASH = "-".repeat(W);
 
     function pad(s: string | number, len: number, right = false): string {
       const str = String(s);
@@ -1242,21 +1245,46 @@ export async function registerRoutes(
 
     function amt(n: number): string { return n.toFixed(2).padStart(12); }
 
+    // ── SHA-256 hash chain ───────────────────────────────────────────────────
+    // Each transaction row is hashed as SHA-256(prevHash + "|" + rowContent).
+    // Only data rows (lines beginning with a 5-digit EJ sequence number)
+    // participate in the chain — headers, day labels, and totals are excluded.
+    // This means any deletion, insertion, or modification of a transaction row
+    // will cascade and break every subsequent hash, making tampering detectable.
+    const CHAIN_SEED_INPUT = `EJOURNAL-GENESIS-${month}`;
+    const chainSeed = createHash("sha256").update(CHAIN_SEED_INPUT).digest("hex");
+    let prevHash = chainSeed;
+
+    function chainStep(rowContent: string): string {
+      const h = createHash("sha256").update(`${prevHash}|${rowContent}`).digest("hex");
+      prevHash = h;
+      return h.slice(0, 16);
+    }
+
     const lines: string[] = [];
 
     // ── Header ──────────────────────────────────────────────────────────────
     lines.push(SEP);
-    lines.push(pad("ELECTRONIC JOURNAL (E-JOURNAL)", 96).replace(/^/, " ".repeat(32)));
-    lines.push(pad(`${storeName.toUpperCase()}`, 96).replace(/^/, " ".repeat(Math.max(0, Math.floor((96 - storeName.length) / 2)))));
-    if (tin)      lines.push(`   TIN: ${pad(tin, 30)}${ptu ? `PTU No.: ${ptu}` : ""}`);
-    if (machSN)   lines.push(`   Machine S/N: ${pad(machSN, 24)}${accredNo ? `Accreditation No.: ${accredNo}` : ""}`);
-    lines.push(`   Period: ${periodLabel.padEnd(30)}Timezone: Asia/Manila (PST UTC+8)`);
+    const titlePad = Math.max(0, Math.floor((W - 30) / 2));
+    lines.push(" ".repeat(titlePad) + "ELECTRONIC JOURNAL (E-JOURNAL)");
+    const namePad  = Math.max(0, Math.floor((W - storeName.length) / 2));
+    lines.push(" ".repeat(namePad) + storeName.toUpperCase());
+    if (tin)    lines.push(`   TIN: ${pad(tin, 32)}${ptu ? `PTU No.: ${ptu}` : ""}`);
+    if (machSN) lines.push(`   Machine S/N: ${pad(machSN, 26)}${accredNo ? `Accreditation No.: ${accredNo}` : ""}`);
+    lines.push(`   Period: ${periodLabel.padEnd(32)}Timezone: Asia/Manila (PST UTC+8)`);
     lines.push(`   Generated: ${now} PST`);
+    lines.push(`   Hash algorithm: SHA-256 chain  |  Seed: SHA-256("${CHAIN_SEED_INPUT}")`);
     lines.push(SEP);
     lines.push("");
 
     // ── Column headers ───────────────────────────────────────────────────────
-    const COL_HDR = `${"EJ#".padEnd(7)}${"DATE".padEnd(12)}${"TIME".padEnd(10)}${"OR #".padEnd(14)}${"PAYMENT".padEnd(12)}${"DISC TYPE".padEnd(12)}${amt("GROSS")}${amt("DISC")}${amt("TAX")}${amt("NET")}`;
+    //  EJ#(7) DATE(12) TIME(10) OR#(14) PAYMENT(12) DISC_TYPE(12) GROSS(12) DISC(12) TAX(12) NET(12) [CHAIN-HASH    ](20)
+    //  = 115 data chars + 2 space + [16 hex] = 135
+    const COL_HDR =
+      `${"EJ#".padEnd(7)}${"DATE".padEnd(12)}${"TIME".padEnd(10)}${"OR #".padEnd(14)}` +
+      `${"PAYMENT".padEnd(12)}${"DISC TYPE".padEnd(12)}` +
+      `${amt("GROSS")}${amt("DISC")}${amt("TAX")}${amt("NET")}` +
+      `  [CHAIN-HASH    ]`;
     lines.push(COL_HDR);
     lines.push(DASH);
 
@@ -1297,9 +1325,14 @@ export async function registerRoutes(
         periodZero    += parseFloat((s as any).zeroRatedSales|| "0");
         if (orNum) orNumbers.push(orNum);
 
-        lines.push(
-          `${pad(String(ejSeq).padStart(5, "0"), 7)}${fmtDate(d).padEnd(12)}${fmtTime(d).padEnd(10)}${pad(orNum, 14)}${pad(pm, 12)}${pad(dt, 12)}${amt(gross)}${amt(disc)}${amt(tax)}${amt(net)}`
-        );
+        // Build the data portion first, then hash it into the chain
+        const rowData =
+          `${pad(String(ejSeq).padStart(5, "0"), 7)}${fmtDate(d).padEnd(12)}${fmtTime(d).padEnd(10)}` +
+          `${pad(orNum, 14)}${pad(pm, 12)}${pad(dt, 12)}` +
+          `${amt(gross)}${amt(disc)}${amt(tax)}${amt(net)}`;
+
+        const hashSuffix = chainStep(rowData);
+        lines.push(`${rowData}  [${hashSuffix}]`);
       }
 
       periodGross += dayGross; periodDisc += dayDisc; periodTax += dayTax; periodNet += dayNet;
@@ -1339,6 +1372,22 @@ export async function registerRoutes(
     for (const [label, value] of summaryRows) {
       lines.push(`   ${label.padEnd(26)}${value.padStart(16)}`);
     }
+
+    // ── Chain integrity footer ────────────────────────────────────────────────
+    // The final hash covers every transaction in the period.  Any alteration to
+    // any row — or any reordering — will produce a different final hash.
+    // To verify: re-run SHA-256(prevHash|rowContent) for each EJ data line in
+    // order, starting from the seed below, and compare the final result.
+    lines.push("");
+    lines.push(`CHAIN INTEGRITY`);
+    lines.push(DASH);
+    lines.push(`   Algorithm:       SHA-256 (each row: SHA-256(prevHash + "|" + rowContent))`);
+    lines.push(`   Chain seed:      SHA-256("${CHAIN_SEED_INPUT}")`);
+    lines.push(`                    = ${chainSeed}`);
+    lines.push(`   Chained rows:    ${ejSeq} transaction row${ejSeq !== 1 ? "s" : ""}`);
+    lines.push(`   Final hash:      ${prevHash}`);
+    lines.push(`   Verification:    Recompute chain from seed; final hash must match exactly.`);
+    lines.push(`                    Any mismatch proves the journal was altered after export.`);
 
     lines.push("");
     lines.push(SEP);
@@ -1445,7 +1494,6 @@ export async function registerRoutes(
         r.created_at,
       ].join("|");
 
-      const { createHash } = await import("crypto");
       const expected = createHash("sha256").update(payload).digest("hex");
 
       if (expected === r.sale_hash) {

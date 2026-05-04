@@ -1,4 +1,5 @@
 import { redisGet, redisSet, redisDel, redisDelByPattern } from "./redis";
+import { recordCacheHit, recordCacheMiss } from "./metrics";
 
 const MAX_ENTRIES = 5_000; // prevent unbounded growth under high tenant load
 
@@ -19,11 +20,13 @@ class TtlCache {
 
   get<T>(key: string): T | undefined {
     const entry = this.store.get(key);
-    if (!entry) return undefined;
+    if (!entry) { recordCacheMiss(); return undefined; }
     if (Date.now() > entry.expiresAt) {
       this.store.delete(key);
+      recordCacheMiss();
       return undefined;
     }
+    recordCacheHit();
     return entry.value as T;
   }
 
@@ -58,6 +61,7 @@ class TtlCache {
 
   async getAsync<T>(key: string): Promise<T | undefined> {
     // 1. Check L1 first — instant, no network.
+    // Note: get() already records hit/miss for L1.
     const l1 = this.get<T>(key);
     if (l1 !== undefined) return l1;
 
@@ -67,6 +71,7 @@ class TtlCache {
       // Warm L1 so the next call on this replica is instant.
       // We don't know the original TTL precisely, so cap at max TTL (2 min).
       this.set(key, l2, TTL.BARCODE);
+      recordCacheHit(); // L2 hit — correct the miss recorded by get() above
       return l2;
     }
 

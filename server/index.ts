@@ -15,6 +15,7 @@ import { initOllama, stopOllama } from "./ai-router";
 import { db as _healthDb } from "./db";
 import { sql as _healthSql } from "drizzle-orm";
 import { logger } from "./logger";
+import { recordRequest, getMetricsSnapshot } from "./metrics";
 
 const app = express();
 const httpServer = createServer(app);
@@ -108,6 +109,21 @@ app.get("/api/health", async (_req, res) => {
   };
 
   res.status(dbOk ? 200 : 503).json(payload);
+});
+
+// ── Metrics ───────────────────────────────────────────────────────────────────
+// Exposes request counts, latency percentiles, and cache hit rate.
+// Optional token auth: set METRICS_TOKEN env var to require Bearer <token>.
+// Mounted before rate limiters so monitoring polls are never throttled.
+app.get("/api/metrics", (req, res) => {
+  const token = process.env.METRICS_TOKEN;
+  if (token) {
+    const auth = req.headers.authorization ?? "";
+    if (auth !== `Bearer ${token}`) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+  }
+  res.json(getMetricsSnapshot());
 });
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
@@ -244,6 +260,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api") || path.startsWith("/auth")) {
+      recordRequest(duration, res.statusCode);
       const rid = (req as any).requestId?.slice(0, 8);
       logger.info({
         source: "express",

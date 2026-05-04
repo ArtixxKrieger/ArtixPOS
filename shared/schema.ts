@@ -828,6 +828,12 @@ export const insertSaleSchema = z.object({
   cashierId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   branchId: z.number().optional().nullable(),
+  // BIR compliance fields
+  discountType: z.string().optional().nullable(),
+  scPwdId: z.string().optional().nullable(),
+  vatableSales: z.string().optional().nullable(),
+  vatExemptSales: z.string().optional().nullable(),
+  zeroRatedSales: z.string().optional().nullable(),
 });
 
 export const insertPendingOrderSchema = z.object({

@@ -210,6 +210,28 @@ export default function BIRPage() {
   const complianceScore = [!!tin, !!ptuNumber, !!accreditationNumber, !!machineSerialNumber, vatRegistered].filter(Boolean).length;
   const complianceTotal = 5;
 
+  function downloadEjournal() {
+    const token = localStorage.getItem("artixpos_token") || "";
+    const url = `/api/bir/ejournal?month=${selectedMonth}`;
+    fetch(url, { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(r => {
+        if (!r.ok) throw new Error("Download failed");
+        return r.blob();
+      })
+      .then(blob => {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objUrl;
+        a.download = `EJournal-${selectedMonth}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(objUrl);
+        document.body.removeChild(a);
+        toast({ title: `E-Journal downloaded for ${selectedMonth}` });
+      })
+      .catch(() => toast({ title: "Download failed", variant: "destructive" }));
+  }
+
   function downloadEsales() {
     const token = localStorage.getItem("artixpos_token") || "";
     const url = `/api/bir/esales-export?month=${selectedMonth}`;
@@ -833,6 +855,15 @@ export default function BIRPage() {
                 <Download className="h-3.5 w-3.5" /> Download eSales CSV
               </Button>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full rounded-xl text-xs gap-1.5 h-10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/8 font-semibold mt-1"
+              onClick={downloadEjournal}
+              data-testid="button-download-ejournal"
+            >
+              <Archive className="h-3.5 w-3.5" /> Download E-Journal (.txt)
+            </Button>
             <Button
               size="sm"
               variant="outline"

@@ -1186,6 +1186,172 @@ export async function registerRoutes(
     res.send(csv);
   });
 
+  // ── BIR Electronic Journal (E-Journal) ───────────────────────────────────
+  // Generates a sequential, fixed-width text log of all POS transactions for a
+  // given month — grouped by calendar day with daily subtotals and a period
+  // summary. This is the standard CAS E-Journal format required by BIR.
+  app.get("/api/bir/ejournal", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const { month } = req.query as Record<string, string>;
+    if (!month || !/^\d{4}-\d{2}$/.test(month))
+      return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
+
+    const [year, mon] = month.split("-").map(Number);
+    const monStr = String(mon).padStart(2, "0");
+    const lastDay = new Date(year, mon, 0).getDate();
+    const lastDayStr = String(lastDay).padStart(2, "0");
+    const startDate = new Date(`${year}-${monStr}-01T00:00:00+08:00`).toISOString();
+    const endDate   = new Date(`${year}-${monStr}-${lastDayStr}T23:59:59.999+08:00`).toISOString();
+
+    const [salesList, settingsData] = await Promise.all([
+      storage.getSales(userId(req), { limit: 50000, startDate, endDate }),
+      storage.getSettings(userId(req)),
+    ]);
+
+    // Sort ascending by creation time
+    salesList.sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime());
+
+    const tin        = (settingsData as any)?.tin               || "";
+    const storeName  = (settingsData as any)?.storeName         || "STORE";
+    const ptu        = (settingsData as any)?.ptuNumber         || "";
+    const accredNo   = (settingsData as any)?.accreditationNumber || "";
+    const machSN     = (settingsData as any)?.machineSerialNumber || "";
+    const currency   = (settingsData as any)?.currency           || "PHP";
+
+    const now       = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+    const periodLabel = new Date(`${year}-${monStr}-01`).toLocaleString("en-PH", { month: "long", year: "numeric", timeZone: "Asia/Manila" });
+
+    const SEP  = "=".repeat(96);
+    const DASH = "-".repeat(96);
+
+    function pad(s: string | number, len: number, right = false): string {
+      const str = String(s);
+      return right ? str.padStart(len) : str.padEnd(len);
+    }
+
+    function fmtDate(d: Date): string {
+      return d.toLocaleDateString("en-PH", { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "Asia/Manila" });
+    }
+
+    function fmtTime(d: Date): string {
+      return d.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Manila" });
+    }
+
+    function fmtDay(d: Date): string {
+      return d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).toUpperCase();
+    }
+
+    function amt(n: number): string { return n.toFixed(2).padStart(12); }
+
+    const lines: string[] = [];
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    lines.push(SEP);
+    lines.push(pad("ELECTRONIC JOURNAL (E-JOURNAL)", 96).replace(/^/, " ".repeat(32)));
+    lines.push(pad(`${storeName.toUpperCase()}`, 96).replace(/^/, " ".repeat(Math.max(0, Math.floor((96 - storeName.length) / 2)))));
+    if (tin)      lines.push(`   TIN: ${pad(tin, 30)}${ptu ? `PTU No.: ${ptu}` : ""}`);
+    if (machSN)   lines.push(`   Machine S/N: ${pad(machSN, 24)}${accredNo ? `Accreditation No.: ${accredNo}` : ""}`);
+    lines.push(`   Period: ${periodLabel.padEnd(30)}Timezone: Asia/Manila (PST UTC+8)`);
+    lines.push(`   Generated: ${now} PST`);
+    lines.push(SEP);
+    lines.push("");
+
+    // ── Column headers ───────────────────────────────────────────────────────
+    const COL_HDR = `${"EJ#".padEnd(7)}${"DATE".padEnd(12)}${"TIME".padEnd(10)}${"OR #".padEnd(14)}${"PAYMENT".padEnd(12)}${"DISC TYPE".padEnd(12)}${amt("GROSS")}${amt("DISC")}${amt("TAX")}${amt("NET")}`;
+    lines.push(COL_HDR);
+    lines.push(DASH);
+
+    // ── Transaction rows grouped by day ─────────────────────────────────────
+    let ejSeq  = 0;
+    let periodGross   = 0, periodDisc = 0, periodTax = 0, periodNet = 0;
+    let periodVatable = 0, periodExempt = 0, periodZero = 0;
+    let orNumbers: string[] = [];
+
+    // Group by calendar day in PH time
+    const dayMap = new Map<string, typeof salesList>();
+    for (const s of salesList) {
+      const dayKey = new Date(s.createdAt!).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" });
+      if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+      dayMap.get(dayKey)!.push(s);
+    }
+
+    for (const [, daySales] of dayMap) {
+      const firstDate = new Date(daySales[0].createdAt!);
+      lines.push(`-- ${fmtDay(firstDate)} --`);
+
+      let dayGross = 0, dayDisc = 0, dayTax = 0, dayNet = 0;
+
+      for (const s of daySales) {
+        ejSeq++;
+        const d     = new Date(s.createdAt!);
+        const gross = parseFloat(s.total    || "0");
+        const disc  = parseFloat(s.discount || "0");
+        const tax   = parseFloat(s.tax      || "0");
+        const net   = gross - tax;
+        const orNum = (s as any).orNumber || (s as any).receiptNumber || "";
+        const pm    = (s.paymentMethod || "cash").toUpperCase().slice(0, 10);
+        const dt    = ((s as any).discountType || "regular").toUpperCase().slice(0, 10);
+
+        dayGross   += gross; dayDisc += disc; dayTax += tax; dayNet += net;
+        periodVatable += parseFloat((s as any).vatableSales  || "0");
+        periodExempt  += parseFloat((s as any).vatExemptSales|| "0");
+        periodZero    += parseFloat((s as any).zeroRatedSales|| "0");
+        if (orNum) orNumbers.push(orNum);
+
+        lines.push(
+          `${pad(String(ejSeq).padStart(5, "0"), 7)}${fmtDate(d).padEnd(12)}${fmtTime(d).padEnd(10)}${pad(orNum, 14)}${pad(pm, 12)}${pad(dt, 12)}${amt(gross)}${amt(disc)}${amt(tax)}${amt(net)}`
+        );
+      }
+
+      periodGross += dayGross; periodDisc += dayDisc; periodTax += dayTax; periodNet += dayNet;
+
+      lines.push(
+        `${"DAILY TOTAL:".padEnd(43)}${pad(`${daySales.length} txn${daySales.length !== 1 ? "s" : ""}`, 8, true)}${amt(dayGross)}${amt(dayDisc)}${amt(dayTax)}${amt(dayNet)}`
+      );
+      lines.push(DASH);
+    }
+
+    if (salesList.length === 0) {
+      lines.push("   No transactions recorded for this period.");
+      lines.push(DASH);
+    }
+
+    // ── Period summary ───────────────────────────────────────────────────────
+    lines.push("");
+    lines.push(`PERIOD SUMMARY — ${periodLabel.toUpperCase()}`);
+    lines.push(DASH);
+
+    const orNums = orNumbers.filter(o => /^\d+$/.test(o)).map(Number).sort((a, b) => a - b);
+    const orFrom = orNums.length ? String(orNums[0]).padStart(7, "0") : "(none)";
+    const orTo   = orNums.length ? String(orNums[orNums.length - 1]).padStart(7, "0") : "(none)";
+
+    const summaryRows: [string, string][] = [
+      ["Total Transactions:", `${salesList.length}`],
+      ["OR Range:",           `${orFrom} — ${orTo}`],
+      ["Currency:",           currency],
+      ["Gross Sales:",        periodGross.toFixed(2)],
+      ["Total Discount:",     periodDisc.toFixed(2)],
+      ["Output VAT:",         periodTax.toFixed(2)],
+      ["VATable Sales:",      periodVatable.toFixed(2)],
+      ["VAT-Exempt Sales:",   periodExempt.toFixed(2)],
+      ["Zero-Rated Sales:",   periodZero.toFixed(2)],
+      ["Net Sales:",          periodNet.toFixed(2)],
+    ];
+    for (const [label, value] of summaryRows) {
+      lines.push(`   ${label.padEnd(26)}${value.padStart(16)}`);
+    }
+
+    lines.push("");
+    lines.push(SEP);
+    lines.push("END OF ELECTRONIC JOURNAL");
+    lines.push(SEP);
+
+    const body = lines.join("\n");
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="EJournal-${month}.txt"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.send(body);
+  });
+
   // ── BIR OR Gap Detection ──────────────────────────────────────────────────
   // Uses a DB-level window function so we never load full sale rows into memory.
   app.get("/api/bir/or-gaps", requireAuth, async (req, res) => {

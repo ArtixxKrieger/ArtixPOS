@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
-import { useBranchBusiness } from "@/hooks/use-branch-business";
+import { useBranchBusiness, useBusinessTerminology } from "@/hooks/use-branch-business";
 import { formatCurrency } from "@/lib/format";
 import { type InsertProduct, type Product, type StockLog } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,7 @@ export default function Products() {
   const deleteProduct = useDeleteProduct();
   const { toast } = useToast();
 
+  const { productPlural } = useBusinessTerminology();
   const isPharmacy = businessSubType === "pharmacy" || businessSubType === "drugstore";
   const isPerishable = isPharmacy || businessSubType === "perishable_goods" || businessSubType === "grocery" || businessSubType === "grocery_enhanced";
 
@@ -301,7 +302,7 @@ export default function Products() {
           <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder={`Search ${productPlural.toLowerCase()}...`}
               className="pl-9 h-10 bg-card border-none rounded-2xl shadow-sm text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

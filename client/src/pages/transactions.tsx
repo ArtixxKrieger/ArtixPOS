@@ -1,5 +1,6 @@
 import { useSales, type SalesQueryParams } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
+import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -122,6 +123,7 @@ function getServerParams(dateFilter: DateFilter, customFrom: string, customTo: s
 
 export default function Transactions() {
   const { data: settings } = useSettings();
+  const { transactionLabel, productPlural } = useBusinessTerminology();
   const currency = (settings as any)?.currency || "₱";
 
   const [selectedSale, setSelectedSale] = useState<any>(null);
@@ -234,7 +236,7 @@ export default function Transactions() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search items, TXN ID, method…"
+            placeholder={`Search ${productPlural.toLowerCase()}, TXN ID, method…`}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"

@@ -59,7 +59,7 @@ export default function POS() {
     (settings as any)?.businessType,
     (settings as any)?.businessSubType,
   );
-  const { posAction, cartLabel, addToCartLabel } = useBusinessTerminology();
+  const { posAction, cartLabel, addToCartLabel, productPlural } = useBusinessTerminology();
 
   // Cafe-style businesses (cafe, bakery, food truck) operate Starbucks-style:
   // walk-in customers aren't stored — only a name on the receipt.
@@ -1105,7 +1105,7 @@ export default function POS() {
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder={`Search ${productPlural.toLowerCase()}...`}
               className="pl-11 h-12 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

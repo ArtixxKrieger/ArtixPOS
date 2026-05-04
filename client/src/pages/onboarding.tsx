@@ -20,6 +20,38 @@ type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services" | "other";
 type Step = "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "done";
 
+const STORE_NAME_PLACEHOLDER: Record<string, string> = {
+  cafe: "e.g. Maria's Cafe",
+  restaurant: "e.g. Maria's Restaurant",
+  bakery: "e.g. Maria's Bakery",
+  bar: "e.g. The Corner Bar",
+  food_truck: "e.g. Maria's Food Truck",
+  pharmacy: "e.g. Maria's Pharmacy",
+  drugstore: "e.g. Maria's Drugstore",
+  grocery: "e.g. Maria's Grocery",
+  perishable_goods: "e.g. Juan's Wet Market",
+  clothing: "e.g. Maria's Boutique",
+  electronics: "e.g. TechShop Electronics",
+  bookstore: "e.g. Maria's Books",
+  salon: "e.g. Maria's Salon",
+  barbershop: "e.g. Juan's Barbershop",
+  nail_salon: "e.g. Perfect Nails",
+  gym: "e.g. FitLife Gym",
+  spa: "e.g. Serenity Spa",
+  massage: "e.g. Relax & Unwind",
+  clinic: "e.g. Maria's Clinic",
+  dental: "e.g. Bright Smiles Dental",
+  pet_grooming: "e.g. Happy Paws Grooming",
+  laundry: "e.g. Clean & Fresh Laundry",
+  car_wash: "e.g. Shine Auto Wash",
+  auto_repair: "e.g. Juan's Auto Shop",
+  photography: "e.g. Maria's Studio",
+  cleaning: "e.g. CleanPro Services",
+  tutoring: "e.g. Bright Minds Tutoring",
+  repair: "e.g. QuickFix Repairs",
+  other: "e.g. My Business",
+};
+
 const BUSINESS_TYPES = [
   {
     id: "food_beverage" as BusinessType,
@@ -479,7 +511,7 @@ export default function Onboarding() {
                   data-testid="input-store-name"
                   value={storeName}
                   onChange={e => setStoreName(e.target.value)}
-                  placeholder="e.g. Maria's Cafe"
+                  placeholder={STORE_NAME_PLACEHOLDER[businessSubType ?? ""] ?? "e.g. My Business"}
                   className="rounded-xl"
                 />
               </div>

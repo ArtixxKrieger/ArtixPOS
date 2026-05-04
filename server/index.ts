@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import cookieParser from "cookie-parser";
@@ -19,6 +20,10 @@ const httpServer = createServer(app);
 
 // Trust reverse proxies (Replit, Vercel, etc.)
 app.set("trust proxy", 1);
+
+// Gzip compression — reduces API response and HTML payload size by 60-80%.
+// Applied before all routes so every response is compressed.
+app.use(compression());
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 

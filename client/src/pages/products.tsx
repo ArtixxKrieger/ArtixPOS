@@ -292,9 +292,9 @@ export default function Products() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h2 className="text-xl font-black tracking-tight">Inventory</h2>
+          <h2 className="text-xl font-black tracking-tight">{productPlural}</h2>
           <p className="text-xs text-muted-foreground font-medium mt-0.5">
-            {products.length} product{products.length !== 1 ? "s" : ""} in catalog
+            {products.length} {products.length !== 1 ? productPlural.toLowerCase() : productPlural.toLowerCase().replace(/s$/, "")} in catalog
           </p>
         </div>
 

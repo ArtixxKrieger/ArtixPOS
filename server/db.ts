@@ -4,26 +4,32 @@ import * as schema from "@shared/schema";
 
 const isServerless = !!process.env.VERCEL;
 
+// Per-instance connection limit. Each autoscaled replica gets its own pool,
+// so keep this low enough that N replicas don't exhaust the DB server limit.
+// Default: 10 per instance. Override with DB_POOL_MAX env var.
+const POOL_MAX = isServerless ? 5 : parseInt(process.env.DB_POOL_MAX ?? "10", 10);
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL,
   ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")
     ? { rejectUnauthorized: false }
     : false,
 
-  // Serverless-optimised pool: keep it small so cold instances don't exhaust
-  // Supabase's connection limit. Fluid Compute allows concurrent requests in a
-  // single instance, so we allow up to 5 simultaneous DB connections there.
-  max: isServerless ? 5 : 20,
+  max: POOL_MAX,
 
-  // Release idle connections quickly — serverless instances are short-lived.
+  // Idle connections released after 30s (10s serverless) so replicas don't
+  // hold slots they're not using.
   idleTimeoutMillis: isServerless ? 10_000 : 30_000,
 
   // Fail fast rather than queue requests indefinitely.
   connectionTimeoutMillis: 5_000,
 
-  // Allow the Node process to exit when all connections are idle (Vercel
-  // freezes the instance anyway, but this ensures clean teardown).
   allowExitOnIdle: isServerless,
+});
+
+// Log pool errors so they surface in structured logs instead of crashing.
+pool.on("error", (err) => {
+  console.error("[db] Unexpected pool client error:", err.message);
 });
 
 export const db = drizzle(pool, { schema });

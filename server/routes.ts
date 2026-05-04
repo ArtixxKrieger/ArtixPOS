@@ -1225,6 +1225,73 @@ export async function registerRoutes(
     });
   });
 
+  // ── BIR Hash Integrity Audit ──────────────────────────────────────────────
+  // Recomputes every sale's SHA-256 hash from stored fiscal fields and compares
+  // it against the recorded sale_hash. Any mismatch proves the row was modified
+  // after initial creation — the audit result can be exported for BIR review.
+  app.get("/api/bir/hash-verify", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const uid = userId(req);
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    // Fetch raw rows — only the fields needed for hash recomputation.
+    const rows = await db.execute(sql`
+      SELECT
+        id, user_id, receipt_number, or_number, invoice_number,
+        subtotal, tax, discount, vatable_sales, vat_exempt_sales, zero_rated_sales,
+        total, discount_type, created_at, sale_hash
+      FROM sales
+      WHERE user_id = ${uid}
+        ${startDate ? sql`AND created_at >= ${startDate}` : sql``}
+        ${endDate   ? sql`AND created_at <= ${endDate}`   : sql``}
+      ORDER BY id ASC
+    `);
+
+    let passed = 0;
+    let failed = 0;
+    let missing = 0;
+    const tamperedRows: { id: number; orNumber: string; createdAt: string }[] = [];
+
+    for (const r of rows.rows as any[]) {
+      if (!r.sale_hash) { missing++; continue; }
+
+      const payload = [
+        r.user_id,
+        r.receipt_number  ?? "",
+        r.or_number       ?? "",
+        r.invoice_number  ?? "",
+        r.subtotal        ?? "0",
+        r.tax             ?? "0",
+        r.discount        ?? "0",
+        r.vatable_sales   ?? "0",
+        r.vat_exempt_sales ?? "0",
+        r.zero_rated_sales ?? "0",
+        r.total,
+        r.discount_type   ?? "regular",
+        r.created_at,
+      ].join("|");
+
+      const { createHash } = await import("crypto");
+      const expected = createHash("sha256").update(payload).digest("hex");
+
+      if (expected === r.sale_hash) {
+        passed++;
+      } else {
+        failed++;
+        tamperedRows.push({ id: r.id, orNumber: r.or_number ?? "", createdAt: r.created_at ?? "" });
+      }
+    }
+
+    res.json({
+      totalChecked: rows.rows.length,
+      passed,
+      failed,
+      missingHash: missing,
+      integrityOk: failed === 0,
+      tamperedRows: tamperedRows.slice(0, 100),
+      checkedAt: new Date().toISOString(),
+    });
+  });
+
   // ── Discount Codes ────────────────────────────────────────────────────────
 
   app.get("/api/discount-codes", requireAuth, requirePro, async (req, res) => {

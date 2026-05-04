@@ -20,6 +20,7 @@ import multer from "multer";
 import path from "path";
 import { extractAndStore, getRelevantMemories, consolidateIfNeeded } from "./ai-memory";
 import { resolveAIStream, getProviderStatus } from "./ai-router";
+import { getAiRatelimit } from "./redis";
 
 // ─── Multer setup ──────────────────────────────────────────────────────────────
 const ALLOWED_EXTENSIONS = [".pdf", ".xlsx", ".xls", ".csv"];
@@ -49,19 +50,20 @@ interface CacheEntry { data: ContextResult; expiry: number }
 const contextCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 10 * 60 * 1000;
 
-// ─── Per-user rate limiting (60 req/hour sliding window) ──────────────────────
+// ─── Per-user AI rate limiting (60 req/hour sliding window) ───────────────────
+// Redis-backed when Upstash is configured — shared across all autoscale replicas
+// so a user cannot bypass the limit by hitting different instances.
+// Falls back to in-memory when Redis is unavailable.
+
 interface RateEntry { count: number; resetAt: number }
 const rateLimitStore = new Map<string, RateEntry>();
 const RATE_LIMIT = 60;
 const RATE_WINDOW = 60 * 60 * 1000;
 
-// Maximum entries kept in each in-memory Map — oldest entry evicted on overflow
-// to prevent unbounded memory growth under a spike of unique users.
 const MAX_CACHE_ENTRIES = 500;
 
 function setWithCap<K, V>(map: Map<K, V>, key: K, value: V): void {
   if (map.size >= MAX_CACHE_ENTRIES && !map.has(key)) {
-    // Evict the oldest (first-inserted) entry
     const firstKey = map.keys().next().value;
     if (firstKey !== undefined) map.delete(firstKey);
   }
@@ -77,22 +79,39 @@ setInterval(() => {
   for (const [k, v] of dedupeCache) if (v.expiry < now) dedupeCache.delete(k);
 }, 60_000).unref();
 
-function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetAt: number } {
+/** Returns rate-limit result, preferring Redis for cross-replica accuracy. */
+async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  // ── Try Redis first ────────────────────────────────────────────────────────
+  const limiter = getAiRatelimit();
+  if (limiter) {
+    try {
+      const { success, remaining, reset } = await limiter.limit(`ai:${userId}`);
+      if (!success) {
+        console.warn(`[ai][rateLimit][redis] user=${userId} — RATE LIMIT HIT | remaining=0 | resets=${new Date(reset).toISOString()}`);
+      } else {
+        console.log(`[ai][rateLimit][redis] user=${userId} — remaining=${remaining}`);
+      }
+      return { allowed: success, remaining, resetAt: reset };
+    } catch (err) {
+      console.error("[ai][rateLimit][redis] Redis error, falling back to in-memory:", err);
+    }
+  }
+
+  // ── In-memory fallback ─────────────────────────────────────────────────────
   const now = Date.now();
   const entry = rateLimitStore.get(userId);
   if (!entry || now > entry.resetAt) {
     setWithCap(rateLimitStore, userId, { count: 1, resetAt: now + RATE_WINDOW });
-    console.log(`[ai][rateLimit] user=${userId} — new window | count=1/${RATE_LIMIT} | resets in ${Math.round(RATE_WINDOW / 60000)}m`);
+    console.log(`[ai][rateLimit][mem] user=${userId} — new window | count=1/${RATE_LIMIT}`);
     return { allowed: true, remaining: RATE_LIMIT - 1, resetAt: now + RATE_WINDOW };
   }
   if (entry.count >= RATE_LIMIT) {
     const resetIn = Math.round((entry.resetAt - now) / 60000);
-    console.warn(`[ai][rateLimit] user=${userId} — RATE LIMIT HIT | count=${entry.count}/${RATE_LIMIT} | resets in ${resetIn}m`);
+    console.warn(`[ai][rateLimit][mem] user=${userId} — RATE LIMIT HIT | resets in ${resetIn}m`);
     return { allowed: false, remaining: 0, resetAt: entry.resetAt };
   }
   entry.count++;
-  const resetIn = Math.round((entry.resetAt - now) / 60000);
-  console.log(`[ai][rateLimit] user=${userId} — count=${entry.count}/${RATE_LIMIT} | resets in ${resetIn}m`);
+  console.log(`[ai][rateLimit][mem] user=${userId} — count=${entry.count}/${RATE_LIMIT}`);
   return { allowed: true, remaining: RATE_LIMIT - entry.count, resetAt: entry.resetAt };
 }
 

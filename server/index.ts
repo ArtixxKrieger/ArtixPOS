@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
+import { getAuthRatelimit, getApiRatelimit } from "./redis";
 import cookieParser from "cookie-parser";
 import passport from "passport";
 import { randomUUID } from "crypto";
@@ -71,17 +72,20 @@ app.get("/api/health", async (_req, res) => {
 });
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
-// Strict limit on auth endpoints (login attempts, OAuth flows)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+// In-memory fallbacks — used when Redis is not configured. These live on each
+// replica independently, which is fine for development. In production, Redis
+// (via getAuthRatelimit / getApiRatelimit) provides a shared counter across
+// all autoscale replicas so limits are enforced globally, not per-instance.
+
+const authLimiterFallback = rateLimit({
+  windowMs: 15 * 60 * 1000,
   max: 30,
   message: { message: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// General API limit
-const apiLimiter = rateLimit({
+const apiLimiterFallback = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   message: { message: "Too many requests, please try again later." },
@@ -89,9 +93,45 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use("/auth", authLimiter);
+// Redis-backed middleware factory.
+// Identifies each client by IP (same as express-rate-limit default).
+// Falls back to express-rate-limit transparently when Redis is unavailable.
+function makeRedisRateLimiter(
+  getRatelimit: () => import("@upstash/ratelimit").Ratelimit | null,
+  fallback: ReturnType<typeof rateLimit>,
+) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const limiter = getRatelimit();
+    if (!limiter) return fallback(req, res, next);
+
+    const ip =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
+      req.socket.remoteAddress ??
+      "unknown";
+
+    try {
+      const { success, remaining, reset } = await limiter.limit(ip);
+      res.setHeader("X-RateLimit-Remaining", remaining);
+      res.setHeader("X-RateLimit-Reset", reset);
+      if (!success) {
+        return res
+          .status(429)
+          .json({ message: "Too many requests, please try again later." });
+      }
+      next();
+    } catch {
+      // Redis error — degrade gracefully to in-memory fallback.
+      fallback(req, res, next);
+    }
+  };
+}
+
+const authLimiter = makeRedisRateLimiter(getAuthRatelimit, authLimiterFallback);
+const apiLimiter  = makeRedisRateLimiter(getApiRatelimit,  apiLimiterFallback);
+
+app.use("/auth",     authLimiter);
 app.use("/api/auth", authLimiter);
-app.use("/api", apiLimiter);
+app.use("/api",      apiLimiter);
 
 // ── CORS for native (Capacitor) clients ──────────────────────────────────────
 // Web clients hit the same origin so they never trigger CORS.

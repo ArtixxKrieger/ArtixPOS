@@ -128,10 +128,10 @@ export async function registerRoutes(
   app.get(api.products.list.path, requireAuth, async (req, res) => {
     const branch = activeBranchId(req);
     const cacheKey = productsCacheKey(userId(req)) + (branch != null ? `:b${branch}` : "");
-    const cached = cache.get(cacheKey);
+    const cached = await cache.getAsync(cacheKey);
     if (cached) return res.json(cached);
     const products = await storage.getProducts(userId(req), branch);
-    cache.set(cacheKey, products, TTL.PRODUCTS);
+    await cache.setAsync(cacheKey, products, TTL.PRODUCTS);
     res.json(products);
   });
 
@@ -628,7 +628,7 @@ export async function registerRoutes(
 
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const cacheKey = settingsCacheKey(userId(req));
-    const cached = cache.get(cacheKey);
+    const cached = await cache.getAsync(cacheKey);
     if (cached) return res.json(cached);
 
     const settings = await storage.getSettings(userId(req));
@@ -654,10 +654,10 @@ export async function registerRoutes(
     if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
       storage.updateSettings(userId(req), { onboardingComplete: 1 }).catch(() => {});
       const healed = { ...settings, onboardingComplete: 1 };
-      cache.set(cacheKey, healed, TTL.SETTINGS);
+      await cache.setAsync(cacheKey, healed, TTL.SETTINGS);
       return res.json(healed);
     }
-    cache.set(cacheKey, settings, TTL.SETTINGS);
+    await cache.setAsync(cacheKey, settings, TTL.SETTINGS);
     res.json(settings);
   });
 
@@ -1678,11 +1678,11 @@ export async function registerRoutes(
 
   app.get("/api/products/barcode/:barcode", requireAuth, async (req, res) => {
     const cacheKey = barcodeCacheKey(userId(req), req.params.barcode as string);
-    const cached = cache.get(cacheKey);
+    const cached = await cache.getAsync(cacheKey);
     if (cached) return res.json(cached);
     const product = await storage.getProductByBarcode(req.params.barcode as string, userId(req));
     if (!product) return res.status(404).json({ message: "Product not found" });
-    cache.set(cacheKey, product, TTL.BARCODE);
+    await cache.setAsync(cacheKey, product, TTL.BARCODE);
     res.json(product);
   });
 

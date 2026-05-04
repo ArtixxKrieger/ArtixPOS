@@ -44,6 +44,7 @@ export interface ReceiptData {
   scPwdId?: string;
   vatableSales?: number;
   vatExemptSales?: number;
+  zeroRatedSales?: number;
 }
 
 interface ReceiptModalProps {
@@ -128,6 +129,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const isScPwd = receipt.discountType === "sc" || receipt.discountType === "pwd";
   const vatableSales = receipt.vatableSales ?? (isScPwd ? 0 : receipt.subtotal - receipt.discount);
   const vatExemptSales = receipt.vatExemptSales ?? (isScPwd ? receipt.subtotal - receipt.discount : 0);
+  const zeroRatedSales = receipt.zeroRatedSales ?? 0;
 
   const isCash = receipt.paymentMethod === "cash";
   const hasDiscount = receipt.discount > 0;
@@ -167,6 +169,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         vatRegistered: !!(s.vatRegistered),
         vatableSales,
         vatExemptSales,
+        zeroRatedSales,
         discountType: receipt.discountType,
         scPwdId: receipt.scPwdId,
         items: receipt.items.map(item => ({
@@ -282,8 +285,10 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <div class="row muted" style="font-size:${fs - 2}px"><span>VATable Sales</span><span class="price">${fmt(vatableSales)}</span></div>
     <div class="row muted" style="font-size:${fs - 2}px"><span>VAT Amount (${taxRate}%)</span><span class="price">${fmt(receipt.tax)}</span></div>
     ${vatExemptSales > 0 ? `<div class="row muted" style="font-size:${fs - 2}px"><span>VAT-Exempt Sales</span><span class="price">${fmt(vatExemptSales)}</span></div>` : ""}
+    ${zeroRatedSales > 0 ? `<div class="row muted" style="font-size:${fs - 2}px"><span>Zero-Rated Sales</span><span class="price">${fmt(zeroRatedSales)}</span></div>` : ""}
     <div class="line"></div>
     ` : ""}
+    ${isScPwd || !vatRegistered ? `<p class="muted" style="text-align:center;font-size:${fs - 4}px;margin-bottom:2px">THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX</p>` : ""}
     <div class="row total-row"><span>TOTAL DUE</span><span class="price">${fmt(receipt.total)}</span></div>
     <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
@@ -466,7 +471,18 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                       <span className="tabular-nums">{formatCurrency(vatExemptSales, currency)}</span>
                     </div>
                   )}
+                  {zeroRatedSales > 0 && (
+                    <div className="flex justify-between text-muted-foreground text-[11px]">
+                      <span>Zero-Rated Sales</span>
+                      <span className="tabular-nums">{formatCurrency(zeroRatedSales, currency)}</span>
+                    </div>
+                  )}
                 </div>
+              )}
+              {(isScPwd || !vatRegistered) && (
+                <p className="text-center text-muted-foreground text-[9px] py-1 border-t border-dashed border-border/40">
+                  THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX
+                </p>
               )}
               <div className="flex justify-between font-bold pt-1 border-t border-dashed border-border/60 text-[14px]">
                 <span>TOTAL DUE</span>

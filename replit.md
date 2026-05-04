@@ -6,8 +6,13 @@ ArtixPOS is a full-stack Point of Sale (POS) system designed for café managemen
 ## User Preferences
 I prefer simple language and clear explanations. I want iterative development with frequent, small updates. Ask before making major architectural changes or introducing new external dependencies. For AI features, ensure responses are always relevant to store operations and prevent the AI from engaging in off-topic discussions. When the AI performs an action like adding a product or logging an expense, provide an "Undo" option for a short period. Ensure that all data is isolated per tenant and branch. Do not make changes to folder `node_modules` and the file `package-lock.json`.
 
+## Recent Changes
+- **Structured Logging**: Replaced bare `console.log` with Pino structured logger (`server/logger.ts`). Dev uses pretty-print; production emits JSON with method, path, status, duration, and requestId fields.
+- **BIR Receipt Compliance**: Added zero-rated sales line to all receipt outputs (HTML, ESC/POS, cat printer). Added "THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX" disclaimer for SC/PWD and non-VAT transactions.
+- **Security**: Deleted committed Android keystore files (`keystore/ArtixCutie.jks`, `keystore/debug.keystore`) and added `keystore/` to `.gitignore`.
+
 ## System Architecture
-The ArtixPOS system is built with a React + TypeScript + TailwindCSS frontend and an Express.js backend utilizing SQLite (Drizzle ORM) for data persistence. TanStack React Query manages state on the frontend. The UI/UX is characterized by a modern design system using Shadcn UI components, a Violet-600 primary color, "Plus Jakarta Sans" font, and generous border radii for a clean aesthetic. Glassmorphism-inspired utility classes are used for certain elements, carefully avoiding `backdrop-filter` for mobile performance. Full light/dark mode support is included, managed via CSS variables and local storage.
+The ArtixPOS system is built with a React + TypeScript + TailwindCSS frontend and an Express.js backend utilizing PostgreSQL (Drizzle ORM) for data persistence. TanStack React Query manages state on the frontend. The UI/UX is characterized by a modern design system using Shadcn UI components, a Violet-600 primary color, "Plus Jakarta Sans" font, and generous border radii for a clean aesthetic. Glassmorphism-inspired utility classes are used for certain elements, carefully avoiding `backdrop-filter` for mobile performance. Full light/dark mode support is included, managed via CSS variables and local storage.
 
 Core technical implementations include:
 - **Authentication**: JWTs in httpOnly cookies for sessions, supporting both local email/password login for staff and OAuth (Google, Facebook).

@@ -111,6 +111,7 @@ export interface EscPosReceipt {
   vatRegistered?: boolean;
   vatableSales?: number;
   vatExemptSales?: number;
+  zeroRatedSales?: number;
   discountType?: string;
   scPwdId?: string;
   items: Array<{
@@ -213,12 +214,23 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
       push(row(vatLabel, fmt(r.tax, r.currency), width));
     }
     if ((r.vatExemptSales ?? 0) > 0) push(row("VAT-Exempt Sales", fmt(r.vatExemptSales!, r.currency), width));
+    if ((r.zeroRatedSales ?? 0) > 0) push(row("Zero-Rated Sales", fmt(r.zeroRatedSales!, r.currency), width));
   } else if (r.tax > 0) {
     const vatLabel = r.taxRate != null && r.taxRate > 0 ? `VAT (${r.taxRate}%)` : "VAT";
     push(row(vatLabel, fmt(r.tax, r.currency), width));
   }
   if (r.loyaltyDiscount && r.loyaltyDiscount > 0) {
     push(row("Loyalty Redemption", `-${fmt(r.loyaltyDiscount, r.currency)}`, width));
+  }
+
+  // BIR required disclaimer for SC/PWD or non-VAT transactions
+  const isScPwdEscPos = r.discountType === "sc" || r.discountType === "pwd";
+  if (isScPwdEscPos || !r.vatRegistered) {
+    push(dashes(width));
+    push(bytes(ESC, 0x61, 0x01));
+    push(text("THIS DOCUMENT IS NOT VALID\n"));
+    push(text("FOR CLAIM OF INPUT TAX\n"));
+    push(bytes(ESC, 0x61, 0x00));
   }
 
   push(dashes(width));

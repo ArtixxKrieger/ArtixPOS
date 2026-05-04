@@ -12,6 +12,7 @@ import { ensureIndexes } from "./indexes";
 import { initOllama, stopOllama } from "./ai-router";
 import { db as _healthDb } from "./db";
 import { sql as _healthSql } from "drizzle-orm";
+import { logger } from "./logger";
 
 const app = express();
 const httpServer = createServer(app);
@@ -142,13 +143,7 @@ app.use(jwtAuthMiddleware);
 app.use(passport.initialize());
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  console.log(`${formattedTime} [${source}] ${message}`);
+  logger.info({ source }, message);
 }
 
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -165,14 +160,18 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api") || path.startsWith("/auth")) {
-      const rid = (req as any).requestId ? ` [${(req as any).requestId.slice(0, 8)}]` : "";
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms${rid}`;
-      if (capturedJsonResponse) {
-        // Truncate to 300 chars to prevent PII / large payloads flooding logs
-        const raw = JSON.stringify(capturedJsonResponse);
-        logLine += ` :: ${raw.length > 300 ? raw.slice(0, 300) + "…" : raw}`;
-      }
-      log(logLine);
+      const rid = (req as any).requestId?.slice(0, 8);
+      logger.info({
+        source: "express",
+        method: req.method,
+        path,
+        status: res.statusCode,
+        duration,
+        requestId: rid,
+        ...(capturedJsonResponse && res.statusCode >= 400
+          ? { response: JSON.stringify(capturedJsonResponse).slice(0, 300) }
+          : {}),
+      }, `${req.method} ${path} ${res.statusCode} in ${duration}ms`);
     }
   });
 

@@ -292,12 +292,21 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
       out.push(twoCol(vatLabel, fmt(r.tax)));
     }
     if ((r.vatExemptSales ?? 0) > 0) out.push(twoCol("VAT-Exempt Sales", fmt(r.vatExemptSales!)));
+    if ((r.zeroRatedSales ?? 0) > 0) out.push(twoCol("Zero-Rated Sales", fmt(r.zeroRatedSales!)));
   } else if (r.tax > 0) {
     const vatLabel = r.taxRate != null && r.taxRate > 0 ? `VAT (${r.taxRate}%)` : "VAT";
     out.push(twoCol(vatLabel, fmt(r.tax)));
   }
   if (r.loyaltyDiscount && r.loyaltyDiscount > 0) {
     out.push(twoCol("Loyalty Redemption", `-${fmt(r.loyaltyDiscount)}`));
+  }
+
+  // BIR required disclaimer for SC/PWD or non-VAT transactions
+  const isScPwdCat = r.discountType === "sc" || r.discountType === "pwd";
+  if (isScPwdCat || !r.vatRegistered) {
+    out.push(dash);
+    out.push(center("THIS DOCUMENT IS NOT VALID"));
+    out.push(center("FOR CLAIM OF INPUT TAX"));
   }
 
   out.push(dash);

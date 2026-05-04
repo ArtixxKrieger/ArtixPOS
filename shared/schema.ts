@@ -294,6 +294,10 @@ export const sales = pgTable("sales", {
   vatableSales: text("vatable_sales").default("0"),
   vatExemptSales: text("vat_exempt_sales").default("0"),
   zeroRatedSales: text("zero_rated_sales").default("0"),
+  // Tamper-evident SHA-256 hash covering all fiscal fields of this sale.
+  // Any post-insertion modification to OR/totals/VAT will break this hash,
+  // making tampering detectable during a BIR audit.
+  saleHash: text("sale_hash"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

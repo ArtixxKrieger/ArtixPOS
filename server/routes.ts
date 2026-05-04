@@ -10,9 +10,8 @@ import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog, getRolePermissionForRole } from "./admin-storage";
 import { db } from "./db";
 import { eq, and, sql, desc, isNotNull } from "drizzle-orm";
-import { users, branches as branchesTable, tenants } from "@shared/schema";
+import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable } from "@shared/schema";
 import { signToken, setAuthCookie } from "./auth";
-import { sendZReportEmail } from "./email";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
 import {
@@ -1010,105 +1009,9 @@ export async function registerRoutes(
   app.post("/api/shifts/:id/close", requireAuth, requirePro, async (req, res) => {
     try {
       const { closingBalance, notes } = closeShiftSchema.parse(req.body);
-      const shiftId = Number(req.params.id);
-      const uid = userId(req);
-      const shift = await storage.closeShift(shiftId, uid, closingBalance, notes ?? undefined);
+      const shift = await storage.closeShift(Number(req.params.id), userId(req), closingBalance, notes ?? undefined);
       if (!shift) return res.status(404).json({ message: "Shift not found" });
       res.json(shift);
-
-      // Fire-and-forget: send BIR-compliant Z-report email to the merchant
-      void (async () => {
-        try {
-          const [settingsData, allShifts] = await Promise.all([
-            storage.getSettings(uid),
-            storage.getShifts(uid, { limit: 2000 }),
-          ]);
-          const closedShift = allShifts.find(s => s.id === shiftId) ?? shift;
-          const startDate = closedShift.openedAt!;
-          const endDate   = closedShift.closedAt ?? new Date().toISOString();
-
-          const [salesList, refunds, voidedSales] = await Promise.all([
-            storage.getSales(uid, { limit: 10000, startDate, endDate }),
-            storage.getRefunds(uid),
-            storage.getDeletedSales(uid),
-          ]);
-
-          // OR range
-          const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
-          function orNumericRangeLocal(orNums: string[]): { orFrom: string | null; orTo: string | null } {
-            if (orNums.length === 0) return { orFrom: null, orTo: null };
-            const allNum = orNums.every(n => /^\d+$/.test(n));
-            if (allNum) {
-              const sorted = orNums.map(Number).sort((a, b) => a - b);
-              return { orFrom: String(sorted[0]), orTo: String(sorted[sorted.length - 1]) };
-            }
-            const sorted = [...orNums].sort();
-            return { orFrom: sorted[0], orTo: sorted[sorted.length - 1] };
-          }
-          const { orFrom, orTo } = orNumericRangeLocal(orNumbers);
-
-          // Payment breakdown
-          const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-          for (const s of salesList) {
-            const pm = s.paymentMethod || "cash";
-            if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, total: 0 };
-            paymentBreakdown[pm].count++;
-            paymentBreakdown[pm].total += parseFloat(s.total || "0");
-          }
-
-          // SC/PWD
-          const scPwdSales = salesList.filter(s => ["sc", "pwd"].includes((s as any).discountType));
-
-          // Voids during this shift window
-          const shiftVoided = voidedSales.filter(s => {
-            const d = s.deletedAt ?? "";
-            return d >= startDate && d <= endDate;
-          });
-
-          // Refunds during this shift window
-          const shiftRefunds = refunds.filter(r => {
-            const d = r.createdAt ?? "";
-            return d >= startDate && d <= endDate;
-          });
-
-          const emailTo = (settingsData as any)?.emailContact || (req.user as any)?.email;
-          if (!emailTo) {
-            console.warn("[z-report-email] No merchant email configured — skipping");
-            return;
-          }
-
-          await sendZReportEmail(emailTo, {
-            storeName:           (settingsData as any)?.storeName ?? "Store",
-            tin:                 (settingsData as any)?.tin ?? "",
-            ptuNumber:           (settingsData as any)?.ptuNumber ?? "",
-            accreditationNumber: (settingsData as any)?.accreditationNumber ?? "",
-            machineSerialNumber: (settingsData as any)?.machineSerialNumber ?? "",
-            shiftId:             shiftId,
-            openedAt:            startDate,
-            closedAt:            endDate,
-            orFrom,
-            orTo,
-            totalTransactions:   salesList.length,
-            grossSales:          salesList.reduce((a, s) => a + parseFloat(s.total   || "0"), 0),
-            totalDiscount:       salesList.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
-            totalLoyaltyDiscount:salesList.reduce((a, s) => a + parseFloat((s as any).loyaltyDiscount || "0"), 0),
-            netSales:            salesList.reduce((a, s) => a + parseFloat(s.total || "0") - parseFloat(s.tax || "0"), 0),
-            vatableSalesTotal:   salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales  || "0"), 0),
-            vatExemptTotal:      salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales || "0"), 0),
-            zeroRatedTotal:      salesList.reduce((a, s) => a + parseFloat((s as any).zeroRatedSales || "0"), 0),
-            vatAmountTotal:      salesList.reduce((a, s) => a + parseFloat(s.tax || "0"), 0),
-            scPwdCount:          scPwdSales.length,
-            scPwdDiscount:       scPwdSales.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
-            voidCount:           shiftVoided.length,
-            voidAmount:          shiftVoided.reduce((a, s) => a + parseFloat(s.total || "0"), 0),
-            refundCount:         shiftRefunds.length,
-            refundAmount:        shiftRefunds.reduce((a, r) => a + parseFloat(r.amount || "0"), 0),
-            paymentBreakdown,
-          });
-        } catch (emailErr: any) {
-          console.error("[z-report-email] Background send failed:", emailErr?.message);
-        }
-      })();
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
@@ -1446,7 +1349,35 @@ export async function registerRoutes(
       }
     }
     const id = Number(req.params.id);
-    const deleted = await storage.softDeleteSale(id, userId(req), userId(req));
+
+    // ── BIR Z-report lock ──────────────────────────────────────────────────
+    // A sale that was included in a closed shift (Z-report already generated)
+    // cannot be retroactively voided. This preserves the integrity of the
+    // sealed period for BIR audit purposes.
+    const uid = userId(req);
+    const [saleRow] = await db
+      .select({ id: salesTable.id, createdAt: salesTable.createdAt })
+      .from(salesTable)
+      .where(eq(salesTable.id, id));
+
+    if (saleRow?.createdAt) {
+      const closedShifts = await db
+        .select({ openedAt: shiftsTable.openedAt, closedAt: shiftsTable.closedAt })
+        .from(shiftsTable)
+        .where(and(eq(shiftsTable.userId, uid), eq(shiftsTable.status, "closed")));
+
+      const saleTime = saleRow.createdAt;
+      const lockedByShift = closedShifts.some(
+        s => s.openedAt && s.closedAt && saleTime >= s.openedAt && saleTime <= s.closedAt
+      );
+      if (lockedByShift) {
+        return res.status(409).json({
+          message: "This sale is locked inside a closed shift (Z-report already generated). It cannot be voided to preserve BIR audit integrity.",
+        });
+      }
+    }
+
+    const deleted = await storage.softDeleteSale(id, uid, uid);
     if (!deleted) return res.status(404).json({ message: "Sale not found" });
     await auditLog(req, "delete", "sale", String(id), { softDelete: true });
     res.status(204).end();

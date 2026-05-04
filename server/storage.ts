@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { createHash } from "crypto";
 import {
   products,
   productSizes,
@@ -512,13 +513,55 @@ export class DatabaseStorage implements IStorage {
   async createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale> {
     try {
       const saleInput = sale as any;
-      const existingCount = await db.select({ count: sql<number>`COUNT(*)` }).from(sales).where(eq(sales.userId, userId));
-      const nextSeq = Number(existingCount[0]?.count ?? 0) + 1;
+
+      // ── Server-side OR / receipt number generation ─────────────────────────
+      // Always generate these server-side so clients cannot inject arbitrary
+      // OR numbers. Count ALL sales (including voided) so the sequence is
+      // strictly monotonic and gap-free for BIR audits.
+      const [{ total: totalCount }] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(sales)
+        .where(eq(sales.userId, userId));
+      const nextSeq = Number(totalCount ?? 0) + 1;
       const padded = String(nextSeq).padStart(6, "0");
-      const receiptNumber = saleInput.receiptNumber ?? `SR-${padded}`;
-      const orNumber = saleInput.orNumber ?? receiptNumber;
-      const invoiceNumber = saleInput.invoiceNumber ?? `INV-${padded}`;
-      const [created] = await db.insert(sales).values({ ...saleInput, userId, receiptNumber, orNumber, invoiceNumber } as any).returning();
+      const receiptNumber = `SR-${padded}`;
+      const orNumber      = receiptNumber;
+      const invoiceNumber = `INV-${padded}`;
+
+      // Use an explicit createdAt so it is included in the hash before insert.
+      const createdAt = new Date().toISOString();
+
+      // ── Tamper-evident SHA-256 hash (BIR compliance) ───────────────────────
+      // Covers every fiscally-significant field. A BIR auditor can recompute
+      // this from the raw DB row; any discrepancy proves tampering.
+      const hashPayload = [
+        userId,
+        receiptNumber,
+        orNumber,
+        invoiceNumber,
+        sale.subtotal   ?? "0",
+        sale.tax        ?? "0",
+        sale.discount   ?? "0",
+        saleInput.vatableSales  ?? "0",
+        saleInput.vatExemptSales ?? "0",
+        saleInput.zeroRatedSales ?? "0",
+        sale.total,
+        saleInput.discountType  ?? "regular",
+        createdAt,
+      ].join("|");
+      const saleHash = createHash("sha256").update(hashPayload).digest("hex");
+
+      const [created] = await db.insert(sales).values({
+        ...saleInput,
+        userId,
+        receiptNumber,
+        orNumber,
+        invoiceNumber,
+        createdAt,
+        saleHash,
+        // Strip any client-supplied receipt/OR/invoice numbers so they cannot
+        // override the server-generated sequence.
+      } as any).returning();
       // Fire-and-forget: customer stats update runs in the background so it
       // never delays the checkout response returned to the cashier.
       if (sale.customerId) {

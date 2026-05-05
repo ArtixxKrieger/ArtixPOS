@@ -604,9 +604,11 @@ export default function POS() {
   ).slice(0, 8);
 
   const CartContent = (
-    <div className="flex flex-col h-full">
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Scrollable area: items + all summary rows */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
       {/* Items */}
-      <div className="flex-1 overflow-y-auto space-y-1.5 scrollbar-hide">
+      <div className="space-y-1.5 pb-1">
         {cart.length === 0 ? (
           <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-muted-foreground/50 gap-2">
             <ShoppingCart className="h-10 w-10" strokeWidth={1.2} />
@@ -680,7 +682,7 @@ export default function POS() {
       </div>
 
       {/* Summary */}
-      <div className="pt-2 border-t border-border/50 space-y-1.5 shrink-0">
+      <div className="pt-2 border-t border-border/50 space-y-1.5">
 
         {/* Customer Selector — hidden for cafe-style businesses (Starbucks-style: name on receipt only) */}
         {!isCafeStyle && (selectedCustomer ? (
@@ -1072,8 +1074,12 @@ export default function POS() {
           </SelectContent>
         </Select>
 
+      </div>
+      </div>
+      {/* Checkout button — always pinned at bottom, never scrolled away */}
+      <div className="shrink-0 pt-2 border-t border-border/40">
         <Button
-          className="w-full h-10 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-primary/25 hover:opacity-90 transition-all active:scale-[0.98]"
+          className="w-full h-11 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-primary/25 hover:opacity-90 transition-all active:scale-[0.98]"
           onClick={handleCheckout}
           disabled={cart.length === 0 || createPending.isPending}
           data-testid="button-checkout"
@@ -1233,9 +1239,9 @@ export default function POS() {
       </div>
 
       {/* Desktop Cart Panel */}
-      <div className="hidden md:flex w-[380px] flex-col bg-card rounded-3xl shadow-xl border border-border/30 p-6 overflow-hidden relative shrink-0">
+      <div className="hidden md:flex w-[380px] flex-col bg-card rounded-3xl shadow-xl border border-border/30 px-5 pt-5 pb-4 overflow-hidden relative shrink-0">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -z-10" />
-        <div className="flex items-center gap-2.5 mb-5 shrink-0">
+        <div className="flex items-center gap-2.5 mb-4 shrink-0">
           <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center">
             <ShoppingCart className="text-primary h-4.5 w-4.5" />
           </div>
@@ -1256,7 +1262,9 @@ export default function POS() {
             </div>
           )}
         </div>
-        {CartContent}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {CartContent}
+        </div>
       </div>
 
       {/* Mobile: Floating cart bar */}
@@ -1306,7 +1314,7 @@ export default function POS() {
               )}
             </SheetTitle>
           </SheetHeader>
-          <div className="flex-1 min-h-0 px-4 py-2">
+          <div className="flex-1 min-h-0 px-4 pt-2 pb-3 flex flex-col overflow-hidden">
             {CartContent}
           </div>
         </SheetContent>

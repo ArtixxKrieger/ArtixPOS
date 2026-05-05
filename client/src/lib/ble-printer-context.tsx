@@ -6,28 +6,53 @@ import {
 } from "./catprinter";
 
 // ─── ESC/POS services (standard printers) ───────────────────────────────────
+// Covers: XP-58H / XP-80 / Xprinter / Rongta / EPSON / Star / Bixolon / iDPRT
+// and generic thermal printers that use BLE UART or custom GATT write services.
 
 const KNOWN_ESCPOS_CHARS: Record<string, string[]> = {
+  // XP-58H / XP-80 / Xprinter / iDPRT — primary service
   "000018f0-0000-1000-8000-00805f9b34fb": [
     "00002af1-0000-1000-8000-00805f9b34fb",
   ],
+  // Epson TM-m30 / m50 BLE
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2": [
     "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f",
   ],
+  // Mii / Xprinter SPP-over-BLE
   "49535343-fe7d-4ae5-8fa9-9fafd205e455": [
     "49535343-8841-43f4-a8d4-ecbe34729bb3",
     "49535343-1e4d-4bd9-ba61-23c647249616",
   ],
+  // Generic BLE UART (most Chinese thermal printers)
   "0000ff00-0000-1000-8000-00805f9b34fb": [
     "0000ff02-0000-1000-8000-00805f9b34fb",
     "0000ff01-0000-1000-8000-00805f9b34fb",
   ],
+  // HM-10 / HC-08 BLE module (widely used in low-cost printers)
   "0000ffe0-0000-1000-8000-00805f9b34fb": [
     "0000ffe1-0000-1000-8000-00805f9b34fb",
   ],
+  // Alternate generic BLE UART
   "0000fff0-0000-1000-8000-00805f9b34fb": [
     "0000fff2-0000-1000-8000-00805f9b34fb",
     "0000fff1-0000-1000-8000-00805f9b34fb",
+  ],
+  // Rongta / RPP series
+  "0000ae30-0000-1000-8000-00805f9b34fb": [
+    "0000ae01-0000-1000-8000-00805f9b34fb",
+  ],
+  // XP-58H / XP-80 alternate service UUID
+  "0000ae3a-0000-1000-8000-00805f9b34fb": [
+    "0000ae01-0000-1000-8000-00805f9b34fb",
+    "0000ae02-0000-1000-8000-00805f9b34fb",
+  ],
+  // Star Micronics BLE
+  "0000fee7-0000-1000-8000-00805f9b34fb": [
+    "0000fea1-0000-1000-8000-00805f9b34fb",
+  ],
+  // Bixolon / Sewoo BLE
+  "0000180f-0000-1000-8000-00805f9b34fb": [
+    "00002a19-0000-1000-8000-00805f9b34fb",
   ],
 };
 
@@ -35,10 +60,10 @@ const KNOWN_ESCPOS_CHARS: Record<string, string[]> = {
 const BLE_PRINT_SERVICES = [
   ...Object.keys(KNOWN_ESCPOS_CHARS),
   CAT_SERVICE,
-  "0000ae3a-0000-1000-8000-00805f9b34fb",
-  "0000fee7-0000-1000-8000-00805f9b34fb",
   "00001101-0000-1000-8000-00805f9b34fb",
   "000001ff-0000-1000-8000-00805f9b34fb",
+  "0000ae40-0000-1000-8000-00805f9b34fb",
+  "0000ae50-0000-1000-8000-00805f9b34fb",
 ];
 
 // Larger chunks = fewer BLE round-trips = print completes before user can switch apps
@@ -185,6 +210,8 @@ type BlePrinterContextType = {
   printer: BlePrinterState;
   scanning: boolean;
   scan: () => Promise<{ device: BluetoothDevice | null; error?: string }>;
+  getPairedDevices: () => Promise<BluetoothDevice[]>;
+  reconnectDevice: (device: BluetoothDevice) => Promise<void>;
   disconnect: () => void;
   print: (args: PrintArgs) => Promise<{ ok: boolean; error?: string }>;
 };
@@ -268,6 +295,25 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
         } catch {}
       }
     }).catch(() => {});
+  }, [applyConnected]);
+
+  const getPairedDevices = useCallback(async (): Promise<BluetoothDevice[]> => {
+    const ble = (navigator as any).bluetooth;
+    if (!ble || typeof ble.getDevices !== "function") return [];
+    try {
+      return await ble.getDevices();
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const reconnectDevice = useCallback(async (device: BluetoothDevice): Promise<void> => {
+    try {
+      const server = await device.gatt?.connect();
+      if (server?.connected) {
+        await applyConnected(device, server);
+      }
+    } catch {}
   }, [applyConnected]);
 
   const scan = useCallback(async (): Promise<{ device: BluetoothDevice | null; error?: string }> => {
@@ -380,7 +426,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
   }, [printer.protocol]);
 
   return (
-    <BlePrinterContext.Provider value={{ printer, scanning, scan, disconnect, print }}>
+    <BlePrinterContext.Provider value={{ printer, scanning, scan, getPairedDevices, reconnectDevice, disconnect, print }}>
       {children}
     </BlePrinterContext.Provider>
   );

@@ -3,7 +3,7 @@ import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, WifiOff, Loader2 } from "lucide-react";
+import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, WifiOff, Loader2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
@@ -190,7 +190,7 @@ export default function PrintSettings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { printer: blePrinter, scanning: bleScanning, scan: bleScan, disconnect: bleDisconnect, print: blePrint } = useBlePrinter();
+  const { printer: blePrinter, scanning: bleScanning, scan: bleScan, disconnect: bleDisconnect, print: blePrint, getPairedDevices, reconnectDevice } = useBlePrinter();
 
   const isOwner = user?.role === "owner";
 
@@ -198,7 +198,21 @@ export default function PrintSettings() {
   const [scanningUsb, setScanningUsb] = useState(false);
   const [testingBle, setTestingBle] = useState(false);
   const [testingUsb, setTestingUsb] = useState<string | null>(null);
+  const [pairedDevices, setPairedDevices] = useState<BluetoothDevice[]>([]);
+  const [loadingPaired, setLoadingPaired] = useState(false);
+  const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
   const cfgLoadedRef = useRef(false);
+
+  const loadPairedDevices = async () => {
+    setLoadingPaired(true);
+    const devices = await getPairedDevices();
+    setPairedDevices(devices);
+    setLoadingPaired(false);
+  };
+
+  useEffect(() => {
+    loadPairedDevices();
+  }, []);
 
   const handleScanBluetooth = async () => {
     const { device, error } = await bleScan();
@@ -207,7 +221,16 @@ export default function PrintSettings() {
     } else if (device) {
       const name = device.name || "Bluetooth Printer";
       toast({ title: "Printer paired", description: `${name} is connected and ready.` });
+      await loadPairedDevices();
     }
+  };
+
+  const handleReconnectPaired = async (device: BluetoothDevice) => {
+    setConnectingDevice(device.id);
+    await reconnectDevice(device);
+    setConnectingDevice(null);
+    const name = device.name || "Bluetooth Printer";
+    toast({ title: "Reconnected", description: `${name} is connected and ready.` });
   };
 
   const scanUsb = async () => {
@@ -439,19 +462,33 @@ export default function PrintSettings() {
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm mb-2 overflow-hidden">
 
         {/* BLE Printer */}
-        <div className="px-4 pt-4 pb-3">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="px-4 pt-4 pb-3 space-y-3">
+          <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Bluetooth className="h-3.5 w-3.5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold leading-none">Bluetooth Printer</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Stays connected across pages. Requires Chrome.</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Works on Chrome (Android / desktop). Stays connected across pages.</p>
             </div>
           </div>
 
-          {blePrinter.name ? (
-            <div className="rounded-xl border border-border/30 bg-secondary/30 px-3 py-2.5 flex items-center gap-3 mb-3">
+          {/* How-to hint for first-time setup */}
+          {!blePrinter.name && (
+            <div className="rounded-xl bg-primary/5 border border-primary/15 px-3 py-2.5 flex gap-2.5">
+              <Info className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+              <div className="text-[11px] text-muted-foreground space-y-0.5 leading-relaxed">
+                <p className="font-semibold text-foreground">Before scanning:</p>
+                <p>1. Turn on your printer and make sure Bluetooth is enabled.</p>
+                <p>2. Press and hold the printer's Bluetooth button until the LED blinks (pairing mode).</p>
+                <p>3. Tap <span className="font-semibold text-foreground">Scan for Printer</span> below — your printer will appear in the list (e.g. <span className="font-mono">XP-58H</span>, <span className="font-mono">BT Printer</span>).</p>
+              </div>
+            </div>
+          )}
+
+          {/* Active connection */}
+          {blePrinter.name && (
+            <div className="rounded-xl border border-border/30 bg-secondary/30 px-3 py-2.5 flex items-center gap-3">
               <div className={`h-2 w-2 rounded-full shrink-0 ${blePrinter.connected ? "bg-emerald-500" : "bg-amber-400"}`} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate" data-testid="printer-name-ble">{blePrinter.name}</p>
@@ -485,26 +522,68 @@ export default function PrintSettings() {
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-border/40 bg-secondary/20 px-3 py-3 mb-3 text-center">
-              <p className="text-[11px] text-muted-foreground">No printer paired yet. Tap the button below to scan.</p>
+          )}
+
+          {/* Previously paired devices — quick reconnect without OS dialog */}
+          {pairedDevices.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 px-0.5">Previously paired</p>
+              {pairedDevices.map(device => {
+                const isActive = blePrinter.name === (device.name || "Bluetooth Printer") && blePrinter.connected;
+                const isConnecting = connectingDevice === device.id;
+                return (
+                  <div key={device.id} className="flex items-center gap-2.5 rounded-xl border border-border/25 bg-secondary/20 px-3 py-2">
+                    <Bluetooth className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <p className="flex-1 text-xs font-medium truncate text-foreground/80">
+                      {device.name || "Unnamed Device"}
+                    </p>
+                    {isActive ? (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">Connected</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleReconnectPaired(device)}
+                        disabled={isConnecting || !!connectingDevice}
+                        className="h-6 px-2 rounded-lg bg-primary/10 text-primary text-[10px] font-bold hover:bg-primary/20 transition-all disabled:opacity-40 shrink-0"
+                        data-testid={`button-reconnect-${device.id}`}
+                      >
+                        {isConnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Connect"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          <Button
-            type="button"
-            size="sm"
-            variant={blePrinter.name ? "outline" : "default"}
-            className="w-full h-9 rounded-xl gap-2 text-sm font-medium"
-            onClick={handleScanBluetooth}
-            disabled={bleScanning || scanningUsb}
-            data-testid="button-scan-bluetooth"
-          >
-            {bleScanning
-              ? <RefreshCw className="h-4 w-4 animate-spin" />
-              : <Bluetooth className="h-4 w-4" />}
-            {bleScanning ? "Scanning for printers…" : blePrinter.name ? "Change Printer" : "Scan for Bluetooth Printer"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={blePrinter.name ? "outline" : "default"}
+              className="flex-1 h-9 rounded-xl gap-2 text-sm font-medium"
+              onClick={handleScanBluetooth}
+              disabled={bleScanning || scanningUsb}
+              data-testid="button-scan-bluetooth"
+            >
+              {bleScanning
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <Bluetooth className="h-4 w-4" />}
+              {bleScanning ? "Scanning…" : blePrinter.name ? "Change Printer" : "Scan for Printer"}
+            </Button>
+            {pairedDevices.length === 0 && (
+              <button
+                type="button"
+                onClick={loadPairedDevices}
+                disabled={loadingPaired}
+                className="h-9 px-3 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground hover:border-border transition-all text-xs"
+                title="Refresh paired devices list"
+                data-testid="button-refresh-paired"
+              >
+                {loadingPaired ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="border-t border-border/20 mx-4" />

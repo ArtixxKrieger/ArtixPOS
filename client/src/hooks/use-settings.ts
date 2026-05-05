@@ -41,10 +41,11 @@ export function useSettings() {
     const settings = query.data as any;
     const locale = detectLocale();
     const needsTimezone = !settings.timezone;
-    // Only auto-detect currency when it has never been set at all.
-    // Do NOT override an existing value based on device locale — the device
-    // may be from another country (e.g. a Japanese device used in the Philippines).
-    const needsCurrency = !settings.currency;
+    // Auto-detect currency when not set or still at the server default "$".
+    // Detection now uses navigator.language (browser locale set by the USER),
+    // not the device timezone, so a Filipino user on a Japanese device
+    // with "Filipino (Philippines)" language gets ₱, not ¥.
+    const needsCurrency = !settings.currency || settings.currency === "$";
 
     if (!needsTimezone && !needsCurrency) return;
 

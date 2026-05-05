@@ -317,12 +317,12 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden">
-        <DialogHeader className="px-5 pt-5 pb-3">
+      <DialogContent className="max-w-sm w-[calc(100vw-2rem)] sm:w-full rounded-3xl p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
           <DialogTitle className="text-base font-bold">Receipt</DialogTitle>
         </DialogHeader>
 
-        <div className="px-5 pb-5 max-h-[70vh] overflow-y-auto scrollbar-hide">
+        <div className="px-5 overflow-y-auto scrollbar-hide flex-1 min-h-0">
           <div id="receipt-printable" className="font-mono space-y-1 text-[13px]">
             <div className="center text-center mb-3">
               {receipt.storeName && (
@@ -543,7 +543,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         </div>
 
         {printer.name && (
-          <div className="px-5 pb-1">
+          <div className="px-5 pb-1 shrink-0">
             <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
@@ -554,7 +554,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         )}
 
         <div
-          className="px-5 pt-2 flex gap-2"
+          className="px-5 pt-2 flex gap-2 shrink-0"
           style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px) + 12px, 20px)" }}
         >
           <Button

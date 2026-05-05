@@ -1,3 +1,109 @@
+// Country code → currency symbol (ISO 3166-1 alpha-2 → symbol)
+// Used as PRIMARY detection via navigator.language (e.g. "en-PH" → "PH" → "₱").
+// This is set by the user's language/region preference, not the device's physical origin.
+const COUNTRY_CURRENCY_MAP: Record<string, string> = {
+  // Asia Pacific
+  PH: "₱",   // Philippines
+  JP: "¥",   // Japan
+  CN: "¥",   // China
+  HK: "HK$", // Hong Kong
+  SG: "S$",  // Singapore
+  MY: "RM",  // Malaysia
+  ID: "Rp",  // Indonesia
+  TH: "฿",  // Thailand
+  KR: "₩",  // South Korea
+  IN: "₹",  // India
+  LK: "Rs",  // Sri Lanka
+  BD: "৳",  // Bangladesh
+  PK: "₨",  // Pakistan
+  TW: "NT$", // Taiwan
+  VN: "₫",  // Vietnam
+  MM: "K",   // Myanmar
+  KH: "៛",  // Cambodia
+  LA: "₭",  // Laos
+  MN: "₮",  // Mongolia
+  KZ: "₸",  // Kazakhstan
+  UZ: "сўм", // Uzbekistan
+  AE: "د.إ", // UAE
+  SA: "﷼",  // Saudi Arabia
+  IR: "﷼",  // Iran
+  AZ: "₼",  // Azerbaijan
+  GE: "₾",  // Georgia
+  IL: "₪",  // Israel
+  CY: "€",  // Cyprus
+  AU: "A$",  // Australia
+  NZ: "NZ$", // New Zealand
+  FJ: "FJ$", // Fiji
+  GU: "$",   // Guam
+  // Europe
+  GB: "£",   // UK
+  IE: "€",  // Ireland
+  FR: "€",  // France
+  DE: "€",  // Germany
+  ES: "€",  // Spain
+  IT: "€",  // Italy
+  NL: "€",  // Netherlands
+  BE: "€",  // Belgium
+  AT: "€",  // Austria
+  CH: "CHF", // Switzerland
+  SE: "kr",  // Sweden
+  NO: "kr",  // Norway
+  DK: "kr",  // Denmark
+  FI: "€",  // Finland
+  PL: "zł", // Poland
+  CZ: "Kč", // Czech Republic
+  HU: "Ft",  // Hungary
+  RO: "lei", // Romania
+  BG: "лв", // Bulgaria
+  RS: "дин", // Serbia
+  HR: "€",  // Croatia
+  GR: "€",  // Greece
+  PT: "€",  // Portugal
+  RU: "₽",  // Russia
+  UA: "₴",  // Ukraine
+  // Americas
+  US: "$",   // USA
+  CA: "CA$", // Canada
+  MX: "$",   // Mexico
+  CO: "$",   // Colombia
+  PE: "S/.", // Peru
+  CL: "$",   // Chile
+  AR: "$",   // Argentina
+  BR: "R$",  // Brazil
+  VE: "Bs.", // Venezuela
+  BO: "Bs",  // Bolivia
+  PY: "₲",  // Paraguay
+  UY: "$U",  // Uruguay
+  EC: "$",   // Ecuador
+  PA: "B/.", // Panama
+  CR: "₡",  // Costa Rica
+  CU: "$",   // Cuba
+  JM: "J$",  // Jamaica
+  GT: "Q",   // Guatemala
+  HN: "L",   // Honduras
+  SV: "$",   // El Salvador
+  NI: "C$",  // Nicaragua
+  DO: "$",   // Dominican Republic
+  PR: "$",   // Puerto Rico
+  // Africa
+  ZA: "R",   // South Africa
+  EG: "£",   // Egypt
+  NG: "₦",  // Nigeria
+  KE: "KSh", // Kenya
+  GH: "₵",  // Ghana
+  MA: "د.م.", // Morocco
+  TN: "د.ت", // Tunisia
+  DZ: "دج", // Algeria
+  ET: "Br",  // Ethiopia
+  TZ: "TSh", // Tanzania
+  UG: "USh", // Uganda
+  RW: "FRw", // Rwanda
+  ZM: "ZK",  // Zambia
+  ZW: "$",   // Zimbabwe
+  MZ: "MT",  // Mozambique
+};
+
+// Timezone → currency (FALLBACK — used when language has no region tag)
 const TIMEZONE_CURRENCY_MAP: Record<string, string> = {
   "Asia/Manila": "₱",
   "Asia/Tokyo": "¥",
@@ -107,16 +213,39 @@ export interface LocaleInfo {
 export function detectLocale(): LocaleInfo {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
+  // PRIMARY: use browser language preference list (set by the user, not the device origin).
+  // e.g. "fil-PH" → region "PH" → "₱"
+  // e.g. "en-PH"  → region "PH" → "₱"
+  // e.g. "ja-JP"  → region "JP" → "¥"
+  const languages: string[] = Array.isArray(navigator.languages) && navigator.languages.length
+    ? Array.from(navigator.languages)
+    : [navigator.language || ""];
+
+  for (const lang of languages) {
+    if (!lang) continue;
+    // BCP 47 tags: "en-PH", "fil-PH", "zh-Hans-CN" — region is always the last segment
+    const parts = lang.split("-");
+    if (parts.length >= 2) {
+      const region = parts[parts.length - 1].toUpperCase();
+      // Only accept 2-letter country codes (ISO 3166-1 alpha-2), not subtags like "Latn"
+      if (region.length === 2 && COUNTRY_CURRENCY_MAP[region]) {
+        return { timezone, currency: COUNTRY_CURRENCY_MAP[region] };
+      }
+    }
+  }
+
+  // FALLBACK: timezone-based detection (less accurate — reflects device physical origin,
+  // not the user's country. Used when language tag has no region subtag.)
   if (TIMEZONE_CURRENCY_MAP[timezone]) {
     return { timezone, currency: TIMEZONE_CURRENCY_MAP[timezone] };
   }
 
-  const region = timezone.split("/")[0];
-  if (region === "Europe") return { timezone, currency: "€" };
-  if (region === "America") return { timezone, currency: "$" };
-  if (region === "Australia") return { timezone, currency: "A$" };
-  if (region === "Pacific") return { timezone, currency: "$" };
-  if (region === "Africa") return { timezone, currency: "$" };
+  const tzRegion = timezone.split("/")[0];
+  if (tzRegion === "Europe") return { timezone, currency: "€" };
+  if (tzRegion === "America") return { timezone, currency: "$" };
+  if (tzRegion === "Australia") return { timezone, currency: "A$" };
+  if (tzRegion === "Pacific") return { timezone, currency: "$" };
+  if (tzRegion === "Africa") return { timezone, currency: "$" };
 
   return { timezone, currency: "$" };
 }

@@ -261,7 +261,7 @@ export function BottomNav() {
             </div>
           )}
 
-          <div className="overflow-y-auto" style={{ maxHeight: "calc(72vh - env(safe-area-inset-bottom, 0px))" }}>
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(72dvh - env(safe-area-inset-bottom, 0px))" }}>
           {MORE_NAV.length > 0 && (
             <div className="px-4 pt-3 pb-2">
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">

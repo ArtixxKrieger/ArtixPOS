@@ -395,6 +395,24 @@ export default function PrintSettings() {
   const set = <K extends keyof PrintConfig>(key: K, val: PrintConfig[K]) =>
     setCfg(prev => ({ ...prev, [key]: val }));
 
+  // Auto-apply paper width when a printer is paired whose name reveals its width
+  const autoWidthAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const { detectedWidth, name } = printer;
+    if (!detectedWidth || !name) return;
+    // Only fire once per printer name to avoid toast loops on reconnect
+    if (autoWidthAppliedRef.current === name) return;
+    autoWidthAppliedRef.current = name;
+    if (detectedWidth === cfg.receiptWidth) return;
+    set("receiptWidth", detectedWidth);
+    // Persist immediately so next print uses the right width
+    updateSettings.mutate({ receiptWidth: detectedWidth } as any);
+    toast({
+      title: `Paper width set to ${detectedWidth}`,
+      description: `Auto-detected from ${name}`,
+    });
+  }, [printer.detectedWidth, printer.name]);
+
   const handleSave = async () => {
     await updateSettings.mutateAsync({
       receiptWidth: cfg.receiptWidth,

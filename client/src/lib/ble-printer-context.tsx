@@ -235,6 +235,43 @@ async function writeEscPos(
   };
 }
 
+// ─── Printer-name → paper width detection ────────────────────────────────────
+// Reads the Bluetooth device name and returns the physical paper width.
+// Checks 80mm patterns first (more specific) then 58mm, returns null if unknown.
+export function detectPrinterWidth(name: string | null | undefined): "58mm" | "80mm" | null {
+  if (!name) return null;
+  const n = name.toLowerCase();
+
+  // ── 80mm printers ──────────────────────────────────────────────────────────
+  if (/\b80\b/.test(n)) return "80mm";                               // anything with "80" in the name
+  if (/tm-?[tu]\d{2}|tm-?m[3-9]\d/.test(n)) return "80mm";         // Epson TM-T/TM-U/TM-m30+
+  if (/tsp\d{3}/.test(n)) return "80mm";                            // Star TSP143, TSP654…
+  if (/srp-?[789]\d{2}/.test(n)) return "80mm";                     // Bixolon SRP-700/800/900
+  if (/zq\d{2}0|zm\d{3}|qln\d{3}/.test(n)) return "80mm";          // Zebra ZQ/ZM/QLn
+  if (/ct-?s[3-9]\d{2}/.test(n)) return "80mm";                     // Citizen CT-S300+
+  if (/cmp-?[3-9]\d{2}/.test(n)) return "80mm";                     // Citizen CMP-300+
+  if (/sm-?s\d{3}/.test(n)) return "80mm";                          // Star SM-S series
+  if (/rp-?8\d{2}/.test(n)) return "80mm";                          // Rongta RP-800+
+  if (/gp-?8\d{4}/.test(n)) return "80mm";                          // Gprinter GP-80xxx
+
+  // ── 58mm printers ─────────────────────────────────────────────────────────
+  if (/\b58\b/.test(n)) return "58mm";                              // anything with "58" in the name
+  if (/tm-?m[12]\d|tm-?t[12]\d/.test(n)) return "58mm";            // Epson TM-m10/m20, TM-T20…
+  if (/sm-?l\d{3}/.test(n)) return "58mm";                         // Star SM-L200/L300
+  if (/srp-?[3-6]\d{2}|mtp-?ii|mtp-?3/.test(n)) return "58mm";    // Bixolon SRP-300-600, MTP
+  if (/rpp\d{2,3}/.test(n)) return "58mm";                         // Rongta RPP series
+  if (/hoin|hop-?e[12]/.test(n)) return "58mm";                    // Hoin HOP-E200/300
+  if (/goojprt/.test(n)) return "58mm";                            // Goojprt pocket printers
+  if (/munbyn/.test(n)) return "58mm";                             // Munbyn (58mm line)
+  if (/(\bhprt\b|\bidprt\b)/.test(n)) return "58mm";              // HPRT / iDPRT 58mm
+  if (/rongta/.test(n)) return "58mm";                             // Rongta (58mm default)
+  if (/xprinter|xp-/.test(n)) return "58mm";                      // Xprinter XP-series (58 default)
+  if (/gp-[25]\d{4}/.test(n)) return "58mm";                      // Gprinter GP-2xxx/5xxx
+  if (/rp-?[25]\d{2}/.test(n)) return "58mm";                     // Rongta RP-200/500
+
+  return null;
+}
+
 // ─── Context types ───────────────────────────────────────────────────────────
 
 type Protocol = "catprinter" | "escpos" | null;
@@ -243,6 +280,7 @@ type BlePrinterState = {
   name: string | null;
   connected: boolean;
   protocol: Protocol;
+  detectedWidth: "58mm" | "80mm" | null;
 };
 
 type PrintArgs =
@@ -277,6 +315,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
     name: null,
     connected: false,
     protocol: null,
+    detectedWidth: null,
   });
   const [scanning, setScanning] = useState(false);
 
@@ -293,7 +332,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
         if (server?.connected) {
           reconnectAttemptsRef.current = 0;
           const proto = await detectProtocol(server);
-          setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol: proto });
+          setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol: proto, detectedWidth: detectPrinterWidth(device.name) });
         } else {
           scheduleReconnect(device);
         }
@@ -317,7 +356,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
       const protocol = await detectProtocol(server);
       deviceRef.current = device;
       reconnectAttemptsRef.current = 0;
-      setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol });
+      setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol, detectedWidth: detectPrinterWidth(device.name) });
       attachDisconnectListener(device);
     },
     [attachDisconnectListener],
@@ -378,12 +417,12 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
           await applyConnected(device, server);
         } else {
           deviceRef.current = device;
-          setPrinter({ name: device.name || "Bluetooth Printer", connected: false, protocol: null });
+          setPrinter({ name: device.name || "Bluetooth Printer", connected: false, protocol: null, detectedWidth: detectPrinterWidth(device.name) });
           attachDisconnectListener(device);
         }
       } catch {
         deviceRef.current = device;
-        setPrinter({ name: device.name || "Bluetooth Printer", connected: false, protocol: null });
+        setPrinter({ name: device.name || "Bluetooth Printer", connected: false, protocol: null, detectedWidth: detectPrinterWidth(device.name) });
         attachDisconnectListener(device);
       }
 
@@ -404,7 +443,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
     try { deviceRef.current?.gatt?.disconnect(); } catch {}
     deviceRef.current = null;
     charCacheRef.current = null;
-    setPrinter({ name: null, connected: false, protocol: null });
+    setPrinter({ name: null, connected: false, protocol: null, detectedWidth: null });
   }, []);
 
   const print = useCallback(async (

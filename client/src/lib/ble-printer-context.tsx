@@ -288,9 +288,12 @@ type PrintArgs =
   | { catText: string; energy?: number; catReceiptWidth?: string; catFontSize?: number }
   | { escpos: Uint8Array };
 
+const LAST_PRINTER_ID_KEY = "artixpos_last_ble_printer_id";
+
 type BlePrinterContextType = {
   printer: BlePrinterState;
   scanning: boolean;
+  lastPrinterId: string | null;
   scan: () => Promise<{ device: BluetoothDevice | null; error?: string }>;
   getPairedDevices: () => Promise<BluetoothDevice[]>;
   reconnectDevice: (device: BluetoothDevice) => Promise<void>;
@@ -318,6 +321,9 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
     detectedWidth: null,
   });
   const [scanning, setScanning] = useState(false);
+  const [lastPrinterId, setLastPrinterId] = useState<string | null>(
+    () => localStorage.getItem(LAST_PRINTER_ID_KEY)
+  );
 
   // ── Reconnect logic ────────────────────────────────────────────────────────
   const scheduleReconnect = useCallback((device: BluetoothDevice) => {
@@ -358,17 +364,27 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
       reconnectAttemptsRef.current = 0;
       setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol, detectedWidth: detectPrinterWidth(device.name) });
       attachDisconnectListener(device);
+      // Persist last-used device ID so it's prioritised on next app load
+      localStorage.setItem(LAST_PRINTER_ID_KEY, device.id);
+      setLastPrinterId(device.id);
     },
     [attachDisconnectListener],
   );
 
-  // Auto-reconnect previously paired devices on mount
+  // Auto-reconnect previously paired devices on mount — last-used device tried first
   useEffect(() => {
     const ble = (navigator as any).bluetooth;
     if (!ble || typeof ble.getDevices !== "function") return;
 
+    const savedId = localStorage.getItem(LAST_PRINTER_ID_KEY);
+
     ble.getDevices().then(async (devices: BluetoothDevice[]) => {
-      for (const device of devices) {
+      // Sort so the last-used device (by saved ID) comes first
+      const sorted = savedId
+        ? [...devices].sort((a, b) => (a.id === savedId ? -1 : b.id === savedId ? 1 : 0))
+        : devices;
+
+      for (const device of sorted) {
         try {
           const server = await device.gatt?.connect();
           if (server?.connected) {
@@ -444,6 +460,8 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
     deviceRef.current = null;
     charCacheRef.current = null;
     setPrinter({ name: null, connected: false, protocol: null, detectedWidth: null });
+    localStorage.removeItem(LAST_PRINTER_ID_KEY);
+    setLastPrinterId(null);
   }, []);
 
   const print = useCallback(async (
@@ -509,7 +527,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
   }, [printer.protocol]);
 
   return (
-    <BlePrinterContext.Provider value={{ printer, scanning, scan, getPairedDevices, reconnectDevice, disconnect, print }}>
+    <BlePrinterContext.Provider value={{ printer, scanning, lastPrinterId, scan, getPairedDevices, reconnectDevice, disconnect, print }}>
       {children}
     </BlePrinterContext.Provider>
   );

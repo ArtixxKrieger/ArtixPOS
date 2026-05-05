@@ -190,7 +190,7 @@ export default function PrintSettings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { printer: blePrinter, scanning: bleScanning, scan: bleScan, disconnect: bleDisconnect, print: blePrint, getPairedDevices, reconnectDevice } = useBlePrinter();
+  const { printer: blePrinter, scanning: bleScanning, lastPrinterId, scan: bleScan, disconnect: bleDisconnect, print: blePrint, getPairedDevices, reconnectDevice } = useBlePrinter();
 
   const isOwner = user?.role === "owner";
 
@@ -548,15 +548,23 @@ export default function PrintSettings() {
           {pairedDevices.length > 0 && (
             <div className="space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 px-0.5">Previously paired</p>
-              {pairedDevices.map(device => {
+              {[...pairedDevices]
+                .sort((a, b) => (a.id === lastPrinterId ? -1 : b.id === lastPrinterId ? 1 : 0))
+                .map(device => {
                 const isActive = blePrinter.name === (device.name || "Bluetooth Printer") && blePrinter.connected;
                 const isConnecting = connectingDevice === device.id;
+                const isLastUsed = device.id === lastPrinterId;
                 return (
                   <div key={device.id} className="flex items-center gap-2.5 rounded-xl border border-border/25 bg-secondary/20 px-3 py-2">
                     <Bluetooth className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <p className="flex-1 text-xs font-medium truncate text-foreground/80">
-                      {device.name || "Unnamed Device"}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate text-foreground/80">
+                        {device.name || "Unnamed Device"}
+                      </p>
+                      {isLastUsed && !isActive && (
+                        <p className="text-[10px] text-primary/60 font-medium mt-0.5">Last used</p>
+                      )}
+                    </div>
                     {isActive ? (
                       <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">Connected</span>
                     ) : (

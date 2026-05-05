@@ -1,73 +1,84 @@
-# ArtixPOS System
+# ArtixPOS — Business OS
 
-## Overview
-ArtixPOS is a full-stack Point of Sale (POS) system designed for café management, with capabilities extending to other business types like salons, retail, and restaurants. It aims to provide a robust, intuitive, and scalable solution for managing products, sales, orders, and staff, offering real-time analytics and multi-tenant support. The system is envisioned to be a comprehensive tool for small to medium-sized businesses, enabling efficient operations, data-driven decision-making, and seamless customer interactions. Key capabilities include a fast POS interface, product customization, pending order management, detailed analytics, and PWA support for multi-platform accessibility.
+A full-stack Point of Sale (POS) and business management platform built with React, Express, and PostgreSQL.
 
-## User Preferences
-I prefer simple language and clear explanations. I want iterative development with frequent, small updates. Ask before making major architectural changes or introducing new external dependencies. For AI features, ensure responses are always relevant to store operations and prevent the AI from engaging in off-topic discussions. When the AI performs an action like adding a product or logging an expense, provide an "Undo" option for a short period. Ensure that all data is isolated per tenant and branch. Do not make changes to folder `node_modules` and the file `package-lock.json`.
+## Project Overview
 
-## Recent Changes
-- **BIR Immutable Void Audit Log**: Added `voidReason` column to `sales` table (schema + migration applied). `softDeleteSale` now accepts an optional `reason` param. `DELETE /api/sales/:id` reads `reason` from request body and stores it. `GET /api/sales` supports `includeVoided=1` query param (storage + route). `GET /api/sales/export` now: accepts `startDate`/`endDate` date range, includes all voided sales, and exports `status`, `voidedAt`, `voidedBy`, `voidReason` columns. Transactions page: "Show Voided" toggle, voided badges, mobile card view, "Export CSV" button. Sale detail modal: "Void Sale" button with reason textarea (required), displays void banner with timestamp + reason, separate from refund flow.
-- **UI Responsive Overhaul**: Transactions page now shows native card list on mobile (`md:hidden`) alongside the desktop table (`hidden md:block`) — no horizontal scroll on phone. Bottom-nav More sheet wrapped in `overflow-y-auto max-h-[72vh]` so long lists scroll correctly; icon grid items use `py-4` and `text-[11px] leading-tight` for better touch targets.
-- **Business-Type Terminology Overhaul**: Extended `BusinessTerminology` type with 9 new fields (`product`, `productPlural`, `posAction`, `addToCartLabel`, `cartLabel`, `transactionLabel`, `transactionPlural`, `supplierLabel`, `categoryLabel`). All 20+ subtypes (pharmacy, grocery, restaurant, café, bakery, bar, food truck, salon, barbershop, nail salon, massage, gym, spa, clinic, dental, pet grooming, car wash, auto repair, laundry, photography, tutoring, cleaning, clothing, electronics, bookstore) now carry deeply specific labels for every UI term. Navigation labels and page titles auto-update via the `labels` record in `getBusinessFeatures`.
-- **`useBusinessTerminology` Hook**: Added to `use-branch-business.ts` — components can now call `const { posAction, cartLabel, productPlural } = useBusinessTerminology()` directly.
-- **BIR Compliance Gated Behind Pro**: Added `ProAndOwnerGuard` in `App.tsx` (checks both `isPro` + `role === "owner"`); `/bir` route now uses it. Added `proOnly: true` to BIR nav item in `app-layout.tsx` so it disappears for Free plan owners. Added `requirePro` to all 6 `/api/bir/*` backend routes (x-report, summary, esales-export, ejournal, or-gaps, hash-verify). Added "BIR compliance" to `PRO_FEATURES` list in `use-subscription.ts` so it appears on the billing/upgrade page.
-- **Auto Repair Suppliers Fix**: `auto_repair` and `repair` subtypes now correctly un-hide `/suppliers` and `/purchases` (parts & services suppliers are core to the job) via `hidden.delete()` after the service-wide hide.
-- **Structured Logging**: Replaced bare `console.log` with Pino structured logger (`server/logger.ts`). Dev uses pretty-print; production emits JSON with method, path, status, duration, and requestId fields.
-- **BIR Receipt Compliance**: Added zero-rated sales line to all receipt outputs (HTML, ESC/POS, cat printer). Added "THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX" disclaimer for SC/PWD and non-VAT transactions.
-- **Security**: Deleted committed Android keystore files (`keystore/ArtixCutie.jks`, `keystore/debug.keystore`) and added `keystore/` to `.gitignore`.
+ArtixPOS is a comprehensive business management system offering:
+- Point of Sale with offline support (PWA/Service Worker)
+- Real-time analytics & reports
+- Built-in AI business assistant (multi-provider: Groq, Cerebras, Mistral)
+- Multi-branch & team management
+- Inventory, supplier & purchase order management
+- Customer & membership management
+- Appointments & staff scheduling
+- Payroll management
+- Expense tracking
+- WiFi voucher management
 
-## System Architecture
-The ArtixPOS system is built with a React + TypeScript + TailwindCSS frontend and an Express.js backend utilizing PostgreSQL (Drizzle ORM) for data persistence. TanStack React Query manages state on the frontend. The UI/UX is characterized by a modern design system using Shadcn UI components, a Violet-600 primary color, "Plus Jakarta Sans" font, and generous border radii for a clean aesthetic. Glassmorphism-inspired utility classes are used for certain elements, carefully avoiding `backdrop-filter` for mobile performance. Full light/dark mode support is included, managed via CSS variables and local storage.
+## Architecture
 
-Core technical implementations include:
-- **Authentication**: JWTs in httpOnly cookies for sessions, supporting both local email/password login for staff and OAuth (Google, Facebook).
-- **Authorization**: Role-Based Access Control (RBAC) middleware (`requireAuth`, `requireOwner`, `requireAdminOrAbove`, `requireTenant`) enforces permissions across different user roles (Owner, Admin, Cashier).
-- **Multi-tenancy**: The database schema includes `tenants`, `branches`, `user_branches`, and `audit_logs` tables, with all other data tables linking back to `branchId` or `tenantId` to ensure full data isolation.
-- **AI Integration**: An AI Assistant, powered by Groq and Llama 3.3 70B, is deeply integrated. It uses a SimpleMem-style atomic fact extraction for memory, stored in `ai_memories` and injected into system prompts. The AI is database-aware, capable of answering questions based on real-time sales, products, and expenses. It supports file uploads (PDF, Excel, CSV) for parsing and bulk imports. Critical AI design patterns include:
-    - **Action Tags**: AI emits `[TAG]{json}[/TAG]` markers to trigger specific actions (e.g., product CRUD, expense logging, discount management), which are parsed and rendered as confirmation cards in the UI.
-    - **Reorder for Regulars**: AI can recall a customer's recent orders and provide a quick reorder option.
-    - **Off-Topic Filter**: Pre-LLM regex filters block irrelevant queries to conserve tokens and maintain focus.
-    - **Action-Capability Shortcut**: A pre-LLM regex provides quick answers to capability questions, reducing LLM load.
-    - **Undo Chip**: A temporary "Undo" option appears after certain AI actions.
-    - **Error Resilience**: AI errors are handled gracefully with "Try again" options and collapsing identical error messages.
-- **PWA Support**: The application is installable as a Progressive Web App, offering offline capabilities through a service worker, auto-updates, and full-screen mode.
-- **Mobile App**: Capacitor is used to wrap the React frontend into native Android and iOS applications, with CI/CD pipelines via GitHub Actions for automated builds.
-- **Advanced Branch System**: Branches support rich metadata — `email`, `website`, `description`, `color` (accent theming), `timezone`, `taxRate`, and `openingHours` (7-day schedule). The branches page features: color-accented cards with live "Open Now / Closed" status, quick stats (today revenue, orders, staff), a side-drawer with a 7-day revenue bar chart and top-products list, a branch comparison chart across all locations, a 4-tab creation/edit form (Basic / Details / Hours / Settings), an opening-hours editor, branch duplication, and dedicated seed/reset dialogs. API endpoints: `GET /api/admin/branches/:id/stats` and `POST /api/admin/branches/:id/duplicate`.
-- **Branch Color Theming**: The active branch's color is applied system-wide as the primary accent color (buttons, links, highlights, sidebar, chart-1) in both light and dark mode. A `useBranchTheme` hook converts the branch hex color to HSL and injects CSS custom properties (`--primary`, `--ring`, `--sidebar-primary`, `--accent`, etc.) directly on `document.documentElement` using a MutationObserver to react to dark/light mode toggles. The color picker in the branch form supports full RGB (native `<input type="color">` backed by a visible swatch + hex input field) plus 10 preset swatches. Branch color dots appear in the branch switcher dropdown.
-- **Resilience**: Service worker caching strategies are optimized for assets and lazy-loaded chunks. An `<ErrorBoundary>` handles lazy-import failures and provides offline-aware recovery mechanisms.
+- **Frontend**: React 18 + Vite, Tailwind CSS, Radix UI, TanStack Query, Wouter routing
+- **Backend**: Express 5 + Node.js (TypeScript via tsx)
+- **Database**: PostgreSQL via Drizzle ORM (primary), SQLite fallback
+- **Auth**: Custom JWT-based auth (cookie + Bearer token), Passport.js with Google/Facebook OAuth strategies
+- **Mobile**: Capacitor for Android/iOS wrapping
+- **Cache/Rate Limiting**: Upstash Redis (optional, falls back to in-memory)
 
-## External Dependencies
-- **Database**: PostgreSQL via Replit's managed database (DATABASE_URL auto-configured)
-- **ORM**: Drizzle ORM
-- **AI Model**: Groq (Llama 3.3 70B) — requires GROQ_API_KEY secret
-- **OAuth Providers**: Google (optional, requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)
-- **Mobile Wrapper**: Capacitor
-- **Font Hosting**: Google Fonts
+## Development
 
-## Replit Environment Notes
-- Runs on port 5000 (webview) in development via `npm run dev`
-- Dev command uses `node node_modules/tsx/dist/cli.mjs` directly (tsx is installed locally; the `.bin/tsx` symlink points to the wrong binary)
-- `SESSION_SECRET` and `DATABASE_URL` are provisioned as Replit secrets
-- Deployment build: `npm run build`, run: `node ./dist/index.cjs`
-- Optional AI keys: `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`
-- Optional payment key: `PAYMONGO_SECRET_KEY` (for subscription billing)
-- Optional email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (for password reset emails)
+The app runs as a single server that serves both API routes and the Vite dev server (HMR).
 
-## BIR Compliance (Philippine Bureau of Internal Revenue)
-- **Schema**: Added BIR fields to `userSettings` (tin, ptuNumber, accreditationNumber, accreditationDate, machineSerialNumber, vatRegistered) and `sales` (discountType, scPwdId, vatableSales, vatExemptSales, zeroRatedSales)
-- **Print Settings** (`/print-settings`): Full "BIR Compliance" section — TIN, PTU No., Accreditation No./Date, Machine Serial No., VAT Registered toggle
-- **Receipt Modal**: BIR-compliant receipts showing TIN/PTU/Accreditation in header, OR number, SC/PWD discount badge with ID, and proper VAT breakdown (VATable Sales / VAT Amount / VAT-Exempt Sales)
-- **POS SC/PWD Discount**: Three-button toggle (None / SC / PWD) in cart summary; selecting SC or PWD applies 20% discount, zeroes VAT (VAT-exempt), shows ID input field, passes discountType/scPwdId/vatableSales/vatExemptSales to sale record
-- **Z-Report** (Shifts page): Day-End Summary shows BIR VAT breakdown grid (VATable Sales / VAT Amount / VAT-Exempt); "Z-Report" print button generates a monospace thermal-style printout with store TIN/PTU/Accreditation/Machine S/N, transaction count, gross/net/expense totals, and full VAT breakdown
-- **CRITICAL FIX — BIR fields in pending order → sale conversion**: `POST /api/pendingOrders` now passes `discountType`, `scPwdId`, `vatableSales`, `vatExemptSales`, `zeroRatedSales` from the request body to `storage.createSale()`. Previously these were silently dropped, meaning X/Z reports and eSales CSV had $0 VAT breakdown for all POS transactions.
-- **CRITICAL FIX — OR number returned after checkout**: The pending order creation route now captures the auto-created sale's `orNumber` and `receiptNumber` and merges them into the JSON response. Previously the route returned only the order (which has no OR fields), so the receipt modal always displayed no OR number — a direct BIR non-compliance.
-- **FIX — orderNumber on receipt**: `pos.tsx` now passes `orderNumber` from the order response to the `ReceiptData` object so order numbers appear on thermal receipts.
-- **FIX — Sales journal CSV BIR columns**: `GET /api/sales/export` now includes `discountType`, `scPwdId`, `vatableSales`, `vatExemptSales`, `zeroRatedSales` columns for BIR audit trail.
-- **Audit coverage**: X-report, Z-report, monthly summary routes confirmed correct (netSales = total−tax; VAT columns read from DB). eSales CSV uses PH timezone (+08:00) and includes accreditation/machine serial in header. ESC/POS builder (`escpos.ts`) and cat-printer builder (`catprinter.ts`) both confirmed to carry all BIR fields. BIR page (`bir.tsx`) sections audited: compliance score, X/Z HTML, VAT Summary print, 2550M modal, OR gap detection.
+```bash
+# Start development server
+npm run dev
 
-## Advanced Loyalty System (Added)
-- **Database tables**: `loyalty_tiers`, `loyalty_rewards`, `loyalty_points_log`; new columns on `customers` (`lifetime_points`, `tier`, `birthday`, `stamp_count`, `referred_by`) and on `user_settings` (`loyalty_expiry_days`, `loyalty_birthday_bonus`, `loyalty_referral_bonus`, `loyalty_stamp_target`, `loyalty_stamp_enabled`)
-- **Backend**: Full CRUD routes for `/api/loyalty/tiers`, `/api/loyalty/rewards`; enhanced `/api/customers/:id/loyalty` (manual adjust with reason+note), `/api/customers/:id/loyalty-log`, `/api/customers/:id/redeem-reward`; auto-tier recalculation on every points change
-- **Customers page** (`/customers`): Tier badges, lifetime/current points, visit stats, purchase history, 3-tab profile dialog (Overview + manual adjust, Points Log, Redeem rewards), birthday field in add/edit form
-- **Loyalty page** (`/loyalty`): 4-tab layout — Dashboard (stats, tier distribution bar chart, top members), Tiers (CRUD with color picker, multiplier, perks, Bronze/Silver/Gold/Platinum presets), Rewards Catalog (CRUD with type: fixed/percent/free product/stamp/custom, active toggle, max redemptions, expiry), Settings (point earn rate, redemption rate, birthday bonus, referral bonus, stamp card toggle, points expiry)
+# Push schema changes to DB
+npm run db:push
+
+# Build for production
+npm run build
+```
+
+Server listens on port **5000** (webview).
+
+## Workflow
+
+- **Start application**: `NODE_ENV=development node_modules/.bin/tsx server/index.ts` on port 5000
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `SESSION_SECRET` | Yes | JWT signing secret (64+ char random string) |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth secret |
+| `FACEBOOK_APP_ID` | No | Facebook OAuth app ID |
+| `FACEBOOK_APP_SECRET` | No | Facebook OAuth secret |
+| `GROQ_API_KEY` | No | Groq AI API key (AI assistant) |
+| `CEREBRAS_API_KEY` | No | Cerebras AI API key (AI assistant fallback) |
+| `MISTRAL_API_KEY` | No | Mistral AI API key (AI assistant fallback) |
+| `UPSTASH_REDIS_REST_URL` | No | Upstash Redis URL (rate limiting) |
+| `UPSTASH_REDIS_REST_TOKEN` | No | Upstash Redis token |
+| `SMTP_HOST` | No | SMTP server for password reset emails |
+| `SMTP_USER` | No | SMTP username |
+| `SMTP_PASS` | No | SMTP password |
+| `APP_URL` | No | Public app URL for OAuth callbacks |
+
+## Key Files
+
+- `server/index.ts` — Express app setup, middleware, server startup
+- `server/auth.ts` — JWT auth, Passport strategies, auth routes
+- `server/routes.ts` — API route registration
+- `server/db.ts` — PostgreSQL pool + Drizzle ORM instance
+- `server/ai-router.ts` — Multi-provider AI routing with circuit breakers
+- `shared/schema.ts` — Drizzle ORM schema (shared between client and server)
+- `client/src/App.tsx` — React app root, routing
+- `client/src/hooks/use-auth.ts` — Auth state management
+- `vite.config.ts` — Vite configuration
+
+## Deployment
+
+Build command: `npm run build`  
+Run command: `node ./dist/index.cjs`

@@ -13,46 +13,79 @@ const KNOWN_ESCPOS_CHARS: Record<string, string[]> = {
   // XP-58H / XP-80 / Xprinter / iDPRT — primary service
   "000018f0-0000-1000-8000-00805f9b34fb": [
     "00002af1-0000-1000-8000-00805f9b34fb",
+    "00002af0-0000-1000-8000-00805f9b34fb",
   ],
-  // Epson TM-m30 / m50 BLE
+  // Epson TM-m30 / TM-m30II / TM-m50 BLE
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2": [
     "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f",
   ],
-  // Mii / Xprinter SPP-over-BLE
+  // Mii / Xprinter / Hoin SPP-over-BLE (very common in budget 58mm printers)
   "49535343-fe7d-4ae5-8fa9-9fafd205e455": [
     "49535343-8841-43f4-a8d4-ecbe34729bb3",
     "49535343-1e4d-4bd9-ba61-23c647249616",
   ],
-  // Generic BLE UART (most Chinese thermal printers)
+  // Generic BLE UART — most Chinese 58mm/80mm thermal printers (Xprinter, ZJ, Goojprt, Munbyn)
   "0000ff00-0000-1000-8000-00805f9b34fb": [
     "0000ff02-0000-1000-8000-00805f9b34fb",
     "0000ff01-0000-1000-8000-00805f9b34fb",
   ],
-  // HM-10 / HC-08 BLE module (widely used in low-cost printers)
+  // HM-10 / HC-08 BLE UART module (widely embedded in low-cost thermal printers)
   "0000ffe0-0000-1000-8000-00805f9b34fb": [
     "0000ffe1-0000-1000-8000-00805f9b34fb",
   ],
-  // Alternate generic BLE UART
+  // Alternate generic BLE UART / Gprinter / Rongta lite
   "0000fff0-0000-1000-8000-00805f9b34fb": [
     "0000fff2-0000-1000-8000-00805f9b34fb",
     "0000fff1-0000-1000-8000-00805f9b34fb",
   ],
-  // Rongta / RPP series
+  // Rongta RPP02 / RPP300 series
   "0000ae30-0000-1000-8000-00805f9b34fb": [
     "0000ae01-0000-1000-8000-00805f9b34fb",
   ],
-  // XP-58H / XP-80 alternate service UUID
+  // XP-58H / XP-80 / Xprinter alternate (firmware variants)
   "0000ae3a-0000-1000-8000-00805f9b34fb": [
     "0000ae01-0000-1000-8000-00805f9b34fb",
     "0000ae02-0000-1000-8000-00805f9b34fb",
   ],
-  // Star Micronics BLE
+  // Star Micronics TSP / mPOP / SM-L series BLE
   "0000fee7-0000-1000-8000-00805f9b34fb": [
     "0000fea1-0000-1000-8000-00805f9b34fb",
+    "0000fea2-0000-1000-8000-00805f9b34fb",
   ],
-  // Bixolon / Sewoo BLE
+  // Bixolon SPP-R / SRP series BLE
   "0000180f-0000-1000-8000-00805f9b34fb": [
     "00002a19-0000-1000-8000-00805f9b34fb",
+  ],
+  // Sewoo / WOOSIM BLE
+  "0000fde9-0000-1000-8000-00805f9b34fb": [
+    "0000fd00-0000-1000-8000-00805f9b34fb",
+  ],
+  // Citizen CT-S / CMP series BLE
+  "00001000-0000-1000-8000-00805f9b34fb": [
+    "00001001-0000-1000-8000-00805f9b34fb",
+    "00001002-0000-1000-8000-00805f9b34fb",
+  ],
+  // Zebra ZQ / iMZ / QLn BLE
+  "38eb4a80-c570-11e3-9507-0002a5d5c51b": [
+    "38eb4a82-c570-11e3-9507-0002a5d5c51b",
+  ],
+  // SNBC / Cashino / Munbyn generic UART variant
+  "0000ab00-0000-1000-8000-00805f9b34fb": [
+    "0000ab02-0000-1000-8000-00805f9b34fb",
+    "0000ab01-0000-1000-8000-00805f9b34fb",
+  ],
+  // Hoin HOP-E200 / E300 series (popular in Philippines / SE Asia)
+  "0000fee0-0000-1000-8000-00805f9b34fb": [
+    "0000fee1-0000-1000-8000-00805f9b34fb",
+  ],
+  // Gprinter GP-2120TF / GP-80250IVN series
+  "0000ff12-0000-1000-8000-00805f9b34fb": [
+    "0000ff02-0000-1000-8000-00805f9b34fb",
+    "0000ff01-0000-1000-8000-00805f9b34fb",
+  ],
+  // iDPRT / HPRT series BLE
+  "49535343-c9d0-cc83-a44a-6fe4e3bfb746": [
+    "49535343-fffb-4000-a44a-6fe4e3bfb746",
   ],
 };
 
@@ -64,6 +97,15 @@ const BLE_PRINT_SERVICES = [
   "000001ff-0000-1000-8000-00805f9b34fb",
   "0000ae40-0000-1000-8000-00805f9b34fb",
   "0000ae50-0000-1000-8000-00805f9b34fb",
+  // Additional extras for broad compatibility
+  "0000fe00-0000-1000-8000-00805f9b34fb",
+  "0000fde9-0000-1000-8000-00805f9b34fb",
+  "00001000-0000-1000-8000-00805f9b34fb",
+  "38eb4a80-c570-11e3-9507-0002a5d5c51b",
+  "0000ab00-0000-1000-8000-00805f9b34fb",
+  "0000fee0-0000-1000-8000-00805f9b34fb",
+  "0000ff12-0000-1000-8000-00805f9b34fb",
+  "49535343-c9d0-cc83-a44a-6fe4e3bfb746",
 ];
 
 // Larger chunks = fewer BLE round-trips = print completes before user can switch apps

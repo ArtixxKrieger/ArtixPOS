@@ -553,7 +553,10 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
           </div>
         )}
 
-        <div className="px-5 pb-5 flex gap-2 pt-2">
+        <div
+          className="px-5 pt-2 flex gap-2"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px) + 12px, 20px)" }}
+        >
           <Button
             variant="outline"
             className="flex-1 rounded-xl h-10"

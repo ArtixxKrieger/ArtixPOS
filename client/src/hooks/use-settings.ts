@@ -41,7 +41,10 @@ export function useSettings() {
     const settings = query.data as any;
     const locale = detectLocale();
     const needsTimezone = !settings.timezone;
-    const needsCurrency = !settings.currency || settings.currency === "$";
+    // Only auto-detect currency when it has never been set at all.
+    // Do NOT override an existing value based on device locale — the device
+    // may be from another country (e.g. a Japanese device used in the Philippines).
+    const needsCurrency = !settings.currency;
 
     if (!needsTimezone && !needsCurrency) return;
 

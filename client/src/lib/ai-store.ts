@@ -96,7 +96,7 @@ export function clearAllSessions() {
 
 export function getFloatEnabled(): boolean {
   const val = localStorage.getItem(FLOAT_KEY);
-  return val === null ? true : val === "true";
+  return val === null ? false : val === "true";
 }
 
 export function setFloatEnabled(enabled: boolean) {

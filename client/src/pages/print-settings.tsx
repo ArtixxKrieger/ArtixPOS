@@ -421,6 +421,7 @@ export default function PrintSettings() {
       accreditationDate: cfg.accreditationDate || null,
       machineSerialNumber: cfg.machineSerialNumber || null,
       vatRegistered: cfg.vatRegistered ? 1 : 0,
+      currency: cfg.currency || "₱",
     } as any);
     toast({ title: "Print settings saved" });
   };
@@ -479,9 +480,10 @@ export default function PrintSettings() {
               <Info className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
               <div className="text-[11px] text-muted-foreground space-y-0.5 leading-relaxed">
                 <p className="font-semibold text-foreground">Before scanning:</p>
-                <p>1. Turn on your printer and make sure Bluetooth is enabled.</p>
-                <p>2. Press and hold the printer's Bluetooth button until the LED blinks (pairing mode).</p>
-                <p>3. Tap <span className="font-semibold text-foreground">Scan for Printer</span> below — your printer will appear in the list (e.g. <span className="font-mono">XP-58H</span>, <span className="font-mono">BT Printer</span>).</p>
+                <p>1. Turn on your printer and enable BLE / Bluetooth mode (hold the feed button until the LED blinks fast).</p>
+                <p>2. Tap <span className="font-semibold text-foreground">Scan for Printer</span> below — your printer will appear in the list (e.g. <span className="font-mono">XP-58H</span>, <span className="font-mono">BT Printer</span>).</p>
+                <p>3. If you see <span className="font-semibold text-foreground">Unknown or Unsupported Device</span> — that is your printer. Select it and tap <span className="font-semibold text-foreground">Pair</span> to connect.</p>
+                <p className="pt-0.5 text-[10px] border-t border-border/20">Supported: XP-58H, Xprinter, Rongta, Epson TM, Star, Bixolon, Munbyn, Hoin, Gprinter, Citizen, Zebra, iDPRT, HPRT and most 58mm / 80mm BLE thermal printers.</p>
               </div>
             </div>
           )}
@@ -707,6 +709,27 @@ export default function PrintSettings() {
 
           <SectionLabel>Paper & Layout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+            <SettingRow label="Currency Symbol" hint="Symbol shown on receipts and throughout the app">
+              <div className="flex flex-wrap gap-1.5 justify-end">
+                {["₱", "$", "€", "£", "¥", "S$", "RM", "Rp", "฿", "₩", "₹", "A$", "CA$"].map(sym => (
+                  <button
+                    key={sym}
+                    type="button"
+                    data-testid={`button-currency-${sym}`}
+                    onClick={() => set("currency", sym)}
+                    className={[
+                      "px-2.5 py-1 rounded-lg text-sm font-medium border transition-colors",
+                      cfg.currency === sym
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-transparent hover:border-border",
+                    ].join(" ")}
+                  >
+                    {sym}
+                  </button>
+                ))}
+              </div>
+            </SettingRow>
+
             <SettingRow label="Paper Width" hint="Match your thermal printer roll size">
               <div className="flex gap-2 justify-end">
                 {(["58mm", "80mm"] as const).map(w => (

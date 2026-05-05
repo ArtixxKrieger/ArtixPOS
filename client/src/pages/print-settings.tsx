@@ -398,7 +398,7 @@ export default function PrintSettings() {
   // Auto-apply paper width when a printer is paired whose name reveals its width
   const autoWidthAppliedRef = useRef<string | null>(null);
   useEffect(() => {
-    const { detectedWidth, name } = printer;
+    const { detectedWidth, name } = blePrinter;
     if (!detectedWidth || !name) return;
     // Only fire once per printer name to avoid toast loops on reconnect
     if (autoWidthAppliedRef.current === name) return;
@@ -411,7 +411,7 @@ export default function PrintSettings() {
       title: `Paper width set to ${detectedWidth}`,
       description: `Auto-detected from ${name}`,
     });
-  }, [printer.detectedWidth, printer.name]);
+  }, [blePrinter.detectedWidth, blePrinter.name]);
 
   const handleSave = async () => {
     await updateSettings.mutateAsync({

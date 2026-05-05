@@ -4,6 +4,46 @@ const LF = 0x0a;
 
 const enc = new TextEncoder();
 
+// ─── ASCII-safe currency for ESC/POS ─────────────────────────────────────────
+// Thermal printers use single-byte ASCII (CP437/CP858). Multi-byte UTF-8
+// currency symbols (₱=3 bytes, €=3 bytes, £=2 bytes…) break column alignment
+// because the printer counts BYTES for line width but JS counts Unicode chars.
+// We map every common multi-byte symbol to a 1-2 byte ASCII equivalent.
+const ASCII_CURRENCY_MAP: Record<string, string> = {
+  "₱": "P",    // Philippine Peso  → P
+  "€": "E",    // Euro             → E
+  "£": "L",    // British Pound    → L
+  "¥": "Y",    // Yen / Yuan       → Y
+  "₩": "W",    // Korean Won       → W
+  "₹": "Rs",   // Indian Rupee     → Rs
+  "฿": "B",    // Thai Baht        → B
+  "₫": "d",    // Vietnamese Dong  → d
+  "₦": "N",    // Nigerian Naira   → N
+  "₵": "C",    // Ghanaian Cedi    → C
+  "₪": "S",    // Israeli Shekel   → S
+  "₴": "H",    // Ukrainian Hryvnia→ H
+  "₼": "M",    // Azerbaijani Manat→ M
+  "₾": "L",    // Georgian Lari    → L
+  "₸": "T",    // Kazakhstani Tenge→ T
+  "₮": "T",    // Mongolian Tugrik → T
+  "₲": "G",    // Paraguayan Guaraní→G
+  "₡": "C",    // Costa Rican Colón→ C
+  "₢": "C",    // Brazilian Cruzeiro→C
+  "৳": "Tk",   // Bangladeshi Taka → Tk
+  "₨": "Rs",   // Pakistani Rupee  → Rs
+  "₭": "K",    // Laotian Kip      → K
+};
+
+export function toAsciiCurrency(currency: string): string {
+  return ASCII_CURRENCY_MAP[currency] ?? currency;
+}
+
+// Byte-safe string length: counts how many bytes a string will occupy in the
+// printer's output (ASCII = 1 byte each; after currency mapping, all chars are ASCII).
+function byteLen(str: string): number {
+  return enc.encode(str).length;
+}
+
 function bytes(...vals: number[]): number[] {
   return vals;
 }
@@ -16,20 +56,19 @@ function pad(str: string, len: number): string {
   return str.slice(0, len).padEnd(len);
 }
 
-function rpad(str: string, len: number): string {
-  return str.slice(0, len).padStart(len);
-}
-
 function row(left: string, right: string, width: number): number[] {
-  const available = width - right.length;
+  // Use byteLen for right so column alignment matches the printer's byte counter.
+  const rightBytes = byteLen(right);
+  const available = width - rightBytes;
   const l = pad(left, Math.max(1, available));
-  return text(l + rpad(right, right.length) + "\n");
+  return text(l + right + "\n");
 }
 
-// Wraps long item names across multiple lines instead of truncating
+// Wraps long item names across multiple lines instead of truncating.
+// Uses byte lengths for column math so ₱→P (1 byte) aligns perfectly.
 function wrappedRow(left: string, right: string, width: number): number[] {
-  const rightLen = right.length;
-  const available = width - rightLen;
+  const rightBytes = byteLen(right);
+  const available = width - rightBytes;
 
   if (left.length <= available) {
     return text(left.padEnd(available) + right + "\n");
@@ -62,7 +101,7 @@ function wrappedRow(left: string, right: string, width: number): number[] {
     result.push(...text(lastLine.padEnd(available) + right + "\n"));
   } else {
     result.push(...text(lastLine + "\n"));
-    result.push(...text(right.padStart(width) + "\n"));
+    result.push(...text(" ".repeat(Math.max(0, width - rightBytes)) + right + "\n"));
   }
   return result;
 }
@@ -139,7 +178,7 @@ export interface EscPosReceipt {
 }
 
 function fmt(amount: number, currency: string): string {
-  return `${currency}${amount.toFixed(2)}`;
+  return `${toAsciiCurrency(currency)}${amount.toFixed(2)}`;
 }
 
 export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {

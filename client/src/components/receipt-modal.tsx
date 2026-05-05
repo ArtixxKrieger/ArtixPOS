@@ -59,7 +59,7 @@ export function buildReceiptHtml(
 ): string | null {
   const el = document.getElementById(printableId);
   if (!el) return null;
-  const width = (settings?.receiptWidth ?? "80mm") === "58mm" ? 210 : 280;
+  const width = (settings?.receiptWidth ?? "58mm") === "58mm" ? 210 : 280;
   const fs = settings?.receiptFontSize ?? 25;
   return `<!DOCTYPE html>
 <html>
@@ -98,7 +98,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const { currency } = receipt;
   const now = new Date();
 
-  const receiptWidth = s.receiptWidth ?? "80mm";
+  const receiptWidth = s.receiptWidth ?? "58mm";
   const printDarkness = s.printDarkness ?? 65535;
   const receiptFontSize = 25;
   const receiptTitle = s.receiptTitle ?? "OFFICIAL RECEIPT";

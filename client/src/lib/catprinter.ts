@@ -18,6 +18,7 @@
  */
 
 import type { EscPosReceipt } from "./escpos";
+import { toAsciiCurrency } from "./escpos";
 
 export const CAT_SERVICE  = "0000ae30-0000-1000-8000-00805f9b34fb";
 export const CAT_WRITE_CH = "0000ae01-0000-1000-8000-00805f9b34fb";
@@ -188,7 +189,7 @@ export function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58
 export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): string {
   const width = charsOverride ?? (r.receiptWidth === "58mm" ? 32 : 42);
   const dash  = "-".repeat(width);
-  const fmt   = (n: number) => `${r.currency}${n.toFixed(2)}`;
+  const fmt   = (n: number) => `${toAsciiCurrency(r.currency)}${n.toFixed(2)}`;
 
   const center = (s: string) => {
     const p = Math.max(0, Math.floor((width - s.length) / 2));

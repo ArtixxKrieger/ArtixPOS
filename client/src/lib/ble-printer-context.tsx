@@ -108,10 +108,12 @@ const BLE_PRINT_SERVICES = [
   "49535343-c9d0-cc83-a44a-6fe4e3bfb746",
 ];
 
-// Larger chunks = fewer BLE round-trips = print completes before user can switch apps
-const CHUNK_SIZE = 512;
-// Minimal delay between ESC/POS chunks — printers buffer incoming data, 5ms is enough
-const CHUNK_DELAY = 5;
+// Keep chunks small: many cheap BLE thermal printers have a 100-200 byte ATT MTU.
+// Sending more than the negotiated MTU in one writeValueWithoutResponse call
+// silently drops the excess data, causing truncated receipts.
+const CHUNK_SIZE = 100;
+// 20ms between chunks gives the printer buffer time to drain.
+const CHUNK_DELAY = 20;
 
 function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms));

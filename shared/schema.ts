@@ -383,7 +383,7 @@ export const userSettings = pgTable("user_settings", {
   onboardingComplete: integer("onboarding_complete").default(0),
   paymentMethods: jsonb("payment_methods").$type<{ id: string; label: string; isCash: boolean }[]>(),
   monthlyRevenueGoal: text("monthly_revenue_goal"),
-  receiptWidth: text("receipt_width").default("80mm"),
+  receiptWidth: text("receipt_width").default("58mm"),
   receiptTitle: text("receipt_title").default("OFFICIAL RECEIPT"),
   receiptHeaderText: text("receipt_header_text"),
   receiptWebsite: text("receipt_website"),

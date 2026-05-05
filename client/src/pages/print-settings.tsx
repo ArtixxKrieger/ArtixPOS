@@ -328,7 +328,7 @@ export default function PrintSettings() {
   };
 
   const [cfg, setCfg] = useState<PrintConfig>({
-    receiptWidth: "80mm",
+    receiptWidth: "58mm",
     receiptTitle: "OFFICIAL RECEIPT",
     receiptHeaderText: "",
     receiptWebsite: "",
@@ -362,7 +362,7 @@ export default function PrintSettings() {
     cfgLoadedRef.current = true;
     const s = settings as any;
     setCfg({
-      receiptWidth: s.receiptWidth ?? "80mm",
+      receiptWidth: s.receiptWidth ?? "58mm",
       receiptTitle: s.receiptTitle ?? "OFFICIAL RECEIPT",
       receiptHeaderText: s.receiptHeaderText ?? "",
       receiptWebsite: s.receiptWebsite ?? "",

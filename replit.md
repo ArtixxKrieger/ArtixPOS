@@ -44,7 +44,7 @@ Server listens on port **5000** (webview).
 
 ## Workflow
 
-- **Start application**: `NODE_ENV=development node_modules/.bin/tsx server/index.ts` on port 5000
+- **Start application**: `NODE_ENV=development node node_modules/tsx/dist/cli.cjs server/index.ts` on port 5000
 
 ## Environment Variables
 

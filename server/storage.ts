@@ -120,10 +120,10 @@ export interface IStorage {
   markAllNotificationsRead(userId: string): Promise<void>;
 
   // Sales
-  getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null }): Promise<Sale[]>;
+  getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean }): Promise<Sale[]>;
   getSaleById(id: number, userId: string): Promise<Sale | undefined>;
   createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
-  softDeleteSale(id: number, userId: string, deletedBy: string): Promise<boolean>;
+  softDeleteSale(id: number, userId: string, deletedBy: string, reason?: string): Promise<boolean>;
   getDeletedSales(userId: string): Promise<Sale[]>;
 
   // Settings
@@ -492,14 +492,15 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Sales ────────────────────────────────────────────────────────────────
 
-  async getSales(userId: string, opts: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null } = {}): Promise<Sale[]> {
+  async getSales(userId: string, opts: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean } = {}): Promise<Sale[]> {
     try {
-      const { limit = 200, offset = 0, startDate, endDate, customerId, branchId } = opts;
+      const { limit = 200, offset = 0, startDate, endDate, customerId, branchId, includeVoided = false } = opts;
       const userIds = await this.getTenantUserIds(userId);
       const userCondition = userIds.length === 1
         ? eq(sales.userId, userIds[0])
         : inArray(sales.userId, userIds);
-      const conditions: any[] = [userCondition, isNull(sales.deletedAt)];
+      const conditions: any[] = [userCondition];
+      if (!includeVoided) conditions.push(isNull(sales.deletedAt));
       if (startDate) conditions.push(sql`${sales.createdAt} >= ${startDate}`);
       if (endDate) conditions.push(sql`${sales.createdAt} <= ${endDate}`);
       if (customerId) conditions.push(eq(sales.customerId, customerId));
@@ -657,7 +658,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async softDeleteSale(id: number, userId: string, deletedBy: string): Promise<boolean> {
+  async softDeleteSale(id: number, userId: string, deletedBy: string, reason?: string): Promise<boolean> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const userCondition = userIds.length === 1
@@ -668,7 +669,7 @@ export class DatabaseStorage implements IStorage {
       );
       if (!sale) return false;
       await (db.update(sales) as any)
-        .set({ deletedAt: new Date().toISOString(), deletedBy })
+        .set({ deletedAt: new Date().toISOString(), deletedBy, ...(reason ? { voidReason: reason } : {}) })
         .where(eq(sales.id, id));
       return true;
     } catch (error) {

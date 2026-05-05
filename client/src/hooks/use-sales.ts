@@ -11,6 +11,7 @@ export interface SalesQueryParams {
   endDate?: string;
   limit?: number;
   offset?: number;
+  includeVoided?: boolean;
 }
 
 function buildSalesUrl(params?: SalesQueryParams): string {
@@ -20,6 +21,7 @@ function buildSalesUrl(params?: SalesQueryParams): string {
   if (params.endDate) qs.set("endDate", params.endDate);
   if (params.limit != null) qs.set("limit", String(params.limit));
   if (params.offset != null) qs.set("offset", String(params.offset));
+  if (params.includeVoided) qs.set("includeVoided", "1");
   const str = qs.toString();
   return str ? `${BASE_URL}?${str}` : BASE_URL;
 }
@@ -31,7 +33,7 @@ function buildCacheKey(url: string, params?: SalesQueryParams): string {
 export function useSales(params?: SalesQueryParams) {
   const url = buildSalesUrl(params);
   const cacheKey = params
-    ? [BASE_URL, params.startDate ?? "", params.endDate ?? "", params.limit ?? 200, params.offset ?? 0]
+    ? [BASE_URL, params.startDate ?? "", params.endDate ?? "", params.limit ?? 200, params.offset ?? 0, params.includeVoided ? "voided" : ""]
     : [BASE_URL];
 
   return useQuery({
@@ -116,7 +118,7 @@ export function useCreateSale() {
 export function useDeleteSale() {
   const queryClient = useQueryClient();
   return useMutation({
-    onMutate: async (id: number) => {
+    onMutate: async ({ id }: { id: number; reason?: string }) => {
       await queryClient.cancelQueries({ queryKey: [BASE_URL] });
       const previous = queryClient.getQueryData<any[]>([BASE_URL]);
       queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) =>
@@ -124,18 +126,22 @@ export function useDeleteSale() {
       );
       return { previous };
     },
-    mutationFn: async (id: number) => {
-      const res = await nativeFetch(`/api/sales/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, reason }: { id: number; reason?: string }) => {
+      const res = await nativeFetch(`/api/sales/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error((body as any)?.message ?? "Failed to delete sale");
+        throw new Error((body as any)?.message ?? "Failed to void sale");
       }
     },
-    onError: (_err, _id, context) => {
+    onError: (_err, _vars, context) => {
       if (context?.previous)
         queryClient.setQueriesData({ queryKey: [BASE_URL] }, context.previous);
     },
-    onSuccess: (_, id) => {
+    onSuccess: (_, { id }) => {
       patchCached(BASE_URL, (prev: any[]) => prev.filter((s: any) => s.id !== id));
     },
   });

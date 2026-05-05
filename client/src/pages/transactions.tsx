@@ -5,7 +5,7 @@ import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Receipt, Search, SlidersHorizontal, X, Calendar, ChevronDown, Check, RotateCcw,
+  Receipt, Search, SlidersHorizontal, X, Calendar, ChevronDown, Check, RotateCcw, Ban, Download,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -99,26 +99,27 @@ function DropdownItem({
   );
 }
 
-function getServerParams(dateFilter: DateFilter, customFrom: string, customTo: string): SalesQueryParams {
+function getServerParams(dateFilter: DateFilter, customFrom: string, customTo: string, includeVoided: boolean): SalesQueryParams {
   const now = new Date();
+  const base: SalesQueryParams = { includeVoided };
   if (dateFilter === "today") {
-    return { startDate: startOfDay(now).toISOString(), endDate: endOfDay(now).toISOString(), limit: 500 };
+    return { ...base, startDate: startOfDay(now).toISOString(), endDate: endOfDay(now).toISOString(), limit: 500 };
   }
   if (dateFilter === "week") {
-    return { startDate: startOfWeek(now, { weekStartsOn: 1 }).toISOString(), endDate: endOfDay(now).toISOString(), limit: 500 };
+    return { ...base, startDate: startOfWeek(now, { weekStartsOn: 1 }).toISOString(), endDate: endOfDay(now).toISOString(), limit: 500 };
   }
   if (dateFilter === "month") {
-    return { startDate: startOfMonth(now).toISOString(), endDate: endOfDay(now).toISOString(), limit: 1000 };
+    return { ...base, startDate: startOfMonth(now).toISOString(), endDate: endOfDay(now).toISOString(), limit: 1000 };
   }
   if (dateFilter === "custom" && customFrom) {
     return {
+      ...base,
       startDate: startOfDay(parseISO(customFrom)).toISOString(),
       endDate: customTo ? endOfDay(parseISO(customTo)).toISOString() : endOfDay(now).toISOString(),
       limit: 2000,
     };
   }
-  // "all" — most recent 500
-  return { limit: 500 };
+  return { ...base, limit: 500 };
 }
 
 export default function Transactions() {
@@ -134,11 +135,11 @@ export default function Transactions() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(DEFAULT_COLUMNS));
-  const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [includeVoided, setIncludeVoided] = useState(false);
 
   const serverParams = useMemo(
-    () => getServerParams(dateFilter, customFrom, customTo),
-    [dateFilter, customFrom, customTo]
+    () => getServerParams(dateFilter, customFrom, customTo, includeVoided),
+    [dateFilter, customFrom, customTo, includeVoided]
   );
   const { data: sales = [], isLoading } = useSales(serverParams);
 
@@ -157,12 +158,10 @@ export default function Transactions() {
   const filtered = useMemo(() => {
     let result = [...sales];
 
-    // Payment filter (client-side on already-server-filtered data)
     if (paymentFilter !== "all") {
       result = result.filter(s => s.paymentMethod === paymentFilter);
     }
 
-    // Search (client-side)
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase().replace(/^txn-?/i, "");
       result = result.filter(s => {
@@ -178,7 +177,9 @@ export default function Transactions() {
     return result;
   }, [sales, paymentFilter, debouncedSearch]);
 
-  const totalRevenue = filtered.reduce((acc, s) => acc + parseNumeric(s.total), 0);
+  const activeFiltered = filtered.filter(s => !(s as any).deletedAt);
+  const totalRevenue = activeFiltered.reduce((acc, s) => acc + parseNumeric(s.total), 0);
+  const voidedCount = filtered.filter(s => !!(s as any).deletedAt).length;
 
   const dateFilterLabels: Record<DateFilter, string> = {
     all: "All time",
@@ -186,6 +187,13 @@ export default function Transactions() {
     week: "This week",
     month: "This month",
     custom: "Custom range",
+  };
+
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (serverParams.startDate) params.set("startDate", serverParams.startDate.slice(0, 10));
+    if (serverParams.endDate) params.set("endDate", serverParams.endDate.slice(0, 10));
+    window.open(`/api/sales/export?${params.toString()}`, "_blank");
   };
 
   if (isLoading) {
@@ -217,7 +225,7 @@ export default function Transactions() {
     <div className="space-y-4 page-enter">
 
       {/* Summary bar */}
-      <div className="glass-card rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap">
+      <div className="glass-card rounded-2xl px-4 md:px-5 py-4 flex items-center gap-3 flex-wrap">
         <div>
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Showing</p>
           <p className="text-lg font-bold">{filtered.length} <span className="text-sm font-normal text-muted-foreground">{filtered.length === 1 ? "transaction" : "transactions"}</span></p>
@@ -227,12 +235,46 @@ export default function Transactions() {
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Revenue</p>
           <p className="text-lg font-bold text-primary tabular-nums">{formatCurrency(totalRevenue, currency)}</p>
         </div>
+        {includeVoided && voidedCount > 0 && (
+          <>
+            <div className="w-px h-8 bg-border hidden sm:block" />
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Voided</p>
+              <p className="text-lg font-bold text-rose-500 tabular-nums">{voidedCount}</p>
+            </div>
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Export CSV */}
+          <button
+            onClick={handleExport}
+            className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-export-csv"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+          {/* Voided toggle */}
+          <button
+            onClick={() => setIncludeVoided(v => !v)}
+            className={[
+              "h-9 px-3 flex items-center gap-1.5 rounded-xl border text-sm font-medium transition-colors",
+              includeVoided
+                ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
+                : "bg-background border-border text-muted-foreground hover:text-foreground",
+            ].join(" ")}
+            data-testid="button-toggle-voided"
+          >
+            <Ban className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{includeVoided ? "Hide Voided" : "Show Voided"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         {/* Search */}
-        <div className="flex-1 min-w-[180px] relative">
+        <div className="flex-1 min-w-[160px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
@@ -240,6 +282,7 @@ export default function Transactions() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            data-testid="input-search-transactions"
           />
           {search && (
             <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -253,7 +296,7 @@ export default function Transactions() {
           trigger={
             <button className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               <Calendar className="h-3.5 w-3.5" />
-              <span>{dateFilterLabels[dateFilter]}</span>
+              <span className="hidden xs:inline">{dateFilterLabels[dateFilter]}</span>
               <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
             </button>
           }
@@ -267,7 +310,7 @@ export default function Transactions() {
 
         {/* Custom date inputs */}
         {dateFilter === "custom" && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <input
               type="date"
               value={customFrom}
@@ -288,7 +331,8 @@ export default function Transactions() {
         <DropdownMenu
           trigger={
             <button className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <span>{paymentFilter === "all" ? "All methods" : (PAYMENT_LABELS[paymentFilter] ?? paymentFilter)}</span>
+              <span className="hidden xs:inline">{paymentFilter === "all" ? "All methods" : (PAYMENT_LABELS[paymentFilter] ?? paymentFilter)}</span>
+              <span className="xs:hidden">Pay</span>
               <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
             </button>
           }
@@ -301,13 +345,13 @@ export default function Transactions() {
           <DropdownItem active={paymentFilter === "online"} onClick={() => setPaymentFilter("online")}>Online</DropdownItem>
         </DropdownMenu>
 
-        {/* Column picker */}
+        {/* Column picker — desktop only */}
         <DropdownMenu
           align="right"
           trigger={
-            <button className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <button className="hidden md:flex h-9 px-3 items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Columns</span>
+              <span>Columns</span>
             </button>
           }
         >
@@ -324,120 +368,209 @@ export default function Transactions() {
         </DropdownMenu>
       </div>
 
-      {/* Table */}
+      {/* Mobile card list — shown on small screens */}
       {filtered.length > 0 ? (
-        <div className="glass-card rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-white/60 dark:bg-black/40 backdrop-blur-sm">
-                <TableRow className="hover:bg-transparent border-black/5 dark:border-white/5">
-                  {ALL_COLUMNS.filter(c => visibleColumns.has(c.key)).map(col => (
-                    <TableHead
-                      key={col.key}
-                      className={[
-                        "py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap",
-                        col.key === "total" || col.key === "subtotal" || col.key === "tax" || col.key === "discount"
-                          ? "text-right px-5"
-                          : "px-4",
-                      ].join(" ")}
-                    >
-                      {col.label}
-                    </TableHead>
-                  ))}
-                  <TableHead className="w-8" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((sale) => {
-                  const items = (sale.items as any[]) || [];
-                  const itemsSummary = items.length === 1
-                    ? (items[0]?.product?.name || items[0]?.name || items[0]?.title || "1 item")
-                    : `${items.length} items`;
-                  const method = sale.paymentMethod || "cash";
-                  const isRefunded = !!(sale as any).refundedAt;
+        <>
+          {/* Mobile cards (sm and below) */}
+          <div className="md:hidden space-y-2">
+            {filtered.map((sale) => {
+              const items = (sale.items as any[]) || [];
+              const itemsSummary = items.length === 1
+                ? (items[0]?.product?.name || items[0]?.name || items[0]?.title || "1 item")
+                : `${items.length} items`;
+              const method = sale.paymentMethod || "cash";
+              const isRefunded = !!(sale as any).refundedAt;
+              const isVoided = !!(sale as any).deletedAt;
 
-                  return (
-                    <TableRow
-                      key={sale.id}
-                      className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors border-black/4 dark:border-white/4 cursor-pointer"
-                      onClick={() => setSelectedSale(sale)}
-                    >
-                      {visibleColumns.has("id") && (
-                        <TableCell className="px-4 py-3 text-xs font-mono text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            #{String(sale.id).padStart(4, "0")}
-                            {isRefunded && (
-                              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-rose-500/10 text-rose-500">
-                                <RotateCcw className="h-2 w-2" />
-                                Refunded
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
+              return (
+                <div
+                  key={sale.id}
+                  onClick={() => setSelectedSale(sale)}
+                  className={[
+                    "glass-card rounded-2xl px-4 py-3 flex items-center gap-3 cursor-pointer active:scale-[0.99] transition-transform",
+                    isVoided ? "opacity-60 border-rose-500/10" : "",
+                  ].join(" ")}
+                  data-testid={`card-transaction-${sale.id}`}
+                >
+                  {/* Icon */}
+                  <div className={[
+                    "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
+                    isVoided ? "bg-rose-500/10" : "bg-primary/8",
+                  ].join(" ")}>
+                    {isVoided
+                      ? <Ban className="h-4 w-4 text-rose-500" />
+                      : <Receipt className="h-4 w-4 text-primary" />
+                    }
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-mono text-muted-foreground">TXN-{String(sale.id).padStart(4, "0")}</span>
+                      {isVoided && (
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 uppercase">
+                          VOID
+                        </span>
                       )}
-                      {visibleColumns.has("date") && (
-                        <TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            {format(new Date(sale.createdAt!), "MMM d, yyyy")}
-                            {isRefunded && !visibleColumns.has("id") && (
-                              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-rose-500/10 text-rose-500">
-                                <RotateCcw className="h-2 w-2" />
-                                Refunded
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
+                      {isRefunded && !isVoided && (
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-rose-500/10 text-rose-500">
+                          <RotateCcw className="h-2 w-2" /> Refunded
+                        </span>
                       )}
-                      {visibleColumns.has("time") && (
-                        <TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                          {format(new Date(sale.createdAt!), "h:mm a")}
-                        </TableCell>
-                      )}
-                      {visibleColumns.has("items") && (
-                        <TableCell className="px-4 py-3 text-sm text-foreground/70 max-w-[160px]">
-                          <span className="truncate block">{itemsSummary}</span>
-                        </TableCell>
-                      )}
-                      {visibleColumns.has("method") && (
-                        <TableCell className="px-4 py-3">
-                          <span className={[
-                            "px-2.5 py-1 rounded-lg text-[10px] font-semibold",
-                            PAYMENT_COLORS[method] ?? "bg-muted text-muted-foreground",
-                          ].join(" ")}>
-                            {PAYMENT_LABELS[method] ?? method}
-                          </span>
-                        </TableCell>
-                      )}
-                      {visibleColumns.has("subtotal") && (
-                        <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                          {formatCurrency(sale.subtotal, currency)}
-                        </TableCell>
-                      )}
-                      {visibleColumns.has("tax") && (
-                        <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                          {formatCurrency(sale.tax, currency)}
-                        </TableCell>
-                      )}
-                      {visibleColumns.has("discount") && (
-                        <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                          {formatCurrency(sale.discount, currency)}
-                        </TableCell>
-                      )}
-                      {visibleColumns.has("total") && (
-                        <TableCell className="px-5 py-3 text-right font-bold text-primary tabular-nums">
-                          {formatCurrency(sale.total, currency)}
-                        </TableCell>
-                      )}
-                      <TableCell className="w-8 pr-3 text-muted-foreground/30 text-right">
-                        <ChevronDown className="h-3.5 w-3.5 -rotate-90 inline" />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                    </div>
+                    <p className="text-sm font-medium truncate mt-0.5">{itemsSummary}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(sale.createdAt!), "MMM d · h:mm a")}
+                      </span>
+                      <span className={[
+                        "px-2 py-0.5 rounded-md text-[10px] font-semibold",
+                        PAYMENT_COLORS[method] ?? "bg-muted text-muted-foreground",
+                      ].join(" ")}>
+                        {PAYMENT_LABELS[method] ?? method}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Total */}
+                  <div className="shrink-0 text-right">
+                    <p className={["text-sm font-bold tabular-nums", isVoided ? "text-rose-500 line-through" : "text-primary"].join(" ")}>
+                      {formatCurrency(sale.total, currency)}
+                    </p>
+                    <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-muted-foreground/40 ml-auto mt-0.5" />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block glass-card rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-white/60 dark:bg-black/40 backdrop-blur-sm">
+                  <TableRow className="hover:bg-transparent border-black/5 dark:border-white/5">
+                    {ALL_COLUMNS.filter(c => visibleColumns.has(c.key)).map(col => (
+                      <TableHead
+                        key={col.key}
+                        className={[
+                          "py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap",
+                          col.key === "total" || col.key === "subtotal" || col.key === "tax" || col.key === "discount"
+                            ? "text-right px-5"
+                            : "px-4",
+                        ].join(" ")}
+                      >
+                        {col.label}
+                      </TableHead>
+                    ))}
+                    <TableHead className="w-8" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((sale) => {
+                    const items = (sale.items as any[]) || [];
+                    const itemsSummary = items.length === 1
+                      ? (items[0]?.product?.name || items[0]?.name || items[0]?.title || "1 item")
+                      : `${items.length} items`;
+                    const method = sale.paymentMethod || "cash";
+                    const isRefunded = !!(sale as any).refundedAt;
+                    const isVoided = !!(sale as any).deletedAt;
+
+                    return (
+                      <TableRow
+                        key={sale.id}
+                        className={[
+                          "hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors border-black/4 dark:border-white/4 cursor-pointer",
+                          isVoided ? "opacity-60" : "",
+                        ].join(" ")}
+                        onClick={() => setSelectedSale(sale)}
+                        data-testid={`row-transaction-${sale.id}`}
+                      >
+                        {visibleColumns.has("id") && (
+                          <TableCell className="px-4 py-3 text-xs font-mono text-muted-foreground">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              #{String(sale.id).padStart(4, "0")}
+                              {isVoided && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 uppercase">
+                                  <Ban className="h-2 w-2" /> VOID
+                                </span>
+                              )}
+                              {isRefunded && !isVoided && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-rose-500/10 text-rose-500">
+                                  <RotateCcw className="h-2 w-2" /> Refunded
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("date") && (
+                          <TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {format(new Date(sale.createdAt!), "MMM d, yyyy")}
+                              {isVoided && !visibleColumns.has("id") && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 uppercase">
+                                  VOID
+                                </span>
+                              )}
+                              {isRefunded && !isVoided && !visibleColumns.has("id") && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-rose-500/10 text-rose-500">
+                                  <RotateCcw className="h-2 w-2" /> Refunded
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("time") && (
+                          <TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                            {format(new Date(sale.createdAt!), "h:mm a")}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("items") && (
+                          <TableCell className="px-4 py-3 text-sm text-foreground/70 max-w-[160px]">
+                            <span className="truncate block">{itemsSummary}</span>
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("method") && (
+                          <TableCell className="px-4 py-3">
+                            <span className={[
+                              "px-2.5 py-1 rounded-lg text-[10px] font-semibold",
+                              PAYMENT_COLORS[method] ?? "bg-muted text-muted-foreground",
+                            ].join(" ")}>
+                              {PAYMENT_LABELS[method] ?? method}
+                            </span>
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("subtotal") && (
+                          <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
+                            {formatCurrency(sale.subtotal, currency)}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("tax") && (
+                          <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
+                            {formatCurrency(sale.tax, currency)}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("discount") && (
+                          <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
+                            {formatCurrency(sale.discount, currency)}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has("total") && (
+                          <TableCell className={["px-5 py-3 text-right font-bold tabular-nums", isVoided ? "text-rose-500 line-through" : "text-primary"].join(" ")}>
+                            {formatCurrency(sale.total, currency)}
+                          </TableCell>
+                        )}
+                        <TableCell className="w-8 pr-3 text-muted-foreground/30 text-right">
+                          <ChevronDown className="h-3.5 w-3.5 -rotate-90 inline" />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="glass-card rounded-2xl py-20 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2">

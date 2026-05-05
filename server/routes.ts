@@ -494,7 +494,7 @@ export async function registerRoutes(
   // ── Sales ─────────────────────────────────────────────────────────────────
 
   app.get(api.sales.list.path, requireAuth, async (req, res) => {
-    const { limit, offset, startDate, endDate } = req.query as Record<string, string>;
+    const { limit, offset, startDate, endDate, includeVoided } = req.query as Record<string, string>;
     if (startDate && !isValidDate(startDate)) {
       return res.status(400).json({ message: "Invalid startDate format" });
     }
@@ -507,38 +507,57 @@ export async function registerRoutes(
       offset: Math.max(Number(offset) || 0, 0),
       startDate: startDate || undefined,
       endDate: endDate || undefined,
+      includeVoided: includeVoided === "1",
     });
     res.json(salesList);
   });
 
   app.get("/api/sales/export", requireAuth, requireManagerOrAbove, async (req, res) => {
-    const salesList = await storage.getSales(userId(req), { limit: 1000 });
+    const { startDate, endDate } = req.query as Record<string, string>;
+    const salesList = await storage.getSales(userId(req), {
+      limit: 5000,
+      includeVoided: true,
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
+    });
     const headers = [
-      "id","createdAt","receiptNumber","orNumber","invoiceNumber",
+      "id","status","createdAt","receiptNumber","orNumber","invoiceNumber",
       "subtotal","tax","discount","total","paymentMethod","customerName",
       "discountType","scPwdId","vatableSales","vatExemptSales","zeroRatedSales",
+      "voidedAt","voidedBy","voidReason",
     ];
-    const rows = salesList.map((sale) => [
-      sale.id,
-      sale.createdAt ?? "",
-      (sale as any).receiptNumber ?? "",
-      (sale as any).orNumber ?? "",
-      (sale as any).invoiceNumber ?? "",
-      sale.subtotal ?? "",
-      sale.tax ?? "",
-      sale.discount ?? "",
-      sale.total ?? "",
-      sale.paymentMethod ?? "",
-      sale.customerName ?? "",
-      (sale as any).discountType ?? "regular",
-      (sale as any).scPwdId ?? "",
-      (sale as any).vatableSales ?? "0",
-      (sale as any).vatExemptSales ?? "0",
-      (sale as any).zeroRatedSales ?? "0",
-    ]);
+    const rows = salesList.map((sale) => {
+      const s = sale as any;
+      const isVoided = !!s.deletedAt;
+      return [
+        sale.id,
+        isVoided ? "VOID" : "ACTIVE",
+        sale.createdAt ?? "",
+        s.receiptNumber ?? "",
+        s.orNumber ?? "",
+        s.invoiceNumber ?? "",
+        sale.subtotal ?? "",
+        sale.tax ?? "",
+        sale.discount ?? "",
+        sale.total ?? "",
+        sale.paymentMethod ?? "",
+        sale.customerName ?? "",
+        s.discountType ?? "regular",
+        s.scPwdId ?? "",
+        s.vatableSales ?? "0",
+        s.vatExemptSales ?? "0",
+        s.zeroRatedSales ?? "0",
+        s.deletedAt ?? "",
+        s.deletedBy ?? "",
+        s.voidReason ?? "",
+      ];
+    });
+    const filename = startDate && endDate
+      ? `sales-journal-${startDate}-to-${endDate}.csv`
+      : `sales-journal-${new Date().toISOString().slice(0, 10)}.csv`;
     const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n");
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", `attachment; filename="sales-journal-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Pragma", "no-cache");
     res.send(csv);
@@ -1636,9 +1655,10 @@ export async function registerRoutes(
     if (saleUser?.tenantId && saleUser.role !== "owner") {
       const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
       if (perm && perm.canDeleteSale === false) {
-        return res.status(403).json({ message: "You don't have permission to delete sales" });
+        return res.status(403).json({ message: "You don't have permission to void sales" });
       }
     }
+    const voidReason = typeof req.body?.reason === "string" ? req.body.reason.trim() : undefined;
     const id = Number(req.params.id);
 
     // ── BIR Z-report lock ──────────────────────────────────────────────────
@@ -1668,9 +1688,9 @@ export async function registerRoutes(
       }
     }
 
-    const deleted = await storage.softDeleteSale(id, uid, uid);
+    const deleted = await storage.softDeleteSale(id, uid, uid, voidReason);
     if (!deleted) return res.status(404).json({ message: "Sale not found" });
-    await auditLog(req, "delete", "sale", String(id), { softDelete: true });
+    await auditLog(req, "void", "sale", String(id), { softDelete: true, voidReason });
     res.status(204).end();
   });
 

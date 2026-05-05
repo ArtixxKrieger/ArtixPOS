@@ -301,6 +301,7 @@ export const sales = pgTable("sales", {
   notes: text("notes"),
   deletedAt: text("deleted_at"),
   deletedBy: text("deleted_by"),
+  voidReason: text("void_reason"),
   refundedAt: text("refunded_at"),
   refundedBy: text("refunded_by"),
   // BIR Compliance fields

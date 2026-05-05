@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
-import { Receipt, CreditCard, Smartphone, Hash, Tag, FileText, RotateCcw, UserCircle2, Percent, ShieldCheck, Printer } from "lucide-react";
+import { Receipt, CreditCard, Smartphone, Hash, Tag, FileText, RotateCcw, UserCircle2, Percent, ShieldCheck, Printer, Ban, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ import { useMyPermissions } from "@/hooks/use-admin";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
+import { useDeleteSale } from "@/hooks/use-sales";
 
 type SaleItem = {
   cartId?: string;
@@ -42,6 +43,9 @@ type Sale = {
   customerName?: string | null;
   refundedAt?: string | null;
   refundedBy?: string | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  voidReason?: string | null;
 };
 
 interface SaleDetailModalProps {
@@ -83,9 +87,13 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const { printer: blePrinter, print: blePrint } = useBlePrinter();
   const [showRefund, setShowRefund] = useState(false);
   const [refundReason, setRefundReason] = useState("");
+  const [showVoid, setShowVoid] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
   const canRefund = isManagerOrAbove && perms?.canRefund !== false;
+  const canVoid = isManagerOrAbove;
 
   const isAlreadyRefunded = !!sale?.refundedAt;
+  const isVoided = !!sale?.deletedAt;
 
   const refundMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/refunds", {
@@ -104,6 +112,26 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     },
     onError: () => toast({ title: "Refund failed", description: "Could not process the refund." }),
   });
+
+  const deleteSaleMutation = useDeleteSale();
+  const handleVoid = () => {
+    if (!sale?.id) return;
+    deleteSaleMutation.mutate(
+      { id: sale.id, reason: voidReason.trim() || undefined },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+          toast({ title: "Sale voided", description: "The sale has been permanently voided in the audit log." });
+          setShowVoid(false);
+          setVoidReason("");
+          onClose();
+        },
+        onError: (err) => {
+          toast({ title: "Void failed", description: (err as Error).message, variant: "destructive" });
+        },
+      }
+    );
+  };
 
   if (!sale) return null;
 
@@ -148,7 +176,6 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const invoiceNumber = (sale as any).invoiceNumber || "";
     const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
 
-    // ── BLE / thermal print path ──────────────────────────────────────────────
     if (blePrinter.connected) {
       const escPosData = {
         storeName,
@@ -282,11 +309,11 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-md w-full rounded-2xl p-0 overflow-hidden gap-0">
           {/* Header */}
-          <div className="bg-gradient-to-br from-primary/10 via-transparent to-transparent px-5 pt-5 pb-4 border-b border-border">
+          <div className={["px-5 pt-5 pb-4 border-b border-border", isVoided ? "bg-gradient-to-br from-rose-500/10 via-transparent to-transparent" : "bg-gradient-to-br from-primary/10 via-transparent to-transparent"].join(" ")}>
             <DialogHeader>
               <div className="flex items-center gap-3 mb-1">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Receipt className="h-[18px] w-[18px] text-primary" />
+                <div className={["h-9 w-9 rounded-xl flex items-center justify-center shrink-0", isVoided ? "bg-rose-500/10" : "bg-primary/10"].join(" ")}>
+                  {isVoided ? <Ban className="h-[18px] w-[18px] text-rose-500" /> : <Receipt className="h-[18px] w-[18px] text-primary" />}
                 </div>
                 <div>
                   <DialogTitle className="text-base font-bold leading-tight">Transaction Details</DialogTitle>
@@ -312,7 +339,16 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
                 {PAYMENT_ICONS[method] || <CreditCard className="h-3 w-3" />}
                 {PAYMENT_LABELS[method] || method}
               </span>
-              {isAlreadyRefunded && (
+              {isVoided && (
+                <>
+                  <span className="text-muted-foreground/30 text-xs">·</span>
+                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                    <Ban className="h-3 w-3" />
+                    VOID
+                  </span>
+                </>
+              )}
+              {isAlreadyRefunded && !isVoided && (
                 <>
                   <span className="text-muted-foreground/30 text-xs">·</span>
                   <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400">
@@ -332,8 +368,23 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               )}
             </div>
 
+            {/* Voided banner */}
+            {isVoided && (
+              <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-500/8 border border-rose-500/15">
+                <ShieldCheck className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                    Voided {sale.deletedAt ? format(new Date(sale.deletedAt), "MMM d, yyyy · h:mm a") : ""}
+                  </p>
+                  {sale.voidReason && (
+                    <p className="text-xs text-rose-500/80 mt-0.5">Reason: {sale.voidReason}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Refunded details banner */}
-            {isAlreadyRefunded && sale.refundedAt && (
+            {isAlreadyRefunded && !isVoided && sale.refundedAt && (
               <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/8 border border-rose-500/15">
                 <ShieldCheck className="h-3.5 w-3.5 text-rose-500 shrink-0" />
                 <p className="text-xs text-rose-600 dark:text-rose-400">
@@ -455,21 +506,23 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             </div>
           </div>
 
-          {/* Print Receipt */}
-          <div className={["px-5", isManagerOrAbove ? "pt-0 pb-2" : "pb-5"].join(" ")}>
-            <Button
-              variant="outline"
-              className="w-full h-10 rounded-xl"
-              onClick={handleReprint}
-              data-testid="button-reprint-receipt"
-            >
-              <Printer className="h-3.5 w-3.5 mr-2" /> Print Receipt
-            </Button>
-          </div>
+          {/* Action buttons */}
+          {!isVoided && (
+            <div className={["px-5 space-y-2", isManagerOrAbove ? "pt-0 pb-2" : "pb-5"].join(" ")}>
+              <Button
+                variant="outline"
+                className="w-full h-10 rounded-xl"
+                onClick={handleReprint}
+                data-testid="button-reprint-receipt"
+              >
+                <Printer className="h-3.5 w-3.5 mr-2" /> Print Receipt
+              </Button>
+            </div>
+          )}
 
           {/* Refund footer — only for manager/owner with canRefund permission */}
-          {canRefund && (
-            <div className="px-5 pb-5">
+          {canRefund && !isVoided && (
+            <div className="px-5 pb-2">
               {isAlreadyRefunded ? (
                 <div className="w-full h-10 rounded-xl flex items-center justify-center gap-2 bg-rose-500/8 border border-rose-500/15 text-rose-500 text-sm font-medium">
                   <RotateCcw className="h-3.5 w-3.5" />
@@ -487,6 +540,29 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               )}
             </div>
           )}
+
+          {/* Void footer — only for managers/owners on non-voided sales */}
+          {canVoid && !isVoided && !isAlreadyRefunded && (
+            <div className="px-5 pb-5">
+              <Button
+                variant="outline"
+                className="w-full h-10 rounded-xl text-rose-700 dark:text-rose-400 border-rose-500/20 hover:bg-rose-500/5"
+                onClick={() => setShowVoid(true)}
+                data-testid="button-open-void"
+              >
+                <Ban className="h-3.5 w-3.5 mr-2" /> Void Sale
+              </Button>
+            </div>
+          )}
+
+          {isVoided && (
+            <div className="px-5 pb-5">
+              <div className="w-full h-10 rounded-xl flex items-center justify-center gap-2 bg-rose-500/8 border border-rose-500/15 text-rose-500 text-sm font-medium">
+                <Ban className="h-3.5 w-3.5" />
+                This sale has been voided
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -500,30 +576,82 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
           </DialogHeader>
           <div className="space-y-4">
             <div className="glass-card rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Refund amount</p>
-              <p className="text-2xl font-black text-rose-500 tabular-nums">{formatCurrency(total, currency)}</p>
-              <p className="text-xs text-muted-foreground mt-1">TXN-{String(sale.id).padStart(4, "0")}</p>
+              <p className="text-xs text-muted-foreground mb-1">Refund Amount</p>
+              <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(total, currency)}</p>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Reason for refund</label>
+              <p className="text-xs text-muted-foreground mb-1.5">Reason (optional)</p>
               <Textarea
+                placeholder="e.g. Customer requested refund, wrong item ordered…"
                 value={refundReason}
                 onChange={e => setRefundReason(e.target.value)}
-                placeholder="e.g. Customer changed mind, defective product..."
+                className="rounded-xl resize-none text-sm"
                 rows={3}
                 data-testid="input-refund-reason"
               />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowRefund(false)}>Cancel</Button>
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowRefund(false)}>
+                Cancel
+              </Button>
               <Button
-                variant="destructive"
-                className="flex-1"
-                disabled={!refundReason.trim() || refundMutation.isPending}
+                className="flex-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white"
                 onClick={() => refundMutation.mutate()}
+                disabled={refundMutation.isPending}
                 data-testid="button-confirm-refund"
               >
-                {refundMutation.isPending ? "Processing..." : "Confirm Refund"}
+                {refundMutation.isPending ? "Processing…" : "Confirm Refund"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Void Dialog */}
+      <Dialog open={showVoid} onOpenChange={setShowVoid}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-rose-500" /> Void Sale
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="glass-card rounded-xl p-4 flex items-start gap-3 bg-rose-500/5 border border-rose-500/15">
+              <Ban className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">This action cannot be undone</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  The sale will be permanently marked as VOID in the BIR audit log. All void entries are permanently retained for compliance.
+                </p>
+              </div>
+            </div>
+            <div className="glass-card rounded-xl p-4 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Sale Amount</p>
+              <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(total, currency)}</p>
+              <p className="text-[10px] text-muted-foreground font-mono mt-0.5">TXN-{String(sale.id).padStart(4, "0")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Void Reason <span className="text-rose-500">*</span></p>
+              <Textarea
+                placeholder="e.g. Wrong items entered, duplicate transaction, system error…"
+                value={voidReason}
+                onChange={e => setVoidReason(e.target.value)}
+                className="rounded-xl resize-none text-sm"
+                rows={3}
+                data-testid="input-void-reason"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowVoid(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white"
+                onClick={handleVoid}
+                disabled={deleteSaleMutation.isPending || !voidReason.trim()}
+                data-testid="button-confirm-void"
+              >
+                {deleteSaleMutation.isPending ? "Voiding…" : "Void Sale"}
               </Button>
             </div>
           </div>

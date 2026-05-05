@@ -261,6 +261,7 @@ export function BottomNav() {
             </div>
           )}
 
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(72vh - env(safe-area-inset-bottom, 0px))" }}>
           {MORE_NAV.length > 0 && (
             <div className="px-4 pt-3 pb-2">
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
@@ -276,14 +277,14 @@ export function BottomNav() {
                       onClick={() => navigate(item.url)}
                       aria-current={isActive ? "page" : undefined}
                       className={[
-                        "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
+                        "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
                         isActive
                           ? "bg-primary/10 border-primary/20 text-primary"
                           : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
-                      <span className="text-xs font-medium">{item.label}</span>
+                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{item.label}</span>
                     </button>
                   );
                 })}
@@ -306,14 +307,14 @@ export function BottomNav() {
                       onClick={() => navigate(item.url)}
                       aria-current={isActive ? "page" : undefined}
                       className={[
-                        "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl transition-all duration-200 active:scale-95 border",
+                        "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
                         isActive
                           ? "bg-primary/10 border-primary/20 text-primary"
                           : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
-                      <span className="text-xs font-medium">{item.label}</span>
+                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{item.label}</span>
                     </button>
                   );
                 })}
@@ -322,6 +323,7 @@ export function BottomNav() {
           )}
 
           <div style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)" }} />
+        </div>
         </SheetContent>
       </Sheet>
     </>

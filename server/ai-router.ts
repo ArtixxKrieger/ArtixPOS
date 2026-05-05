@@ -16,6 +16,7 @@
 import { spawn, execSync, type ChildProcess } from "child_process";
 import { existsSync, statSync } from "fs";
 import path from "path";
+import { createBreaker } from "./circuit-breaker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface AIMessage {
@@ -76,6 +77,17 @@ const PROVIDERS: ProviderConfig[] = [
     maxTokens: 990_000_000,              // 1B tokens/month, use 990M to be safe
   },
 ];
+
+// ─── Per-provider circuit breakers ───────────────────────────────────────────
+// Each provider gets its own breaker. If a provider fails 5 times in a row
+// the breaker opens and that provider is skipped instantly (fail fast) for 30s,
+// then moves to HALF_OPEN to test recovery before closing again.
+const breakers = {
+  groq:     createBreaker({ name: "groq",     failureThreshold: 5, resetTimeoutMs: 30_000 }),
+  cerebras: createBreaker({ name: "cerebras", failureThreshold: 5, resetTimeoutMs: 30_000 }),
+  mistral:  createBreaker({ name: "mistral",  failureThreshold: 5, resetTimeoutMs: 60_000 }),
+  ollama:   createBreaker({ name: "ollama",   failureThreshold: 3, resetTimeoutMs: 60_000 }),
+};
 
 // ─── Per-provider rate-limit state ───────────────────────────────────────────
 interface RateLimitState {
@@ -446,8 +458,17 @@ export async function resolveAIStream(
       continue;
     }
 
+    const breaker = breakers[cfg.name as keyof typeof breakers];
+    if (breaker?.getState() === "OPEN") {
+      console.log(`[ai-router][${requestId}] skipping provider="${cfg.name}" — circuit OPEN`);
+      continue;
+    }
+
     try {
-      return await callCloudProvider(cfg, messages, maxTokens, temperature, requestId, preferSmart);
+      const result = breaker
+        ? await breaker.execute(() => callCloudProvider(cfg, messages, maxTokens, temperature, requestId, preferSmart))
+        : await callCloudProvider(cfg, messages, maxTokens, temperature, requestId, preferSmart);
+      return result;
     } catch (err: any) {
       console.warn(
         `[ai-router][${requestId}] provider="${cfg.name}" failed — ${err.message} — trying next`
@@ -459,7 +480,7 @@ export async function resolveAIStream(
   // ── All cloud providers exhausted — fall back to local Ollama ────────────
   console.log(`[ai-router][${requestId}] all cloud providers exhausted — using Ollama offline fallback`);
   try {
-    return await callOllama(messages, maxTokens, requestId);
+    return await breakers.ollama.execute(() => callOllama(messages, maxTokens, requestId));
   } catch (ollamaErr: any) {
     console.error(`[ai-router][${requestId}] Ollama fallback also failed: ${ollamaErr.message}`);
   }

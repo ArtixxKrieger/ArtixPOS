@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { dbRead } from "./db-read";
 import { createHash } from "crypto";
 import {
   products,
@@ -289,7 +290,7 @@ export class DatabaseStorage implements IStorage {
       const conditions: any[] = [];
       conditions.push(userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds));
       if (branchId != null) conditions.push(eq(products.branchId, branchId));
-      let query: any = db.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
+      let query: any = dbRead.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
       }
@@ -503,7 +504,7 @@ export class DatabaseStorage implements IStorage {
       if (endDate) conditions.push(sql`${sales.createdAt} <= ${endDate}`);
       if (customerId) conditions.push(eq(sales.customerId, customerId));
       if (branchId != null) conditions.push(eq(sales.branchId, branchId));
-      return await db.select().from(sales)
+      return await dbRead.select().from(sales)
         .where(and(...conditions))
         .orderBy(desc(sales.createdAt))
         .limit(limit)
@@ -693,7 +694,7 @@ export class DatabaseStorage implements IStorage {
 
   async getSettings(userId: string): Promise<UserSetting | undefined> {
     try {
-      const [setting] = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
+      const [setting] = await dbRead.select().from(userSettings).where(eq(userSettings.userId, userId));
       return setting;
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -737,7 +738,7 @@ export class DatabaseStorage implements IStorage {
       const orderExpr = orderByTopSpenders
         ? sql`CAST(total_spent AS NUMERIC) DESC NULLS LAST`
         : desc(customers.createdAt);
-      let query: any = db.select().from(customers).where(whereCond).orderBy(orderExpr);
+      let query: any = dbRead.select().from(customers).where(whereCond).orderBy(orderExpr);
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
       }

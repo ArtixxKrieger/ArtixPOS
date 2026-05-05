@@ -16,6 +16,7 @@ import { db as _healthDb } from "./db";
 import { sql as _healthSql } from "drizzle-orm";
 import { logger } from "./logger";
 import { recordRequest, getMetricsSnapshot } from "./metrics";
+import { getAllBreakerStates } from "./circuit-breaker";
 
 const app = express();
 const httpServer = createServer(app);
@@ -123,7 +124,10 @@ app.get("/api/metrics", (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
   }
-  res.json(getMetricsSnapshot());
+  res.json({
+    ...getMetricsSnapshot(),
+    circuitBreakers: getAllBreakerStates(),
+  });
 });
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { cache, TTL } from "./cache";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const rawDb = db as any;
@@ -392,7 +393,13 @@ function formatDayName(dateStr: string): string {
   } catch { return dateStr; }
 }
 
-export async function getFullAnalytics(range: string, currency: string, timezone: string = "UTC"): Promise<AnalyticsData> {
+export async function getFullAnalytics(range: string, currency: string, timezone: string = "UTC", userId?: string): Promise<AnalyticsData> {
+  // Cache analytics results per user+range+timezone — they're expensive (7 parallel DB queries
+  // including JSON parsing of all sale items). 90s TTL is fresh enough for a business dashboard.
+  const cacheKey = `analytics:${userId ?? "global"}:${range}:${timezone}`;
+  const cached = cache.get<AnalyticsData>(cacheKey);
+  if (cached) return cached;
+
   const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : 365;
   const tzOffset = getUtcOffset(timezone);
   const todayStr = localDateString(timezone, new Date());
@@ -414,7 +421,7 @@ export async function getFullAnalytics(range: string, currency: string, timezone
 
   const insights = generateInsights(trend, hourly, products, todaySummary, yesterdaySummary, currency);
 
-  return {
+  const result: AnalyticsData = {
     summary: { today: todaySummary, yesterday: yesterdaySummary, revenueGrowth },
     trend,
     hourly,
@@ -424,4 +431,7 @@ export async function getFullAnalytics(range: string, currency: string, timezone
     range,
     totalAllTime: allTime,
   };
+
+  cache.set(cacheKey, result, TTL.ANALYTICS);
+  return result;
 }

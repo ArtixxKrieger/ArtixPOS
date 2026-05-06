@@ -120,6 +120,9 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
+      // Keep inactive queries in memory for 10 minutes, then garbage collect.
+      // Prevents stale data from bloating memory on low-end devices.
+      gcTime: 10 * 60 * 1000,
       // Retry transient failures up to 2 times for read queries.
       // Mutations intentionally stay at 0 — they are not idempotent.
       retry: 2,

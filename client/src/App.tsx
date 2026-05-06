@@ -332,18 +332,43 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/admin/permissions"),
 ];
 
+// Critical routes the user is most likely to visit right after login.
+// Preloaded first so navigation feels instant.
+const PRIORITY_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(0, 5); // dashboard, pos, products, analytics, pending-orders
+const DEFERRED_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(5);
+
 function useRoutePreloader() {
   useEffect(() => {
     if (!navigator.onLine) return;
-    // Wait for the main content to paint first, then silently preload everything
-    // using requestIdleCallback (or setTimeout as fallback) to avoid competing
-    // with the current render.
-    const schedule = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2500));
-    const handle = schedule(() => {
-      ALL_LAZY_ROUTES.forEach((load) => load().catch(() => {}));
+
+    const ric = window.requestIdleCallback;
+
+    // Batch 1 — priority routes, loaded during first idle window after paint
+    const scheduleP = ric
+      ? (cb: () => void) => ric(cb, { timeout: 3000 })
+      : (cb: () => void) => setTimeout(cb, 1500);
+
+    const handle1 = scheduleP(() => {
+      PRIORITY_LAZY_ROUTES.forEach((load) => load().catch(() => {}));
     });
+
+    // Batch 2 — remaining routes, staggered so they don't compete with Batch 1
+    const timer = setTimeout(() => {
+      const scheduleD = ric
+        ? (cb: () => void) => ric(cb, { timeout: 10_000 })
+        : (cb: () => void) => setTimeout(cb, 0);
+
+      // Spread across multiple idle callbacks so the main thread stays free
+      const chunkSize = 5;
+      DEFERRED_LAZY_ROUTES.forEach((load, i) => {
+        const delay = Math.floor(i / chunkSize) * 800;
+        setTimeout(() => scheduleD(() => load().catch(() => {})), delay);
+      });
+    }, 4000);
+
     return () => {
-      if (window.cancelIdleCallback) window.cancelIdleCallback(handle as number);
+      if (window.cancelIdleCallback) window.cancelIdleCallback(handle1 as number);
+      clearTimeout(timer);
     };
   }, []);
 }

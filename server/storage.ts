@@ -250,8 +250,9 @@ export interface IStorage {
   getCheckIns(membershipId: number, userId: string): Promise<MembershipCheckIn[]>;
 }
 
-// 30-second in-memory cache for tenant user ID lookups (2 DB queries per call without this)
+// 5-minute in-memory cache for tenant user ID lookups (2 DB queries per call without this)
 const _tenantUserCache = new Map<string, { ids: string[]; at: number }>();
+const TENANT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function invalidateTenantCache(userId: string): void {
   _tenantUserCache.delete(userId);
@@ -263,7 +264,7 @@ export class DatabaseStorage implements IStorage {
 
   private async getTenantUserIds(userId: string): Promise<string[]> {
     const cached = _tenantUserCache.get(userId);
-    if (cached && Date.now() - cached.at < 30_000) return cached.ids;
+    if (cached && Date.now() - cached.at < TENANT_CACHE_TTL) return cached.ids;
     const [user] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
     let ids: string[] = [userId];
     if (user?.tenantId) {
@@ -433,7 +434,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(userIds.length === 1 ? eq(pendingOrders.userId, userIds[0]) : inArray(pendingOrders.userId, userIds));
       if (branchId != null) conditions.push(eq(pendingOrders.branchId, branchId));
       conditions.push(isNull(pendingOrders.deletedAt));
-      return await db.select().from(pendingOrders).where(and(...conditions));
+      return await db.select().from(pendingOrders).where(and(...conditions)).orderBy(desc(pendingOrders.id)).limit(300);
     } catch (error) {
       console.error("Error fetching pending orders:", error);
       return [];
@@ -1095,7 +1096,8 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(users, eq(refunds.userId, users.id))
         .leftJoin(sales, eq(refunds.saleId, sales.id))
         .where(userCondition)
-        .orderBy(desc(refunds.createdAt));
+        .orderBy(desc(refunds.createdAt))
+        .limit(500);
 
       return results as RefundWithDetails[];
     } catch (error) {
@@ -1250,7 +1252,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1 ? eq(purchaseOrders.userId, userIds[0]) : inArray(purchaseOrders.userId, userIds);
-      const pos = await db.select().from(purchaseOrders).where(condition).orderBy(desc(purchaseOrders.createdAt));
+      const pos = await db.select().from(purchaseOrders).where(condition).orderBy(desc(purchaseOrders.createdAt)).limit(200);
       if (pos.length === 0) return [];
       // Batch-fetch all items in one query instead of one query per PO (N+1 → 2 queries total).
       const poIds = pos.map(p => p.id);

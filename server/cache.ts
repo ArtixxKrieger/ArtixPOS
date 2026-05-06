@@ -92,9 +92,10 @@ export const cache = new TtlCache();
 setInterval(() => cache.purgeExpired(), 5 * 60 * 1000).unref();
 
 export const TTL = {
-  PRODUCTS: 30_000,   // 30s — catalog changes only on admin edits
-  SETTINGS: 60_000,   // 60s — rarely changes mid-shift
-  BARCODE:  120_000,  // 2min — barcode→product mapping is very stable
+  PRODUCTS: 120_000,  // 2min — catalog changes only on admin edits
+  SETTINGS: 120_000,  // 2min — rarely changes mid-shift
+  BARCODE:  300_000,  // 5min — barcode→product mapping is very stable
+  ANALYTICS: 90_000,  // 90s — analytics data is expensive to compute
 } as const;
 
 export function productsCacheKey(uid: string)  { return `products:${uid}`; }

@@ -878,7 +878,7 @@ export async function registerRoutes(
   // ── Expenses ──────────────────────────────────────────────────────────────
 
   app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
-    const list = await storage.getExpenses(userId(req), activeBranchId(req));
+    const list = await storage.getExpenses(userId(req), { branchId: activeBranchId(req), limit: 500 });
     res.json(list);
   });
 

@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2 } from "lucide-react";
+import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest, clearNativeToken } from "@/lib/queryClient";
+import { apiRequest, clearNativeToken, nativeFetch } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
 import { Sparkles } from "lucide-react";
@@ -95,6 +95,30 @@ export default function Settings() {
   const [showPaymentManager, setShowPaymentManager] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
+  const handleExportBackup = async () => {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+    try {
+      const res = await nativeFetch("/api/backup/export");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `artixpos-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Backup downloaded" });
+    } catch {
+      toast({ title: "Backup failed", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
 
   const DEFAULT_METHODS = [
     { id: "cash", label: "Cash", isCash: true },
@@ -572,6 +596,35 @@ export default function Settings() {
                 </div>
               </div>
             )}
+          </div>
+        </>
+      )}
+
+      {/* Data Backup */}
+      {isOwner && (
+        <>
+          <SectionLabel>Data</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Download className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Export Data Backup</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Download your products, sales &amp; customers as JSON</p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportBackup}
+                disabled={isBackingUp}
+                className="h-8 rounded-xl shrink-0"
+                data-testid="button-export-backup"
+              >
+                {isBackingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
           </div>
         </>
       )}

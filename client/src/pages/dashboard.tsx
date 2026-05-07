@@ -1,4 +1,3 @@
-import { useSales } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
 import { useProducts } from "@/hooks/use-products";
 import { getBusinessFeatures } from "@/lib/business-features";
@@ -10,6 +9,18 @@ import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3, Arrow
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
+import { useQuery } from "@tanstack/react-query";
+import { nativeFetch } from "@/lib/queryClient";
+
+type DashboardStats = {
+  todaySales: any[];
+  allTime: {
+    orderCount: number;
+    gross: number;
+    net: number;
+    refundTotal: number;
+  };
+};
 
 function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
   const [display, setDisplay] = useState(0);
@@ -36,7 +47,17 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
 }
 
 export default function Dashboard() {
-  const { data: sales = [], isLoading } = useSales({ limit: 300 });
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
+    queryFn: async () => {
+      const res = await nativeFetch("/api/dashboard/stats");
+      if (!res.ok) throw new Error("Failed to load dashboard");
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
   const { data: settings } = useSettings();
   const { data: products = [] } = useProducts();
   const [, setLocation] = useLocation();
@@ -53,27 +74,25 @@ export default function Dashboard() {
     );
   }, [products]);
 
-  const todaySales = sales.filter(s => isToday(new Date(s.createdAt!)));
-  const todayRefundedSales = todaySales.filter(s => !!(s as any).refundedAt);
-  const todayRefundTotal = todayRefundedSales.reduce((acc, s) => acc + parseNumeric(s.total), 0);
+  const todaySales = stats?.todaySales ?? [];
+  const allTime = stats?.allTime ?? { orderCount: 0, gross: 0, net: 0, refundTotal: 0 };
+
+  const todayRefundedSales = todaySales.filter((s: any) => !!(s as any).refundedAt);
+  const todayRefundTotal = todayRefundedSales.reduce((acc: number, s: any) => acc + parseNumeric(s.total), 0);
   const todayRefundCount = todayRefundedSales.length;
 
-  const totalGrossRevenue = todaySales.reduce((acc, s) => acc + parseNumeric(s.total), 0);
+  const totalGrossRevenue = todaySales.reduce((acc: number, s: any) => acc + parseNumeric(s.total), 0);
   const totalRevenue = totalGrossRevenue - todayRefundTotal;
-  const totalTax = todaySales.reduce((acc, s) => acc + parseNumeric(s.tax), 0);
+  const totalTax = todaySales.reduce((acc: number, s: any) => acc + parseNumeric(s.tax), 0);
   const avgOrder = todaySales.length ? totalGrossRevenue / todaySales.length : 0;
 
-  const allTimeGross = sales.reduce((acc, s) => acc + parseNumeric(s.total), 0);
-  const allTimeRefunds = sales.filter(s => !!(s as any).refundedAt).reduce((acc, s) => acc + parseNumeric(s.total), 0);
-  const allTimeRevenue = allTimeGross - allTimeRefunds;
-  const allTimeCount = sales.length;
   const paymentBreakdown = useMemo(() => {
     const counts: Record<string, { count: number; revenue: number }> = {};
     for (const sale of todaySales) {
-      const method = (sale.paymentMethod || "cash").toLowerCase();
+      const method = ((sale as any).paymentMethod || "cash").toLowerCase();
       if (!counts[method]) counts[method] = { count: 0, revenue: 0 };
       counts[method].count += 1;
-      counts[method].revenue += parseNumeric(sale.total);
+      counts[method].revenue += parseNumeric((sale as any).total);
     }
     return Object.entries(counts)
       .map(([method, value]) => ({ method, ...value }))
@@ -83,7 +102,7 @@ export default function Dashboard() {
   const bestSeller = useMemo(() => {
     const counts: Record<string, { name: string; qty: number; revenue: number }> = {};
     for (const sale of todaySales) {
-      const items = (sale.items as any[]) || [];
+      const items = ((sale as any).items as any[]) || [];
       for (const item of items) {
         const name = item.product?.name || item.name || item.title || "Unknown";
         if (name === "Unknown") continue;
@@ -284,18 +303,18 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* All-Time Total */}
+        {/* All-Time Total — server-computed, no row-count limit */}
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-primary/8 to-transparent animate-fade-scale">
           <div className="flex items-center gap-2 mb-2.5">
             <div className="h-7 w-7 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <BarChart3 className="h-3.5 w-3.5 text-primary" />
             </div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Recent Net</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">All-Time Net</p>
           </div>
-          <p className="font-bold text-sm tabular-nums">{formatCurrency(allTimeRevenue, currency)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{allTimeCount} recent {allTimeCount === 1 ? terminology.orderLabel : `${terminology.orderLabel}s`}</p>
-          {allTimeRefunds > 0 && (
-            <p className="text-[10px] text-rose-500 mt-0.5">-{formatCurrency(allTimeRefunds, currency)} refunded</p>
+          <p className="font-bold text-sm tabular-nums">{formatCurrency(allTime.net, currency)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{allTime.orderCount} {allTime.orderCount === 1 ? terminology.orderLabel : `${terminology.orderLabel}s`} total</p>
+          {allTime.refundTotal > 0 && (
+            <p className="text-[10px] text-rose-500 mt-0.5">-{formatCurrency(allTime.refundTotal, currency)} refunded</p>
           )}
         </div>
       </div>
@@ -368,7 +387,7 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...todaySales].reverse().map((sale) => {
+                {[...todaySales].reverse().map((sale: any) => {
                   const items = (sale.items as any[]) || [];
                   const itemsSummary = items.length === 1
                     ? (items[0]?.product?.name || items[0]?.name || items[0]?.title || "1 item")

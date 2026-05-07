@@ -2206,10 +2206,11 @@ export class DatabaseStorage implements IStorage {
         const sold = productQty.get(product.id) ?? 0;
         if (sold === 0) continue;
         const prevStock = product.stock ?? 0;
-        const newStock = Math.max(0, prevStock - sold);
+        // Atomic decrement via SQL expression — prevents race conditions with concurrent sales
         await (db.update(products) as any)
-          .set({ stock: newStock })
+          .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${sold})` })
           .where(eq(products.id, product.id));
+        const newStock = Math.max(0, prevStock - sold);
         const threshold = product.lowStockThreshold ?? 10;
         // Notify if stock just hit 0
         if (newStock === 0 && prevStock > 0) {

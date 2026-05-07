@@ -271,7 +271,6 @@ export default function Onboarding() {
         emailContact: storeEmail.trim() || null,
         onboardingComplete: 1,
       });
-      console.log("[onboarding] updateSettings success:", res);
       setStep("done");
     } catch (err: any) {
       console.error("[onboarding] handleOwnerComplete failed:", err);

@@ -10,7 +10,7 @@ import { registerSubscriptionRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog, getRolePermissionForRole } from "./admin-storage";
 import { db } from "./db";
-import { eq, and, sql, desc, isNotNull } from "drizzle-orm";
+import { eq, and, sql, desc, isNotNull, inArray } from "drizzle-orm";
 import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable, expenses } from "@shared/schema";
 import { signToken, setAuthCookie, verifyToken } from "./auth";
 import { emit as emitTenantEvent, subscribe as subscribeTenantEvent } from "./events";
@@ -616,7 +616,18 @@ export async function registerRoutes(
       const enforcedBranch = await resolveBranchId(req);
       const inputWithCashier = { ...input, cashierId: input.cashierId ?? userId(req), branchId: enforcedBranch };
       const sale = await storage.createSale(userId(req), inputWithCashier);
-      void storage.deductProductStockForSale(userId(req), input.items as any[]).catch(e => console.error("Stock deduction failed:", e));
+      // Deduct stock with up to 3 retries — non-blocking so the sale response is returned immediately
+      (async () => {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await storage.deductProductStockForSale(userId(req), input.items as any[]);
+            break;
+          } catch (e) {
+            if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
+            else console.error(`[stock] deduction failed after 3 attempts for sale ${sale.id}:`, e);
+          }
+        }
+      })();
       await auditLog(req, "create", "sale", String(sale.id), {
         total: sale.total,
         itemCount: Array.isArray(sale.items) ? sale.items.length : 0,
@@ -627,6 +638,37 @@ export async function registerRoutes(
         discountCode: sale.discountCode,
       });
       res.status(201).json(sale);
+
+      // Send email receipt to customer if they have an email on file — fire-and-forget
+      if (input.customerId) {
+        setImmediate(async () => {
+          try {
+            const { sendReceiptEmail } = await import("./email");
+            const customer = await storage.getCustomer(Number(input.customerId), userId(req));
+            if (customer?.email) {
+              const storeSettings = await storage.getSettings(userId(req));
+              await sendReceiptEmail(customer.email, {
+                total: sale.total,
+                subtotal: (sale as any).subtotal ?? sale.total,
+                tax: (sale as any).tax,
+                discount: sale.discount,
+                paymentMethod: sale.paymentMethod,
+                customerName: sale.customerName,
+                items: sale.items,
+                orNumber: (sale as any).orNumber,
+                receiptNumber: (sale as any).receiptNumber,
+                createdAt: (sale as any).createdAt ?? new Date().toISOString(),
+              }, {
+                name: (storeSettings as any)?.storeName ?? "Store",
+                currency: storeSettings?.currency ?? "₱",
+                address: (storeSettings as any)?.address,
+                phone: (storeSettings as any)?.phone,
+                receiptFooter: (storeSettings as any)?.receiptFooter,
+              });
+            }
+          } catch {}
+        });
+      }
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
@@ -637,6 +679,93 @@ export async function registerRoutes(
 
   // Note: GET /api/sales/deleted and DELETE /api/sales/:id are registered in admin-routes.ts
   // with proper manager+ authorization. Do not add duplicates here.
+
+  // ── Dashboard Stats ────────────────────────────────────────────────────────
+  // Returns today's full sale objects + server-computed all-time aggregates.
+  // Using SQL SUM/COUNT means no row-count cap regardless of sales volume.
+
+  app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
+    const uid = userId(req);
+    const bid = activeBranchId(req);
+
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const todaySales = await storage.getSales(uid, {
+      branchId: bid ?? undefined,
+      startDate: todayISO,
+      limit: 1000,
+    });
+
+    // Resolve tenant user IDs so branch owners see combined data
+    const [userRow] = await db
+      .select({ tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.id, uid));
+    const tid = userRow?.tenantId;
+    let tenantUserIds: string[] = [uid];
+    if (tid) {
+      const rows = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, tid));
+      if (rows.length > 0) tenantUserIds = rows.map(r => r.id);
+    }
+
+    const userWhere = tenantUserIds.length === 1
+      ? eq(salesTable.userId, tenantUserIds[0])
+      : inArray(salesTable.userId, tenantUserIds);
+    const branchWhere = bid != null ? eq((salesTable as any).branchId, bid) : undefined;
+    const where = branchWhere ? and(userWhere, branchWhere) : userWhere;
+
+    const [agg] = await db
+      .select({
+        orderCount: sql<number>`COUNT(*)::integer`,
+        gross:       sql<number>`COALESCE(SUM(CAST(${salesTable.total} AS NUMERIC)), 0)::float8`,
+        net:         sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
+        refundTotal: sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NOT NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
+      })
+      .from(salesTable)
+      .where(where);
+
+    res.json({
+      todaySales,
+      allTime: {
+        orderCount: Number(agg?.orderCount ?? 0),
+        gross:       Number(agg?.gross ?? 0),
+        net:         Number(agg?.net ?? 0),
+        refundTotal: Number(agg?.refundTotal ?? 0),
+      },
+    });
+  });
+
+  // ── Data Backup Export ─────────────────────────────────────────────────────
+
+  app.get("/api/backup/export", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const uid = userId(req);
+    const bid = activeBranchId(req);
+    const opts = { branchId: bid ?? undefined, limit: 10000 };
+
+    const [settings, productsList, salesList, customersList, expensesList] = await Promise.all([
+      storage.getSettings(uid),
+      storage.getProducts(uid),
+      storage.getSales(uid, opts),
+      storage.getCustomers(uid, opts).catch(() => [] as any[]),
+      storage.getExpenses(uid, opts).catch(() => [] as any[]),
+    ]);
+
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      version: "1.0",
+      storeName: (settings as any)?.storeName ?? "Store",
+      settings,
+      products: productsList,
+      sales: salesList,
+      customers: customersList,
+      expenses: expensesList,
+    };
+
+    const filename = `artixpos-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.json(backup);
+  });
 
   // ── Notifications ─────────────────────────────────────────────────────────
 

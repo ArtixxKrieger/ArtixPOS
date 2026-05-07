@@ -8,17 +8,18 @@ interface OfflineSyncBannerProps {
 
 type BannerState =
   | "hidden"
-  | "offline"          // no internet
-  | "syncing"          // uploading queued data
-  | "sync-done"        // just finished — brief "All synced" flash
-  | "failed"           // has permanently failed items
-  | "offline-queued";  // offline + has pending sales
+  | "offline"
+  | "syncing"
+  | "sync-done"
+  | "failed"
+  | "offline-queued";
 
-const DONE_DISPLAY_MS = 3000; // how long to show "All synced" before hiding
+const DONE_DISPLAY_MS = 3000;
 
 export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
   const {
     isOnline,
+    isReady,
     isSyncing,
     salesQueueCount,
     totalQueueCount,
@@ -34,7 +35,10 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
   const prevSyncingRef = useRef(isSyncing);
 
   useEffect(() => {
-    // Detect sync completion (isSyncing: true → false)
+    // Don't show anything until the initial connectivity probe completes.
+    // This prevents flashing "offline" on page load when the user is online.
+    if (!isReady) return;
+
     if (prevSyncingRef.current && !isSyncing && lastSync) {
       prevSyncingRef.current = false;
       if (lastSync.permanentlyFailed > 0 || failedQueueCount > 0) {
@@ -71,11 +75,10 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
       return;
     }
 
-    // Online, not syncing, no failures, no queue — hide
     if (bannerState !== "sync-done") {
       setBannerState("hidden");
     }
-  }, [isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]);
+  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]);
 
   useEffect(() => {
     return () => {
@@ -85,7 +88,6 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
 
   if (bannerState === "hidden") return null;
 
-  // ── Banner variants ──────────────────────────────────────────────────────
   if (bannerState === "syncing") {
     return (
       <div
@@ -186,7 +188,6 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
     );
   }
 
-  // bannerState === "offline"
   return (
     <div
       role="status"

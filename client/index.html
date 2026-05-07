@@ -319,35 +319,122 @@
         console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
         console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');
 
-        /* ── Visible error reporter ── */
+        /* ── Stale-SW auto-recovery ─────────────────────────────────────────
+         * When a new deployment ships, content-hashed JS/CSS filenames change.
+         * If the user's service worker is serving old cached HTML (that still
+         * references the OLD filenames), every JS chunk load returns 404 and
+         * React cannot boot — resulting in a permanent white screen.
+         *
+         * Detection: ChunkLoadError / "Failed to fetch dynamically imported
+         * module" — these patterns only occur when a script 404s in production.
+         *
+         * Recovery: unregister the SW, wipe all caches, hard-reload.
+         * Loop guard: sessionStorage counter — max 3 auto-recoveries per session
+         * before we fall back to the manual crash UI.
+         */
         (function() {
+          var STALE_KEY = '_artix_stale_reload';
+          var CRASH_KEY = '_artix_crash';
+
+          function isChunkError(msg) {
+            var s = String(msg || '');
+            return (
+              s.indexOf('ChunkLoadError') !== -1 ||
+              s.indexOf('Loading chunk') !== -1 ||
+              s.indexOf('Loading CSS chunk') !== -1 ||
+              s.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+              s.indexOf('Importing a module script failed') !== -1 ||
+              s.indexOf('Unable to preload CSS') !== -1
+            );
+          }
+
+          function nukeCacheAndReload() {
+            try {
+              var attempts = parseInt(sessionStorage.getItem(STALE_KEY) || '0', 10);
+              if (attempts >= 3) return false; // give up — show crash UI instead
+              sessionStorage.setItem(STALE_KEY, String(attempts + 1));
+              var doReload = function() { window.location.reload(); };
+              if (navigator.serviceWorker) {
+                navigator.serviceWorker.getRegistrations()
+                  .then(function(regs) {
+                    return Promise.all(regs.map(function(r) { return r.unregister().catch(function(){}); }));
+                  })
+                  .catch(function(){})
+                  .finally(function() {
+                    if (window.caches) {
+                      caches.keys()
+                        .then(function(keys) {
+                          return Promise.all(keys.map(function(k) { return caches.delete(k).catch(function(){}); }));
+                        })
+                        .catch(function(){})
+                        .finally(doReload);
+                    } else {
+                      doReload();
+                    }
+                  });
+              } else if (window.caches) {
+                caches.keys()
+                  .then(function(keys) {
+                    return Promise.all(keys.map(function(k) { return caches.delete(k).catch(function(){}); }));
+                  })
+                  .catch(function(){})
+                  .finally(doReload);
+              } else {
+                doReload();
+              }
+              return true; // recovery triggered
+            } catch(e) {
+              return false;
+            }
+          }
+
+          /* ── Visible crash UI (shown after recovery exhausted) ── */
           var _shown = false;
           function _showCrash(msg) {
             if (_shown) return;
+            // Remove the splash so the crash UI is visible
+            var splash = document.getElementById('app-splash');
+            if (splash) { try { splash.remove(); } catch(e) {} }
             var root = document.getElementById('root');
-            if (root && root.childElementCount === 0) {
+            if (root) {
               _shown = true;
               root.innerHTML =
-                '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a12;font-family:monospace;padding:24px;">'
+                '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a12;font-family:monospace;padding:24px;z-index:99999">'
                 + '<div style="max-width:480px;width:100%;background:#1a1a2e;border:1px solid #ff4d4d;border-radius:12px;padding:20px;color:#fff;">'
                 + '<p style="color:#ff4d4d;font-weight:bold;font-size:14px;margin:0 0 8px">App failed to load</p>'
                 + '<pre style="font-size:11px;color:#ffb3b3;white-space:pre-wrap;word-break:break-word;margin:0 0 16px;max-height:200px;overflow:auto">'
                 + String(msg).replace(/</g,'&lt;') + '</pre>'
-                + '<button onclick="(function(){try{if(navigator.serviceWorker)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister()})});if(window.caches)caches.keys().then(function(k){k.forEach(function(c){caches.delete(c)})})}catch(e){}setTimeout(function(){window.location.reload()},400)})()" '
+                + '<button onclick="(function(){try{sessionStorage.removeItem(\'' + STALE_KEY + '\');}catch(e){}'
+                + 'try{if(navigator.serviceWorker)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister()})});'
+                + 'if(window.caches)caches.keys().then(function(k){k.forEach(function(c){caches.delete(c)})})}catch(e){}'
+                + 'setTimeout(function(){window.location.reload()},400)})()" '
                 + 'style="background:#7c3aed;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;width:100%">'
                 + 'Clear cache &amp; reload</button>'
                 + '</div></div>';
-              try { sessionStorage.setItem('_artix_crash', String(msg)); } catch(e) {}
+              try { sessionStorage.setItem(CRASH_KEY, String(msg)); } catch(e) {}
             }
           }
+
           try {
-            var prev = sessionStorage.getItem('_artix_crash');
-            if (prev) { sessionStorage.removeItem('_artix_crash'); _showCrash('[Previous load] ' + prev); }
+            var prev = sessionStorage.getItem(CRASH_KEY);
+            if (prev) { sessionStorage.removeItem(CRASH_KEY); _showCrash('[Previous load] ' + prev); }
           } catch(e) {}
-          window.onerror = function(msg, src, line) { _showCrash(msg + '\n' + (src||'') + ':' + (line||'')); };
+
+          window.onerror = function(msg, src, line) {
+            var full = String(msg) + '\n' + (src||'') + ':' + (line||'');
+            if (isChunkError(full)) {
+              if (nukeCacheAndReload()) return; // auto-recovering
+            }
+            _showCrash(full);
+          };
+
           window.addEventListener('unhandledrejection', function(e) {
             var r = e.reason;
-            _showCrash('Unhandled rejection: ' + (r && r.message ? r.message + '\n' + (r.stack||'') : String(r)));
+            var msg = r && r.message ? r.message + '\n' + (r.stack||'') : String(r);
+            if (isChunkError(msg)) {
+              if (nukeCacheAndReload()) return; // auto-recovering
+            }
+            _showCrash('Unhandled rejection: ' + msg);
           });
         })();
       })();

@@ -102,14 +102,37 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Attempt server-side logout. On native this goes cross-origin so we must
-      // use nativeFetch (with Bearer token still present at call time).
+      // ── WHY credentials:"include" (not nativeFetch) ───────────────────────
+      // nativeFetch() switches to credentials:"omit" whenever a native Bearer
+      // token exists in localStorage — which happens for web Google OAuth users
+      // too, because the web login flow also stores a token there.
+      //
+      // Browser security rule: when credentials:"omit" is used, Set-Cookie
+      // response headers are silently discarded. The server sends
+      // "Set-Cookie: auth_token=; expires=past" but the browser ignores it,
+      // leaving the cookie (and therefore the session) fully alive.
+      //
+      // Effect: first logout click appears to work (page navigates to /login)
+      // but the auth_token cookie is still set, so fetchMe() returns the user
+      // and the app immediately re-enters the authenticated state. A second
+      // click finally clears the cookie because clearNativeToken() already ran,
+      // so credentials:"include" is used and Set-Cookie is processed.
+      //
+      // Fix: always use credentials:"include" for the logout call so the
+      // cookie is reliably cleared. Still send Bearer token in the Authorization
+      // header so native (Capacitor) clients are also invalidated server-side.
+      const token = localStorage.getItem(NATIVE_TOKEN_KEY);
       try {
-        await nativeFetch(resolveUrl("/auth/logout"), { method: "POST" });
+        await fetch(resolveUrl("/auth/logout"), {
+          method: "POST",
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
       } catch {
-        // If offline or CORS fails, still proceed with local logout
+        // Offline or network error — still proceed with local-only logout.
       }
-      // Clear local state immediately — don't await cache clear so logout is instant
+      // Clear the native token AFTER the fetch so it's still in the
+      // Authorization header for the request above.
       clearNativeToken();
       // Use clearApiCache (not clearAllCache) so any queued offline sales
       // belonging to this session are preserved across a re-login.

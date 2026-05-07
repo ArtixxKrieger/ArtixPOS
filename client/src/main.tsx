@@ -53,6 +53,33 @@ document.addEventListener("visibilitychange", () => {
 // Returning dev/preview users get any lingering SW proactively unregistered.
 if ("serviceWorker" in navigator) {
   if (import.meta.env.PROD) {
+    // ── SW_ASSET_404 handler ───────────────────────────────────────────────
+    // When the SW detects that a hashed asset returned 404 (stale deployment),
+    // it broadcasts SW_ASSET_404. We respond by wiping all caches and doing a
+    // hard reload so the user gets the fresh shell automatically — no manual
+    // "Clear cache & reload" button required.
+    // Loop guard: sessionStorage counter prevents infinite reload cycles if
+    // the new deployment itself somehow still has broken assets.
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "SW_ASSET_404") {
+        const STALE_KEY = "_artix_stale_reload";
+        try {
+          const attempts = Number(sessionStorage.getItem(STALE_KEY) ?? "0");
+          if (attempts >= 3) return; // give up after 3 auto-recoveries
+          sessionStorage.setItem(STALE_KEY, String(attempts + 1));
+        } catch { return; }
+        const doReload = () => window.location.reload();
+        if (window.caches) {
+          caches.keys()
+            .then((keys) => Promise.all(keys.map((k) => caches.delete(k).catch(() => {}))))
+            .catch(() => {})
+            .finally(doReload);
+        } else {
+          doReload();
+        }
+      }
+    });
+
     window.addEventListener("load", () => {
       navigator.serviceWorker
         .register("/sw.js")

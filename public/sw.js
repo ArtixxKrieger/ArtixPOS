@@ -154,11 +154,26 @@ self.addEventListener("fetch", (event) => {
   // ── 2. Hashed Vite assets — cache-first, immutable ───────────────────
   // Content hash in the filename guarantees the file never changes.
   // Serve from cache immediately; fetch and cache on first miss.
+  //
+  // STALE-DEPLOYMENT GUARD: if a hashed asset returns 404 it means the
+  // server has a new deployment and our cached HTML is pointing to
+  // files that no longer exist. In that case:
+  //   1. Delete the shell cache so the next navigation fetches fresh HTML.
+  //   2. Broadcast SW_ASSET_404 to all open tabs so main.tsx can wipe
+  //      all caches and hard-reload without waiting for the user to act.
   if (isSameOrigin(req.url) && isHashedAsset(url.pathname)) {
     event.respondWith(
       caches.match(req, { cacheName: ASSET_CACHE }).then((cached) => {
         if (cached) return cached;
         return fetch(req).then((res) => {
+          if (res.status === 404) {
+            // Stale deployment detected — nuke shell cache + notify clients.
+            caches.delete(SHELL_CACHE).catch(() => {});
+            self.clients.matchAll({ type: "window", includeUncontrolled: true })
+              .then((clients) => clients.forEach((c) => c.postMessage({ type: "SW_ASSET_404" })))
+              .catch(() => {});
+            return res; // pass 404 to the app so ErrorBoundary can react
+          }
           cacheResponse(ASSET_CACHE, req, res);
           return res;
         }).catch(() => new Response("Asset unavailable offline", { status: 503 }));

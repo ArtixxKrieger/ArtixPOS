@@ -48,6 +48,17 @@ export function serveStatic(app: Express) {
   // Resolve vendor chunk filename once at startup
   _vendorLinkHeader = resolveVendorLinkHeader(path.join(distPath, "assets"));
 
+  // sw.js and manifest.json must NEVER be cached long-term.
+  // sw.js: browsers cap SW update checks at 24h if max-age > 0 — no-cache
+  //        forces a byte-for-byte check on every navigation, so new SWs
+  //        are detected within one page load.
+  // manifest.json: must be fresh so icon/name changes propagate immediately.
+  app.get(["/sw.js", "/manifest.json"], (_req, res, next) => {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    next();
+  });
+
   // Cache-control: long for hashed assets, short for everything else
   app.use(
     express.static(distPath, {

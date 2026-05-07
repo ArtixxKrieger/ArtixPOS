@@ -1,0 +1,50 @@
+{
+  "name": "ArtixPOS — Business OS",
+  "short_name": "ArtixPOS",
+  "description": "BIR-compliant Philippine POS and business management system with offline support.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#7c3aed",
+  "background_color": "#09090f",
+  "scope": "/",
+  "lang": "en-PH",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Point of Sale",
+      "short_name": "POS",
+      "description": "Open the POS terminal",
+      "url": "/pos",
+      "icons": [{ "src": "/logo192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View business analytics",
+      "url": "/",
+      "icons": [{ "src": "/logo192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -261,7 +261,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background flex">
+    <div className="h-screen w-full bg-background flex overflow-hidden">
       <OfflineSyncBanner status={onlineStatus} />
       <Toaster
         position="top-left"

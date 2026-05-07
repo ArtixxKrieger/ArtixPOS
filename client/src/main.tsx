@@ -11,10 +11,41 @@ function dismissSplash() {
   const splash = document.getElementById("app-splash");
   if (!splash) return;
   splash.classList.add("sp-hiding");
-  splash.addEventListener("animationend", () => { splash.remove(); }, { once: true });
+  splash.addEventListener("animationend", () => { try { splash.remove(); } catch (_) {} }, { once: true });
   // Safety fallback — remove even if animation doesn't fire (e.g. reduced motion)
-  setTimeout(() => { try { splash.remove(); } catch (_) {} }, 600);
+  setTimeout(() => { try { splash.remove(); } catch (_) {} }, 3000);
 }
+
+// Force-remove the splash immediately (no animation) — used when returning
+// to a tab from the background where animation is irrelevant.
+function forceDismissSplash() {
+  const splash = document.getElementById("app-splash");
+  if (splash) { try { splash.remove(); } catch (_) {} }
+}
+
+// ── bfcache restore (Android Chrome tab switching) ────────────────────────
+// When the user leaves Chrome and comes back, Android may restore the page
+// from bfcache. The DOM is restored as-is (including a stuck splash if it
+// wasn't removed), but JS doesn't re-execute. The pageshow event fires
+// on restore — we use it to force-kill any lingering splash.
+window.addEventListener("pageshow", (event) => {
+  if ((event as PageTransitionEvent).persisted) {
+    forceDismissSplash();
+  }
+});
+
+// ── Visibility change guard ───────────────────────────────────────────────
+// Extra safety net: if the user switches tabs and returns, make sure the
+// splash is not blocking the app.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    // Only force-remove if React has already mounted (root has children).
+    const root = document.getElementById("root");
+    if (root && root.childElementCount > 0) {
+      forceDismissSplash();
+    }
+  }
+});
 
 // ── Service worker ────────────────────────────────────────────────────────
 // Register only in production. In development the SW caches Vite's dev

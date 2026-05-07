@@ -27,6 +27,25 @@ async function openOAuthBrowser(provider: "google") {
   await Browser.open({ url, presentationStyle: "popover" });
 }
 
+function loadGIS(): Promise<void> {
+  return new Promise((resolve) => {
+    if ((window as any).google?.accounts?.id) { resolve(); return; }
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => resolve());
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => resolve();
+    document.head.appendChild(s);
+  });
+}
+
 function diagnoseNativeError(raw: string): string {
   const msg = raw.toLowerCase();
   if (msg.includes("10:") || msg.includes("developer_error") || msg.includes("something went wrong"))
@@ -181,11 +200,69 @@ export default function Login() {
     }
   }
 
+  async function handleWebGoogleOneTap() {
+    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
+    if (!clientId) {
+      window.location.href = `${API_BASE}/auth/google`;
+      return;
+    }
+    setNativeError(null);
+    setSigningIn(true);
+    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+    try {
+      await loadGIS();
+      const goog = (window as any).google;
+      if (!goog?.accounts?.id) {
+        window.location.href = `${API_BASE}/auth/google`;
+        return;
+      }
+      await new Promise<void>((resolve, reject) => {
+        goog.accounts.id.initialize({
+          client_id: clientId,
+          use_fedcm_for_prompt: true,
+          callback: async (response: any) => {
+            try {
+              const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+              const data = await res.json();
+              if (!data.token) throw new Error("Server did not return a session token");
+              setNativeToken(data.token);
+              await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+              setLocation("/");
+              resolve();
+            } catch (err: any) {
+              reject(err);
+            }
+          },
+        });
+        goog.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            window.location.href = `${API_BASE}/auth/google`;
+            resolve();
+          }
+        });
+      });
+    } catch (err: any) {
+      const msg: string = err?.message ?? String(err);
+      const isCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismiss");
+      sessionStorage.removeItem(OAUTH_FLOW_KEY);
+      if (!isCancel) setNativeError(msg.length < 120 ? msg : "Sign-in failed. Please try again.");
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
   function handleGoogleClick(e: React.MouseEvent) {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-    if (!isNativePlatform()) return;
-    e.preventDefault();
-    handleNativeGoogleSignIn();
+    if (isNativePlatform()) {
+      e.preventDefault();
+      handleNativeGoogleSignIn();
+      return;
+    }
+    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
+    if (clientId) {
+      e.preventDefault();
+      handleWebGoogleOneTap();
+    }
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

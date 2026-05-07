@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
+import { OfflineSyncBanner } from "./offline-sync-banner";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -161,7 +162,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: settings } = useSettings();
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
-  const { isOnline, isSyncing, salesQueueCount } = useOnlineStatus();
+  const onlineStatus = useOnlineStatus();
+  const { isOnline, isSyncing, salesQueueCount } = onlineStatus;
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
   const role = user?.role ?? "cashier";
@@ -260,6 +262,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen w-full bg-background flex">
+      <OfflineSyncBanner status={onlineStatus} />
       <Toaster
         position="top-left"
         theme={isDark ? "dark" : "light"}

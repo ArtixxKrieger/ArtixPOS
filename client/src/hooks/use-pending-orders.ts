@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertPendingOrder } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, makeOfflineId } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
 const LIST_URL = api.pendingOrders.list.path;
@@ -39,7 +39,7 @@ export function useCreatePendingOrder() {
       } catch {
         // True network failure — go offline
         await queueMutation("POST", api.pendingOrders.create.path, data, "pending-order");
-        const optimistic = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
+        const optimistic = { ...data, id: makeOfflineId(), createdAt: new Date().toISOString() };
         await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
         return optimistic as any;
       }

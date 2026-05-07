@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY } from "@/lib/queryClient";
-import { clearAllCache } from "@/lib/offline-db";
+import { clearApiCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
@@ -111,7 +111,9 @@ export function useAuth() {
       }
       // Clear local state immediately — don't await cache clear so logout is instant
       clearNativeToken();
-      clearAllCache().catch(() => {});
+      // Use clearApiCache (not clearAllCache) so any queued offline sales
+      // belonging to this session are preserved across a re-login.
+      clearApiCache().catch(() => {});
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth-me"], null);

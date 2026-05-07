@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { type InsertSale } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, makeOfflineId } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
 const BASE_URL = api.sales.list.path;
@@ -73,7 +73,7 @@ export function useCreateSale() {
         });
       } catch {
         await queueMutation("POST", api.sales.create.path, data, "sale");
-        const optimistic = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
+        const optimistic = { ...data, id: makeOfflineId(), createdAt: new Date().toISOString() };
         await patchCached(BASE_URL, (prev: any[]) => [...prev, optimistic]);
         return optimistic as any;
       }

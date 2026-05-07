@@ -1,146 +1,246 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getSalesQueueCount, getQueueCount } from "@/lib/offline-db";
-import { syncOfflineData, type SyncResult } from "@/lib/sync";
+import {
+  getSalesQueueCount,
+  getQueueCount,
+  getFailedQueueCount,
+} from "@/lib/offline-db";
+import { syncOfflineData, retryFailedMutations, type SyncResult } from "@/lib/sync";
 import { nativeFetch } from "@/lib/queryClient";
 
-interface OnlineStatus {
+// ─── Types ─────────────────────────────────────────────────────────────────
+export interface OnlineStatus {
   isOnline: boolean;
   isSyncing: boolean;
   salesQueueCount: number;
+  totalQueueCount: number;
+  failedQueueCount: number;
   lastSync: SyncResult | null;
   triggerSync: () => Promise<void>;
+  triggerRetryFailed: () => Promise<void>;
 }
 
-// Only used to *confirm* we're back online (prevents false-positive from
-// a WiFi portal that returns 200 for everything). Not used for going offline —
-// that should be immediate via the browser "offline" event.
-async function confirmOnline(): Promise<boolean> {
+// ─── Connectivity probe ─────────────────────────────────────────────────────
+// Uses /api/health — a public, lightweight endpoint that requires no auth.
+// This avoids false-offline when the user is online but not yet authenticated.
+async function confirmOnline(signal?: AbortSignal): Promise<boolean> {
   if (!navigator.onLine) return false;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4000);
+  // Abort when the caller's signal fires, or after 2.5 s
+  const timer = setTimeout(() => controller.abort(), 2500);
+  const linked = signal?.addEventListener("abort", () => controller.abort());
+  void linked;
   try {
-    const res = await nativeFetch("/api/settings", {
+    const res = await nativeFetch("/api/health", {
       method: "HEAD",
       cache: "no-store",
       signal: controller.signal,
     });
-    return res.ok;
+    // Accept any 2xx/3xx — a 503 means the DB is down but the network works
+    return res.status < 500;
   } catch {
     return false;
   } finally {
-    // Always clear the timer — even if the fetch throws — to avoid a
-    // dangling timeout firing on an unmounted component.
     clearTimeout(timer);
   }
 }
 
+// ─── Hook ──────────────────────────────────────────────────────────────────
 export function useOnlineStatus(): OnlineStatus {
-  // Initialise instantly from the browser's own knowledge — no async needed.
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [salesQueueCount, setSalesQueueCount] = useState(0);
+  const [totalQueueCount, setTotalQueueCount] = useState(0);
+  const [failedQueueCount, setFailedQueueCount] = useState(0);
   const [lastSync, setLastSync] = useState<SyncResult | null>(null);
-  const isSyncingRef = useRef(false);
 
-  const refreshCount = useCallback(async () => {
-    const count = await getSalesQueueCount();
-    setSalesQueueCount(count);
-    return await getQueueCount();
+  // Mutexes — prevent concurrent syncs and concurrent online-checks
+  const isSyncingRef    = useRef(false);
+  const isCheckingRef   = useRef(false);
+  // AbortController for the in-flight confirmOnline call
+  const checkAbortRef   = useRef<AbortController | null>(null);
+  // Whether the component is still mounted
+  const mountedRef      = useRef(true);
+
+  // ── Queue count refresh ──────────────────────────────────────────────────
+  const refreshCounts = useCallback(async () => {
+    const [sales, total, failed] = await Promise.all([
+      getSalesQueueCount(),
+      getQueueCount(),
+      getFailedQueueCount(),
+    ]);
+    if (!mountedRef.current) return total;
+    setSalesQueueCount(sales);
+    setTotalQueueCount(total);
+    setFailedQueueCount(failed);
+    return total;
   }, []);
 
+  // ── Core sync ────────────────────────────────────────────────────────────
   const doSync = useCallback(async () => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
-    setIsSyncing(true);
+    if (mountedRef.current) setIsSyncing(true);
     try {
       const result = await syncOfflineData();
-      setLastSync(result);
-      await refreshCount();
+      if (mountedRef.current) setLastSync(result);
     } finally {
       isSyncingRef.current = false;
-      setIsSyncing(false);
+      if (mountedRef.current) setIsSyncing(false);
+      await refreshCounts();
     }
-  }, [refreshCount]);
+  }, [refreshCounts]);
 
+  // ── Retry failed ─────────────────────────────────────────────────────────
+  const doRetryFailed = useCallback(async () => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    if (mountedRef.current) setIsSyncing(true);
+    try {
+      const result = await retryFailedMutations();
+      if (mountedRef.current) setLastSync(result);
+    } finally {
+      isSyncingRef.current = false;
+      if (mountedRef.current) setIsSyncing(false);
+      await refreshCounts();
+    }
+  }, [refreshCounts]);
+
+  // ── Online transition handler (guards concurrent calls) ──────────────────
+  const handleCameOnline = useCallback(async () => {
+    // Abort any in-flight connectivity check before starting a new one
+    if (isCheckingRef.current) {
+      checkAbortRef.current?.abort();
+    }
+    isCheckingRef.current = true;
+    const ac = new AbortController();
+    checkAbortRef.current = ac;
+
+    try {
+      const online = await confirmOnline(ac.signal);
+      if (ac.signal.aborted || !mountedRef.current) return;
+      if (mountedRef.current) setIsOnline(online);
+      if (online) {
+        const total = await refreshCounts();
+        if (total > 0) await doSync();
+      }
+    } finally {
+      if (!ac.signal.aborted) isCheckingRef.current = false;
+    }
+  }, [doSync, refreshCounts]);
+
+  // ── Public API: manual sync trigger ─────────────────────────────────────
   const triggerSync = useCallback(async () => {
+    await handleCameOnline();
+  }, [handleCameOnline]);
+
+  const triggerRetryFailed = useCallback(async () => {
+    // Confirm still online before retrying
     const online = await confirmOnline();
-    if (!online) return;
+    if (!online || !mountedRef.current) return;
     setIsOnline(true);
-    await doSync();
-  }, [doSync]);
+    await doRetryFailed();
+  }, [doRetryFailed]);
 
+  // ── Effect: event listeners + polling ────────────────────────────────────
   useEffect(() => {
-    let pollInterval: ReturnType<typeof setInterval>;
+    mountedRef.current = true;
 
+    // Interval ref lives inside the effect so cleanup is guaranteed
+    let pollTimer: ReturnType<typeof setInterval>;
+    // Debounce rapid online/offline toggling
+    let debounceTimer: ReturnType<typeof setTimeout>;
+
+    // ── Initial probe ────────────────────────────────────────────────────
     const initialise = async () => {
-      // navigator.onLine already set the initial state; just confirm with a real
-      // request and kick off any queued sync if needed.
+      // navigator.onLine gives instant answer; confirm with a real request
       const online = navigator.onLine ? await confirmOnline() : false;
+      if (!mountedRef.current) return;
       setIsOnline(online);
-      const totalCount = await refreshCount();
-      if (online && totalCount > 0) await doSync();
+      const total = await refreshCounts();
+      if (online && total > 0) await doSync();
     };
-
     initialise();
 
-    // Going OFFLINE: mark immediately — no network round-trip needed.
+    // ── Offline: instant (browser event is reliable for going offline) ───
     const handleOffline = () => {
-      setIsOnline(false);
+      clearTimeout(debounceTimer);
+      if (mountedRef.current) setIsOnline(false);
     };
 
-    // Coming ONLINE: confirm with a real request first to avoid false positives
-    // (e.g. captive WiFi portals that return 200 for everything).
-    const handleOnline = async () => {
-      const online = await confirmOnline();
-      setIsOnline(online);
-      if (online) {
-        const totalCount = await refreshCount();
-        if (totalCount > 0) await doSync();
-      }
+    // ── Online: debounce 300 ms to avoid rapid toggling, then confirm ────
+    const handleOnline = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        handleCameOnline();
+      }, 300);
     };
 
-    const handleVisibilityChange = async () => {
+    // ── Visibility: re-probe when user returns to the tab ────────────────
+    const handleVisibility = () => {
       if (document.visibilityState !== "visible") return;
       if (!navigator.onLine) {
-        setIsOnline(false);
+        if (mountedRef.current) setIsOnline(false);
         return;
       }
-      const online = await confirmOnline();
-      setIsOnline(online);
-      if (online) {
-        // Only sync if there are queued mutations — don't blast-invalidate
-        // all cached data just because the user switched tabs or apps.
-        const totalCount = await refreshCount();
-        if (totalCount > 0) await doSync();
-      }
+      // If already online and nothing queued, skip the network probe
+      handleCameOnline();
     };
 
-    // Poll every 10 s to catch transitions the browser events might miss.
-    pollInterval = setInterval(async () => {
-      // Quick check first — skip the network request when already known offline.
+    // ── Adaptive poll ─────────────────────────────────────────────────────
+    // Polls every 8 s. When online with empty queue, skips confirmOnline
+    // (trusts navigator.onLine) to avoid unnecessary HEAD requests.
+    let consecutiveOnlineCount = 0;
+    const poll = async () => {
       if (!navigator.onLine) {
-        setIsOnline(false);
+        consecutiveOnlineCount = 0;
+        if (mountedRef.current) setIsOnline(false);
         return;
       }
-      const online = await confirmOnline();
+      // After 3 consecutive confirmed-online polls with empty queue,
+      // skip the network probe for the next 3 cycles (saves bandwidth).
+      let online: boolean;
+      if (consecutiveOnlineCount >= 3) {
+        // Fast path: trust navigator.onLine, just refresh counts
+        online = true;
+        consecutiveOnlineCount++;
+        if (consecutiveOnlineCount >= 6) consecutiveOnlineCount = 0;
+      } else {
+        online = await confirmOnline();
+        if (online) consecutiveOnlineCount++;
+        else consecutiveOnlineCount = 0;
+      }
+      if (!mountedRef.current) return;
       setIsOnline((prev) => (prev !== online ? online : prev));
       if (online) {
-        const totalCount = await refreshCount();
-        if (totalCount > 0) await doSync();
+        const total = await refreshCounts();
+        if (total > 0) await doSync();
       }
-    }, 10_000);
+    };
+    pollTimer = setInterval(poll, 8_000);
 
-    window.addEventListener("online", handleOnline);
+    window.addEventListener("online",  handleOnline);
     window.addEventListener("offline", handleOffline);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
+      mountedRef.current = false;
+      clearTimeout(debounceTimer);
+      clearInterval(pollTimer);
+      checkAbortRef.current?.abort();
+      window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      clearInterval(pollInterval);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [refreshCount, doSync]);
+  }, [handleCameOnline, refreshCounts, doSync]);
 
-  return { isOnline, isSyncing, salesQueueCount, lastSync, triggerSync };
+  return {
+    isOnline,
+    isSyncing,
+    salesQueueCount,
+    totalQueueCount,
+    failedQueueCount,
+    lastSync,
+    triggerSync,
+    triggerRetryFailed,
+  };
 }

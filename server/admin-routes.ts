@@ -432,7 +432,7 @@ export function registerAdminRoutes(app: Express) {
         address: z.string().optional().nullable(),
         phone: z.string().optional().nullable(),
         email: z.string().email().optional().nullable(),
-        website: z.string().url().optional().nullable().or(z.literal("").transform(() => null)),
+        website: z.string().optional().nullable(),
         description: z.string().optional().nullable(),
         color: z.string().optional().nullable(),
         timezone: z.string().optional().nullable(),

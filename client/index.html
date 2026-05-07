@@ -60,14 +60,9 @@
           if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return false; }
         });
 
-        // ── Continuous console warning ────────────────────────────────────────
-        function consoleWarning() {
-          console.clear();
-          console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
-          console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');
-        }
-        consoleWarning();
-        setInterval(consoleWarning, 3000);
+        // ── One-time console warning ──────────────────────────────────────────
+        console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
+        console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');
 
         // ── Visible error reporter ─────────────────────────────────────────────
         // console.clear() hides JS errors every 3 s, making white-screen bugs

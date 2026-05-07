@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2, Download } from "lucide-react";
+import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest, clearNativeToken, resolveUrl, NATIVE_TOKEN_KEY } from "@/lib/queryClient";
+import { apiRequest, clearNativeToken } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
 import { Sparkles } from "lucide-react";
@@ -92,7 +92,6 @@ export default function Settings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
   const [showPaymentManager, setShowPaymentManager] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
@@ -116,66 +115,15 @@ export default function Settings() {
     if (deleteConfirmText !== "DELETE" || isDeleting) return;
     setIsDeleting(true);
     try {
-      // Use apiRequest so the native Bearer token is attached on mobile.
-      // The previous raw fetch() left a stale token in storage so the user
-      // would silently re-authenticate on the next request.
       await apiRequest("DELETE", "/api/auth/account");
       clearNativeToken();
-      await clearAllCache();
+      // clearAllCache is best-effort — don't let it block the redirect
+      try { await clearAllCache(); } catch {}
       queryClient.clear();
       window.location.href = "/login";
     } catch {
       toast({ title: "Failed to delete account", description: "Please try again.", variant: "destructive" });
       setIsDeleting(false);
-    }
-  };
-
-  const handleExportData = async () => {
-    if (isExporting) return;
-    setIsExporting(true);
-    try {
-      // Use a manual fetch (not apiRequest) so we can stream the body as a
-      // Blob without forcing it into memory as JSON. The native Bearer token
-      // header is added the same way apiRequest does, so this works on the
-      // Capacitor APK too.
-      const headers: Record<string, string> = {};
-      const nativeToken = localStorage.getItem(NATIVE_TOKEN_KEY);
-      if (nativeToken) headers.Authorization = `Bearer ${nativeToken}`;
-      const res = await fetch(resolveUrl("/api/auth/export"), {
-        credentials: nativeToken ? "omit" : "include",
-        headers,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      // Prefer the server-provided filename (`Content-Disposition`), fall back
-      // to a sensible default.
-      const dispo = res.headers.get("Content-Disposition") ?? "";
-      const match = /filename="?([^"]+)"?/i.exec(dispo);
-      const filename = match?.[1] ?? `artixpos-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Defer revoke so the download has time to start before the URL is freed.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-      toast({
-        title: "Export ready",
-        description: "Your data archive has been downloaded.",
-      });
-    } catch (err: any) {
-      toast({
-        title: "Export failed",
-        description: err?.message || "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -650,25 +598,6 @@ export default function Settings() {
           </div>
         )}
 
-        {isOwner && (
-          <button
-            onClick={handleExportData}
-            disabled={isExporting}
-            data-testid="button-export-data"
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isExporting
-              ? <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
-              : <Download className="h-4 w-4 text-muted-foreground" />}
-            <div className="flex-1 text-left min-w-0">
-              <p className="leading-none">{isExporting ? "Preparing export…" : "Export my data"}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                Download a JSON archive of your store, products, sales, customers and team.
-              </p>
-            </div>
-          </button>
-        )}
-
         <button
           onClick={() => { if (!isLoggingOut) logout(); }}
           disabled={isLoggingOut}
@@ -706,28 +635,6 @@ export default function Settings() {
               This permanently deletes your account and <strong>all your data</strong> — products, sales, orders, and settings. Cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
-          {isOwner && (
-            <button
-              type="button"
-              onClick={handleExportData}
-              disabled={isExporting || isDeleting}
-              data-testid="button-export-before-delete"
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border/40 bg-secondary/40 hover:bg-secondary/70 transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isExporting
-                ? <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />
-                : <Download className="h-4 w-4 text-muted-foreground shrink-0" />}
-              <div className="min-w-0">
-                <p className="text-sm font-medium leading-none">
-                  {isExporting ? "Preparing export…" : "Download a backup first"}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                  Save a JSON copy of your store before deleting — just in case.
-                </p>
-              </div>
-            </button>
-          )}
 
           <div className="px-1 pb-1">
             <p className="text-sm text-muted-foreground mb-2">

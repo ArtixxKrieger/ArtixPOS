@@ -745,8 +745,8 @@ export async function registerRoutes(
       storage.getSettings(uid),
       storage.getProducts(uid),
       storage.getSales(uid, opts),
-      storage.getCustomers(uid, opts).catch(() => [] as any[]),
-      storage.getExpenses(uid, opts).catch(() => [] as any[]),
+      storage.getCustomers(uid, { limit: 10000 }).catch(() => [] as any[]),
+      storage.getExpenses(uid, { branchId: bid ?? undefined, limit: 10000 }).catch(() => [] as any[]),
     ]);
 
     const backup = {

@@ -6,10 +6,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 export default defineConfig({
   base: "/",
   plugins: [
-    react({
-      // Babel fast-refresh — only runs in dev, zero prod overhead
-      fastRefresh: true,
-    }),
+    react(),
     runtimeErrorOverlay(),
   ],
   resolve: {

@@ -13,6 +13,7 @@ import { db } from "./db";
 import { eq, and, sql, desc, isNotNull } from "drizzle-orm";
 import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable, expenses } from "@shared/schema";
 import { signToken, setAuthCookie, verifyToken } from "./auth";
+import { emit as emitTenantEvent, subscribe as subscribeTenantEvent } from "./events";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
 import {
@@ -436,6 +437,17 @@ export async function registerRoutes(
           // Sale creation failure is non-fatal — the order is already saved.
           console.error("Failed to auto-create sale for paid order:", saleErr);
         }
+      }
+
+      // Notify connected kitchen SSE clients about the new order
+      const tid = tenantId(req);
+      if (tid && input.status !== "paid") {
+        emitTenantEvent(tid, {
+          type: "kitchen-new-order",
+          orderId: order.id,
+          orderNumber: (order as any).orderNumber ?? null,
+          itemCount: Array.isArray(input.items) ? input.items.length : 0,
+        });
       }
 
       // Merge BIR receipt identifiers from the auto-created sale into the
@@ -2234,11 +2246,69 @@ export async function registerRoutes(
       const { kitchenStatus } = z.object({ kitchenStatus: z.enum(["pending", "preparing", "ready", "done"]) }).parse(req.body);
       const order = await storage.updatePendingOrder(Number(req.params.id), userId(req), { kitchenStatus });
       if (!order) return res.status(404).json({ message: "Order not found" });
+      // Push instant update to all kitchen SSE clients on this tenant
+      const tid = tenantId(req);
+      if (tid) {
+        emitTenantEvent(tid, {
+          type: "kitchen-update",
+          orderId: order.id,
+          kitchenStatus,
+          orderNumber: (order as any).orderNumber ?? null,
+        });
+      }
       res.json(order);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
+  });
+
+  // ── SSE: Kitchen real-time channel ───────────────────────────────────────
+  // Dedicated SSE stream for the Kitchen Display page.  Subscribes to the
+  // tenant event bus and pushes order-update / new-order events the instant
+  // a status change or new order is recorded, eliminating the 15 s poll loop.
+  app.get("/api/sse/kitchen", async (req: Request, res: Response) => {
+    // ── Auth (same pattern as /api/sse/alerts) ────────────────────────────
+    let user = req.user as any;
+    if (!user) {
+      const qToken = (req.query as any).token as string | undefined;
+      if (qToken) {
+        try { user = verifyToken(qToken); } catch { /* invalid token */ }
+      }
+    }
+    if (!user) { res.status(401).end(); return; }
+
+    const tid: string | null = user.tenantId ?? null;
+    if (!tid) { res.status(403).json({ message: "No tenant" }); return; }
+
+    // ── SSE headers ───────────────────────────────────────────────────────
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (event: string, data: Record<string, any> = {}) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    send("connected", { ts: new Date().toISOString() });
+
+    // ── Subscribe to tenant events ────────────────────────────────────────
+    const unsubscribe = subscribeTenantEvent(tid, (event) => {
+      if (event.type === "kitchen-update") {
+        send("order-update", { orderId: event.orderId, kitchenStatus: event.kitchenStatus, orderNumber: event.orderNumber });
+      } else if (event.type === "kitchen-new-order") {
+        send("new-order", { orderId: event.orderId, orderNumber: event.orderNumber, itemCount: event.itemCount });
+      }
+    });
+
+    const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 30_000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
   });
 
   // ── Service Staff ─────────────────────────────────────────────────────────

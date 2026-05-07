@@ -14,7 +14,7 @@ function resolveVendorLinkHeader(assetsDir: string): string | null {
     const files = fs.readdirSync(assetsDir);
     const vendorFile = files.find(f => /^vendor-[A-Za-z0-9]+\.js$/.test(f));
     if (!vendorFile) return null;
-    const header = `</assets/${vendorFile}>; rel=preload; as=script`;
+    const header = `</assets/${vendorFile}>; rel=preload; as=script; crossorigin`;
     console.log(`[static] HTTP/2 push hint: ${header}`);
     return header;
   } catch {

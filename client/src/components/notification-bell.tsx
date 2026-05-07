@@ -25,7 +25,7 @@ export function NotificationBell() {
   // SSE-powered real-time alerts — replaces the old 30 s polling interval.
   // When the server detects new low-stock items or pending orders it pushes an
   // event that invalidates the relevant query caches, causing an immediate refetch.
-  useSseAlerts();
+  const { connected: sseConnected } = useSseAlerts();
 
   const { data: notifs = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
@@ -114,6 +114,21 @@ export function NotificationBell() {
                 {unreadCount} new
               </span>
             )}
+            {/* Real-time connection indicator */}
+            <span
+              title={sseConnected ? "Real-time alerts active" : "Reconnecting…"}
+              className="flex items-center gap-1"
+            >
+              <span className={[
+                "inline-block h-1.5 w-1.5 rounded-full",
+                sseConnected
+                  ? "bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.2)] animate-pulse"
+                  : "bg-muted-foreground/30",
+              ].join(" ")} />
+              {sseConnected && (
+                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">LIVE</span>
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             {unreadCount > 0 && (

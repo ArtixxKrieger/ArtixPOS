@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChefHat, Clock, CheckCircle2, RefreshCw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useKitchenSse } from "@/hooks/use-kitchen-sse";
+import { cn } from "@/lib/utils";
 import type { PendingOrder } from "@shared/schema";
 
 const KITCHEN_STATUSES = ["pending", "preparing", "ready"] as const;
@@ -24,11 +26,17 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; class: string; next:
     nextLabel: "Mark Ready",
   },
   ready: {
-    label: "Ready",
+    label: "Ready ✓",
     class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     next: "done",
     nextLabel: "Done / Served",
   },
+};
+
+const COLUMN_ACCENT: Record<KitchenStatus, string> = {
+  pending: "border-t-amber-400",
+  preparing: "border-t-blue-500",
+  ready: "border-t-emerald-500",
 };
 
 function elapsedMin(createdAt: string | null | undefined) {
@@ -36,23 +44,44 @@ function elapsedMin(createdAt: string | null | undefined) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
+function LiveDot({ connected }: { connected: boolean }) {
+  return (
+    <span className="flex items-center gap-1.5 text-[10px] font-bold">
+      <span className={cn(
+        "inline-block h-2 w-2 rounded-full",
+        connected
+          ? "bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.25)] animate-pulse"
+          : "bg-muted-foreground/30"
+      )} />
+      <span className={connected ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"}>
+        {connected ? "LIVE" : "offline"}
+      </span>
+    </span>
+  );
+}
+
 export default function KitchenPage() {
   const { toast } = useToast();
-  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [tick, setTick] = useState(0); // elapsed-time ticker
+
+  // Real-time SSE channel — pushes order-update and new-order events instantly.
+  // Falls back to the refetchInterval below if SSE drops.
+  const { connected } = useKitchenSse();
 
   const { data: orders = [], isLoading, isFetching, refetch } = useQuery<PendingOrder[]>({
     queryKey: ["/api/pending-orders"],
-    refetchInterval: 15000, // auto-refresh every 15s
+    // Keep a fallback poll at 30 s in case SSE drops; SSE makes it instant for all normal operations
+    refetchInterval: 30_000,
   });
 
+  // Tick every 30 s so elapsed times stay accurate without re-fetching
   useEffect(() => {
-    const interval = setInterval(() => setLastRefresh(new Date()), 30000);
+    const interval = setInterval(() => setTick(t => t + 1), 30_000);
     return () => clearInterval(interval);
   }, []);
 
   const kitchenOrders = orders.filter(o =>
-    o.kitchenStatus !== "done" &&
-    o.status !== "paid"
+    o.kitchenStatus !== "done" && o.status !== "paid"
   );
 
   const updateMutation = useMutation({
@@ -70,7 +99,6 @@ export default function KitchenPage() {
     updateMutation.mutate({ id: order.id, kitchenStatus: next });
   }
 
-  // Group by status
   const grouped: Record<KitchenStatus, PendingOrder[]> = { pending: [], preparing: [], ready: [] };
   for (const o of kitchenOrders) {
     const s = (o.kitchenStatus ?? "pending") as KitchenStatus;
@@ -80,28 +108,31 @@ export default function KitchenPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ChefHat className="h-6 w-6 text-primary" /> Kitchen Display
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <ChefHat className="h-5 w-5 text-primary" />
+            Kitchen Display
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {kitchenOrders.length} active order{kitchenOrders.length !== 1 ? "s" : ""} · last refreshed {Math.floor((Date.now() - lastRefresh.getTime()) / 1000)}s ago
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-xs text-muted-foreground">
+              {kitchenOrders.length} active order{kitchenOrders.length !== 1 ? "s" : ""}
+            </p>
+            <LiveDot connected={connected} />
+          </div>
         </div>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => { refetch(); setLastRefresh(new Date()); }}
+          onClick={() => refetch()}
           disabled={isLoading || isFetching}
           data-testid="button-refresh-kitchen"
           aria-label="Refresh kitchen orders"
+          className="gap-1.5 text-xs"
         >
-          {isFetching ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3.5 w-3.5 mr-1" />
-          )}
+          {isFetching
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <RefreshCw className="h-3.5 w-3.5" />}
           Refresh
         </Button>
       </div>
@@ -125,9 +156,11 @@ export default function KitchenPage() {
                 <Badge className={`${STATUS_CONFIG[status].class} border text-xs px-3 py-1`}>
                   {STATUS_CONFIG[status].label}
                 </Badge>
-                <span className="text-xs text-muted-foreground font-medium">
-                  {grouped[status].length}
-                </span>
+                {grouped[status].length > 0 && (
+                  <span className="text-xs font-bold bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+                    {grouped[status].length}
+                  </span>
+                )}
               </div>
 
               {/* Order cards */}
@@ -138,15 +171,16 @@ export default function KitchenPage() {
               ) : (
                 grouped[status].map(order => {
                   const elapsed = elapsedMin(order.createdAt);
-                  const isUrgent = elapsed >= 15;
+                  const isUrgent = elapsed >= 15 && status === "pending";
                   return (
                     <div
                       key={order.id}
                       data-testid={`card-kitchen-order-${order.id}`}
-                      className={[
-                        "bg-card border rounded-2xl p-4 space-y-3 shadow-sm transition-all",
-                        isUrgent && status === "pending" ? "border-rose-500/40" : "border-border",
-                      ].join(" ")}
+                      className={cn(
+                        "bg-card border-t-2 border rounded-2xl p-4 space-y-3 shadow-sm transition-all",
+                        COLUMN_ACCENT[status],
+                        isUrgent ? "border-rose-500/40 bg-rose-500/[0.02]" : "border-border",
+                      )}
                     >
                       {/* Order header */}
                       <div className="flex items-start justify-between gap-2">
@@ -154,11 +188,17 @@ export default function KitchenPage() {
                           <p className="font-bold text-base">
                             {order.orderNumber ? `#${order.orderNumber}` : `Order #${order.id}`}
                           </p>
+                          {order.customerName && (
+                            <p className="text-[10px] text-muted-foreground">{order.customerName}</p>
+                          )}
                           {order.notes && (
                             <p className="text-xs text-muted-foreground mt-0.5 italic">"{order.notes}"</p>
                           )}
                         </div>
-                        <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${isUrgent && status !== "ready" ? "bg-rose-500/10 text-rose-500" : "bg-muted text-muted-foreground"}`}>
+                        <div className={cn(
+                          "flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0",
+                          isUrgent ? "bg-rose-500/10 text-rose-500" : elapsed >= 10 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"
+                        )}>
                           <Clock className="h-3 w-3" />
                           {elapsed}m
                         </div>
@@ -179,7 +219,9 @@ export default function KitchenPage() {
                                 {mods.length > 0 && (
                                   <span className="text-muted-foreground ml-1 text-xs">+{mods.join(", ")}</span>
                                 )}
-                                {item.note && <span className="block text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5">"{item.note}"</span>}
+                                {item.note && (
+                                  <span className="block text-[10px] italic text-amber-600 dark:text-amber-400 mt-0.5">"{item.note}"</span>
+                                )}
                               </span>
                             </li>
                           );
@@ -195,7 +237,9 @@ export default function KitchenPage() {
                         disabled={updateMutation.isPending}
                         data-testid={`button-kitchen-advance-${order.id}`}
                       >
-                        {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : STATUS_CONFIG[status].nextLabel}
+                        {updateMutation.isPending
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : STATUS_CONFIG[status].nextLabel}
                       </Button>
                     </div>
                   );

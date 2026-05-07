@@ -481,13 +481,30 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   const subtypeOptions = BUSINESS_SUBTYPES[selectedType] ?? [];
 
   useEffect(() => {
+    if (open && branch) {
+      form.reset({
+        name: branch.name ?? "",
+        address: branch.address ?? "",
+        phone: branch.phone ?? "",
+        email: branch.email ?? "",
+        website: branch.website ?? "",
+        description: branch.description ?? "",
+        color: branch.color ?? BRANCH_COLORS[0],
+        timezone: branch.timezone ?? "",
+        taxRate: branch.taxRate ?? "",
+        openingHours: (branch.openingHours as any) ?? DEFAULT_OPENING_HOURS,
+        isActive: branch.isActive ?? true,
+        businessType: branch.businessType ?? "",
+        businessSubType: branch.businessSubType ?? "",
+      });
+    }
     if (!open) {
       setStep("form");
       setActiveTab("basic");
       setCreatedBranch(null);
       setSeedTemplate(null);
     }
-  }, [open]);
+  }, [open, branch]);
 
   function handleClose() {
     form.reset();

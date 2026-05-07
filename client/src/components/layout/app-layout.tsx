@@ -385,7 +385,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ── Main area ─────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px]">
+      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px] overflow-y-auto">
 
         {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header
@@ -406,7 +406,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </p>
             </div>
 
-            {(!isOnline || isSyncing) && (
+            {onlineStatus.isReady && (!isOnline || isSyncing) && (
               <div className={["flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
                 {isSyncing ? <><RefreshCw className="h-2.5 w-2.5 animate-spin" /><span>Syncing</span></> : <><WifiOff className="h-2.5 w-2.5" /><span>Offline</span></>}
               </div>
@@ -424,7 +424,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {businessLabels[location] ?? PAGE_TITLES[location] ?? ""}
             </p>
 
-            {(!isOnline || isSyncing) && (
+            {onlineStatus.isReady && (!isOnline || isSyncing) && (
               <div className={["flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-300", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
                 {isSyncing ? (
                   <><RefreshCw className="h-3 w-3 animate-spin" /><span>Syncing {salesQueueCount > 0 ? `${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}` : "changes"}…</span></>
@@ -437,7 +437,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Main content */}
-        <main className="pb-[calc(80px+env(safe-area-inset-bottom,0px))] md:pb-10 flex-1">
+        <main className="pb-[calc(80px+env(safe-area-inset-bottom,0px))] md:pb-10">
           <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
             {children}
           </div>

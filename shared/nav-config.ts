@@ -30,6 +30,8 @@ export const APP_PAGES: NavPage[] = [
   { label: "Print Settings", url: "/print-settings", location: "more", description: "Configure receipt paper size, title, store info, and other print options (owner only)" },
   { label: "Loyalty Program", url: "/loyalty", location: "more", description: "Configure loyalty points: how customers earn and redeem points for discounts (Pro)" },
   { label: "Payroll", url: "/payroll", location: "more", description: "Compute staff payroll from hours, monthly salary, or sales commission (owner only, Pro)" },
+  { label: "BIR Compliance", url: "/bir", location: "more", description: "BIR compliance: Z-reports, electronic journal, OR gap detection, hash verification (owner + Pro)" },
+  { label: "Void Audit Log", url: "/bir-audit-log", location: "more", description: "Immutable void trail with SHA-256 hash verification for BIR auditor review (owner + Pro)" },
   { label: "Settings", url: "/settings", location: "more", description: "Store name, logo, currency, tax rate, staff invites, receipt customization, monthly goal" },
   { label: "Branches", url: "/admin/branches", location: "admin", description: "Add and manage multiple store branches" },
   { label: "Team Overview", url: "/admin/users", location: "admin", description: "View all staff across all branches" },

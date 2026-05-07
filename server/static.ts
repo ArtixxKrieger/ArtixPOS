@@ -2,6 +2,26 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 
+// ── HTTP/2 Server Push hint ────────────────────────────────────────────────
+// Resolved once at startup so every request avoids a filesystem scan.
+// The vendor chunk is the heaviest JS asset; preloading it shaves TTI on
+// first visit because the browser can pipeline the download alongside HTML.
+let _vendorLinkHeader: string | null = null;
+
+function resolveVendorLinkHeader(assetsDir: string): string | null {
+  if (!fs.existsSync(assetsDir)) return null;
+  try {
+    const files = fs.readdirSync(assetsDir);
+    const vendorFile = files.find(f => /^vendor-[A-Za-z0-9]+\.js$/.test(f));
+    if (!vendorFile) return null;
+    const header = `</assets/${vendorFile}>; rel=preload; as=script`;
+    console.log(`[static] HTTP/2 push hint: ${header}`);
+    return header;
+  } catch {
+    return null;
+  }
+}
+
 export function serveStatic(app: Express) {
   // Try paths in order of reliability:
   // 1. process.cwd()/dist/public — most reliable on Vercel Lambda (/var/task)
@@ -25,6 +45,9 @@ export function serveStatic(app: Express) {
 
   console.log(`Serving static files from: ${distPath}`);
 
+  // Resolve vendor chunk filename once at startup
+  _vendorLinkHeader = resolveVendorLinkHeader(path.join(distPath, "assets"));
+
   // Cache-control: long for hashed assets, short for everything else
   app.use(
     express.static(distPath, {
@@ -39,6 +62,11 @@ export function serveStatic(app: Express) {
     const indexPath = path.resolve(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
       res.setHeader("Cache-Control", "no-cache");
+      // HTTP/2 server push hint — browser can pipeline vendor chunk download
+      // alongside initial HTML parse, cutting first-visit TTI.
+      if (_vendorLinkHeader) {
+        res.setHeader("Link", _vendorLinkHeader);
+      }
       res.sendFile(indexPath);
     } else {
       res.status(404).json({ error: "Not found" });

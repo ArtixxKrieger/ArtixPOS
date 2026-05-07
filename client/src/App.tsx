@@ -58,6 +58,7 @@ const PrintSettings = lazy(() => import("@/pages/print-settings"));
 const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
 const PayrollPage = lazy(() => import("@/pages/payroll"));
 const BIRPage = lazy(() => import("@/pages/bir"));
+const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
 const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
 
 /**
@@ -324,6 +325,7 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/loyalty"),
   () => import("@/pages/payroll"),
   () => import("@/pages/bir"),
+  () => import("@/pages/bir-audit-log"),
   () => import("@/pages/expiry-tracker"),
   () => import("@/pages/admin/index"),
   () => import("@/pages/admin/branches"),
@@ -440,6 +442,7 @@ function AppRouter() {
           <Route path="/loyalty" component={() => <ProGuard url="/loyalty" component={LoyaltyPage} />} />
           <Route path="/payroll" component={() => <ProGuard url="/payroll" component={PayrollPage} />} />
           <Route path="/bir" component={() => <ProAndOwnerGuard component={BIRPage} />} />
+          <Route path="/bir-audit-log" component={() => <ProAndOwnerGuard component={BIRAuditLogPage} />} />
           <Route path="/expiry" component={() => <CashierGuard component={ExpiryTrackerPage} />} />
           <Route path="/billing" component={() => <BillingPage />} />
           <Route component={NotFound} />

@@ -12,7 +12,7 @@ import { createBranch, getBranches, createTenant, createAuditLog, getRolePermiss
 import { db } from "./db";
 import { eq, and, sql, desc, isNotNull } from "drizzle-orm";
 import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable, expenses } from "@shared/schema";
-import { signToken, setAuthCookie } from "./auth";
+import { signToken, setAuthCookie, verifyToken } from "./auth";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
 import {
@@ -1459,6 +1459,253 @@ export async function registerRoutes(
       gapCount: gaps.reduce((a, g) => a + g.count, 0),
       orMin: orNumbers[0],
       orMax: orNumbers[orNumbers.length - 1],
+    });
+  });
+
+  // ── BIR Void Audit Trail ─────────────────────────────────────────────────
+  // Returns every voided sale for this tenant with SHA-256 hash re-verification.
+  // Auditors can see who voided each sale, when, why, and whether any fiscal
+  // fields were altered after initial creation (hash mismatch = tampered).
+  app.get("/api/bir/void-trail", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const uid = userId(req);
+
+    const rows = await db.execute(sql`
+      SELECT
+        s.id,
+        s.or_number,
+        s.receipt_number,
+        s.invoice_number,
+        s.total,
+        s.subtotal,
+        s.tax,
+        s.discount,
+        s.vatable_sales,
+        s.vat_exempt_sales,
+        s.zero_rated_sales,
+        s.discount_type,
+        s.sale_hash,
+        s.void_reason,
+        s.deleted_at,
+        s.created_at,
+        s.user_id,
+        u.name  AS deleted_by_name
+      FROM   sales s
+      LEFT   JOIN users u ON u.id = s.deleted_by
+      WHERE  s.user_id = ANY(
+               SELECT id FROM users
+               WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = ${uid})
+             )
+        AND  s.deleted_at IS NOT NULL
+      ORDER  BY s.deleted_at DESC
+      LIMIT  1000
+    `);
+
+    let tampered = 0;
+    let missingHash = 0;
+
+    const entries = (rows.rows as any[]).map(r => {
+      let hashStatus: "ok" | "tampered" | "missing" = "missing";
+      if (r.sale_hash) {
+        const payload = [
+          r.user_id,
+          r.receipt_number  ?? "",
+          r.or_number       ?? "",
+          r.invoice_number  ?? "",
+          r.subtotal        ?? "0",
+          r.tax             ?? "0",
+          r.discount        ?? "0",
+          r.vatable_sales   ?? "0",
+          r.vat_exempt_sales ?? "0",
+          r.zero_rated_sales ?? "0",
+          r.total,
+          r.discount_type   ?? "regular",
+          r.created_at,
+        ].join("|");
+        const expected = createHash("sha256").update(payload).digest("hex");
+        hashStatus = expected === r.sale_hash ? "ok" : "tampered";
+      }
+      if (hashStatus === "tampered") tampered++;
+      if (hashStatus === "missing")  missingHash++;
+
+      return {
+        id: r.id,
+        orNumber: r.or_number ?? null,
+        receiptNumber: r.receipt_number ?? null,
+        total: r.total,
+        voidReason: r.void_reason ?? null,
+        deletedAt: r.deleted_at,
+        deletedByName: r.deleted_by_name ?? null,
+        saleHash: r.sale_hash ?? null,
+        hashStatus,
+        createdAt: r.created_at,
+      };
+    });
+
+    res.json({
+      entries,
+      totalVoided: entries.length,
+      tampered,
+      missingHash,
+      verifiedAt: new Date().toISOString(),
+    });
+  });
+
+  // ── BIR Void Trail CSV Export ─────────────────────────────────────────────
+  app.get("/api/bir/void-trail/export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const uid = userId(req);
+
+    const rows = await db.execute(sql`
+      SELECT
+        s.id,
+        s.or_number,
+        s.receipt_number,
+        s.total,
+        s.void_reason,
+        s.deleted_at,
+        s.created_at,
+        s.user_id,
+        s.subtotal,
+        s.tax,
+        s.discount,
+        s.vatable_sales,
+        s.vat_exempt_sales,
+        s.zero_rated_sales,
+        s.discount_type,
+        s.sale_hash,
+        s.invoice_number,
+        u.name AS deleted_by_name
+      FROM   sales s
+      LEFT   JOIN users u ON u.id = s.deleted_by
+      WHERE  s.user_id = ANY(
+               SELECT id FROM users
+               WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = ${uid})
+             )
+        AND  s.deleted_at IS NOT NULL
+      ORDER  BY s.deleted_at DESC
+      LIMIT  10000
+    `);
+
+    const lines: string[] = [
+      "Sale ID,OR Number,Receipt Number,Total,Void Reason,Voided At,Voided By,Sale Date,SHA-256 Hash,Hash Status",
+    ];
+
+    for (const r of rows.rows as any[]) {
+      let hashStatus = "NO_HASH";
+      if (r.sale_hash) {
+        const payload = [
+          r.user_id, r.receipt_number ?? "", r.or_number ?? "", r.invoice_number ?? "",
+          r.subtotal ?? "0", r.tax ?? "0", r.discount ?? "0",
+          r.vatable_sales ?? "0", r.vat_exempt_sales ?? "0", r.zero_rated_sales ?? "0",
+          r.total, r.discount_type ?? "regular", r.created_at,
+        ].join("|");
+        const expected = createHash("sha256").update(payload).digest("hex");
+        hashStatus = expected === r.sale_hash ? "VERIFIED" : "TAMPERED";
+      }
+      const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      lines.push([
+        r.id, esc(r.or_number ?? ""), esc(r.receipt_number ?? ""),
+        r.total, esc(r.void_reason ?? ""), esc(r.deleted_at ?? ""),
+        esc(r.deleted_by_name ?? ""), esc(r.created_at ?? ""),
+        esc(r.sale_hash ?? ""), hashStatus,
+      ].join(","));
+    }
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="BIR-VoidAuditLog.csv"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.send(lines.join("\r\n"));
+  });
+
+  // ── SSE: Real-time low-stock + new-order alerts ───────────────────────────
+  // Uses Server-Sent Events instead of polling.  The client opens one persistent
+  // connection; the server pushes events as state changes occur.
+  // Auth: reads JWT from cookie OR from ?token= query param (EventSource cannot
+  // set custom headers, so the bearer token is passed as a query param from the
+  // frontend for native / non-cookie sessions).
+  app.get("/api/sse/alerts", async (req: Request, res: Response) => {
+    // ── Auth ──────────────────────────────────────────────────────────────
+    let user = req.user as any;
+    if (!user) {
+      const qToken = (req.query as any).token as string | undefined;
+      if (qToken) {
+        try {
+          user = verifyToken(qToken);
+        } catch { /* invalid token — fall through */ }
+      }
+    }
+    if (!user) {
+      res.status(401).end();
+      return;
+    }
+
+    const uid: string = user.id;
+
+    // ── SSE headers ───────────────────────────────────────────────────────
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // disable nginx/Replit proxy buffering
+    res.flushHeaders();
+
+    const send = (event: string, data: Record<string, any> = {}) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    send("connected", { ts: new Date().toISOString() });
+
+    // ── State snapshots ───────────────────────────────────────────────────
+    // We track the last known low-stock IDs and pending-order count so we
+    // only push events when something actually changes.
+    let knownLowStockIds = new Set<number>();
+    let knownPendingCount = -1;
+
+    async function poll() {
+      try {
+        // Low-stock products
+        const stockRows = await db.execute(sql`
+          SELECT id FROM products
+          WHERE user_id = ${uid}
+            AND track_stock = true
+            AND deleted_at IS NULL
+            AND stock <= low_stock_threshold
+        `);
+        const currentIds = new Set<number>((stockRows.rows as any[]).map(r => r.id as number));
+        let newLow = false;
+        for (const id of currentIds) {
+          if (!knownLowStockIds.has(id)) { newLow = true; break; }
+        }
+        if (newLow) send("low-stock", { count: currentIds.size });
+        knownLowStockIds = currentIds;
+
+        // Pending orders
+        const orderRow = await db.execute(sql`
+          SELECT COUNT(*)::int AS cnt
+          FROM   pending_orders
+          WHERE  user_id = ${uid}
+            AND  deleted_at IS NULL
+            AND  status != 'paid'
+        `);
+        const count = Number((orderRow.rows[0] as any)?.cnt ?? 0);
+        if (knownPendingCount !== -1 && count > knownPendingCount) {
+          send("new-order", { count });
+        }
+        knownPendingCount = count;
+      } catch {
+        // DB errors should not crash the SSE stream — silently retry next poll
+      }
+    }
+
+    // Initial poll right after connection
+    await poll();
+
+    // ── Heartbeat + recurring poll ────────────────────────────────────────
+    const pollInterval = setInterval(poll, 15_000);
+    const heartbeat   = setInterval(() => res.write(": heartbeat\n\n"), 30_000);
+
+    // ── Cleanup on disconnect ─────────────────────────────────────────────
+    req.on("close", () => {
+      clearInterval(pollInterval);
+      clearInterval(heartbeat);
     });
   });
 

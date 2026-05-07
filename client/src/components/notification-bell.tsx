@@ -3,6 +3,7 @@ import { Bell, Package, AlertTriangle, CheckCheck, X, RefreshCcw, Check } from "
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSseAlerts } from "@/hooks/use-sse-alerts";
 import type { Notification } from "@shared/schema";
 
 function timeAgo(iso: string): string {
@@ -21,9 +22,14 @@ export function NotificationBell() {
   const [restockQty, setRestockQty] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // SSE-powered real-time alerts — replaces the old 30 s polling interval.
+  // When the server detects new low-stock items or pending orders it pushes an
+  // event that invalidates the relevant query caches, causing an immediate refetch.
+  useSseAlerts();
+
   const { data: notifs = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
-    refetchInterval: 30000,
+    refetchInterval: 120_000, // fallback polling every 2 min in case SSE drops
   });
 
   const unreadCount = notifs.filter(n => !n.readAt).length;

@@ -75,6 +75,20 @@ function verifyAndParseState(state: string | undefined): { valid: boolean; extra
   }
 }
 
+export function verifyToken(token: string): any {
+  const payload = jwt.verify(token, getJwtSecret()) as any;
+  return {
+    id: payload.id,
+    name: payload.name,
+    email: payload.email,
+    avatar: payload.avatar,
+    provider: payload.provider,
+    tenantId: payload.tenantId ?? null,
+    role: payload.role ?? "owner",
+    activeBranchId: payload.activeBranchId ?? null,
+  };
+}
+
 export function signToken(user: any): string {
   return jwt.sign(
     {

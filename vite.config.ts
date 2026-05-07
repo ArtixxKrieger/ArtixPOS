@@ -27,29 +27,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Only split out chunks that are truly independent (no React imports
-          // at the module top level) to avoid circular chunk dependencies.
-          // Circular deps cause exports to be undefined at init time → white screen.
+          // ALL node_modules go into one vendor chunk.
           //
-          // React + all React-ecosystem packages (framer-motion, tanstack,
-          // radix, wouter, etc.) stay together in "vendor" so React is always
-          // fully initialised before any package that calls createContext().
-
-          // Charts — recharts/d3 are page-level lazy imports only
-          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) {
-            return "charts";
-          }
-          // PDF generation — only needed for receipts/reports
-          if (id.includes("node_modules/jspdf") || id.includes("node_modules/jspdf-autotable")) {
-            return "pdf";
-          }
-          // Spreadsheet export — only on export actions
-          if (id.includes("node_modules/xlsx")) {
-            return "xlsx";
-          }
-          // Everything else (React, framer-motion, tanstack, radix, date-fns,
-          // icons, forms, capacitor, etc.) → single vendor chunk.
-          // One large cached chunk beats an unmountable app.
+          // Splitting node_modules into separate chunks (react-vendor, charts,
+          // motion, etc.) creates circular chunk dependencies in Rollup's output
+          // because many packages call createContext() / use const-TDZ values
+          // at module top level. When chunks execute in the wrong order those
+          // exports are undefined → ReferenceError / TypeError → white screen.
+          //
+          // A single large vendor chunk is heavily cached (immutable hash URL)
+          // and only downloaded once. Page-level code is already split via
+          // React.lazy() so the lazy routes stay in their own small chunks.
           if (id.includes("node_modules/")) {
             return "vendor";
           }

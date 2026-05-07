@@ -14,6 +14,7 @@ import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -533,6 +534,7 @@ function App() {
           </BlePrinterProvider>
         </TooltipProvider>
       </QueryClientProvider>
+      {import.meta.env.PROD && <VercelAnalytics />}
     </ErrorBoundary>
   );
 }

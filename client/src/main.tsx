@@ -2,7 +2,6 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "sileo/styles.css";
-import { Analytics } from "@vercel/analytics/react";
 
 // Register the service worker only in production. In development the SW caches
 // Vite's dev modules, and once Vite restarts (or an HMR update changes a chunk
@@ -82,9 +81,4 @@ if (import.meta.env.DEV) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <>
-    <App />
-    {import.meta.env.PROD && <Analytics />}
-  </>
-);
+createRoot(document.getElementById("root")!).render(<App />);

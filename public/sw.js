@@ -1,4 +1,4 @@
-const CACHE_NAME = "pos-shell-v2";
+const CACHE_NAME = "pos-shell-v3";
 const SHELL_URLS = ["/", "/index.html"];
 
 self.addEventListener("install", (event) => {

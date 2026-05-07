@@ -235,6 +235,20 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
   return <Component />;
 }
 
+// Skeleton shimmer block — mirrors the HTML splash in index.html
+function Sk({ className }: { className?: string }) {
+  return (
+    <div
+      className={[
+        "rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200",
+        "dark:from-[#1a1a2e] dark:via-[#252540] dark:to-[#1a1a2e]",
+        "bg-[length:400%_100%] animate-[shimmer_1.6s_ease-in-out_infinite]",
+        className ?? "",
+      ].join(" ")}
+    />
+  );
+}
+
 function LoadingScreen({ message }: { message?: string }) {
   // If we've been spinning for 4 s and we're offline, the chunk is not cached.
   // Show an actionable offline screen instead of an infinite spinner.
@@ -281,13 +295,143 @@ function LoadingScreen({ message }: { message?: string }) {
     );
   }
 
+  // When a specific message is given (e.g. "Joining your team…") show a
+  // minimal centred spinner instead of the full skeleton layout.
+  if (message) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-[3px] border-violet-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium text-muted-foreground">{message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Full skeleton layout — looks like the dashboard while data loads.
+  // Mirrors the #app-splash HTML so the transition is seamless.
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810]">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-4 border-violet-600 border-t-transparent rounded-full animate-spin" />
-        {message && (
-          <p className="text-sm font-medium text-slate-500 dark:text-white/50">{message}</p>
-        )}
+    <div className="min-h-screen flex bg-background overflow-hidden">
+      {/* Sidebar skeleton (desktop) */}
+      <aside className="hidden md:flex w-[240px] min-w-[240px] flex-col gap-6 border-r border-border bg-card/80 p-4">
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 pt-1 pb-1">
+          <div className="w-9 h-9 rounded-[10px] bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0">A</div>
+          <div className="flex flex-col gap-1.5">
+            <Sk className="h-3 w-20" />
+            <Sk className="h-2 w-14" />
+          </div>
+        </div>
+        {/* Nav group 1 */}
+        <div className="flex flex-col gap-1">
+          <Sk className="h-2 w-12 mb-1 rounded-sm" />
+          {[70, 40, 58, 64].map((w, i) => (
+            <div key={i} className="flex items-center gap-2.5 h-9 px-2.5 rounded-xl">
+              <Sk className="w-[18px] h-[18px] rounded-md shrink-0" />
+              <Sk className={`h-2.5 w-${w === 40 ? 10 : w === 58 ? 14 : w === 70 ? 16 : 16}`} />
+            </div>
+          ))}
+        </div>
+        {/* Nav group 2 */}
+        <div className="flex flex-col gap-1">
+          <Sk className="h-2 w-16 mb-1 rounded-sm" />
+          {[52, 76, 60].map((w, i) => (
+            <div key={i} className="flex items-center gap-2.5 h-9 px-2.5 rounded-xl">
+              <Sk className="w-[18px] h-[18px] rounded-md shrink-0" />
+              <Sk className={`h-2.5 w-${w === 52 ? 12 : w === 76 ? 20 : 16}`} />
+            </div>
+          ))}
+        </div>
+        {/* Bottom */}
+        <div className="mt-auto flex flex-col gap-2">
+          <Sk className="h-9 w-full rounded-xl" />
+          <div className="flex items-center gap-2 py-1.5">
+            <Sk className="w-8 h-8 rounded-full shrink-0" />
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Sk className="h-2.5 w-20" />
+              <Sk className="h-2 w-14" />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="h-[60px] min-h-[60px] flex items-center gap-3 px-5 border-b border-border bg-card/80">
+          {/* Mobile: logo */}
+          <div className="flex md:hidden items-center gap-2">
+            <div className="w-8 h-8 rounded-[9px] bg-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">A</div>
+            <Sk className="h-3 w-18" />
+          </div>
+          {/* Desktop: page title */}
+          <Sk className="hidden md:block h-3.5 w-28" />
+          <div className="flex-1" />
+          <Sk className="w-8 h-8 rounded-[9px]" />
+          <Sk className="w-8 h-8 rounded-[9px]" />
+          <Sk className="w-8 h-8 rounded-full" />
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-hidden p-5 flex flex-col gap-4">
+          {/* Stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5">
+                <Sk className="h-2.5 w-3/4" />
+                <Sk className="h-5 w-1/2" />
+                <Sk className="h-2 w-4/5" />
+              </div>
+            ))}
+          </div>
+
+          {/* Chart + list row */}
+          <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
+            {/* Bar chart */}
+            <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <Sk className="h-3 w-28" />
+                <Sk className="h-5 w-14 rounded-full" />
+              </div>
+              <div className="flex-1 flex items-end gap-1.5 pt-2 min-h-[100px]">
+                {[45, 72, 58, 88, 62, 79, 95, 70, 83, 55, 91, 67].map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-t-md bg-gradient-to-t from-violet-200 to-violet-100 dark:from-[#1a1a2e] dark:to-[#252540] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:400%_100%]"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Recent list */}
+            <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
+              <Sk className="h-3 w-28" />
+              <div className="flex flex-col divide-y divide-border">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2.5 py-2.5">
+                    <Sk className="w-9 h-9 rounded-[10px] shrink-0" />
+                    <div className="flex-1 flex flex-col gap-1.5">
+                      <Sk className="h-2.5 w-2/3" />
+                      <Sk className="h-2 w-2/5" />
+                    </div>
+                    <Sk className="h-3.5 w-12" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Mobile bottom nav */}
+        <nav className="flex md:hidden border-t border-border bg-card/80 pb-safe">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-2.5">
+              <Sk className="w-6 h-6 rounded-[7px]" />
+              <Sk className="h-2 w-7 rounded-sm" />
+            </div>
+          ))}
+        </nav>
       </div>
     </div>
   );

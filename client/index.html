@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ArtixPOS</title>
-    <meta name="theme-color" content="#3b82f6" />
+    <meta name="theme-color" content="#7c3aed" />
     <meta name="description" content="ArtixPOS — BIR-compliant Philippine POS system with real-time sales, inventory, analytics, and payroll management." />
     <meta name="robots" content="noindex, nofollow" />
 
@@ -18,19 +18,274 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ArtixPOS" />
-    
+
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/logo192.png" />
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
+
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+      /* ── Reset / base ── */
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      html,body{height:100%;overflow:hidden}
+      body{font-family:'Plus Jakarta Sans','Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+
+      /* ── Theme tokens — mirroring Tailwind CSS vars ── */
+      :root{
+        --sp-bg:#f2f2f7;
+        --sp-sidebar:#ffffff;
+        --sp-card:#ffffff;
+        --sp-border:#e5e5ea;
+        --sp-sk-base:#e5e5ea;
+        --sp-sk-high:#f2f2f7;
+        --sp-logo-bg:#7c3aed;
+        --sp-logo-text:#ffffff;
+        --sp-accent:#7c3aed;
+        --sp-text-muted:#9ca3af;
+      }
+      .dark{
+        --sp-bg:#09090f;
+        --sp-sidebar:#0f0f1a;
+        --sp-card:#13131f;
+        --sp-border:#1f1f33;
+        --sp-sk-base:#1a1a2e;
+        --sp-sk-high:#252540;
+        --sp-logo-bg:#7c3aed;
+        --sp-logo-text:#ffffff;
+        --sp-accent:#8b5cf6;
+        --sp-text-muted:#4b4b6b;
+      }
+
+      /* ── Shimmer keyframe ── */
+      @keyframes sp-shimmer{
+        0%{background-position:200% center}
+        100%{background-position:-200% center}
+      }
+      @keyframes sp-fade-in{
+        from{opacity:0;transform:translateY(4px)}
+        to{opacity:1;transform:translateY(0)}
+      }
+      @keyframes sp-splash-out{
+        0%{opacity:1}
+        100%{opacity:0;pointer-events:none}
+      }
+
+      /* ── Skeleton pulse mixin ── */
+      .sp-sk{
+        background:linear-gradient(90deg,var(--sp-sk-base) 25%,var(--sp-sk-high) 50%,var(--sp-sk-base) 75%);
+        background-size:400% 100%;
+        animation:sp-shimmer 1.6s ease-in-out infinite;
+        border-radius:8px;
+      }
+
+      /* ── Splash overlay ── */
+      #app-splash{
+        position:fixed;
+        inset:0;
+        z-index:9999;
+        background:var(--sp-bg);
+        display:flex;
+        transition:opacity 0.25s ease;
+        will-change:opacity;
+      }
+      #app-splash.sp-hiding{
+        animation:sp-splash-out 0.28s ease forwards;
+      }
+
+      /* ── Sidebar skeleton (desktop only) ── */
+      .sp-sidebar{
+        display:none;
+        width:240px;
+        min-width:240px;
+        height:100%;
+        background:var(--sp-sidebar);
+        border-right:1px solid var(--sp-border);
+        flex-direction:column;
+        padding:20px 16px;
+        gap:24px;
+        animation:sp-fade-in 0.3s ease both;
+      }
+      @media(min-width:768px){
+        .sp-sidebar{display:flex}
+      }
+      .sp-logo-row{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding-bottom:4px;
+      }
+      .sp-logo-icon{
+        width:36px;height:36px;border-radius:10px;
+        background:var(--sp-logo-bg);
+        display:flex;align-items:center;justify-content:center;
+        color:var(--sp-logo-text);
+        font-size:14px;font-weight:800;letter-spacing:-0.5px;
+        flex-shrink:0;
+      }
+      .sp-logo-text-wrap{display:flex;flex-direction:column;gap:2px}
+      .sp-logo-name{height:13px;width:80px;border-radius:4px}.sp-sk
+      .sp-logo-sub{height:9px;width:56px;border-radius:3px}
+
+      /* Nav items */
+      .sp-nav-group{display:flex;flex-direction:column;gap:4px}
+      .sp-nav-label{height:9px;width:60px;border-radius:3px;margin-bottom:4px}
+      .sp-nav-item{
+        display:flex;align-items:center;gap:10px;
+        height:36px;border-radius:10px;padding:0 10px;
+      }
+      .sp-nav-icon{width:18px;height:18px;border-radius:6px;flex-shrink:0}
+      .sp-nav-txt{height:10px;border-radius:4px}
+
+      /* ── Main content area ── */
+      .sp-main{
+        flex:1;
+        display:flex;
+        flex-direction:column;
+        height:100%;
+        overflow:hidden;
+        animation:sp-fade-in 0.35s ease 0.05s both;
+      }
+
+      /* Header bar */
+      .sp-header{
+        height:60px;
+        min-height:60px;
+        background:var(--sp-sidebar);
+        border-bottom:1px solid var(--sp-border);
+        display:flex;
+        align-items:center;
+        padding:0 20px;
+        gap:12px;
+      }
+      .sp-header-title{height:14px;width:120px;border-radius:5px}
+      .sp-header-spacer{flex:1}
+      .sp-header-btn{width:32px;height:32px;border-radius:9px}
+
+      /* Mobile logo in header */
+      .sp-mobile-logo{
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+      @media(min-width:768px){
+        .sp-mobile-logo{display:none}
+        .sp-header-title{display:block}
+      }
+
+      /* Content grid */
+      .sp-content{
+        flex:1;
+        overflow:hidden;
+        padding:20px;
+        display:flex;
+        flex-direction:column;
+        gap:16px;
+      }
+
+      /* Stats row */
+      .sp-stats{
+        display:grid;
+        grid-template-columns:repeat(2,1fr);
+        gap:12px;
+      }
+      @media(min-width:640px){
+        .sp-stats{grid-template-columns:repeat(4,1fr)}
+      }
+      .sp-stat-card{
+        background:var(--sp-card);
+        border:1px solid var(--sp-border);
+        border-radius:14px;
+        padding:16px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+      }
+      .sp-stat-label{height:10px;width:70%;border-radius:4px}
+      .sp-stat-value{height:22px;width:55%;border-radius:6px}
+      .sp-stat-sub{height:8px;width:80%;border-radius:3px}
+
+      /* Chart area */
+      .sp-chart-row{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:12px;
+        flex:1;
+      }
+      @media(min-width:768px){
+        .sp-chart-row{grid-template-columns:2fr 1fr}
+      }
+      .sp-chart-card{
+        background:var(--sp-card);
+        border:1px solid var(--sp-border);
+        border-radius:14px;
+        padding:16px;
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+      }
+      .sp-chart-header{display:flex;justify-content:space-between;align-items:center}
+      .sp-chart-title{height:13px;width:110px;border-radius:4px}
+      .sp-chart-badge{height:22px;width:60px;border-radius:20px}
+      .sp-chart-body{
+        flex:1;
+        min-height:120px;
+        border-radius:10px;
+        overflow:hidden;
+        position:relative;
+      }
+      .sp-chart-bars{
+        display:flex;
+        align-items:flex-end;
+        gap:6px;
+        height:100%;
+        padding:8px 4px 0;
+      }
+      .sp-bar{
+        flex:1;border-radius:6px 6px 0 0;
+        background:linear-gradient(180deg,var(--sp-sk-high) 0%,var(--sp-sk-base) 100%);
+        animation:sp-shimmer 1.8s ease-in-out infinite;
+        background-size:400% 100%;
+      }
+
+      /* List card */
+      .sp-list-item{
+        display:flex;align-items:center;gap:10px;padding:8px 0;
+        border-bottom:1px solid var(--sp-border);
+      }
+      .sp-list-item:last-child{border-bottom:none}
+      .sp-list-avatar{width:34px;height:34px;border-radius:10px;flex-shrink:0}
+      .sp-list-lines{flex:1;display:flex;flex-direction:column;gap:5px}
+      .sp-list-line1{height:11px;width:65%;border-radius:4px}
+      .sp-list-line2{height:9px;width:40%;border-radius:3px}
+      .sp-list-val{height:14px;width:48px;border-radius:4px}
+
+      /* Bottom nav (mobile only) */
+      .sp-bottom-nav{
+        display:flex;
+        background:var(--sp-sidebar);
+        border-top:1px solid var(--sp-border);
+        padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));
+        gap:4px;
+      }
+      @media(min-width:768px){
+        .sp-bottom-nav{display:none}
+      }
+      .sp-bn-item{
+        flex:1;display:flex;flex-direction:column;
+        align-items:center;gap:5px;padding:6px 0;
+      }
+      .sp-bn-icon{width:22px;height:22px;border-radius:7px}
+      .sp-bn-lbl{height:8px;width:28px;border-radius:3px}
+    </style>
+
     <script>
       (function() {
-        // ── Dark mode: apply before React renders to avoid flash ──────────────
+        /* ── Dark mode: apply before React renders to avoid flash ── */
         try {
           var stored = localStorage.getItem('theme');
           var mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -43,33 +298,24 @@
           });
         } catch(e) {}
 
-        // ── Disable right-click context menu ──────────────────────────────────
+        /* ── Disable right-click context menu ── */
         document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
 
-        // ── Block common devtools keyboard shortcuts ──────────────────────────
+        /* ── Block common devtools keyboard shortcuts ── */
         document.addEventListener('keydown', function(e) {
-          // F12
           if (e.key === 'F12') { e.preventDefault(); return false; }
-          // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (DevTools)
           if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
             e.preventDefault(); return false;
           }
-          // Ctrl+U (view source)
           if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return false; }
-          // Cmd+Option+I (macOS DevTools)
           if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return false; }
         });
 
-        // ── One-time console warning ──────────────────────────────────────────
+        /* ── One-time console warning ── */
         console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
         console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');
 
-        // ── Visible error reporter ─────────────────────────────────────────────
-        // console.clear() hides JS errors every 3 s, making white-screen bugs
-        // impossible to diagnose on mobile. This handler writes any uncaught
-        // error directly into the DOM so it is always visible to the user.
-        // It only activates when the React root is still empty (i.e. a genuine
-        // white-screen crash) so normal users are never affected.
+        /* ── Visible error reporter ── */
         (function() {
           var _shown = false;
           function _showCrash(msg) {
@@ -87,31 +333,245 @@
                 + 'style="background:#7c3aed;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;width:100%">'
                 + 'Clear cache &amp; reload</button>'
                 + '</div></div>';
-              // Also persist across reloads so the user can screenshot it
               try { sessionStorage.setItem('_artix_crash', String(msg)); } catch(e) {}
             }
           }
-          // Show a stored crash from previous load
           try {
             var prev = sessionStorage.getItem('_artix_crash');
             if (prev) { sessionStorage.removeItem('_artix_crash'); _showCrash('[Previous load] ' + prev); }
           } catch(e) {}
-          window.addEventListener('error', function(e) { _showCrash(e.message + '\n' + (e.filename||'') + ':' + (e.lineno||'')); });
+          window.onerror = function(msg, src, line) { _showCrash(msg + '\n' + (src||'') + ':' + (line||'')); };
           window.addEventListener('unhandledrejection', function(e) {
             var r = e.reason;
             _showCrash('Unhandled rejection: ' + (r && r.message ? r.message + '\n' + (r.stack||'') : String(r)));
           });
         })();
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- ═══════════════════════════════════════════════════════════════════
+         INSTANT SPLASH — renders before any JS is downloaded or parsed.
+         Mirrors the real app layout so users see a meaningful skeleton,
+         not a blank white screen. Removed by main.tsx after React renders.
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="app-splash" role="presentation" aria-hidden="true">
 
-        // ── DevTools size detection ────────────────────────────────────────────
-        // NOTE: The previous size-based heuristic produced false positives
-        // whenever the page ran inside an iframe (e.g. the Replit preview pane,
-        // browser PiP, embedded documentation, etc.) because window.outerWidth
-        // reflects the parent browser window while window.innerWidth reflects
-        // the iframe — a difference that always exceeds the threshold and
-        // wiped the page to a blank/"Access Denied" screen. The keyboard
-        // shortcuts and right-click guards above already discourage casual
-        // devtools use, so the fragile size check has been removed.
+      <!-- Desktop sidebar skeleton -->
+      <div class="sp-sidebar">
+        <div class="sp-logo-row">
+          <div class="sp-logo-icon">A</div>
+          <div class="sp-logo-text-wrap">
+            <div class="sp-sk" style="height:13px;width:80px;border-radius:4px"></div>
+            <div class="sp-sk" style="height:9px;width:56px;border-radius:3px;margin-top:4px"></div>
+          </div>
+        </div>
+
+        <!-- Nav group 1 -->
+        <div class="sp-nav-group">
+          <div class="sp-sk" style="height:9px;width:48px;border-radius:3px;margin-bottom:6px"></div>
+          <div class="sp-nav-item">
+            <div class="sp-sk sp-nav-icon"></div>
+            <div class="sp-sk sp-nav-txt" style="width:70px"></div>
+          </div>
+          <div class="sp-nav-item" style="background:rgba(124,58,237,0.08)">
+            <div class="sp-sk sp-nav-icon" style="opacity:0.7"></div>
+            <div class="sp-sk sp-nav-txt" style="width:40px;opacity:0.7"></div>
+          </div>
+          <div class="sp-nav-item">
+            <div class="sp-sk sp-nav-icon"></div>
+            <div class="sp-sk sp-nav-txt" style="width:58px"></div>
+          </div>
+          <div class="sp-nav-item">
+            <div class="sp-sk sp-nav-icon"></div>
+            <div class="sp-sk sp-nav-txt" style="width:64px"></div>
+          </div>
+        </div>
+
+        <!-- Nav group 2 -->
+        <div class="sp-nav-group">
+          <div class="sp-sk" style="height:9px;width:72px;border-radius:3px;margin-bottom:6px"></div>
+          <div class="sp-nav-item">
+            <div class="sp-sk sp-nav-icon"></div>
+            <div class="sp-sk sp-nav-txt" style="width:52px"></div>
+          </div>
+          <div class="sp-nav-item">
+            <div class="sp-sk sp-nav-icon"></div>
+            <div class="sp-sk sp-nav-txt" style="width:76px"></div>
+          </div>
+          <div class="sp-nav-item">
+            <div class="sp-sk sp-nav-icon"></div>
+            <div class="sp-sk sp-nav-txt" style="width:60px"></div>
+          </div>
+        </div>
+
+        <!-- Bottom of sidebar -->
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+          <div class="sp-sk" style="height:36px;border-radius:10px;width:100%"></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+            <div class="sp-sk" style="width:32px;height:32px;border-radius:50%"></div>
+            <div style="flex:1">
+              <div class="sp-sk" style="height:10px;width:80px;border-radius:4px"></div>
+              <div class="sp-sk" style="height:8px;width:60px;border-radius:3px;margin-top:5px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main area -->
+      <div class="sp-main">
+        <!-- Header -->
+        <div class="sp-header">
+          <!-- Mobile: show logo -->
+          <div class="sp-mobile-logo">
+            <div class="sp-logo-icon">A</div>
+            <div class="sp-sk" style="height:13px;width:72px;border-radius:4px;display:block"></div>
+          </div>
+          <!-- Desktop: show page title -->
+          <div class="sp-sk sp-header-title" style="display:none"></div>
+          <div class="sp-header-spacer"></div>
+          <div class="sp-sk sp-header-btn"></div>
+          <div class="sp-sk sp-header-btn"></div>
+          <div class="sp-sk" style="width:32px;height:32px;border-radius:50%"></div>
+        </div>
+
+        <!-- Page content -->
+        <div class="sp-content">
+          <!-- Stats grid -->
+          <div class="sp-stats">
+            <div class="sp-stat-card">
+              <div class="sp-sk sp-stat-label"></div>
+              <div class="sp-sk sp-stat-value"></div>
+              <div class="sp-sk sp-stat-sub"></div>
+            </div>
+            <div class="sp-stat-card">
+              <div class="sp-sk sp-stat-label"></div>
+              <div class="sp-sk sp-stat-value"></div>
+              <div class="sp-sk sp-stat-sub"></div>
+            </div>
+            <div class="sp-stat-card" style="display:none" id="sp-stat3">
+              <div class="sp-sk sp-stat-label"></div>
+              <div class="sp-sk sp-stat-value"></div>
+              <div class="sp-sk sp-stat-sub"></div>
+            </div>
+            <div class="sp-stat-card" style="display:none" id="sp-stat4">
+              <div class="sp-sk sp-stat-label"></div>
+              <div class="sp-sk sp-stat-value"></div>
+              <div class="sp-sk sp-stat-sub"></div>
+            </div>
+          </div>
+
+          <!-- Chart row -->
+          <div class="sp-chart-row" style="flex:1;min-height:0">
+            <!-- Main chart -->
+            <div class="sp-chart-card">
+              <div class="sp-chart-header">
+                <div class="sp-sk sp-chart-title"></div>
+                <div class="sp-sk sp-chart-badge"></div>
+              </div>
+              <div class="sp-chart-body">
+                <div class="sp-chart-bars">
+                  <div class="sp-bar" style="height:45%"></div>
+                  <div class="sp-bar" style="height:72%"></div>
+                  <div class="sp-bar" style="height:58%"></div>
+                  <div class="sp-bar" style="height:88%"></div>
+                  <div class="sp-bar" style="height:62%"></div>
+                  <div class="sp-bar" style="height:79%"></div>
+                  <div class="sp-bar" style="height:95%"></div>
+                  <div class="sp-bar" style="height:70%"></div>
+                  <div class="sp-bar" style="height:83%"></div>
+                  <div class="sp-bar" style="height:55%"></div>
+                  <div class="sp-bar" style="height:91%"></div>
+                  <div class="sp-bar" style="height:67%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent transactions list -->
+            <div class="sp-chart-card" id="sp-side-card">
+              <div class="sp-chart-header">
+                <div class="sp-sk sp-chart-title"></div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">
+                <div class="sp-list-item">
+                  <div class="sp-sk sp-list-avatar"></div>
+                  <div class="sp-list-lines">
+                    <div class="sp-sk sp-list-line1"></div>
+                    <div class="sp-sk sp-list-line2"></div>
+                  </div>
+                  <div class="sp-sk sp-list-val"></div>
+                </div>
+                <div class="sp-list-item">
+                  <div class="sp-sk sp-list-avatar"></div>
+                  <div class="sp-list-lines">
+                    <div class="sp-sk sp-list-line1"></div>
+                    <div class="sp-sk sp-list-line2"></div>
+                  </div>
+                  <div class="sp-sk sp-list-val"></div>
+                </div>
+                <div class="sp-list-item">
+                  <div class="sp-sk sp-list-avatar"></div>
+                  <div class="sp-list-lines">
+                    <div class="sp-sk sp-list-line1"></div>
+                    <div class="sp-sk sp-list-line2"></div>
+                  </div>
+                  <div class="sp-sk sp-list-val"></div>
+                </div>
+                <div class="sp-list-item">
+                  <div class="sp-sk sp-list-avatar"></div>
+                  <div class="sp-list-lines">
+                    <div class="sp-sk sp-list-line1"></div>
+                    <div class="sp-sk sp-list-line2"></div>
+                  </div>
+                  <div class="sp-sk sp-list-val"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile bottom nav -->
+        <div class="sp-bottom-nav">
+          <div class="sp-bn-item">
+            <div class="sp-sk sp-bn-icon"></div>
+            <div class="sp-sk sp-bn-lbl"></div>
+          </div>
+          <div class="sp-bn-item">
+            <div class="sp-sk sp-bn-icon"></div>
+            <div class="sp-sk sp-bn-lbl"></div>
+          </div>
+          <div class="sp-bn-item">
+            <div class="sp-sk sp-bn-icon"></div>
+            <div class="sp-sk sp-bn-lbl"></div>
+          </div>
+          <div class="sp-bn-item">
+            <div class="sp-sk sp-bn-icon"></div>
+            <div class="sp-sk sp-bn-lbl"></div>
+          </div>
+          <div class="sp-bn-item">
+            <div class="sp-sk sp-bn-icon"></div>
+            <div class="sp-sk sp-bn-lbl"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- React root — renders on top of (and then replaces) splash -->
+    <div id="root"></div>
+
+    <script>
+      /* Show extra stat cards on wider screens immediately */
+      (function(){
+        try{
+          if(window.innerWidth>=640){
+            var s3=document.getElementById('sp-stat3');
+            var s4=document.getElementById('sp-stat4');
+            if(s3)s3.style.display='flex';
+            if(s4)s4.style.display='flex';
+          }
+          var hdr=document.querySelector('.sp-header-title');
+          if(hdr && window.innerWidth>=768) hdr.style.display='block';
+        }catch(e){}
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

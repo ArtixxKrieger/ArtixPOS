@@ -104,6 +104,17 @@
   }
 }
 
+/* ── Skeleton shimmer keyframe — used by LoadingScreen in App.tsx ── */
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* Safe-area bottom padding utility for mobile bottom nav */
+.pb-safe {
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+}
+
 @layer base {
   * {
     @apply border-border;

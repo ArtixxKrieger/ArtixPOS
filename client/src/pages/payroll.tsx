@@ -99,7 +99,7 @@ export default function PayrollPage() {
       const res = await fetch(`/api/payroll/compute?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`, {
         credentials: "include",
         headers: (() => {
-          const t = localStorage.getItem("artixpos_token");
+          const t = localStorage.getItem("cafebara_native_token");
           return t ? { Authorization: `Bearer ${t}` } : {};
         })(),
       });

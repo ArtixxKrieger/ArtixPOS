@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { queryClient } from "@/lib/queryClient";
-
-const NATIVE_TOKEN_KEY = "artixpos_token";
+import { queryClient, NATIVE_TOKEN_KEY } from "@/lib/queryClient";
 
 function getToken(): string {
   return localStorage.getItem(NATIVE_TOKEN_KEY) ?? "";

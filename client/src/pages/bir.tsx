@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { NATIVE_TOKEN_KEY } from "@/lib/queryClient";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, addYears, differenceInDays, startOfMonth, subMonths } from "date-fns";
@@ -157,7 +158,7 @@ export default function BIRPage() {
     queryKey: ["/api/shifts", zReportShiftId, "z-report"],
     enabled: !!zReportShiftId,
     queryFn: () => fetch(`/api/shifts/${zReportShiftId}/z-report`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("artixpos_token") || ""}` },
+      headers: { Authorization: `Bearer ${localStorage.getItem(NATIVE_TOKEN_KEY) || ""}` },
       credentials: "include",
     }).then(r => r.json()),
   });
@@ -202,7 +203,7 @@ export default function BIRPage() {
   const { data: monthlySummary, isLoading: monthlyLoading } = useQuery<MonthlySummary>({
     queryKey: ["/api/bir/summary", selectedMonth],
     queryFn: () => fetch(`/api/bir/summary?month=${selectedMonth}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("artixpos_token") || ""}` },
+      headers: { Authorization: `Bearer ${localStorage.getItem(NATIVE_TOKEN_KEY) || ""}` },
       credentials: "include",
     }).then(r => r.json()),
   });
@@ -211,7 +212,7 @@ export default function BIRPage() {
   const complianceTotal = 5;
 
   function downloadEjournal() {
-    const token = localStorage.getItem("artixpos_token") || "";
+    const token = localStorage.getItem(NATIVE_TOKEN_KEY) || "";
     const url = `/api/bir/ejournal?month=${selectedMonth}`;
     fetch(url, { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => {
@@ -233,7 +234,7 @@ export default function BIRPage() {
   }
 
   function downloadEsales() {
-    const token = localStorage.getItem("artixpos_token") || "";
+    const token = localStorage.getItem(NATIVE_TOKEN_KEY) || "";
     const url = `/api/bir/esales-export?month=${selectedMonth}`;
     const a = document.createElement("a");
     a.href = url;

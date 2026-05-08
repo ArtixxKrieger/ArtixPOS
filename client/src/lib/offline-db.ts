@@ -42,12 +42,6 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
       // Add indexes for faster lookup of category & failed state.
       // Existing records get undefined for new fields — treated as 0/false below.
       if (oldVersion < 2) {
-        const tx = db.transaction ? undefined : undefined; // just for scope
-        const store = db.objectStoreNames.contains("mutation-queue")
-          ? // ts helper — access the store being migrated
-            undefined
-          : undefined;
-        void store; void tx;
         // New indexes cannot be added in the same transaction as the store creation
         // in the upgrade callback, but openDB handles this correctly:
         const qs2 = (db as any).objectStore?.("mutation-queue") ??

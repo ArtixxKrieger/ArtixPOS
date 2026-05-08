@@ -118,7 +118,7 @@ export default function BirAuditLogPage() {
   const hasFilters = search || hashFilter !== "all" || dateFrom || dateTo;
 
   function downloadCsv() {
-    const token = localStorage.getItem("artixpos_token") ?? "";
+    const token = localStorage.getItem("cafebara_native_token") ?? "";
     fetch("/api/bir/void-trail/export", {
       credentials: "include",
       headers: token ? { Authorization: `Bearer ${token}` } : {},

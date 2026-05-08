@@ -249,7 +249,80 @@ function Sk({ className }: { className?: string }) {
   );
 }
 
+// Shared sidebar used by all LoadingScreen variants
+function SkeletonSidebar() {
+  return (
+    <aside className="hidden md:flex w-[220px] min-w-[220px] flex-col gap-5 border-r border-border bg-card/80 px-3 py-4">
+      <div className="flex items-center gap-2.5 px-1 pt-1 pb-1">
+        <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0">A</div>
+        <div className="flex flex-col gap-1.5">
+          <Sk className="h-3 w-20" />
+          <Sk className="h-2 w-14" />
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Sk className="h-2 w-12 mb-1 rounded-sm" />
+        {[16, 10, 14, 16].map((w, i) => (
+          <div key={i} className="flex items-center gap-2.5 h-9 px-2.5">
+            <Sk className="w-[14px] h-[14px] rounded-md shrink-0" />
+            <Sk className={`h-2.5 w-${w}`} />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-1">
+        <Sk className="h-2 w-16 mb-1 rounded-sm" />
+        {[12, 20, 16].map((w, i) => (
+          <div key={i} className="flex items-center gap-2.5 h-9 px-2.5">
+            <Sk className="w-[14px] h-[14px] rounded-md shrink-0" />
+            <Sk className={`h-2.5 w-${w}`} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-auto flex items-center gap-2 px-2 py-2 rounded-xl border border-border/40">
+        <Sk className="w-7 h-7 rounded-full shrink-0" />
+        <div className="flex flex-col gap-1.5 flex-1">
+          <Sk className="h-2.5 w-20" />
+          <Sk className="h-2 w-14" />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// Shared header used by all LoadingScreen variants
+function SkeletonHeader() {
+  return (
+    <header className="h-[52px] min-h-[52px] flex items-center gap-3 px-5 border-b border-border bg-card/80">
+      <div className="flex md:hidden items-center gap-2">
+        <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">A</div>
+        <Sk className="h-2.5 w-20" />
+      </div>
+      <Sk className="hidden md:block h-3 w-32" />
+      <div className="flex-1" />
+      <Sk className="w-7 h-7 rounded-lg" />
+      <Sk className="w-7 h-7 rounded-lg" />
+      <Sk className="w-7 h-7 rounded-full" />
+    </header>
+  );
+}
+
+// Shared mobile bottom nav
+function SkeletonBottomNav() {
+  return (
+    <nav className="flex md:hidden border-t border-border bg-card/80 pb-safe">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-2.5">
+          <Sk className="w-6 h-6 rounded-lg" />
+          <Sk className="h-2 w-7 rounded-sm" />
+        </div>
+      ))}
+    </nav>
+  );
+}
+
 function LoadingScreen({ message }: { message?: string }) {
+  const [location] = useLocation();
+
   // If we've been spinning for 4 s and we're offline, the chunk is not cached.
   // Show an actionable offline screen instead of an infinite spinner.
   const [offlineStall, setOfflineStall] = useState(false);
@@ -295,8 +368,7 @@ function LoadingScreen({ message }: { message?: string }) {
     );
   }
 
-  // When a specific message is given (e.g. "Joining your team…") show a
-  // minimal centred spinner instead of the full skeleton layout.
+  // Named message (e.g. "Joining your team…") → minimal centred spinner
   if (message) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -308,130 +380,155 @@ function LoadingScreen({ message }: { message?: string }) {
     );
   }
 
-  // Full skeleton layout — looks like the dashboard while data loads.
-  // Mirrors the #app-splash HTML so the transition is seamless.
-  return (
-    <div className="min-h-screen flex bg-background overflow-hidden">
-      {/* Sidebar skeleton (desktop) */}
-      <aside className="hidden md:flex w-[240px] min-w-[240px] flex-col gap-6 border-r border-border bg-card/80 p-4">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 pt-1 pb-1">
-          <div className="w-9 h-9 rounded-[10px] bg-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0">A</div>
-          <div className="flex flex-col gap-1.5">
-            <Sk className="h-3 w-20" />
-            <Sk className="h-2 w-14" />
-          </div>
-        </div>
-        {/* Nav group 1 */}
-        <div className="flex flex-col gap-1">
-          <Sk className="h-2 w-12 mb-1 rounded-sm" />
-          {[70, 40, 58, 64].map((w, i) => (
-            <div key={i} className="flex items-center gap-2.5 h-9 px-2.5 rounded-xl">
-              <Sk className="w-[18px] h-[18px] rounded-md shrink-0" />
-              <Sk className={`h-2.5 w-${w === 40 ? 10 : w === 58 ? 14 : w === 70 ? 16 : 16}`} />
+  // ── Dashboard: full stats + chart skeleton ────────────────────────────────
+  // Only use the heavy skeleton when the destination is actually the dashboard.
+  // Mirrors #app-splash so the transition is seamless on first load.
+  if (location === "/") {
+    return (
+      <div className="min-h-screen flex bg-background overflow-hidden">
+        <SkeletonSidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <SkeletonHeader />
+          <main className="flex-1 overflow-hidden p-5 flex flex-col gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5">
+                  <Sk className="h-2.5 w-3/4" />
+                  <Sk className="h-5 w-1/2" />
+                  <Sk className="h-2 w-4/5" />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {/* Nav group 2 */}
-        <div className="flex flex-col gap-1">
-          <Sk className="h-2 w-16 mb-1 rounded-sm" />
-          {[52, 76, 60].map((w, i) => (
-            <div key={i} className="flex items-center gap-2.5 h-9 px-2.5 rounded-xl">
-              <Sk className="w-[18px] h-[18px] rounded-md shrink-0" />
-              <Sk className={`h-2.5 w-${w === 52 ? 12 : w === 76 ? 20 : 16}`} />
-            </div>
-          ))}
-        </div>
-        {/* Bottom */}
-        <div className="mt-auto flex flex-col gap-2">
-          <Sk className="h-9 w-full rounded-xl" />
-          <div className="flex items-center gap-2 py-1.5">
-            <Sk className="w-8 h-8 rounded-full shrink-0" />
-            <div className="flex flex-col gap-1.5 flex-1">
-              <Sk className="h-2.5 w-20" />
-              <Sk className="h-2 w-14" />
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="h-[60px] min-h-[60px] flex items-center gap-3 px-5 border-b border-border bg-card/80">
-          {/* Mobile: logo */}
-          <div className="flex md:hidden items-center gap-2">
-            <div className="w-8 h-8 rounded-[9px] bg-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">A</div>
-            <Sk className="h-3 w-18" />
-          </div>
-          {/* Desktop: page title */}
-          <Sk className="hidden md:block h-3.5 w-28" />
-          <div className="flex-1" />
-          <Sk className="w-8 h-8 rounded-[9px]" />
-          <Sk className="w-8 h-8 rounded-[9px]" />
-          <Sk className="w-8 h-8 rounded-full" />
-        </header>
-
-        {/* Page content */}
-        <main className="flex-1 overflow-hidden p-5 flex flex-col gap-4">
-          {/* Stats row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5">
-                <Sk className="h-2.5 w-3/4" />
-                <Sk className="h-5 w-1/2" />
-                <Sk className="h-2 w-4/5" />
+            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
+              <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <Sk className="h-3 w-28" />
+                  <Sk className="h-5 w-14 rounded-full" />
+                </div>
+                <div className="flex-1 flex items-end gap-1.5 pt-2 min-h-[100px]">
+                  {[45, 72, 58, 88, 62, 79, 95, 70, 83, 55, 91, 67].map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-t-md bg-gradient-to-t from-violet-200 to-violet-100 dark:from-[#1a1a2e] dark:to-[#252540] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:400%_100%]"
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-
-          {/* Chart + list row */}
-          <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
-            {/* Bar chart */}
-            <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+              <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
                 <Sk className="h-3 w-28" />
-                <Sk className="h-5 w-14 rounded-full" />
-              </div>
-              <div className="flex-1 flex items-end gap-1.5 pt-2 min-h-[100px]">
-                {[45, 72, 58, 88, 62, 79, 95, 70, 83, 55, 91, 67].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-md bg-gradient-to-t from-violet-200 to-violet-100 dark:from-[#1a1a2e] dark:to-[#252540] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:400%_100%]"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
+                <div className="flex flex-col divide-y divide-border">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-2.5 py-2.5">
+                      <Sk className="w-9 h-9 rounded-[10px] shrink-0" />
+                      <div className="flex-1 flex flex-col gap-1.5">
+                        <Sk className="h-2.5 w-2/3" />
+                        <Sk className="h-2 w-2/5" />
+                      </div>
+                      <Sk className="h-3.5 w-12" />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+          </main>
+          <SkeletonBottomNav />
+        </div>
+      </div>
+    );
+  }
 
-            {/* Recent list */}
-            <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
-              <Sk className="h-3 w-28" />
-              <div className="flex flex-col divide-y divide-border">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-2.5 py-2.5">
-                    <Sk className="w-9 h-9 rounded-[10px] shrink-0" />
-                    <div className="flex-1 flex flex-col gap-1.5">
-                      <Sk className="h-2.5 w-2/3" />
-                      <Sk className="h-2 w-2/5" />
-                    </div>
-                    <Sk className="h-3.5 w-12" />
+  // ── POS: product grid + cart panel skeleton ───────────────────────────────
+  if (location === "/pos") {
+    return (
+      <div className="min-h-screen flex bg-background overflow-hidden">
+        <SkeletonSidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <SkeletonHeader />
+          <main className="flex-1 overflow-hidden flex gap-0">
+            {/* Product grid */}
+            <div className="flex-1 flex flex-col gap-3 p-4 overflow-hidden">
+              <Sk className="h-9 w-full rounded-xl" />
+              <div className="flex gap-2">
+                {[0, 1, 2, 3].map((i) => <Sk key={i} className="h-7 w-20 rounded-full" />)}
+              </div>
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3 content-start">
+                {[...Array(9)].map((_, i) => (
+                  <div key={i} className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2">
+                    <Sk className="w-full aspect-square rounded-xl" />
+                    <Sk className="h-2.5 w-3/4" />
+                    <Sk className="h-3 w-1/2" />
                   </div>
                 ))}
               </div>
             </div>
+            {/* Cart panel (desktop) */}
+            <div className="hidden md:flex w-[300px] shrink-0 flex-col border-l border-border bg-card/50 p-4 gap-3">
+              <Sk className="h-4 w-24" />
+              <div className="flex-1 flex flex-col gap-2.5">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-2.5 py-1.5 border-b border-border">
+                    <Sk className="w-9 h-9 rounded-lg shrink-0" />
+                    <div className="flex-1 flex flex-col gap-1.5">
+                      <Sk className="h-2.5 w-3/4" />
+                      <Sk className="h-2 w-1/2" />
+                    </div>
+                    <Sk className="h-3 w-10" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                <Sk className="h-3 w-full" />
+                <Sk className="h-10 w-full rounded-xl" />
+              </div>
+            </div>
+          </main>
+          <SkeletonBottomNav />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Generic page: header + single content card with rows ─────────────────
+  // Used for products, customers, transactions, settings, analytics, etc.
+  // Honest: most pages are just "title + a list or form" so we show one card.
+  return (
+    <div className="min-h-screen flex bg-background overflow-hidden">
+      <SkeletonSidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <SkeletonHeader />
+        <main className="flex-1 overflow-hidden p-5 flex flex-col gap-4">
+          {/* Optional filter/action bar */}
+          <div className="flex items-center gap-3">
+            <Sk className="h-9 flex-1 max-w-xs rounded-xl" />
+            <Sk className="h-9 w-24 rounded-xl" />
+          </div>
+          {/* Main content card */}
+          <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-0 flex-1">
+            {/* Table header */}
+            <div className="flex items-center gap-4 pb-3 border-b border-border">
+              {[40, 28, 20, 16].map((w, i) => (
+                <Sk key={i} className={`h-2.5 w-${w === 40 ? "2/5" : w === 28 ? "1/4" : w === 20 ? "1/5" : "1/6"}`} />
+              ))}
+            </div>
+            {/* Table rows */}
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-4 py-3 border-b border-border last:border-0">
+                <div className="flex items-center gap-2.5 flex-[2]">
+                  <Sk className="w-8 h-8 rounded-lg shrink-0" />
+                  <div className="flex flex-col gap-1.5 flex-1">
+                    <Sk className="h-2.5 w-3/4" />
+                    <Sk className="h-2 w-1/2" />
+                  </div>
+                </div>
+                <Sk className="h-2.5 flex-1 hidden sm:block" />
+                <Sk className="h-5 w-14 rounded-full" />
+                <Sk className="h-2.5 w-16 hidden md:block" />
+              </div>
+            ))}
           </div>
         </main>
-
-        {/* Mobile bottom nav */}
-        <nav className="flex md:hidden border-t border-border bg-card/80 pb-safe">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-2.5">
-              <Sk className="w-6 h-6 rounded-[7px]" />
-              <Sk className="h-2 w-7 rounded-sm" />
-            </div>
-          ))}
-        </nav>
+        <SkeletonBottomNav />
       </div>
     </div>
   );

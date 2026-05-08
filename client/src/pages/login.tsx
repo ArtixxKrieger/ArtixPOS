@@ -227,74 +227,45 @@ export default function Login() {
     }
   }
 
-  // Opens a small popup window for the OAuth flow and resolves when the
-  // popup postMessages back with the result (cookie is already set server-side).
-  function openGooglePopup(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const origin = getOAuthOrigin();
-      const w = 480, h = 640;
-      const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2));
-      const top  = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2));
-      const popup = window.open(
-        `${origin}/auth/google?popup=1`,
-        "google-signin",
-        `width=${w},height=${h},left=${left},top=${top},popup=yes,scrollbars=yes`
-      );
-
-      if (!popup) {
-        // Popup was blocked — fall back to same-tab redirect as last resort
-        window.location.href = `${origin}/auth/google`;
-        resolve();
-        return;
-      }
-
-      const onMessage = (event: MessageEvent) => {
-        if (event.data?.type === "google-auth-ok") {
-          cleanup();
-          resolve();
-        } else if (event.data?.type === "google-auth-error") {
-          cleanup();
-          reject(new Error(event.data.error ?? "Google sign-in failed"));
-        }
-      };
-
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          cleanup();
-          // Popup closed without a message — treat as user cancel
-          reject(new Error("popup-dismissed"));
-        }
-      }, 500);
-
-      function cleanup() {
-        clearInterval(checkClosed);
-        window.removeEventListener("message", onMessage);
-        try { popup.close(); } catch {}
-      }
-
-      window.addEventListener("message", onMessage);
-    });
-  }
-
   async function handleWebGoogleOneTap() {
-    const clientId = googleClientId;
     setNativeError(null);
     setSigningIn(true);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
 
-    try {
-      // Primary path: FedCM / Google One Tap — shows native bottom sheet, no new tab
-      if (clientId) {
+    // Resolve the client ID — use state value or fetch from server config.
+    // This matters when the user clicks the button before the config fetch
+    // completes (googleClientId is still null) — we wait for it here so FedCM
+    // gets a chance to run instead of immediately falling back to a redirect.
+    let clientId = googleClientId;
+    if (!clientId) {
+      try {
+        const cfg = await fetch("/api/auth/config").then(r => r.json());
+        if (cfg.googleClientId) {
+          clientId = cfg.googleClientId;
+          setGoogleClientId(cfg.googleClientId);
+        }
+      } catch { /* ignore — will fall back below */ }
+    }
+
+    // ── Primary path: FedCM / Google One Tap ─────────────────────────────────
+    // When GOOGLE_CLIENT_ID is configured this shows Chrome's native account
+    // picker bottom sheet without navigating away from the page at all.
+    if (clientId) {
+      try {
         await loadGIS();
         const goog = (window as any).google;
         if (goog?.accounts?.id) {
-          let fedcmHandled = false;
+          let settled = false;
+
           await new Promise<void>((resolve, reject) => {
             goog.accounts.id.initialize({
               client_id: clientId,
+              // use_fedcm_for_prompt = true activates Chrome's native
+              // Federated Credential Management bottom sheet on Android.
               use_fedcm_for_prompt: true,
               callback: async (response: any) => {
-                fedcmHandled = true;
+                if (settled) return;
+                settled = true;
                 try {
                   const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
                   const data = await res.json();
@@ -308,38 +279,41 @@ export default function Login() {
                 }
               },
             });
-            goog.accounts.id.prompt(async (notification: any) => {
-              // FedCM shown and handled via callback above — nothing to do
-              if (fedcmHandled) return;
-              // FedCM not available or skipped — fall through to popup
+
+            goog.accounts.id.prompt((notification: any) => {
+              if (settled) return;
+              // FedCM couldn't show (no Google session in browser, blocked by
+              // Chrome cooldown, etc.). Fall back to same-tab redirect so the
+              // user stays in the same tab — no new tab opens.
               if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                try {
-                  await openGooglePopup();
-                  await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-                  setLocation("/");
-                  resolve();
-                } catch (popupErr: any) {
-                  reject(popupErr);
-                }
+                settled = true;
+                window.location.href = `${getOAuthOrigin()}/auth/google`;
+                resolve();
               }
             });
           });
           return;
         }
+      } catch (fedcmErr: any) {
+        const msg: string = fedcmErr?.message ?? String(fedcmErr);
+        const isCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismiss");
+        if (!isCancel) {
+          // FedCM errored — fall through to same-tab redirect below
+        } else {
+          sessionStorage.removeItem(OAUTH_FLOW_KEY);
+          setSigningIn(false);
+          return;
+        }
       }
-
-      // Fallback: no GIS / no client ID — open popup directly
-      await openGooglePopup();
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setLocation("/");
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
-      const isCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismiss") || msg === "popup-dismissed";
-      sessionStorage.removeItem(OAUTH_FLOW_KEY);
-      if (!isCancel) setNativeError(msg.length < 120 ? msg : "Sign-in failed. Please try again.");
-    } finally {
-      setSigningIn(false);
     }
+
+    // ── Fallback: same-tab redirect ───────────────────────────────────────────
+    // Navigates the current tab to the Google OAuth page. The user returns to
+    // the app after authenticating. Not as seamless as FedCM but avoids any
+    // new tab opening. Requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET on
+    // the server to work; without them the server redirects to the login page
+    // with an error message.
+    window.location.href = `${getOAuthOrigin()}/auth/google`;
   }
 
   function handleGoogleClick() {

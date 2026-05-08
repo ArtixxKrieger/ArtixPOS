@@ -13,11 +13,6 @@ function isPluginAvailable(name: string): boolean {
   try { return (window as any).Capacitor?.isPluginAvailable?.(name) === true; } catch { return false; }
 }
 
-function getOAuthOrigin(): string {
-  const base = API_BASE || window.location.origin;
-  return base.replace(/\/$/, "");
-}
-
 function resolveOAuthUrl(path: string): string {
   const base = API_BASE || window.location.origin;
   if (base.startsWith("capacitor://") || base.startsWith("ionic://"))
@@ -32,22 +27,23 @@ async function openOAuthBrowser(provider: "google") {
   await Browser.open({ url, presentationStyle: "popover" });
 }
 
+function openGooglePopup(): Window | null {
+  const base = API_BASE || window.location.origin;
+  const url = `${base.replace(/\/$/, "")}/auth/google?popup=1`;
+  const w = 500, h = 600;
+  const left = Math.max(0, (screen.width - w) / 2);
+  const top = Math.max(0, (screen.height - h) / 2);
+  return window.open(
+    url,
+    "google-signin",
+    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no,resizable=no,location=no,status=no`
+  );
+}
+
+// keep loadGIS stub so nothing else breaks
 function loadGIS(): Promise<void> {
   return new Promise((resolve) => {
-    if ((window as any).google?.accounts?.id) { resolve(); return; }
-    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => resolve());
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = "https://accounts.google.com/gsi/client";
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => resolve();
-    document.head.appendChild(s);
+    resolve();
   });
 }
 
@@ -130,10 +126,7 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
-  // Hidden div where Google's renderButton() mounts its FedCM-capable button
-  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
-  // True once renderButton() has mounted successfully
-  const gisButtonReadyRef = useRef(false);
+  const popupRef = useRef<Window | null>(null);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -202,44 +195,28 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Load GIS and initialize One Tap with FedCM enabled.
-  // We do NOT call renderButton() — instead we call prompt() directly from
-  // the click handler so Chrome shows the native bottom-sheet account picker
-  // (same behaviour as Abacus.ai) without any redirect or new tab.
+  // Listen for postMessage from the Google OAuth popup.
+  // The server's popupResultPage() sends { type: "google-auth-ok" } on success.
   useEffect(() => {
-    if (!googleClientId || isNativePlatform()) return;
-
-    loadGIS().then(() => {
-      const goog = (window as any).google;
-      if (!goog?.accounts?.id) return;
-
-      goog.accounts.id.initialize({
-        client_id: googleClientId,
-        // use_fedcm_for_prompt makes Chrome show the native bottom sheet
-        use_fedcm_for_prompt: true,
-        callback: async (response: any) => {
-          if (!response?.credential) return;
-          setSigningIn(true);
-          setNativeError(null);
-          sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-          try {
-            const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-            const data = await res.json();
-            if (!data.token) throw new Error("Server did not return a session token");
-            setNativeToken(data.token);
-            await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-            setLocation("/");
-          } catch (err: any) {
-            sessionStorage.removeItem(OAUTH_FLOW_KEY);
-            setNativeError(err?.message ?? "Sign-in failed. Please try again.");
-            setSigningIn(false);
-          }
-        },
-      });
-
-      gisButtonReadyRef.current = true;
-    }).catch(() => {});
-  }, [googleClientId]);
+    async function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "google-auth-ok") {
+        sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+        try { popupRef.current?.close(); } catch {}
+        popupRef.current = null;
+        await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+        setLocation("/");
+      } else if (data.type === "google-auth-error") {
+        setNativeError(data.error ?? "Google sign-in failed. Please try again.");
+        setSigningIn(false);
+        try { popupRef.current?.close(); } catch {}
+        popupRef.current = null;
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -267,28 +244,34 @@ export default function Login() {
     }
   }
 
-  // On native  → Capacitor Google plugin.
-  // On web + GIS ready → call prompt() so Chrome shows the native FedCM
-  //   bottom-sheet account-picker (no new tab, no redirect).
+  // On native → Capacitor Google plugin.
+  // On web    → open a small popup window to /auth/google?popup=1 which
+  //             shows Google's full account-picker, then postMessages the
+  //             result back so we never do a full-page redirect.
   function handleGoogleClick() {
-    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
       return;
     }
-    const goog = (window as any).google;
-    if (goog?.accounts?.id && gisButtonReadyRef.current) {
-      // prompt() with use_fedcm_for_prompt:true → Chrome native bottom sheet
-      goog.accounts.id.prompt((notification: any) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          setNativeError("Google sign-in could not open. Please try signing in with your email instead.");
+    setNativeError(null);
+    setSigningIn(true);
+    const popup = openGooglePopup();
+    if (!popup) {
+      setNativeError("Could not open sign-in window. Please allow pop-ups for this site.");
+      setSigningIn(false);
+      return;
+    }
+    popupRef.current = popup;
+    // Detect if user closes the popup manually without completing sign-in
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer);
+        if (popupRef.current) {
+          popupRef.current = null;
           setSigningIn(false);
         }
-      });
-    } else {
-      setNativeError("Google sign-in is still loading. Please wait a moment and try again.");
-      setSigningIn(false);
-    }
+      }
+    }, 500);
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

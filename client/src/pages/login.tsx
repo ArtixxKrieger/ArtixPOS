@@ -276,14 +276,21 @@ export default function Login() {
     }
   }
 
-  // Web Google sign-in is handled entirely by the transparent overlay that
-  // sits on top of our styled button. This handler only runs on native (Capacitor).
+  // On native → Capacitor Google plugin.
+  // On web with GIS ready → Google's FedCM button inside the overlay handles
+  //   it; our onClick is just a no-op safety net.
+  // On web without GIS (dev / no GOOGLE_CLIENT_ID) → OAuth redirect fallback.
   function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
+      return;
     }
-    // On web the overlay intercepts the click — nothing to do here.
+    // If Google's button is rendered in the overlay it will handle FedCM itself.
+    // Otherwise fall back to the standard OAuth redirect so the button always works.
+    if (!gisButtonReadyRef.current) {
+      window.location.href = "/api/auth/google";
+    }
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

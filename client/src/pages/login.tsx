@@ -13,6 +13,11 @@ function isPluginAvailable(name: string): boolean {
   try { return (window as any).Capacitor?.isPluginAvailable?.(name) === true; } catch { return false; }
 }
 
+function getOAuthOrigin(): string {
+  const base = API_BASE || window.location.origin;
+  return base.replace(/\/$/, "");
+}
+
 function resolveOAuthUrl(path: string): string {
   const base = API_BASE || window.location.origin;
   if (base.startsWith("capacitor://") || base.startsWith("ionic://"))
@@ -120,6 +125,11 @@ export default function Login() {
   const [debugEntries, setDebugEntries] = useState<DebugEntry[]>(() => getDebugLogs());
   const refreshDebug = useCallback(() => setDebugEntries(getDebugLogs()), []);
 
+  // Google client ID: prefer env var, fallback to server-provided config
+  const [googleClientId, setGoogleClientId] = useState<string | null>(
+    (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
+  );
+
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
@@ -174,6 +184,23 @@ export default function Login() {
     return () => window.removeEventListener("artixpos-debug-update", handler);
   }, []);
 
+  // Fetch Google client ID from server (so VITE_GOOGLE_CLIENT_ID isn't required separately)
+  useEffect(() => {
+    if (googleClientId) return;
+    fetch("/api/auth/config")
+      .then(r => r.json())
+      .then((cfg: { googleClientId?: string | null }) => {
+        if (cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Pre-load the GIS script as soon as we know the client ID so it's ready on first click
+  useEffect(() => {
+    if (!googleClientId || isNativePlatform()) return;
+    loadGIS().catch(() => {});
+  }, [googleClientId]);
+
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
   const detail = urlParams.get("detail");
@@ -201,24 +228,29 @@ export default function Login() {
   }
 
   async function handleWebGoogleOneTap() {
-    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
-    if (!clientId) {
-      window.location.href = `${API_BASE}/auth/google`;
-      return;
-    }
+    const clientId = googleClientId;
     setNativeError(null);
     setSigningIn(true);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+
+    // No client ID — fall back to traditional redirect (same-tab navigation)
+    if (!clientId) {
+      window.location.href = `${getOAuthOrigin()}/auth/google`;
+      return;
+    }
+
     try {
       await loadGIS();
       const goog = (window as any).google;
       if (!goog?.accounts?.id) {
-        window.location.href = `${API_BASE}/auth/google`;
+        window.location.href = `${getOAuthOrigin()}/auth/google`;
         return;
       }
       await new Promise<void>((resolve, reject) => {
         goog.accounts.id.initialize({
           client_id: clientId,
+          // use_fedcm_for_prompt triggers the native browser account-picker bottom sheet
+          // on Chrome for Android/desktop instead of a redirect or popup
           use_fedcm_for_prompt: true,
           callback: async (response: any) => {
             try {
@@ -235,8 +267,10 @@ export default function Login() {
           },
         });
         goog.accounts.id.prompt((notification: any) => {
+          // FedCM not available (browser blocked, no Google session, etc.)
+          // Fall back to the traditional same-tab OAuth redirect
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            window.location.href = `${API_BASE}/auth/google`;
+            window.location.href = `${getOAuthOrigin()}/auth/google`;
             resolve();
           }
         });
@@ -251,18 +285,13 @@ export default function Login() {
     }
   }
 
-  function handleGoogleClick(e: React.MouseEvent) {
+  function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     if (isNativePlatform()) {
-      e.preventDefault();
       handleNativeGoogleSignIn();
       return;
     }
-    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
-    if (clientId) {
-      e.preventDefault();
-      handleWebGoogleOneTap();
-    }
+    handleWebGoogleOneTap();
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -495,11 +524,12 @@ export default function Login() {
 
       {/* Google button */}
       <div className="rise d2">
-        <a
-          href={`${API_BASE}/auth/google`}
+        <button
+          type="button"
           className="btn-social"
           data-testid="button-google-signin"
           onClick={handleGoogleClick}
+          disabled={signingIn}
           style={isDark ? {
             background: "rgba(255,255,255,0.07)",
             border: "1.5px solid rgba(255,255,255,0.10)",
@@ -525,7 +555,7 @@ export default function Login() {
           <span style={{ flex: 1, textAlign: "center" }}>
             {signingIn ? "Signing in…" : "Continue with Google"}
           </span>
-        </a>
+        </button>
       </div>
 
       {/* Divider */}

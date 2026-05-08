@@ -370,6 +370,15 @@ export function setupAuth(app: Express) {
     console.log("[auth] Google OAuth not configured (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET missing)");
   }
 
+  // ── Public auth config (client ID safe to expose) ────────────────────────────
+
+  app.get("/api/auth/config", (_req, res) => {
+    res.json({
+      googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+      facebookAppId: process.env.FACEBOOK_APP_ID || null,
+    });
+  });
+
   // ── Google routes ─────────────────────────────────────────────────────────────
 
   app.get("/auth/google", (req, res, next) => {

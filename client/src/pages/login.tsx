@@ -143,6 +143,8 @@ export default function Login() {
   const [formLoading, setFormLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [rememberMe, setRememberMe] = useState(false);
+
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -200,10 +202,10 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Load GIS and render Google's button into the hidden container.
-  // google.accounts.id.renderButton() creates a real Google-controlled element
-  // that always triggers Chrome's native FedCM bottom sheet when clicked,
-  // bypassing the cooldown that causes prompt() to fall back to a redirect.
+  // Load GIS and mount Google's real button into the overlay container.
+  // The overlay sits transparently on top of our styled button, so the user's
+  // real tap/click lands on Google's own element — Chrome then shows the native
+  // FedCM account-picker bottom sheet without any page navigation or new tab.
   useEffect(() => {
     if (!googleClientId || isNativePlatform()) return;
 
@@ -234,12 +236,14 @@ export default function Login() {
         },
       });
 
-      // renderButton mounts a real Google button — clicking it always triggers
-      // the FedCM native bottom sheet regardless of Chrome's cooldown period.
+      // width:400 ensures the button fills the overlay even before layout settles.
+      // overflow:hidden on the overlay clips any excess so nothing is visible.
       goog.accounts.id.renderButton(googleBtnContainerRef.current, {
         type: "standard",
         size: "large",
-        use_fedcm_for_prompt: true,
+        text: "continue_with",
+        shape: "rectangular",
+        width: 400,
       });
 
       gisButtonReadyRef.current = true;
@@ -272,29 +276,14 @@ export default function Login() {
     }
   }
 
+  // Web Google sign-in is handled entirely by the transparent overlay that
+  // sits on top of our styled button. This handler only runs on native (Capacitor).
   function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-
-    // Native Capacitor app — use the native GoogleAuth plugin
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
-      return;
     }
-
-    // Web: click the hidden Google-rendered button so Chrome triggers the native
-    // FedCM bottom sheet. This is more reliable than calling prompt() directly
-    // because renderButton's click path bypasses Chrome's cooldown period.
-    if (gisButtonReadyRef.current && googleBtnContainerRef.current) {
-      const inner = googleBtnContainerRef.current.querySelector<HTMLElement>("div[role='button'], button");
-      if (inner) {
-        inner.click();
-        return;
-      }
-    }
-
-    // GIS not loaded yet (no GOOGLE_CLIENT_ID or script still loading) —
-    // fall back to a same-tab server redirect so no new tab ever opens.
-    window.location.href = `${getOAuthOrigin()}/auth/google`;
+    // On web the overlay intercepts the click — nothing to do here.
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -305,6 +294,7 @@ export default function Login() {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
       const body: any = { email: formEmail, password: formPassword };
       if (mode === "register") body.name = formName;
+      if (mode === "signin") body.rememberMe = rememberMe;
       const res = await fetch(resolveUrl(endpoint), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -525,8 +515,11 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google button */}
-      <div className="rise d2">
+      {/* Google button — our styled button with a transparent Google-rendered
+          overlay on top. The overlay contains Google's actual FedCM button so
+          real user clicks land on it, triggering the native account-picker
+          bottom sheet without any redirect or new tab. */}
+      <div className="rise d2" style={{ position: "relative" }}>
         <button
           type="button"
           className="btn-social"
@@ -559,6 +552,25 @@ export default function Login() {
             {signingIn ? "Signing in…" : "Continue with Google"}
           </span>
         </button>
+
+        {/* Transparent overlay — Google's renderButton() mounts here.
+            opacity:0.001 keeps it invisible while remaining clickable.
+            pointerEvents:none when signingIn so the button can't double-fire. */}
+        {!isNativePlatform() && (
+          <div
+            ref={googleBtnContainerRef}
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: 0.001,
+              overflow: "hidden",
+              borderRadius: 12,
+              pointerEvents: signingIn ? "none" : "auto",
+              cursor: "pointer",
+            }}
+          />
+        )}
       </div>
 
       {/* Divider */}
@@ -623,7 +635,29 @@ export default function Login() {
         </div>
 
         {mode === "signin" && (
-          <div style={{ textAlign: "right", marginTop: -4 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -4 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+              <div
+                onClick={() => setRememberMe(v => !v)}
+                data-testid="checkbox-remember-me"
+                style={{
+                  width: 16, height: 16, borderRadius: 4, flexShrink: 0, cursor: "pointer",
+                  border: `1.5px solid ${rememberMe ? "#7c3aed" : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}`,
+                  background: rememberMe ? "#7c3aed" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s, border-color 0.15s",
+                }}
+              >
+                {rememberMe && (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)" }}>
+                Remember this device
+              </span>
+            </label>
             <button type="button" onClick={openForgot} data-testid="button-forgot-password"
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(167,139,250,0.75)" : "rgba(109,40,217,0.7)", padding: 0 }}>
               Forgot password?
@@ -668,15 +702,6 @@ export default function Login() {
       className="min-h-screen flex relative overflow-hidden transition-colors duration-500"
       style={{ background: isDark ? "#06060f" : "#f4f3f9" }}
     >
-      {/* Hidden container for Google's FedCM-capable renderButton().
-          Kept off-screen so Google's element exists in the DOM but is
-          never visible. Clicking it (from handleGoogleClick) triggers
-          Chrome's native account-picker bottom sheet. */}
-      <div
-        ref={googleBtnContainerRef}
-        aria-hidden="true"
-        style={{ position: "absolute", left: -9999, top: -9999, width: 200, height: 44, overflow: "hidden", pointerEvents: "none" }}
-      />
       {/* Background ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {isDark ? (

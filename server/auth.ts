@@ -116,11 +116,16 @@ export const AUTH_COOKIE_OPTIONS = {
   path: "/",
 };
 
-export function setAuthCookie(res: Response, user: any) {
+export function setAuthCookie(res: Response, user: any, rememberMe = false) {
   const token = signToken(user);
+  // rememberMe = false → session ends when browser closes (1 day max)
+  // rememberMe = true  → cookie persists for 30 days
+  const maxAge = rememberMe
+    ? 30 * 24 * 60 * 60 * 1000
+    :  1 * 24 * 60 * 60 * 1000;
   res.cookie(AUTH_COOKIE, token, {
     ...AUTH_COOKIE_OPTIONS,
-    maxAge: 1 * 24 * 60 * 60 * 1000,
+    maxAge,
   });
 }
 
@@ -540,7 +545,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", async (req, res, next) => {
-    const { email, password } = req.body ?? {};
+    const { email, password, rememberMe } = req.body ?? {};
     if (!email || typeof email !== "string") {
       return res.status(400).json({ message: "Email is required." });
     }
@@ -565,7 +570,7 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
-      setAuthCookie(res, user);
+      setAuthCookie(res, user, rememberMe === true);
       res.json({ ok: true });
     } catch (err) {
       next(err);

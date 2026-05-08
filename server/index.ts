@@ -33,8 +33,8 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 // 'unsafe-eval' is only required by Vite HMR in development.
 // Production builds use pre-compiled assets and must not allow eval.
 const scriptSrc: string[] = isDevelopment
-  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"]
-  : ["'self'", "'unsafe-inline'", "https://accounts.google.com"];
+  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
+  : ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://*.google.com"];
 
 const cspDirectives = {
   defaultSrc: ["'self'"],

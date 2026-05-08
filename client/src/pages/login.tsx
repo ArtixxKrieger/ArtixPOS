@@ -27,23 +27,22 @@ async function openOAuthBrowser(provider: "google") {
   await Browser.open({ url, presentationStyle: "popover" });
 }
 
-function openGooglePopup(): Window | null {
-  const base = API_BASE || window.location.origin;
-  const url = `${base.replace(/\/$/, "")}/auth/google?popup=1`;
-  const w = 500, h = 600;
-  const left = Math.max(0, (screen.width - w) / 2);
-  const top = Math.max(0, (screen.height - h) / 2);
-  return window.open(
-    url,
-    "google-signin",
-    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no,resizable=no,location=no,status=no`
-  );
-}
-
-// keep loadGIS stub so nothing else breaks
 function loadGIS(): Promise<void> {
   return new Promise((resolve) => {
-    resolve();
+    if ((window as any).google?.accounts?.id) { resolve(); return; }
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => resolve());
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => resolve();
+    document.head.appendChild(s);
   });
 }
 
@@ -126,7 +125,7 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
-  const popupRef = useRef<Window | null>(null);
+  const gisReadyRef = useRef(false);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -195,28 +194,43 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Listen for postMessage from the Google OAuth popup.
-  // The server's popupResultPage() sends { type: "google-auth-ok" } on success.
+  // Initialize Google One Tap (no FedCM — works reliably on Android Chrome).
+  // When the user taps the button we call prompt() which renders Google's own
+  // native-feeling overlay/bottom-sheet directly on the page — no popup, no redirect.
   useEffect(() => {
-    async function onMessage(e: MessageEvent) {
-      const data = e.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type === "google-auth-ok") {
-        sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-        try { popupRef.current?.close(); } catch {}
-        popupRef.current = null;
-        await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-        setLocation("/");
-      } else if (data.type === "google-auth-error") {
-        setNativeError(data.error ?? "Google sign-in failed. Please try again.");
-        setSigningIn(false);
-        try { popupRef.current?.close(); } catch {}
-        popupRef.current = null;
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
+    if (!googleClientId || isNativePlatform()) return;
+
+    loadGIS().then(() => {
+      const goog = (window as any).google;
+      if (!goog?.accounts?.id) return;
+
+      goog.accounts.id.initialize({
+        client_id: googleClientId,
+        // FedCM disabled — without this, Chrome silently skips the prompt on Android
+        use_fedcm_for_prompt: false,
+        callback: async (response: any) => {
+          if (!response?.credential) return;
+          setSigningIn(true);
+          setNativeError(null);
+          sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+          try {
+            const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+            const data = await res.json();
+            if (!data.token) throw new Error("Server did not return a session token");
+            setNativeToken(data.token);
+            await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+            setLocation("/");
+          } catch (err: any) {
+            sessionStorage.removeItem(OAUTH_FLOW_KEY);
+            setNativeError(err?.message ?? "Sign-in failed. Please try again.");
+            setSigningIn(false);
+          }
+        },
+      });
+
+      gisReadyRef.current = true;
+    }).catch(() => {});
+  }, [googleClientId]);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -244,34 +258,32 @@ export default function Login() {
     }
   }
 
-  // On native → Capacitor Google plugin.
-  // On web    → open a small popup window to /auth/google?popup=1 which
-  //             shows Google's full account-picker, then postMessages the
-  //             result back so we never do a full-page redirect.
+  // On native → Capacitor Google plugin (native system picker).
+  // On web    → Google One Tap prompt() — renders Google's own floating
+  //             account-picker overlay directly on the page. On mobile Chrome
+  //             this appears as a bottom sheet with profile photos.
   function handleGoogleClick() {
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
       return;
     }
     setNativeError(null);
-    setSigningIn(true);
-    const popup = openGooglePopup();
-    if (!popup) {
-      setNativeError("Could not open sign-in window. Please allow pop-ups for this site.");
-      setSigningIn(false);
+    const goog = (window as any).google;
+    if (!goog?.accounts?.id || !gisReadyRef.current) {
+      setNativeError("Google sign-in is still loading. Please try again in a moment.");
       return;
     }
-    popupRef.current = popup;
-    // Detect if user closes the popup manually without completing sign-in
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        if (popupRef.current) {
-          popupRef.current = null;
-          setSigningIn(false);
-        }
+    goog.accounts.id.prompt((notification: any) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        const reason = notification.getNotDisplayedReason?.() || notification.getSkippedReason?.() || "";
+        // suppressed_by_user means they previously dismissed One Tap — show inline message
+        setNativeError(
+          reason === "suppressed_by_user"
+            ? "Google sign-in was dismissed. Please use email to sign in, or clear your browser data and try again."
+            : "Google sign-in could not open. Please use email to sign in."
+        );
       }
-    }, 500);
+    });
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

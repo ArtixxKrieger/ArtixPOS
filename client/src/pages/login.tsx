@@ -555,11 +555,14 @@ export default function Login() {
 
         {/* Transparent overlay — Google's renderButton() mounts here.
             opacity:0.001 keeps it invisible while remaining clickable.
+            onClick={handleGoogleClick} is a fallback for when Google's own
+            button hasn't rendered (e.g. no GOOGLE_CLIENT_ID in dev).
             pointerEvents:none when signingIn so the button can't double-fire. */}
         {!isNativePlatform() && (
           <div
             ref={googleBtnContainerRef}
             aria-hidden="true"
+            onClick={handleGoogleClick}
             style={{
               position: "absolute",
               inset: 0,

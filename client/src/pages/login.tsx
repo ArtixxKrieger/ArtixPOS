@@ -227,57 +227,114 @@ export default function Login() {
     }
   }
 
+  // Opens a small popup window for the OAuth flow and resolves when the
+  // popup postMessages back with the result (cookie is already set server-side).
+  function openGooglePopup(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const origin = getOAuthOrigin();
+      const w = 480, h = 640;
+      const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2));
+      const top  = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2));
+      const popup = window.open(
+        `${origin}/auth/google?popup=1`,
+        "google-signin",
+        `width=${w},height=${h},left=${left},top=${top},popup=yes,scrollbars=yes`
+      );
+
+      if (!popup) {
+        // Popup was blocked — fall back to same-tab redirect as last resort
+        window.location.href = `${origin}/auth/google`;
+        resolve();
+        return;
+      }
+
+      const onMessage = (event: MessageEvent) => {
+        if (event.data?.type === "google-auth-ok") {
+          cleanup();
+          resolve();
+        } else if (event.data?.type === "google-auth-error") {
+          cleanup();
+          reject(new Error(event.data.error ?? "Google sign-in failed"));
+        }
+      };
+
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          cleanup();
+          // Popup closed without a message — treat as user cancel
+          reject(new Error("popup-dismissed"));
+        }
+      }, 500);
+
+      function cleanup() {
+        clearInterval(checkClosed);
+        window.removeEventListener("message", onMessage);
+        try { popup.close(); } catch {}
+      }
+
+      window.addEventListener("message", onMessage);
+    });
+  }
+
   async function handleWebGoogleOneTap() {
     const clientId = googleClientId;
     setNativeError(null);
     setSigningIn(true);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
 
-    // No client ID — fall back to traditional redirect (same-tab navigation)
-    if (!clientId) {
-      window.location.href = `${getOAuthOrigin()}/auth/google`;
-      return;
-    }
-
     try {
-      await loadGIS();
-      const goog = (window as any).google;
-      if (!goog?.accounts?.id) {
-        window.location.href = `${getOAuthOrigin()}/auth/google`;
-        return;
+      // Primary path: FedCM / Google One Tap — shows native bottom sheet, no new tab
+      if (clientId) {
+        await loadGIS();
+        const goog = (window as any).google;
+        if (goog?.accounts?.id) {
+          let fedcmHandled = false;
+          await new Promise<void>((resolve, reject) => {
+            goog.accounts.id.initialize({
+              client_id: clientId,
+              use_fedcm_for_prompt: true,
+              callback: async (response: any) => {
+                fedcmHandled = true;
+                try {
+                  const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+                  const data = await res.json();
+                  if (!data.token) throw new Error("Server did not return a session token");
+                  setNativeToken(data.token);
+                  await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+                  setLocation("/");
+                  resolve();
+                } catch (err: any) {
+                  reject(err);
+                }
+              },
+            });
+            goog.accounts.id.prompt(async (notification: any) => {
+              // FedCM shown and handled via callback above — nothing to do
+              if (fedcmHandled) return;
+              // FedCM not available or skipped — fall through to popup
+              if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                try {
+                  await openGooglePopup();
+                  await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+                  setLocation("/");
+                  resolve();
+                } catch (popupErr: any) {
+                  reject(popupErr);
+                }
+              }
+            });
+          });
+          return;
+        }
       }
-      await new Promise<void>((resolve, reject) => {
-        goog.accounts.id.initialize({
-          client_id: clientId,
-          // use_fedcm_for_prompt triggers the native browser account-picker bottom sheet
-          // on Chrome for Android/desktop instead of a redirect or popup
-          use_fedcm_for_prompt: true,
-          callback: async (response: any) => {
-            try {
-              const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-              const data = await res.json();
-              if (!data.token) throw new Error("Server did not return a session token");
-              setNativeToken(data.token);
-              await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-              setLocation("/");
-              resolve();
-            } catch (err: any) {
-              reject(err);
-            }
-          },
-        });
-        goog.accounts.id.prompt((notification: any) => {
-          // FedCM not available (browser blocked, no Google session, etc.)
-          // Fall back to the traditional same-tab OAuth redirect
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            window.location.href = `${getOAuthOrigin()}/auth/google`;
-            resolve();
-          }
-        });
-      });
+
+      // Fallback: no GIS / no client ID — open popup directly
+      await openGooglePopup();
+      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      setLocation("/");
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
-      const isCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismiss");
+      const isCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismiss") || msg === "popup-dismissed";
       sessionStorage.removeItem(OAUTH_FLOW_KEY);
       if (!isCancel) setNativeError(msg.length < 120 ? msg : "Sign-in failed. Please try again.");
     } finally {

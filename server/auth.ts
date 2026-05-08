@@ -327,6 +327,19 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
 
+function popupResultPage({ ok, error }: { ok: boolean; error?: string }): string {
+  const payload = ok
+    ? JSON.stringify({ type: "google-auth-ok" })
+    : JSON.stringify({ type: "google-auth-error", error: error ?? "unknown" });
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#0f0a1e;color:#fff;font-size:14px}</style>
+</head><body><p>${ok ? "Signing you in…" : "Sign-in failed. You can close this window."}</p>
+<script>
+try{window.opener&&window.opener.postMessage(${payload},"*")}catch(e){}
+${ok ? "setTimeout(function(){try{window.close()}catch(e){}},300);" : ""}
+</script></body></html>`;
+}
+
 export function setupAuth(app: Express) {
   const baseUrl = getBaseUrl();
   console.log(`[auth] Using base URL: ${baseUrl}`);
@@ -382,13 +395,19 @@ export function setupAuth(app: Express) {
   // ── Google routes ─────────────────────────────────────────────────────────────
 
   app.get("/auth/google", (req, res, next) => {
-    if (!googleEnabled) return res.redirect("/login?error=google_not_configured");
+    const isNative = req.query.native === "1";
+    const isPopup  = req.query.popup  === "1";
+    if (!googleEnabled) {
+      if (isPopup) return res.send(popupResultPage({ ok: false, error: "google_not_configured" }));
+      return res.redirect("/login?error=google_not_configured");
+    }
     try {
-      const isNative = req.query.native === "1";
-      const state = generateState(isNative ? "native" : undefined);
+      const stateExtra = isNative ? "native" : isPopup ? "popup" : undefined;
+      const state = generateState(stateExtra);
       passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(req, res, next);
     } catch (err: any) {
       console.error("[auth] Google initiation error:", err?.message ?? err);
+      if (isPopup) return res.send(popupResultPage({ ok: false, error: "google_init" }));
       res.redirect("/login?error=google_init");
     }
   });
@@ -403,21 +422,34 @@ export function setupAuth(app: Express) {
       return res.redirect("/login?error=state_mismatch");
     }
     const isNative = extra === "native";
+    const isPopup  = extra === "popup";
 
     passport.authenticate("google", { session: false }, (err: any, user: any) => {
       if (err) {
         const msg = String(err?.message ?? err).slice(0, 120);
         console.error("[auth] Google callback error:", msg);
+        if (isPopup) {
+          return res.send(popupResultPage({ ok: false, error: msg }));
+        }
         return res.redirect(`/login?error=google_cb&detail=${encodeURIComponent(msg)}`);
       }
       if (!user) {
         console.warn("[auth] Google callback: no user returned");
+        if (isPopup) {
+          return res.send(popupResultPage({ ok: false, error: "google_no_user" }));
+        }
         return res.redirect("/login?error=google_no_user");
       }
       try {
         if (isNative) {
           const token = signToken(user);
           return res.redirect(`${NATIVE_APP_SCHEME}://auth?token=${encodeURIComponent(token)}`);
+        }
+        // Popup flow: set cookie (same origin, so cookie carries over to parent)
+        // then serve a tiny page that postMessages success to the opener and closes.
+        if (isPopup) {
+          setAuthCookie(res, user);
+          return res.send(popupResultPage({ ok: true }));
         }
         setAuthCookie(res, user);
         return res.redirect("/");

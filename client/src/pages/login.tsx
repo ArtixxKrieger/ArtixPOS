@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
@@ -130,6 +130,11 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
+  // Hidden div where Google's renderButton() mounts its FedCM-capable button
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+  // True once renderButton() has mounted successfully
+  const gisButtonReadyRef = useRef(false);
+
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
@@ -195,10 +200,50 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Pre-load the GIS script as soon as we know the client ID so it's ready on first click
+  // Load GIS and render Google's button into the hidden container.
+  // google.accounts.id.renderButton() creates a real Google-controlled element
+  // that always triggers Chrome's native FedCM bottom sheet when clicked,
+  // bypassing the cooldown that causes prompt() to fall back to a redirect.
   useEffect(() => {
     if (!googleClientId || isNativePlatform()) return;
-    loadGIS().catch(() => {});
+
+    loadGIS().then(() => {
+      const goog = (window as any).google;
+      if (!goog?.accounts?.id || !googleBtnContainerRef.current) return;
+
+      goog.accounts.id.initialize({
+        client_id: googleClientId,
+        use_fedcm_for_prompt: true,
+        callback: async (response: any) => {
+          if (!response?.credential) return;
+          setSigningIn(true);
+          setNativeError(null);
+          sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+          try {
+            const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+            const data = await res.json();
+            if (!data.token) throw new Error("Server did not return a session token");
+            setNativeToken(data.token);
+            await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+            setLocation("/");
+          } catch (err: any) {
+            sessionStorage.removeItem(OAUTH_FLOW_KEY);
+            setNativeError(err?.message ?? "Sign-in failed. Please try again.");
+            setSigningIn(false);
+          }
+        },
+      });
+
+      // renderButton mounts a real Google button — clicking it always triggers
+      // the FedCM native bottom sheet regardless of Chrome's cooldown period.
+      goog.accounts.id.renderButton(googleBtnContainerRef.current, {
+        type: "standard",
+        size: "large",
+        use_fedcm_for_prompt: true,
+      });
+
+      gisButtonReadyRef.current = true;
+    }).catch(() => {});
   }, [googleClientId]);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -227,102 +272,29 @@ export default function Login() {
     }
   }
 
-  async function handleWebGoogleOneTap() {
-    setNativeError(null);
-    setSigningIn(true);
-    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-
-    // Resolve the client ID — use state value or fetch from server config.
-    // This matters when the user clicks the button before the config fetch
-    // completes (googleClientId is still null) — we wait for it here so FedCM
-    // gets a chance to run instead of immediately falling back to a redirect.
-    let clientId = googleClientId;
-    if (!clientId) {
-      try {
-        const cfg = await fetch("/api/auth/config").then(r => r.json());
-        if (cfg.googleClientId) {
-          clientId = cfg.googleClientId;
-          setGoogleClientId(cfg.googleClientId);
-        }
-      } catch { /* ignore — will fall back below */ }
-    }
-
-    // ── Primary path: FedCM / Google One Tap ─────────────────────────────────
-    // When GOOGLE_CLIENT_ID is configured this shows Chrome's native account
-    // picker bottom sheet without navigating away from the page at all.
-    if (clientId) {
-      try {
-        await loadGIS();
-        const goog = (window as any).google;
-        if (goog?.accounts?.id) {
-          let settled = false;
-
-          await new Promise<void>((resolve, reject) => {
-            goog.accounts.id.initialize({
-              client_id: clientId,
-              // use_fedcm_for_prompt = true activates Chrome's native
-              // Federated Credential Management bottom sheet on Android.
-              use_fedcm_for_prompt: true,
-              callback: async (response: any) => {
-                if (settled) return;
-                settled = true;
-                try {
-                  const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-                  const data = await res.json();
-                  if (!data.token) throw new Error("Server did not return a session token");
-                  setNativeToken(data.token);
-                  await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-                  setLocation("/");
-                  resolve();
-                } catch (err: any) {
-                  reject(err);
-                }
-              },
-            });
-
-            goog.accounts.id.prompt((notification: any) => {
-              if (settled) return;
-              // FedCM couldn't show (no Google session in browser, blocked by
-              // Chrome cooldown, etc.). Fall back to same-tab redirect so the
-              // user stays in the same tab — no new tab opens.
-              if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                settled = true;
-                window.location.href = `${getOAuthOrigin()}/auth/google`;
-                resolve();
-              }
-            });
-          });
-          return;
-        }
-      } catch (fedcmErr: any) {
-        const msg: string = fedcmErr?.message ?? String(fedcmErr);
-        const isCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismiss");
-        if (!isCancel) {
-          // FedCM errored — fall through to same-tab redirect below
-        } else {
-          sessionStorage.removeItem(OAUTH_FLOW_KEY);
-          setSigningIn(false);
-          return;
-        }
-      }
-    }
-
-    // ── Fallback: same-tab redirect ───────────────────────────────────────────
-    // Navigates the current tab to the Google OAuth page. The user returns to
-    // the app after authenticating. Not as seamless as FedCM but avoids any
-    // new tab opening. Requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET on
-    // the server to work; without them the server redirects to the login page
-    // with an error message.
-    window.location.href = `${getOAuthOrigin()}/auth/google`;
-  }
-
   function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+
+    // Native Capacitor app — use the native GoogleAuth plugin
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
       return;
     }
-    handleWebGoogleOneTap();
+
+    // Web: click the hidden Google-rendered button so Chrome triggers the native
+    // FedCM bottom sheet. This is more reliable than calling prompt() directly
+    // because renderButton's click path bypasses Chrome's cooldown period.
+    if (gisButtonReadyRef.current && googleBtnContainerRef.current) {
+      const inner = googleBtnContainerRef.current.querySelector<HTMLElement>("div[role='button'], button");
+      if (inner) {
+        inner.click();
+        return;
+      }
+    }
+
+    // GIS not loaded yet (no GOOGLE_CLIENT_ID or script still loading) —
+    // fall back to a same-tab server redirect so no new tab ever opens.
+    window.location.href = `${getOAuthOrigin()}/auth/google`;
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -696,6 +668,15 @@ export default function Login() {
       className="min-h-screen flex relative overflow-hidden transition-colors duration-500"
       style={{ background: isDark ? "#06060f" : "#f4f3f9" }}
     >
+      {/* Hidden container for Google's FedCM-capable renderButton().
+          Kept off-screen so Google's element exists in the DOM but is
+          never visible. Clicking it (from handleGoogleClick) triggers
+          Chrome's native account-picker bottom sheet. */}
+      <div
+        ref={googleBtnContainerRef}
+        aria-hidden="true"
+        style={{ position: "absolute", left: -9999, top: -9999, width: 200, height: 44, overflow: "hidden", pointerEvents: "none" }}
+      />
       {/* Background ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {isDark ? (

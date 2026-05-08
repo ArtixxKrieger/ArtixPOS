@@ -202,19 +202,20 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Load GIS and mount Google's real button into the overlay container.
-  // The overlay sits transparently on top of our styled button, so the user's
-  // real tap/click lands on Google's own element — Chrome then shows the native
-  // FedCM account-picker bottom sheet without any page navigation or new tab.
+  // Load GIS and initialize One Tap with FedCM enabled.
+  // We do NOT call renderButton() — instead we call prompt() directly from
+  // the click handler so Chrome shows the native bottom-sheet account picker
+  // (same behaviour as Abacus.ai) without any redirect or new tab.
   useEffect(() => {
     if (!googleClientId || isNativePlatform()) return;
 
     loadGIS().then(() => {
       const goog = (window as any).google;
-      if (!goog?.accounts?.id || !googleBtnContainerRef.current) return;
+      if (!goog?.accounts?.id) return;
 
       goog.accounts.id.initialize({
         client_id: googleClientId,
+        // use_fedcm_for_prompt makes Chrome show the native bottom sheet
         use_fedcm_for_prompt: true,
         callback: async (response: any) => {
           if (!response?.credential) return;
@@ -234,16 +235,6 @@ export default function Login() {
             setSigningIn(false);
           }
         },
-      });
-
-      // width:400 ensures the button fills the overlay even before layout settles.
-      // overflow:hidden on the overlay clips any excess so nothing is visible.
-      goog.accounts.id.renderButton(googleBtnContainerRef.current, {
-        type: "standard",
-        size: "large",
-        text: "continue_with",
-        shape: "rectangular",
-        width: 400,
       });
 
       gisButtonReadyRef.current = true;
@@ -276,20 +267,28 @@ export default function Login() {
     }
   }
 
-  // On native → Capacitor Google plugin.
-  // On web with GIS ready → Google's FedCM button inside the overlay handles
-  //   it; our onClick is just a no-op safety net.
-  // On web without GIS (dev / no GOOGLE_CLIENT_ID) → OAuth redirect fallback.
+  // On native  → Capacitor Google plugin.
+  // On web + GIS ready → call prompt() so Chrome shows the native FedCM
+  //   bottom-sheet account-picker (no new tab, no redirect).
+  // On web, GIS not ready → standard OAuth redirect fallback.
   function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
       return;
     }
-    // If Google's button is rendered in the overlay it will handle FedCM itself.
-    // Otherwise fall back to the standard OAuth redirect so the button always works.
-    if (!gisButtonReadyRef.current) {
-      window.location.href = "/api/auth/google";
+    const goog = (window as any).google;
+    if (goog?.accounts?.id && gisButtonReadyRef.current) {
+      // prompt() with use_fedcm_for_prompt:true → Chrome native bottom sheet
+      goog.accounts.id.prompt((notification: any) => {
+        // If FedCM couldn't show (browser/account not eligible), fall back
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          window.location.href = "/auth/google";
+        }
+      });
+    } else {
+      // GIS not loaded yet → standard OAuth redirect
+      window.location.href = "/auth/google";
     }
   }
 
@@ -522,11 +521,9 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google button — our styled button with a transparent Google-rendered
-          overlay on top. The overlay contains Google's actual FedCM button so
-          real user clicks land on it, triggering the native account-picker
-          bottom sheet without any redirect or new tab. */}
-      <div className="rise d2" style={{ position: "relative" }}>
+      {/* Google button — clicking calls prompt() which triggers Chrome's native
+          FedCM bottom-sheet account picker. No new tab, no redirect. */}
+      <div className="rise d2">
         <button
           type="button"
           className="btn-social"
@@ -559,28 +556,6 @@ export default function Login() {
             {signingIn ? "Signing in…" : "Continue with Google"}
           </span>
         </button>
-
-        {/* Transparent overlay — Google's renderButton() mounts here.
-            opacity:0.001 keeps it invisible while remaining clickable.
-            onClick={handleGoogleClick} is a fallback for when Google's own
-            button hasn't rendered (e.g. no GOOGLE_CLIENT_ID in dev).
-            pointerEvents:none when signingIn so the button can't double-fire. */}
-        {!isNativePlatform() && (
-          <div
-            ref={googleBtnContainerRef}
-            aria-hidden="true"
-            onClick={handleGoogleClick}
-            style={{
-              position: "absolute",
-              inset: 0,
-              opacity: 0.001,
-              overflow: "hidden",
-              borderRadius: 12,
-              pointerEvents: signingIn ? "none" : "auto",
-              cursor: "pointer",
-            }}
-          />
-        )}
       </div>
 
       {/* Divider */}

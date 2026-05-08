@@ -13,11 +13,6 @@ function isPluginAvailable(name: string): boolean {
   try { return (window as any).Capacitor?.isPluginAvailable?.(name) === true; } catch { return false; }
 }
 
-function getOAuthOrigin(): string {
-  const base = API_BASE || window.location.origin;
-  return base.replace(/\/$/, "");
-}
-
 function resolveOAuthUrl(path: string): string {
   const base = API_BASE || window.location.origin;
   if (base.startsWith("capacitor://") || base.startsWith("ionic://"))
@@ -106,11 +101,6 @@ async function nativeGoogleSignIn(): Promise<string> {
   return data.token;
 }
 
-function getIsDark(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 type AuthMode = "signin" | "register";
@@ -118,31 +108,26 @@ type AuthMode = "signin" | "register";
 export default function Login() {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const [isDark, setIsDark] = useState(getIsDark);
   const [nativeError, setNativeError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [debugEntries, setDebugEntries] = useState<DebugEntry[]>(() => getDebugLogs());
   const refreshDebug = useCallback(() => setDebugEntries(getDebugLogs()), []);
 
-  // Google client ID: prefer env var, fallback to server-provided config
   const [googleClientId, setGoogleClientId] = useState<string | null>(
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
-  // Hidden div where Google's renderButton() mounts its FedCM-capable button
-  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
-  // True once renderButton() has mounted successfully
-  const gisButtonReadyRef = useRef(false);
+  const gisReadyRef = useRef(false);
 
   const [mode, setMode] = useState<AuthMode>("signin");
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
   const [rememberMe, setRememberMe] = useState(false);
 
   const [showForgot, setShowForgot] = useState(false);
@@ -175,23 +160,11 @@ export default function Login() {
   }, [isAuthenticated, isLoading, setLocation]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  useEffect(() => {
     const handler = () => setDebugEntries(getDebugLogs());
     window.addEventListener("artixpos-debug-update", handler);
     return () => window.removeEventListener("artixpos-debug-update", handler);
   }, []);
 
-  // Fetch Google client ID from server (so VITE_GOOGLE_CLIENT_ID isn't required separately)
   useEffect(() => {
     if (googleClientId) return;
     fetch("/api/auth/config")
@@ -202,10 +175,6 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Load GIS and initialize One Tap with FedCM enabled.
-  // We do NOT call renderButton() — instead we call prompt() directly from
-  // the click handler so Chrome shows the native bottom-sheet account picker
-  // (same behaviour as Abacus.ai) without any redirect or new tab.
   useEffect(() => {
     if (!googleClientId || isNativePlatform()) return;
 
@@ -215,7 +184,6 @@ export default function Login() {
 
       goog.accounts.id.initialize({
         client_id: googleClientId,
-        // use_fedcm_for_prompt makes Chrome show the native bottom sheet
         use_fedcm_for_prompt: true,
         callback: async (response: any) => {
           if (!response?.credential) return;
@@ -237,7 +205,7 @@ export default function Login() {
         },
       });
 
-      gisButtonReadyRef.current = true;
+      gisReadyRef.current = true;
     }).catch(() => {});
   }, [googleClientId]);
 
@@ -245,7 +213,6 @@ export default function Login() {
   const error = urlParams.get("error");
   const detail = urlParams.get("detail");
   const reason = urlParams.get("reason");
-  const hasStoredToken = !!localStorage.getItem(NATIVE_TOKEN_KEY);
   const hasPendingInvite = !!localStorage.getItem(INVITE_STORAGE_KEY) || !!urlParams.get("invite");
 
   async function handleNativeGoogleSignIn() {
@@ -267,10 +234,6 @@ export default function Login() {
     }
   }
 
-  // On native  → Capacitor Google plugin.
-  // On web + GIS ready → call prompt() so Chrome shows the native FedCM
-  //   bottom-sheet account-picker (no new tab, no redirect).
-  // On web, GIS not ready → standard OAuth redirect fallback.
   function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     if (isNativePlatform()) {
@@ -278,17 +241,14 @@ export default function Login() {
       return;
     }
     const goog = (window as any).google;
-    if (goog?.accounts?.id && gisButtonReadyRef.current) {
-      // prompt() with use_fedcm_for_prompt:true → Chrome native bottom sheet
+    if (goog?.accounts?.id && gisReadyRef.current) {
       goog.accounts.id.prompt((notification: any) => {
-        // If FedCM couldn't show (browser/account not eligible), fall back
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          window.location.href = "/auth/google";
+          setNativeError("Google sign-in could not be shown. Please try signing in with email.");
         }
       });
     } else {
-      // GIS not loaded yet → standard OAuth redirect
-      window.location.href = "/auth/google";
+      setNativeError("Google sign-in is loading. Please try again in a moment.");
     }
   }
 
@@ -356,8 +316,8 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-[#06060f]" : "bg-[#f4f3f9]"}`}>
-        <div className={`w-7 h-7 border-2 rounded-full animate-spin ${isDark ? "border-violet-500 border-t-transparent" : "border-violet-600 border-t-transparent"}`} />
+      <div className="min-h-screen flex items-center justify-center bg-[#0d0d0d]">
+        <div className="w-7 h-7 border-2 rounded-full animate-spin border-violet-500 border-t-transparent" />
       </div>
     );
   }
@@ -369,467 +329,320 @@ export default function Login() {
     fontSize: 14,
     outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s",
-    background: isDark ? "rgba(255,255,255,0.05)" : "#ffffff",
-    border: `1.5px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)"}`,
-    color: isDark ? "rgba(255,255,255,0.92)" : "#1a1a1a",
+    background: "rgba(255,255,255,0.05)",
+    border: "1.5px solid rgba(255,255,255,0.10)",
+    color: "rgba(255,255,255,0.92)",
     boxSizing: "border-box",
     fontFamily: "inherit",
   };
 
-  const formPanel = (
-    <div style={{ width: "100%", maxWidth: 400 }}>
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      style={{ background: "#0d0d0d" }}
+    >
       <style>{`
         @keyframes rise {
-          from { opacity: 0; transform: translateY(24px); }
+          from { opacity: 0; transform: translateY(18px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .rise { animation: rise 0.55s cubic-bezier(0.16,1,0.3,1) both; }
+        .rise { animation: rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
         .d1 { animation-delay: 0.04s; }
         .d2 { animation-delay: 0.12s; }
         .d3 { animation-delay: 0.20s; }
         .d4 { animation-delay: 0.28s; }
-        .btn-social {
+        .btn-oauth {
           display: flex; align-items: center; gap: 12px; width: 100%;
-          padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600;
-          text-decoration: none; transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), box-shadow 0.18s ease, opacity 0.18s ease;
-          position: relative; overflow: hidden; cursor: pointer; border: none;
-          background: none; font-family: inherit; -webkit-tap-highlight-color: transparent;
+          padding: 13px 20px; border-radius: 12px; font-size: 14px; font-weight: 500;
+          cursor: pointer; border: 1.5px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.88);
+          font-family: inherit; transition: background 0.15s, border-color 0.15s, transform 0.15s;
+          -webkit-tap-highlight-color: transparent; text-align: left;
         }
-        .btn-social:hover { transform: translateY(-1px); }
-        .btn-social:active { transform: translateY(0) scale(0.98); }
-        .btn-social:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-oauth:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); }
+        .btn-oauth:active:not(:disabled) { transform: scale(0.98); }
+        .btn-oauth:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-primary {
           width: 100%; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 700;
           cursor: pointer; border: none; font-family: inherit;
-          transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), opacity 0.18s ease;
+          transition: opacity 0.15s, transform 0.15s;
           -webkit-tap-highlight-color: transparent;
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+          color: #ffffff;
         }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.92; }
-        .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+        .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         .form-input:focus {
           border-color: rgba(124,58,237,0.55) !important;
           box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
         }
+        .link-btn {
+          background: none; border: none; cursor: pointer; font-family: inherit;
+          color: rgba(167,139,250,0.75); font-size: 13px; font-weight: 500;
+          padding: 0; transition: color 0.15s;
+        }
+        .link-btn:hover { color: #a78bfa; }
       `}</style>
 
-      {/* Logo + heading */}
-      <div className="rise d1" style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 65%)", top: "-150px", left: "50%", transform: "translateX(-50%)" }} />
+      </div>
+
+      {/* Main card */}
+      <div className="relative z-10 rise d1" style={{ width: "100%", maxWidth: 380, padding: "0 24px" }}>
+
+        {/* Logo */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-            background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-            boxShadow: "0 4px 14px rgba(109,40,217,0.35)",
+            width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+            background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+            boxShadow: "0 0 28px rgba(124,58,237,0.5), 0 0 60px rgba(124,58,237,0.15)",
             display: "flex", alignItems: "center", justifyContent: "center",
+            border: "1px solid rgba(167,139,250,0.25)",
+            marginBottom: 14,
           }}>
-            <span style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>A</span>
+            <span style={{ color: "#fff", fontSize: 20, fontWeight: 900 }}>A</span>
           </div>
-          <span style={{
-            fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
-            color: isDark ? "rgba(167,139,250,0.8)" : "rgba(109,40,217,0.7)",
-          }}>ArtixPOS</span>
+          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" }}>ArtixPOS</span>
+          <h1 style={{
+            fontSize: 22, fontWeight: 700, color: "#ffffff",
+            margin: "8px 0 4px", textAlign: "center", letterSpacing: "-0.02em",
+          }}>
+            {showEmailForm
+              ? (mode === "register" ? "Create your account" : "Sign in with email")
+              : "Sign in to ArtixPOS"}
+          </h1>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", margin: 0, textAlign: "center" }}>
+            {showEmailForm ? "" : "Your store. Fully in control."}
+          </p>
         </div>
-        <h1 style={{
-          fontSize: 26, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.025em",
-          color: isDark ? "#ffffff" : "#0f0a1e", margin: 0, marginBottom: 8,
-        }}>
-          {mode === "register" ? "Create your account" : "Welcome back"}
-        </h1>
-        <p style={{
-          fontSize: 14, lineHeight: 1.6,
-          color: isDark ? "rgba(255,255,255,0.52)" : "rgba(15,10,30,0.55)",
-          margin: 0,
-        }}>
-          {mode === "register" ? "Set up your store in seconds." : "Sign in to continue to your store."}
-        </p>
-      </div>
 
-      {/* Mode tabs */}
-      <div className="rise d1" style={{
-        display: "flex", gap: 3, padding: 3, borderRadius: 11, marginBottom: 22,
-        background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-      }}>
-        {(["signin", "register"] as AuthMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => switchMode(m)}
-            data-testid={`tab-${m}`}
-            style={{
-              flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 13, fontWeight: 600,
-              border: "none", cursor: "pointer", fontFamily: "inherit",
-              transition: "background 0.18s, color 0.18s, box-shadow 0.18s",
-              background: mode === m
-                ? isDark ? "rgba(124,58,237,0.55)" : "#ffffff"
-                : "transparent",
-              color: mode === m
-                ? isDark ? "#ffffff" : "#7c3aed"
-                : isDark ? "rgba(255,255,255,0.42)" : "rgba(0,0,0,0.42)",
-              boxShadow: mode === m
-                ? isDark ? "0 1px 4px rgba(0,0,0,0.4)" : "0 1px 4px rgba(0,0,0,0.08)"
-                : "none",
-            }}
-          >
-            {m === "signin" ? "Sign in" : "Create account"}
-          </button>
-        ))}
-      </div>
-
-      {/* Alerts */}
-      {reason === "banned" && (
-        <div className="rise d1" style={{
-          padding: "12px 14px", borderRadius: 10, fontSize: 13, marginBottom: 16,
-          background: isDark ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.06)",
-          border: `1px solid ${isDark ? "rgba(239,68,68,0.3)" : "rgba(239,68,68,0.2)"}`,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: isDark ? "#f87171" : "#b91c1c", marginBottom: 4 }}>Account Suspended</div>
-          <div style={{ color: isDark ? "rgba(248,113,113,0.85)" : "#dc2626", lineHeight: 1.55 }}>
-            Your account has been suspended for violating our Terms of Service.
+        {/* Alerts */}
+        {reason === "banned" && (
+          <div className="rise d1" style={{ padding: "12px 14px", borderRadius: 10, fontSize: 13, marginBottom: 16, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#f87171", marginBottom: 4 }}>Account Suspended</div>
+            <div style={{ color: "rgba(248,113,113,0.85)", lineHeight: 1.55 }}>
+              Your account has been suspended for violating our Terms of Service.
+            </div>
           </div>
-        </div>
-      )}
-      {hasPendingInvite && !error && !reason && (
-        <div className="rise d1" style={{
-          padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16,
-          background: isDark ? "rgba(124,58,237,0.12)" : "rgba(124,58,237,0.07)",
-          border: `1px solid ${isDark ? "rgba(167,139,250,0.25)" : "rgba(124,58,237,0.2)"}`,
-          color: isDark ? "#c4b5fd" : "#7c3aed",
-        }}>
-          You've been invited to join a team. Sign in to accept.
-        </div>
-      )}
-      {error && (
-        <div className="rise d1" style={{
-          padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16,
-          background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)",
-          border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`,
-          color: isDark ? "#f87171" : "#dc2626",
-        }}>
-          {error === "state_mismatch" ? "Sign-in expired. Please try again."
-            : error === "google_not_configured" ? "Google sign-in is not configured yet."
-            : `Sign-in failed (${error})${detail ? `: ${detail}` : ""}. Please try again.`}
-        </div>
-      )}
-      {nativeError && (
-        <div className="rise d1" style={{
-          padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16,
-          background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)",
-          border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`,
-          color: isDark ? "#f87171" : "#dc2626",
-        }}>
-          {nativeError}
-        </div>
-      )}
-
-      {/* Google button — clicking calls prompt() which triggers Chrome's native
-          FedCM bottom-sheet account picker. No new tab, no redirect. */}
-      <div className="rise d2">
-        <button
-          type="button"
-          className="btn-social"
-          data-testid="button-google-signin"
-          onClick={handleGoogleClick}
-          disabled={signingIn}
-          style={isDark ? {
-            background: "rgba(255,255,255,0.07)",
-            border: "1.5px solid rgba(255,255,255,0.10)",
-            color: "rgba(255,255,255,0.88)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-          } : {
-            background: "#ffffff",
-            border: "1.5px solid rgba(0,0,0,0.09)",
-            color: "#1a1a1a",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)",
-          }}
-        >
-          {signingIn ? (
-            <div style={{ width: 20, height: 20, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-          )}
-          <span style={{ flex: 1, textAlign: "center" }}>
-            {signingIn ? "Signing in…" : "Continue with Google"}
-          </span>
-        </button>
-      </div>
-
-      {/* Divider */}
-      <div className="rise d2" style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
-        <div style={{ flex: 1, height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }} />
-        <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.32)", whiteSpace: "nowrap" }}>
-          or {mode === "register" ? "register" : "sign in"} with email
-        </span>
-        <div style={{ flex: 1, height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }} />
-      </div>
-
-      {/* Email form */}
-      <form onSubmit={handleEmailSubmit} className="rise d3" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {mode === "register" && (
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)", display: "block", marginBottom: 5 }}>
-              Full name
-            </label>
-            <input type="text" placeholder="Jane Smith" value={formName} onChange={e => setFormName(e.target.value)}
-              required data-testid="input-name" className="form-input" style={inputStyle} />
+        )}
+        {hasPendingInvite && !error && !reason && (
+          <div className="rise d1" style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16, background: "rgba(124,58,237,0.12)", border: "1px solid rgba(167,139,250,0.25)", color: "#c4b5fd" }}>
+            You've been invited to join a team. Sign in to accept.
+          </div>
+        )}
+        {error && (
+          <div className="rise d1" style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+            {error === "state_mismatch" ? "Sign-in expired. Please try again."
+              : error === "google_not_configured" ? "Google sign-in is not configured yet."
+              : `Sign-in failed (${error})${detail ? `: ${detail}` : ""}. Please try again.`}
+          </div>
+        )}
+        {nativeError && (
+          <div className="rise d1" style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+            {nativeError}
           </div>
         )}
 
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)", display: "block", marginBottom: 5 }}>
-            Email address
-          </label>
-          <input type="email" placeholder="you@example.com" value={formEmail} onChange={e => setFormEmail(e.target.value)}
-            required data-testid="input-email" className="form-input" style={inputStyle} />
-        </div>
-
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)", display: "block", marginBottom: 5 }}>
-            Password {mode === "register" && <span style={{ fontWeight: 400, opacity: 0.65 }}>(min. 8 characters)</span>}
-          </label>
-          <div style={{ position: "relative" }}>
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder={mode === "register" ? "Create a password" : "Your password"}
-              value={formPassword} onChange={e => setFormPassword(e.target.value)}
-              required minLength={mode === "register" ? 8 : undefined}
-              data-testid="input-password" className="form-input"
-              style={{ ...inputStyle, paddingRight: 44 }}
-            />
-            <button type="button" onClick={() => setShowPassword(v => !v)} data-testid="button-toggle-password"
-              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.32)", display: "flex", alignItems: "center" }}
-              aria-label={showPassword ? "Hide password" : "Show password"}>
-              {showPassword ? (
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-              ) : (
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {mode === "signin" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -4 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
-              <div
-                onClick={() => setRememberMe(v => !v)}
-                data-testid="checkbox-remember-me"
-                style={{
-                  width: 16, height: 16, borderRadius: 4, flexShrink: 0, cursor: "pointer",
-                  border: `1.5px solid ${rememberMe ? "#7c3aed" : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}`,
-                  background: rememberMe ? "#7c3aed" : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "background 0.15s, border-color 0.15s",
-                }}
+        {!showEmailForm ? (
+          /* ── OAuth buttons view ────────────────────────────── */
+          <div className="rise d2" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Google */}
+            {googleClientId && (
+              <button
+                type="button"
+                className="btn-oauth"
+                data-testid="button-google-signin"
+                onClick={handleGoogleClick}
+                disabled={signingIn}
               >
-                {rememberMe && (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                {signingIn ? (
+                  <div style={{ width: 20, height: 20, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
                 )}
+                <span style={{ flex: 1, textAlign: "center", marginRight: 20 }}>
+                  {signingIn ? "Signing in…" : "Continue with Google"}
+                </span>
+              </button>
+            )}
+
+            {/* Email option */}
+            <button
+              type="button"
+              className="btn-oauth"
+              data-testid="button-show-email"
+              onClick={() => { setShowEmailForm(true); setMode("signin"); }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+                <rect x="2" y="4" width="20" height="16" rx="3"/>
+                <path d="m2 7 10 7 10-7"/>
+              </svg>
+              <span style={{ flex: 1, textAlign: "center", marginRight: 20 }}>Continue with email</span>
+            </button>
+
+            <p style={{ marginTop: 12, fontSize: 11, textAlign: "center", color: "rgba(255,255,255,0.22)", lineHeight: 1.5 }}>
+              By continuing, you agree to our Terms of Service.
+            </p>
+          </div>
+        ) : (
+          /* ── Email form view ───────────────────────────────── */
+          <div className="rise d2">
+            {/* Mode tabs */}
+            <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, marginBottom: 20, background: "rgba(255,255,255,0.06)" }}>
+              {(["signin", "register"] as AuthMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => switchMode(m)}
+                  data-testid={`tab-${m}`}
+                  style={{
+                    flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                    border: "none", cursor: "pointer", fontFamily: "inherit",
+                    transition: "background 0.18s, color 0.18s, box-shadow 0.18s",
+                    background: mode === m ? "rgba(124,58,237,0.55)" : "transparent",
+                    color: mode === m ? "#ffffff" : "rgba(255,255,255,0.42)",
+                    boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.4)" : "none",
+                  }}
+                >
+                  {m === "signin" ? "Sign in" : "Create account"}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleEmailSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {mode === "register" && (
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.52)", display: "block", marginBottom: 5 }}>Full name</label>
+                  <input type="text" placeholder="Jane Smith" value={formName} onChange={e => setFormName(e.target.value)}
+                    required data-testid="input-name" className="form-input" style={inputStyle} />
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.52)", display: "block", marginBottom: 5 }}>Email address</label>
+                <input type="email" placeholder="you@example.com" value={formEmail} onChange={e => setFormEmail(e.target.value)}
+                  required data-testid="input-email" className="form-input" style={inputStyle} />
               </div>
-              <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)" }}>
-                Remember this device
-              </span>
-            </label>
-            <button type="button" onClick={openForgot} data-testid="button-forgot-password"
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(167,139,250,0.75)" : "rgba(109,40,217,0.7)", padding: 0 }}>
-              Forgot password?
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.52)", display: "block", marginBottom: 5 }}>
+                  Password {mode === "register" && <span style={{ fontWeight: 400, opacity: 0.65 }}>(min. 8 characters)</span>}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder={mode === "register" ? "Create a password" : "Your password"}
+                    value={formPassword} onChange={e => setFormPassword(e.target.value)}
+                    required minLength={mode === "register" ? 8 : undefined}
+                    data-testid="input-password" className="form-input"
+                    style={{ ...inputStyle, paddingRight: 44 }}
+                  />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} data-testid="button-toggle-password"
+                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "rgba(255,255,255,0.38)", display: "flex", alignItems: "center" }}
+                    aria-label={showPassword ? "Hide password" : "Show password"}>
+                    {showPassword ? (
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {mode === "signin" && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -4 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+                    <div
+                      onClick={() => setRememberMe(v => !v)}
+                      data-testid="checkbox-remember-me"
+                      style={{
+                        width: 16, height: 16, borderRadius: 4, flexShrink: 0, cursor: "pointer",
+                        border: `1.5px solid ${rememberMe ? "#7c3aed" : "rgba(255,255,255,0.2)"}`,
+                        background: rememberMe ? "#7c3aed" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.15s, border-color 0.15s",
+                      }}
+                    >
+                      {rememberMe && (
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                          <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.52)" }}>Remember this device</span>
+                  </label>
+                  <button type="button" onClick={openForgot} data-testid="button-forgot-password" className="link-btn">
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              {formError && (
+                <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }} data-testid="text-form-error">
+                  {formError}
+                </div>
+              )}
+
+              <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary" style={{ marginTop: 4, boxShadow: "0 4px 18px rgba(109,40,217,0.35)" }}>
+                {formLoading
+                  ? (mode === "register" ? "Creating account…" : "Signing in…")
+                  : (mode === "register" ? "Create account" : "Sign in")}
+              </button>
+            </form>
+
+            {/* Back to main options */}
+            <div style={{ marginTop: 18, textAlign: "center" }}>
+              <button
+                type="button"
+                className="link-btn"
+                data-testid="button-back-to-options"
+                onClick={() => { setShowEmailForm(false); setFormError(null); setNativeError(null); }}
+              >
+                ← Other sign-in options
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Native debug panel toggle */}
+        {isNativePlatform() && (
+          <div style={{ marginTop: 20, textAlign: "center" }}>
+            <button onClick={() => { refreshDebug(); setShowDebug(v => !v); }}
+              style={{ fontSize: 11, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "rgba(255,255,255,0.32)", cursor: "pointer" }}>
+              {showDebug ? "Hide debug" : "Show debug"}
             </button>
           </div>
         )}
-
-        {formError && (
-          <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13,
-            background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)",
-            border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`,
-            color: isDark ? "#f87171" : "#dc2626" }} data-testid="text-form-error">
-            {formError}
-          </div>
-        )}
-
-        <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary"
-          style={{ marginTop: 4, background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", color: "#ffffff", boxShadow: "0 4px 18px rgba(109,40,217,0.35)" }}>
-          {formLoading
-            ? (mode === "register" ? "Creating account…" : "Signing in…")
-            : (mode === "register" ? "Create account" : "Sign in")}
-        </button>
-      </form>
-
-      <p className="rise d4" style={{ marginTop: 20, fontSize: 12, textAlign: "center", color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.38)", lineHeight: 1.5 }}>
-        No credit card. No setup fees. Your data stays yours.
-      </p>
-
-      {isNativePlatform() && (
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <button onClick={() => { refreshDebug(); setShowDebug(v => !v); }}
-            style={{ fontSize: 11, padding: "5px 14px", borderRadius: 8, border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)"}`, background: "transparent", color: isDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.32)", cursor: "pointer" }}>
-            {showDebug ? "Hide debug" : "Show debug"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <div
-      className="min-h-screen flex relative overflow-hidden transition-colors duration-500"
-      style={{ background: isDark ? "#06060f" : "#f4f3f9" }}
-    >
-      {/* Background ambient glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {isDark ? (
-          <>
-            <div style={{ position: "absolute", width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 65%)", top: "-20%", left: "-10%", animation: "orb1 16s ease-in-out infinite" }} />
-            <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.10) 0%, transparent 65%)", bottom: "-10%", right: "-5%", animation: "orb2 19s ease-in-out infinite" }} />
-          </>
-        ) : (
-          <>
-            <div style={{ position: "absolute", width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 65%)", top: "-20%", left: "-10%" }} />
-            <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 65%)", bottom: "-10%", right: "-5%" }} />
-          </>
-        )}
-      </div>
-
-      <style>{`
-        @keyframes orb1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px,30px); } }
-        @keyframes orb2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-40px,-20px); } }
-      `}</style>
-
-      {/* ── Desktop split layout ─────────────────────────────── */}
-      <div className="hidden md:flex w-full">
-        {/* Left — brand panel */}
-        <div
-          className="w-[45%] flex-shrink-0 flex flex-col justify-between p-12 relative overflow-hidden"
-          style={{
-            background: isDark
-              ? "#060610"
-              : "linear-gradient(150deg, #0f0523 0%, #1a0845 40%, #0c0330 100%)",
-          }}
-        >
-          {/* Grid overlay */}
-          <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.06) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
-          {/* Neon glow orbs */}
-          <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%)", top: "-80px", left: "-80px", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%)", bottom: "5%", right: "-60px", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", top: "50%", left: "60%", pointerEvents: "none" }} />
-
-          {/* Logo */}
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-                boxShadow: "0 0 24px rgba(124,58,237,0.6), 0 0 60px rgba(124,58,237,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "1px solid rgba(167,139,250,0.3)",
-              }}>
-                <span style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>A</span>
-              </div>
-              <div>
-                <span style={{ color: "#fff", fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>ArtixPOS</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
-                  <span style={{ color: "rgba(167,139,250,0.7)", fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Business OS</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Center content */}
-          <div style={{ position: "relative" }}>
-            <h2 style={{
-              fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.035em",
-              margin: "0 0 18px",
-            }}>
-              <span style={{ color: "#fff" }}>Your store.</span><br />
-              <span style={{ background: "linear-gradient(90deg, #a78bfa 0%, #818cf8 50%, #67e8f9 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                Fully in control.
-              </span>
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.75, color: "rgba(167,139,250,0.6)", margin: "0 0 36px", maxWidth: 320 }}>
-              Sales, inventory, staff, analytics, and AI — all in one place. Built for speed, designed for simplicity.
-            </p>
-
-            {/* Feature list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[
-                { dot: "#a78bfa", text: "Point of Sale with offline support" },
-                { dot: "#818cf8", text: "Real-time analytics & reports" },
-                { dot: "#67e8f9", text: "Built-in AI business assistant" },
-                { dot: "#4ade80", text: "Multi-branch & team management" },
-              ].map((f, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: f.dot, boxShadow: `0 0 8px ${f.dot}`, flexShrink: 0 }} />
-                  <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13.5, fontWeight: 500 }}>{f.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom — version badge */}
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}>
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
-              <span style={{ color: "rgba(167,139,250,0.65)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>ARTIXPOS · BUSINESS PLATFORM</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right — form panel */}
-        <div
-          className="flex-1 flex items-center justify-center p-12 relative"
-          style={{ background: isDark ? "#06060f" : "#ffffff" }}
-        >
-          {formPanel}
-        </div>
-      </div>
-
-      {/* ── Mobile layout — centered card ─────────────────────── */}
-      <div
-        className="md:hidden flex-1 flex items-center justify-center px-5 py-10 relative z-10"
-        style={{ minHeight: "100vh" }}
-      >
-        <div
-          style={{
-            width: "100%", maxWidth: 420,
-            padding: "32px 28px",
-            borderRadius: 24,
-            background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.88)",
-            border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
-            boxShadow: isDark
-              ? "0 0 0 1px rgba(255,255,255,0.04), 0 32px 80px rgba(0,0,0,0.65)"
-              : "0 8px 50px rgba(0,0,0,0.08), 0 2px 12px rgba(0,0,0,0.04)",
-          }}
-        >
-          {formPanel}
-        </div>
       </div>
 
       {/* Forgot password overlay */}
       {showForgot && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: isDark ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", padding: "0 20px" }}>
-          <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, padding: "36px 32px", background: isDark ? "#0f0c1a" : "#ffffff", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 32px 100px rgba(0,0,0,0.8)" : "0 8px 60px rgba(0,0,0,0.12)" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", padding: "0 20px" }}>
+          <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, padding: "36px 32px", background: "#0f0c1a", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 32px 100px rgba(0,0,0,0.8)" }}>
             {forgotSuccess ? (
               <div style={{ textAlign: "center" }}>
-                <div style={{ width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px", background: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="24" height="24" fill="none" stroke={isDark ? "#c4b5fd" : "#7c3aed"} strokeWidth="2.2" viewBox="0 0 24 24">
+                <div style={{ width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px", background: "rgba(124,58,237,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="24" height="24" fill="none" stroke="#c4b5fd" strokeWidth="2.2" viewBox="0 0 24 24">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 5.29 5.29l1-.79a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 15.5"/>
                   </svg>
                 </div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px", color: isDark ? "#fff" : "#0f0a1e" }}>Check your email</h2>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,10,30,0.6)", margin: "0 0 24px" }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px", color: "#fff" }}>Check your email</h2>
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.55)", margin: "0 0 24px" }}>
                   If an account exists for <strong>{forgotEmail}</strong>, a reset link has been sent.
                 </p>
                 <button onClick={closeForgot} data-testid="button-back-to-signin"
@@ -839,22 +652,22 @@ export default function Login() {
               </div>
             ) : (
               <>
-                <button onClick={closeForgot} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "inherit", marginBottom: 20 }}>
+                <button onClick={closeForgot} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "inherit", marginBottom: 20 }}>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                   Back
                 </button>
-                <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", color: isDark ? "#fff" : "#0f0a1e" }}>Reset password</h2>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,10,30,0.6)", margin: "0 0 22px" }}>
+                <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", color: "#fff" }}>Reset password</h2>
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.55)", margin: "0 0 22px" }}>
                   Enter your email and we'll send you a reset link.
                 </p>
                 <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 5, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)" }}>Email address</label>
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 5, color: "rgba(255,255,255,0.52)" }}>Email address</label>
                     <input type="email" placeholder="you@example.com" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
                       required data-testid="input-forgot-email" className="form-input" style={inputStyle} />
                   </div>
                   {forgotError && (
-                    <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)", border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`, color: isDark ? "#f87171" : "#dc2626" }}>
+                    <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
                       {forgotError}
                     </div>
                   )}

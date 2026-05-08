@@ -270,7 +270,6 @@ export default function Login() {
   // On native  → Capacitor Google plugin.
   // On web + GIS ready → call prompt() so Chrome shows the native FedCM
   //   bottom-sheet account-picker (no new tab, no redirect).
-  // On web, GIS not ready → standard OAuth redirect fallback.
   function handleGoogleClick() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     if (isNativePlatform()) {
@@ -281,14 +280,14 @@ export default function Login() {
     if (goog?.accounts?.id && gisButtonReadyRef.current) {
       // prompt() with use_fedcm_for_prompt:true → Chrome native bottom sheet
       goog.accounts.id.prompt((notification: any) => {
-        // If FedCM couldn't show (browser/account not eligible), fall back
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          window.location.href = "/auth/google";
+          setNativeError("Google sign-in could not open. Please try signing in with your email instead.");
+          setSigningIn(false);
         }
       });
     } else {
-      // GIS not loaded yet → standard OAuth redirect
-      window.location.href = "/auth/google";
+      setNativeError("Google sign-in is still loading. Please wait a moment and try again.");
+      setSigningIn(false);
     }
   }
 

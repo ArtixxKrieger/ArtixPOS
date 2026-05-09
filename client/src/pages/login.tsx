@@ -27,19 +27,6 @@ async function openOAuthBrowser(provider: "google") {
   await Browser.open({ url, presentationStyle: "popover" });
 }
 
-function openGooglePopup(): Window | null {
-  const base = API_BASE || window.location.origin;
-  const url = `${base.replace(/\/$/, "")}/auth/google?popup=1`;
-  const w = 500, h = 600;
-  const left = Math.max(0, (screen.width - w) / 2);
-  const top = Math.max(0, (screen.height - h) / 2);
-  return window.open(
-    url,
-    "google-signin",
-    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no,resizable=no,location=no,status=no`
-  );
-}
-
 function loadGIS(): Promise<void> {
   return new Promise((resolve) => {
     if ((window as any).google?.accounts?.id) { resolve(); return; }
@@ -139,7 +126,6 @@ export default function Login() {
   );
 
   const gisReadyRef = useRef(false);
-  const popupRef = useRef<Window | null>(null);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -208,65 +194,51 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Initialize Google One Tap (no FedCM — works reliably on Android Chrome).
-  // When the user taps the button we call prompt() which renders Google's own
-  // native-feeling overlay/bottom-sheet directly on the page — no popup, no redirect.
+  // Google One Tap — initialize and auto-prompt on page load.
+  // Uses use_fedcm_for_prompt: false so the bottom-sheet overlay works on Android Chrome.
+  // cancel_on_tap_outside: false keeps it open if user taps outside the prompt.
   useEffect(() => {
     if (!googleClientId || isNativePlatform()) return;
 
-    loadGIS().then(() => {
+    async function initOneTap() {
+      await loadGIS();
       const goog = (window as any).google;
       if (!goog?.accounts?.id) return;
 
+      const oneTapCallback = async (response: any) => {
+        if (!response?.credential) return;
+        setSigningIn(true);
+        setNativeError(null);
+        sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+        try {
+          const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+          const data = await res.json();
+          if (!data.token) throw new Error("Server did not return a session token");
+          setNativeToken(data.token);
+          await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+          setLocation("/");
+        } catch (err: any) {
+          sessionStorage.removeItem(OAUTH_FLOW_KEY);
+          setNativeError(err?.message ?? "Sign-in failed. Please try again.");
+          setSigningIn(false);
+        }
+      };
+
       goog.accounts.id.initialize({
         client_id: googleClientId,
-        // FedCM disabled — without this, Chrome silently skips the prompt on Android
         use_fedcm_for_prompt: false,
-        callback: async (response: any) => {
-          if (!response?.credential) return;
-          setSigningIn(true);
-          setNativeError(null);
-          sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-          try {
-            const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-            const data = await res.json();
-            if (!data.token) throw new Error("Server did not return a session token");
-            setNativeToken(data.token);
-            await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-            setLocation("/");
-          } catch (err: any) {
-            sessionStorage.removeItem(OAUTH_FLOW_KEY);
-            setNativeError(err?.message ?? "Sign-in failed. Please try again.");
-            setSigningIn(false);
-          }
-        },
+        cancel_on_tap_outside: false,
+        callback: oneTapCallback,
       });
 
       gisReadyRef.current = true;
-    }).catch(() => {});
-  }, [googleClientId]);
 
-  // Listen for postMessage from the Google OAuth popup (fallback path).
-  useEffect(() => {
-    async function onMessage(e: MessageEvent) {
-      const data = e.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type === "google-auth-ok") {
-        sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-        try { popupRef.current?.close(); } catch {}
-        popupRef.current = null;
-        await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-        setLocation("/");
-      } else if (data.type === "google-auth-error") {
-        setNativeError(data.error ?? "Google sign-in failed. Please try again.");
-        setSigningIn(false);
-        try { popupRef.current?.close(); } catch {}
-        popupRef.current = null;
-      }
+      // Auto-show the One Tap overlay as soon as the page loads
+      goog.accounts.id.prompt();
     }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
+
+    initOneTap().catch(() => {});
+  }, [googleClientId]);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -295,29 +267,8 @@ export default function Login() {
   }
 
   // On native → Capacitor Google plugin (native system picker).
-  // On web    → Try Google One Tap first (native overlay / bottom sheet).
-  //             If One Tap is unavailable or suppressed, silently fall back
-  //             to a small popup window so the user is never blocked.
-  function launchPopupFallback() {
-    setSigningIn(true);
-    const popup = openGooglePopup();
-    if (!popup) {
-      setNativeError("Could not open sign-in window. Please allow pop-ups for this site.");
-      setSigningIn(false);
-      return;
-    }
-    popupRef.current = popup;
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        if (popupRef.current) {
-          popupRef.current = null;
-          setSigningIn(false);
-        }
-      }
-    }, 500);
-  }
-
+  // On web    → Google One Tap only. Button click resets suppression state
+  //             so the overlay re-appears even if previously dismissed.
   function handleGoogleClick() {
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
@@ -325,16 +276,18 @@ export default function Login() {
     }
     setNativeError(null);
     const goog = (window as any).google;
-    // If One Tap library isn't loaded or no client ID — go straight to popup
     if (!goog?.accounts?.id || !gisReadyRef.current) {
-      launchPopupFallback();
+      setNativeError("Google sign-in is loading, please try again in a moment.");
       return;
     }
+    // Reset suppression so the overlay shows even after a previous dismiss
+    goog.accounts.id.cancel();
     goog.accounts.id.prompt((notification: any) => {
       if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // One Tap was suppressed (dismissed before, no account signed in, etc.)
-        // Silently fall back to the popup window — no error shown to the user
-        launchPopupFallback();
+        const reason = notification.getNotDisplayedReason?.() ?? notification.getSkippedReason?.() ?? "";
+        if (reason === "suppressed_by_user" || reason === "user_cancel") {
+          setNativeError("Google dismissed the sign-in. Please sign in with email below, or try again in a few minutes.");
+        }
       }
     });
   }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
@@ -13,37 +13,11 @@ function isPluginAvailable(name: string): boolean {
   try { return (window as any).Capacitor?.isPluginAvailable?.(name) === true; } catch { return false; }
 }
 
-function resolveOAuthUrl(path: string): string {
+function resolveOAuthUrl(path: string, extra = ""): string {
   const base = API_BASE || window.location.origin;
   if (base.startsWith("capacitor://") || base.startsWith("ionic://"))
     throw new Error("VITE_API_BASE_URL is not configured.");
-  return `${base.replace(/\/$/, "")}${path}?native=1`;
-}
-
-async function openOAuthBrowser(provider: "google") {
-  const url = resolveOAuthUrl("/auth/google");
-  debugLog("login", `opening browser OAuth for ${provider}: ${url}`);
-  const { Browser } = await import("@capacitor/browser");
-  await Browser.open({ url, presentationStyle: "popover" });
-}
-
-function loadGIS(): Promise<void> {
-  return new Promise((resolve) => {
-    if ((window as any).google?.accounts?.id) { resolve(); return; }
-    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => resolve());
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = "https://accounts.google.com/gsi/client";
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => resolve();
-    document.head.appendChild(s);
-  });
+  return `${base.replace(/\/$/, "")}${path}${extra}`;
 }
 
 function diagnoseNativeError(raw: string): string {
@@ -101,6 +75,85 @@ async function nativeGoogleSignIn(): Promise<string> {
   return data.token;
 }
 
+/**
+ * Web Google sign-in via popup OAuth flow.
+ * Opens a small popup to /auth/google?popup=1 which redirects through
+ * Google's standard OAuth, sets the auth cookie, then postMessages
+ * {type:"google-auth-ok"} back to the opener — no One Tap, no FedCM,
+ * no browser cooldowns.
+ */
+function webGoogleSignInViaPopup(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const url = resolveOAuthUrl("/auth/google", "?popup=1");
+    const w = 520;
+    const h = 600;
+    const left = Math.max(0, (screen.width - w) / 2);
+    const top  = Math.max(0, (screen.height - h) / 2);
+    const popup = window.open(
+      url,
+      "google-signin",
+      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no`
+    );
+    if (!popup) {
+      reject(new Error("Popup was blocked. Please allow popups for this site and try again."));
+      return;
+    }
+
+    let settled = false;
+
+    function onMessage(evt: MessageEvent) {
+      if (settled) return;
+      const data = evt.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "google-auth-ok") {
+        settled = true;
+        cleanup();
+        resolve();
+      } else if (data.type === "google-auth-error") {
+        settled = true;
+        cleanup();
+        reject(new Error(data.error ?? "Google sign-in failed."));
+      }
+    }
+
+    function onFocus() {
+      if (settled) return;
+      try {
+        if (popup.closed) {
+          settled = true;
+          cleanup();
+          reject(new Error("__cancelled__"));
+        }
+      } catch {}
+    }
+
+    function cleanup() {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("focus", onFocus);
+      clearInterval(pollTimer);
+      try { if (!popup.closed) popup.close(); } catch {}
+    }
+
+    window.addEventListener("message", onMessage);
+    window.addEventListener("focus", onFocus);
+
+    const pollTimer = setInterval(() => {
+      if (settled) return;
+      try {
+        if (popup.closed) {
+          settled = true;
+          cleanup();
+          reject(new Error("__cancelled__"));
+        }
+      } catch {
+        settled = true;
+        cleanup();
+        reject(new Error("__cancelled__"));
+      }
+    }, 500);
+  });
+}
+
 function getIsDark(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -118,16 +171,12 @@ export default function Login() {
   const [signingIn, setSigningIn] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [debugEntries, setDebugEntries] = useState<DebugEntry[]>(() => getDebugLogs());
-  const refreshDebug = useCallback(() => setDebugEntries(getDebugLogs()), []);
+  const refreshDebug = () => setDebugEntries(getDebugLogs());
 
   // Google client ID: prefer env var, fallback to server-provided config
   const [googleClientId, setGoogleClientId] = useState<string | null>(
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
-
-  const gisReadyRef = useRef(false);
-  const gisClientIdRef = useRef<string | null>(null);
-  const [gsiDebug, setGsiDebug] = useState<string | null>(null);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -196,95 +245,6 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Perform a full One Tap init+prompt cycle.
-  // Called on page load AND on every button click to break through suppression.
-  // Sequence: disableAutoSelect → initialize (fresh) → prompt
-  const runOneTapPrompt = useCallback((clientId: string, attemptFedcm: boolean) => {
-    const goog = (window as any).google;
-    if (!goog?.accounts?.id) return;
-
-    const oneTapCallback = async (response: any) => {
-      if (!response?.credential) {
-        setGsiDebug("One Tap returned no credential.");
-        return;
-      }
-      setSigningIn(true);
-      setNativeError(null);
-      setGsiDebug(null);
-      sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-      try {
-        const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-        const data = await res.json();
-        if (!data.token) throw new Error("Server did not return a session token");
-        setNativeToken(data.token);
-        await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-        setLocation("/");
-      } catch (err: any) {
-        sessionStorage.removeItem(OAUTH_FLOW_KEY);
-        setNativeError(err?.message ?? "Sign-in failed. Please try again.");
-        setSigningIn(false);
-      }
-    };
-
-    // disableAutoSelect clears the suppression lock before re-initializing
-    try { goog.accounts.id.disableAutoSelect(); } catch {}
-    goog.accounts.id.initialize({
-      client_id: clientId,
-      use_fedcm_for_prompt: attemptFedcm,
-      cancel_on_tap_outside: false,
-      callback: oneTapCallback,
-    });
-    goog.accounts.id.prompt((n: any) => {
-      const displayed = !n.isNotDisplayed() && !n.isSkippedMoment();
-      if (displayed) { setGsiDebug(null); return; }
-      const momentType = n.getMomentType?.() ?? "unknown";
-      const r = momentType === "skipped"
-        ? (n.getSkippedReason?.() ?? "unknown")
-        : (n.getNotDisplayedReason?.() ?? "unknown");
-      setGsiDebug(`prompt(fedcm=${attemptFedcm}) → ${momentType}: ${r}`);
-      // If non-fedcm failed with unknown_reason, retry once with FedCM flipped
-      if (!attemptFedcm && r === "unknown_reason") {
-        setGsiDebug(`skipped:unknown_reason — retrying with FedCM…`);
-        runOneTapPrompt(clientId, true);
-        return;
-      }
-      setNativeError(
-        r === "suppressed_by_user" || r === "user_cancel"
-          ? "Google sign-in was dismissed. Please wait a few minutes and try again, or sign in with email."
-          : r === "opt_out_or_no_session"
-            ? "No Google account found in this browser. Please sign in with email."
-            : r === "unknown_reason"
-              ? "Google blocked the sign-in overlay (browser cooldown). Please sign in with email or wait a few minutes."
-              : `Google sign-in unavailable (${r}). Please sign in with email.`
-      );
-    });
-  }, []);
-
-  // Google One Tap — load GIS library and auto-prompt on page load.
-  useEffect(() => {
-    if (isNativePlatform()) return;
-    if (!googleClientId) {
-      setGsiDebug("No Google Client ID — GOOGLE_CLIENT_ID is not configured on the server.");
-      return;
-    }
-
-    async function initOneTap() {
-      setGsiDebug("Loading Google Sign-In library…");
-      await loadGIS();
-      const goog = (window as any).google;
-      if (!goog?.accounts?.id) {
-        setGsiDebug("GIS script loaded but google.accounts.id is undefined. Possibly blocked by an extension or CSP.");
-        return;
-      }
-      gisReadyRef.current = true;
-      gisClientIdRef.current = googleClientId;
-      setGsiDebug("GIS ready — prompting…");
-      runOneTapPrompt(googleClientId, false);
-    }
-
-    initOneTap().catch((e) => setGsiDebug(`Init error: ${e?.message ?? String(e)}`));
-  }, [googleClientId, runOneTapPrompt]);
-
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
   const detail = urlParams.get("detail");
@@ -311,30 +271,35 @@ export default function Login() {
     }
   }
 
-  // On native → Capacitor Google plugin (native system picker).
-  // On web    → Google One Tap full re-init cycle on every click.
-  //             disableAutoSelect → fresh initialize → prompt breaks
-  //             through Chrome's session-level suppression.
-  function handleGoogleClick() {
+  // On native → Capacitor Google plugin (native system account picker).
+  // On web    → popup OAuth flow: opens /auth/google?popup=1, Google
+  //             redirects back, server sets cookie, popup postMessages
+  //             success — no One Tap, no FedCM, no browser cooldowns.
+  async function handleGoogleClick() {
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
       return;
     }
-    setNativeError(null);
-    const goog = (window as any).google;
-    const clientId = gisClientIdRef.current;
-    if (!goog?.accounts?.id || !gisReadyRef.current || !clientId) {
-      const why = !googleClientId
-        ? "No Google Client ID configured."
-        : !goog?.accounts?.id
-          ? "Google Sign-In library failed to load."
-          : "GIS not ready yet — please wait a moment.";
-      setGsiDebug(`Button click: ${why}`);
-      setNativeError(why);
+    if (!googleClientId) {
+      setNativeError("Google sign-in is not configured. Please sign in with email.");
       return;
     }
-    setGsiDebug("Button tapped — full re-init cycle…");
-    runOneTapPrompt(clientId, false);
+    setNativeError(null);
+    setSigningIn(true);
+    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+    try {
+      await webGoogleSignInViaPopup();
+      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      setLocation("/");
+    } catch (err: any) {
+      const msg: string = err?.message ?? String(err);
+      sessionStorage.removeItem(OAUTH_FLOW_KEY);
+      if (msg !== "__cancelled__") {
+        setNativeError(msg.length < 160 ? msg : "Google sign-in failed. Please try again.");
+      }
+    } finally {
+      setSigningIn(false);
+    }
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -602,24 +567,6 @@ export default function Login() {
           </span>
         </button>
       </div>
-
-      {/* Debug strip — shows exactly why One Tap failed */}
-      {gsiDebug && (
-        <div style={{
-          margin: "6px 0 0",
-          padding: "7px 12px",
-          borderRadius: 8,
-          fontSize: 11,
-          fontFamily: "monospace",
-          lineHeight: 1.5,
-          background: isDark ? "rgba(251,191,36,0.08)" : "rgba(251,191,36,0.1)",
-          border: `1px solid ${isDark ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.3)"}`,
-          color: isDark ? "#fcd34d" : "#92400e",
-          wordBreak: "break-all",
-        }}>
-          🔍 {gsiDebug}
-        </div>
-      )}
 
       {/* Divider */}
       <div className="rise d2" style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>

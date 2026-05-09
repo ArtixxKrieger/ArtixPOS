@@ -94,84 +94,6 @@ async function nativeGoogleSignIn(): Promise<string> {
   return data.token;
 }
 
-/**
- * Web Google sign-in via popup OAuth flow.
- * Opens a small popup to /auth/google?popup=1 which redirects through
- * Google's standard OAuth, sets the auth cookie, then postMessages
- * {type:"google-auth-ok"} back to the opener — no One Tap, no FedCM,
- * no browser cooldowns.
- */
-function webGoogleSignInViaPopup(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const url = resolveOAuthUrl("/auth/google", "?popup=1");
-    const w = 520;
-    const h = 600;
-    const left = Math.max(0, (screen.width - w) / 2);
-    const top  = Math.max(0, (screen.height - h) / 2);
-    const popup = window.open(
-      url,
-      "google-signin",
-      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no`
-    );
-    if (!popup) {
-      reject(new Error("Popup was blocked. Please allow popups for this site and try again."));
-      return;
-    }
-
-    let settled = false;
-
-    function onMessage(evt: MessageEvent) {
-      if (settled) return;
-      const data = evt.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type === "google-auth-ok") {
-        settled = true;
-        cleanup();
-        resolve();
-      } else if (data.type === "google-auth-error") {
-        settled = true;
-        cleanup();
-        reject(new Error(data.error ?? "Google sign-in failed."));
-      }
-    }
-
-    function onFocus() {
-      if (settled) return;
-      try {
-        if (popup.closed) {
-          settled = true;
-          cleanup();
-          reject(new Error("__cancelled__"));
-        }
-      } catch {}
-    }
-
-    function cleanup() {
-      window.removeEventListener("message", onMessage);
-      window.removeEventListener("focus", onFocus);
-      clearInterval(pollTimer);
-      try { if (!popup.closed) popup.close(); } catch {}
-    }
-
-    window.addEventListener("message", onMessage);
-    window.addEventListener("focus", onFocus);
-
-    const pollTimer = setInterval(() => {
-      if (settled) return;
-      try {
-        if (popup.closed) {
-          settled = true;
-          cleanup();
-          reject(new Error("__cancelled__"));
-        }
-      } catch {
-        settled = true;
-        cleanup();
-        reject(new Error("__cancelled__"));
-      }
-    }, 500);
-  });
-}
 
 function getIsDark(): boolean {
   if (typeof window === "undefined") return false;
@@ -201,6 +123,8 @@ export default function Login() {
   // button so clicking it fires the FedCM native bottom-sheet account picker.
   const gisContainerRef = useRef<HTMLDivElement>(null);
   const [gisReady, setGisReady] = useState(false);
+  // "idle" | "loading" | "ready" | "error:<reason>"
+  const [gisStatus, setGisStatus] = useState<string>("idle");
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -271,58 +195,114 @@ export default function Login() {
 
   // Called by Google's FedCM flow after account selection
   const onGISCredential = useCallback(async (response: any) => {
-    if (!response?.credential) return;
+    debugLog("gis", `credential callback fired — credential present: ${!!response?.credential}`);
+    if (!response?.credential) {
+      debugLog("gis", "ERROR: callback fired but no credential in response");
+      setNativeError("Google sign-in returned no credential. Please try again.");
+      return;
+    }
     setSigningIn(true);
     setNativeError(null);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     try {
+      debugLog("gis", "POSTing idToken to /api/auth/google/native…");
       const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
       const data = await res.json();
-      if (!data.token) throw new Error("Server did not return a session token");
+      debugLog("gis", `server response — status:${res.status} token:${data.token ? "YES" : "NO"} error:${data.error ?? "none"}`);
+      if (!data.token) throw new Error(data.error ?? data.message ?? "Server did not return a session token");
       setNativeToken(data.token);
       await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      debugLog("gis", "auth complete — redirecting");
       setLocation("/");
     } catch (err: any) {
       sessionStorage.removeItem(OAUTH_FLOW_KEY);
-      setNativeError(err?.message ?? "Sign-in failed. Please try again.");
+      const msg = err?.message ?? "Sign-in failed. Please try again.";
+      debugLog("gis", `ERROR in server auth: ${msg}`);
+      setNativeError(msg);
       setSigningIn(false);
     }
   }, [setLocation]);
 
-  // Load GIS and render Google's button as an invisible overlay so clicking
-  // our styled button actually triggers Google's FedCM native bottom sheet.
+  // Load GIS and render Google's official button as an invisible overlay so
+  // tapping "Continue with Google" is actually received by Google's iframe
+  // button — which triggers the native FedCM bottom-sheet account picker.
   useEffect(() => {
-    if (isNativePlatform() || !googleClientId) return;
-
-    let cancelled = false;
-    async function setup() {
-      await loadGIS();
-      if (cancelled) return;
-      const goog = (window as any).google;
-      if (!goog?.accounts?.id) return;
-
-      goog.accounts.id.initialize({
-        client_id: googleClientId,
-        use_fedcm_for_prompt: true,
-        callback: onGISCredential,
-      });
-
-      // Wait for the container to be in the DOM (it mounts on next render)
-      const container = gisContainerRef.current;
-      if (!container) return;
-
-      goog.accounts.id.renderButton(container, {
-        type: "standard",
-        theme: "filled_blue",
-        size: "large",
-        text: "continue_with",
-        shape: "rectangular",
-        width: Math.floor(container.getBoundingClientRect().width) || 400,
-      });
-      if (!cancelled) setGisReady(true);
+    if (isNativePlatform()) return;
+    if (!googleClientId) {
+      debugLog("gis", "no googleClientId — GIS init skipped");
+      setGisStatus("error:no-client-id");
+      return;
     }
 
-    setup().catch(() => {});
+    let cancelled = false;
+    setGisStatus("loading");
+
+    async function setup() {
+      debugLog("gis", "loading GIS script (accounts.google.com/gsi/client)…");
+      await loadGIS();
+      if (cancelled) return;
+
+      const goog = (window as any).google;
+      debugLog("gis", `script load done — google object: ${!!goog} accounts: ${!!goog?.accounts} id: ${!!goog?.accounts?.id}`);
+
+      if (!goog?.accounts?.id) {
+        debugLog("gis", "ERROR: google.accounts.id not available after script load — possible CSP or network block");
+        if (!cancelled) setGisStatus("error:script-blocked");
+        return;
+      }
+
+      debugLog("gis", `initializing — clientId: ${googleClientId.slice(0, 12)}… use_fedcm_for_prompt: true`);
+      try {
+        goog.accounts.id.initialize({
+          client_id: googleClientId,
+          use_fedcm_for_prompt: true,
+          callback: onGISCredential,
+        });
+      } catch (e: any) {
+        debugLog("gis", `ERROR in initialize(): ${e?.message ?? String(e)}`);
+        if (!cancelled) setGisStatus(`error:init-${e?.message ?? "unknown"}`);
+        return;
+      }
+
+      // Let the browser finish painting the overlay div before measuring it
+      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      if (cancelled) return;
+
+      const container = gisContainerRef.current;
+      if (!container) {
+        debugLog("gis", "ERROR: gisContainerRef.current is null after paint — overlay div not mounted");
+        if (!cancelled) setGisStatus("error:no-container");
+        return;
+      }
+
+      const rect = container.getBoundingClientRect();
+      const w = Math.floor(rect.width) || 400;
+      debugLog("gis", `renderButton — container size: ${rect.width.toFixed(1)}×${rect.height.toFixed(1)}  using width: ${w}`);
+
+      try {
+        goog.accounts.id.renderButton(container, {
+          type: "standard",
+          theme: "filled_blue",
+          size: "large",
+          text: "continue_with",
+          shape: "rectangular",
+          width: w,
+        });
+        if (!cancelled) {
+          setGisReady(true);
+          setGisStatus("ready");
+          debugLog("gis", "renderButton OK — FedCM overlay active ✓");
+        }
+      } catch (e: any) {
+        debugLog("gis", `ERROR in renderButton(): ${e?.message ?? String(e)}`);
+        if (!cancelled) setGisStatus(`error:render-${e?.message ?? "unknown"}`);
+      }
+    }
+
+    setup().catch((e: any) => {
+      debugLog("gis", `unhandled setup error: ${e?.message ?? String(e)}`);
+      if (!cancelled) setGisStatus(`error:unhandled-${e?.message ?? "unknown"}`);
+    });
     return () => { cancelled = true; };
   }, [googleClientId, onGISCredential]);
 
@@ -352,39 +332,37 @@ export default function Login() {
     }
   }
 
-  // On native → Capacitor Google plugin (native system account picker).
-  // On web + GIS ready → invisible overlay handles it (FedCM bottom sheet).
-  // On web + GIS not ready → popup fallback.
-  async function handleGoogleClick() {
+  // On native → Capacitor Google Auth plugin.
+  // On web   → invisible GIS overlay handles the click and fires FedCM.
+  //            This handler only runs when the overlay is NOT yet ready
+  //            (e.g. still loading) — we surface a clear message instead
+  //            of silently doing nothing.
+  function handleGoogleClick() {
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
       return;
     }
     if (!googleClientId) {
-      setNativeError("Google sign-in is not configured. Please sign in with email.");
+      debugLog("gis", "button clicked — no googleClientId configured");
+      setNativeError("Google sign-in is not configured on this server. Please sign in with email or ask your admin to set GOOGLE_CLIENT_ID.");
       return;
     }
-    // GIS overlay is active — the FedCM click is handled by the invisible
-    // Google button on top. This path only runs as a fallback.
-    if (gisReady) return;
-
-    // Fallback: popup OAuth
-    setNativeError(null);
-    setSigningIn(true);
-    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-    try {
-      await webGoogleSignInViaPopup();
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setLocation("/");
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
-      sessionStorage.removeItem(OAUTH_FLOW_KEY);
-      if (msg !== "__cancelled__") {
-        setNativeError(msg.length < 160 ? msg : "Google sign-in failed. Please try again.");
-      }
-    } finally {
-      setSigningIn(false);
+    if (gisStatus.startsWith("error:script-blocked")) {
+      setNativeError("Google sign-in script was blocked (check browser/network/CSP). Open debug log for details.");
+      return;
     }
+    if (gisStatus.startsWith("error:")) {
+      setNativeError(`Google sign-in failed to initialize (${gisStatus}). Open debug log for details.`);
+      return;
+    }
+    if (!gisReady) {
+      debugLog("gis", `button clicked while GIS status=${gisStatus} — not ready yet`);
+      setNativeError("Google sign-in is still loading. Please wait a moment and try again.");
+      return;
+    }
+    // If gisReady, the invisible overlay on top of this button captures the
+    // click — this function body should not be reached in normal flow.
+    debugLog("gis", "button onClick fired with gisReady=true — overlay may have missed the click");
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -617,10 +595,11 @@ export default function Login() {
       )}
 
       {/* Google button
-          Web + GIS ready: our button is the visual; Google's rendered button
-            sits as an invisible overlay (opacity:0.001) and fires FedCM on click.
-          Web + GIS not ready: our button fires the popup OAuth fallback.
-          Native: Capacitor Google Auth plugin. */}
+          Web + GIS ready : our button is purely visual; Google's rendered iframe
+            sits as an invisible overlay (opacity:0.001) on top and fires the
+            native FedCM bottom-sheet account picker on click.
+          Web + GIS error : button shows the specific error from gisStatus.
+          Native           : Capacitor Google Auth plugin. */}
       <div className="rise d2" style={{ position: "relative" }}>
         <button
           type="button"
@@ -658,11 +637,11 @@ export default function Login() {
           </span>
         </button>
 
-        {/* Invisible GIS overlay — Google's renderButton iframe sits here.
-            opacity:0.001 keeps it interactive while hidden. It covers the
-            button above so every tap on "Continue with Google" is actually
-            received by Google's button, which triggers the FedCM bottom sheet. */}
-        {googleClientId && !isNativePlatform() && !signingIn && (
+        {/* Invisible GIS overlay — ALWAYS mounted when googleClientId is set and
+            not on native. Never conditionally removed — unmounting it destroys
+            Google's rendered iframe and breaks FedCM.
+            pointer-events:none while signingIn so the spinner button is interactive. */}
+        {googleClientId && !isNativePlatform() && (
           <div
             ref={gisContainerRef}
             aria-hidden="true"
@@ -674,10 +653,18 @@ export default function Login() {
               zIndex: 2,
               cursor: "pointer",
               borderRadius: 12,
+              pointerEvents: signingIn ? "none" : "auto",
             }}
           />
         )}
       </div>
+
+      {/* GIS status pill — visible when debug panel is open */}
+      {showDebug && !isNativePlatform() && (
+        <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 4, padding: "2px 8px", borderRadius: 6, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }}>
+          gis: {gisStatus}
+        </div>
+      )}
 
       {/* Divider */}
       <div className="rise d2" style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>

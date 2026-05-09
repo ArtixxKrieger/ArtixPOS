@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
@@ -18,6 +18,25 @@ function resolveOAuthUrl(path: string, extra = ""): string {
   if (base.startsWith("capacitor://") || base.startsWith("ionic://"))
     throw new Error("VITE_API_BASE_URL is not configured.");
   return `${base.replace(/\/$/, "")}${path}${extra}`;
+}
+
+function loadGIS(): Promise<void> {
+  return new Promise((resolve) => {
+    if ((window as any).google?.accounts?.id) { resolve(); return; }
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => resolve());
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => resolve();
+    document.head.appendChild(s);
+  });
 }
 
 function diagnoseNativeError(raw: string): string {
@@ -178,6 +197,11 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
+  // GIS overlay — Google's rendered button sits invisibly over our styled
+  // button so clicking it fires the FedCM native bottom-sheet account picker.
+  const gisContainerRef = useRef<HTMLDivElement>(null);
+  const [gisReady, setGisReady] = useState(false);
+
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
@@ -245,6 +269,63 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
+  // Called by Google's FedCM flow after account selection
+  const onGISCredential = useCallback(async (response: any) => {
+    if (!response?.credential) return;
+    setSigningIn(true);
+    setNativeError(null);
+    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+    try {
+      const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+      const data = await res.json();
+      if (!data.token) throw new Error("Server did not return a session token");
+      setNativeToken(data.token);
+      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      setLocation("/");
+    } catch (err: any) {
+      sessionStorage.removeItem(OAUTH_FLOW_KEY);
+      setNativeError(err?.message ?? "Sign-in failed. Please try again.");
+      setSigningIn(false);
+    }
+  }, [setLocation]);
+
+  // Load GIS and render Google's button as an invisible overlay so clicking
+  // our styled button actually triggers Google's FedCM native bottom sheet.
+  useEffect(() => {
+    if (isNativePlatform() || !googleClientId) return;
+
+    let cancelled = false;
+    async function setup() {
+      await loadGIS();
+      if (cancelled) return;
+      const goog = (window as any).google;
+      if (!goog?.accounts?.id) return;
+
+      goog.accounts.id.initialize({
+        client_id: googleClientId,
+        use_fedcm_for_prompt: true,
+        callback: onGISCredential,
+      });
+
+      // Wait for the container to be in the DOM (it mounts on next render)
+      const container = gisContainerRef.current;
+      if (!container) return;
+
+      goog.accounts.id.renderButton(container, {
+        type: "standard",
+        theme: "filled_blue",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        width: Math.floor(container.getBoundingClientRect().width) || 400,
+      });
+      if (!cancelled) setGisReady(true);
+    }
+
+    setup().catch(() => {});
+    return () => { cancelled = true; };
+  }, [googleClientId, onGISCredential]);
+
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
   const detail = urlParams.get("detail");
@@ -272,9 +353,8 @@ export default function Login() {
   }
 
   // On native → Capacitor Google plugin (native system account picker).
-  // On web    → popup OAuth flow: opens /auth/google?popup=1, Google
-  //             redirects back, server sets cookie, popup postMessages
-  //             success — no One Tap, no FedCM, no browser cooldowns.
+  // On web + GIS ready → invisible overlay handles it (FedCM bottom sheet).
+  // On web + GIS not ready → popup fallback.
   async function handleGoogleClick() {
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
@@ -284,6 +364,11 @@ export default function Login() {
       setNativeError("Google sign-in is not configured. Please sign in with email.");
       return;
     }
+    // GIS overlay is active — the FedCM click is handled by the invisible
+    // Google button on top. This path only runs as a fallback.
+    if (gisReady) return;
+
+    // Fallback: popup OAuth
     setNativeError(null);
     setSigningIn(true);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
@@ -531,25 +616,31 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google button — clicking calls prompt() which triggers Chrome's native
-          FedCM bottom-sheet account picker. No new tab, no redirect. */}
-      <div className="rise d2">
+      {/* Google button
+          Web + GIS ready: our button is the visual; Google's rendered button
+            sits as an invisible overlay (opacity:0.001) and fires FedCM on click.
+          Web + GIS not ready: our button fires the popup OAuth fallback.
+          Native: Capacitor Google Auth plugin. */}
+      <div className="rise d2" style={{ position: "relative" }}>
         <button
           type="button"
           className="btn-social"
           data-testid="button-google-signin"
           onClick={handleGoogleClick}
           disabled={signingIn}
-          style={isDark ? {
-            background: "rgba(255,255,255,0.07)",
-            border: "1.5px solid rgba(255,255,255,0.10)",
-            color: "rgba(255,255,255,0.88)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-          } : {
-            background: "#ffffff",
-            border: "1.5px solid rgba(0,0,0,0.09)",
-            color: "#1a1a1a",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)",
+          style={{
+            ...(isDark ? {
+              background: "rgba(255,255,255,0.07)",
+              border: "1.5px solid rgba(255,255,255,0.10)",
+              color: "rgba(255,255,255,0.88)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+            } : {
+              background: "#ffffff",
+              border: "1.5px solid rgba(0,0,0,0.09)",
+              color: "#1a1a1a",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)",
+            }),
+            width: "100%",
           }}
         >
           {signingIn ? (
@@ -566,6 +657,26 @@ export default function Login() {
             {signingIn ? "Signing in…" : "Continue with Google"}
           </span>
         </button>
+
+        {/* Invisible GIS overlay — Google's renderButton iframe sits here.
+            opacity:0.001 keeps it interactive while hidden. It covers the
+            button above so every tap on "Continue with Google" is actually
+            received by Google's button, which triggers the FedCM bottom sheet. */}
+        {googleClientId && !isNativePlatform() && !signingIn && (
+          <div
+            ref={gisContainerRef}
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: 0.001,
+              overflow: "hidden",
+              zIndex: 2,
+              cursor: "pointer",
+              borderRadius: 12,
+            }}
+          />
+        )}
       </div>
 
       {/* Divider */}

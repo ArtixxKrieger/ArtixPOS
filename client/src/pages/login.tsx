@@ -126,6 +126,7 @@ export default function Login() {
   );
 
   const gisReadyRef = useRef(false);
+  const [gsiDebug, setGsiDebug] = useState<string | null>(null);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -198,17 +199,29 @@ export default function Login() {
   // Uses use_fedcm_for_prompt: false so the bottom-sheet overlay works on Android Chrome.
   // cancel_on_tap_outside: false keeps it open if user taps outside the prompt.
   useEffect(() => {
-    if (!googleClientId || isNativePlatform()) return;
+    if (isNativePlatform()) return;
+    if (!googleClientId) {
+      setGsiDebug("No Google Client ID — GOOGLE_CLIENT_ID is not configured on the server.");
+      return;
+    }
 
     async function initOneTap() {
+      setGsiDebug("Loading Google Sign-In library…");
       await loadGIS();
       const goog = (window as any).google;
-      if (!goog?.accounts?.id) return;
+      if (!goog?.accounts?.id) {
+        setGsiDebug("GIS script loaded but google.accounts.id is undefined. Possibly blocked by an extension or CSP.");
+        return;
+      }
 
       const oneTapCallback = async (response: any) => {
-        if (!response?.credential) return;
+        if (!response?.credential) {
+          setGsiDebug("One Tap returned no credential.");
+          return;
+        }
         setSigningIn(true);
         setNativeError(null);
+        setGsiDebug(null);
         sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
         try {
           const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
@@ -232,12 +245,20 @@ export default function Login() {
       });
 
       gisReadyRef.current = true;
+      setGsiDebug("GIS ready — showing One Tap…");
 
       // Auto-show the One Tap overlay as soon as the page loads
-      goog.accounts.id.prompt();
+      goog.accounts.id.prompt((n: any) => {
+        const displayed = !n.isNotDisplayed() && !n.isSkippedMoment();
+        if (displayed) { setGsiDebug(null); return; }
+        const r = n.getMomentType?.() === "skipped"
+          ? (n.getSkippedReason?.() ?? "unknown_skipped")
+          : (n.getNotDisplayedReason?.() ?? "unknown_not_displayed");
+        setGsiDebug(`One Tap not shown on load — reason: ${r}`);
+      });
     }
 
-    initOneTap().catch(() => {});
+    initOneTap().catch((e) => setGsiDebug(`Init error: ${e?.message ?? String(e)}`));
   }, [googleClientId]);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -277,18 +298,33 @@ export default function Login() {
     setNativeError(null);
     const goog = (window as any).google;
     if (!goog?.accounts?.id || !gisReadyRef.current) {
-      setNativeError("Google sign-in is loading, please try again in a moment.");
+      const why = !googleClientId
+        ? "No Google Client ID configured."
+        : !goog?.accounts?.id
+          ? "Google Sign-In library failed to load."
+          : "GIS not ready yet — please wait a moment.";
+      setGsiDebug(`Button click: ${why}`);
+      setNativeError(why);
       return;
     }
-    // Reset suppression so the overlay shows even after a previous dismiss
+    setGsiDebug("Button tapped — calling prompt()…");
+    // cancel() resets any internal suppression state before re-prompting
     goog.accounts.id.cancel();
-    goog.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        const reason = notification.getNotDisplayedReason?.() ?? notification.getSkippedReason?.() ?? "";
-        if (reason === "suppressed_by_user" || reason === "user_cancel") {
-          setNativeError("Google dismissed the sign-in. Please sign in with email below, or try again in a few minutes.");
-        }
-      }
+    goog.accounts.id.prompt((n: any) => {
+      const displayed = !n.isNotDisplayed() && !n.isSkippedMoment();
+      if (displayed) { setGsiDebug(null); return; }
+      const momentType = n.getMomentType?.() ?? "unknown";
+      const reason = momentType === "skipped"
+        ? (n.getSkippedReason?.() ?? "unknown_skipped")
+        : (n.getNotDisplayedReason?.() ?? "unknown_not_displayed");
+      setGsiDebug(`prompt() → ${momentType}: ${reason}`);
+      setNativeError(
+        reason === "suppressed_by_user" || reason === "user_cancel"
+          ? "Google sign-in was dismissed. You can sign in with email below, or wait a few minutes and try again."
+          : reason === "opt_out_or_no_session"
+            ? "No Google account found in this browser. Please sign in with email."
+            : `Google sign-in unavailable (${reason}). Please sign in with email.`
+      );
     });
   }
 
@@ -557,6 +593,24 @@ export default function Login() {
           </span>
         </button>
       </div>
+
+      {/* Debug strip — shows exactly why One Tap failed */}
+      {gsiDebug && (
+        <div style={{
+          margin: "6px 0 0",
+          padding: "7px 12px",
+          borderRadius: 8,
+          fontSize: 11,
+          fontFamily: "monospace",
+          lineHeight: 1.5,
+          background: isDark ? "rgba(251,191,36,0.08)" : "rgba(251,191,36,0.1)",
+          border: `1px solid ${isDark ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.3)"}`,
+          color: isDark ? "#fcd34d" : "#92400e",
+          wordBreak: "break-all",
+        }}>
+          🔍 {gsiDebug}
+        </div>
+      )}
 
       {/* Divider */}
       <div className="rise d2" style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>

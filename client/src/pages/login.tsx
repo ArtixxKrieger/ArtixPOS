@@ -13,12 +13,6 @@ function isPluginAvailable(name: string): boolean {
   try { return (window as any).Capacitor?.isPluginAvailable?.(name) === true; } catch { return false; }
 }
 
-function resolveOAuthUrl(path: string, extra = ""): string {
-  const base = API_BASE || window.location.origin;
-  if (base.startsWith("capacitor://") || base.startsWith("ionic://"))
-    throw new Error("VITE_API_BASE_URL is not configured.");
-  return `${base.replace(/\/$/, "")}${path}${extra}`;
-}
 
 function loadGIS(): Promise<void> {
   return new Promise((resolve) => {

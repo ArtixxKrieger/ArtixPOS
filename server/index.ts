@@ -62,6 +62,21 @@ app.use(
   })
 );
 
+// FedCM (Federated Credential Management) requires the identity-credentials-get
+// permission to be explicitly allowed. Helmet may set a restrictive
+// Permissions-Policy that omits it, silently preventing the native account
+// bottom-sheet from appearing even when google.accounts.id is initialized.
+app.use((_req, res, next) => {
+  const existing = res.getHeader("Permissions-Policy") as string | undefined;
+  const needed = "identity-credentials-get=*";
+  if (!existing) {
+    res.setHeader("Permissions-Policy", needed);
+  } else if (!existing.includes("identity-credentials-get")) {
+    res.setHeader("Permissions-Policy", `${existing}, ${needed}`);
+  }
+  next();
+});
+
 // ── Health check ──────────────────────────────────────────────────────────────
 // Mounted before rate limiters so uptime monitors are never throttled.
 // Returns per-service status so external panels can monitor each dependency.

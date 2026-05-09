@@ -126,6 +126,7 @@ export default function Login() {
   );
 
   const gisReadyRef = useRef(false);
+  const gisClientIdRef = useRef<string | null>(null);
   const [gsiDebug, setGsiDebug] = useState<string | null>(null);
 
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -195,9 +196,71 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Google One Tap — initialize and auto-prompt on page load.
-  // Uses use_fedcm_for_prompt: false so the bottom-sheet overlay works on Android Chrome.
-  // cancel_on_tap_outside: false keeps it open if user taps outside the prompt.
+  // Perform a full One Tap init+prompt cycle.
+  // Called on page load AND on every button click to break through suppression.
+  // Sequence: disableAutoSelect → initialize (fresh) → prompt
+  const runOneTapPrompt = useCallback((clientId: string, attemptFedcm: boolean) => {
+    const goog = (window as any).google;
+    if (!goog?.accounts?.id) return;
+
+    const oneTapCallback = async (response: any) => {
+      if (!response?.credential) {
+        setGsiDebug("One Tap returned no credential.");
+        return;
+      }
+      setSigningIn(true);
+      setNativeError(null);
+      setGsiDebug(null);
+      sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+      try {
+        const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
+        const data = await res.json();
+        if (!data.token) throw new Error("Server did not return a session token");
+        setNativeToken(data.token);
+        await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+        setLocation("/");
+      } catch (err: any) {
+        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        setNativeError(err?.message ?? "Sign-in failed. Please try again.");
+        setSigningIn(false);
+      }
+    };
+
+    // disableAutoSelect clears the suppression lock before re-initializing
+    try { goog.accounts.id.disableAutoSelect(); } catch {}
+    goog.accounts.id.initialize({
+      client_id: clientId,
+      use_fedcm_for_prompt: attemptFedcm,
+      cancel_on_tap_outside: false,
+      callback: oneTapCallback,
+    });
+    goog.accounts.id.prompt((n: any) => {
+      const displayed = !n.isNotDisplayed() && !n.isSkippedMoment();
+      if (displayed) { setGsiDebug(null); return; }
+      const momentType = n.getMomentType?.() ?? "unknown";
+      const r = momentType === "skipped"
+        ? (n.getSkippedReason?.() ?? "unknown")
+        : (n.getNotDisplayedReason?.() ?? "unknown");
+      setGsiDebug(`prompt(fedcm=${attemptFedcm}) → ${momentType}: ${r}`);
+      // If non-fedcm failed with unknown_reason, retry once with FedCM flipped
+      if (!attemptFedcm && r === "unknown_reason") {
+        setGsiDebug(`skipped:unknown_reason — retrying with FedCM…`);
+        runOneTapPrompt(clientId, true);
+        return;
+      }
+      setNativeError(
+        r === "suppressed_by_user" || r === "user_cancel"
+          ? "Google sign-in was dismissed. Please wait a few minutes and try again, or sign in with email."
+          : r === "opt_out_or_no_session"
+            ? "No Google account found in this browser. Please sign in with email."
+            : r === "unknown_reason"
+              ? "Google blocked the sign-in overlay (browser cooldown). Please sign in with email or wait a few minutes."
+              : `Google sign-in unavailable (${r}). Please sign in with email.`
+      );
+    });
+  }, []);
+
+  // Google One Tap — load GIS library and auto-prompt on page load.
   useEffect(() => {
     if (isNativePlatform()) return;
     if (!googleClientId) {
@@ -213,53 +276,14 @@ export default function Login() {
         setGsiDebug("GIS script loaded but google.accounts.id is undefined. Possibly blocked by an extension or CSP.");
         return;
       }
-
-      const oneTapCallback = async (response: any) => {
-        if (!response?.credential) {
-          setGsiDebug("One Tap returned no credential.");
-          return;
-        }
-        setSigningIn(true);
-        setNativeError(null);
-        setGsiDebug(null);
-        sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-        try {
-          const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-          const data = await res.json();
-          if (!data.token) throw new Error("Server did not return a session token");
-          setNativeToken(data.token);
-          await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-          setLocation("/");
-        } catch (err: any) {
-          sessionStorage.removeItem(OAUTH_FLOW_KEY);
-          setNativeError(err?.message ?? "Sign-in failed. Please try again.");
-          setSigningIn(false);
-        }
-      };
-
-      goog.accounts.id.initialize({
-        client_id: googleClientId,
-        use_fedcm_for_prompt: false,
-        cancel_on_tap_outside: false,
-        callback: oneTapCallback,
-      });
-
       gisReadyRef.current = true;
-      setGsiDebug("GIS ready — showing One Tap…");
-
-      // Auto-show the One Tap overlay as soon as the page loads
-      goog.accounts.id.prompt((n: any) => {
-        const displayed = !n.isNotDisplayed() && !n.isSkippedMoment();
-        if (displayed) { setGsiDebug(null); return; }
-        const r = n.getMomentType?.() === "skipped"
-          ? (n.getSkippedReason?.() ?? "unknown_skipped")
-          : (n.getNotDisplayedReason?.() ?? "unknown_not_displayed");
-        setGsiDebug(`One Tap not shown on load — reason: ${r}`);
-      });
+      gisClientIdRef.current = googleClientId;
+      setGsiDebug("GIS ready — prompting…");
+      runOneTapPrompt(googleClientId, false);
     }
 
     initOneTap().catch((e) => setGsiDebug(`Init error: ${e?.message ?? String(e)}`));
-  }, [googleClientId]);
+  }, [googleClientId, runOneTapPrompt]);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -288,8 +312,9 @@ export default function Login() {
   }
 
   // On native → Capacitor Google plugin (native system picker).
-  // On web    → Google One Tap only. Button click resets suppression state
-  //             so the overlay re-appears even if previously dismissed.
+  // On web    → Google One Tap full re-init cycle on every click.
+  //             disableAutoSelect → fresh initialize → prompt breaks
+  //             through Chrome's session-level suppression.
   function handleGoogleClick() {
     if (isNativePlatform()) {
       handleNativeGoogleSignIn();
@@ -297,7 +322,8 @@ export default function Login() {
     }
     setNativeError(null);
     const goog = (window as any).google;
-    if (!goog?.accounts?.id || !gisReadyRef.current) {
+    const clientId = gisClientIdRef.current;
+    if (!goog?.accounts?.id || !gisReadyRef.current || !clientId) {
       const why = !googleClientId
         ? "No Google Client ID configured."
         : !goog?.accounts?.id
@@ -307,25 +333,8 @@ export default function Login() {
       setNativeError(why);
       return;
     }
-    setGsiDebug("Button tapped — calling prompt()…");
-    // cancel() resets any internal suppression state before re-prompting
-    goog.accounts.id.cancel();
-    goog.accounts.id.prompt((n: any) => {
-      const displayed = !n.isNotDisplayed() && !n.isSkippedMoment();
-      if (displayed) { setGsiDebug(null); return; }
-      const momentType = n.getMomentType?.() ?? "unknown";
-      const reason = momentType === "skipped"
-        ? (n.getSkippedReason?.() ?? "unknown_skipped")
-        : (n.getNotDisplayedReason?.() ?? "unknown_not_displayed");
-      setGsiDebug(`prompt() → ${momentType}: ${reason}`);
-      setNativeError(
-        reason === "suppressed_by_user" || reason === "user_cancel"
-          ? "Google sign-in was dismissed. You can sign in with email below, or wait a few minutes and try again."
-          : reason === "opt_out_or_no_session"
-            ? "No Google account found in this browser. Please sign in with email."
-            : `Google sign-in unavailable (${reason}). Please sign in with email.`
-      );
-    });
+    setGsiDebug("Button tapped — full re-init cycle…");
+    runOneTapPrompt(clientId, false);
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

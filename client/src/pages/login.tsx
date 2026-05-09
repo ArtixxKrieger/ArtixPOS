@@ -117,6 +117,8 @@ export default function Login() {
   const [gisReady, setGisReady] = useState(false);
   // "idle" | "loading" | "ready" | "error:<reason>"
   const [gisStatus, setGisStatus] = useState<string>("idle");
+  // True while waiting for Google's notification callback after prompt()
+  const [googlePending, setGooglePending] = useState(false);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -295,50 +297,91 @@ export default function Login() {
       handleNativeGoogleSignIn();
       return;
     }
+
+    // ── pre-flight checks (all surfaced visibly) ───────────────────────────
     if (!googleClientId) {
-      setNativeError("Google sign-in is not configured. Please sign in with email.");
+      const msg = "GOOGLE_CLIENT_ID is not configured on this server.";
+      debugLog("gis", `click blocked: ${msg}`);
+      setNativeError(msg);
+      setShowDebug(true);
       return;
     }
     if (gisStatus === "loading") {
-      setNativeError("Google sign-in is still loading — please wait a moment and try again.");
+      debugLog("gis", "click: GIS still loading");
+      setNativeError("Google sign-in is still loading — wait a moment and try again.");
       return;
     }
     if (gisStatus.startsWith("error:")) {
-      setNativeError(`Google sign-in couldn't initialize (${gisStatus}). Open the debug log for details.`);
+      debugLog("gis", `click blocked: gisStatus=${gisStatus}`);
+      setNativeError(`Google sign-in failed to initialise (${gisStatus}). See debug log below.`);
+      setShowDebug(true);
       return;
     }
-
     const goog = (window as any).google;
     if (!goog?.accounts?.id) {
-      setNativeError("Google sign-in script not loaded. Please refresh and try again.");
+      debugLog("gis", "click: google.accounts.id not available");
+      setNativeError("Google script not loaded. Refresh and try again.");
+      setShowDebug(true);
       return;
     }
 
-    debugLog("gis", "calling prompt() — FedCM bottom sheet should appear");
+    // ── FedCM browser support check ────────────────────────────────────────
+    const fedcmSupported = "IdentityCredential" in window;
+    debugLog("gis", `FedCM browser support: ${fedcmSupported}  (Chrome 108+ required)`);
+    debugLog("gis", `User-agent: ${navigator.userAgent}`);
+
+    // ── call prompt() ──────────────────────────────────────────────────────
+    // Must be synchronous — no await before this line.
+    // Chrome's FedCM checks for an active user-gesture.
     setNativeError(null);
+    setGooglePending(true);
+    setShowDebug(true);   // auto-open debug panel so user can see the reason
+    debugLog("gis", "prompt() called — waiting for notification callback…");
 
-    // IMPORTANT: prompt() must be called synchronously here (no await before it)
-    // so Chrome's user-gesture activation is still active when FedCM fires.
+    // Safety timeout — if Google never calls back, surface an error.
+    const timeoutId = setTimeout(() => {
+      setGooglePending(false);
+      debugLog("gis", "ERROR: prompt() timed out — notification callback never fired in 8 s");
+      setNativeError("Google did not respond after 8 seconds. See debug log for details.");
+    }, 8000);
+
     goog.accounts.id.prompt((notification: any) => {
-      const notDisplayed   = notification.isNotDisplayed?.() ?? false;
-      const dismissed      = notification.isDismissedMoment?.() ?? false;
-      const ndReason       = notification.getNotDisplayedReason?.() ?? "";
-      const dismissReason  = notification.getDismissedReason?.() ?? "";
+      clearTimeout(timeoutId);
+      setGooglePending(false);
 
-      debugLog("gis", `prompt notification — notDisplayed:${notDisplayed}(${ndReason}) dismissed:${dismissed}(${dismissReason})`);
+      // ── dump every property ────────────────────────────────────────────
+      const isDisplayed    = notification.isDisplayed?.()            ?? "?";
+      const isNotDisplayed = notification.isNotDisplayed?.()         ?? "?";
+      const isSkipped      = notification.isSkippedMoment?.()        ?? "?";
+      const isDismissed    = notification.isDismissedMoment?.()      ?? "?";
+      const ndReason       = notification.getNotDisplayedReason?.()  ?? "";
+      const skipReason     = notification.getSkippedReason?.()       ?? "";
+      const dismissReason  = notification.getDismissedReason?.()     ?? "";
 
-      if (notDisplayed) {
-        const msg: Record<string, string> = {
-          "browser_not_supported": "Your browser doesn't support Google sign-in. Try Chrome.",
-          "invalid_client":        "Invalid Google Client ID. Check your server configuration.",
-          "missing_client_id":     "Google Client ID is missing.",
-          "opt_out_or_no_session": "No Google account found in this browser. Sign into Chrome first.",
-          "secure_http_required":  "Google sign-in requires HTTPS.",
-          "suppressed_by_user":    "Google sign-in was suppressed. Try again or use email.",
-          "unregistered_origin":   "This domain is not authorised in Google Cloud Console. Add it to Authorised JavaScript Origins.",
-          "unknown_reason":        "Google sign-in couldn't display (unknown reason). Try again.",
+      debugLog("gis",
+        `notification → displayed:${isDisplayed} notDisplayed:${isNotDisplayed}` +
+        `(${ndReason}) skipped:${isSkipped}(${skipReason})` +
+        ` dismissed:${isDismissed}(${dismissReason})`
+      );
+
+      if (isNotDisplayed) {
+        const REASONS: Record<string, string> = {
+          "browser_not_supported":  "Your browser doesn't support FedCM. Use Chrome 108+ on Android.",
+          "invalid_client":         "Invalid Google Client ID — check GOOGLE_CLIENT_ID.",
+          "missing_client_id":      "Google Client ID missing.",
+          "opt_out_or_no_session":  "No Google account signed into this browser. Sign into Chrome first, then retry.",
+          "secure_http_required":   "FedCM requires HTTPS.",
+          "suppressed_by_user":     "Prompt suppressed by browser. Clear site data or try a different Google account.",
+          "unregistered_origin":    `Domain not authorised. Add "${window.location.origin}" to Authorised JavaScript Origins in Google Cloud Console.`,
+          "unknown_reason":         "Unknown reason — check that your domain is in Authorised JavaScript Origins in Google Cloud Console.",
         };
-        setNativeError(msg[ndReason] ?? `Google sign-in blocked: ${ndReason}`);
+        setNativeError(REASONS[ndReason] ?? `Not displayed: ${ndReason}`);
+      } else if (isSkipped) {
+        debugLog("gis", `prompt skipped — reason: ${skipReason}`);
+      } else if (isDismissed) {
+        debugLog("gis", `prompt dismissed — reason: ${dismissReason}`);
+      } else if (isDisplayed) {
+        debugLog("gis", "prompt displayed — waiting for user to pick an account");
       }
     });
   }
@@ -572,16 +615,14 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google button — onClick calls google.accounts.id.prompt() synchronously
-          so Chrome's FedCM sees a valid user-gesture and shows the native
-          bottom-sheet account picker. On native: Capacitor Google Auth. */}
+      {/* Google button — onClick calls prompt() synchronously for FedCM */}
       <div className="rise d2">
         <button
           type="button"
           className="btn-social"
           data-testid="button-google-signin"
           onClick={handleGoogleClick}
-          disabled={signingIn}
+          disabled={signingIn || googlePending}
           style={isDark ? {
             background: "rgba(255,255,255,0.07)",
             border: "1.5px solid rgba(255,255,255,0.10)",
@@ -594,7 +635,7 @@ export default function Login() {
             boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)",
           }}
         >
-          {signingIn ? (
+          {(signingIn || googlePending) ? (
             <div style={{ width: 20, height: 20, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
@@ -605,14 +646,14 @@ export default function Login() {
             </svg>
           )}
           <span style={{ flex: 1, textAlign: "center" }}>
-            {signingIn ? "Signing in…" : "Continue with Google"}
+            {signingIn ? "Signing in…" : googlePending ? "Waiting for Google…" : "Continue with Google"}
           </span>
         </button>
       </div>
 
-      {/* GIS status pill — visible when debug panel is open */}
-      {showDebug && !isNativePlatform() && (
-        <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 4, padding: "2px 8px", borderRadius: 6, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }}>
+      {/* GIS status — always visible so the user can see what's happening */}
+      {!isNativePlatform() && gisStatus !== "idle" && (
+        <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 4, padding: "2px 8px", borderRadius: 6, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: gisStatus === "ready" ? (isDark ? "#4ade80" : "#16a34a") : gisStatus === "loading" ? (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)") : (isDark ? "#f87171" : "#dc2626") }}>
           gis: {gisStatus}
         </div>
       )}

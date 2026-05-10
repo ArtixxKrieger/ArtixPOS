@@ -46,6 +46,7 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
+APP_URL = "https://artixpos.com"
 
 [agent]
 expertMode = true

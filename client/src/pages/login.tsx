@@ -285,14 +285,17 @@ export default function Login() {
         // mediation:'required' bypasses Chrome's post-dismiss cooldown so the
         // sheet always appears each time the user explicitly clicks the button.
         const nonce = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
-        debugLog("gis", "navigator.credentials.get({mediation:'required', nonce}) …");
+        debugLog("gis", "navigator.credentials.get({mediation:'required'}) …");
+        // Chrome 143+ requires nonce inside params:{} not directly in the provider.
+        // Placing nonce at the top level causes the id_assertion_endpoint to reject
+        // the request with "Error retrieving a token".
         const cred = await (navigator.credentials as any).get({
           identity: {
             context: "signin",
             providers: [{
               configURL: "https://accounts.google.com/gsi/fedcm.json",
               clientId: googleClientId,
-              nonce,
+              params: { nonce },
             }],
           },
           mediation: "required",

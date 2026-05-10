@@ -284,12 +284,15 @@ export default function Login() {
         // ── Primary path: browser-native FedCM API ─────────────────────────
         // mediation:'required' bypasses Chrome's post-dismiss cooldown so the
         // sheet always appears each time the user explicitly clicks the button.
-        debugLog("gis", "navigator.credentials.get({mediation:'required'}) …");
+        const nonce = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+        debugLog("gis", "navigator.credentials.get({mediation:'required', nonce}) …");
         const cred = await (navigator.credentials as any).get({
           identity: {
+            context: "signin",
             providers: [{
               configURL: "https://accounts.google.com/gsi/fedcm.json",
               clientId: googleClientId,
+              nonce,
             }],
           },
           mediation: "required",

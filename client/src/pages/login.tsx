@@ -113,12 +113,8 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
-  // Track whether GIS is initialised and ready to call prompt()
-  const [gisReady, setGisReady] = useState(false);
   // "idle" | "loading" | "ready" | "error:<reason>"
   const [gisStatus, setGisStatus] = useState<string>("idle");
-  // True while waiting for Google's notification callback after prompt()
-  const [googlePending, setGooglePending] = useState(false);
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -187,44 +183,26 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  // Called by GIS after the user picks an account from the FedCM bottom sheet
-  const onGISCredential = useCallback(async (response: any) => {
-    debugLog("gis", `credential callback — present:${!!response?.credential}`);
-    if (!response?.credential) {
-      debugLog("gis", "ERROR: no credential in response");
-      setNativeError("Google returned no credential. Please try again.");
-      return;
-    }
-    setSigningIn(true);
-    setNativeError(null);
+  // Shared: POST an idToken (from FedCM or GIS fallback) to the server
+  async function authenticateWithToken(idToken: string) {
+    debugLog("gis", "POSTing idToken to /api/auth/google/native…");
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-    try {
-      debugLog("gis", "POSTing idToken to /api/auth/google/native…");
-      const res = await apiRequest("POST", "/api/auth/google/native", { idToken: response.credential });
-      const data = await res.json();
-      debugLog("gis", `server response — status:${res.status} token:${data.token ? "YES" : "NO"} error:${data.error ?? "none"}`);
-      if (!data.token) throw new Error(data.error ?? data.message ?? "Server did not return a token");
-      setNativeToken(data.token);
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      debugLog("gis", "auth OK — redirecting ✓");
-      setLocation("/");
-    } catch (err: any) {
-      sessionStorage.removeItem(OAUTH_FLOW_KEY);
-      const msg = err?.message ?? "Sign-in failed.";
-      debugLog("gis", `ERROR: ${msg}`);
-      setNativeError(msg);
-      setSigningIn(false);
-    }
-  }, [setLocation]);
+    const res = await apiRequest("POST", "/api/auth/google/native", { idToken });
+    const data = await res.json();
+    debugLog("gis", `server response — status:${res.status} token:${data.token ? "YES" : "NO"}`);
+    if (!data.token) throw new Error(data.error ?? data.message ?? "Server did not return a token");
+    setNativeToken(data.token);
+    await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+    debugLog("gis", "auth OK — redirecting ✓");
+    setLocation("/");
+  }
 
-  // Eagerly load + initialize GIS when the clientId becomes available.
-  // We do NOT call renderButton — instead prompt() is called directly inside
-  // handleGoogleClick so it runs synchronously within the user-gesture context,
-  // which is what Chrome's FedCM implementation requires.
+  // Load GIS eagerly so it's available as a fallback for non-FedCM browsers.
+  // The primary path uses navigator.credentials.get() directly (no GIS needed).
   useEffect(() => {
     if (isNativePlatform()) return;
     if (!googleClientId) {
-      debugLog("gis", "no googleClientId — GIS init skipped");
+      debugLog("gis", "no googleClientId — GIS load skipped");
       setGisStatus("error:no-client-id");
       return;
     }
@@ -237,30 +215,19 @@ export default function Login() {
       const goog = (window as any).google;
       debugLog("gis", `script loaded — google:${!!goog} accounts.id:${!!goog?.accounts?.id}`);
       if (!goog?.accounts?.id) {
-        debugLog("gis", "ERROR: google.accounts.id missing — script blocked by CSP or network?");
+        debugLog("gis", "GIS script blocked (CSP or network?)");
         setGisStatus("error:script-blocked");
         return;
       }
-      try {
-        goog.accounts.id.initialize({
-          client_id: googleClientId,
-          use_fedcm_for_prompt: true,
-          callback: onGISCredential,
-        });
-        setGisReady(true);
-        setGisStatus("ready");
-        debugLog("gis", "initialized ✓ — ready for prompt()");
-      } catch (e: any) {
-        debugLog("gis", `ERROR in initialize(): ${e?.message ?? String(e)}`);
-        setGisStatus(`error:init`);
-      }
+      setGisStatus("ready");
+      debugLog("gis", "GIS loaded ✓ — FedCM native API will be tried first on click");
     }).catch((e: any) => {
       debugLog("gis", `script load error: ${e?.message ?? String(e)}`);
       setGisStatus("error:load");
     });
 
     return () => { cancelled = true; };
-  }, [googleClientId, onGISCredential]);
+  }, [googleClientId]);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -289,101 +256,93 @@ export default function Login() {
   }
 
   // On native → Capacitor Google Auth plugin.
-  // On web   → call google.accounts.id.prompt() synchronously inside this
-  //            click handler so Chrome treats it as a user-gesture activation,
-  //            which is required for FedCM to show the native bottom sheet.
-  function handleGoogleClick() {
-    if (isNativePlatform()) {
-      handleNativeGoogleSignIn();
-      return;
-    }
+  // On web   → use navigator.credentials.get() with mediation:'required' so
+  //            Chrome always shows the FedCM account picker, even after the
+  //            user taps X to dismiss it. Falls back to GIS prompt() on older
+  //            browsers that don't support the IdentityCredential API.
+  async function handleGoogleClick() {
+    if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
 
-    // ── pre-flight checks (all surfaced visibly) ───────────────────────────
     if (!googleClientId) {
-      const msg = "GOOGLE_CLIENT_ID is not configured on this server.";
-      debugLog("gis", `click blocked: ${msg}`);
-      setNativeError(msg);
+      debugLog("gis", "click blocked: no GOOGLE_CLIENT_ID");
+      setNativeError("Google sign-in is not configured on this server.");
       setShowDebug(true);
       return;
     }
-    if (gisStatus === "loading") {
-      debugLog("gis", "click: GIS still loading");
-      setNativeError("Google sign-in is still loading — wait a moment and try again.");
-      return;
-    }
-    if (gisStatus.startsWith("error:")) {
-      debugLog("gis", `click blocked: gisStatus=${gisStatus}`);
-      setNativeError(`Google sign-in failed to initialise (${gisStatus}). See debug log below.`);
-      setShowDebug(true);
-      return;
-    }
-    const goog = (window as any).google;
-    if (!goog?.accounts?.id) {
-      debugLog("gis", "click: google.accounts.id not available");
-      setNativeError("Google script not loaded. Refresh and try again.");
-      setShowDebug(true);
-      return;
-    }
+    if (signingIn) return;
 
-    // ── FedCM browser support check ────────────────────────────────────────
-    const fedcmSupported = "IdentityCredential" in window;
-    debugLog("gis", `FedCM browser support: ${fedcmSupported}  (Chrome 108+ required)`);
-    debugLog("gis", `User-agent: ${navigator.userAgent}`);
-
-    // ── call prompt() ──────────────────────────────────────────────────────
-    // Must be synchronous — no await before this line.
-    // Chrome's FedCM checks for an active user-gesture.
     setNativeError(null);
-    setGooglePending(true);
-    setShowDebug(true);   // auto-open debug panel so user can see the reason
-    debugLog("gis", "prompt() called — waiting for notification callback…");
+    setSigningIn(true);
 
-    // Safety timeout — if Google never calls back, surface an error.
-    const timeoutId = setTimeout(() => {
-      setGooglePending(false);
-      debugLog("gis", "ERROR: prompt() timed out — notification callback never fired in 8 s");
-      setNativeError("Google did not respond after 8 seconds. See debug log for details.");
-    }, 8000);
+    const fedcmSupported = "IdentityCredential" in window;
+    debugLog("gis", `click — FedCM native: ${fedcmSupported}  gisStatus: ${gisStatus}`);
 
-    goog.accounts.id.prompt((notification: any) => {
-      clearTimeout(timeoutId);
-      setGooglePending(false);
+    try {
+      let idToken: string;
 
-      // ── dump every property ────────────────────────────────────────────
-      const isDisplayed    = notification.isDisplayed?.()            ?? "?";
-      const isNotDisplayed = notification.isNotDisplayed?.()         ?? "?";
-      const isSkipped      = notification.isSkippedMoment?.()        ?? "?";
-      const isDismissed    = notification.isDismissedMoment?.()      ?? "?";
-      const ndReason       = notification.getNotDisplayedReason?.()  ?? "";
-      const skipReason     = notification.getSkippedReason?.()       ?? "";
-      const dismissReason  = notification.getDismissedReason?.()     ?? "";
+      if (fedcmSupported) {
+        // ── Primary path: browser-native FedCM API ─────────────────────────
+        // mediation:'required' bypasses Chrome's post-dismiss cooldown so the
+        // sheet always appears each time the user explicitly clicks the button.
+        debugLog("gis", "navigator.credentials.get({mediation:'required'}) …");
+        const cred = await (navigator.credentials as any).get({
+          identity: {
+            providers: [{
+              configURL: "https://accounts.google.com/gsi/fedcm.json",
+              clientId: googleClientId,
+            }],
+          },
+          mediation: "required",
+        });
+        idToken = (cred as any)?.token;
+        if (!idToken) throw new Error("FedCM returned no token");
+        debugLog("gis", "FedCM token received ✓");
+      } else {
+        // ── Fallback: GIS prompt() for older / non-Chrome browsers ─────────
+        debugLog("gis", "FedCM not supported — using GIS prompt() fallback");
+        const goog = (window as any).google;
+        if (!goog?.accounts?.id) throw new Error("Google script not loaded. Refresh and try again.");
 
-      debugLog("gis",
-        `notification → displayed:${isDisplayed} notDisplayed:${isNotDisplayed}` +
-        `(${ndReason}) skipped:${isSkipped}(${skipReason})` +
-        ` dismissed:${isDismissed}(${dismissReason})`
-      );
-
-      if (isNotDisplayed) {
-        const REASONS: Record<string, string> = {
-          "browser_not_supported":  "Your browser doesn't support FedCM. Use Chrome 108+ on Android.",
-          "invalid_client":         "Invalid Google Client ID — check GOOGLE_CLIENT_ID.",
-          "missing_client_id":      "Google Client ID missing.",
-          "opt_out_or_no_session":  "No Google account signed into this browser. Sign into Chrome first, then retry.",
-          "secure_http_required":   "FedCM requires HTTPS.",
-          "suppressed_by_user":     "Prompt suppressed by browser. Clear site data or try a different Google account.",
-          "unregistered_origin":    `Domain not authorised. Add "${window.location.origin}" to Authorised JavaScript Origins in Google Cloud Console.`,
-          "unknown_reason":         "Unknown reason — check that your domain is in Authorised JavaScript Origins in Google Cloud Console.",
-        };
-        setNativeError(REASONS[ndReason] ?? `Not displayed: ${ndReason}`);
-      } else if (isSkipped) {
-        debugLog("gis", `prompt skipped — reason: ${skipReason}`);
-      } else if (isDismissed) {
-        debugLog("gis", `prompt dismissed — reason: ${dismissReason}`);
-      } else if (isDisplayed) {
-        debugLog("gis", "prompt displayed — waiting for user to pick an account");
+        idToken = await new Promise<string>((resolve, reject) => {
+          goog.accounts.id.initialize({
+            client_id: googleClientId,
+            use_fedcm_for_prompt: false,
+            callback: (resp: any) => {
+              if (resp?.credential) resolve(resp.credential);
+              else reject(new Error("No credential in Google response"));
+            },
+          });
+          goog.accounts.id.prompt((n: any) => {
+            if (n.isNotDisplayed?.()) {
+              const r = n.getNotDisplayedReason?.() ?? "unknown_reason";
+              const MSGS: Record<string, string> = {
+                "browser_not_supported":  "Browser doesn't support Google sign-in. Use Chrome.",
+                "opt_out_or_no_session":  "No Google account found — sign into Chrome first.",
+                "unregistered_origin":    `Add "${window.location.origin}" to Authorised JavaScript Origins in Google Cloud Console.`,
+                "unknown_reason":         "Google couldn't display the sign-in prompt. Check Authorised JavaScript Origins.",
+              };
+              reject(new Error(MSGS[r] ?? `Not displayed: ${r}`));
+            }
+          });
+        });
+        debugLog("gis", "GIS credential received ✓");
       }
-    });
+
+      await authenticateWithToken(idToken);
+    } catch (err: any) {
+      sessionStorage.removeItem(OAUTH_FLOW_KEY);
+      const name = err?.name ?? "";
+      const msg  = err?.message ?? String(err);
+      // AbortError / NotAllowedError = user tapped X — silent reset
+      if (name === "AbortError" || name === "NotAllowedError") {
+        debugLog("gis", `dismissed (${name}) — ready for next attempt`);
+      } else {
+        debugLog("gis", `ERROR ${name}: ${msg}`);
+        setNativeError(msg);
+        setShowDebug(true);
+      }
+      setSigningIn(false);
+    }
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -615,14 +574,16 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google button — onClick calls prompt() synchronously for FedCM */}
+      {/* Google button — uses navigator.credentials.get({mediation:'required'})
+          so Chrome always shows the account picker, even after dismiss.
+          Falls back to GIS prompt() on browsers without native FedCM. */}
       <div className="rise d2">
         <button
           type="button"
           className="btn-social"
           data-testid="button-google-signin"
           onClick={handleGoogleClick}
-          disabled={signingIn || googlePending}
+          disabled={signingIn}
           style={isDark ? {
             background: "rgba(255,255,255,0.07)",
             border: "1.5px solid rgba(255,255,255,0.10)",
@@ -635,7 +596,7 @@ export default function Login() {
             boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)",
           }}
         >
-          {(signingIn || googlePending) ? (
+          {signingIn ? (
             <div style={{ width: 20, height: 20, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
@@ -646,14 +607,14 @@ export default function Login() {
             </svg>
           )}
           <span style={{ flex: 1, textAlign: "center" }}>
-            {signingIn ? "Signing in…" : googlePending ? "Waiting for Google…" : "Continue with Google"}
+            {signingIn ? "Signing in…" : "Continue with Google"}
           </span>
         </button>
       </div>
 
-      {/* GIS status — always visible so the user can see what's happening */}
-      {!isNativePlatform() && gisStatus !== "idle" && (
-        <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 4, padding: "2px 8px", borderRadius: 6, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: gisStatus === "ready" ? (isDark ? "#4ade80" : "#16a34a") : gisStatus === "loading" ? (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)") : (isDark ? "#f87171" : "#dc2626") }}>
+      {/* GIS status — only shown when there's an error (green 'ready' is noise) */}
+      {!isNativePlatform() && gisStatus.startsWith("error:") && (
+        <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 4, padding: "2px 8px", borderRadius: 6, background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)", color: isDark ? "#f87171" : "#dc2626" }}>
           gis: {gisStatus}
         </div>
       )}

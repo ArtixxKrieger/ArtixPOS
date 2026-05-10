@@ -38,11 +38,10 @@ function getJwtSecret(): string {
 
 export function getBaseUrl(): string {
   const appUrl = process.env.APP_URL?.replace(/\/$/, "");
-  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-  if (process.env.NODE_ENV === "production" && appUrl) return appUrl;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (domain) return `https://${domain}`;
   if (appUrl) return appUrl;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  if (domain) return `https://${domain}`;
   return "http://localhost:5000";
 }
 

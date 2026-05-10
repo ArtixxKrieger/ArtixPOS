@@ -255,11 +255,69 @@ export default function Login() {
     }
   }
 
+  // Opens the server-side OAuth popup as a fallback when FedCM/GIS fails.
+  // Returns a promise that resolves when the popup completes auth, or rejects on timeout/error.
+  function openOAuthPopup(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const url = `${API_BASE}/auth/google?popup=1`;
+      const w = 520, h = 620;
+      const left = Math.max(0, (screen.width - w) / 2);
+      const top  = Math.max(0, (screen.height - h) / 2);
+      const popup = window.open(url, "google_oauth", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes`);
+
+      if (!popup || popup.closed || typeof popup.closed === "undefined") {
+        // Popup was blocked — fall back to same-tab redirect
+        debugLog("gis", "popup blocked — redirecting in same tab");
+        sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+        window.location.href = `${API_BASE}/auth/google`;
+        // Never resolves — page navigates away
+        return;
+      }
+
+      debugLog("gis", "popup opened — waiting for postMessage…");
+
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Google sign-in timed out. Please try again."));
+      }, 120_000);
+
+      // Poll for popup closure (user manually closed it)
+      const pollInterval = setInterval(() => {
+        try {
+          if (popup.closed) {
+            cleanup();
+            reject(new Error("_dismissed_"));
+          }
+        } catch {}
+      }, 500);
+
+      function onMessage(e: MessageEvent) {
+        try {
+          const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+          if (data?.type === "google-auth-ok") {
+            debugLog("gis", "popup auth OK ✓");
+            cleanup();
+            resolve();
+          } else if (data?.type === "google-auth-error") {
+            cleanup();
+            reject(new Error(data.error ?? "Google sign-in failed in popup"));
+          }
+        } catch {}
+      }
+
+      function cleanup() {
+        clearTimeout(timer);
+        clearInterval(pollInterval);
+        window.removeEventListener("message", onMessage);
+        try { popup.close(); } catch {}
+      }
+
+      window.addEventListener("message", onMessage);
+    });
+  }
+
   // On native → Capacitor Google Auth plugin.
-  // On web   → use navigator.credentials.get() with mediation:'required' so
-  //            Chrome always shows the FedCM account picker, even after the
-  //            user taps X to dismiss it. Falls back to GIS prompt() on older
-  //            browsers that don't support the IdentityCredential API.
+  // On web   → tries FedCM first, then GIS prompt(), then server-side OAuth popup.
   async function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
 
@@ -277,18 +335,12 @@ export default function Login() {
     const fedcmSupported = "IdentityCredential" in window;
     debugLog("gis", `click — FedCM native: ${fedcmSupported}  gisStatus: ${gisStatus}`);
 
-    try {
-      let idToken: string;
-
-      if (fedcmSupported) {
-        // ── Primary path: browser-native FedCM API ─────────────────────────
-        // mediation:'required' bypasses Chrome's post-dismiss cooldown so the
-        // sheet always appears each time the user explicitly clicks the button.
+    // ── Step 1: Try FedCM (Chrome native account picker) ───────────────────
+    if (fedcmSupported) {
+      try {
         const nonce = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
         debugLog("gis", "navigator.credentials.get({mediation:'required'}) …");
         // Chrome 143+ requires nonce inside params:{} not directly in the provider.
-        // Placing nonce at the top level causes the id_assertion_endpoint to reject
-        // the request with "Error retrieving a token".
         const cred = await (navigator.credentials as any).get({
           identity: {
             context: "signin",
@@ -300,16 +352,33 @@ export default function Login() {
           },
           mediation: "required",
         });
-        idToken = (cred as any)?.token;
+        const idToken = (cred as any)?.token;
         if (!idToken) throw new Error("FedCM returned no token");
         debugLog("gis", "FedCM token received ✓");
-      } else {
-        // ── Fallback: GIS prompt() for older / non-Chrome browsers ─────────
-        debugLog("gis", "FedCM not supported — using GIS prompt() fallback");
-        const goog = (window as any).google;
-        if (!goog?.accounts?.id) throw new Error("Google script not loaded. Refresh and try again.");
+        await authenticateWithToken(idToken);
+        return; // success
+      } catch (fedcmErr: any) {
+        const name = fedcmErr?.name ?? "";
+        const msg  = fedcmErr?.message ?? String(fedcmErr);
+        if (name === "AbortError" || name === "NotAllowedError") {
+          // User tapped X — silent reset, ready for next attempt
+          debugLog("gis", `FedCM dismissed (${name})`);
+          setSigningIn(false);
+          return;
+        }
+        // FedCM failed for another reason (e.g. "Error retrieving a token",
+        // origin not in Cloud Console, user not signed into Chrome, etc.)
+        // → fall through to GIS / popup fallback below.
+        debugLog("gis", `FedCM error (${name}): ${msg} — trying GIS/popup fallback`);
+      }
+    }
 
-        idToken = await new Promise<string>((resolve, reject) => {
+    // ── Step 2: Try GIS prompt() for non-FedCM browsers ────────────────────
+    const goog = (window as any).google;
+    if (!fedcmSupported && goog?.accounts?.id) {
+      try {
+        debugLog("gis", "FedCM not supported — using GIS prompt() fallback");
+        const idToken = await new Promise<string>((resolve, reject) => {
           goog.accounts.id.initialize({
             client_id: googleClientId,
             use_fedcm_for_prompt: false,
@@ -325,25 +394,35 @@ export default function Login() {
                 "browser_not_supported":  "Browser doesn't support Google sign-in. Use Chrome.",
                 "opt_out_or_no_session":  "No Google account found — sign into Chrome first.",
                 "unregistered_origin":    `Add "${window.location.origin}" to Authorised JavaScript Origins in Google Cloud Console.`,
-                "unknown_reason":         "Google couldn't display the sign-in prompt. Check Authorised JavaScript Origins.",
+                "unknown_reason":         "Google couldn't display the sign-in prompt. Try the popup below.",
               };
               reject(new Error(MSGS[r] ?? `Not displayed: ${r}`));
             }
           });
         });
         debugLog("gis", "GIS credential received ✓");
+        await authenticateWithToken(idToken);
+        return; // success
+      } catch (gisErr: any) {
+        // GIS failed — fall through to popup
+        debugLog("gis", `GIS error: ${gisErr?.message} — trying popup`);
       }
+    }
 
-      await authenticateWithToken(idToken);
-    } catch (err: any) {
+    // ── Step 3: Server-side OAuth popup (most compatible fallback) ──────────
+    try {
+      debugLog("gis", "opening server-side OAuth popup…");
+      await openOAuthPopup();
+      // Popup succeeded — cookie was set server-side, just refresh auth state
+      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      setLocation("/");
+    } catch (popupErr: any) {
       sessionStorage.removeItem(OAUTH_FLOW_KEY);
-      const name = err?.name ?? "";
-      const msg  = err?.message ?? String(err);
-      // AbortError / NotAllowedError = user tapped X — silent reset
-      if (name === "AbortError" || name === "NotAllowedError") {
-        debugLog("gis", `dismissed (${name}) — ready for next attempt`);
+      const msg = popupErr?.message ?? String(popupErr);
+      if (msg === "_dismissed_") {
+        debugLog("gis", "popup closed by user");
       } else {
-        debugLog("gis", `ERROR ${name}: ${msg}`);
+        debugLog("gis", `popup error: ${msg}`);
         setNativeError(msg);
         setShowDebug(true);
       }

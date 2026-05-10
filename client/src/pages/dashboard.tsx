@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useSettings } from "@/hooks/use-settings";
 import { useProducts } from "@/hooks/use-products";
 import { getBusinessFeatures } from "@/lib/business-features";
@@ -47,6 +48,7 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
@@ -140,10 +142,10 @@ export default function Dashboard() {
     orders: todaySales.length,
   };
   const reportHighlights = [
-    { label: "Net Revenue", value: formatCurrency(totalRevenue, currency), icon: ShoppingCart },
-    { label: "Refunds", value: formatCurrency(todayRefundTotal, currency), icon: Percent },
-    { label: "Peak Hour", value: todaySales.length ? `${bestSeller ? bestSeller.qty : 0} sold` : "No sales", icon: Clock3 },
-    { label: "Payments", value: paymentBreakdown.length ? paymentBreakdown[0].method : "none", icon: PieChart },
+    { label: t("dashboard.netRevenue"), value: formatCurrency(totalRevenue, currency), icon: ShoppingCart },
+    { label: t("dashboard.refunds"), value: formatCurrency(todayRefundTotal, currency), icon: Percent },
+    { label: t("dashboard.peakHour"), value: todaySales.length ? `${bestSeller ? bestSeller.qty : 0} ${t("dashboard.sold")}` : t("dashboard.noSalesToday"), icon: Clock3 },
+    { label: t("dashboard.payments"), value: paymentBreakdown.length ? paymentBreakdown[0].method : t("dashboard.noPaymentData"), icon: PieChart },
   ];
 
   const CurrencyIcon = ({ className }: { className?: string }) => (
@@ -160,7 +162,7 @@ export default function Dashboard() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -z-10" />
         <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl -z-10" />
 
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">Today's Net Revenue</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">{t("dashboard.todayRevenue")}</p>
         <div className="flex items-baseline gap-3 mb-1">
           <span className="text-4xl md:text-5xl font-bold tracking-tight tabular-nums">
             <Counter value={totalRevenue} prefix={currency} />
@@ -169,7 +171,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <p className="text-sm text-muted-foreground">
-            {todaySales.length} {todaySales.length === 1 ? terminology.orderLabel : `${terminology.orderLabel}s`} completed today
+            {todaySales.length} {todaySales.length === 1 ? terminology.orderLabel : `${terminology.orderLabel}s`} {t("dashboard.completedToday")}
           </p>
           {todayRefundCount > 0 && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">
@@ -180,13 +182,13 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-black/[0.04] dark:bg-white/[0.06] rounded-2xl p-3.5 border border-black/[0.07] dark:border-white/[0.08]">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Avg Order</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{t("dashboard.avgOrder")}</p>
             <p className="text-xl font-bold tabular-nums">
               <Counter value={avgOrder} prefix={currency} />
             </p>
           </div>
           <div className="bg-black/[0.04] dark:bg-white/[0.06] rounded-2xl p-3.5 border border-black/[0.07] dark:border-white/[0.08]">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Tax Collected</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{t("dashboard.taxCollected")}</p>
             <p className="text-xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
               <Counter value={totalTax} prefix={currency} />
             </p>
@@ -197,10 +199,10 @@ export default function Dashboard() {
       {/* KPI Strip */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 stagger-children">
         {[
-          { label: `Total ${terminology.orderLabel.charAt(0).toUpperCase()}${terminology.orderLabel.slice(1)}s`, display: todaySales.length.toString(), icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10", glow: "from-emerald-500/8" },
-          { label: "Net Revenue", display: totalRevenue > 0 ? `${currency}${totalRevenue.toFixed(0)}` : `${currency}0`, icon: CurrencyIcon, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10", glow: "from-blue-500/8" },
-          { label: "Avg Order", display: avgOrder > 0 ? `${currency}${avgOrder.toFixed(0)}` : `${currency}0`, icon: TrendingUp, color: "text-amber-600 dark:text-amber-400", iconBg: "bg-amber-500/10", glow: "from-amber-500/8" },
-          { label: "Tax Collected", display: totalTax > 0 ? `${currency}${totalTax.toFixed(0)}` : `${currency}0`, icon: Receipt, color: "text-purple-600 dark:text-purple-400", iconBg: "bg-purple-500/10", glow: "from-purple-500/8" },
+          { label: t("dashboard.totalSales"), display: todaySales.length.toString(), icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10", glow: "from-emerald-500/8" },
+          { label: t("dashboard.netRevenue"), display: totalRevenue > 0 ? `${currency}${totalRevenue.toFixed(0)}` : `${currency}0`, icon: CurrencyIcon, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10", glow: "from-blue-500/8" },
+          { label: t("dashboard.avgOrder"), display: avgOrder > 0 ? `${currency}${avgOrder.toFixed(0)}` : `${currency}0`, icon: TrendingUp, color: "text-amber-600 dark:text-amber-400", iconBg: "bg-amber-500/10", glow: "from-amber-500/8" },
+          { label: t("dashboard.taxCollected"), display: totalTax > 0 ? `${currency}${totalTax.toFixed(0)}` : `${currency}0`, icon: Receipt, color: "text-purple-600 dark:text-purple-400", iconBg: "bg-purple-500/10", glow: "from-purple-500/8" },
         ].map((card, i) => (
           <div key={i} className={`glass-card rounded-2xl p-4 bg-gradient-to-br ${card.glow} to-transparent transition-all duration-300 animate-fade-scale card-press`}>
             <div className="flex items-start justify-between mb-3">
@@ -219,23 +221,23 @@ export default function Dashboard() {
           <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
             <BarChart3 className="h-3.5 w-3.5 text-primary" />
           </div>
-          <h3 className="font-semibold text-sm">Day-End Summary</h3>
+          <h3 className="font-semibold text-sm">{t("dashboard.dayEndSummary")}</h3>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Gross Sales</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.grossSales")}</p>
             <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.gross, currency)}</p>
           </div>
           <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Net Sales</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.netSales")}</p>
             <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.net, currency)}</p>
           </div>
           <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">VAT Collected</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.vatCollected")}</p>
             <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.tax, currency)}</p>
           </div>
           <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Refunds</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.refunds")}</p>
             <p className="text-sm font-bold tabular-nums">-{formatCurrency(daySummary.refunds, currency)}</p>
           </div>
         </div>
@@ -248,7 +250,7 @@ export default function Dashboard() {
             <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
             </div>
-            <p className="font-semibold text-sm text-amber-700 dark:text-amber-400">Low Stock Alert</p>
+            <p className="font-semibold text-sm text-amber-700 dark:text-amber-400">{t("dashboard.lowStockAlert")}</p>
             <span className="ml-auto text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
               {lowStockProducts.length} item{lowStockProducts.length !== 1 ? "s" : ""}
             </span>
@@ -256,7 +258,7 @@ export default function Dashboard() {
               onClick={() => setLocation("/products")}
               className="text-xs text-amber-600 dark:text-amber-400 font-medium hover:opacity-70 flex items-center gap-1"
             >
-              Manage <ArrowRight className="h-3 w-3" />
+              {t("common.manage")} <ArrowRight className="h-3 w-3" />
             </button>
           </div>
           <div className="divide-y divide-amber-500/10">
@@ -267,13 +269,13 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.sku ? `SKU: ${p.sku} · ` : ""}Threshold: {p.lowStockThreshold}</p>
+                  <p className="text-xs text-muted-foreground">{p.sku ? `SKU: ${p.sku} · ` : ""}{t("dashboard.threshold")}: {p.lowStockThreshold}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className={["text-lg font-black tabular-nums", (p.stock ?? 0) === 0 ? "text-rose-500" : "text-amber-600 dark:text-amber-400"].join(" ")}>
                     {p.stock ?? 0}
                   </p>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">in stock</p>
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">{t("common.inStock")}</p>
                 </div>
               </div>
             ))}
@@ -309,7 +311,7 @@ export default function Dashboard() {
             <div className="h-7 w-7 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <BarChart3 className="h-3.5 w-3.5 text-primary" />
             </div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">All-Time Net</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.allTimePerformance")}</p>
           </div>
           <p className="font-bold text-sm tabular-nums">{formatCurrency(allTime.net, currency)}</p>
           <p className="text-xs text-muted-foreground mt-1">{allTime.orderCount} {allTime.orderCount === 1 ? terminology.orderLabel : `${terminology.orderLabel}s`} total</p>
@@ -325,7 +327,7 @@ export default function Dashboard() {
           <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
             <BarChart3 className="h-3.5 w-3.5 text-primary" />
           </div>
-          <h3 className="font-semibold text-sm">Quick Report</h3>
+          <h3 className="font-semibold text-sm">{t("dashboard.topProducts")}</h3>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {reportHighlights.map((item) => {
@@ -363,7 +365,7 @@ export default function Dashboard() {
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
               <Receipt className="h-3.5 w-3.5 text-primary" />
             </div>
-            <h3 className="font-semibold text-sm">Today's Transactions</h3>
+            <h3 className="font-semibold text-sm">{t("dashboard.viewTransactions")}</h3>
             <span className="ml-auto text-xs text-muted-foreground bg-secondary/60 px-2 py-0.5 rounded-full">
               {todaySales.length}
             </span>
@@ -371,7 +373,7 @@ export default function Dashboard() {
               onClick={() => setLocation("/transactions")}
               className="flex items-center gap-1 text-xs text-primary font-medium hover:opacity-75 transition-opacity ml-2"
             >
-              View all
+              {t("common.viewAll")}
               <ArrowRight className="h-3 w-3" />
             </button>
           </div>
@@ -429,8 +431,8 @@ export default function Dashboard() {
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2">
             <Receipt className="h-8 w-8 text-muted-foreground/30" />
           </div>
-          <p className="text-foreground font-semibold">No sales today yet</p>
-          <p className="text-sm text-muted-foreground/70">Head to the POS tab to start taking orders</p>
+          <p className="text-foreground font-semibold">{t("dashboard.noSalesToday")}</p>
+          <p className="text-sm text-muted-foreground/70">{t("dashboard.goToPOS")}</p>
         </div>
       )}
 

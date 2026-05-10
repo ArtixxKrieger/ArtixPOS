@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "sileo/styles.css";
+import "./i18n";
 
 // ── Splash screen dismissal ───────────────────────────────────────────────
 // The #app-splash div is rendered in raw HTML and shows instantly before any

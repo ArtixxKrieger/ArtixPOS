@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState, startTransition } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { AiFloatButton } from "@/components/ai-float-button";
 import {
   Home, ShoppingCart, Clock, Package,
@@ -22,11 +23,12 @@ import { getBusinessFeatures } from "@/lib/business-features";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 
 function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onToggle}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={isDark ? t("common.switchLight") : t("common.switchDark")}
+      title={isDark ? t("common.switchLight") : t("common.switchDark")}
       data-testid="button-toggle-theme"
       className={[
         "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0",
@@ -105,12 +107,56 @@ const NAV_SECTIONS = [
 ];
 
 const ADMIN_NAV_ITEMS = [
-  { label: "Overview", url: "/admin", icon: ShieldCheck },
-  { label: "Branches", url: "/admin/branches", icon: Building2 },
-  { label: "Team", url: "/admin/users", icon: Users },
-  { label: "Analytics", url: "/admin/analytics", icon: BarChart3 },
-  { label: "Audit Log", url: "/admin/audit-logs", icon: ScrollText, ownerOnly: true },
+  { label: "Overview", url: "/admin", icon: ShieldCheck, i18nKey: "nav.admin.overview" },
+  { label: "Branches", url: "/admin/branches", icon: Building2, i18nKey: "nav.admin.branches" },
+  { label: "Team", url: "/admin/users", icon: Users, i18nKey: "nav.admin.team" },
+  { label: "Analytics", url: "/admin/analytics", icon: BarChart3, i18nKey: "nav.admin.analytics" },
+  { label: "Audit Log", url: "/admin/audit-logs", icon: ScrollText, ownerOnly: true, i18nKey: "nav.admin.auditLog" },
 ] as const;
+
+const URL_TO_I18N_KEY: Record<string, string> = {
+  "/": "nav.dashboard",
+  "/pos": "nav.pos",
+  "/pending": "nav.pending",
+  "/kitchen": "nav.kitchen",
+  "/tables": "nav.tables",
+  "/appointments": "nav.appointments",
+  "/staff": "nav.staff",
+  "/rooms": "nav.rooms",
+  "/memberships": "nav.memberships",
+  "/shifts": "nav.shifts",
+  "/timeclock": "nav.timeclock",
+  "/payroll": "nav.payroll",
+  "/products": "nav.products",
+  "/expiry": "nav.expiry",
+  "/customers": "nav.customers",
+  "/transactions": "nav.transactions",
+  "/discount-codes": "nav.discounts",
+  "/loyalty": "nav.loyalty",
+  "/refunds": "nav.refunds",
+  "/analytics": "nav.analytics",
+  "/expenses": "nav.expenses",
+  "/suppliers": "nav.suppliers",
+  "/purchases": "nav.purchases",
+  "/bir": "nav.bir",
+  "/bir-audit-log": "nav.birAuditLog",
+  "/ai": "nav.ai",
+  "/print-settings": "nav.printSettings",
+  "/billing": "nav.billing",
+  "/settings": "nav.settings",
+  "/admin": "nav.admin.overview",
+  "/admin/branches": "nav.admin.branches",
+  "/admin/users": "nav.admin.team",
+  "/admin/analytics": "nav.admin.analytics",
+  "/admin/audit-logs": "nav.admin.auditLog",
+};
+
+const SECTION_ID_TO_I18N_KEY: Record<string, string> = {
+  operations: "nav.sections.operations",
+  management: "nav.sections.management",
+  finance: "nav.sections.financeAnalytics",
+  tools: "nav.sections.tools",
+};
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -164,6 +210,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(getInitialDark);
   const onlineStatus = useOnlineStatus();
   const { isOnline, isSyncing, salesQueueCount } = onlineStatus;
+  const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
   const role = user?.role ?? "cashier";
@@ -234,7 +281,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
     if (!shouldShowNavItem(item)) return null;
     const Icon = item.icon;
     const isActive = location === item.url;
-    const displayLabel = businessLabels[item.url] ?? item.label;
+    const i18nKey = URL_TO_I18N_KEY[item.url];
+    const translatedLabel = i18nKey ? t(i18nKey) : item.label;
+    const displayLabel = businessLabels[item.url] ?? translatedLabel;
     const badge = item.url === "/pending" && pendingCount > 0 ? pendingCount : null;
 
     return (
@@ -289,7 +338,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
             <div className="min-w-0">
               <p className="font-bold text-[13px] text-foreground truncate leading-tight">{storeName}</p>
-              <p className="text-[9.5px] text-muted-foreground tracking-widest uppercase mt-0.5 font-semibold">POS System</p>
+              <p className="text-[9.5px] text-muted-foreground tracking-widest uppercase mt-0.5 font-semibold">{t("common.posSystem")}</p>
             </div>
           </div>
           {isOwner && (
@@ -304,10 +353,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {NAV_SECTIONS.map((section) => {
             const visibleItems = section.items.filter(item => shouldShowNavItem(item));
             if (visibleItems.length === 0) return null;
+            const sectionI18nKey = SECTION_ID_TO_I18N_KEY[section.id];
+            const sectionLabel = sectionI18nKey ? t(sectionI18nKey) : section.label;
             return (
               <div key={section.id}>
                 {section.label && (
-                  <p className="nav-section-label">{section.label}</p>
+                  <p className="nav-section-label">{sectionLabel}</p>
                 )}
                 <div className="space-y-0.5">
                   {visibleItems.map((item) => (
@@ -320,7 +371,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
           {isAdminOrAbove && (
             <div>
-              <p className="nav-section-label">Admin</p>
+              <p className="nav-section-label">{t("nav.sections.admin")}</p>
               <div className="space-y-0.5">
                 {ADMIN_NAV_ITEMS.map((item) => {
                   if ((item as any).ownerOnly && !isOwner) return null;
@@ -340,7 +391,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       ].join(" ")}
                     >
                       <Icon className={["h-[14px] w-[14px] shrink-0", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
-                      <span className="flex-1 text-left truncate">{item.label}</span>
+                      <span className="flex-1 text-left truncate">{t((item as any).i18nKey ?? item.label)}</span>
                     </button>
                   );
                 })}
@@ -374,7 +425,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   aria-label="Logout"
                   data-testid="button-logout"
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={isLoggingOut ? "Signing out…" : "Logout"}
+                  title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
                 >
                   <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
                 </button>
@@ -408,7 +459,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             {onlineStatus.isReady && (!isOnline || isSyncing) && (
               <div className={["flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
-                {isSyncing ? <><RefreshCw className="h-2.5 w-2.5 animate-spin" /><span>Syncing</span></> : <><WifiOff className="h-2.5 w-2.5" /><span>Offline</span></>}
+                {isSyncing ? <><RefreshCw className="h-2.5 w-2.5 animate-spin" /><span>{t("common.syncing")}</span></> : <><WifiOff className="h-2.5 w-2.5" /><span>{t("common.offline")}</span></>}
               </div>
             )}
 

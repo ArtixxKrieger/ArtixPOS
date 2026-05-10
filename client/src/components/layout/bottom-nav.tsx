@@ -1,5 +1,6 @@
 import { useState, startTransition } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import {
   Home, ShoppingCart, Clock, Package, Settings, BarChart3,
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
@@ -15,6 +16,36 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
+
+const URL_TO_I18N_KEY: Record<string, string> = {
+  "/": "nav.dashboard",
+  "/pos": "nav.pos",
+  "/pending": "nav.pending",
+  "/kitchen": "nav.kitchen",
+  "/tables": "nav.tables",
+  "/appointments": "nav.appointments",
+  "/staff": "nav.staff",
+  "/rooms": "nav.rooms",
+  "/memberships": "nav.memberships",
+  "/products": "nav.products",
+  "/customers": "nav.customers",
+  "/transactions": "nav.transactions",
+  "/analytics": "nav.analytics",
+  "/expenses": "nav.expenses",
+  "/suppliers": "nav.suppliers",
+  "/purchases": "nav.purchases",
+  "/shifts": "nav.shifts",
+  "/timeclock": "nav.timeclock",
+  "/discount-codes": "nav.discounts",
+  "/refunds": "nav.refunds",
+  "/ai": "nav.ai",
+  "/print-settings": "nav.printSettings",
+  "/loyalty": "nav.loyalty",
+  "/payroll": "nav.payroll",
+  "/bir": "nav.bir",
+  "/billing": "nav.billing",
+  "/settings": "nav.settings",
+};
 
 const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.ComponentType<{ className?: string }> }> = {
   "/": { defaultLabel: "Home", icon: Home },
@@ -74,13 +105,14 @@ const MORE_NAV_FULL = [
 ];
 
 const ADMIN_NAV = [
-  { label: "Overview", url: "/admin", icon: ShieldCheck },
-  { label: "Branches", url: "/admin/branches", icon: Building2 },
-  { label: "Team", url: "/admin/users", icon: Users },
-  { label: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+  { label: "Overview", url: "/admin", icon: ShieldCheck, i18nKey: "nav.admin.overview" },
+  { label: "Branches", url: "/admin/branches", icon: Building2, i18nKey: "nav.admin.branches" },
+  { label: "Team", url: "/admin/users", icon: Users, i18nKey: "nav.admin.team" },
+  { label: "Analytics", url: "/admin/analytics", icon: BarChart3, i18nKey: "nav.admin.analytics" },
 ] as const;
 
 export function BottomNav() {
+  const { t } = useTranslation();
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingOrders = [] } = usePendingOrders();
@@ -105,9 +137,11 @@ export function BottomNav() {
     { url: primaryNavUrls[1] as string },
   ].map((item) => {
     const config = URL_NAV_CONFIG[item.url] ?? { defaultLabel: item.url, icon: Home };
+    const i18nKey = URL_TO_I18N_KEY[item.url];
+    const translatedLabel = i18nKey ? t(i18nKey) : config.defaultLabel;
     return {
       url: item.url,
-      label: labels[item.url] ?? config.defaultLabel,
+      label: labels[item.url] ?? translatedLabel,
       icon: config.icon,
     };
   });
@@ -126,9 +160,11 @@ export function BottomNav() {
     return true;
   }).map((item) => {
     const config = URL_NAV_CONFIG[item.url] ?? { defaultLabel: item.url, icon: Home };
+    const i18nKey = URL_TO_I18N_KEY[item.url];
+    const translatedLabel = i18nKey ? t(i18nKey) : config.defaultLabel;
     return {
       url: item.url,
-      label: labels[item.url] ?? config.defaultLabel,
+      label: labels[item.url] ?? translatedLabel,
       icon: config.icon,
     };
   });
@@ -238,7 +274,7 @@ export function BottomNav() {
                 ].join(" ")}
               />
               <span className="text-[8px] leading-none tracking-wide z-10 transition-all duration-200 font-medium">
-                More
+                {t("nav.more")}
               </span>
             </button>
           )}
@@ -265,7 +301,7 @@ export function BottomNav() {
           {MORE_NAV.length > 0 && (
             <div className="px-4 pt-3 pb-2">
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
-                More
+                {t("nav.more")}
               </p>
               <div className="grid grid-cols-4 gap-2">
                 {MORE_NAV.map((item) => {
@@ -295,7 +331,7 @@ export function BottomNav() {
           {isAdminOrAbove && (
             <div className="px-4 pt-2 pb-2">
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
-                Admin
+                {t("nav.sections.admin")}
               </p>
               <div className="grid grid-cols-4 gap-2">
                 {ADMIN_NAV.map((item) => {
@@ -314,7 +350,7 @@ export function BottomNav() {
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
-                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{item.label}</span>
+                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{t((item as any).i18nKey ?? item.label)}</span>
                     </button>
                   );
                 })}

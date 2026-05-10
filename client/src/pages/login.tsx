@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
@@ -81,6 +82,7 @@ const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 type AuthMode = "signin" | "register";
 
 export default function Login() {
+  const { t } = useTranslation();
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
@@ -384,14 +386,14 @@ export default function Login() {
           fontSize: 26, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.025em",
           color: isDark ? "#ffffff" : "#0f0a1e", margin: 0, marginBottom: 8,
         }}>
-          {mode === "register" ? "Create your account" : "Welcome back"}
+          {mode === "register" ? t("login.createAccount") : t("login.welcomeBack")}
         </h1>
         <p style={{
           fontSize: 14, lineHeight: 1.6,
           color: isDark ? "rgba(255,255,255,0.52)" : "rgba(15,10,30,0.55)",
           margin: 0,
         }}>
-          {mode === "register" ? "Set up your store in seconds." : "Sign in to continue to your store."}
+          {mode === "register" ? t("login.createSubtitle") : t("login.signInSubtitle")}
         </p>
       </div>
 
@@ -420,7 +422,7 @@ export default function Login() {
                 : "none",
             }}
           >
-            {m === "signin" ? "Sign in" : "Create account"}
+            {m === "signin" ? t("login.signIn") : t("login.createAccount")}
           </button>
         ))}
       </div>
@@ -502,7 +504,7 @@ export default function Login() {
             </svg>
           )}
           <span style={{ flex: 1, textAlign: "center" }}>
-            {signingIn ? "Signing in…" : "Continue with Google"}
+            {signingIn ? t("login.signingInGoogle") : t("login.continueWithGoogle")}
           </span>
         </button>
       </div>
@@ -512,7 +514,7 @@ export default function Login() {
       <div className="rise d2" style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
         <div style={{ flex: 1, height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }} />
         <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.32)", whiteSpace: "nowrap" }}>
-          or {mode === "register" ? "register" : "sign in"} with email
+          {mode === "register" ? t("login.orCreateEmail") : t("login.orSignInEmail")}
         </span>
         <div style={{ flex: 1, height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }} />
       </div>
@@ -522,7 +524,7 @@ export default function Login() {
         {mode === "register" && (
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)", display: "block", marginBottom: 5 }}>
-              Full name
+              {t("login.fullName")}
             </label>
             <input type="text" placeholder="Jane Smith" value={formName} onChange={e => setFormName(e.target.value)}
               required data-testid="input-name" className="form-input" style={inputStyle} />
@@ -531,7 +533,7 @@ export default function Login() {
 
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)", display: "block", marginBottom: 5 }}>
-            Email address
+            {t("login.emailAddress")}
           </label>
           <input type="email" placeholder="you@example.com" value={formEmail} onChange={e => setFormEmail(e.target.value)}
             required data-testid="input-email" className="form-input" style={inputStyle} />
@@ -590,12 +592,12 @@ export default function Login() {
                 )}
               </div>
               <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)" }}>
-                Remember this device
+                {t("login.rememberDevice")}
               </span>
             </label>
             <button type="button" onClick={openForgot} data-testid="button-forgot-password"
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(167,139,250,0.75)" : "rgba(109,40,217,0.7)", padding: 0 }}>
-              Forgot password?
+              {t("login.forgotPassword")}
             </button>
           </div>
         )}
@@ -612,13 +614,13 @@ export default function Login() {
         <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary"
           style={{ marginTop: 4, background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", color: "#ffffff", boxShadow: "0 4px 18px rgba(109,40,217,0.35)" }}>
           {formLoading
-            ? (mode === "register" ? "Creating account…" : "Signing in…")
-            : (mode === "register" ? "Create account" : "Sign in")}
+            ? (mode === "register" ? t("login.creatingAccount") : t("login.signingIn"))
+            : (mode === "register" ? t("login.createAccount") : t("login.signIn"))}
         </button>
       </form>
 
       <p className="rise d4" style={{ marginTop: 20, fontSize: 12, textAlign: "center", color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.38)", lineHeight: 1.5 }}>
-        No credit card. No setup fees. Your data stays yours.
+        {t("login.noCC")}
       </p>
 
       {isNativePlatform() && (
@@ -703,22 +705,22 @@ export default function Login() {
               fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.035em",
               margin: "0 0 18px",
             }}>
-              <span style={{ color: "#fff" }}>Your store.</span><br />
+              <span style={{ color: "#fff" }}>{t("login.heroTitle1")}</span><br />
               <span style={{ background: "linear-gradient(90deg, #a78bfa 0%, #818cf8 50%, #67e8f9 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                Fully in control.
+                {t("login.heroTitle2")}
               </span>
             </h2>
             <p style={{ fontSize: 14, lineHeight: 1.75, color: "rgba(167,139,250,0.6)", margin: "0 0 36px", maxWidth: 320 }}>
-              Sales, inventory, staff, analytics, and AI — all in one place. Built for speed, designed for simplicity.
+              {t("login.heroSubtitle")}
             </p>
 
             {/* Feature list */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[
-                { dot: "#a78bfa", text: "Point of Sale with offline support" },
-                { dot: "#818cf8", text: "Real-time analytics & reports" },
-                { dot: "#67e8f9", text: "Built-in AI business assistant" },
-                { dot: "#4ade80", text: "Multi-branch & team management" },
+                { dot: "#a78bfa", text: t("login.featurePOS") },
+                { dot: "#818cf8", text: t("login.featureAnalytics") },
+                { dot: "#67e8f9", text: t("login.featureAI") },
+                { dot: "#4ade80", text: t("login.featureMulti") },
               ].map((f, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: f.dot, boxShadow: `0 0 8px ${f.dot}`, flexShrink: 0 }} />

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
+import i18n, { SUPPORTED_LANGUAGES } from "@/i18n";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -81,6 +83,8 @@ function SettingRow({ label, hint, children }: { label: string; hint?: string; c
 }
 
 export default function Settings() {
+  const { t, i18n: i18nInstance } = useTranslation();
+  const [currentLang, setCurrentLang] = useState(i18n.language || "en");
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
@@ -294,8 +298,39 @@ export default function Settings() {
     ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
     : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
 
+  const handleLanguageChange = (code: string) => {
+    setCurrentLang(code);
+    i18n.changeLanguage(code);
+    localStorage.setItem("artixpos_language", code);
+  };
+
   return (
     <div className="max-w-lg page-enter space-y-1">
+
+      {/* Language selector — available to all users */}
+      <SectionLabel>{t("settings.language")}</SectionLabel>
+      <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+        <div className="flex items-center justify-between py-2.5">
+          <div className="shrink-0">
+            <p className="text-sm font-medium text-foreground leading-none">{t("settings.chooseLanguage")}</p>
+          </div>
+          <div className="min-w-0 max-w-[55%]">
+            <select
+              value={currentLang}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              data-testid="select-language"
+              className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-2 w-full focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
+              style={{ direction: "ltr" }}
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeName} ({lang.name})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* Owner settings */}
       {isOwner && (

@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2, Download, Globe, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -100,6 +101,14 @@ export default function Settings() {
   const [voucherCode, setVoucherCode] = useState("");
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+
+  const LANG_FLAGS: Record<string, string> = {
+    en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪", pt: "🇧🇷",
+    it: "🇮🇹", nl: "🇳🇱", ru: "🇷🇺", tr: "🇹🇷", ar: "🇸🇦",
+    hi: "🇮🇳", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", th: "🇹🇭",
+    vi: "🇻🇳", id: "🇮🇩", ms: "🇲🇾", tl: "🇵🇭",
+  };
 
   const handleExportBackup = async () => {
     if (isBackingUp) return;
@@ -309,28 +318,71 @@ export default function Settings() {
 
       {/* Language selector — available to all users */}
       <SectionLabel>{t("settings.language")}</SectionLabel>
-      <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-        <div className="flex items-center justify-between py-2.5">
-          <div className="shrink-0">
-            <p className="text-sm font-medium text-foreground leading-none">{t("settings.chooseLanguage")}</p>
+      <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowLangPicker(true)}
+          data-testid="button-language-picker"
+          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-secondary/40 transition-colors active:bg-secondary/60"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Globe className="h-4 w-4 text-primary" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-foreground leading-none">{t("settings.chooseLanguage")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {LANG_FLAGS[currentLang]} {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 max-w-[55%]">
-            <select
-              value={currentLang}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              data-testid="select-language"
-              className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-2 w-full focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
-              style={{ direction: "ltr" }}
-            >
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.nativeName} ({lang.name})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+        </button>
       </div>
+
+      {/* Language picker dialog */}
+      <Dialog open={showLangPicker} onOpenChange={setShowLangPicker}>
+        <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Globe className="h-5 w-5 text-primary" />
+              </div>
+              <DialogTitle className="text-lg font-black">{t("settings.chooseLanguage")}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="overflow-y-auto px-4 pb-6 space-y-1.5">
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const isSelected = currentLang === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  data-testid={`button-lang-${lang.code}`}
+                  onClick={() => { handleLanguageChange(lang.code); setShowLangPicker(false); }}
+                  className={[
+                    "w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all text-left",
+                    isSelected
+                      ? "bg-primary/8 border-primary/30 shadow-sm shadow-primary/10"
+                      : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
+                  ].join(" ")}
+                >
+                  <span className="text-2xl leading-none shrink-0">{LANG_FLAGS[lang.code]}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
+                      {lang.nativeName}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{lang.name}</p>
+                  </div>
+                  {isSelected && (
+                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                      <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Owner settings */}
       {isOwner && (

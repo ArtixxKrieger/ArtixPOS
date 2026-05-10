@@ -102,6 +102,7 @@ export default function Settings() {
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
+  const [langSearch, setLangSearch] = useState("");
 
   const LANG_FLAGS: Record<string, string> = {
     en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪", pt: "🇧🇷",
@@ -340,7 +341,7 @@ export default function Settings() {
       </div>
 
       {/* Language picker dialog */}
-      <Dialog open={showLangPicker} onOpenChange={setShowLangPicker}>
+      <Dialog open={showLangPicker} onOpenChange={(open) => { setShowLangPicker(open); if (!open) setLangSearch(""); }}>
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <div className="flex items-center gap-3">
@@ -350,14 +351,38 @@ export default function Settings() {
               <DialogTitle className="text-lg font-black">{t("settings.chooseLanguage")}</DialogTitle>
             </div>
           </DialogHeader>
+          <div className="px-4 pb-3 shrink-0">
+            <div className="relative">
+              <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 pointer-events-none" />
+              <input
+                type="text"
+                value={langSearch}
+                onChange={(e) => setLangSearch(e.target.value)}
+                placeholder="Search language..."
+                data-testid="input-language-search"
+                className="w-full h-10 pl-10 pr-4 rounded-2xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 focus:bg-secondary/80 transition-all placeholder:text-muted-foreground/40 font-medium"
+              />
+            </div>
+          </div>
           <div className="overflow-y-auto px-4 pb-6 space-y-1.5">
-            {SUPPORTED_LANGUAGES.map((lang) => {
+            {(() => {
+              const q = langSearch.toLowerCase();
+              const filtered = SUPPORTED_LANGUAGES.filter(lang =>
+                !q || lang.name.toLowerCase().includes(q) || lang.nativeName.toLowerCase().includes(q) || lang.code.includes(q)
+              );
+              if (filtered.length === 0) return (
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
+                  <Globe className="h-8 w-8" strokeWidth={1.2} />
+                  <p className="text-sm font-medium">No languages found</p>
+                </div>
+              );
+              return filtered.map((lang) => {
               const isSelected = currentLang === lang.code;
               return (
                 <button
                   key={lang.code}
                   data-testid={`button-lang-${lang.code}`}
-                  onClick={() => { handleLanguageChange(lang.code); setShowLangPicker(false); }}
+                  onClick={() => { handleLanguageChange(lang.code); setShowLangPicker(false); setLangSearch(""); }}
                   className={[
                     "w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all text-left",
                     isSelected
@@ -379,7 +404,8 @@ export default function Settings() {
                   )}
                 </button>
               );
-            })}
+            });
+          })()}
           </div>
         </DialogContent>
       </Dialog>

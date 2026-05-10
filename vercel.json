@@ -4,8 +4,7 @@
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.js": {
-      "maxDuration": 60,
-      "memory": 512
+      "maxDuration": 60
     }
   },
   "headers": [

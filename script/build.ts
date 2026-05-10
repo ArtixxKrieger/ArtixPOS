@@ -2,32 +2,21 @@ import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
 
-// server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times
+// Only bundle small, core packages to keep the bundle lean and cold-start fast.
+// Heavy packages (xlsx, drizzle-orm, date-fns, etc.) are left as node_modules
+// externals — Vercel installs them at deploy time and they load fine.
 const allowlist = [
-  "@google/generative-ai",
   "axios",
-  "connect-pg-simple",
   "cors",
-  "date-fns",
-  "drizzle-orm",
-  "drizzle-zod",
+  "cookie-parser",
   "express",
   "express-rate-limit",
-  "express-session",
   "jsonwebtoken",
-  "memorystore",
-  "multer",
   "nanoid",
-  "nodemailer",
-  "openai",
   "passport",
   "passport-local",
-  "pg",
-  "stripe",
   "uuid",
   "ws",
-  "xlsx",
   "zod",
   "zod-validation-error",
 ];

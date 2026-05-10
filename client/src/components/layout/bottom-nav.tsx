@@ -171,7 +171,7 @@ export function BottomNav() {
         >
           {/* Sliding active pill — hidden when no nav item matches current page */}
           <div
-            className="absolute inset-y-1 pointer-events-none z-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+            className="absolute inset-y-1 pointer-events-none z-0 transition-all duration-300 ease-in-out"
             style={{
               width: `calc((100% - 8px) / ${hasMore ? primaryNavItems.length + 1 : primaryNavItems.length})`,
               transform: `translateX(calc(${Math.max(0, pillIndex)} * 100%))`,

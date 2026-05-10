@@ -1,11 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// When bundled for native (Capacitor) builds, VITE_API_BASE_URL is set to the
-// deployed backend URL so API calls reach the server from the local WebView.
-// In web/dev mode it stays empty so relative paths like /api/products work as-is.
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
-// Key used to persist the JWT received from native OAuth deep links
 export const NATIVE_TOKEN_KEY = "cafebara_native_token";
 
 export function resolveUrl(url: string): string {
@@ -28,10 +24,6 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// Drop-in replacement for fetch() that works in both web and native (APK) contexts.
-// - Resolves relative URLs to the configured API base for native builds
-// - Attaches the Bearer token when one is stored (native auth flow)
-// - Uses the correct credentials mode (omit for native, include for web)
 export async function nativeFetch(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(resolveUrl(url), {
     ...options,
@@ -47,7 +39,6 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = await res.text();
     let message = res.statusText || "Something went wrong";
-
     if (text) {
       try {
         const body = JSON.parse(text);
@@ -56,18 +47,10 @@ async function throwIfResNotOk(res: Response) {
         message = text;
       }
     }
-
     throw new Error(message);
   }
 }
 
-// When running in a native (Capacitor) context, API_BASE is set and every
-// request is cross-origin (APK WebView → Vercel server). Sending
-// credentials:"include" on cross-origin requests requires the server to respond
-// with Access-Control-Allow-Credentials: true. We never set that header because
-// native clients authenticate via Bearer tokens, not cookies. Using "omit"
-// avoids the CORS preflight failure entirely — even before the first token is
-// received (e.g. the initial /api/auth/me check or the Google idToken POST).
 function getCredentials(): RequestCredentials {
   const isNativeContext = !!API_BASE;
   const hasToken = !!localStorage.getItem(NATIVE_TOKEN_KEY);
@@ -88,9 +71,40 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
     credentials: getCredentials(),
   });
-
   await throwIfResNotOk(res);
   return res;
+}
+
+// ── Fetch with timeout ─────────────────────────────────────────────────────
+// When Android Chrome suspends a tab (user switches apps), in-flight fetch
+// requests have their Promises frozen — they never resolve or reject.
+// On return, React Query stays in the `loading` state forever because the
+// queryFn never settles. A 20-second abort timeout ensures the query either
+// resolves or throws so React Query can retry / show an error.
+function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  externalSignal?: AbortSignal | null,
+  timeoutMs = 20_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), timeoutMs);
+
+  // Respect the query's own abort signal (fired on unmount / query cancellation)
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener("abort", () => {
+        clearTimeout(timeoutId);
+        controller.abort(externalSignal.reason);
+      }, { once: true });
+    }
+  }
+
+  return fetch(url, { ...init, signal: controller.signal })
+    .finally(() => clearTimeout(timeoutId));
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -98,12 +112,13 @@ export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
+  async ({ queryKey, signal }) => {
     const url = resolveUrl(queryKey.join("/") as string);
-    const res = await fetch(url, {
-      credentials: getCredentials(),
-      headers: getAuthHeaders(),
-    });
+    const res = await fetchWithTimeout(
+      url,
+      { credentials: getCredentials(), headers: getAuthHeaders() },
+      signal,
+    );
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
@@ -120,11 +135,7 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      // Keep inactive queries in memory for 10 minutes, then garbage collect.
-      // Prevents stale data from bloating memory on low-end devices.
       gcTime: 10 * 60 * 1000,
-      // Retry transient failures up to 2 times for read queries.
-      // Mutations intentionally stay at 0 — they are not idempotent.
       retry: 2,
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       networkMode: "always",
@@ -135,3 +146,29 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// ── Visibility-change recovery ─────────────────────────────────────────────
+// When the user returns to the tab after the device was suspended or the
+// browser killed background processes, any queries that were mid-fetch will
+// be stuck (see fetchWithTimeout above — they'll eventually timeout and
+// retry). We additionally pro-actively refetch any query in an error state
+// and cancel/restart any that are still stuck in fetching state.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+
+    queryClient.getQueryCache().getAll().forEach((query) => {
+      const { status, fetchStatus } = query.state;
+      // Re-try errored queries immediately on return
+      if (status === "error") {
+        queryClient.invalidateQueries({ queryKey: query.queryKey });
+      }
+      // If a query is stuck fetching (e.g. frozen Promise), cancel it so
+      // the timeout fires immediately and React Query reschedules a retry.
+      if (fetchStatus === "fetching") {
+        queryClient.cancelQueries({ queryKey: query.queryKey });
+        queryClient.invalidateQueries({ queryKey: query.queryKey });
+      }
+    });
+  });
+}

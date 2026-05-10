@@ -3,24 +3,6 @@ import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 
 import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fr from "./locales/fr.json";
-import de from "./locales/de.json";
-import pt from "./locales/pt.json";
-import it from "./locales/it.json";
-import ar from "./locales/ar.json";
-import zh from "./locales/zh.json";
-import ja from "./locales/ja.json";
-import ko from "./locales/ko.json";
-import vi from "./locales/vi.json";
-import id from "./locales/id.json";
-import tl from "./locales/tl.json";
-import hi from "./locales/hi.json";
-import th from "./locales/th.json";
-import ru from "./locales/ru.json";
-import tr from "./locales/tr.json";
-import nl from "./locales/nl.json";
-import ms from "./locales/ms.json";
 
 export interface Language {
   code: string;
@@ -51,6 +33,41 @@ export const SUPPORTED_LANGUAGES: Language[] = [
   { code: "tl", name: "Filipino", nativeName: "Filipino", dir: "ltr" },
 ];
 
+// Each entry is a separate Vite chunk — only downloaded when the user picks that language.
+// English is always bundled (it's the fallback and the most common locale).
+const LOCALE_LOADERS: Record<string, () => Promise<any>> = {
+  es: () => import("./locales/es.json"),
+  fr: () => import("./locales/fr.json"),
+  de: () => import("./locales/de.json"),
+  pt: () => import("./locales/pt.json"),
+  it: () => import("./locales/it.json"),
+  nl: () => import("./locales/nl.json"),
+  ru: () => import("./locales/ru.json"),
+  tr: () => import("./locales/tr.json"),
+  ar: () => import("./locales/ar.json"),
+  hi: () => import("./locales/hi.json"),
+  zh: () => import("./locales/zh.json"),
+  ja: () => import("./locales/ja.json"),
+  ko: () => import("./locales/ko.json"),
+  th: () => import("./locales/th.json"),
+  vi: () => import("./locales/vi.json"),
+  id: () => import("./locales/id.json"),
+  ms: () => import("./locales/ms.json"),
+  tl: () => import("./locales/tl.json"),
+};
+
+export async function loadLocale(code: string): Promise<void> {
+  if (code === "en" || i18n.hasResourceBundle(code, "translation")) return;
+  const loader = LOCALE_LOADERS[code];
+  if (!loader) return;
+  try {
+    const mod = await loader();
+    i18n.addResourceBundle(code, "translation", mod.default ?? mod, true, true);
+  } catch {
+    // Fail silently — English fallback handles missing translations
+  }
+}
+
 function applyLanguageAttrs(lng: string) {
   const lang = SUPPORTED_LANGUAGES.find((l) => l.code === lng) ?? SUPPORTED_LANGUAGES[0];
   document.documentElement.lang = lng;
@@ -63,24 +80,6 @@ i18n
   .init({
     resources: {
       en: { translation: en },
-      es: { translation: es },
-      fr: { translation: fr },
-      de: { translation: de },
-      pt: { translation: pt },
-      it: { translation: it },
-      ar: { translation: ar },
-      zh: { translation: zh },
-      ja: { translation: ja },
-      ko: { translation: ko },
-      vi: { translation: vi },
-      id: { translation: id },
-      tl: { translation: tl },
-      hi: { translation: hi },
-      th: { translation: th },
-      ru: { translation: ru },
-      tr: { translation: tr },
-      nl: { translation: nl },
-      ms: { translation: ms },
     },
     fallbackLng: "en",
     detection: {
@@ -91,9 +90,40 @@ i18n
     interpolation: {
       escapeValue: false,
     },
+    // Allow adding resource bundles after init (for lazy-loaded locales)
+    partialBundledLanguages: true,
+    load: "languageOnly",
   });
+
+// Patch changeLanguage so it always ensures the locale is loaded first.
+// This replaces every call-site in the app — no changes needed elsewhere.
+const _origChangeLanguage = i18n.changeLanguage.bind(i18n);
+i18n.changeLanguage = async (lng?: string, callback?: any) => {
+  if (lng && lng !== "en") await loadLocale(lng);
+  return _origChangeLanguage(lng, callback);
+};
 
 i18n.on("languageChanged", applyLanguageAttrs);
 applyLanguageAttrs(i18n.language);
+
+// Pre-load the initially detected locale in the background so the UI
+// switches to the correct language as soon as the first render happens.
+// This is fire-and-forget — English renders instantly, locale swaps in ~50ms.
+const _initialLang = (() => {
+  try { return localStorage.getItem("artixpos_language") || navigator.language?.split("-")[0] || "en"; }
+  catch { return "en"; }
+})();
+
+if (_initialLang !== "en" && LOCALE_LOADERS[_initialLang]) {
+  loadLocale(_initialLang).then(() => {
+    if (!i18n.hasResourceBundle(_initialLang, "translation")) return;
+    // Force react-i18next to re-render with the newly loaded translations
+    if (i18n.language === _initialLang || i18n.language.startsWith(_initialLang)) {
+      i18n.emit("languageChanged", i18n.language);
+    } else {
+      i18n.changeLanguage(_initialLang);
+    }
+  });
+}
 
 export default i18n;

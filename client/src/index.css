@@ -250,6 +250,17 @@
   will-change: transform;
 }
 
+/* ─── Content visibility — defer paint of off-screen list items ───────────
+   Browsers skip layout and paint for items below the fold, dramatically
+   reducing render time for large product catalogs and customer lists.
+   intrinsic-size gives the browser a height estimate to preserve scroll bar
+   accuracy before items are painted.
+   ─────────────────────────────────────────────────────────────────────────── */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 88px;
+}
+
 /* ─── Scrollbar hide ──────────────────────────────────────────────────────── */
 .scrollbar-hide {
   scrollbar-width: none;

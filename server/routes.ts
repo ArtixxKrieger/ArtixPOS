@@ -130,9 +130,16 @@ export async function registerRoutes(
     const branch = activeBranchId(req);
     const cacheKey = productsCacheKey(userId(req)) + (branch != null ? `:b${branch}` : "");
     const cached = await cache.getAsync(cacheKey);
-    if (cached) return res.json(cached);
+    if (cached) {
+      const etag = `"p-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
+      if (req.headers["if-none-match"] === etag) return res.status(304).end();
+      res.setHeader("ETag", etag);
+      return res.json(cached);
+    }
     const products = await storage.getProducts(userId(req), branch);
     await cache.setAsync(cacheKey, products, TTL.PRODUCTS);
+    const etag = `"p-${createHash("sha1").update(JSON.stringify(products)).digest("hex").slice(0, 16)}"`;
+    res.setHeader("ETag", etag);
     res.json(products);
   });
 
@@ -789,7 +796,12 @@ export async function registerRoutes(
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const cacheKey = settingsCacheKey(userId(req));
     const cached = await cache.getAsync(cacheKey);
-    if (cached) return res.json(cached);
+    if (cached) {
+      const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
+      if (req.headers["if-none-match"] === etag) return res.status(304).end();
+      res.setHeader("ETag", etag);
+      return res.json(cached);
+    }
 
     const settings = await storage.getSettings(userId(req));
     if (!settings) {

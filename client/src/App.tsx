@@ -14,7 +14,6 @@ import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
-import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -60,6 +59,9 @@ const PayrollPage = lazy(() => import("@/pages/payroll"));
 const BIRPage = lazy(() => import("@/pages/bir"));
 const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
 const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
+const VercelAnalytics = lazy(() =>
+  import("@vercel/analytics/react").then((m) => ({ default: m.Analytics }))
+);
 
 /**
  * Extract and store the JWT token from an OAuth deep-link URL.
@@ -778,7 +780,11 @@ function App() {
           </BlePrinterProvider>
         </TooltipProvider>
       </QueryClientProvider>
-      {import.meta.env.PROD && <VercelAnalytics />}
+      {import.meta.env.PROD && (
+        <Suspense fallback={null}>
+          <VercelAnalytics />
+        </Suspense>
+      )}
     </ErrorBoundary>
   );
 }

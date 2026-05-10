@@ -205,6 +205,17 @@ export default function Login() {
       } else {
         await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       }
+      try {
+        const settingsRes = await fetch(resolveUrl("/api/settings"), {
+          credentials: "omit",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (settingsRes.ok) {
+          queryClient.setQueryData(["/api/settings"], await settingsRes.json());
+        } else if (settingsRes.status === 404) {
+          queryClient.setQueryData(["/api/settings"], null);
+        }
+      } catch {}
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
       const isUserCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismissed") || msg.toLowerCase().includes("12501");
@@ -243,6 +254,14 @@ export default function Login() {
       if (!res.ok) { setFormError(data.message ?? "Something went wrong."); return; }
       sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
       queryClient.setQueryData(["auth-me"], data.user);
+      try {
+        const settingsRes = await fetch(resolveUrl("/api/settings"), { credentials: "include" });
+        if (settingsRes.ok) {
+          queryClient.setQueryData(["/api/settings"], await settingsRes.json());
+        } else if (settingsRes.status === 404) {
+          queryClient.setQueryData(["/api/settings"], null);
+        }
+      } catch {}
     } catch {
       setFormError("Network error. Please try again.");
     } finally {

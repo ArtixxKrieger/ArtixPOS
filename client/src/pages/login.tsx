@@ -169,6 +169,29 @@ export default function Login() {
   const hasStoredToken = !!localStorage.getItem(NATIVE_TOKEN_KEY);
   const hasPendingInvite = !!localStorage.getItem(INVITE_STORAGE_KEY) || !!urlParams.get("invite");
 
+  function decodeTokenUser(token: string) {
+    try {
+      const part = token.split(".")[1];
+      if (!part) return null;
+      const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+      if (!payload?.id) return null;
+      if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+      return {
+        id: payload.id,
+        name: payload.name ?? null,
+        email: payload.email ?? null,
+        avatar: payload.avatar ?? null,
+        provider: payload.provider ?? "google",
+        tenantId: payload.tenantId ?? null,
+        role: payload.role ?? "owner",
+        activeBranchId: payload.activeBranchId ?? null,
+        activeBranch: null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async function handleNativeGoogleSignIn() {
     setNativeError(null);
     setSigningIn(true);
@@ -176,8 +199,12 @@ export default function Login() {
     try {
       const token = await nativeGoogleSignIn();
       setNativeToken(token);
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setLocation("/");
+      const userFromToken = decodeTokenUser(token);
+      if (userFromToken) {
+        queryClient.setQueryData(["auth-me"], userFromToken);
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      }
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
       const isUserCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismissed") || msg.toLowerCase().includes("12501");
@@ -215,8 +242,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setFormError(data.message ?? "Something went wrong."); return; }
       sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setLocation("/");
+      queryClient.setQueryData(["auth-me"], data.user);
     } catch {
       setFormError("Network error. Please try again.");
     } finally {

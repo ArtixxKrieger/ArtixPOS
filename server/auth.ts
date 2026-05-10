@@ -537,7 +537,20 @@ export function setupAuth(app: Express) {
       if (!created) throw new Error("User not found after insert");
 
       setAuthCookie(res, created);
-      res.status(201).json({ ok: true });
+      res.status(201).json({
+        ok: true,
+        user: {
+          id: created.id,
+          name: created.name ?? null,
+          email: created.email ?? null,
+          avatar: created.avatar ?? null,
+          provider: created.provider,
+          tenantId: (created as any).tenantId ?? null,
+          role: (created as any).role ?? "owner",
+          activeBranchId: (created as any).activeBranchId ?? null,
+          activeBranch: null,
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -570,7 +583,20 @@ export function setupAuth(app: Express) {
       }
 
       setAuthCookie(res, user, rememberMe === true);
-      res.json({ ok: true });
+      res.json({
+        ok: true,
+        user: {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          avatar: user.avatar ?? null,
+          provider: user.provider,
+          tenantId: (user as any).tenantId ?? null,
+          role: (user as any).role ?? "owner",
+          activeBranchId: (user as any).activeBranchId ?? null,
+          activeBranch: null,
+        },
+      });
     } catch (err) {
       next(err);
     }

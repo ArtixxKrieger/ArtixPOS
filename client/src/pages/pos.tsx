@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
@@ -60,6 +61,7 @@ export default function POS() {
     (settings as any)?.businessSubType,
   );
   const { posAction, cartLabel, addToCartLabel, productPlural } = useBusinessTerminology();
+  const { t } = useTranslation();
 
   // Cafe-style businesses (cafe, bakery, food truck) operate Starbucks-style:
   // walk-in customers aren't stored — only a name on the receipt.
@@ -612,7 +614,7 @@ export default function POS() {
         {cart.length === 0 ? (
           <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-muted-foreground/50 gap-2">
             <ShoppingCart className="h-10 w-10" strokeWidth={1.2} />
-            <p className="text-xs font-medium">{cartLabel} is empty — tap a product</p>
+            <p className="text-xs font-medium">{cartLabel} {t("pos.emptyCartSuffix")}</p>
           </div>
         ) : (
           cart.map((item) => {
@@ -641,7 +643,7 @@ export default function POS() {
                       type="text"
                       value={item.note || ""}
                       onChange={(e) => updateNote(item.cartId, e.target.value)}
-                      placeholder="Note..."
+                      placeholder={t("pos.noteShort")}
                       className="flex-1 text-[10px] bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/30 font-medium min-w-0"
                     />
                   </div>
@@ -705,7 +707,7 @@ export default function POS() {
             data-testid="button-select-customer"
           >
             <UserCircle2 className="h-3.5 w-3.5" />
-            <span>Add Customer (optional)</span>
+            <span>{t("pos.addCustomer")}</span>
           </button>
         ))}
 
@@ -715,19 +717,19 @@ export default function POS() {
             type="text"
             value={receiptName}
             onChange={(e) => setReceiptName(e.target.value.slice(0, 40))}
-            placeholder="Name on receipt (optional)"
+            placeholder={t("pos.nameOnReceipt")}
             className="h-8 rounded-xl bg-secondary/60 border-none text-xs"
             data-testid="input-receipt-name"
           />
         )}
 
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Subtotal</span>
+          <span>{t("pos.subtotal")}</span>
           <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
         </div>
         {taxRate > 0 && (
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>VAT ({taxRate}%)</span>
+            <span>{t("pos.vat")} ({taxRate}%)</span>
             <span className="tabular-nums">{formatCurrency(tax, currency)}</span>
           </div>
         )}
@@ -760,7 +762,7 @@ export default function POS() {
                     validateDiscountMutation.mutate({ code: discountCodeInput.trim(), orderTotal: subtotal });
                   }
                 }}
-                placeholder="Discount code"
+                placeholder={t("pos.discountCode")}
                 className="w-full h-8 rounded-xl bg-secondary/60 border border-border/40 pl-7 pr-2 text-[11px] font-mono font-semibold uppercase outline-none focus:border-primary/40 transition-colors"
                 data-testid="input-discount-code-pos"
               />
@@ -775,7 +777,7 @@ export default function POS() {
               className="h-8 px-2.5 rounded-xl bg-primary/10 text-primary text-[11px] font-bold border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-40"
               data-testid="button-apply-discount-code"
             >
-              {validateDiscountMutation.isPending ? "..." : "Apply"}
+              {validateDiscountMutation.isPending ? "..." : t("pos.apply")}
             </button>
           </div>
         )}
@@ -785,21 +787,21 @@ export default function POS() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-medium text-muted-foreground shrink-0">SC/PWD</span>
-              {(["none", "sc", "pwd"] as const).map((t) => (
+              {(["none", "sc", "pwd"] as const).map((scpwd) => (
                 <button
-                  key={t}
-                  onClick={() => { setScPwdType(t); if (t !== "none") setDiscount(0); }}
+                  key={scpwd}
+                  onClick={() => { setScPwdType(scpwd); if (scpwd !== "none") setDiscount(0); }}
                   className={[
                     "flex-1 h-7 rounded-xl border text-[10px] font-bold transition-all active:scale-95",
-                    scPwdType === t
-                      ? t !== "none"
+                    scPwdType === scpwd
+                      ? scpwd !== "none"
                         ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400"
                         : "bg-primary/15 border-primary/30 text-primary"
                       : "bg-secondary/80 border-border/40 hover:bg-secondary text-muted-foreground",
                   ].join(" ")}
-                  data-testid={`button-scpwd-${t}`}
+                  data-testid={`button-scpwd-${scpwd}`}
                 >
-                  {t === "none" ? "None" : t.toUpperCase()}
+                  {scpwd === "none" ? t("pos.none") : scpwd.toUpperCase()}
                 </button>
               ))}
             </div>
@@ -807,7 +809,7 @@ export default function POS() {
               <Input
                 value={scPwdId}
                 onChange={e => setScPwdId(e.target.value)}
-                placeholder={`${scPwdType === "sc" ? "Senior Citizen" : "PWD"} ID number (required)`}
+                placeholder={`${scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} ${t("pos.scPwdId")}`}
                 className="h-8 rounded-xl bg-amber-500/8 border border-amber-500/20 text-xs"
                 data-testid="input-scpwd-id"
               />
@@ -819,7 +821,7 @@ export default function POS() {
         {!appliedCode && !isScPwd && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium flex items-center gap-1 text-muted-foreground shrink-0">
-              <Tag className="h-3 w-3 text-primary" /> Discount
+              <Tag className="h-3 w-3 text-primary" /> {t("pos.discount")}
             </span>
             <Input
               type="number"
@@ -833,13 +835,13 @@ export default function POS() {
 
         {isScPwd && (
           <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
-            <span>{scPwdType === "sc" ? "Senior Citizen" : "PWD"} Discount (20%)</span>
+            <span>{scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} {t("pos.scPwdDiscount20")}</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(scPwdDiscount, currency)}</span>
           </div>
         )}
         {!isScPwd && discount > 0 && (
           <div className="flex justify-between text-xs text-rose-600 dark:text-rose-400">
-            <span>Discount</span>
+            <span>{t("pos.discount")}</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(discount, currency)}</span>
           </div>
         )}
@@ -849,14 +851,14 @@ export default function POS() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1 min-w-0">
               <Star className="h-3 w-3 text-amber-500 shrink-0" />
-              <span className="text-xs font-medium truncate">Loyalty ({selectedCustomer.loyaltyPoints} pts)</span>
+              <span className="text-xs font-medium truncate">{t("pos.loyalty")} ({selectedCustomer.loyaltyPoints} {t("pos.pts")})</span>
               {maxRedeemablePoints > 0 && (
                 <button
                   onClick={() => setLoyaltyPointsToRedeem(maxRedeemablePoints)}
                   className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline shrink-0"
                   data-testid="button-redeem-all-points"
                 >
-                  Max
+                  {t("pos.max")}
                 </button>
               )}
             </div>
@@ -875,14 +877,14 @@ export default function POS() {
 
         {loyaltyDiscount > 0 && (
           <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
-            <span>Loyalty ({loyaltyPointsToRedeem} pts)</span>
+            <span>{t("pos.loyalty")} ({loyaltyPointsToRedeem} {t("pos.pts")})</span>
             <span className="tabular-nums font-semibold">-{formatCurrency(loyaltyDiscount, currency)}</span>
           </div>
         )}
 
         {/* Tip selector — single compact row */}
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground shrink-0">Tip</span>
+          <span className="text-xs font-medium text-muted-foreground shrink-0">{t("pos.tip")}</span>
           {[0.05, 0.10, 0.15].map(pct => (
             <button
               key={pct}
@@ -903,7 +905,7 @@ export default function POS() {
             className="flex-1 h-7 rounded-xl bg-secondary/40 border border-border/40 text-[10px] font-medium hover:bg-secondary transition-all active:scale-95"
             data-testid="button-tip-clear"
           >
-            None
+            {t("pos.none")}
           </button>
           <Input
             type="number"
@@ -919,7 +921,7 @@ export default function POS() {
         {/* WiFi voucher toggle (cafés) */}
         {((settings as any)?.wifiSsid || (settings as any)?.wifiPassword) && (
           <label className="flex items-center justify-between text-xs gap-2 cursor-pointer" data-testid="toggle-wifi-voucher">
-            <span className="font-medium text-muted-foreground">Issue free WiFi voucher</span>
+            <span className="font-medium text-muted-foreground">{t("pos.wifiVoucher")}</span>
             <input
               type="checkbox"
               checked={issueWifi}
@@ -930,7 +932,7 @@ export default function POS() {
         )}
 
         <div className="flex justify-between items-center pt-1 border-t border-border/50">
-          <span className="text-sm font-bold">Total</span>
+          <span className="text-sm font-bold">{t("pos.total")}</span>
           <span className="text-lg font-black text-primary tabular-nums">
             {formatCurrency(Math.max(0, total), currency)}
           </span>
@@ -939,7 +941,7 @@ export default function POS() {
         {isCashPayment && (
           <>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium shrink-0 text-muted-foreground">Paid</span>
+              <span className="text-xs font-medium shrink-0 text-muted-foreground">{t("pos.paid")}</span>
 
               {/* Mobile: native number keyboard */}
               <Input
@@ -989,7 +991,7 @@ export default function POS() {
                         className="w-full h-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold mb-2 hover:bg-emerald-500/20 transition-all"
                         data-testid="button-numpad-exact"
                       >
-                        Exact — {formatCurrency(total, currency)}
+                        {t("pos.exact")} — {formatCurrency(total, currency)}
                       </button>
                     )}
 
@@ -1027,7 +1029,7 @@ export default function POS() {
                       className="w-full h-9 rounded-xl bg-primary text-white font-bold text-sm mt-2 hover:opacity-90 transition-all active:scale-[0.98]"
                       data-testid="button-numpad-done"
                     >
-                      Done
+                      {t("pos.done")}
                     </button>
                   </PopoverContent>
                 </Popover>
@@ -1040,7 +1042,7 @@ export default function POS() {
                   className="flex-1 h-7 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold hover:bg-emerald-500/20 transition-all active:scale-95"
                   data-testid="button-quick-exact"
                 >
-                  Exact
+                  {t("pos.exact")}
                 </button>
                 {quickAmounts.map(amount => (
                   <button
@@ -1056,7 +1058,7 @@ export default function POS() {
             )}
             {changeAmount > 0 && (
               <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                <span>Change</span>
+                <span>{t("pos.change")}</span>
                 <span className="tabular-nums">{formatCurrency(changeAmount, currency)}</span>
               </div>
             )}
@@ -1065,7 +1067,7 @@ export default function POS() {
 
         <Select value={paymentMethod} onValueChange={setPaymentMethod}>
           <SelectTrigger className="w-full h-8 bg-secondary/60 border-none rounded-xl text-xs font-medium" data-testid="select-payment-method">
-            <SelectValue placeholder="Payment Method" />
+            <SelectValue placeholder={t("pos.paymentMethod")} />
           </SelectTrigger>
           <SelectContent>
             {paymentMethods.map(m => (
@@ -1084,7 +1086,7 @@ export default function POS() {
           disabled={cart.length === 0 || createPending.isPending}
           data-testid="button-checkout"
         >
-          {createPending.isPending ? "Processing..." : `${posAction} · ${formatCurrency(total, currency)}`}
+          {createPending.isPending ? t("pos.processing") : `${posAction} · ${formatCurrency(total, currency)}`}
         </Button>
       </div>
     </div>
@@ -1111,7 +1113,7 @@ export default function POS() {
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={`Search ${productPlural.toLowerCase()}...`}
+              placeholder={`${t("pos.searchProducts")} ${productPlural.toLowerCase()}...`}
               className="pl-11 h-12 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -1126,7 +1128,7 @@ export default function POS() {
               ].join(" ")} />
               <Input
                 ref={barcodeRef}
-                placeholder="Scan barcode..."
+                placeholder={t("pos.scanBarcode")}
                 className={[
                   "pl-9 h-12 w-40 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20 transition-colors duration-150",
                   scanFlash ? "ring-2 ring-primary/30" : ""
@@ -1138,7 +1140,7 @@ export default function POS() {
               />
               {scanFlash && (
                 <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary animate-pulse pointer-events-none">
-                  SCANNING
+                  {t("pos.scanning")}
                 </span>
               )}
             </div>
@@ -1159,7 +1161,7 @@ export default function POS() {
                   : "bg-card border-border/40 text-foreground/60 hover:text-foreground hover:bg-secondary/60"
               ].join(" ")}
             >
-              {cat}
+              {cat === "all" ? t("pos.allCategories") : cat}
             </button>
           ))}
         </div>
@@ -1169,7 +1171,7 @@ export default function POS() {
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3 py-16">
               <Package className="h-14 w-14" strokeWidth={1.2} />
-              <p className="font-medium">No products found</p>
+              <p className="font-medium">{t("pos.noProducts")}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 stagger-children">
@@ -1204,7 +1206,7 @@ export default function POS() {
                           ? "bg-rose-500/90 text-white border-rose-300/30"
                           : "bg-amber-500/90 text-white border-amber-300/30",
                       ].join(" ")}>
-                        {product.stock === 0 ? "Out of stock" : `${product.stock} left`}
+                        {product.stock === 0 ? t("pos.outOfStock") : `${product.stock} ${t("pos.left")}`}
                       </div>
                     )}
                   </div>
@@ -1245,7 +1247,7 @@ export default function POS() {
           <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center">
             <ShoppingCart className="text-primary h-4.5 w-4.5" />
           </div>
-          <h2 className="text-xl font-black">Current Order</h2>
+          <h2 className="text-xl font-black">{t("pos.currentOrder")}</h2>
           {cartCount > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span className="bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full animate-badge-pop" key={cartCount}>
@@ -1254,7 +1256,7 @@ export default function POS() {
               <button
                 onClick={() => setCart([])}
                 className="h-7 w-7 rounded-full bg-destructive/8 hover:bg-destructive/15 flex items-center justify-center text-destructive/60 hover:text-destructive transition-all shrink-0"
-                title="Clear cart"
+                title={t("pos.clearCart")}
                 data-testid="button-clear-cart"
               >
                 <Trash2 className="h-3 w-3" />
@@ -1282,11 +1284,11 @@ export default function POS() {
               </span>
             </div>
             <div className="flex-1 text-left">
-              <p className="text-xs font-semibold text-muted-foreground leading-none mb-0.5">{cartCount} item{cartCount !== 1 ? "s" : ""}</p>
+              <p className="text-xs font-semibold text-muted-foreground leading-none mb-0.5">{cartCount} {cartCount !== 1 ? t("pos.items") : t("pos.item")}</p>
               <p className="text-sm font-black tabular-nums">{formatCurrency(total, currency)}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-sm font-bold text-primary">Review</span>
+              <span className="text-sm font-bold text-primary">{t("pos.review")}</span>
               <ChevronRight className="h-4 w-4 text-primary" />
             </div>
           </button>
@@ -1325,13 +1327,13 @@ export default function POS() {
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-5 bg-primary text-white">
             <DialogTitle className="text-xl font-black">{selectedProduct?.name}</DialogTitle>
-            <p className="text-white/65 text-xs font-medium mt-1">Customize your order</p>
+            <p className="text-white/65 text-xs font-medium mt-1">{t("pos.customizeOrder")}</p>
           </DialogHeader>
 
           <div className="p-6 space-y-6">
             {selectedProduct?.sizes && selectedProduct.sizes.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Select Size</h4>
+                <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t("pos.selectSize")}</h4>
                 <div className="grid grid-cols-3 gap-2">
                   {selectedProduct.sizes.map((s) => (
                     <button
@@ -1354,13 +1356,13 @@ export default function POS() {
 
             <div className="space-y-2">
               <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                <NotebookPen className="h-3 w-3" /> Note
+                <NotebookPen className="h-3 w-3" /> {t("pos.note")}
               </h4>
               <input
                 type="text"
                 value={tempNote}
                 onChange={(e) => setTempNote(e.target.value)}
-                placeholder="Add a note for this item"
+                placeholder={t("pos.addNote")}
                 className="w-full rounded-2xl border border-border/40 bg-secondary/50 px-4 py-3 text-sm outline-none focus:border-primary/40 transition-colors placeholder:text-muted-foreground/40 font-medium"
               />
             </div>
@@ -1371,7 +1373,7 @@ export default function POS() {
               data-testid="button-add-to-cart"
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              Add to Order
+              {t("pos.addToOrder")}
               {tempSize && (
                 <span className="ml-1.5 opacity-80 text-sm font-semibold">
                   · {formatCurrency(tempSize.price, currency)}
@@ -1392,20 +1394,20 @@ export default function POS() {
       {/* Customer Picker Dialog */}
       <Dialog open={showCustomerPicker} onOpenChange={setShowCustomerPicker}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Select Customer</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("pos.selectCustomer")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
               <Input
                 value={customerSearch}
                 onChange={e => setCustomerSearch(e.target.value)}
-                placeholder="Search by name or phone..."
+                placeholder={t("pos.searchCustomer")}
                 className="pl-9 h-10 rounded-xl"
                 data-testid="input-customer-search"
               />
             </div>
             {filteredCustomers.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-6">No customers found</p>
+              <p className="text-center text-sm text-muted-foreground py-6">{t("pos.noCustomers")}</p>
             ) : (
               <div className="space-y-1 max-h-64 overflow-y-auto">
                 {filteredCustomers.map(c => (
@@ -1420,7 +1422,7 @@ export default function POS() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold text-sm">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.phone || c.email || "No contact info"}</p>
+                      <p className="text-xs text-muted-foreground">{c.phone || c.email || t("pos.noContactInfo")}</p>
                     </div>
                   </button>
                 ))}

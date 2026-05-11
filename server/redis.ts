@@ -8,6 +8,11 @@ import { Ratelimit } from "@upstash/ratelimit";
 
 let _redis: Redis | null | undefined = undefined; // undefined = not yet initialised
 
+/** True only when Upstash env vars are set. Use to skip async Redis calls entirely. */
+export const redisAvailable = !!(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+);
+
 export function getRedis(): Redis | null {
   if (_redis !== undefined) return _redis;
   const url = process.env.UPSTASH_REDIS_REST_URL;

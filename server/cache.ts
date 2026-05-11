@@ -1,4 +1,4 @@
-import { redisGet, redisSet, redisDel, redisDelByPattern } from "./redis";
+import { redisGet, redisSet, redisDel, redisDelByPattern, redisAvailable } from "./redis";
 import { recordCacheHit, recordCacheMiss } from "./metrics";
 
 const MAX_ENTRIES = 5_000; // prevent unbounded growth under high tenant load
@@ -60,6 +60,9 @@ class TtlCache {
   // autoscale replicas share the same warm cache instead of each building its own.
 
   async getAsync<T>(key: string): Promise<T | undefined> {
+    // Fast-path: no Redis configured — L1 is the only layer, return synchronously.
+    if (!redisAvailable) return this.get<T>(key);
+
     // 1. Check L1 first — instant, no network.
     // Note: get() already records hit/miss for L1.
     const l1 = this.get<T>(key);
@@ -81,6 +84,8 @@ class TtlCache {
   async setAsync<T>(key: string, value: T, ttlMs: number): Promise<void> {
     // Write to L1 (sync, instant for this replica).
     this.set(key, value, ttlMs);
+    // Fast-path: no Redis — skip the network write.
+    if (!redisAvailable) return;
     // Write to L2 (async, shared across all replicas).
     await redisSet(key, value, ttlMs);
   }
@@ -101,3 +106,4 @@ export const TTL = {
 export function productsCacheKey(uid: string)  { return `products:${uid}`; }
 export function settingsCacheKey(uid: string)   { return `settings:${uid}`; }
 export function barcodeCacheKey(uid: string, barcode: string) { return `barcode:${uid}:${barcode}`; }
+export function dashboardCacheKey(uid: string, bid: number | null) { return `dashboard:${uid}:${bid ?? "all"}`; }

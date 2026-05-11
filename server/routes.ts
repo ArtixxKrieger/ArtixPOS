@@ -15,7 +15,7 @@ import { users, branches as branchesTable, tenants, sales as salesTable, shifts 
 import { signToken, setAuthCookie, verifyToken } from "./auth";
 import { emit as emitTenantEvent, subscribe as subscribeTenantEvent } from "./events";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
-import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey } from "./cache";
+import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey, dashboardCacheKey } from "./cache";
 import {
   insertCustomerSchema,
   insertExpenseSchema,
@@ -128,18 +128,21 @@ export async function registerRoutes(
 
   app.get(api.products.list.path, requireAuth, async (req, res) => {
     const branch = activeBranchId(req);
-    const cacheKey = productsCacheKey(userId(req)) + (branch != null ? `:b${branch}` : "");
-    const cached = await cache.getAsync(cacheKey);
+    const uid = userId(req);
+    const cacheKey = productsCacheKey(uid) + (branch != null ? `:b${branch}` : "");
+    const cached = cache.get<object[]>(cacheKey); // sync L1 — no await needed
     if (cached) {
       const etag = `"p-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
       res.setHeader("ETag", etag);
+      res.setHeader("Cache-Control", "private, max-age=120");
       return res.json(cached);
     }
-    const products = await storage.getProducts(userId(req), branch);
-    await cache.setAsync(cacheKey, products, TTL.PRODUCTS);
+    const products = await storage.getProducts(uid, branch);
+    cache.set(cacheKey, products, TTL.PRODUCTS); // sync write
     const etag = `"p-${createHash("sha1").update(JSON.stringify(products)).digest("hex").slice(0, 16)}"`;
     res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "private, max-age=120");
     res.json(products);
   });
 
@@ -644,6 +647,8 @@ export async function registerRoutes(
         invoiceNumber: (sale as any).invoiceNumber ?? null,
         discountCode: sale.discountCode,
       });
+      // Invalidate dashboard cache so the new sale is reflected immediately.
+      cache.del(dashboardCacheKey(userId(req), activeBranchId(req)));
       res.status(201).json(sale);
 
       // Send email receipt to customer if they have an email on file — fire-and-forget
@@ -695,19 +700,28 @@ export async function registerRoutes(
     const uid = userId(req);
     const bid = activeBranchId(req);
 
+    // Cache for 30 s — stats are approximate by nature; a short TTL is fine.
+    const cacheKey = dashboardCacheKey(uid, bid);
+    const cached = cache.get<object>(cacheKey);
+    if (cached) {
+      res.setHeader("Cache-Control", "private, max-age=30");
+      return res.json(cached);
+    }
+
     const todayISO = new Date().toISOString().slice(0, 10);
-    const todaySales = await storage.getSales(uid, {
-      branchId: bid ?? undefined,
-      startDate: todayISO,
-      limit: 1000,
-    });
+
+    // Run today's sales fetch + tenant resolution + aggregate in parallel.
+    const [todaySales, userRow] = await Promise.all([
+      storage.getSales(uid, {
+        branchId: bid ?? undefined,
+        startDate: todayISO,
+        limit: 1000,
+      }),
+      db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, uid)),
+    ]);
 
     // Resolve tenant user IDs so branch owners see combined data
-    const [userRow] = await db
-      .select({ tenantId: users.tenantId })
-      .from(users)
-      .where(eq(users.id, uid));
-    const tid = userRow?.tenantId;
+    const tid = userRow[0]?.tenantId;
     let tenantUserIds: string[] = [uid];
     if (tid) {
       const rows = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, tid));
@@ -730,7 +744,7 @@ export async function registerRoutes(
       .from(salesTable)
       .where(where);
 
-    res.json({
+    const payload = {
       todaySales,
       allTime: {
         orderCount: Number(agg?.orderCount ?? 0),
@@ -738,7 +752,11 @@ export async function registerRoutes(
         net:         Number(agg?.net ?? 0),
         refundTotal: Number(agg?.refundTotal ?? 0),
       },
-    });
+    };
+
+    cache.set(cacheKey, payload, 30_000); // 30 s TTL — sync, instant
+    res.setHeader("Cache-Control", "private, max-age=30");
+    res.json(payload);
   });
 
   // ── Data Backup Export ─────────────────────────────────────────────────────
@@ -794,21 +812,23 @@ export async function registerRoutes(
   // ── Settings ──────────────────────────────────────────────────────────────
 
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
-    const cacheKey = settingsCacheKey(userId(req));
-    const cached = await cache.getAsync(cacheKey);
+    const uid = userId(req);
+    const cacheKey = settingsCacheKey(uid);
+    const cached = cache.get<object>(cacheKey); // sync L1
     if (cached) {
       const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
       res.setHeader("ETag", etag);
+      res.setHeader("Cache-Control", "private, max-age=120");
       return res.json(cached);
     }
 
-    const settings = await storage.getSettings(userId(req));
+    const settings = await storage.getSettings(uid);
     if (!settings) {
       // No settings yet (pre-onboarding) — don't cache, it will change soon
       return res.json({
         id: 0,
-        userId: userId(req),
+        userId: uid,
         storeName: "My Store",
         currency: "$",
         taxRate: "0",
@@ -824,12 +844,14 @@ export async function registerRoutes(
     // have onboardingComplete = 0 in the DB but have already configured their store.
     // If the store name has been customised (≠ default), mark onboarding as done.
     if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
-      storage.updateSettings(userId(req), { onboardingComplete: 1 }).catch(() => {});
+      storage.updateSettings(uid, { onboardingComplete: 1 }).catch(() => {});
       const healed = { ...settings, onboardingComplete: 1 };
-      await cache.setAsync(cacheKey, healed, TTL.SETTINGS);
+      cache.set(cacheKey, healed, TTL.SETTINGS);
+      res.setHeader("Cache-Control", "private, max-age=120");
       return res.json(healed);
     }
-    await cache.setAsync(cacheKey, settings, TTL.SETTINGS);
+    cache.set(cacheKey, settings, TTL.SETTINGS);
+    res.setHeader("Cache-Control", "private, max-age=120");
     res.json(settings);
   });
 
@@ -2091,18 +2113,21 @@ export async function registerRoutes(
     const deleted = await storage.softDeleteSale(id, uid, uid, voidReason);
     if (!deleted) return res.status(404).json({ message: "Sale not found" });
     await auditLog(req, "void", "sale", String(id), { softDelete: true, voidReason });
+    // Invalidate dashboard cache so the voided sale is removed immediately.
+    cache.del(dashboardCacheKey(uid, activeBranchId(req)));
     res.status(204).end();
   });
 
   // ── Barcode Lookup ────────────────────────────────────────────────────────
 
   app.get("/api/products/barcode/:barcode", requireAuth, async (req, res) => {
-    const cacheKey = barcodeCacheKey(userId(req), req.params.barcode as string);
-    const cached = await cache.getAsync(cacheKey);
+    const uid = userId(req);
+    const cacheKey = barcodeCacheKey(uid, req.params.barcode as string);
+    const cached = cache.get<object>(cacheKey); // sync L1 — instant
     if (cached) return res.json(cached);
-    const product = await storage.getProductByBarcode(req.params.barcode as string, userId(req));
+    const product = await storage.getProductByBarcode(req.params.barcode as string, uid);
     if (!product) return res.status(404).json({ message: "Product not found" });
-    await cache.setAsync(cacheKey, product, TTL.BARCODE);
+    cache.set(cacheKey, product, TTL.BARCODE); // sync write
     res.json(product);
   });
 

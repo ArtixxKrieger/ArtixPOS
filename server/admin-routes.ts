@@ -17,6 +17,7 @@ import {
   getRolePermissions, upsertRolePermission, getRolePermissionForRole,
 } from "./admin-storage";
 import { bannedUserIds } from "./auth";
+import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
 import { invalidateTenantCache, storage } from "./storage";
 import { db } from "./db";
 import {
@@ -32,7 +33,11 @@ export function registerAdminRoutes(app: Express) {
 
   // ─── Local Login (email/password for staff) ───────────────────────────────
 
-  app.post("/api/auth/local-login", async (req, res, next) => {
+  app.post("/api/auth/local-login", bruteForceGuard, async (req, res, next) => {
+    const ip =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
+      req.socket.remoteAddress ??
+      "unknown";
     try {
       const { email, password } = z.object({
         email: z.string().email(),
@@ -41,14 +46,17 @@ export function registerAdminRoutes(app: Express) {
 
       const user = await getUserByEmail(email);
       if (!user || !user.passwordHash) {
+        recordFailedAttempt(ip);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
+        recordFailedAttempt(ip);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      recordSuccessfulLogin(ip);
       const token = signToken(user);
       res.cookie(AUTH_COOKIE, token, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, tenantId: user.tenantId } });

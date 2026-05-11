@@ -30,18 +30,24 @@ app.use(compression());
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-// 'unsafe-eval' is only required by Vite HMR in development.
-// Production builds use pre-compiled assets and must not allow eval.
+// CSP script-src:
+//   Development — unsafe-eval is needed by Vite HMR; unsafe-inline for hot-module scripts.
+//   Production  — compiled bundles use only hashed file URLs; inline scripts and eval are
+//                 NOT needed and would be an XSS vector, so both are omitted.
 const scriptSrc: string[] = isDevelopment
   ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
-  : ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://*.google.com"];
+  : ["'self'", "https://accounts.google.com", "https://*.google.com"];
 
 const cspDirectives = {
   defaultSrc: ["'self'"],
   scriptSrc,
+  // Styles: unsafe-inline is still required for CSS-in-JS (Tailwind/Radix).
   styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
   fontSrc: ["'self'", "https://fonts.gstatic.com"],
-  imgSrc: ["'self'", "data:", "https:", "blob:"],
+  // Restrict images: blob/data for local POS images; restrict arbitrary https in production.
+  imgSrc: isDevelopment
+    ? ["'self'", "data:", "https:", "blob:"]
+    : ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com", "https://graph.facebook.com"],
   connectSrc: isDevelopment
     ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com"]
     : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
@@ -50,6 +56,12 @@ const cspDirectives = {
     ? ["'self'", "https://replit.com", "https://*.replit.com"]
     : ["'self'"],
   objectSrc: ["'none'"],
+  // Prevent <base> tag injection (base-URI hijacking attack)
+  baseUri: ["'self'"],
+  // Prevent form action hijacking — forms may only submit to same origin
+  formAction: ["'self'"],
+  // Upgrade plain HTTP sub-resources to HTTPS in production
+  ...(isDevelopment ? {} : { upgradeInsecureRequests: [] }),
 };
 
 app.use(

@@ -16,6 +16,15 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "./email";
 import { hashPassword, verifyPassword } from "./crypto";
+import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
+
+function getClientIp(req: Request): string {
+  return (
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
+    req.socket.remoteAddress ??
+    "unknown"
+  );
+}
 
 export const AUTH_COOKIE = "auth_token";
 
@@ -556,7 +565,8 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/login", async (req, res, next) => {
+  app.post("/api/auth/login", bruteForceGuard, async (req, res, next) => {
+    const ip = getClientIp(req);
     const { email, password, rememberMe } = req.body ?? {};
     if (!email || typeof email !== "string") {
       return res.status(400).json({ message: "Email is required." });
@@ -570,6 +580,7 @@ export function setupAuth(app: Express) {
 
       const [user] = await db.select().from(users).where(eq(users.id, userId));
       if (!user || user.provider !== "email" || !user.passwordHash) {
+        recordFailedAttempt(ip);
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
@@ -579,9 +590,11 @@ export function setupAuth(app: Express) {
 
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
+        recordFailedAttempt(ip);
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
+      recordSuccessfulLogin(ip);
       setAuthCookie(res, user, rememberMe === true);
       res.json({
         ok: true,

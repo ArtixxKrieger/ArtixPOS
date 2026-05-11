@@ -32,4 +32,10 @@ pool.on("error", (err) => {
   console.error("[db] Unexpected pool client error:", err.message);
 });
 
+// Pre-warm the pool on startup so the first real query doesn't pay the
+// connection-setup cost (~80-120 ms). Fire-and-forget — never blocks boot.
+pool.connect()
+  .then((client) => { client.release(); })
+  .catch(() => {});
+
 export const db = drizzle(pool, { schema });

@@ -15,7 +15,7 @@ import { users, branches as branchesTable, tenants, sales as salesTable, shifts 
 import { signToken, setAuthCookie, verifyToken } from "./auth";
 import { emit as emitTenantEvent, subscribe as subscribeTenantEvent } from "./events";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
-import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey, dashboardCacheKey } from "./cache";
+import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey, dashboardCacheKey, customersCacheKey, notificationsCacheKey, suppliersCacheKey, tablesCacheKey, salesCacheKey } from "./cache";
 import {
   insertCustomerSchema,
   insertExpenseSchema,
@@ -523,14 +523,21 @@ export async function registerRoutes(
     if (endDate && !isValidDate(endDate)) {
       return res.status(400).json({ message: "Invalid endDate format" });
     }
-    const salesList = await storage.getSales(userId(req), {
-      branchId: activeBranchId(req),
+    const uid = userId(req);
+    const bid = activeBranchId(req);
+    const tag = `${limit || ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${includeVoided || ""}`;
+    const ck = salesCacheKey(uid, bid, tag);
+    const cached = cache.get<object[]>(ck);
+    if (cached) return res.json(cached);
+    const salesList = await storage.getSales(uid, {
+      branchId: bid ?? undefined,
       limit: Math.min(Number(limit) || 200, 1000),
       offset: Math.max(Number(offset) || 0, 0),
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       includeVoided: includeVoided === "1",
     });
+    cache.set(ck, salesList, 15_000); // 15 s — short TTL; invalidated on create/void
     res.json(salesList);
   });
 
@@ -647,8 +654,10 @@ export async function registerRoutes(
         invoiceNumber: (sale as any).invoiceNumber ?? null,
         discountCode: sale.discountCode,
       });
-      // Invalidate dashboard cache so the new sale is reflected immediately.
-      cache.del(dashboardCacheKey(userId(req), activeBranchId(req)));
+      // Invalidate dashboard + sales list caches so fresh data shows immediately.
+      const _uid = userId(req);
+      cache.del(dashboardCacheKey(_uid, activeBranchId(req)));
+      cache.delByPrefix(`sales:${_uid}`);
       res.status(201).json(sale);
 
       // Send email receipt to customer if they have an email on file — fire-and-forget
@@ -795,17 +804,26 @@ export async function registerRoutes(
   // ── Notifications ─────────────────────────────────────────────────────────
 
   app.get("/api/notifications", requireAuth, async (req, res) => {
-    const list = await storage.getNotifications(userId(req));
+    const uid = userId(req);
+    const ck = notificationsCacheKey(uid);
+    const cached = cache.get<object[]>(ck);
+    if (cached) return res.json(cached);
+    const list = await storage.getNotifications(uid);
+    cache.set(ck, list, 30_000); // 30 s — notifications are near-real-time
     res.json(list);
   });
 
   app.post("/api/notifications/read-all", requireAuth, async (req, res) => {
-    await storage.markAllNotificationsRead(userId(req));
+    const uid = userId(req);
+    await storage.markAllNotificationsRead(uid);
+    cache.del(notificationsCacheKey(uid));
     res.json({ ok: true });
   });
 
   app.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
-    await storage.markNotificationRead(Number(req.params.id), userId(req));
+    const uid = userId(req);
+    await storage.markNotificationRead(Number(req.params.id), uid);
+    cache.del(notificationsCacheKey(uid));
     res.json({ ok: true });
   });
 
@@ -988,13 +1006,25 @@ export async function registerRoutes(
   // ── Customers ─────────────────────────────────────────────────────────────
 
   app.get("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+    const uid = userId(req);
     const limitRaw = Number(req.query.limit);
     const offsetRaw = Number(req.query.offset);
     const opts: { limit?: number; offset?: number; orderByTopSpenders?: boolean } = {};
     if (!isNaN(limitRaw) && limitRaw > 0) opts.limit = Math.min(limitRaw, 1000);
     if (!isNaN(offsetRaw) && offsetRaw >= 0) opts.offset = offsetRaw;
     if (req.query.orderByTopSpenders === "true") opts.orderByTopSpenders = true;
-    const list = await storage.getCustomers(userId(req), opts);
+    // Only cache the default (no-param) request — it's the hot path used by POS.
+    const isDefault = !req.query.limit && !req.query.offset && !req.query.orderByTopSpenders;
+    if (isDefault) {
+      const ck = customersCacheKey(uid);
+      const cached = cache.get<object[]>(ck);
+      if (cached) { res.setHeader("Cache-Control", "private, max-age=60"); return res.json(cached); }
+      const list = await storage.getCustomers(uid, opts);
+      cache.set(ck, list, 60_000); // 60 s
+      res.setHeader("Cache-Control", "private, max-age=60");
+      return res.json(list);
+    }
+    const list = await storage.getCustomers(uid, opts);
     res.json(list);
   });
 
@@ -1007,7 +1037,9 @@ export async function registerRoutes(
   app.post("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     try {
       const input = insertCustomerSchema.parse(req.body);
-      const customer = await storage.createCustomer(userId(req), input);
+      const uid = userId(req);
+      const customer = await storage.createCustomer(uid, input);
+      cache.del(customersCacheKey(uid)); // invalidate list cache
       await auditLog(req, "create", "customer", String(customer.id), { name: customer.name });
       res.status(201).json(customer);
     } catch (err) {
@@ -2113,8 +2145,9 @@ export async function registerRoutes(
     const deleted = await storage.softDeleteSale(id, uid, uid, voidReason);
     if (!deleted) return res.status(404).json({ message: "Sale not found" });
     await auditLog(req, "void", "sale", String(id), { softDelete: true, voidReason });
-    // Invalidate dashboard cache so the voided sale is removed immediately.
+    // Invalidate dashboard + sales list caches so the void shows immediately.
     cache.del(dashboardCacheKey(uid, activeBranchId(req)));
+    cache.delByPrefix(`sales:${uid}`);
     res.status(204).end();
   });
 
@@ -2134,14 +2167,21 @@ export async function registerRoutes(
   // ── Tables ────────────────────────────────────────────────────────────────
 
   app.get("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
-    const list = await storage.getTables(userId(req));
+    const uid = userId(req);
+    const ck = tablesCacheKey(uid);
+    const cached = cache.get<object[]>(ck);
+    if (cached) return res.json(cached);
+    const list = await storage.getTables(uid);
+    cache.set(ck, list, 120_000); // 2 min — table config rarely changes during service
     res.json(list);
   });
 
   app.post("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     try {
       const input = insertTableSchema.parse(req.body);
-      const table = await storage.createTable(userId(req), input);
+      const uid = userId(req);
+      const table = await storage.createTable(uid, input);
+      cache.del(tablesCacheKey(uid));
       res.status(201).json(table);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2152,8 +2192,10 @@ export async function registerRoutes(
   app.put("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     try {
       const input = insertTableSchema.partial().parse(req.body);
-      const table = await storage.updateTable(Number(req.params.id), userId(req), input);
+      const uid = userId(req);
+      const table = await storage.updateTable(Number(req.params.id), uid, input);
       if (!table) return res.status(404).json({ message: "Table not found" });
+      cache.del(tablesCacheKey(uid));
       res.json(table);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2171,14 +2213,21 @@ export async function registerRoutes(
   // ── Suppliers ─────────────────────────────────────────────────────────────
 
   app.get("/api/suppliers", requireAuth, requirePro, async (req, res) => {
-    const list = await storage.getSuppliers(userId(req));
+    const uid = userId(req);
+    const ck = suppliersCacheKey(uid);
+    const cached = cache.get<object[]>(ck);
+    if (cached) return res.json(cached);
+    const list = await storage.getSuppliers(uid);
+    cache.set(ck, list, 120_000); // 2 min — suppliers change rarely
     res.json(list);
   });
 
   app.post("/api/suppliers", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertSupplierSchema.parse(req.body);
-      const supplier = await storage.createSupplier(userId(req), input);
+      const uid = userId(req);
+      const supplier = await storage.createSupplier(uid, input);
+      cache.del(suppliersCacheKey(uid));
       res.status(201).json(supplier);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2189,8 +2238,10 @@ export async function registerRoutes(
   app.put("/api/suppliers/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertSupplierSchema.partial().parse(req.body);
-      const supplier = await storage.updateSupplier(Number(req.params.id), userId(req), input);
+      const uid = userId(req);
+      const supplier = await storage.updateSupplier(Number(req.params.id), uid, input);
       if (!supplier) return res.status(404).json({ message: "Supplier not found" });
+      cache.del(suppliersCacheKey(uid));
       res.json(supplier);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });

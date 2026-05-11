@@ -9,6 +9,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
+import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
@@ -696,8 +697,20 @@ function AppRouter() {
 }
 
 function ProtectedRouter() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
+
+  // Fire all critical API requests in parallel the moment auth is confirmed.
+  // Pages will find their data already in cache when they mount → zero loading time.
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    prefetchBootstrapData(user.id);
+  }, [isAuthenticated, user?.id]);
+
+  // Clear the prefetch tracker on logout so re-login always prefetches fresh data.
+  useEffect(() => {
+    if (!isAuthenticated && !isLoading) clearPrefetchCache();
+  }, [isAuthenticated, isLoading]);
 
   // Redeem a pending invite as soon as the user is authenticated.
   // Works for both email/password login and OAuth flows.

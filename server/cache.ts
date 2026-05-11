@@ -107,3 +107,8 @@ export function productsCacheKey(uid: string)  { return `products:${uid}`; }
 export function settingsCacheKey(uid: string)   { return `settings:${uid}`; }
 export function barcodeCacheKey(uid: string, barcode: string) { return `barcode:${uid}:${barcode}`; }
 export function dashboardCacheKey(uid: string, bid: number | null) { return `dashboard:${uid}:${bid ?? "all"}`; }
+export function customersCacheKey(uid: string) { return `customers:${uid}`; }
+export function notificationsCacheKey(uid: string) { return `notifications:${uid}`; }
+export function suppliersCacheKey(uid: string) { return `suppliers:${uid}`; }
+export function tablesCacheKey(uid: string)    { return `tables:${uid}`; }
+export function salesCacheKey(uid: string, bid: number | null, tag: string) { return `sales:${uid}:${bid ?? "all"}:${tag}`; }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" translate="no">
+<html lang="en" translate="no" style="background:#f2f2f7">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -295,10 +295,15 @@
           var stored = localStorage.getItem('theme');
           var mq = window.matchMedia('(prefers-color-scheme: dark)');
           var isDark = stored === 'dark' || (!stored && mq.matches);
+          /* Set background directly via inline style — this fires before the
+             first paint on every load including Android tab-discard reloads,
+             so there is never a white frame even on slow/cold restarts. */
+          document.documentElement.style.background = isDark ? '#09090f' : '#f2f2f7';
           if (isDark) document.documentElement.classList.add('dark');
           mq.addEventListener('change', function(e) {
             if (!localStorage.getItem('theme')) {
               document.documentElement.classList.toggle('dark', e.matches);
+              document.documentElement.style.background = e.matches ? '#09090f' : '#f2f2f7';
             }
           });
         } catch(e) {}

@@ -1555,12 +1555,21 @@ async function parseFileContent(file: Express.Multer.File): Promise<string> {
   }
   if (ext === ".csv") return file.buffer.toString("utf-8").slice(0, 8000);
   if (ext === ".xlsx" || ext === ".xls") {
-    const XLSX = await import("xlsx");
-    const workbook = XLSX.read(file.buffer, { type: "buffer" });
+    const ExcelJS = (await import("exceljs")).default ?? (await import("exceljs"));
+    const workbook = new (ExcelJS as any).Workbook();
+    await workbook.xlsx.load(file.buffer);
     const sheets: string[] = [];
-    for (const name of workbook.SheetNames.slice(0, 3)) {
-      sheets.push(`Sheet: ${name}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[name])}`);
-    }
+    let sheetIdx = 0;
+    workbook.eachSheet((sheet: any) => {
+      if (sheetIdx >= 3) return;
+      sheetIdx++;
+      const rows: string[] = [];
+      sheet.eachRow((row: any) => {
+        const vals = (row.values as any[]).slice(1).map((v: any) => String(v ?? ""));
+        rows.push(vals.join(","));
+      });
+      sheets.push(`Sheet: ${sheet.name}\n${rows.join("\n")}`);
+    });
     return sheets.join("\n\n").slice(0, 8000);
   }
   return file.buffer.toString("utf-8").slice(0, 8000);
@@ -3151,39 +3160,31 @@ export function registerAiRoutes(app: Express) {
       }
 
       // XLSX with improved column widths
-      const XLSX = await import("xlsx");
-      const wb = XLSX.utils.book_new();
+      const ExcelJS = (await import("exceljs")).default ?? (await import("exceljs"));
+      const wb = new (ExcelJS as any).Workbook();
+      const ws = wb.addWorksheet(sheetName);
       const sheetData = rows.length > 0 ? rows : [{ "No data": "No records found" }];
-      const ws = XLSX.utils.json_to_sheet(sheetData);
+      const headers = Object.keys(sheetData[0]);
 
-      // Auto-size columns based on header + content length
-      if (rows.length > 0) {
-        const headers = Object.keys(rows[0]);
-        const colWidths = headers.map(h => {
-          const maxLen = rows.reduce((max, row) => {
-            const val = String(row[h] ?? "");
-            return Math.max(max, val.length);
-          }, h.length);
-          return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
-        });
-        ws["!cols"] = colWidths;
-      }
+      ws.columns = headers.map((h: string) => {
+        const maxLen = sheetData.reduce((max: number, row: any) => {
+          return Math.max(max, String(row[h] ?? "").length);
+        }, h.length);
+        return { header: h, key: h, width: Math.min(Math.max(maxLen + 2, 10), 40) };
+      });
 
       // Style header row bold
-      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-      for (let C = range.s.c; C <= range.e.c; C++) {
-        const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
-        if (!ws[cellAddr]) continue;
-        ws[cellAddr].s = { font: { bold: true }, fill: { fgColor: { rgb: "F3F4F6" } } };
-      }
+      ws.getRow(1).font = { bold: true };
+      ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
 
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      sheetData.forEach((row: any) => ws.addRow(row));
+
+      const buf = await wb.xlsx.writeBuffer();
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}.xlsx"`);
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Pragma", "no-cache");
-      res.send(buf);
+      res.send(Buffer.from(buf));
     } catch (err: any) {
       console.error("Export error:", err);
       res.status(500).json({ message: "Failed to generate export." });

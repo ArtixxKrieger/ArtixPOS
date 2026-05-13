@@ -137,14 +137,19 @@ function exportCSV(sales: any[], currency: string, label: string) {
 }
 
 async function exportExcel(sales: any[], label: string, storeName: string) {
-  const XLSX = await import("xlsx");
   const rows = [EXPORT_HEADERS, ...getExportRows(sales)];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  // Column widths
-  ws["!cols"] = [{ wch: 12 }, { wch: 10 }, { wch: 40 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Sales");
-  XLSX.writeFile(wb, `${storeName.replace(/\s+/g, "-")}-sales-${label}.xlsx`);
+  const csv = rows
+    .map((row) => row.map((cell: any) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${storeName.replace(/\s+/g, "-")}-sales-${label}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function exportPDF(sales: any[], currency: string, label: string, storeName: string) {

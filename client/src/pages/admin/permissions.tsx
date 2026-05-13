@@ -180,16 +180,10 @@ export default function PermissionsPage() {
         </p>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2].map(i => <div key={i} className="h-64 skeleton-shimmer rounded-3xl" />)}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <RoleCard role="manager" perm={getPermForRole("manager")} />
-          <RoleCard role="cashier" perm={getPermForRole("cashier")} />
-        </div>
-      )}
+      <div className="space-y-4">
+        <RoleCard role="manager" perm={getPermForRole("manager")} />
+        <RoleCard role="cashier" perm={getPermForRole("cashier")} />
+      </div>
     </div>
   );
 }

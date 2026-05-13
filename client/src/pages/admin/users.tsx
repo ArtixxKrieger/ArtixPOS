@@ -356,12 +356,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Loading skeletons */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-20 skeleton-shimmer rounded-2xl" />)}
-        </div>
-      ) : tenantUsers.length === 0 ? (
+      {tenantUsers.length === 0 ? (
 
         /* Empty state */
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center text-center">

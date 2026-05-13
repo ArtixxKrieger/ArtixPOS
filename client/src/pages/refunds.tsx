@@ -124,15 +124,6 @@ export default function Refunds() {
     month: "This month",
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-in fade-in">
-        <div className="h-12 skeleton-shimmer rounded-2xl" />
-        <div className="h-96 skeleton-shimmer rounded-2xl" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 page-enter">
 

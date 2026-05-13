@@ -119,20 +119,6 @@ export default function Dashboard() {
     return sorted[0] ?? null;
   }, [todaySales]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-in fade-in">
-        <div className="h-36 skeleton-shimmer rounded-3xl" />
-        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 skeleton-shimmer rounded-2xl" />)}
-        </div>
-        <div className="grid gap-3 grid-cols-2">
-          {[1, 2].map(i => <div key={i} className="h-20 skeleton-shimmer rounded-2xl" />)}
-        </div>
-      </div>
-    );
-  }
-
   const currency = (settings as any)?.currency || "₱";
   const daySummary = {
     gross: totalGrossRevenue,

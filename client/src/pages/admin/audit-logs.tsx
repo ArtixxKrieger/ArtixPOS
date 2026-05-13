@@ -413,13 +413,7 @@ export default function AuditLogs() {
           )}
         </div>
 
-        {isLoading ? (
-          <div className="p-4 space-y-3">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="h-14 skeleton-shimmer rounded-xl" />
-            ))}
-          </div>
-        ) : logs.length === 0 ? (
+        {logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="h-14 w-14 rounded-2xl bg-secondary/60 flex items-center justify-center mb-4">
               <ScrollText className="h-7 w-7 text-muted-foreground/30" strokeWidth={1.5} />

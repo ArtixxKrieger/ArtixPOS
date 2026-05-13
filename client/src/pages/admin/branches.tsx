@@ -1648,16 +1648,11 @@ export default function Branches() {
       </div>
 
       {/* Comparison chart (3+ branches) */}
-      {!isLoading && branches.length >= 2 && (
+      {branches.length >= 2 && (
         <BranchComparisonChart branches={branches} />
       )}
 
-      {/* Loading skeletons */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-48 skeleton-shimmer rounded-2xl" />)}
-        </div>
-      ) : branches.length === 0 ? (
+      {branches.length === 0 ? (
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center text-center">
           <div className="h-16 w-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
             <Building2 className="h-8 w-8 text-blue-500" strokeWidth={1.5} />

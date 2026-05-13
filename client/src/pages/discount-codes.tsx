@@ -175,17 +175,6 @@ export default function DiscountCodes() {
   const activeCodes = codes.filter(c => c.isActive);
   const totalUsed = codes.reduce((acc, c) => acc + (c.usedCount ?? 0), 0);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-in fade-in">
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2].map(i => <div key={i} className="h-20 skeleton-shimmer rounded-2xl" />)}
-        </div>
-        <div className="h-64 skeleton-shimmer rounded-2xl" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 page-enter">
 

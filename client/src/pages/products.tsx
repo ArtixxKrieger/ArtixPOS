@@ -621,11 +621,7 @@ export default function Products() {
       </div>
 
       {/* Product List */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />)}
-        </div>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="glass-card rounded-3xl py-16 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
             <Package className="h-8 w-8 opacity-25" strokeWidth={1.5} />

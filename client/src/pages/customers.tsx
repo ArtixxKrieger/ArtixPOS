@@ -421,14 +421,6 @@ export default function Customers() {
   const totalPts = customers.reduce((s, c) => s + (c.loyaltyPoints ?? 0), 0);
   const totalRevenue = customers.reduce((s, c) => s + parseNumeric(c.totalSpent), 0);
 
-  if (isLoading) return (
-    <div className="space-y-4 animate-in fade-in">
-      <div className="h-24 skeleton-shimmer rounded-2xl" />
-      <div className="h-12 skeleton-shimmer rounded-2xl" />
-      {[...Array(5)].map((_, i) => <div key={i} className="h-16 skeleton-shimmer rounded-2xl" />)}
-    </div>
-  );
-
   return (
     <div className="space-y-4 page-enter">
       {/* Summary */}

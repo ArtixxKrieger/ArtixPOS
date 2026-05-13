@@ -261,15 +261,6 @@ export default function Shifts() {
     if (win) { win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 400); }
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-in fade-in">
-        <div className="h-32 skeleton-shimmer rounded-2xl" />
-        <div className="h-64 skeleton-shimmer rounded-2xl" />
-      </div>
-    );
-  }
-
   const mostRecentClosed = closedShifts[0];
 
   return (

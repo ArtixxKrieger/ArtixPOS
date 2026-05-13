@@ -45,6 +45,7 @@ const Refunds = lazy(() => import("@/pages/refunds"));
 const AiPage = lazy(() => import("@/pages/ai"));
 const TablesPage = lazy(() => import("@/pages/tables"));
 const KitchenPage = lazy(() => import("@/pages/kitchen"));
+const KitchenDisplayPage = lazy(() => import("@/pages/kitchen-display"));
 const SuppliersPage = lazy(() => import("@/pages/suppliers"));
 const PurchasesPage = lazy(() => import("@/pages/purchases"));
 const TimeClockPage = lazy(() => import("@/pages/timeclock"));
@@ -318,6 +319,7 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/ai"),
   () => import("@/pages/tables"),
   () => import("@/pages/kitchen"),
+  () => import("@/pages/kitchen-display"),
   () => import("@/pages/suppliers"),
   () => import("@/pages/purchases"),
   () => import("@/pages/timeclock"),
@@ -460,6 +462,7 @@ function AppRouter() {
 
 function ProtectedRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [location] = useLocation();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
 
   // Fire all critical API requests in parallel the moment auth is confirmed.
@@ -514,6 +517,14 @@ function ProtectedRouter() {
 
   if (!isAuthenticated) {
     return <Redirect to="/login" />;
+  }
+
+  if (location === "/kitchen-display") {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <KitchenDisplayPage />
+      </Suspense>
+    );
   }
 
   return <AppRouter />;

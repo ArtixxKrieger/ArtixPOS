@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Clock, CheckCircle2, RefreshCw, Loader2 } from "lucide-react";
+import { ChefHat, Clock, CheckCircle2, RefreshCw, Loader2, Monitor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 import { cn } from "@/lib/utils";
@@ -121,20 +121,32 @@ export default function KitchenPage() {
             <LiveDot connected={connected} />
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isLoading || isFetching}
-          data-testid="button-refresh-kitchen"
-          aria-label="Refresh kitchen orders"
-          className="gap-1.5 text-xs"
-        >
-          {isFetching
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            : <RefreshCw className="h-3.5 w-3.5" />}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open("/kitchen-display", "_blank")}
+            data-testid="button-open-display-mode"
+            className="gap-1.5 text-xs"
+          >
+            <Monitor className="h-3.5 w-3.5" />
+            Display Mode
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading || isFetching}
+            data-testid="button-refresh-kitchen"
+            aria-label="Refresh kitchen orders"
+            className="gap-1.5 text-xs"
+          >
+            {isFetching
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <RefreshCw className="h-3.5 w-3.5" />}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

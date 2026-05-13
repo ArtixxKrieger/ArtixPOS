@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
@@ -755,25 +755,27 @@ export default function POS() {
               onClick={() => setOrderType("dine_in")}
               data-testid="button-order-type-dine-in"
               className={[
-                "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                 orderType === "dine_in"
                   ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               ].join(" ")}
             >
-              🍽 Dine In
+              <Utensils className="h-3 w-3" />
+              Dine In
             </button>
             <button
               onClick={() => setOrderType("takeout")}
               data-testid="button-order-type-takeout"
               className={[
-                "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                 orderType === "takeout"
                   ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               ].join(" ")}
             >
-              🥡 Takeout
+              <ShoppingBag className="h-3 w-3" />
+              Takeout
             </button>
           </div>
         )}

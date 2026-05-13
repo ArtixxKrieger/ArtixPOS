@@ -169,9 +169,8 @@ export function BottomNav() {
     };
   });
 
-  const pendingCount = (pendingOrders as any[]).filter(
-    (o: any) => o.status !== "paid"
-  ).length;
+  // Count ALL pending orders — both paid (awaiting finalisation) and unpaid
+  const pendingCount = (pendingOrders as any[]).length;
 
   // Use the FULL unfiltered list so navigating to any secondary page highlights "More",
   // even if that page is currently hidden from the nav (e.g. during subscription load).
@@ -244,7 +243,7 @@ export function BottomNav() {
                     ].join(" ")}
                   />
                   {badge ? (
-                    <span className="absolute -top-[6px] -right-[8px] bg-rose-500 text-white text-[8px] font-bold w-[13px] h-[13px] rounded-full flex items-center justify-center leading-none shadow-sm shadow-rose-500/40">
+                    <span className="absolute -top-[6px] -right-[8px] bg-rose-500 text-white text-[8px] font-bold w-[13px] h-[13px] rounded-full flex items-center justify-center leading-none shadow-sm shadow-rose-500/40 animate-pulse">
                       {badge > 9 ? "9+" : badge}
                     </span>
                   ) : null}

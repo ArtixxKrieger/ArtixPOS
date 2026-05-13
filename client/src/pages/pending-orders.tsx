@@ -5,7 +5,7 @@ import { useMyPermissions } from "@/hooks/use-admin";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar } from "lucide-react";
+import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, Utensils, ShoppingBag, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
@@ -32,9 +32,15 @@ interface PendingOrder {
   changeAmount: string;
   status: string;
   notes: string | null;
+  orderType: string | null;
   createdAt: string | null;
   customerId: number | null;
   tableId: number | null;
+}
+
+function elapsedMin(createdAt: string | null | undefined) {
+  if (!createdAt) return 0;
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
 export default function PendingOrders() {
@@ -48,6 +54,11 @@ export default function PendingOrders() {
   const canVoidOrder = perms?.canVoidOrder !== false;
   const [payments, setPayments] = useState<Record<number, string>>({});
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Orders older than 15 min that still haven't been finalised
+  const staleOrders = (orders as PendingOrder[]).filter(
+    o => elapsedMin(o.createdAt) >= 15
+  );
 
   const handleDiscard = (orderId: number) => {
     const timer = setTimeout(() => {
@@ -156,6 +167,21 @@ export default function PendingOrders() {
         </div>
       </div>
 
+      {/* Stale orders alert — shown when any order has been waiting 15+ minutes */}
+      {staleOrders.length > 0 && (
+        <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl px-4 py-3">
+          <Bell className="h-4 w-4 text-amber-500 shrink-0 mt-0.5 animate-bounce" />
+          <div>
+            <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
+              {staleOrders.length} order{staleOrders.length !== 1 ? "s" : ""} waiting over 15 min
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Don't forget to finalize or discard these orders.
+            </p>
+          </div>
+        </div>
+      )}
+
       {orders.length === 0 ? (
         <div className="glass-card rounded-3xl py-20 text-center flex flex-col items-center gap-3" data-testid="empty-pending-orders">
           <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
@@ -187,14 +213,28 @@ export default function PendingOrders() {
                       <Calendar className="h-3 w-3" />
                       {order.createdAt ? format(new Date(order.createdAt), "MMM d, h:mm a") : "Unknown time"}
                     </div>
-                    <div className={[
-                      "flex items-center gap-1.5 text-xs font-bold",
-                      isPaid ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                    ].join(" ")}>
-                      {isPaid
-                        ? <><CheckCircle2 className="h-3.5 w-3.5" />Paid</>
-                        : <><XCircle className="h-3.5 w-3.5" />Unpaid</>
-                      }
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={[
+                        "flex items-center gap-1.5 text-xs font-bold",
+                        isPaid ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                      ].join(" ")}>
+                        {isPaid
+                          ? <><CheckCircle2 className="h-3.5 w-3.5" />Paid</>
+                          : <><XCircle className="h-3.5 w-3.5" />Unpaid</>
+                        }
+                      </div>
+                      {order.orderType === "dine_in" && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-md">
+                          <Utensils className="h-2.5 w-2.5" />
+                          Dine In
+                        </span>
+                      )}
+                      {order.orderType === "takeout" && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 rounded-md">
+                          <ShoppingBag className="h-2.5 w-2.5" />
+                          Takeout
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                       <CreditCard className="h-3 w-3" />

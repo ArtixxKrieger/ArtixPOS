@@ -17,11 +17,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Truck, Phone, Mail, MapPin, Pencil, Trash2, User, Loader2, Plus, Package,
-  ShoppingBag, TrendingUp, Clock, AlertTriangle, ChevronRight, X, DollarSign,
-  Calendar, BoxSelect, BarChart3, ExternalLink, RefreshCw,
+  ShoppingBag, TrendingUp, Clock, AlertTriangle, ChevronRight, X,
+  Calendar, BoxSelect, ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
 
 interface SupplierForm {
@@ -36,11 +37,13 @@ interface SupplierProductRow {
   productSku: string | null; currentStock: number | null;
 }
 
-function StatCard({ label, value, sub, icon: Icon, color = "text-primary" }: { label: string; value: string; sub?: string; icon: any; color?: string }) {
+function StatCard({ label, value, sub, icon: Icon, iconText, color = "text-primary" }: {
+  label: string; value: string; sub?: string; icon?: any; iconText?: string; color?: string
+}) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-      <div className={`p-2 rounded-lg bg-muted ${color}`}>
-        <Icon className="h-4 w-4" />
+      <div className={`p-2 rounded-lg bg-muted ${color} flex items-center justify-center min-w-[32px] min-h-[32px]`}>
+        {Icon ? <Icon className="h-4 w-4" /> : <span className="text-xs font-bold leading-none">{iconText}</span>}
       </div>
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
@@ -58,6 +61,7 @@ function SupplierDetailSheet({
   onEdit: () => void; onNewOrder: () => void; currency: string;
 }) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addForm, setAddForm] = useState({ productId: "", unitCost: "", minOrderQty: "1", leadDays: "" });
 
@@ -85,24 +89,24 @@ function SupplierDetailSheet({
     mutationFn: (data: any) => apiRequest("POST", `/api/suppliers/${supplier.id}/products`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers", supplier.id, "products"] });
-      toast({ title: "Product linked to supplier" });
+      toast({ title: t("suppliers.linkProduct") });
       setAddProductOpen(false);
       setAddForm({ productId: "", unitCost: "", minOrderQty: "1", leadDays: "" });
     },
-    onError: () => toast({ title: "Failed to link product", variant: "destructive" }),
+    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
   });
 
   const removeProductMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/supplier-products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers", supplier.id, "products"] });
-      toast({ title: "Product removed from supplier" });
+      toast({ title: t("common.success") });
     },
-    onError: () => toast({ title: "Failed to remove", variant: "destructive" }),
+    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
   });
 
   function handleAddProduct() {
-    if (!addForm.productId) { toast({ title: "Select a product", variant: "destructive" }); return; }
+    if (!addForm.productId) { toast({ title: t("suppliers.selectProduct"), variant: "destructive" }); return; }
     addProductMutation.mutate({
       productId: Number(addForm.productId),
       unitCost: addForm.unitCost || "0",
@@ -114,9 +118,9 @@ function SupplierDetailSheet({
   const lowStockItems = spRows.filter(r => r.currentStock !== null && r.currentStock <= r.minOrderQty);
 
   const STATUS_CFG: Record<string, { label: string; class: string }> = {
-    pending:   { label: "Pending",   class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
-    received:  { label: "Received",  class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
-    cancelled: { label: "Cancelled", class: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" },
+    pending:   { label: t("purchases.statusPending"),   class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
+    received:  { label: t("purchases.statusReceived"),  class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
+    cancelled: { label: t("purchases.statusCancelled"), class: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" },
   };
 
   return (
@@ -126,25 +130,26 @@ function SupplierDetailSheet({
         <div className="p-5 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
           <SheetHeader>
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Truck className="h-5 w-5 text-primary" />
                 </div>
-                <div>
-                  <SheetTitle className="text-left leading-tight">{supplier.name}</SheetTitle>
+                <div className="min-w-0">
+                  <SheetTitle className="text-left leading-tight truncate">{supplier.name}</SheetTitle>
                   {supplier.contactPerson && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <User className="h-3 w-3" />{supplier.contactPerson}
+                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5 min-w-0">
+                      <User className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{supplier.contactPerson}</span>
                     </p>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 <Button size="sm" variant="outline" onClick={onEdit} data-testid="button-sheet-edit-supplier">
-                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> {t("common.edit")}
                 </Button>
                 <Button size="sm" onClick={onNewOrder} data-testid="button-sheet-new-order">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> New Order
+                  <Plus className="h-3.5 w-3.5 mr-1" /> {t("suppliers.newOrder")}
                 </Button>
               </div>
             </div>
@@ -178,15 +183,15 @@ function SupplierDetailSheet({
             <>
               <div className="p-4 text-center">
                 <p className="text-xl font-bold">{stats?.totalOrders ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Total Orders</p>
+                <p className="text-xs text-muted-foreground">{t("suppliers.totalOrders")}</p>
               </div>
               <div className="p-4 text-center">
                 <p className="text-xl font-bold text-emerald-600">{currency}{(stats?.totalSpent ?? 0).toFixed(0)}</p>
-                <p className="text-xs text-muted-foreground">Total Spent</p>
+                <p className="text-xs text-muted-foreground">{t("suppliers.totalSpent")}</p>
               </div>
               <div className="p-4 text-center">
                 <p className="text-xl font-bold text-amber-600">{currency}{(stats?.pendingAmount ?? 0).toFixed(0)}</p>
-                <p className="text-xs text-muted-foreground">Pending</p>
+                <p className="text-xs text-muted-foreground">{t("suppliers.pendingValue")}</p>
               </div>
             </>
           )}
@@ -198,14 +203,14 @@ function SupplierDetailSheet({
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                {lowStockItems.length} product{lowStockItems.length !== 1 ? "s" : ""} running low
+                {lowStockItems.length} {t("suppliers.runningLow")}
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
                 {lowStockItems.map(i => i.productName).join(", ")}
               </p>
             </div>
             <Button size="sm" variant="outline" className="shrink-0 border-amber-500/30 text-amber-700 hover:bg-amber-500/10 text-xs" onClick={onNewOrder}>
-              Reorder
+              {t("suppliers.reorder")}
             </Button>
           </div>
         )}
@@ -214,22 +219,22 @@ function SupplierDetailSheet({
         <Tabs defaultValue="products" className="mt-4">
           <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0">
             <TabsTrigger value="products" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-sm">
-              <Package className="h-3.5 w-3.5 mr-1.5" />Products ({spRows.length})
+              <Package className="h-3.5 w-3.5 mr-1.5" />{t("suppliers.tabProducts")} ({spRows.length})
             </TabsTrigger>
             <TabsTrigger value="orders" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-sm">
-              <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />Orders ({supplierPOs.length})
+              <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />{t("suppliers.tabOrders")} ({supplierPOs.length})
             </TabsTrigger>
             <TabsTrigger value="info" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-sm">
-              <User className="h-3.5 w-3.5 mr-1.5" />Info
+              <User className="h-3.5 w-3.5 mr-1.5" />{t("suppliers.tabInfo")}
             </TabsTrigger>
           </TabsList>
 
           {/* Products tab */}
           <TabsContent value="products" className="p-4 space-y-3 mt-0">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Products this supplier carries</p>
+              <p className="text-sm text-muted-foreground">{t("suppliers.productsCarried")}</p>
               <Button size="sm" variant="outline" onClick={() => setAddProductOpen(true)} data-testid="button-link-product">
-                <Plus className="h-3.5 w-3.5 mr-1" /> Link Product
+                <Plus className="h-3.5 w-3.5 mr-1" /> {t("suppliers.linkProduct")}
               </Button>
             </div>
 
@@ -238,8 +243,8 @@ function SupplierDetailSheet({
             ) : spRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No products linked yet</p>
-                <p className="text-xs mt-1">Link products to enable auto-fill on purchase orders</p>
+                <p className="text-sm">{t("suppliers.noProductsLinked")}</p>
+                <p className="text-xs mt-1">{t("suppliers.linkProductsHint")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -254,11 +259,11 @@ function SupplierDetailSheet({
                           {isLow && <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                          <span>Cost: <span className="font-medium text-foreground">{currency}{parseFloat(row.unitCost).toFixed(2)}</span></span>
-                          <span>Min: {row.minOrderQty}</span>
-                          {row.leadDays != null && <span>Lead: {row.leadDays}d</span>}
+                          <span>{t("purchases.cost")}: <span className="font-medium text-foreground">{currency}{parseFloat(row.unitCost).toFixed(2)}</span></span>
+                          <span>{t("suppliers.minOrder")}: {row.minOrderQty}</span>
+                          {row.leadDays != null && <span>{t("suppliers.leadDays")}: {row.leadDays}d</span>}
                           {row.currentStock != null && (
-                            <span className={isLow ? "text-amber-600 font-medium" : ""}>Stock: {row.currentStock}</span>
+                            <span className={isLow ? "text-amber-600 font-medium" : ""}>{t("suppliers.stock")}: {row.currentStock}</span>
                           )}
                         </div>
                       </div>
@@ -279,13 +284,13 @@ function SupplierDetailSheet({
             {/* Add product dialog */}
             <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
               <DialogContent className="max-w-sm">
-                <DialogHeader><DialogTitle>Link Product to {supplier.name}</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{t("suppliers.linkProductTo")} {supplier.name}</DialogTitle></DialogHeader>
                 <div className="space-y-3 py-2">
                   <div className="space-y-1.5">
-                    <Label>Product</Label>
+                    <Label>{t("purchases.product")}</Label>
                     <Select value={addForm.productId} onValueChange={v => setAddForm(f => ({ ...f, productId: v }))}>
                       <SelectTrigger data-testid="select-link-product">
-                        <SelectValue placeholder="Select product..." />
+                        <SelectValue placeholder={t("suppliers.selectProduct")} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableProducts.map(p => (
@@ -296,19 +301,19 @@ function SupplierDetailSheet({
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Unit Cost</Label>
+                      <Label className="text-xs">{t("suppliers.unitCost")}</Label>
                       <Input type="number" min={0} step="0.01" value={addForm.unitCost}
                         onChange={e => setAddForm(f => ({ ...f, unitCost: e.target.value }))}
                         placeholder="0.00" className="h-8 text-xs" data-testid="input-sp-cost" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Min Order</Label>
+                      <Label className="text-xs">{t("suppliers.minOrder")}</Label>
                       <Input type="number" min={1} value={addForm.minOrderQty}
                         onChange={e => setAddForm(f => ({ ...f, minOrderQty: e.target.value }))}
                         className="h-8 text-xs" data-testid="input-sp-min" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Lead Days</Label>
+                      <Label className="text-xs">{t("suppliers.leadDays")}</Label>
                       <Input type="number" min={0} value={addForm.leadDays}
                         onChange={e => setAddForm(f => ({ ...f, leadDays: e.target.value }))}
                         placeholder="—" className="h-8 text-xs" data-testid="input-sp-lead" />
@@ -316,10 +321,10 @@ function SupplierDetailSheet({
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setAddProductOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setAddProductOpen(false)}>{t("common.cancel")}</Button>
                   <Button onClick={handleAddProduct} disabled={addProductMutation.isPending} data-testid="button-save-sp">
                     {addProductMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                    Link Product
+                    {t("suppliers.linkProduct")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -331,7 +336,7 @@ function SupplierDetailSheet({
             {supplierPOs.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No orders with this supplier yet</p>
+                <p className="text-sm">{t("suppliers.noSupplierOrders")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -348,7 +353,7 @@ function SupplierDetailSheet({
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                           <span>{new Date(po.createdAt).toLocaleDateString()}</span>
-                          <span className={pmtColor}>{po.paymentStatus ?? "unpaid"}</span>
+                          <span className={pmtColor}>{po.paymentStatus ?? t("purchases.paymentUnpaid").toLowerCase()}</span>
                         </div>
                       </div>
                       <p className="font-bold text-sm shrink-0">{currency}{parseFloat(po.totalAmount).toFixed(2)}</p>
@@ -358,7 +363,7 @@ function SupplierDetailSheet({
               </div>
             )}
             <Button variant="outline" className="w-full" size="sm" onClick={onNewOrder} data-testid="button-new-order-from-orders">
-              <Plus className="h-3.5 w-3.5 mr-1" /> New Purchase Order
+              <Plus className="h-3.5 w-3.5 mr-1" /> {t("suppliers.newPurchaseOrder")}
             </Button>
           </TabsContent>
 
@@ -369,7 +374,7 @@ function SupplierDetailSheet({
                 <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-xl">
                   <User className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Contact Person</p>
+                    <p className="text-xs text-muted-foreground">{t("suppliers.contactPerson")}</p>
                     <p className="text-sm font-medium">{supplier.contactPerson}</p>
                   </div>
                 </div>
@@ -378,7 +383,7 @@ function SupplierDetailSheet({
                 <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-xl">
                   <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="text-xs text-muted-foreground">{t("common.phone")}</p>
                     <a href={`tel:${supplier.phone}`} className="text-sm font-medium text-primary">{supplier.phone}</a>
                   </div>
                 </div>
@@ -387,7 +392,7 @@ function SupplierDetailSheet({
                 <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-xl">
                   <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="text-xs text-muted-foreground">{t("common.email")}</p>
                     <a href={`mailto:${supplier.email}`} className="text-sm font-medium text-primary">{supplier.email}</a>
                   </div>
                 </div>
@@ -396,7 +401,7 @@ function SupplierDetailSheet({
                 <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-xl">
                   <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Address</p>
+                    <p className="text-xs text-muted-foreground">{t("common.address")}</p>
                     <p className="text-sm font-medium">{supplier.address}</p>
                   </div>
                 </div>
@@ -405,7 +410,7 @@ function SupplierDetailSheet({
                 <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-xl">
                   <BoxSelect className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="text-xs text-muted-foreground">{t("suppliers.notes")}</p>
                     <p className="text-sm">{supplier.notes}</p>
                   </div>
                 </div>
@@ -414,7 +419,7 @@ function SupplierDetailSheet({
                 <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-xl">
                   <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Last Order</p>
+                    <p className="text-xs text-muted-foreground">{t("suppliers.lastOrder")}</p>
                     <p className="text-sm font-medium">{new Date(stats.lastOrderAt).toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -433,6 +438,7 @@ function SupplierDetailSheet({
 
 export default function SuppliersPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const currency = settings?.currency ?? "₱";
 
@@ -447,18 +453,17 @@ export default function SuppliersPage() {
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({ queryKey: ["/api/suppliers"] });
   const { data: allPOs = [] } = useQuery<any[]>({ queryKey: ["/api/purchase-orders"] });
-  const { data: allProducts = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
   const createMutation = useMutation({
     mutationFn: (data: SupplierForm) => apiRequest("POST", "/api/suppliers", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] }); toast({ title: "Supplier created" }); closeDialog(); },
-    onError: () => toast({ title: "Failed to create supplier", variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] }); toast({ title: t("common.success") }); closeDialog(); },
+    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<SupplierForm> }) => apiRequest("PUT", `/api/suppliers/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] }); toast({ title: "Supplier updated" }); closeDialog(); },
-    onError: () => toast({ title: "Failed to update supplier", variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] }); toast({ title: t("common.success") }); closeDialog(); },
+    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -469,8 +474,8 @@ export default function SuppliersPage() {
       queryClient.setQueryData<any[]>(["/api/suppliers"], (old) => old ? old.filter(s => s.id !== id) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/suppliers"], ctx.previous); toast({ title: "Failed to delete supplier", variant: "destructive" }); },
-    onSuccess: () => { setDeleteTarget(null); setSelectedSupplier(null); toast({ title: "Supplier deleted" }); },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/suppliers"], ctx.previous); toast({ title: t("common.error"), variant: "destructive" }); },
+    onSuccess: () => { setDeleteTarget(null); setSelectedSupplier(null); toast({ title: t("common.success") }); },
   });
 
   function openCreate() { setEditing(null); setForm(DEFAULT_FORM); setDialogOpen(true); }
@@ -482,7 +487,7 @@ export default function SuppliersPage() {
   function closeDialog() { setDialogOpen(false); setEditing(null); setForm(DEFAULT_FORM); }
 
   function handleSubmit() {
-    if (!form.name.trim()) { toast({ title: "Supplier name is required", variant: "destructive" }); return; }
+    if (!form.name.trim()) { toast({ title: t("suppliers.businessName") + " required", variant: "destructive" }); return; }
     const data = { name: form.name, contactPerson: form.contactPerson || null, phone: form.phone || null, email: form.email || null, address: form.address || null, notes: form.notes || null };
     if (editing) updateMutation.mutate({ id: editing.id, data });
     else createMutation.mutate(form);
@@ -494,12 +499,10 @@ export default function SuppliersPage() {
     (s.phone ?? "").includes(debouncedSearch)
   );
 
-  // Summary stats across all suppliers
   const totalPending = allPOs.filter(p => p.status === "pending").reduce((s: number, p: any) => s + parseFloat(p.totalAmount || "0"), 0);
   const totalSpentAllTime = allPOs.filter(p => p.status === "received").reduce((s: number, p: any) => s + parseFloat(p.totalAmount || "0"), 0);
   const pendingCount = allPOs.filter(p => p.status === "pending").length;
 
-  // Per-supplier quick stats (order count, last order)
   const supplierOrderMap = new Map<number, { count: number; lastAt: string | null; pending: number }>();
   for (const po of allPOs) {
     if (!po.supplierId) continue;
@@ -516,28 +519,28 @@ export default function SuppliersPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Truck className="h-6 w-6 text-primary" /> Suppliers
+            <Truck className="h-6 w-6 text-primary" /> {t("nav.suppliers")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{suppliers.length} supplier{suppliers.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-muted-foreground mt-1">{suppliers.length} {t("nav.suppliers").toLowerCase()}</p>
         </div>
         <Button onClick={openCreate} data-testid="button-add-supplier">
-          <Plus className="h-4 w-4 mr-1" /> Add Supplier
+          <Plus className="h-4 w-4 mr-1" /> {t("suppliers.addSupplier")}
         </Button>
       </div>
 
       {/* Summary stat cards */}
       {suppliers.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Total Suppliers" value={String(suppliers.length)} icon={Truck} />
-          <StatCard label="Total Spent" value={`${currency}${totalSpentAllTime.toFixed(0)}`} icon={TrendingUp} color="text-emerald-600" />
-          <StatCard label="Pending Value" value={`${currency}${totalPending.toFixed(0)}`} icon={DollarSign} color="text-amber-600" />
-          <StatCard label="Open Orders" value={String(pendingCount)} sub="awaiting receipt" icon={ShoppingBag} color="text-blue-600" />
+          <StatCard label={t("suppliers.totalSuppliers")} value={String(suppliers.length)} icon={Truck} />
+          <StatCard label={t("suppliers.totalSpent")} value={`${currency}${totalSpentAllTime.toFixed(0)}`} icon={TrendingUp} color="text-emerald-600" />
+          <StatCard label={t("suppliers.pendingValue")} value={`${currency}${totalPending.toFixed(0)}`} iconText={currency} color="text-amber-600" />
+          <StatCard label={t("suppliers.openOrders")} value={String(pendingCount)} sub={t("suppliers.awaitingReceipt")} icon={ShoppingBag} color="text-blue-600" />
         </div>
       )}
 
       {/* Search */}
       <Input
-        placeholder="Search suppliers..."
+        placeholder={t("suppliers.searchPlaceholder")}
         value={search}
         onChange={e => setSearch(e.target.value)}
         className="max-w-sm"
@@ -550,8 +553,8 @@ export default function SuppliersPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">{search ? "No suppliers match your search" : "No suppliers yet"}</p>
-          {!search && <p className="text-sm mt-1">Add suppliers to manage your purchases</p>}
+          <p className="font-medium">{search ? t("suppliers.noMatchSearch") : t("suppliers.noSuppliersYet")}</p>
+          {!search && <p className="text-sm mt-1">{t("suppliers.noSuppliersHint")}</p>}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -569,13 +572,13 @@ export default function SuppliersPage() {
                     <p className="font-semibold text-base truncate group-hover:text-primary transition-colors">{supplier.name}</p>
                     {supplier.contactPerson && (
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                        <User className="h-3 w-3" /><span>{supplier.contactPerson}</span>
+                        <User className="h-3 w-3 shrink-0" /><span className="truncate">{supplier.contactPerson}</span>
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {stats && stats.pending > 0 && (
-                      <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/20 border text-xs">{stats.pending} pending</Badge>
+                      <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/20 border text-xs">{stats.pending} {t("suppliers.pendingValue").toLowerCase()}</Badge>
                     )}
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(supplier); }}
@@ -613,11 +616,11 @@ export default function SuppliersPage() {
                 {/* Quick stats footer */}
                 {stats ? (
                   <div className="flex items-center gap-3 pt-1 border-t border-border text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><ShoppingBag className="h-3 w-3" />{stats.count} orders</span>
+                    <span className="flex items-center gap-1"><ShoppingBag className="h-3 w-3" />{stats.count} {t("suppliers.tabOrders").toLowerCase()}</span>
                     {stats.lastAt && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(stats.lastAt).toLocaleDateString()}</span>}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground border-t border-border pt-1">No orders yet</p>
+                  <p className="text-xs text-muted-foreground border-t border-border pt-1">{t("suppliers.noOrdersYet")}</p>
                 )}
               </button>
             );
@@ -637,18 +640,18 @@ export default function SuppliersPage() {
         />
       )}
 
-      {/* New Order redirect dialog (soft nav to purchases) */}
+      {/* New Order redirect dialog */}
       <Dialog open={!!newOrderForSupplier} onOpenChange={(v) => !v && setNewOrderForSupplier(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Create Purchase Order</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("suppliers.createPurchaseOrder")}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Head to <strong>Purchase Orders</strong> to create a new order for <strong>{newOrderForSupplier?.name}</strong>. 
+            Head to <strong>{t("nav.purchases")}</strong> to create a new order for <strong>{newOrderForSupplier?.name}</strong>.
             The supplier will be pre-selectable there.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewOrderForSupplier(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setNewOrderForSupplier(null)}>{t("common.cancel")}</Button>
             <Button onClick={() => { setNewOrderForSupplier(null); window.location.href = "/purchases"; }} data-testid="button-goto-purchases">
-              <ExternalLink className="h-4 w-4 mr-1.5" /> Go to Purchase Orders
+              <ExternalLink className="h-4 w-4 mr-1.5" /> {t("suppliers.goPurchases")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -657,40 +660,40 @@ export default function SuppliersPage() {
       {/* Add / Edit Supplier Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editing ? "Edit Supplier" : "Add Supplier"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? t("suppliers.editSupplier") : t("suppliers.addSupplier")}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label>Business Name *</Label>
+              <Label>{t("suppliers.businessName")} *</Label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Supplier Co." data-testid="input-supplier-name" />
             </div>
             <div className="space-y-1.5">
-              <Label>Contact Person</Label>
+              <Label>{t("suppliers.contactPerson")}</Label>
               <Input value={form.contactPerson} onChange={e => setForm(f => ({ ...f, contactPerson: e.target.value }))} placeholder="John Smith" data-testid="input-supplier-contact" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Phone</Label>
+                <Label>{t("common.phone")}</Label>
                 <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555-0000" data-testid="input-supplier-phone" />
               </div>
               <div className="space-y-1.5">
-                <Label>Email</Label>
+                <Label>{t("common.email")}</Label>
                 <Input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="contact@supplier.com" data-testid="input-supplier-email" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Address</Label>
+              <Label>{t("common.address")}</Label>
               <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 Supply St" data-testid="input-supplier-address" />
             </div>
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <Label>{t("suppliers.notes")}</Label>
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any notes..." rows={2} data-testid="input-supplier-notes" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button variant="outline" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-supplier">
               {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              {editing ? "Save Changes" : "Create Supplier"}
+              {editing ? t("suppliers.saveChanges") : t("suppliers.createSupplier")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -700,22 +703,22 @@ export default function SuppliersPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this supplier?</AlertDialogTitle>
+            <AlertDialogTitle>{t("suppliers.deleteConfirm")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && (
-                <><strong>{deleteTarget.name}</strong> will be removed. Past purchase orders remain intact.</>
+                <><strong>{deleteTarget.name}</strong> {t("suppliers.deleteDesc")}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
               disabled={deleteMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete-supplier"
             >
-              {deleteMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Deleting…</> : "Delete"}
+              {deleteMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />...</> : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

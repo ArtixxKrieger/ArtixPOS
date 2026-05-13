@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, ShoppingBag, Trash2, ChevronDown, ChevronUp, CheckCircle, XCircle,
-  Package, TrendingUp, DollarSign, AlertTriangle, Clock, Calendar,
-  CreditCard, Loader2, Search, Filter, BarChart3,
+  Package, TrendingUp, AlertTriangle, Clock, Calendar,
+  CreditCard, Loader2, Search, BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
 
 type POStatus = "pending" | "received" | "cancelled";
@@ -46,25 +47,15 @@ interface SupplierProductRow {
   id: number; productId: number; productName: string; unitCost: string; minOrderQty: number; leadDays: number | null; currentStock: number | null;
 }
 
-const STATUS_CONFIG: Record<POStatus, { label: string; class: string }> = {
-  pending:   { label: "Pending",   class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
-  received:  { label: "Received",  class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
-  cancelled: { label: "Cancelled", class: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" },
-};
-
-const PAYMENT_CONFIG: Record<PaymentStatus, { label: string; class: string }> = {
-  unpaid:  { label: "Unpaid",   class: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" },
-  partial: { label: "Partial",  class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
-  paid:    { label: "Paid",     class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
-};
-
 const EMPTY_ITEM: POItem = { productId: null, productName: "", quantity: 1, unitCost: "0", totalCost: "0" };
 
-function StatCard({ label, value, sub, icon: Icon, color = "text-primary" }: { label: string; value: string; sub?: string; icon: any; color?: string }) {
+function StatCard({ label, value, sub, icon: Icon, iconText, color = "text-primary" }: {
+  label: string; value: string; sub?: string; icon?: any; iconText?: string; color?: string
+}) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-      <div className={`p-2 rounded-lg bg-muted ${color}`}>
-        <Icon className="h-4 w-4" />
+      <div className={`p-2 rounded-lg bg-muted ${color} flex items-center justify-center min-w-[32px] min-h-[32px]`}>
+        {Icon ? <Icon className="h-4 w-4" /> : <span className="text-xs font-bold leading-none">{iconText}</span>}
       </div>
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
@@ -77,8 +68,21 @@ function StatCard({ label, value, sub, icon: Icon, color = "text-primary" }: { l
 
 export default function PurchasesPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const currency = settings?.currency ?? "₱";
+
+  const STATUS_CONFIG: Record<POStatus, { label: string; class: string }> = {
+    pending:   { label: t("purchases.statusPending"),   class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
+    received:  { label: t("purchases.statusReceived"),  class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
+    cancelled: { label: t("purchases.statusCancelled"), class: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" },
+  };
+
+  const PAYMENT_CONFIG: Record<PaymentStatus, { label: string; class: string }> = {
+    unpaid:  { label: t("purchases.paymentUnpaid"),   class: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" },
+    partial: { label: t("purchases.paymentPartial"),  class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
+    paid:    { label: t("purchases.paymentPaid"),     class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -87,7 +91,6 @@ export default function PurchasesPage() {
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [items, setItems] = useState<POItem[]>([{ ...EMPTY_ITEM }]);
 
-  // Filters
   const [filterSupplier, setFilterSupplier] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPayment, setFilterPayment] = useState<string>("all");
@@ -97,7 +100,6 @@ export default function PurchasesPage() {
   const { data: suppliers = [] } = useQuery<Supplier[]>({ queryKey: ["/api/suppliers"] });
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
-  // When a supplier is selected in the create dialog, fetch their product catalog
   const { data: supplierCatalog = [] } = useQuery<SupplierProductRow[]>({
     queryKey: ["/api/suppliers", supplierId, "products"],
     queryFn: () => apiRequest("GET", `/api/suppliers/${supplierId}/products`).then(r => r.json()),
@@ -108,10 +110,10 @@ export default function PurchasesPage() {
     mutationFn: (data: any) => apiRequest("POST", "/api/purchase-orders", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      toast({ title: "Purchase order created" });
+      toast({ title: t("common.success") });
       closeDialog();
     },
-    onError: () => toast({ title: "Failed to create PO", variant: "destructive" }),
+    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
   });
 
   const receiveMutation = useMutation({
@@ -122,10 +124,10 @@ export default function PurchasesPage() {
       queryClient.setQueryData<PO[]>(["/api/purchase-orders"], (old) => old ? old.map(p => p.id === id ? { ...p, status: "received" as POStatus } : p) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: "Failed to receive PO", variant: "destructive" }); },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: t("common.error"), variant: "destructive" }); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Received — stock updated" });
+      toast({ title: t("purchases.statusReceived") });
     },
   });
 
@@ -137,8 +139,8 @@ export default function PurchasesPage() {
       queryClient.setQueryData<PO[]>(["/api/purchase-orders"], (old) => old ? old.map(p => p.id === id ? { ...p, status: "cancelled" as POStatus } : p) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: "Failed to cancel PO", variant: "destructive" }); },
-    onSuccess: () => toast({ title: "Purchase order cancelled" }),
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: t("common.error"), variant: "destructive" }); },
+    onSuccess: () => toast({ title: t("purchases.statusCancelled") }),
   });
 
   const paymentMutation = useMutation({
@@ -152,8 +154,8 @@ export default function PurchasesPage() {
       );
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: "Failed to update payment", variant: "destructive" }); },
-    onSuccess: () => toast({ title: "Payment status updated" }),
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous); toast({ title: t("common.error"), variant: "destructive" }); },
+    onSuccess: () => toast({ title: t("purchases.payment") }),
   });
 
   function closeDialog() {
@@ -177,7 +179,6 @@ export default function PurchasesPage() {
         const product = products.find(p => p.id === Number(value));
         if (product) {
           next[i].productName = product.name;
-          // Auto-fill cost from supplier catalog if available
           const catalogEntry = supplierCatalog.find(c => c.productId === Number(value));
           if (catalogEntry) next[i].unitCost = catalogEntry.unitCost;
           const qty = Number(next[i].quantity);
@@ -189,7 +190,6 @@ export default function PurchasesPage() {
     });
   }
 
-  // When supplier changes, offer to fill items from catalog
   function handleSupplierChange(val: string) {
     setSupplierId(val === "__none__" ? "" : val);
   }
@@ -204,12 +204,12 @@ export default function PurchasesPage() {
       totalCost: (c.minOrderQty * parseFloat(c.unitCost)).toFixed(2),
     }));
     setItems(catalogItems);
-    toast({ title: `Filled ${catalogItems.length} items from ${suppliers.find(s => s.id === Number(supplierId))?.name} catalog` });
+    toast({ title: `${t("purchases.fillCatalog")}: ${catalogItems.length} items` });
   }
 
   function handleSubmit() {
     const validItems = items.filter(it => it.productName.trim() && Number(it.quantity) > 0);
-    if (validItems.length === 0) { toast({ title: "Add at least one item", variant: "destructive" }); return; }
+    if (validItems.length === 0) { toast({ title: t("purchases.addItem"), variant: "destructive" }); return; }
     createMutation.mutate({
       supplierId: supplierId ? Number(supplierId) : null,
       notes: notes || null,
@@ -221,7 +221,6 @@ export default function PurchasesPage() {
   const totalAmount = items.reduce((sum, it) => sum + parseFloat(it.totalCost || "0"), 0);
   const supplierMap = Object.fromEntries(suppliers.map(s => [s.id, s.name]));
 
-  // Computed stats
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const pendingTotal = pos.filter(p => p.status === "pending").reduce((s, p) => s + parseFloat(p.totalAmount || "0"), 0);
@@ -230,7 +229,6 @@ export default function PurchasesPage() {
   const unpaidCount = pos.filter(p => p.status === "received" && (!p.paymentStatus || p.paymentStatus === "unpaid")).length;
   const totalOrders = pos.length;
 
-  // Filtered list
   const filtered = useMemo(() => {
     let list = [...pos];
     if (filterSupplier !== "all") list = list.filter(p => String(p.supplierId) === filterSupplier);
@@ -255,22 +253,22 @@ export default function PurchasesPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ShoppingBag className="h-6 w-6 text-primary" /> Purchase Orders
+            <ShoppingBag className="h-6 w-6 text-primary" /> {t("nav.purchases")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{pos.length} order{pos.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-muted-foreground mt-1">{pos.length} {t("purchases.totalOrders").toLowerCase()}</p>
         </div>
         <Button onClick={() => setDialogOpen(true)} data-testid="button-create-po">
-          <Plus className="h-4 w-4 mr-1" /> New Order
+          <Plus className="h-4 w-4 mr-1" /> {t("purchases.newOrder")}
         </Button>
       </div>
 
       {/* Summary stats */}
       {pos.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Total Orders" value={String(totalOrders)} icon={BarChart3} />
-          <StatCard label="Pending Value" value={`${currency}${pendingTotal.toFixed(0)}`} icon={Clock} color="text-amber-600" />
-          <StatCard label="Received This Month" value={`${currency}${receivedThisMonth.toFixed(0)}`} icon={TrendingUp} color="text-emerald-600" />
-          <StatCard label="Awaiting Payment" value={String(unpaidCount)} sub="received, unpaid" icon={CreditCard} color={unpaidCount > 0 ? "text-red-500" : "text-muted-foreground"} />
+          <StatCard label={t("purchases.totalOrders")} value={String(totalOrders)} icon={BarChart3} />
+          <StatCard label={t("purchases.pendingValue")} value={`${currency}${pendingTotal.toFixed(0)}`} iconText={currency} color="text-amber-600" />
+          <StatCard label={t("purchases.receivedThisMonth")} value={`${currency}${receivedThisMonth.toFixed(0)}`} icon={TrendingUp} color="text-emerald-600" />
+          <StatCard label={t("purchases.awaitingPayment")} value={String(unpaidCount)} sub={t("purchases.receivedUnpaid")} icon={CreditCard} color={unpaidCount > 0 ? "text-red-500" : "text-muted-foreground"} />
         </div>
       )}
 
@@ -279,7 +277,7 @@ export default function PurchasesPage() {
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search orders..."
+            placeholder={t("purchases.searchPlaceholder")}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-8 h-8 text-sm w-44"
@@ -288,38 +286,38 @@ export default function PurchasesPage() {
         </div>
         <Select value={filterSupplier} onValueChange={setFilterSupplier}>
           <SelectTrigger className="h-8 text-xs w-36" data-testid="select-filter-supplier">
-            <SelectValue placeholder="All suppliers" />
+            <SelectValue placeholder={t("purchases.allSuppliers")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Suppliers</SelectItem>
+            <SelectItem value="all">{t("purchases.allSuppliers")}</SelectItem>
             {suppliers.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="h-8 text-xs w-32" data-testid="select-filter-status">
-            <SelectValue placeholder="All statuses" />
+            <SelectValue placeholder={t("purchases.allStatuses")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="received">Received</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="all">{t("purchases.allStatuses")}</SelectItem>
+            <SelectItem value="pending">{t("purchases.statusPending")}</SelectItem>
+            <SelectItem value="received">{t("purchases.statusReceived")}</SelectItem>
+            <SelectItem value="cancelled">{t("purchases.statusCancelled")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterPayment} onValueChange={setFilterPayment}>
           <SelectTrigger className="h-8 text-xs w-32" data-testid="select-filter-payment">
-            <SelectValue placeholder="Payment" />
+            <SelectValue placeholder={t("purchases.allPayments")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Payments</SelectItem>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="all">{t("purchases.allPayments")}</SelectItem>
+            <SelectItem value="unpaid">{t("purchases.paymentUnpaid")}</SelectItem>
+            <SelectItem value="partial">{t("purchases.paymentPartial")}</SelectItem>
+            <SelectItem value="paid">{t("purchases.paymentPaid")}</SelectItem>
           </SelectContent>
         </Select>
         {hasFilters && (
           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterSupplier("all"); setFilterStatus("all"); setFilterPayment("all"); setSearch(""); }}>
-            Clear filters
+            {t("purchases.clearFilters")}
           </Button>
         )}
       </div>
@@ -330,8 +328,8 @@ export default function PurchasesPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingBag className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">{hasFilters ? "No orders match filters" : "No purchase orders yet"}</p>
-          <p className="text-sm mt-1">{hasFilters ? "Try adjusting your filters" : "Create a PO to restock your inventory"}</p>
+          <p className="font-medium">{hasFilters ? t("purchases.noMatchFilters") : t("purchases.noOrders")}</p>
+          <p className="text-sm mt-1">{hasFilters ? t("purchases.adjustFilters") : t("purchases.noOrdersHint")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -356,13 +354,13 @@ export default function PurchasesPage() {
                     <div className="min-w-0 text-left">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-sm">PO #{po.id}</p>
-                        {isOverdue && <span className="flex items-center gap-1 text-xs text-red-500"><AlertTriangle className="h-3 w-3" />Overdue</span>}
+                        {isOverdue && <span className="flex items-center gap-1 text-xs text-red-500"><AlertTriangle className="h-3 w-3" />{t("purchases.overdue")}</span>}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {po.supplierId ? supplierMap[po.supplierId] ?? "Unknown" : "No supplier"} · {new Date(po.createdAt ?? "").toLocaleDateString()}
+                        {po.supplierId ? supplierMap[po.supplierId] ?? "Unknown" : t("purchases.noSupplier")} · {new Date(po.createdAt ?? "").toLocaleDateString()}
                         {po.expectedDeliveryAt && (
                           <span className="ml-2 text-muted-foreground">
-                            · Expected {new Date(po.expectedDeliveryAt).toLocaleDateString()}
+                            · {t("purchases.expected")} {new Date(po.expectedDeliveryAt).toLocaleDateString()}
                           </span>
                         )}
                       </p>
@@ -382,12 +380,12 @@ export default function PurchasesPage() {
                       <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10 h-7 text-xs"
                         onClick={() => receiveMutation.mutate(po.id)} disabled={receiveMutation.isPending}
                         data-testid={`button-receive-po-${po.id}`}>
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> Receive
+                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> {t("purchases.receive")}
                       </Button>
                       <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs"
                         onClick={() => cancelMutation.mutate(po.id)} disabled={cancelMutation.isPending}
                         data-testid={`button-cancel-po-${po.id}`}>
-                        <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
+                        <XCircle className="h-3.5 w-3.5 mr-1" /> {t("common.cancel")}
                       </Button>
                     </div>
                   )}
@@ -396,16 +394,15 @@ export default function PurchasesPage() {
                 {/* Expanded detail */}
                 {isExpanded && (
                   <div className="border-t border-border bg-muted/30">
-                    {/* Items table */}
                     <div className="p-4 space-y-3">
-                      {po.notes && <p className="text-xs text-muted-foreground italic">Note: {po.notes}</p>}
+                      {po.notes && <p className="text-xs text-muted-foreground italic">{t("purchases.note")}: {po.notes}</p>}
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border">
-                            <th className="text-left py-1.5 font-medium">Product</th>
-                            <th className="text-right py-1.5 font-medium">Qty</th>
-                            <th className="text-right py-1.5 font-medium">Unit Cost</th>
-                            <th className="text-right py-1.5 font-medium">Total</th>
+                            <th className="text-left py-1.5 font-medium">{t("purchases.product")}</th>
+                            <th className="text-right py-1.5 font-medium">{t("purchases.qty")}</th>
+                            <th className="text-right py-1.5 font-medium">{t("suppliers.unitCost")}</th>
+                            <th className="text-right py-1.5 font-medium">{t("common.total")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -421,16 +418,15 @@ export default function PurchasesPage() {
                       </table>
 
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pt-1">
-                        {po.receivedAt && <span>Received: {new Date(po.receivedAt).toLocaleString()}</span>}
-                        {po.expectedDeliveryAt && <span>Expected: {new Date(po.expectedDeliveryAt).toLocaleDateString()}</span>}
+                        {po.receivedAt && <span>{t("purchases.statusReceived")}: {new Date(po.receivedAt).toLocaleString()}</span>}
+                        {po.expectedDeliveryAt && <span>{t("purchases.expected")}: {new Date(po.expectedDeliveryAt).toLocaleDateString()}</span>}
                       </div>
                     </div>
 
-                    {/* Payment status control (only for received orders) */}
                     {po.status === "received" && (
                       <div className="border-t border-border p-4 flex items-center gap-3">
                         <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <p className="text-sm font-medium">Payment</p>
+                        <p className="text-sm font-medium">{t("purchases.payment")}</p>
                         <div className="flex gap-2 ml-auto">
                           {(["unpaid", "partial", "paid"] as PaymentStatus[]).map(ps => (
                             <button
@@ -463,25 +459,25 @@ export default function PurchasesPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New Purchase Order</DialogTitle>
+            <DialogTitle>{t("purchases.newOrder")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Supplier (optional)</Label>
+                <Label>{t("purchases.supplierOptional")}</Label>
                 <Select value={supplierId || "__none__"} onValueChange={handleSupplierChange}>
                   <SelectTrigger data-testid="select-po-supplier">
-                    <SelectValue placeholder="Select supplier" />
+                    <SelectValue placeholder={t("purchases.noSupplier")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">No supplier</SelectItem>
+                    <SelectItem value="__none__">{t("purchases.noSupplier")}</SelectItem>
                     {suppliers.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Expected Delivery</Label>
+                <Label>{t("purchases.expectedDelivery")}</Label>
                 <Input
                   type="date"
                   value={expectedDelivery}
@@ -492,46 +488,44 @@ export default function PurchasesPage() {
               </div>
             </div>
 
-            {/* Supplier catalog auto-fill banner */}
             {supplierId && supplierCatalog.length > 0 && (
               <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
                 <Package className="h-4 w-4 text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium">{suppliers.find(s => s.id === Number(supplierId))?.name} has {supplierCatalog.length} linked products</p>
-                  <p className="text-xs text-muted-foreground">Auto-fill items with catalog prices?</p>
+                  <p className="text-xs font-medium">{suppliers.find(s => s.id === Number(supplierId))?.name} · {supplierCatalog.length} {t("purchases.linkedProducts")}</p>
+                  <p className="text-xs text-muted-foreground">{t("purchases.autofillHint")}</p>
                 </div>
                 <Button size="sm" variant="outline" onClick={fillFromCatalog} className="shrink-0 border-primary/30 text-primary hover:bg-primary/10 text-xs" data-testid="button-fill-catalog">
-                  Fill Catalog
+                  {t("purchases.fillCatalog")}
                 </Button>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <Label>{t("purchases.note")}</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes" rows={1} data-testid="input-po-notes" />
             </div>
 
-            {/* Items */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Items</Label>
+                <Label>{t("purchases.items")}</Label>
                 <Button variant="ghost" size="sm" onClick={() => setItems(p => [...p, { ...EMPTY_ITEM }])} data-testid="button-add-po-item">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
+                  <Plus className="h-3.5 w-3.5 mr-1" /> {t("purchases.addItem")}
                 </Button>
               </div>
               {items.map((item, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-5 space-y-1">
-                    {i === 0 && <Label className="text-xs">Product</Label>}
+                    {i === 0 && <Label className="text-xs">{t("purchases.product")}</Label>}
                     <Select
                       value={item.productId ? String(item.productId) : "__none__"}
                       onValueChange={v => updateItem(i, "productId", v === "__none__" ? null : v)}
                     >
                       <SelectTrigger className="h-8 text-xs" data-testid={`select-po-product-${i}`}>
-                        <SelectValue placeholder="Select or type..." />
+                        <SelectValue placeholder={t("purchases.selectOrType")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">Custom item</SelectItem>
+                        <SelectItem value="__none__">{t("purchases.customItem")}</SelectItem>
                         {products.map(p => (
                           <SelectItem key={p.id} value={String(p.id)}>
                             {p.name}
@@ -541,26 +535,26 @@ export default function PurchasesPage() {
                       </SelectContent>
                     </Select>
                     {!item.productId && (
-                      <Input className="h-7 text-xs mt-1" placeholder="Item name"
+                      <Input className="h-7 text-xs mt-1" placeholder={t("purchases.customItem")}
                         value={item.productName}
                         onChange={e => updateItem(i, "productName", e.target.value)}
                         data-testid={`input-po-item-name-${i}`} />
                     )}
                   </div>
                   <div className="col-span-2 space-y-1">
-                    {i === 0 && <Label className="text-xs">Qty</Label>}
+                    {i === 0 && <Label className="text-xs">{t("purchases.qty")}</Label>}
                     <Input className="h-8 text-xs" type="number" min={1} value={item.quantity}
                       onChange={e => updateItem(i, "quantity", e.target.value)}
                       data-testid={`input-po-qty-${i}`} />
                   </div>
                   <div className="col-span-2 space-y-1">
-                    {i === 0 && <Label className="text-xs">Cost</Label>}
+                    {i === 0 && <Label className="text-xs">{t("purchases.cost")}</Label>}
                     <Input className="h-8 text-xs" type="number" min={0} step="0.01" value={item.unitCost}
                       onChange={e => updateItem(i, "unitCost", e.target.value)}
                       data-testid={`input-po-cost-${i}`} />
                   </div>
                   <div className="col-span-2 space-y-1">
-                    {i === 0 && <Label className="text-xs">Total</Label>}
+                    {i === 0 && <Label className="text-xs">{t("common.total")}</Label>}
                     <p className="h-8 flex items-center text-xs font-medium px-1">{currency}{parseFloat(item.totalCost).toFixed(2)}</p>
                   </div>
                   <div className="col-span-1 flex items-end justify-end pb-0.5">
@@ -577,16 +571,16 @@ export default function PurchasesPage() {
             </div>
 
             <div className="border-t border-border pt-3 flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="text-sm text-muted-foreground">{t("common.total")}</p>
               <p className="font-bold text-lg">{currency}{totalAmount.toFixed(2)}</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button variant="outline" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-po">
               {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              <Package className="h-4 w-4 mr-1" /> Create Order
+              <Package className="h-4 w-4 mr-1" /> {t("purchases.createOrder")}
             </Button>
           </DialogFooter>
         </DialogContent>

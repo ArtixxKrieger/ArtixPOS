@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { users, timeLogs, sales } from "@shared/schema";
+import { users, timeLogs, sales, payrollPeriods, payrollEntries } from "@shared/schema";
 import { and, eq, gte, lte, inArray, isNull, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
@@ -34,6 +34,57 @@ async function ensurePro(req: Request, res: Response): Promise<boolean> {
 }
 
 export function registerPayrollRoutes(app: Express) {
+  // ── CSV Export for a pay period ─────────────────────────────────────────────
+  app.get("/api/payroll/periods/:id/export-csv", requireAuth, requireTenant, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const periodId = Number(req.params.id);
+
+      const [period] = await db
+        .select()
+        .from(payrollPeriods as any)
+        .where(eq((payrollPeriods as any).id, periodId));
+
+      if (!period || (period as any).deletedAt) {
+        return res.status(404).json({ message: "Period not found" });
+      }
+
+      const entries = await db
+        .select()
+        .from(payrollEntries as any)
+        .where(eq((payrollEntries as any).periodId, periodId));
+
+      const rows = (entries as any[]).map((e) => ({
+        Employee: e.employeeName,
+        "Wage Type": e.wageType,
+        "Hours Worked": e.hoursWorked || "0",
+        "Base Pay": e.baseAmount,
+        Commission: e.commissionAmount || "0",
+        Tips: e.tipAmount || "0",
+        Bonus: e.bonusAmount || "0",
+        Deductions: e.deductionAmount || "0",
+        "Advance Deduction": e.advanceAmount || "0",
+        "Net Pay": e.netAmount,
+        Notes: e.notes || "",
+      }));
+
+      const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+      const lines = [
+        headers.join(","),
+        ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")),
+      ].join("\n");
+
+      const name = ((period as any).name || `period-${periodId}`).replace(/[^a-z0-9_\-]/gi, "_");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="payroll-${name}.csv"`);
+      res.send(lines);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+
   // ── List staff with wage info ───────────────────────────────────────────────
   app.get("/api/payroll/staff", requireAuth, requireTenant, async (req, res, next) => {
     try {

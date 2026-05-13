@@ -295,6 +295,14 @@
     "subtitle": "Manage wages, hours, commissions, and payouts for your team.",
     "ownerOnly": "Payroll is available to owners only.",
     "proRequired": "Payroll requires a Pro subscription.",
+    "dateTo": "to",
+    "roles": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "admin": "Admin",
+      "cashier": "Cashier",
+      "staff": "Staff"
+    },
     "tabs": {
       "quickCompute": "Quick Compute",
       "payPeriods": "Pay Periods"

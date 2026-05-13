@@ -300,7 +300,7 @@ export default function PayrollPage() {
                           <span className="text-[9px] text-muted-foreground/60 font-medium shrink-0">{roleLabel(s.role)}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthlySalary" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
+                          {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthly" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
                           {entry && entry.hoursWorked > 0 && <span className="text-[10px] text-muted-foreground">{entry.hoursWorked.toFixed(1)}{t("payroll.staff.hrs")}</span>}
                         </div>
                       </div>

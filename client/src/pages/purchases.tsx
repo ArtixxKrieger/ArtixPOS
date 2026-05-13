@@ -214,7 +214,13 @@ export default function PurchasesPage() {
       supplierId: supplierId ? Number(supplierId) : null,
       notes: notes || null,
       expectedDeliveryAt: expectedDelivery || null,
-      items: validItems,
+      items: validItems.map(it => ({
+        ...it,
+        productId: it.productId != null ? Number(it.productId) : null,
+        quantity: Number(it.quantity),
+        unitCost: String(it.unitCost),
+        totalCost: String(it.totalCost),
+      })),
     });
   }
 
@@ -519,7 +525,7 @@ export default function PurchasesPage() {
                     {i === 0 && <Label className="text-xs">{t("purchases.product")}</Label>}
                     <Select
                       value={item.productId ? String(item.productId) : "__none__"}
-                      onValueChange={v => updateItem(i, "productId", v === "__none__" ? null : v)}
+                      onValueChange={v => updateItem(i, "productId", v === "__none__" ? null : Number(v))}
                     >
                       <SelectTrigger className="h-8 text-xs" data-testid={`select-po-product-${i}`}>
                         <SelectValue placeholder={t("purchases.selectOrType")} />

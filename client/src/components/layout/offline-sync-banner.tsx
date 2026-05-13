@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { WifiOff, RefreshCw, CloudOff, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { RefreshCw, CloudOff, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import type { OnlineStatus } from "@/hooks/use-online-status";
 
 interface OfflineSyncBannerProps {
@@ -188,25 +188,5 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
     );
   }
 
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold"
-      style={{
-        background: "rgba(71,85,105,0.95)",
-        color: "#f1f5f9",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-      }}
-    >
-      <WifiOff className="h-3 w-3 shrink-0" />
-      <span>No internet connection — working offline</span>
-      <button
-        onClick={triggerSync}
-        className="ml-2 underline underline-offset-2 hover:no-underline opacity-80 hover:opacity-100"
-      >
-        Check
-      </button>
-    </div>
-  );
+  return null;
 }

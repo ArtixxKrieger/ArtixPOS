@@ -476,7 +476,6 @@ export default function POS() {
       customerName: !selectedCustomer && receiptName.trim() ? receiptName.trim() : null,
       loyaltyPointsUsed: loyaltyPointsToRedeem,
       loyaltyPointsEarned: selectedCustomer ? pointsEarned : 0,
-      // BIR compliance fields
       discountType: isScPwd ? scPwdType : "regular",
       scPwdId: isScPwd && scPwdId.trim() ? scPwdId.trim() : null,
       vatableSales: (!isScPwd ? discountedSubtotal : 0).toString(),
@@ -484,25 +483,79 @@ export default function POS() {
       zeroRatedSales: "0",
     };
 
+    // ── Snapshots for rollback & async use after state is cleared ────────────
+    const snapshotCart = [...cart];
     const snapshotCustomer = selectedCustomer;
-
     const snapshotName = !selectedCustomer && receiptName.trim() ? receiptName.trim() : undefined;
     const snapshotTip = tip;
     const snapshotIssueWifi = issueWifi;
-    const wifiSsid = (settings as any)?.wifiSsid as string | undefined;
-    const wifiPassword = (settings as any)?.wifiPassword as string | undefined;
-    const wifiDuration = parseNumeric((settings as any)?.wifiDurationMinutes ?? 60) || 60;
-
+    const snapshotDiscount = discount;
+    const snapshotAppliedCode = appliedCode;
+    const snapshotLoyaltyPointsToRedeem = loyaltyPointsToRedeem;
     const snapshotScPwdType = scPwdType;
     const snapshotScPwdId = scPwdId;
     const snapshotEffectiveDiscount = effectiveDiscount;
     const snapshotDiscountedSubtotal = discountedSubtotal;
+    const wifiSsid = (settings as any)?.wifiSsid as string | undefined;
+    const wifiPassword = (settings as any)?.wifiPassword as string | undefined;
+    const wifiDuration = parseNumeric((settings as any)?.wifiDurationMinutes ?? 60) || 60;
+
+    // ── Optimistic: show receipt + clear cart instantly ───────────────────────
+    const optimisticReceipt: ReceiptData = {
+      items: snapshotCart,
+      subtotal,
+      tax,
+      discount: snapshotEffectiveDiscount,
+      loyaltyDiscount,
+      tip: snapshotTip,
+      total: actualTotal,
+      paymentMethod,
+      paymentAmount: numericPayment,
+      changeAmount,
+      customerName: snapshotCustomer?.name ?? snapshotName,
+      storeName: (settings as any)?.storeName,
+      receiptFooter: (settings as any)?.receiptFooter,
+      currency,
+      taxRate: globalTaxRate,
+      discountCode: snapshotScPwdType !== "none" ? null : (snapshotAppliedCode?.code ?? null),
+      loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
+      orderNumber: null,
+      orNumber: null,
+      discountType: snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
+      scPwdId: snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
+      vatableSales: snapshotScPwdType === "none" ? snapshotDiscountedSubtotal : 0,
+      vatExemptSales: snapshotScPwdType !== "none" ? snapshotDiscountedSubtotal : 0,
+    };
+    setReceiptData(optimisticReceipt);
+    setShowReceipt(true);
+
+    // Clear POS state immediately — instant feedback
+    setCart([]);
+    setDiscount(0);
+    setAppliedCode(null);
+    setDiscountCodeInput("");
+    setSelectedCustomer(null);
+    setLoyaltyPointsToRedeem(0);
+    setPaymentAmount("");
+    setReceiptName("");
+    setTip(0);
+    setIssueWifi(false);
+    setScPwdType("none");
+    setScPwdId("");
+    setCartOpen(false);
 
     createPending.mutate(orderData, {
       onSuccess: async (result) => {
+        // Patch receipt with real order/receipt numbers from server
+        setReceiptData(prev => prev ? {
+          ...prev,
+          orderNumber: (result as any)?.orderNumber ?? null,
+          orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber ?? null,
+        } : prev);
+
         // Award/deduct loyalty points — queue offline if network unavailable
         if (snapshotCustomer) {
-          const netDelta = pointsEarned - loyaltyPointsToRedeem;
+          const netDelta = pointsEarned - snapshotLoyaltyPointsToRedeem;
           if (netDelta !== 0) {
             apiRequest("POST", `/api/customers/${snapshotCustomer.id}/loyalty`, { delta: netDelta })
               .catch((err) => {
@@ -517,7 +570,6 @@ export default function POS() {
                 }
               });
           }
-          // Update customer loyalty points in cache instantly
           queryClient.setQueryData<Customer[]>(["/api/customers"], (old) =>
             old ? old.map((c) =>
               c.id === snapshotCustomer.id
@@ -528,7 +580,6 @@ export default function POS() {
         }
 
         // Optionally issue a free wifi voucher
-        let wifiVoucher: ReceiptData["wifiVoucher"] = undefined;
         if (snapshotIssueWifi && (wifiSsid || wifiPassword)) {
           try {
             const res = await apiRequest("POST", "/api/wifi-vouchers", {
@@ -536,63 +587,33 @@ export default function POS() {
               customerName: snapshotName ?? snapshotCustomer?.name ?? null,
             });
             const v = await res.json();
-            wifiVoucher = {
-              code: v.code,
-              durationMinutes: v.durationMinutes ?? wifiDuration,
-              ssid: wifiSsid,
-              password: wifiPassword,
-            };
+            setReceiptData(prev => prev ? {
+              ...prev,
+              wifiVoucher: {
+                code: v.code,
+                durationMinutes: v.durationMinutes ?? wifiDuration,
+                ssid: wifiSsid,
+                password: wifiPassword,
+              },
+            } : prev);
           } catch (e) {
             console.error("Failed to issue wifi voucher:", e);
           }
         }
-
-        // Build receipt data and show receipt modal
-        const receipt: ReceiptData = {
-          items: cart,
-          subtotal,
-          tax,
-          discount: snapshotEffectiveDiscount,
-          loyaltyDiscount,
-          tip: snapshotTip,
-          total: actualTotal,
-          paymentMethod,
-          paymentAmount: numericPayment,
-          changeAmount,
-          customerName: snapshotCustomer?.name ?? snapshotName,
-          storeName: (settings as any)?.storeName,
-          receiptFooter: (settings as any)?.receiptFooter,
-          currency,
-          taxRate: globalTaxRate,
-          discountCode: snapshotScPwdType !== "none" ? null : (appliedCode?.code ?? null),
-          loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
-          orderNumber: (result as any)?.orderNumber ?? null,
-          wifiVoucher,
-          // BIR compliance — orNumber comes from the auto-created sale (merged into response)
-          orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber ?? null,
-          discountType: snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
-          scPwdId: snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
-          vatableSales: snapshotScPwdType === "none" ? snapshotDiscountedSubtotal : 0,
-          vatExemptSales: snapshotScPwdType !== "none" ? snapshotDiscountedSubtotal : 0,
-        };
-        setReceiptData(receipt);
-        setShowReceipt(true);
-
-        setCart([]);
-        setDiscount(0);
-        setAppliedCode(null);
-        setDiscountCodeInput("");
-        setSelectedCustomer(null);
-        setLoyaltyPointsToRedeem(0);
-        setPaymentAmount("");
-        setReceiptName("");
-        setTip(0);
-        setIssueWifi(false);
-        setScPwdType("none");
-        setScPwdId("");
-        setCartOpen(false);
       },
       onError: () => {
+        // Rollback — restore cart and hide receipt
+        setCart(snapshotCart);
+        setDiscount(snapshotDiscount);
+        setAppliedCode(snapshotAppliedCode);
+        setSelectedCustomer(snapshotCustomer ?? null);
+        setLoyaltyPointsToRedeem(snapshotLoyaltyPointsToRedeem);
+        setTip(snapshotTip);
+        setIssueWifi(snapshotIssueWifi);
+        setScPwdType(snapshotScPwdType);
+        setScPwdId(snapshotScPwdId);
+        setShowReceipt(false);
+        setReceiptData(null);
         toast({ title: "Failed to place order", description: "Something went wrong. Please try again.", variant: "destructive" });
       },
     });

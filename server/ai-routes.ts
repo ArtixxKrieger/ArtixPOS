@@ -5,17 +5,14 @@ import { db } from "./db";
 import { bannedUserIds } from "./auth";
 import { buildNavGuide, APP_PAGES } from "@shared/nav-config";
 import {
-  products as productsTable,
   sales as salesTable,
   customers as customersTable,
   expenses as expensesTable,
-  shifts as shiftsTable,
-  discountCodes as discountCodesTable,
   users,
   userBranches,
 } from "@shared/schema";
 import { getBranches } from "./admin-storage";
-import { eq, and, isNull, sql, ne, inArray } from "drizzle-orm";
+import { eq, and, isNull, sql, ne } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import { extractAndStore, getRelevantMemories, consolidateIfNeeded } from "./ai-memory";
@@ -286,7 +283,7 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
       getBranches(ownerRow.tenantId),
       db.select().from(userBranches),
     ]);
-    branchNames = Object.fromEntries(allBranches.map(b => [b.id, b.name]));
+    branchNames = Object.fromEntries(allBranches.map(b => [b.id, b.name])); void branchNames;
     staffList = tenantUsers.map(u => ({
       ...u,
       branches: ubRows.filter(ub => ub.userId === u.id).map(ub => ub.branchId),
@@ -366,7 +363,7 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
     (parseFloat(b.totalSpent) || 0) - (parseFloat(a.totalSpent) || 0)
   );
   const topCustomer = sortedBySpend[0];
-  const inactiveRegulars = allCustomers
+  const _inactiveRegulars = allCustomers
     .filter(c => c.visitCount >= 3)
     .sort((a, b) => (parseFloat(b.totalSpent) || 0) - (parseFloat(a.totalSpent) || 0))
     .slice(0, 3)
@@ -1171,7 +1168,7 @@ function getHowToGuide(businessType: string | null, businessSubType: string | nu
   // Terminology adapters
   const itemWord = isFnB ? "menu item" : isServices ? "service" : "product";
   const itemsWord = isFnB ? "menu items" : isServices ? "services" : "products";
-  const revenueWord = isServices ? "bookings" : isFnB ? "orders" : "sales";
+  const _revenueWord = isServices ? "bookings" : isFnB ? "orders" : "sales";
 
   const universalGuide = `
 HOW TO USE THIS APP — you know every feature inside out. When the owner asks "how do I…" or "where is…" or "paano…", answer in simple numbered steps, naturally and conversationally. Never dump the whole guide — answer only what they asked. Use the correct terminology for their business type. For the correct location of any page, always refer to the APP NAVIGATION section above — it is the authoritative source.
@@ -1307,7 +1304,7 @@ CORE FEATURES (available to all businesses):
 
   const bookingWord = clinicSubtype ? "Patient" : gymSubtype ? "Session" : "Booking";
   const staffWord = salonSubtype ? "Stylist" : clinicSubtype ? "Doctor" : gymSubtype ? "Trainer" : spaSubtype ? "Therapist" : "Provider";
-  const clientWord = clinicSubtype ? "Patient" : gymSubtype ? "Member" : "Client";
+  const _clientWord = clinicSubtype ? "Patient" : gymSubtype ? "Member" : "Client";
   const roomWord = spaSubtype ? "Treatment Room" : gymSubtype ? "Court/Studio" : sub === "photography" ? "Studio" : "Room/Station";
 
   const servicesGuide = `
@@ -3083,7 +3080,7 @@ export function registerAiRoutes(app: Express) {
 
       const { allProducts, allCustomers, rawSales, rawExpenses } = await gatherContext(uid);
       const settings = await storage.getSettings(uid);
-      const currency = settings?.currency || "$";
+      const _currency = settings?.currency || "$";
 
       let rows: any[] = [];
       let sheetName = "Data";

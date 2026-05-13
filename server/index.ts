@@ -17,6 +17,11 @@ import { sql as _healthSql } from "drizzle-orm";
 import { logger } from "./logger";
 import { recordRequest, getMetricsSnapshot } from "./metrics";
 import { getAllBreakerStates } from "./circuit-breaker";
+import { validateEnv } from "./env";
+import { initSentry, applySentryErrorHandler } from "./sentry";
+import { setupSwagger } from "./swagger";
+
+validateEnv();
 
 const app = express();
 const httpServer = createServer(app);
@@ -327,14 +332,18 @@ async function _doInit() {
   try {
     console.log("Starting server initialization...");
 
+    await initSentry();
     await ensureIndexes();
     setupAuth(app);
     await registerRoutes(httpServer, app);
+    setupSwagger(app);
 
     // Start Ollama in background (non-blocking — doesn't delay server start)
     initOllama().catch((err) =>
       console.warn("[ai-router][ollama] init error:", err.message)
     );
+
+    await applySentryErrorHandler(app);
 
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
       const status = err.status || err.statusCode || 500;

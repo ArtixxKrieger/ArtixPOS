@@ -78,7 +78,7 @@ export function AiFloatButton() {
     setPos({ x: newX, y: newY });
   }, [draggable, iconSize]);
 
-  const onPointerUp = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+  const onPointerUp = useCallback((_e: React.PointerEvent<HTMLButtonElement>) => {
     if (!dragRef.current) return;
     const wasDragging = dragRef.current.isDragging;
     dragRef.current = null;

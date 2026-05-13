@@ -1024,9 +1024,6 @@ function MessageBubble({
   const isUser = msg.role === "user";
   const [, navigate] = useLocation();
 
-  // Follow-up button clicks are sent silently — don't show a user bubble for them
-  if (isUser && msg.silent) return null;
-
   const {
     display, importPayload: payload, pricePayload, addProductPayload,
     updateProductPayload, deleteProductPayload, addCustomerPayload,
@@ -1052,6 +1049,9 @@ function MessageBubble({
   // Tracks locally executed actions to disable buttons immediately on first click
   const [executedActions, setExecutedActions] = useState<Set<string>>(new Set());
   const markExecuted = (action: string) => setExecutedActions(prev => new Set(prev).add(action));
+
+  // Follow-up button clicks are sent silently — don't show a user bubble for them
+  if (isUser && msg.silent) return null;
 
   // If the entire message was just an action card (no display text) and the action is done,
   // remove the whole bubble (including the AI avatar) to avoid an empty orphaned message.

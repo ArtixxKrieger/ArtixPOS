@@ -133,7 +133,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
   const isCash = receipt.paymentMethod === "cash";
   const hasDiscount = receipt.discount > 0;
-  const hasTax = receipt.tax > 0;
+
   const hasTip = (receipt.tip ?? 0) > 0;
 
   const handlePrint = () => {

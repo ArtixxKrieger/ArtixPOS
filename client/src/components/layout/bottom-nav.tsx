@@ -117,7 +117,7 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingOrders = [] } = usePendingOrders();
   const { user } = useAuth();
-  const { data: settings } = useSettings();
+  const { data: _settings } = useSettings();
   const { isFree } = useSubscription();
 
   const role = user?.role ?? "cashier";

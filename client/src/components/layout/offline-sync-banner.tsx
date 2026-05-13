@@ -25,7 +25,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
     totalQueueCount,
     failedQueueCount,
     lastSync,
-    triggerSync,
+    triggerSync: _triggerSync,
     triggerRetryFailed,
   } = status;
 

@@ -11,7 +11,7 @@ import {
   branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
   revokedTokens,
 } from "@shared/schema";
-import { eq, or, inArray, sql, lt } from "drizzle-orm";
+import { eq, or, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";

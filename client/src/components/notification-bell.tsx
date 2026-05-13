@@ -45,7 +45,7 @@ export function NotificationBell() {
   });
 
   const restockMutation = useMutation({
-    mutationFn: ({ productId, stock, notifId }: { productId: number; stock: number; notifId: number }) =>
+    mutationFn: ({ productId, stock }: { productId: number; stock: number; notifId: number }) =>
       apiRequest("PATCH", `/api/products/${productId}/stock`, { stock }),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });

@@ -1,0 +1,13 @@
+Contact: mailto:security@artixpos.com
+Preferred-Languages: en
+Policy: https://artixpos.com/security-policy
+Encryption: https://artixpos.com/.well-known/pgp-key.txt
+Acknowledgments: https://artixpos.com/security-hall-of-fame
+
+# If you discover a security vulnerability in ArtixPOS, please report it
+# responsibly by emailing security@artixpos.com. We aim to respond within
+# 48 hours and will coordinate a fix and disclosure timeline with you.
+#
+# Please do NOT open public GitHub issues for security vulnerabilities.
+# Do NOT attempt to access data that does not belong to you.
+# Do NOT perform denial-of-service attacks or social engineering.

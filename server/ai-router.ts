@@ -14,7 +14,7 @@
  */
 
 import { spawn, execSync, type ChildProcess } from "child_process";
-import { existsSync, statSync } from "fs";
+import { statSync } from "fs";
 import path from "path";
 import { createBreaker } from "./circuit-breaker";
 

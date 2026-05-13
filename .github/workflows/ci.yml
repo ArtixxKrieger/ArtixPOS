@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+
+    env:
+      # Tests use a mocked DB so this value doesn't need to be real
+      DATABASE_URL: postgresql://test:test@localhost:5432/artixpos_test
+      SESSION_SECRET: ci-test-secret-exactly-64-characters-long-for-jwt-security-ok
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint (errors fail CI; warnings are tracked tech debt)
+        run: npx eslint server/ client/src/ shared/
+
+      - name: Run test suite
+        run: npx vitest run --reporter=verbose
+
+      - name: Upload coverage (if available)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7

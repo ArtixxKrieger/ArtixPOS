@@ -5,6 +5,7 @@ import {
   type Tenant, type Branch, type User, type AuditLog, type UserBranch, type InviteToken, type RolePermission,
 } from "@shared/schema";
 import { eq, and, desc, inArray, isNull, sql, gte, lte, or } from "drizzle-orm";
+import { invalidateTenantCache } from "./storage";
 import crypto from "crypto";
 
 // ─── Password Hashing (unified — delegates to crypto.ts) ──────────────────────
@@ -131,6 +132,8 @@ export async function updateUserRole(userId: string, tenantId: string, role: "ow
     .set({ role })
     .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
     .returning();
+  // Invalidate tenant cache so the role change is immediately reflected
+  invalidateTenantCache(userId);
   return user;
 }
 
@@ -363,6 +366,9 @@ export async function redeemInviteToken(token: string, userId: string): Promise<
   await (db.update(users) as any)
     .set({ tenantId: invite.tenantId, role: invite.role })
     .where(eq(users.id, userId));
+
+  // Invalidate tenant cache so the new membership is immediately visible
+  invalidateTenantCache(userId);
 
   // Assign branches in a single bulk insert
   const branchIds = (invite.branchIds as number[]) || [];

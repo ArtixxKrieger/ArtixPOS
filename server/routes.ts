@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { createHash } from "crypto";
+import { rateLimit } from "express-rate-limit";
 import { storage, invalidateTenantCache } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
@@ -95,7 +96,16 @@ export async function registerRoutes(
   registerPayrollRoutes(app);
 
   // ── Public branch profile (no auth) ───────────────────────────────────────
-  app.get("/api/public/branch/:id", async (req, res, next) => {
+  // Rate-limited to prevent enumeration of all branch IDs across tenants.
+  const publicBranchLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { message: "Too many requests, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.get("/api/public/branch/:id", publicBranchLimiter, async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Invalid branch id" });

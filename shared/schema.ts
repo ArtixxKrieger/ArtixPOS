@@ -1232,3 +1232,18 @@ export const insertLoyaltyRewardSchema = z.object({
 
 export type InsertLoyaltyTier = z.infer<typeof insertLoyaltyTierSchema>;
 export type InsertLoyaltyReward = z.infer<typeof insertLoyaltyRewardSchema>;
+
+// ─── Revoked Tokens ───────────────────────────────────────────────────────────
+// Stores JWT IDs (jti) that have been explicitly revoked (e.g. on logout).
+// jwtAuthMiddleware checks this before trusting any token.
+// Rows are pruned automatically once their expiresAt has passed.
+
+export const revokedTokens = pgTable("revoked_tokens", {
+  id: serial("id").primaryKey(),
+  jti: text("jti").notNull().unique(),
+  userId: text("user_id").notNull(),
+  revokedAt: text("revoked_at").$defaultFn(() => new Date().toISOString()),
+  expiresAt: text("expires_at").notNull(),
+});
+
+export type RevokedToken = typeof revokedTokens.$inferSelect;

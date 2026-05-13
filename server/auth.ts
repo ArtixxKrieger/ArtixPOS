@@ -9,8 +9,9 @@ import {
   tables, suppliers, purchaseOrders, purchaseOrderItems, userBranches, inviteTokens, auditLogs,
   ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
   branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
+  revokedTokens,
 } from "@shared/schema";
-import { eq, or, inArray, sql } from "drizzle-orm";
+import { eq, or, inArray, sql, lt } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -27,6 +28,73 @@ function getClientIp(req: Request): string {
 }
 
 export const AUTH_COOKIE = "auth_token";
+
+// ── Token revocation (logout invalidation) ────────────────────────────────────
+// In-memory Set for O(1) lookup on every request. DB is the durable source of
+// truth; the Set is populated on startup and updated on every logout.
+const _revokedJtis = new Set<string>();
+
+async function _loadRevokedTokens(): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+    const rows = await db
+      .select({ jti: revokedTokens.jti })
+      .from(revokedTokens)
+      .where(sql`${revokedTokens.expiresAt} >= ${now}`);
+    rows.forEach(r => _revokedJtis.add(r.jti));
+    if (rows.length > 0) {
+      console.log(`[auth] Loaded ${rows.length} revoked token(s) into memory`);
+    }
+  } catch (err) {
+    console.error("[auth] Failed to load revoked tokens:", err);
+  }
+}
+
+async function _pruneRevokedTokens(): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+    await db.delete(revokedTokens).where(sql`${revokedTokens.expiresAt} < ${now}`);
+  } catch { /* non-critical */ }
+}
+
+export async function revokeToken(jti: string, userId: string, expiresAt: string): Promise<void> {
+  _revokedJtis.add(jti);
+  try {
+    await db.insert(revokedTokens).values({ jti, userId, expiresAt }).onConflictDoNothing();
+  } catch (err) {
+    console.error("[auth] Failed to persist revoked token:", err);
+  }
+}
+
+export function isTokenRevoked(jti: string): boolean {
+  return _revokedJtis.has(jti);
+}
+
+// Load revoked tokens on startup and prune stale entries every hour
+_loadRevokedTokens();
+setInterval(_pruneRevokedTokens, 60 * 60 * 1000);
+
+// ── Auth event audit logger ───────────────────────────────────────────────────
+// Logs auth events to the audit_logs table. Uses "system" as tenantId when
+// the user has no tenant yet (new accounts, pre-onboarding).
+async function logAuthEvent(opts: {
+  userId: string;
+  tenantId: string | null;
+  action: string;
+  metadata?: Record<string, any>;
+}): Promise<void> {
+  const tid = opts.tenantId ?? "system";
+  try {
+    const { createAuditLog } = await import("./admin-storage");
+    await createAuditLog({
+      tenantId: tid,
+      userId: opts.userId,
+      action: opts.action,
+      entity: "auth",
+      metadata: opts.metadata,
+    });
+  } catch { /* audit failures must never block auth */ }
+}
 
 let _ephemeralSecret: string | undefined;
 
@@ -100,6 +168,7 @@ export function verifyToken(token: string): any {
 export function signToken(user: any): string {
   return jwt.sign(
     {
+      jti: crypto.randomUUID(),
       id: user.id,
       name: user.name,
       email: user.email,
@@ -110,7 +179,7 @@ export function signToken(user: any): string {
       activeBranchId: user.activeBranchId ?? null,
     },
     getJwtSecret(),
-    { expiresIn: "30d" }
+    { expiresIn: "7d" }
   );
 }
 
@@ -170,6 +239,13 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
   if (token) {
     try {
       const payload = jwt.verify(token, getJwtSecret()) as any;
+
+      // ── Revocation check (O(1) in-memory Set) ──────────────────────────────
+      if (payload.jti && _revokedJtis.has(payload.jti)) {
+        next();
+        return;
+      }
+
       if (bannedUserIds.has(payload.id)) {
         (req as any).isBanned = true;
         next();
@@ -185,6 +261,9 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
         role: payload.role ?? "owner",
         activeBranchId: payload.activeBranchId ?? null,
       };
+      // Store jti on request so logout can revoke it
+      (req as any).tokenJti = payload.jti ?? null;
+      (req as any).tokenExp = payload.exp ?? null;
       if (req.path.startsWith("/api/")) {
         import("./admin-storage").then(m => m.updateLastSeen(payload.id)).catch(() => {});
       }
@@ -546,6 +625,7 @@ export function setupAuth(app: Express) {
       if (!created) throw new Error("User not found after insert");
 
       setAuthCookie(res, created);
+      logAuthEvent({ userId: created.id, tenantId: (created as any).tenantId ?? null, action: "register", metadata: { provider: "email" } });
       res.status(201).json({
         ok: true,
         user: {
@@ -596,6 +676,7 @@ export function setupAuth(app: Express) {
 
       recordSuccessfulLogin(ip);
       setAuthCookie(res, user, rememberMe === true);
+      logAuthEvent({ userId: user.id, tenantId: (user as any).tenantId ?? null, action: "login", metadata: { provider: "email", ip } });
       res.json({
         ok: true,
         user: {
@@ -617,9 +698,56 @@ export function setupAuth(app: Express) {
 
   // ── Logout & account management ───────────────────────────────────────────────
 
-  app.post("/auth/logout", (_req, res) => {
+  app.post("/auth/logout", async (req, res) => {
+    const jti = (req as any).tokenJti;
+    const exp = (req as any).tokenExp;
+    const uid = (req.user as any)?.id;
+    const tid = (req.user as any)?.tenantId ?? null;
+
+    if (jti && uid && exp) {
+      const expiresAt = new Date(exp * 1000).toISOString();
+      await revokeToken(jti, uid, expiresAt);
+      logAuthEvent({ userId: uid, tenantId: tid, action: "logout" });
+    }
+
     clearAuthCookie(res);
     res.json({ ok: true });
+  });
+
+  // ── Token refresh ─────────────────────────────────────────────────────────────
+  // Validates the current token and issues a fresh 7-day token, resetting the
+  // sliding session window. The old token is revoked so it cannot be reused.
+  app.post("/api/auth/refresh", async (req, res, next) => {
+    let token = (req as any).cookies?.[AUTH_COOKIE];
+    if (!token && typeof req.headers.authorization === "string" && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.slice(7);
+    }
+    if (!token) return res.status(401).json({ message: "No token provided" });
+
+    try {
+      const payload = jwt.verify(token, getJwtSecret()) as any;
+
+      if (payload.jti && _revokedJtis.has(payload.jti)) {
+        return res.status(401).json({ message: "Token has been revoked" });
+      }
+
+      // Revoke old token before issuing new one
+      if (payload.jti && payload.exp) {
+        await revokeToken(payload.jti, payload.id, new Date(payload.exp * 1000).toISOString());
+      }
+
+      const [user] = await db.select().from(users).where(eq(users.id, payload.id));
+      if (!user) return res.status(401).json({ message: "User not found" });
+      if ((user as any).isBanned) {
+        return res.status(403).json({ banned: true, message: "Account suspended" });
+      }
+
+      const rememberMe = (req as any).cookies?.["remember_me"] === "1";
+      setAuthCookie(res, user, rememberMe);
+      res.json({ ok: true });
+    } catch {
+      res.status(401).json({ message: "Invalid or expired token" });
+    }
   });
 
   // ── Data export (GDPR/portability) ──────────────────────────────────────────

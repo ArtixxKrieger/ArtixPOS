@@ -45,6 +45,8 @@ export function useSubscription() {
   const { data, isLoading, refetch } = useQuery<TenantSubscription>({
     queryKey: ["/api/subscription"],
     enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const plan: SubscriptionPlan = data?.plan ?? "free";

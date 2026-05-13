@@ -11,6 +11,7 @@ import { queryClient, getQueryFn } from "./queryClient";
  */
 const BOOTSTRAP_URLS = [
   "/api/settings",
+  "/api/subscription",
   "/api/products",
   "/api/dashboard/stats",
   "/api/notifications",

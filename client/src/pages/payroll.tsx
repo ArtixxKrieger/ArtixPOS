@@ -105,18 +105,28 @@ export default function PayrollPage() {
   const [confirmAction, setConfirmAction] = useState<{ type: string; periodId: number; name: string } | null>(null);
 
   // Queries
-  const { data: staff = [], isLoading: staffLoading } = useQuery<StaffWage[]>({ queryKey: ["/api/payroll/staff"] });
+  const { data: staff = [], isFetching: staffFetching } = useQuery<StaffWage[]>({
+    queryKey: ["/api/payroll/staff"],
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
+  });
 
-  const { data: payroll, isLoading: payrollLoading } = useQuery<PayrollResponse>({
+  const { data: payroll, isFetching: payrollFetching } = useQuery<PayrollResponse>({
     queryKey: ["/api/payroll/compute", from, to],
     queryFn: async () => {
       const r = await nativeFetch(`/api/payroll/compute?from=${encodeURIComponent(`${from}T00:00:00.000Z`)}&to=${encodeURIComponent(`${to}T23:59:59.999Z`)}`);
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: periods = [], isLoading: periodsLoading } = useQuery<PayrollPeriod[]>({ queryKey: ["/api/payroll/periods"] });
+  const { data: periods = [], isFetching: periodsFetching } = useQuery<PayrollPeriod[]>({
+    queryKey: ["/api/payroll/periods"],
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
+  });
 
   const { data: periodEntries = [] } = useQuery<PayrollEntry[]>({
     queryKey: ["/api/payroll/periods", expandedPeriod, "entries"],
@@ -278,9 +288,7 @@ export default function PayrollPage() {
               </Button>
             </div>
 
-            {staffLoading || payrollLoading ? (
-              <div className="p-3 space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-muted/50 animate-pulse" />)}</div>
-            ) : filteredStaff.length === 0 ? (
+            {filteredStaff.length === 0 && !staffFetching && !payrollFetching ? (
               <div className="py-10 text-center text-xs text-muted-foreground space-y-1">
                 <Users className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
                 {staffSearch || wageFilter !== "all" ? t("payroll.staff.noMatch") : <><p>{t("payroll.staff.noStaffYet")}</p><p className="text-muted-foreground/50">{t("payroll.staff.noStaffHint")}</p></>}
@@ -336,9 +344,7 @@ export default function PayrollPage() {
             </Button>
           </div>
 
-          {periodsLoading ? (
-            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-xl bg-muted/50 animate-pulse" />)}</div>
-          ) : periods.length === 0 ? (
+          {periods.length === 0 && !periodsFetching ? (
             <div className="rounded-xl border border-dashed border-border py-10 text-center space-y-2">
               <Calendar className="h-7 w-7 mx-auto text-muted-foreground/30" />
               <p className="text-xs text-muted-foreground">{t("payroll.periods.noPeriods")}</p>

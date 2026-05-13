@@ -459,9 +459,11 @@ export async function registerRoutes(
         }
       }
 
-      // Notify connected kitchen SSE clients about the new order
+      // Notify connected kitchen SSE clients about the new order.
+      // Emit for ALL orders regardless of payment status — quick-pay F&B
+      // orders (paid at counter, prepared in kitchen) must also reach the display.
       const tid = tenantId(req);
-      if (tid && input.status !== "paid") {
+      if (tid) {
         emitTenantEvent(tid, {
           type: "kitchen-new-order",
           orderId: order.id,

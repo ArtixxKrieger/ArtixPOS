@@ -367,6 +367,7 @@ export const pendingOrders = pgTable("pending_orders", {
   changeAmount: text("change_amount"),
   status: text("status").default("unpaid"),
   notes: text("notes"),
+  orderType: text("order_type"), // "dine_in" | "takeout" | null
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -894,6 +895,7 @@ export const insertPendingOrderSchema = z.object({
   status: z.string().optional(),
   notes: z.string().optional().nullable(),
   branchId: z.number().optional().nullable(),
+  orderType: z.string().optional().nullable(),
 });
 
 export const insertUserSettingSchema = z.object({

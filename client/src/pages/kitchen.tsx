@@ -80,9 +80,10 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const kitchenOrders = orders.filter(o =>
-    o.kitchenStatus !== "done" && o.status !== "paid"
-  );
+  // Show all orders that haven't been marked done by kitchen staff.
+  // Do NOT filter by payment status — quick-pay (cash/card at counter) F&B
+  // orders are immediately "paid" but still need to be prepared in the kitchen.
+  const kitchenOrders = orders.filter(o => o.kitchenStatus !== "done");
 
   const updateMutation = useMutation({
     mutationFn: ({ id, kitchenStatus }: { id: number; kitchenStatus: string }) =>
@@ -196,10 +197,22 @@ export default function KitchenPage() {
                     >
                       {/* Order header */}
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-bold text-base">
-                            {order.orderNumber ? `#${order.orderNumber}` : `Order #${order.id}`}
-                          </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-base">
+                              {order.orderNumber ? `#${order.orderNumber}` : `Order #${order.id}`}
+                            </p>
+                            {(order as any).orderType === "dine_in" && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-md uppercase tracking-wide">
+                                Dine In
+                              </span>
+                            )}
+                            {(order as any).orderType === "takeout" && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 rounded-md uppercase tracking-wide">
+                                Takeout
+                              </span>
+                            )}
+                          </div>
                           {order.customerName && (
                             <p className="text-[10px] text-muted-foreground">{order.customerName}</p>
                           )}
@@ -246,10 +259,10 @@ export default function KitchenPage() {
                         className="w-full"
                         variant={status === "ready" ? "default" : "outline"}
                         onClick={() => handleStatusChange(order)}
-                        disabled={updateMutation.isPending}
+                        disabled={updateMutation.isPending && updateMutation.variables?.id === order.id}
                         data-testid={`button-kitchen-advance-${order.id}`}
                       >
-                        {updateMutation.isPending
+                        {updateMutation.isPending && updateMutation.variables?.id === order.id
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           : STATUS_CONFIG[status].nextLabel}
                       </Button>

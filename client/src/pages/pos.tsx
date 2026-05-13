@@ -66,8 +66,9 @@ export default function POS() {
   // Cafe-style businesses (cafe, bakery, food truck) operate Starbucks-style:
   // walk-in customers aren't stored — only a name on the receipt.
   const businessSubType = (settings as any)?.businessSubType;
+  const isFoodBeverage = (settings as any)?.businessType === "food_beverage";
   const isCafeStyle =
-    (settings as any)?.businessType === "food_beverage" &&
+    isFoodBeverage &&
     ["cafe", "bakery", "food_truck"].includes(businessSubType);
 
   const [search, setSearch] = useState("");
@@ -81,6 +82,7 @@ export default function POS() {
   const [receiptName, setReceiptName] = useState<string>("");
   const [tip, setTip] = useState<number>(0);
   const [issueWifi, setIssueWifi] = useState<boolean>(false);
+  const [orderType, setOrderType] = useState<"dine_in" | "takeout">("dine_in");
 
   // SC/PWD discount (BIR compliance — 20% off + VAT exempt)
   const [scPwdType, setScPwdType] = useState<"none" | "sc" | "pwd">("none");
@@ -481,6 +483,7 @@ export default function POS() {
       vatableSales: (!isScPwd ? discountedSubtotal : 0).toString(),
       vatExemptSales: (isScPwd ? discountedSubtotal : 0).toString(),
       zeroRatedSales: "0",
+      orderType: isFoodBeverage ? orderType : null,
     };
 
     // ── Snapshots for rollback & async use after state is cleared ────────────
@@ -542,6 +545,7 @@ export default function POS() {
     setIssueWifi(false);
     setScPwdType("none");
     setScPwdId("");
+    setOrderType("dine_in");
     setCartOpen(false);
 
     createPending.mutate(orderData, {
@@ -742,6 +746,36 @@ export default function POS() {
             className="h-8 rounded-xl bg-secondary/60 border-none text-xs"
             data-testid="input-receipt-name"
           />
+        )}
+
+        {/* Order type toggle — shown only for food & beverage businesses */}
+        {isFoodBeverage && (
+          <div className="flex gap-1 bg-secondary/60 rounded-xl p-1" data-testid="order-type-toggle">
+            <button
+              onClick={() => setOrderType("dine_in")}
+              data-testid="button-order-type-dine-in"
+              className={[
+                "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                orderType === "dine_in"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              🍽 Dine In
+            </button>
+            <button
+              onClick={() => setOrderType("takeout")}
+              data-testid="button-order-type-takeout"
+              className={[
+                "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                orderType === "takeout"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              🥡 Takeout
+            </button>
+          </div>
         )}
 
         <div className="flex justify-between text-xs text-muted-foreground">

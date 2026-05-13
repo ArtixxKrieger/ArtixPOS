@@ -89,15 +89,9 @@ export default function KitchenDisplayPage() {
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [newOrderIds, setNewOrderIds] = useState<Set<number>>(new Set());
-  const [tick, setTick] = useState(0);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
-  const now = useClock();
-
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useClock(); // 1-second tick drives elapsed-time re-renders
 
   useEffect(() => {
     function onChange() { setIsFullscreen(!!document.fullscreenElement); }
@@ -132,9 +126,12 @@ export default function KitchenDisplayPage() {
     mutationFn: ({ id, kitchenStatus }: { id: number; kitchenStatus: string }) =>
       apiRequest("PATCH", `/api/pending-orders/${id}/kitchen`, { kitchenStatus }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/pending-orders"] }),
+    onError: (err) => console.error("Kitchen status update failed:", err),
   });
 
-  const kitchenOrders = orders.filter(o => o.kitchenStatus !== "done" && o.status !== "paid");
+  // Show all orders not yet marked done — do NOT filter by payment status.
+  // Quick-pay (cash/card) F&B orders are "paid" but still need kitchen prep.
+  const kitchenOrders = orders.filter(o => o.kitchenStatus !== "done");
 
   const grouped: Record<KitchenStatus, PendingOrder[]> = { pending: [], preparing: [], ready: [] };
   for (const o of kitchenOrders) {
@@ -283,6 +280,16 @@ export default function KitchenDisplayPage() {
                                     URGENT
                                   </span>
                                 )}
+                                {(order as any).orderType === "dine_in" && (
+                                  <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/25 rounded-md uppercase tracking-wide">
+                                    Dine In
+                                  </span>
+                                )}
+                                {(order as any).orderType === "takeout" && (
+                                  <span className="px-1.5 py-0.5 text-[9px] font-bold bg-violet-500/20 text-violet-300 border border-violet-500/25 rounded-md uppercase tracking-wide">
+                                    Takeout
+                                  </span>
+                                )}
                               </div>
 
                               <div className={cn(
@@ -332,17 +339,17 @@ export default function KitchenDisplayPage() {
                               </p>
                             )}
 
-                            {/* Action button */}
+                            {/* Action button — only this card's button shows loading */}
                             <button
                               data-testid={`kd-advance-${order.id}`}
                               onClick={() => updateMutation.mutate({ id: order.id, kitchenStatus: STATUS_CONFIG[status].next as string })}
-                              disabled={updateMutation.isPending}
+                              disabled={updateMutation.isPending && updateMutation.variables?.id === order.id}
                               className={cn(
                                 "w-full py-2 rounded-lg text-sm font-black transition-all active:scale-95 disabled:opacity-40",
                                 cfg.btnClass
                               )}
                             >
-                              {updateMutation.isPending
+                              {updateMutation.isPending && updateMutation.variables?.id === order.id
                                 ? <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                                 : cfg.nextLabel}
                             </button>

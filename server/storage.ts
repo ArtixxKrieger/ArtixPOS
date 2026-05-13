@@ -61,8 +61,11 @@ import {
   type RefundWithDetails,
   type Table,
   type InsertTable,
+  supplierProducts,
   type Supplier,
   type InsertSupplier,
+  type SupplierProduct,
+  type InsertSupplierProduct,
   type PurchaseOrder,
   type PurchaseOrderItem,
   type InsertPurchaseOrder,
@@ -195,12 +198,19 @@ export interface IStorage {
   createSupplier(userId: string, supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: number, userId: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: number, userId: string): Promise<void>;
+  getSupplierStats(userId: string, supplierId: number): Promise<{ totalOrders: number; totalSpent: number; pendingAmount: number; lastOrderAt: string | null }>;
+
+  // Supplier Products
+  getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]>;
+  upsertSupplierProduct(supplierId: number, userId: string, data: InsertSupplierProduct): Promise<SupplierProduct>;
+  deleteSupplierProduct(id: number, userId: string): Promise<void>;
 
   // Purchase Orders
   getPurchaseOrders(userId: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]>;
   createPurchaseOrder(userId: string, po: InsertPurchaseOrder): Promise<PurchaseOrder & { items: PurchaseOrderItem[] }>;
   receivePurchaseOrder(id: number, userId: string): Promise<PurchaseOrder | undefined>;
   cancelPurchaseOrder(id: number, userId: string): Promise<PurchaseOrder | undefined>;
+  updatePurchaseOrderPayment(id: number, userId: string, paymentStatus: string): Promise<PurchaseOrder | undefined>;
 
   // Time Logs
   getTimeLogs(userId: string): Promise<TimeLog[]>;
@@ -1246,6 +1256,67 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getSupplierStats(userId: string, supplierId: number): Promise<{ totalOrders: number; totalSpent: number; pendingAmount: number; lastOrderAt: string | null }> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const condition = userIds.length === 1
+        ? and(eq(purchaseOrders.supplierId, supplierId), eq(purchaseOrders.userId, userIds[0]))
+        : and(eq(purchaseOrders.supplierId, supplierId), inArray(purchaseOrders.userId, userIds));
+      const pos = await db.select().from(purchaseOrders).where(condition).orderBy(desc(purchaseOrders.createdAt));
+      const totalOrders = pos.length;
+      const totalSpent = pos.filter(p => p.status === "received").reduce((s, p) => s + parseFloat(p.totalAmount || "0"), 0);
+      const pendingAmount = pos.filter(p => p.status === "pending").reduce((s, p) => s + parseFloat(p.totalAmount || "0"), 0);
+      const lastOrderAt = pos[0]?.createdAt ?? null;
+      return { totalOrders, totalSpent, pendingAmount, lastOrderAt };
+    } catch {
+      return { totalOrders: 0, totalSpent: 0, pendingAmount: 0, lastOrderAt: null };
+    }
+  }
+
+  // ─── Supplier Products ────────────────────────────────────────────────────
+
+  async getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
+    try {
+      const rows = await db.select({
+        id: supplierProducts.id,
+        supplierId: supplierProducts.supplierId,
+        productId: supplierProducts.productId,
+        unitCost: supplierProducts.unitCost,
+        minOrderQty: supplierProducts.minOrderQty,
+        leadDays: supplierProducts.leadDays,
+        createdAt: supplierProducts.createdAt,
+        productName: products.name,
+        productSku: products.sku,
+        currentStock: products.stock,
+      })
+        .from(supplierProducts)
+        .innerJoin(products, eq(products.id, supplierProducts.productId))
+        .where(eq(supplierProducts.supplierId, supplierId))
+        .orderBy(products.name);
+      return rows;
+    } catch {
+      return [];
+    }
+  }
+
+  async upsertSupplierProduct(supplierId: number, userId: string, data: InsertSupplierProduct): Promise<SupplierProduct> {
+    const [existing] = await db.select().from(supplierProducts)
+      .where(and(eq(supplierProducts.supplierId, supplierId), eq(supplierProducts.productId, data.productId)));
+    if (existing) {
+      const [updated] = await db.update(supplierProducts)
+        .set({ unitCost: data.unitCost, minOrderQty: data.minOrderQty ?? 1, leadDays: data.leadDays ?? null } as any)
+        .where(eq(supplierProducts.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(supplierProducts).values({ supplierId, ...data } as any).returning();
+    return created;
+  }
+
+  async deleteSupplierProduct(id: number, userId: string): Promise<void> {
+    await db.delete(supplierProducts).where(eq(supplierProducts.id, id));
+  }
+
   // ─── Purchase Orders ──────────────────────────────────────────────────────
 
   async getPurchaseOrders(userId: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]> {
@@ -1349,6 +1420,19 @@ export class DatabaseStorage implements IStorage {
       return updated;
     } catch (error) {
       console.error("Error cancelling purchase order:", error);
+      return undefined;
+    }
+  }
+
+  async updatePurchaseOrderPayment(id: number, userId: string, paymentStatus: string): Promise<PurchaseOrder | undefined> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+      if (!po || !userIds.includes(po.userId)) return undefined;
+      const [updated] = await db.update(purchaseOrders).set({ paymentStatus } as any).where(eq(purchaseOrders.id, id)).returning();
+      return updated;
+    } catch (error) {
+      console.error("Error updating PO payment:", error);
       return undefined;
     }
   }

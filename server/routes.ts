@@ -2254,9 +2254,37 @@ export async function registerRoutes(
       const sid = Number(req.params.id);
       const [existing] = await storage.getSuppliers(userId(req)).then(list => [list.find(s => s.id === sid)]);
       await storage.deleteSupplier(sid, userId(req));
+      cache.del(suppliersCacheKey(userId(req)));
       await auditLog(req, "delete", "supplier", String(sid), { name: existing?.name });
       res.status(204).end();
     } catch (err) { next(err); }
+  });
+
+  app.get("/api/suppliers/:id/stats", requireAuth, requirePro, async (req, res) => {
+    const stats = await storage.getSupplierStats(userId(req), Number(req.params.id));
+    res.json(stats);
+  });
+
+  app.get("/api/suppliers/:id/products", requireAuth, requirePro, async (req, res) => {
+    const items = await storage.getSupplierProducts(Number(req.params.id), userId(req));
+    res.json(items);
+  });
+
+  app.post("/api/suppliers/:id/products", requireAuth, requirePro, async (req, res) => {
+    try {
+      const { insertSupplierProductSchema } = await import("@shared/schema");
+      const input = insertSupplierProductSchema.parse(req.body);
+      const item = await storage.upsertSupplierProduct(Number(req.params.id), userId(req), input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete("/api/supplier-products/:id", requireAuth, requirePro, async (req, res) => {
+    await storage.deleteSupplierProduct(Number(req.params.id), userId(req));
+    res.status(204).end();
   });
 
   // ── Purchase Orders ───────────────────────────────────────────────────────
@@ -2289,6 +2317,15 @@ export async function registerRoutes(
     const po = await storage.cancelPurchaseOrder(Number(req.params.id), userId(req));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
     await auditLog(req, "cancel", "purchase_order", String(po.id), { totalAmount: po.totalAmount });
+    res.json(po);
+  });
+
+  app.patch("/api/purchase-orders/:id/payment", requireAuth, requirePro, async (req, res) => {
+    const { paymentStatus } = req.body;
+    if (!["unpaid", "partial", "paid"].includes(paymentStatus)) return res.status(400).json({ message: "Invalid payment status" });
+    const po = await storage.updatePurchaseOrderPayment(Number(req.params.id), userId(req), paymentStatus);
+    if (!po) return res.status(404).json({ message: "Purchase order not found" });
+    await auditLog(req, "update_payment", "purchase_order", String(po.id), { paymentStatus });
     res.json(po);
   });
 

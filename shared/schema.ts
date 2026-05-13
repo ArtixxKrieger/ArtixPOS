@@ -179,8 +179,10 @@ export const purchaseOrders = pgTable("purchase_orders", {
   userId: text("user_id").notNull().references(() => users.id),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   status: text("status").notNull().default("pending"), // pending | received | cancelled
+  paymentStatus: text("payment_status").notNull().default("unpaid"), // unpaid | partial | paid
   totalAmount: text("total_amount").notNull().default("0"),
   notes: text("notes"),
+  expectedDeliveryAt: text("expected_delivery_at"),
   orderedAt: text("ordered_at").$defaultFn(() => new Date().toISOString()),
   receivedAt: text("received_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
@@ -194,6 +196,17 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   quantity: integer("quantity").notNull().default(1),
   unitCost: text("unit_cost").notNull().default("0"),
   totalCost: text("total_cost").notNull().default("0"),
+});
+
+// ─── Supplier Products (catalog of products each supplier carries) ─────────────
+export const supplierProducts = pgTable("supplier_products", {
+  id: serial("id").primaryKey(),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  unitCost: text("unit_cost").notNull().default("0"),
+  minOrderQty: integer("min_order_qty").notNull().default(1),
+  leadDays: integer("lead_days"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
 // ─── Customers ────────────────────────────────────────────────────────────────
@@ -954,7 +967,9 @@ export const insertPurchaseOrderSchema = z.object({
   supplierId: z.number().optional().nullable(),
   status: z.string().optional(),
   totalAmount: z.string().optional(),
+  paymentStatus: z.string().optional(),
   notes: z.string().optional().nullable(),
+  expectedDeliveryAt: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.number().optional().nullable(),
     productName: z.string(),
@@ -962,6 +977,13 @@ export const insertPurchaseOrderSchema = z.object({
     unitCost: z.string(),
     totalCost: z.string(),
   })).optional(),
+});
+
+export const insertSupplierProductSchema = z.object({
+  productId: z.number(),
+  unitCost: z.string().default("0"),
+  minOrderQty: z.number().default(1),
+  leadDays: z.number().optional().nullable(),
 });
 
 export const insertTimeLogSchema = z.object({
@@ -1097,6 +1119,9 @@ export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+
+export type SupplierProduct = typeof supplierProducts.$inferSelect;
+export type InsertSupplierProduct = z.infer<typeof insertSupplierProductSchema>;
 
 export type Shift = typeof shifts.$inferSelect;
 

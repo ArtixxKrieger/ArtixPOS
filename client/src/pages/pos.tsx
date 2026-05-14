@@ -559,6 +559,10 @@ export default function POS() {
           orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber ?? null,
         } : prev);
 
+        // Immediately refresh dashboard stats and sales history so they reflect this sale
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+
         // Award/deduct loyalty points — queue offline if network unavailable
         if (snapshotCustomer) {
           const netDelta = pointsEarned - snapshotLoyaltyPointsToRedeem;
@@ -1229,7 +1233,7 @@ export default function POS() {
         </div>
 
         {/* Products */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide pb-4">
+        <div className={`flex-1 overflow-y-auto scrollbar-hide ${cart.length > 0 ? "pb-[88px] md:pb-4" : "pb-4"}`}>
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3 py-16">
               <Package className="h-14 w-14" strokeWidth={1.2} />

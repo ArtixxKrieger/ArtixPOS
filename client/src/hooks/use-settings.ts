@@ -63,7 +63,10 @@ export function useSettings() {
       .then(r => r.json())
       .then(updated => {
         setCached(SETTINGS_URL, updated);
-        queryClient.invalidateQueries({ queryKey: [SETTINGS_URL] });
+        // Use setQueryData instead of invalidateQueries — silently updates the
+        // cache without triggering a refetch, preventing a visible re-render
+        // (the reload flash users see right after login).
+        queryClient.setQueryData([SETTINGS_URL], updated);
       })
       .catch(() => {});
   }, [query.data, queryClient]);

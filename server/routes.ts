@@ -1165,11 +1165,11 @@ export async function registerRoutes(
 
   app.post("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
     try {
-      const { openingBalance, notes } = insertShiftSchema.parse(req.body);
+      const { openingBalance, notes, denominationOpen } = insertShiftSchema.parse(req.body);
       // Check for existing open shift
       const existing = await storage.getOpenShift(userId(req));
       if (existing) return res.status(400).json({ message: "A shift is already open" });
-      const shift = await storage.openShift(userId(req), openingBalance, notes ?? undefined);
+      const shift = await storage.openShift(userId(req), openingBalance, notes ?? undefined, denominationOpen ?? undefined);
       res.status(201).json(shift);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1261,9 +1261,27 @@ export async function registerRoutes(
 
   app.post("/api/shifts/:id/close", requireAuth, requirePro, async (req, res) => {
     try {
-      const { closingBalance, notes } = closeShiftSchema.parse(req.body);
-      const shift = await storage.closeShift(Number(req.params.id), userId(req), closingBalance, notes ?? undefined);
+      const { closingBalance, notes, denominationClose, variance } = closeShiftSchema.parse(req.body);
+      const shift = await storage.closeShift(Number(req.params.id), userId(req), closingBalance, notes ?? undefined, denominationClose ?? undefined, variance ?? undefined);
       if (!shift) return res.status(404).json({ message: "Shift not found" });
+      res.json(shift);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.post("/api/shifts/:id/cash-adjustment", requireAuth, requirePro, async (req, res) => {
+    try {
+      const { type, amount, reason } = z.object({
+        type: z.enum(["in", "out"]),
+        amount: z.string(),
+        reason: z.string().optional().default(""),
+      }).parse(req.body);
+      const shift = await storage.addCashAdjustment(Number(req.params.id), userId(req), type, amount, reason);
+      if (!shift) return res.status(404).json({ message: "Shift not found or not open" });
       res.json(shift);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -2393,6 +2411,23 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
+  });
+
+  app.post("/api/time-logs/break-start", requireAuth, requirePro, async (req, res) => {
+    const log = await storage.startBreak(userId(req));
+    if (!log) return res.status(400).json({ message: "Not clocked in or already on break" });
+    res.json(log);
+  });
+
+  app.post("/api/time-logs/break-end", requireAuth, requirePro, async (req, res) => {
+    const log = await storage.endBreak(userId(req));
+    if (!log) return res.status(400).json({ message: "Not on break" });
+    res.json(log);
+  });
+
+  app.get("/api/time-logs/team", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const logs = await storage.getTeamTimeLogs(userId(req));
+    res.json(logs);
   });
 
   // ── Loyalty Points ────────────────────────────────────────────────────────

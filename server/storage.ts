@@ -165,8 +165,9 @@ export interface IStorage {
   // Shifts
   getShifts(userId: string, opts?: { limit?: number; offset?: number }): Promise<Shift[]>;
   getOpenShift(userId: string): Promise<Shift | undefined>;
-  openShift(userId: string, openingBalance: string, notes?: string): Promise<Shift>;
-  closeShift(id: number, userId: string, closingBalance: string, notes?: string): Promise<Shift | undefined>;
+  openShift(userId: string, openingBalance: string, notes?: string, denominationOpen?: string): Promise<Shift>;
+  closeShift(id: number, userId: string, closingBalance: string, notes?: string, denominationClose?: string, variance?: string): Promise<Shift | undefined>;
+  addCashAdjustment(shiftId: number, userId: string, type: "in" | "out", amount: string, reason: string): Promise<Shift | undefined>;
 
   // Discount Codes
   getDiscountCodes(userId: string, opts?: { limit?: number; offset?: number }): Promise<DiscountCode[]>;
@@ -212,6 +213,9 @@ export interface IStorage {
   getActiveTimeLog(userId: string): Promise<TimeLog | undefined>;
   clockIn(userId: string, notes?: string): Promise<TimeLog>;
   clockOut(userId: string, notes?: string): Promise<TimeLog | undefined>;
+  startBreak(userId: string): Promise<TimeLog | undefined>;
+  endBreak(userId: string): Promise<TimeLog | undefined>;
+  getTeamTimeLogs(userId: string): Promise<any[]>;
 
   // Product barcode lookup
   getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
@@ -919,13 +923,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async openShift(userId: string, openingBalance: string, notes?: string): Promise<Shift> {
+  async openShift(userId: string, openingBalance: string, notes?: string, denominationOpen?: string): Promise<Shift> {
     try {
       const [created] = await db.insert(shifts).values({
         userId,
         openingBalance,
         notes: notes ?? null,
         status: "open",
+        denominationOpen: denominationOpen ?? null,
+        cashIn: "0",
+        cashOut: "0",
       } as any).returning();
       return created;
     } catch (error) {
@@ -934,7 +941,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async closeShift(id: number, userId: string, closingBalance: string, notes?: string): Promise<Shift | undefined> {
+  async closeShift(id: number, userId: string, closingBalance: string, notes?: string, denominationClose?: string, variance?: string): Promise<Shift | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(shifts).where(eq(shifts.id, id));
@@ -968,12 +975,40 @@ export class DatabaseStorage implements IStorage {
           totalExpenses: totalExpensesAmount.toFixed(2),
           salesCount: shiftSales.length,
           notes: notes ?? existing.notes,
+          denominationClose: denominationClose ?? null,
+          variance: variance ?? null,
         } as any)
         .where(eq(shifts.id, id))
         .returning();
       return updated;
     } catch (error) {
       console.error("Error closing shift:", error);
+      return undefined;
+    }
+  }
+
+  async addCashAdjustment(shiftId: number, userId: string, type: "in" | "out", amount: string, reason: string): Promise<Shift | undefined> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const [existing] = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+      if (!existing || !userIds.includes(existing.userId) || existing.status !== "open") return undefined;
+
+      const adj = { type, amount, reason, timestamp: new Date().toISOString() };
+      const existingAdjs = (() => { try { return JSON.parse(existing.cashAdjustments ?? "[]"); } catch { return []; } })();
+      existingAdjs.push(adj);
+
+      const prevIn = parseFloat(existing.cashIn ?? "0");
+      const prevOut = parseFloat(existing.cashOut ?? "0");
+      const amtNum = parseFloat(amount) || 0;
+
+      const [updated] = await db.update(shifts).set({
+        cashAdjustments: JSON.stringify(existingAdjs),
+        cashIn: type === "in" ? (prevIn + amtNum).toFixed(2) : existing.cashIn,
+        cashOut: type === "out" ? (prevOut + amtNum).toFixed(2) : existing.cashOut,
+      } as any).where(eq(shifts.id, shiftId)).returning();
+      return updated;
+    } catch (error) {
+      console.error("Error adding cash adjustment:", error);
       return undefined;
     }
   }
@@ -1479,6 +1514,70 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error clocking out:", error);
       return undefined;
+    }
+  }
+
+  async startBreak(userId: string): Promise<TimeLog | undefined> {
+    try {
+      const active = await this.getActiveTimeLog(userId);
+      if (!active || active.breakStart) return active ?? undefined;
+      const [updated] = await db.update(timeLogs).set({
+        breakStart: new Date().toISOString(),
+      } as any).where(eq(timeLogs.id, active.id)).returning();
+      return updated;
+    } catch (error) {
+      console.error("Error starting break:", error);
+      return undefined;
+    }
+  }
+
+  async endBreak(userId: string): Promise<TimeLog | undefined> {
+    try {
+      const active = await this.getActiveTimeLog(userId);
+      if (!active || !active.breakStart) return active ?? undefined;
+      const breakMs = Date.now() - new Date(active.breakStart).getTime();
+      const addedMins = Math.max(0, Math.floor(breakMs / 60000));
+      const totalBreakMins = (active.breakMinutes ?? 0) + addedMins;
+      const [updated] = await db.update(timeLogs).set({
+        breakStart: null,
+        breakMinutes: totalBreakMins,
+      } as any).where(eq(timeLogs.id, active.id)).returning();
+      return updated;
+    } catch (error) {
+      console.error("Error ending break:", error);
+      return undefined;
+    }
+  }
+
+  async getTeamTimeLogs(userId: string): Promise<any[]> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      if (userIds.length === 0) return [];
+      const condition = userIds.length === 1
+        ? and(eq(timeLogs.userId, userIds[0]), isNull(timeLogs.deletedAt))
+        : and(inArray(timeLogs.userId, userIds), isNull(timeLogs.deletedAt));
+      const rows = await db.select({
+        id: timeLogs.id,
+        userId: timeLogs.userId,
+        clockIn: timeLogs.clockIn,
+        clockOut: timeLogs.clockOut,
+        notes: timeLogs.notes,
+        clockOutNotes: timeLogs.clockOutNotes,
+        breakStart: timeLogs.breakStart,
+        breakMinutes: timeLogs.breakMinutes,
+        createdAt: timeLogs.createdAt,
+        userName: users.name,
+        userEmail: users.email,
+      })
+        .from(timeLogs)
+        .leftJoin(users, eq(timeLogs.userId, users.id))
+        .where(condition)
+        .orderBy(desc(timeLogs.clockIn))
+        .limit(500);
+      return rows;
+    } catch (error) {
+      console.error("Error fetching team time logs:", error);
+      return [];
     }
   }
 

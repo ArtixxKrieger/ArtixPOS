@@ -67,3 +67,4 @@ pool.connect()
   .catch(() => {});
 
 export const db = drizzle(pool, { schema });
+export { pool };

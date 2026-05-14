@@ -258,6 +258,13 @@ export const shifts = pgTable("shifts", {
   notes: text("notes"),
   openedAt: text("opened_at").$defaultFn(() => new Date().toISOString()),
   closedAt: text("closed_at"),
+  // Cash drawer tracking
+  cashIn: text("cash_in").default("0"),
+  cashOut: text("cash_out").default("0"),
+  cashAdjustments: text("cash_adjustments"), // JSON: [{type,amount,reason,timestamp}]
+  denominationOpen: text("denomination_open"), // JSON: {1000:n,500:n,...}
+  denominationClose: text("denomination_close"), // JSON: {1000:n,500:n,...}
+  variance: text("variance"), // actual closing - expected closing
 });
 
 // ─── Discount Codes ───────────────────────────────────────────────────────────
@@ -535,6 +542,9 @@ export const timeLogs = pgTable("time_logs", {
   clockIn: text("clock_in").notNull(),
   clockOut: text("clock_out"),
   notes: text("notes"),
+  clockOutNotes: text("clock_out_notes"),
+  breakStart: text("break_start"),   // ISO timestamp when current break started
+  breakMinutes: integer("break_minutes").default(0), // total accumulated break minutes
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -1063,11 +1073,14 @@ export const insertShiftSchema = z.object({
   openingBalance: z.string(),
   notes: z.string().optional().nullable(),
   branchId: z.number().optional().nullable(),
+  denominationOpen: z.string().optional().nullable(),
 });
 
 export const closeShiftSchema = z.object({
   closingBalance: z.string(),
   notes: z.string().optional().nullable(),
+  denominationClose: z.string().optional().nullable(),
+  variance: z.string().optional().nullable(),
 });
 
 export type UserRole = "owner" | "manager" | "admin" | "cashier";

@@ -1,5 +1,4 @@
-import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { pool } from "./db";
 
 const INDEXES = [
   // ── Sales ─────────────────────────────────────────────────────────────────
@@ -82,22 +81,38 @@ const COLUMN_MIGRATIONS = [
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS batch_number text`,
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS requires_prescription boolean DEFAULT false`,
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS generic_name text`,
+  // Time Logs — break tracking + separate clock-out notes
+  `ALTER TABLE time_logs ADD COLUMN IF NOT EXISTS break_start text`,
+  `ALTER TABLE time_logs ADD COLUMN IF NOT EXISTS break_minutes integer DEFAULT 0`,
+  `ALTER TABLE time_logs ADD COLUMN IF NOT EXISTS clock_out_notes text`,
+  // Shifts — denomination counters, mid-shift cash adjustments, variance
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS cash_in text DEFAULT '0'`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS cash_out text DEFAULT '0'`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS cash_adjustments text`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS denomination_open text`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS denomination_close text`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS variance text`,
 ];
 
 export async function ensureIndexes(): Promise<void> {
-  for (const stmt of COLUMN_MIGRATIONS) {
-    try {
-      await db.execute(sql.raw(stmt));
-    } catch (err: any) {
-      console.warn("[migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
+  const client = await pool.connect();
+  try {
+    for (const stmt of COLUMN_MIGRATIONS) {
+      try {
+        await client.query(stmt);
+      } catch (err: any) {
+        console.warn("[migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
+      }
     }
-  }
-  for (const stmt of INDEXES) {
-    try {
-      await db.execute(sql.raw(stmt));
-    } catch (err: any) {
-      console.warn("[indexes]", stmt.slice(0, 60), "—", err?.message ?? err);
+    for (const stmt of INDEXES) {
+      try {
+        await client.query(stmt);
+      } catch (err: any) {
+        console.warn("[indexes]", stmt.slice(0, 60), "—", err?.message ?? err);
+      }
     }
+  } finally {
+    client.release();
   }
   console.log("[indexes] Performance indexes and column migrations verified.");
 }

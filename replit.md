@@ -48,37 +48,87 @@ Server listens on port **5000** (webview).
 
 ## Environment Variables
 
+### Core (required)
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `SESSION_SECRET` | Yes | JWT signing secret (64+ char random string) |
-| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | No | Google OAuth secret |
-| `FACEBOOK_APP_ID` | No | Facebook OAuth app ID |
-| `FACEBOOK_APP_SECRET` | No | Facebook OAuth secret |
-| `GROQ_API_KEY` | No | Groq AI API key (AI assistant) |
-| `CEREBRAS_API_KEY` | No | Cerebras AI API key (AI assistant fallback) |
-| `MISTRAL_API_KEY` | No | Mistral AI API key (AI assistant fallback) |
-| `UPSTASH_REDIS_REST_URL` | No | Upstash Redis URL (rate limiting) |
-| `UPSTASH_REDIS_REST_TOKEN` | No | Upstash Redis token |
-| `SMTP_HOST` | No | SMTP server for password reset emails |
-| `SMTP_USER` | No | SMTP username |
-| `SMTP_PASS` | No | SMTP password |
-| `APP_URL` | No | Public app URL for OAuth callbacks |
+
+### Auth (optional)
+| Variable | Description |
+|---|---|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret |
+| `FACEBOOK_APP_ID` | Facebook OAuth app ID |
+| `FACEBOOK_APP_SECRET` | Facebook OAuth secret |
+
+### AI (optional — falls back to next provider in chain)
+| Variable | Description |
+|---|---|
+| `GROQ_API_KEY` | Groq AI API key (primary AI assistant) |
+| `CEREBRAS_API_KEY` | Cerebras AI API key (fallback) |
+| `MISTRAL_API_KEY` | Mistral AI API key (fallback) |
+
+### Cache & Rate Limiting (optional — falls back to in-memory)
+| Variable | Description |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token |
+
+### Email (optional)
+| Variable | Description |
+|---|---|
+| `SMTP_HOST` | SMTP server for password reset emails |
+| `SMTP_USER` | SMTP username |
+| `SMTP_PASS` | SMTP password |
+| `APP_URL` | Public app URL for OAuth callbacks |
+
+### Performance & Scalability tuning (optional — all have safe defaults)
+| Variable | Default | Description |
+|---|---|---|
+| `DB_POOL_MAX` | `10` | Max PostgreSQL connections per process |
+| `DB_STATEMENT_TIMEOUT_MS` | `15000` | Kill any query running longer than N ms |
+| `DB_LOCK_TIMEOUT_MS` | `5000` | Fail fast if lock not acquired within N ms |
+| `DB_READ_POOL_MAX` | `10` | Max connections for read replica pool |
+| `DATABASE_READ_URL` | — | Read replica URL (offloads SELECT queries) |
+| `CLUSTER_WORKERS` | CPU count | Worker processes in production cluster mode |
+| `REQUEST_TIMEOUT_MS` | `30000` | Per-request timeout before 503 is returned |
+| `SERVER_TIMEOUT_MS` | `120000` | Hard server socket timeout |
+
+### Observability (optional)
+| Variable | Description |
+|---|---|
+| `SENTRY_DSN` | Sentry DSN for error tracking |
+| `METRICS_TOKEN` | Bearer token to protect `/api/metrics` endpoint |
 
 ## Key Files
 
-- `server/index.ts` — Express app setup, middleware, server startup
+- `server/index.ts` — Express app setup, all middleware, server startup
+- `server/cluster.ts` — Production cluster entry point (multi-core, auto-restart)
 - `server/auth.ts` — JWT auth, Passport strategies, auth routes
 - `server/routes.ts` — API route registration
-- `server/db.ts` — PostgreSQL pool + Drizzle ORM instance
+- `server/db.ts` — PostgreSQL pool + statement/lock timeouts + Drizzle ORM
+- `server/db-read.ts` — Read replica connection (falls back to primary)
+- `server/cache.ts` — Two-tier cache: L1 in-memory + L2 Redis
+- `server/metrics.ts` — Request counts, latency percentiles, cache hit rate
+- `server/indexes.ts` — 45+ DB indexes applied on startup
 - `server/ai-router.ts` — Multi-provider AI routing with circuit breakers
 - `shared/schema.ts` — Drizzle ORM schema (shared between client and server)
 - `client/src/App.tsx` — React app root, routing
-- `client/src/hooks/use-auth.ts` — Auth state management
 - `vite.config.ts` — Vite configuration
 
 ## Deployment
 
-Build command: `npm run build`  
-Run command: `node ./dist/index.cjs`
+Build command: `npm run build`
+
+**Single-process** (development / simple deploy):
+```
+node ./dist/index.cjs
+```
+
+**Multi-core cluster** (production — uses all CPU cores):
+```
+node ./dist/cluster.cjs
+```
+
+The cluster mode forks one worker per CPU core and auto-restarts any worker that crashes. Set `CLUSTER_WORKERS=1` to disable clustering.

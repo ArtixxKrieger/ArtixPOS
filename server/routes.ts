@@ -1176,8 +1176,14 @@ export async function registerRoutes(
   app.get("/api/shifts/:id/z-report", requireAuth, requirePro, async (req, res) => {
     const shiftId = Number(req.params.id);
     const uid = userId(req);
-    const allShifts = await storage.getShifts(uid, { limit: 2000 });
-    const shift = allShifts.find(s => s.id === shiftId);
+    // Direct DB lookup by primary key — O(1) instead of loading 2000 shifts into
+    // memory and calling Array.find(). Avoids up to ~4 MB of wasted allocation
+    // per request on stores with long shift histories.
+    const [shift] = await db
+      .select()
+      .from(shiftsTable)
+      .where(and(eq(shiftsTable.id, shiftId), eq(shiftsTable.userId, uid)))
+      .limit(1);
     if (!shift) return res.status(404).json({ message: "Shift not found" });
 
     const startDate = shift.openedAt!;
@@ -1441,8 +1447,12 @@ export async function registerRoutes(
     const startDate = new Date(`${year}-${monStr}-01T00:00:00+08:00`).toISOString();
     const endDate   = new Date(`${year}-${monStr}-${lastDayStr}T23:59:59.999+08:00`).toISOString();
 
+    // Cap at 25 000 rows (≈ 833 transactions/day — far above any real POS).
+    // Businesses genuinely exceeding this threshold should export via the
+    // paginated /api/sales endpoint or use a dedicated reporting pipeline.
+    const BIR_ROW_CAP = 25_000;
     const [salesList, settingsData] = await Promise.all([
-      storage.getSales(userId(req), { limit: 50000, startDate, endDate }),
+      storage.getSales(userId(req), { limit: BIR_ROW_CAP, startDate, endDate }),
       storage.getSettings(userId(req)),
     ]);
 

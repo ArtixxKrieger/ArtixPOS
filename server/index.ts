@@ -26,6 +26,17 @@ validateEnv();
 const app = express();
 const httpServer = createServer(app);
 
+// ── Server-level timeouts ────────────────────────────────────────────────────
+// keepAliveTimeout must be > the upstream load-balancer idle timeout (Replit
+// uses 75 s) so the LB never closes a connection that the server still holds.
+// headersTimeout > keepAliveTimeout to avoid a race condition in Node ≥ 18
+// where the headers parser gives up before keep-alive finishes.
+httpServer.keepAliveTimeout = 90_000;   // 90 s
+httpServer.headersTimeout    = 95_000;  // must be > keepAliveTimeout
+// Hard ceiling on how long any single request can take end-to-end.
+// AI streaming routes override this per-response as needed.
+httpServer.timeout = parseInt(process.env.SERVER_TIMEOUT_MS ?? "120000", 10);
+
 // Trust reverse proxies (Replit, Vercel, etc.)
 app.set("trust proxy", 1);
 
@@ -269,6 +280,27 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const id = Array.isArray(existing) ? existing[0] : existing ?? randomUUID();
   (req as any).requestId = id;
   res.setHeader("X-Request-ID", id);
+  next();
+});
+
+// ── Per-request timeout ───────────────────────────────────────────────────────
+// If a handler hasn't called res.end() within REQUEST_TIMEOUT_MS the response
+// is closed with 503 so the client fails fast and the pool slot is freed.
+// AI streaming endpoints set their own longer timeouts via res.setTimeout().
+const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? "30000", 10);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // Skip for SSE/streaming routes — they manage their own lifecycle
+  if (req.path.startsWith("/api/ai/stream") || req.path.startsWith("/api/ai/chat")) {
+    return next();
+  }
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (!res.headersSent) {
+      res.status(503).json({
+        message: "Request timed out. The server is under load — please retry.",
+        code: "REQUEST_TIMEOUT",
+      });
+    }
+  });
   next();
 });
 

@@ -27,6 +27,29 @@ const pool = new Pool({
   allowExitOnIdle: isServerless,
 });
 
+// ── PostgreSQL session-level timeouts ─────────────────────────────────────────
+// Set per-connection so they apply regardless of how Drizzle issues queries.
+//
+// statement_timeout  — kills any single query that runs longer than N ms.
+//                      Prevents a missing index or lock contention from holding
+//                      a pool slot indefinitely and starving other requests.
+//                      Default: 15 s. Override with DB_STATEMENT_TIMEOUT_MS.
+//
+// lock_timeout       — fails fast if a query waits more than N ms to acquire
+//                      a lock (e.g. concurrent UPDATE on same row). Avoids
+//                      cascading pile-up of waiting connections.
+//                      Default: 5 s. Override with DB_LOCK_TIMEOUT_MS.
+const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_MS ?? "15000", 10);
+const LOCK_TIMEOUT_MS      = parseInt(process.env.DB_LOCK_TIMEOUT_MS      ?? "5000",  10);
+
+pool.on("connect", (client) => {
+  client.query(
+    `SET statement_timeout = ${STATEMENT_TIMEOUT_MS}; SET lock_timeout = ${LOCK_TIMEOUT_MS};`
+  ).catch((err) => {
+    console.warn("[db] Could not set session timeouts:", err.message);
+  });
+});
+
 // Log pool errors so they surface in structured logs instead of crashing.
 pool.on("error", (err) => {
   console.error("[db] Unexpected pool client error:", err.message);

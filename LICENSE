@@ -1,38 +1,68 @@
+PROPRIETARY SOFTWARE — ALL RIGHTS RESERVED
+
 Copyright (c) 2026 ArtixxKrieger. All rights reserved.
 
-PROPRIETARY SOFTWARE LICENSE
+────────────────────────────────────────────────────────────────────────────────
+NOTICE: This repository is publicly visible for transparency and deployment
+purposes only. Visibility does NOT constitute an open-source license of any
+kind. No rights are granted to any party other than the copyright holder.
+────────────────────────────────────────────────────────────────────────────────
 
-This software and its source code, documentation, and all associated files
-(collectively, the "Software") are the exclusive property of ArtixxKrieger
-and are protected by copyright law and international treaties.
+1. OWNERSHIP
 
-RESTRICTIONS
+   The software, source code, design, architecture, user interface, and all
+   associated files in this repository (collectively, the "Software") are the
+   sole and exclusive intellectual property of ArtixxKrieger and are protected
+   under copyright law, trade secret law, and applicable international treaties,
+   including the Berne Convention for the Protection of Literary and Artistic
+   Works.
 
-You may NOT, without prior written permission from the copyright holder:
+2. PROHIBITED ACTS
 
-1. Copy, reproduce, or duplicate any part of the Software.
-2. Modify, adapt, translate, or create derivative works based on the Software.
-3. Distribute, sell, sublicense, rent, lease, or otherwise transfer the
-   Software or any rights in it to any third party.
-4. Use the Software or any part of it to build a competing product or service.
-5. Reverse engineer, decompile, or disassemble the Software.
-6. Remove or alter any proprietary notices, labels, or marks on the Software.
+   Without express prior written consent from the copyright holder, no person
+   or entity may:
 
-PERMITTED USE
+   a) Copy, reproduce, download, or archive any portion of the Software;
+   b) Modify, adapt, translate, or prepare derivative works of the Software;
+   c) Distribute, publish, sublicense, sell, rent, lease, or transfer the
+      Software or any rights therein to any third party;
+   d) Use the Software, in whole or in part, to develop, train, or operate any
+      competing product, service, or system;
+   e) Use the Software as a template, reference, or starting point for any
+      commercial or non-commercial project;
+   f) Reverse engineer, decompile, disassemble, or attempt to derive the source
+      code or underlying ideas from any compiled portion of the Software;
+   g) Remove, obscure, or alter any copyright notice, trademark, or proprietary
+      legend contained in or on the Software.
 
-Viewing this source code on a public platform does not grant any license,
-right, or permission to use, copy, or distribute the Software. Access to
-the source code is provided solely for transparency and does not constitute
-an open-source license of any kind.
+3. NO LICENSE GRANTED
 
-NO WARRANTY
+   The publication of this source code on a public platform does not, under any
+   circumstances, grant any license, right, permission, or interest — express,
+   implied, by estoppel, or otherwise — to any third party. Accessing this
+   repository constitutes acceptance of these terms.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
-DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF OR INABILITY TO USE
-THE SOFTWARE.
+4. ENFORCEMENT
 
-CONTACT
+   Unauthorized use, reproduction, or distribution of this Software, or any
+   portion of it, may result in severe civil and criminal penalties and will be
+   prosecuted to the maximum extent possible under applicable law. The copyright
+   holder reserves the right to seek injunctive relief, actual damages, statutory
+   damages, and attorney's fees against any infringing party.
 
-For licensing inquiries or permission requests, contact the copyright holder
-directly through the repository.
+5. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. THE ENTIRE RISK AS
+   TO THE QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH YOU.
+
+6. CONTACT
+
+   To request a license, partnership, or written permission for any use not
+   expressly permitted above, contact the copyright holder through the
+   repository or via the contact information provided in the project.
+
+────────────────────────────────────────────────────────────────────────────────
+Unauthorized use of this Software is a violation of copyright law.
+────────────────────────────────────────────────────────────────────────────────

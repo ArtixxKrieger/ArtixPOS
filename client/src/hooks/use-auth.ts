@@ -60,7 +60,22 @@ async function fetchMe(): Promise<AuthUser | null> {
     debugLog("auth", `fetchMe — token=${token ? "YES" : "NO"} url=${resolveUrl("/api/auth/me")}`);
     const res = await fetch(resolveUrl("/api/auth/me"), { credentials, headers });
     debugLog("auth", `fetchMe — status=${res.status}`);
-    if (res.status === 401) return null;
+    if (res.status === 401) {
+      // If we used a stale localStorage token, clear it and retry with cookie auth.
+      // This fixes the case where a user logged in via OAuth on web but still has
+      // an old native token in localStorage blocking cookie-based auth.
+      if (token && !API_BASE) {
+        debugLog("auth", "fetchMe — stale native token detected, clearing and retrying with cookie");
+        clearNativeToken();
+        const retry = await fetch(resolveUrl("/api/auth/me"), { credentials: "include", headers: {} });
+        if (retry.ok) {
+          const data = await retry.json();
+          debugLog("auth", `fetchMe — retry user=${JSON.stringify(data.user?.id ?? null)}`);
+          return data.user ?? null;
+        }
+      }
+      return null;
+    }
     if (res.status === 403) {
       const data = await res.json().catch(() => ({}));
       if (data.banned) {

@@ -56,5 +56,10 @@ if (PRODUCTION && cluster.isPrimary && NUM_WORKERS > 1) {
       `Set NODE_ENV=production to enable ${NUM_WORKERS}-worker cluster.`
     );
   }
-  await import("./index.js");
+  // Dynamic import wrapped in .catch() — avoids top-level await so this file
+  // is compatible with esbuild --format=cjs used in the production build.
+  import("./index.js").catch((err: Error) => {
+    console.error("[cluster] Failed to boot server:", err.message);
+    process.exit(1);
+  });
 }

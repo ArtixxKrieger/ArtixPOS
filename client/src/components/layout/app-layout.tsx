@@ -488,7 +488,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Main content */}
-        <main className="pb-[calc(80px+env(safe-area-inset-bottom,0px))] md:pb-10">
+        <main className="pb-[calc(104px+env(safe-area-inset-bottom,0px))] md:pb-10">
           <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
             {children}
           </div>

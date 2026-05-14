@@ -130,7 +130,7 @@ function CheckoutDialog({
     onError: () => toast({ title: "Error", description: "Could not process payment", variant: "destructive" }),
   });
 
-  const canPay = paymentMethod !== "cash" || !cashGiven || Number(cashGiven) >= total;
+  const canPay = paymentMethod !== "cash" || (!!cashGiven && Number(cashGiven) >= total);
 
   const quickAmounts = useMemo(() => {
     if (total <= 0) return [];

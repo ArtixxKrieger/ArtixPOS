@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, LayoutGrid, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, LayoutGrid, Pencil, Trash2, Users, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Table } from "@shared/schema";
 
@@ -27,6 +27,7 @@ export default function TablesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Table | null>(null);
   const [form, setForm] = useState<TableForm>(DEFAULT_FORM);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: tables = [], isLoading } = useQuery<Table[]>({ queryKey: ["/api/tables"] });
 
@@ -120,9 +121,20 @@ export default function TablesPage() {
                     <button onClick={() => openEdit(table)} className="text-muted-foreground hover:text-foreground transition-colors p-0.5" data-testid={`button-edit-table-${table.id}`}>
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => deleteMutation.mutate(table.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5" data-testid={`button-delete-table-${table.id}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {confirmDeleteId === table.id ? (
+                      <>
+                        <button onClick={() => { deleteMutation.mutate(table.id); setConfirmDeleteId(null); }} className="text-destructive hover:bg-destructive/10 rounded p-0.5 transition-colors" data-testid={`button-confirm-delete-table-${table.id}`} title="Confirm delete">
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => setConfirmDeleteId(null)} className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors" data-testid={`button-cancel-delete-table-${table.id}`} title="Cancel">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(table.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5" data-testid={`button-delete-table-${table.id}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

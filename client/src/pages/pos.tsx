@@ -143,6 +143,9 @@ export default function POS() {
       // If the dedicated barcode input has focus, let its own handler deal with it
       if (barcodeRef.current && document.activeElement === barcodeRef.current) return;
 
+      // Don't process barcode if any dialog/modal is open (avoids ghost scans into modals)
+      if (document.querySelector('[role="dialog"]')) return;
+
       const now = Date.now();
       const gap = now - lastCharTime;
 
@@ -193,7 +196,7 @@ export default function POS() {
   // Loyalty points
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
   const loyaltyRedemptionRate = parseNumeric(settings?.loyaltyRedemptionRate || "100"); // pts per currency unit
-  const loyaltyDiscount = selectedCustomer && loyaltyPointsToRedeem > 0
+  const loyaltyDiscount = selectedCustomer && loyaltyPointsToRedeem > 0 && !isScPwd
     ? loyaltyPointsToRedeem / loyaltyRedemptionRate
     : 0;
   const validateDiscountMutation = useMutation({

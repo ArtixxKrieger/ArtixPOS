@@ -1166,7 +1166,7 @@ export async function registerRoutes(
       const { openingBalance, notes, denominationOpen } = insertShiftSchema.parse(req.body);
       // Check for existing open shift
       const existing = await storage.getOpenShift(userId(req));
-      if (existing) return res.status(400).json({ message: "A shift is already open" });
+      if (existing) return res.status(409).json({ message: "A shift is already open" });
       const shift = await storage.openShift(userId(req), openingBalance, notes ?? undefined, denominationOpen ?? undefined);
       res.status(201).json(shift);
     } catch (err) {
@@ -2403,7 +2403,7 @@ export async function registerRoutes(
     try {
       const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
       const log = await storage.clockOut(userId(req), notes);
-      if (!log) return res.status(400).json({ message: "Not clocked in" });
+      if (!log) return res.status(409).json({ message: "Not clocked in" });
       res.json(log);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2413,13 +2413,13 @@ export async function registerRoutes(
 
   app.post("/api/time-logs/break-start", requireAuth, requirePro, async (req, res) => {
     const log = await storage.startBreak(userId(req));
-    if (!log) return res.status(400).json({ message: "Not clocked in or already on break" });
+    if (!log) return res.status(409).json({ message: "Not clocked in or already on break" });
     res.json(log);
   });
 
   app.post("/api/time-logs/break-end", requireAuth, requirePro, async (req, res) => {
     const log = await storage.endBreak(userId(req));
-    if (!log) return res.status(400).json({ message: "Not on break" });
+    if (!log) return res.status(409).json({ message: "Not on break" });
     res.json(log);
   });
 

@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2, Download, Globe, Check } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -48,6 +50,9 @@ const settingsSchema = z.object({
   receiptShowAddress: z.coerce.number().int().min(0).max(1),
   receiptShowPhone: z.coerce.number().int().min(0).max(1),
   receiptShowEmail: z.coerce.number().int().min(0).max(1),
+  receiptShowCashier: z.coerce.number().int().min(0).max(1),
+  receiptShowUnitPrice: z.coerce.number().int().min(0).max(1),
+  receiptShowPoweredBy: z.coerce.number().int().min(0).max(1),
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
@@ -170,7 +175,9 @@ export default function Settings() {
     defaultValues: {
       storeName: "", taxRate: "0", address: "", phone: "",
       emailContact: "", receiptTitle: "OFFICIAL RECEIPT", receiptWidth: "80mm", receiptShowOrderNumber: 1,
-      receiptShowAddress: 1, receiptShowPhone: 1, receiptShowEmail: 0, receiptFooter: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
+      receiptShowAddress: 1, receiptShowPhone: 1, receiptShowEmail: 0,
+      receiptShowCashier: 0, receiptShowUnitPrice: 1, receiptShowPoweredBy: 1,
+      receiptFooter: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
       wifiSsid: "", wifiPassword: "", wifiDurationMinutes: "60",
     }
   });
@@ -186,6 +193,9 @@ export default function Settings() {
         receiptShowAddress: Number((settings as any).receiptShowAddress ?? 1),
         receiptShowPhone: Number((settings as any).receiptShowPhone ?? 1),
         receiptShowEmail: Number((settings as any).receiptShowEmail ?? 0),
+        receiptShowCashier: Number((settings as any).receiptShowCashier ?? 0),
+        receiptShowUnitPrice: Number((settings as any).receiptShowUnitPrice ?? 1),
+        receiptShowPoweredBy: Number((settings as any).receiptShowPoweredBy ?? 1),
         address: (settings as any).address || "",
         phone: (settings as any).phone || "",
         emailContact: (settings as any).emailContact || "",
@@ -254,6 +264,9 @@ export default function Settings() {
       receiptShowAddress: data.receiptShowAddress,
       receiptShowPhone: data.receiptShowPhone,
       receiptShowEmail: data.receiptShowEmail,
+      receiptShowCashier: data.receiptShowCashier,
+      receiptShowUnitPrice: data.receiptShowUnitPrice,
+      receiptShowPoweredBy: data.receiptShowPoweredBy,
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,
@@ -459,6 +472,63 @@ export default function Settings() {
                   </FormItem>
                 )} />
               </SettingRow>
+            </div>
+
+            {/* Receipt Printing */}
+            <SectionLabel>Receipt Printing</SectionLabel>
+            <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+              <SettingRow label="Receipt Title">
+                <FormField control={form.control} name="receiptTitle" render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="OFFICIAL RECEIPT" data-testid="input-receipt-title" />
+                    </FormControl>
+                    <FormMessage className="text-right text-[10px]" />
+                  </FormItem>
+                )} />
+              </SettingRow>
+
+              <SettingRow label="Paper Width">
+                <FormField control={form.control} name="receiptWidth" render={({ field }) => (
+                  <FormItem>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="h-8 text-sm rounded-lg bg-secondary/60 border-none" data-testid="select-receipt-width">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="58mm">58 mm (small)</SelectItem>
+                        <SelectItem value="80mm">80 mm (standard)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+              </SettingRow>
+
+              {(
+                [
+                  { name: "receiptShowOrderNumber" as const, label: "Show Order Number" },
+                  { name: "receiptShowAddress" as const, label: "Show Address" },
+                  { name: "receiptShowPhone" as const, label: "Show Phone" },
+                  { name: "receiptShowEmail" as const, label: "Show Email" },
+                  { name: "receiptShowCashier" as const, label: "Show Cashier Name" },
+                  { name: "receiptShowUnitPrice" as const, label: "Show Unit Price" },
+                  { name: "receiptShowPoweredBy" as const, label: "Show \"Powered by ArtixPOS\"" },
+                ] as const
+              ).map(({ name, label }) => (
+                <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                  <SettingRow label={label}>
+                    <div className="flex justify-end">
+                      <Switch
+                        data-testid={`toggle-${name}`}
+                        checked={field.value === 1}
+                        onCheckedChange={v => field.onChange(v ? 1 : 0)}
+                      />
+                    </div>
+                  </SettingRow>
+                )} />
+              ))}
             </div>
 
             {/* Loyalty */}

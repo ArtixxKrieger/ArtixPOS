@@ -105,6 +105,8 @@ export function getBusinessFeatures(
     hidden.add("/staff");
     hidden.add("/memberships");
     hidden.add("/rooms");
+    hidden.add("/kitchen");
+    hidden.add("/tables");
     return { hiddenUrls: hidden, essentialUrls: getEssentialBusinessUrls(businessType, businessSubType), showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };
   }
 

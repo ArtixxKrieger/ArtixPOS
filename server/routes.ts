@@ -1,4 +1,4 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express, Request, Response } from "express";
 import type { Server } from "http";
 import { createHash } from "crypto";
 import { rateLimit } from "express-rate-limit";
@@ -11,9 +11,9 @@ import { registerSubscriptionRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { createBranch, getBranches, createTenant, createAuditLog, getRolePermissionForRole } from "./admin-storage";
 import { db } from "./db";
-import { eq, and, sql, desc, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { users, branches as branchesTable, tenants, sales as salesTable, shifts as shiftsTable, expenses } from "@shared/schema";
-import { signToken, setAuthCookie, verifyToken } from "./auth";
+import { setAuthCookie, verifyToken } from "./auth";
 import { emit as emitTenantEvent, subscribe as subscribeTenantEvent } from "./events";
 import { requireAuth, requireManagerOrAbove, requirePro, requireProOrBusinessFeature, getSubscription, isProSubscription } from "./middleware";
 import { cache, TTL, productsCacheKey, settingsCacheKey, barcodeCacheKey, dashboardCacheKey, customersCacheKey, notificationsCacheKey, suppliersCacheKey, tablesCacheKey, salesCacheKey } from "./cache";

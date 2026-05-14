@@ -77,6 +77,7 @@ setInterval(() => {
 }, 60_000).unref();
 
 /** Returns rate-limit result, preferring Redis for cross-replica accuracy. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   // ── Try Redis first ────────────────────────────────────────────────────────
   const limiter = getAiRatelimit();
@@ -371,7 +372,7 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
 
   // ── Day-of-week sales patterns ───────────────────────────────────────────
   const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const dowLines = dayOfWeekRows
+  const _dowLines = dayOfWeekRows
     .sort((a: any, b: any) => (Number(b.total) || 0) - (Number(a.total) || 0))
     .map((r: any) => `${DOW_NAMES[Number(r.dow)] || "?"}: ${fmt(Number(r.total))} avg (${r.count} sales)`);
 
@@ -790,7 +791,7 @@ This directive supersedes any older advice in this conversation about doing it m
 `;
 }
 
-function buildCapabilitiesAnswer(currency: string): string {
+function buildCapabilitiesAnswer(_currency: string): string {
   return `Here's everything I can do for your store:
 
 **📊 Look up your data**

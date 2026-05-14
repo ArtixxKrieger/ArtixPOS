@@ -23,7 +23,6 @@ import { db } from "./db";
 import {
   users, sales, products, tables, productSizes, productModifiers,
   productRecipes, purchaseOrderItems, pendingOrders, userBranches,
-  type UserRole,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, sql, desc } from "drizzle-orm";
 import { signToken, AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getBaseUrl } from "./auth";
@@ -478,7 +477,7 @@ export function registerAdminRoutes(app: Express) {
 
       const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
-      const [allTimeRow, todayRow, monthRow, staffCount, topProductRows, last7Days] = await Promise.all([
+      const [allTimeRow, todayRow, monthRow, _staffCount, topProductRows, last7Days] = await Promise.all([
         db.select({
           revenue: sql<string>`COALESCE(SUM(CAST(${sales.total} AS REAL)), 0)`,
           orders: sql<string>`COUNT(*)`,
@@ -626,7 +625,7 @@ export function registerAdminRoutes(app: Express) {
       const isOwner = user.role === "owner";
       res.json(tenantUsers.map(u => {
         // Strip security/recovery tokens from every response.
-        const { passwordHash, resetToken, resetTokenExpires, ...safe } = u as any;
+        const { passwordHash: _ph, resetToken: _rt, resetTokenExpires: _rte, ...safe } = u as any;
         // Only owners can see compensation details — admins/managers should not
         // be able to see what their peers are paid.
         if (!isOwner && u.id !== user.id) {

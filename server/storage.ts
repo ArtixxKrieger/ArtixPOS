@@ -3,11 +3,8 @@ import { dbRead } from "./db-read";
 import { createHash } from "crypto";
 import {
   products,
-  productSizes,
-  productModifiers,
   pendingOrders,
   sales,
-  orSequences,
   userSettings,
   users,
   customers,
@@ -31,7 +28,6 @@ import {
   wifiVouchers,
   payrollPeriods,
   payrollEntries,
-  auditLogs,
   type Ingredient,
   type InsertIngredient,
   type ProductRecipe,
@@ -70,7 +66,6 @@ import {
   type PurchaseOrderItem,
   type InsertPurchaseOrder,
   type TimeLog,
-  type InsertTimeLog,
   type ServiceStaff,
   type InsertServiceStaff,
   type ServiceRoom,
@@ -1275,7 +1270,7 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Supplier Products ────────────────────────────────────────────────────
 
-  async getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
+  async getSupplierProducts(supplierId: number, _userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
     try {
       const rows = await db.select({
         id: supplierProducts.id,
@@ -1313,7 +1308,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async deleteSupplierProduct(id: number, userId: string): Promise<void> {
+  async deleteSupplierProduct(id: number, _userId: string): Promise<void> {
     await db.delete(supplierProducts).where(eq(supplierProducts.id, id));
   }
 

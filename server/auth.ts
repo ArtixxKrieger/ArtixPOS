@@ -717,7 +717,7 @@ export function setupAuth(app: Express) {
   // ── Token refresh ─────────────────────────────────────────────────────────────
   // Validates the current token and issues a fresh 7-day token, resetting the
   // sliding session window. The old token is revoked so it cannot be reused.
-  app.post("/api/auth/refresh", async (req, res, next) => {
+  app.post("/api/auth/refresh", async (req, res, _next) => {
     let token = (req as any).cookies?.[AUTH_COOKIE];
     if (!token && typeof req.headers.authorization === "string" && req.headers.authorization.startsWith("Bearer ")) {
       token = req.headers.authorization.slice(7);
@@ -777,7 +777,7 @@ export function setupAuth(app: Express) {
 
       // Strip secrets out of user rows before exporting.
       const sanitizeUser = (u: any) => {
-        const { passwordHash, resetToken, resetTokenExpires, ...safe } = u;
+        const { passwordHash: _ph, resetToken: _rt, resetTokenExpires: _rte, ...safe } = u;
         return safe;
       };
 

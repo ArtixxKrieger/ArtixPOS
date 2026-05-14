@@ -1,10 +1,10 @@
 import { db } from "./db";
 import {
   tenants, branches, users, userBranches, auditLogs, sales, inviteTokens, rolePermissions,
-  timeLogs, shifts, refunds,
+  timeLogs,
   type Tenant, type Branch, type User, type AuditLog, type UserBranch, type InviteToken, type RolePermission,
 } from "@shared/schema";
-import { eq, and, desc, inArray, isNull, sql, gte, lte, or } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, sql, gte, lte } from "drizzle-orm";
 import { invalidateTenantCache } from "./storage";
 import crypto from "crypto";
 

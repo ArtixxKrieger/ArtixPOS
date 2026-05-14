@@ -14,7 +14,7 @@
 
 import { db } from "./db";
 import { aiMemories } from "@shared/schema";
-import { eq, and, desc, sql, lt, lte } from "drizzle-orm";
+import { eq, and, desc, sql, lt } from "drizzle-orm";
 
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const EXTRACTION_MODEL = "llama-3.1-8b-instant";
@@ -158,7 +158,7 @@ export async function getRelevantMemories(opts: {
   businessType: string | null;
   queryHint?: string;
 }): Promise<string> {
-  const { tenantId, businessType, queryHint } = opts;
+  const { tenantId, businessType: _businessType, queryHint } = opts;
 
   try {
     // Fetch top memories for this tenant sorted by importance + recency

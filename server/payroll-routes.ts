@@ -1,4 +1,4 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { users, timeLogs, sales, payrollPeriods, payrollEntries } from "@shared/schema";
 import { and, eq, gte, lte, inArray, isNull, isNotNull } from "drizzle-orm";
@@ -38,7 +38,7 @@ export function registerPayrollRoutes(app: Express) {
   app.get("/api/payroll/periods/:id/export-csv", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
-      const user = getAuthUser(req);
+      const _user = getAuthUser(req);
       const periodId = Number(req.params.id);
 
       const [period] = await db

@@ -159,7 +159,7 @@ export function registerSubscriptionRoutes(app: Express) {
         .orderBy(subscriptionPayments.createdAt);
 
       return res.json(payments.reverse());
-    } catch (err: any) {
+    } catch {
       return res.status(500).json({ message: "Failed to load payment history" });
     }
   });
@@ -366,7 +366,7 @@ export function registerSubscriptionRoutes(app: Express) {
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
       return res.json({ ok: true });
-    } catch (err: any) {
+    } catch {
       return res.status(500).json({ message: "Failed to cancel subscription" });
     }
   });
@@ -384,7 +384,7 @@ export function registerSubscriptionRoutes(app: Express) {
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
       return res.json({ ok: true });
-    } catch (err: any) {
+    } catch {
       return res.status(500).json({ message: "Failed to reactivate subscription" });
     }
   });

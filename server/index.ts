@@ -468,7 +468,19 @@ export default async function handler(req: Request, res: Response) {
   } catch (error) {
     console.error("Handler error:", error);
     if (!res.headersSent) {
-      res.status(500).json({ error: "Internal Server Error" });
+      // For OAuth callbacks, redirect to login with an error instead of
+      // showing a raw JSON response — gives the user a recoverable path.
+      const path = (req as any).url ?? req.path ?? "";
+      const isOAuthCallback =
+        path.includes("/auth/google/callback") ||
+        path.includes("/auth/facebook/callback") ||
+        path.includes("/auth/google") ||
+        path.includes("/auth/facebook");
+      if (isOAuthCallback) {
+        res.redirect("/login?error=server_unavailable");
+      } else {
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     }
   }
 }

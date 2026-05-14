@@ -99,7 +99,7 @@ async function logAuthEvent(opts: {
 let _ephemeralSecret: string | undefined;
 
 function getJwtSecret(): string {
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.SESSION_SECRET?.trim();
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SESSION_SECRET environment variable is required in production");

@@ -452,15 +452,28 @@ export default function Login() {
       )}
       {error && (
         <div className="rise d1" style={{
-          padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16,
+          padding: "12px 14px", borderRadius: 10, fontSize: 13, textAlign: "left", marginBottom: 16,
           background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)",
-          border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`,
+          border: `1px solid ${isDark ? "rgba(239,68,68,0.4)" : "rgba(239,68,68,0.3)"}`,
           color: isDark ? "#f87171" : "#dc2626",
+          wordBreak: "break-word",
         }}>
-          {error === "state_mismatch" ? "Sign-in expired. Please try again."
-            : error === "google_not_configured" ? "Google sign-in is not configured yet."
-            : error === "server_unavailable" ? `Server error${detail ? `: ${detail}` : " — please try signing in with email instead."}`
-            : `Sign-in failed (${error})${detail ? `: ${detail}` : ""}. Please try again.`}
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            {error === "state_mismatch" ? "Sign-in expired — please try again."
+              : error === "google_not_configured" ? "Google sign-in is not configured."
+              : error === "server_unavailable" ? "Server error"
+              : `Sign-in failed`}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>
+            {error === "state_mismatch"
+              ? "The sign-in session expired. Click 'Continue with Google' again."
+              : detail
+              ? detail
+              : `Error code: ${error}`}
+          </div>
+          {detail && error !== "server_unavailable" && (
+            <div style={{ fontSize: 11, marginTop: 4, opacity: 0.65 }}>Code: {error}</div>
+          )}
         </div>
       )}
       {nativeError && (

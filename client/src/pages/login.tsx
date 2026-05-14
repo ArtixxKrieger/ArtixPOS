@@ -459,7 +459,7 @@ export default function Login() {
         }}>
           {error === "state_mismatch" ? "Sign-in expired. Please try again."
             : error === "google_not_configured" ? "Google sign-in is not configured yet."
-            : error === "server_unavailable" ? "Server is unavailable. Please try signing in with email instead."
+            : error === "server_unavailable" ? `Server error${detail ? `: ${detail}` : " — please try signing in with email instead."}`
             : `Sign-in failed (${error})${detail ? `: ${detail}` : ""}. Please try again.`}
         </div>
       )}

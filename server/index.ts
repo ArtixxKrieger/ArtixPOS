@@ -360,20 +360,26 @@ async function initializeApp() {
 
 async function _doInit() {
   try {
+    console.log("[init] step 1/8 — validateEnv");
     validateEnv();
-    console.log("Starting server initialization...");
-
+    console.log("[init] step 2/8 — initSentry");
     await initSentry();
 
     // Skip on Vercel — running 49 sequential SQL statements on every cold start
     // exceeds the function timeout. Indexes and column migrations must be applied
     // as a one-off step (npm run db:push) before deploying to Vercel.
     if (process.env.VERCEL !== "1") {
+      console.log("[init] step 3/8 — ensureIndexes");
       await ensureIndexes();
+    } else {
+      console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
     }
 
+    console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);
+    console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
+    console.log("[init] step 6/8 — setupSwagger");
     setupSwagger(app);
 
     // Start Ollama in background (non-blocking — doesn't delay server start)
@@ -473,7 +479,8 @@ export default async function handler(req: Request, res: Response) {
     const initializedApp = await initializeApp();
     return initializedApp(req, res);
   } catch (error) {
-    console.error("Handler error:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("[vercel] Handler init failed:", errMsg);
     if (!res.headersSent) {
       // For OAuth callbacks, redirect to login with an error instead of
       // showing a raw JSON response — gives the user a recoverable path.
@@ -484,9 +491,12 @@ export default async function handler(req: Request, res: Response) {
         path.includes("/auth/google") ||
         path.includes("/auth/facebook");
       if (isOAuthCallback) {
-        res.redirect("/login?error=server_unavailable");
+        // Include the first 150 chars of the actual error so it surfaces on the
+        // login page for easy diagnosis without needing Vercel log access.
+        const detail = encodeURIComponent(errMsg.slice(0, 150));
+        res.redirect(`/login?error=server_unavailable&detail=${detail}`);
       } else {
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({ error: "Internal Server Error", detail: errMsg.slice(0, 150) });
       }
     }
   }

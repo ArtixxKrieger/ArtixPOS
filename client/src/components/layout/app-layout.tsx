@@ -436,7 +436,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ── Main area ─────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px] overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px] overflow-y-auto" style={{ overscrollBehavior: "none" }}>
 
         {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header
@@ -489,7 +489,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         {/* Main content */}
         <main className="pb-[calc(104px+env(safe-area-inset-bottom,0px))] md:pb-10">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-5">
             {children}
           </div>
         </main>

@@ -119,7 +119,7 @@ export function AiFloatButton() {
       }}
       className={[
         "fixed z-50 rounded-full shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 flex items-center justify-center transition-opacity duration-200",
-        pos && draggable ? "" : "bottom-24 right-4 md:bottom-6 md:right-6",
+        pos && draggable ? "" : "bottom-40 right-4 md:bottom-6 md:right-6",
         !draggable ? "active:scale-95 transition-all" : "",
       ].join(" ")}
       aria-label="Open AI assistant"

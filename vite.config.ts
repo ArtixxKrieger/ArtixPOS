@@ -90,6 +90,8 @@ export default defineConfig({
       "date-fns",
       "recharts",
     ],
+    // Exclude packages with broken source maps or complex peer deps
+    exclude: ["motion", "framer-motion", "jspdf"],
     // Force re-bundle when lock file changes
     force: false,
   },

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "react-i18next";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts } from "@/hooks/use-products";
@@ -55,6 +56,7 @@ export default function POS() {
   const { data: settings } = useSettings();
   const createPending = useCreatePendingOrder();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const { showBarcode } = getBusinessFeatures(
     (settings as any)?.businessType,
@@ -1160,7 +1162,10 @@ export default function POS() {
   }
 
   return (
-    <div className="flex gap-5 page-enter" style={{ height: "calc(100dvh - 8rem)" }}>
+    <div
+      className="flex gap-5 page-enter"
+      style={{ height: isMobile ? "calc(100dvh - 196px)" : "calc(100dvh - 132px)" }}
+    >
 
       {/* Left: Product grid */}
       <div className="flex-1 flex flex-col min-w-0">

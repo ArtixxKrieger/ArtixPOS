@@ -281,7 +281,7 @@ export function BottomNav() {
       </nav>
 
       {/* More Sheet */}
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen} modal={false}>
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
           className="md:hidden rounded-t-[28px] p-0 border-t border-border bg-card"

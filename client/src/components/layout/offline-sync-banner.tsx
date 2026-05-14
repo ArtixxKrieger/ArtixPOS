@@ -97,6 +97,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
         style={{
           background: "linear-gradient(90deg, #7c3aed, #4f46e5)",
           boxShadow: "0 2px 12px rgba(124,58,237,0.35)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
         }}
       >
         <RefreshCw className="h-3 w-3 animate-spin shrink-0" />
@@ -122,6 +123,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
         style={{
           background: "linear-gradient(90deg, #059669, #10b981)",
           boxShadow: "0 2px 12px rgba(5,150,105,0.3)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
         }}
       >
         <CheckCircle2 className="h-3 w-3 shrink-0" />
@@ -138,6 +140,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
         style={{
           background: "linear-gradient(90deg, #dc2626, #b91c1c)",
           boxShadow: "0 2px 12px rgba(220,38,38,0.3)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
         }}
       >
         <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -174,6 +177,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
           background: "rgba(245,158,11,0.95)",
           color: "#1c1917",
           boxShadow: "0 2px 12px rgba(245,158,11,0.35)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
         }}
       >
         <CloudOff className="h-3 w-3 shrink-0" />

@@ -162,15 +162,13 @@ export async function registerRoutes(
     res.json(product);
   });
 
-  app.get("/api/products/low-stock", requireAuth, async (req, res) => {
-    const products = await storage.getProducts(userId(req));
-    const lowStockProducts = products.filter(p =>
-      p.trackStock &&
-      typeof p.stock === "number" &&
-      typeof p.lowStockThreshold === "number" &&
-      p.stock <= p.lowStockThreshold
-    ).sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0));
-    res.json(lowStockProducts);
+  app.get("/api/products/low-stock", requireAuth, async (req, res, next) => {
+    try {
+      const branch = activeBranchId(req);
+      // Filtered in SQL — avoids a full-table scan + JS filter on large catalogs.
+      const products = await storage.getLowStockProducts(userId(req), branch);
+      res.json(products);
+    } catch (err) { next(err); }
   });
 
   app.post(api.products.create.path, requireAuth, async (req, res) => {

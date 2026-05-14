@@ -76,6 +76,40 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id, created_at)`,
 ];
 
+// FK cascade constraints — idempotent DO blocks (EXCEPTION WHEN duplicate_object)
+// Ensures orphaned child rows cannot accumulate when a parent product/user/branch
+// is deleted. Safe to apply repeatedly; PG raises duplicate_object if the
+// constraint already exists which is silently swallowed.
+const FK_CASCADE_MIGRATIONS = [
+  // product_sizes and product_modifiers were created without FK references —
+  // add them now so rows are removed when the parent product is deleted.
+  `DO $$ BEGIN
+    ALTER TABLE product_sizes
+      ADD CONSTRAINT fk_product_sizes_product
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+  `DO $$ BEGIN
+    ALTER TABLE product_modifiers
+      ADD CONSTRAINT fk_product_modifiers_product
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+  // user_branches: drop existing no-action FKs and replace with cascade so
+  // deleting a user or branch automatically removes their junction rows.
+  `DO $$ BEGIN
+    ALTER TABLE user_branches
+      ADD CONSTRAINT fk_user_branches_user_cascade
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+  `DO $$ BEGIN
+    ALTER TABLE user_branches
+      ADD CONSTRAINT fk_user_branches_branch_cascade
+      FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+];
+
 const COLUMN_MIGRATIONS = [
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_date text`,
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS batch_number text`,
@@ -104,6 +138,13 @@ export async function ensureIndexes(): Promise<void> {
         console.warn("[migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
       }
     }
+    for (const stmt of FK_CASCADE_MIGRATIONS) {
+      try {
+        await client.query(stmt);
+      } catch (err: any) {
+        console.warn("[fk-migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
+      }
+    }
     for (const stmt of INDEXES) {
       try {
         await client.query(stmt);
@@ -114,5 +155,5 @@ export async function ensureIndexes(): Promise<void> {
   } finally {
     client.release();
   }
-  console.log("[indexes] Performance indexes and column migrations verified.");
+  console.log("[indexes] Performance indexes, column migrations, and FK constraints verified.");
 }

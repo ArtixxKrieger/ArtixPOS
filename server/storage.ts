@@ -96,6 +96,7 @@ import { eq, and, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 export interface IStorage {
   // Products
   getProducts(userId: string): Promise<Product[]>;
+  getLowStockProducts(userId: string, branchId?: number | null): Promise<Product[]>;
   getProduct(id: number, userId: string): Promise<Product | undefined>;
   createProduct(userId: string, product: Omit<InsertProduct, "userId">): Promise<Product>;
   updateProduct(id: number, userId: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
@@ -307,6 +308,23 @@ export class DatabaseStorage implements IStorage {
       return await query;
     } catch (error) {
       console.error("Error fetching products:", error);
+      return [];
+    }
+  }
+
+  async getLowStockProducts(userId: string, branchId?: number | null): Promise<Product[]> {
+    try {
+      const userIds = await this.getTenantUserIds(userId);
+      const conditions: any[] = [
+        isNull(products.deletedAt),
+        eq(products.trackStock, true),
+        sql`${products.stock} <= ${products.lowStockThreshold}`,
+        userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds),
+      ];
+      if (branchId != null) conditions.push(eq(products.branchId, branchId));
+      return await dbRead.select().from(products).where(and(...conditions)).orderBy(products.stock);
+    } catch (error) {
+      console.error("Error fetching low-stock products:", error);
       return [];
     }
   }
@@ -1605,11 +1623,16 @@ export class DatabaseStorage implements IStorage {
       const condition = userIds.length === 1
         ? and(eq(customers.id, customerId), eq(customers.userId, userIds[0]))
         : and(eq(customers.id, customerId), inArray(customers.userId, userIds));
-      const [customer] = await db.select().from(customers).where(condition);
+      const [customer] = await db.select({ id: customers.id }).from(customers).where(condition);
       if (!customer) return undefined;
-      const newPoints = Math.max(0, (customer.loyaltyPoints ?? 0) + delta);
-      const newLifetime = delta > 0 ? (customer.lifetimePoints ?? 0) + delta : (customer.lifetimePoints ?? 0);
-      const [updated] = await db.update(customers).set({ loyaltyPoints: newPoints, lifetimePoints: newLifetime } as any).where(eq(customers.id, customerId)).returning();
+
+      // Atomic update — GREATEST(0, ...) and the CASE prevent a lost-update race
+      // when two concurrent sales credit/debit the same customer simultaneously.
+      const [updated] = await db.update(customers).set({
+        loyaltyPoints: sql`GREATEST(0, COALESCE(loyalty_points, 0) + ${delta})`,
+        lifetimePoints: sql`CASE WHEN ${delta} > 0 THEN COALESCE(lifetime_points, 0) + ${delta} ELSE COALESCE(lifetime_points, 0) END`,
+      } as any).where(eq(customers.id, customerId)).returning();
+      const newPoints = updated?.loyaltyPoints ?? 0;
 
       // Log the change
       void db.insert(loyaltyPointsLog).values({
@@ -1699,9 +1722,15 @@ export class DatabaseStorage implements IStorage {
       if (!customer) return null;
       if ((customer.loyaltyPoints ?? 0) < reward.pointsCost) return null;
 
-      const newPoints = (customer.loyaltyPoints ?? 0) - reward.pointsCost;
-      const [updatedCustomer] = await db.update(customers).set({ loyaltyPoints: newPoints } as any).where(eq(customers.id, customerId)).returning();
-      await db.update(loyaltyRewards).set({ redemptionCount: (reward.redemptionCount ?? 0) + 1 } as any).where(eq(loyaltyRewards.id, rewardId));
+      // Both updates are atomic SQL expressions — no lost-update race possible
+      // even when two redemptions are processed concurrently for the same customer.
+      const [updatedCustomer] = await db.update(customers).set({
+        loyaltyPoints: sql`GREATEST(0, COALESCE(loyalty_points, 0) - ${reward.pointsCost})`,
+      } as any).where(eq(customers.id, customerId)).returning();
+      await db.update(loyaltyRewards).set({
+        redemptionCount: sql`COALESCE(redemption_count, 0) + 1`,
+      } as any).where(eq(loyaltyRewards.id, rewardId));
+      const newPoints = updatedCustomer?.loyaltyPoints ?? 0;
       const [log] = await db.insert(loyaltyPointsLog).values({
         userId,
         customerId,

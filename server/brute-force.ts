@@ -11,6 +11,13 @@
  *   ≥ 50 failures in 15 min → block for 24 h    (critical — credential stuffing)
  *
  * On any successful login the failure counter for that IP is cleared.
+ *
+ * ⚠️  CLUSTER-MODE LIMITATION: This store is per-process (in-memory only).
+ * In production cluster mode (N worker processes) an attacker gets N × 5
+ * attempts before any single worker blocks them.
+ * To fix: replace `store` with a shared Redis-backed counter using the
+ * existing Upstash client in server/cache.ts (INCR + EXPIRE + GET pattern).
+ * Until then, the rate-limiter on /api/auth/* provides a secondary cap.
  */
 
 import type { Request, Response, NextFunction } from "express";

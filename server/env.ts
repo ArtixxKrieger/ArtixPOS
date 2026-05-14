@@ -1,7 +1,6 @@
 const REQUIRED: Record<string, string> = {
   SESSION_SECRET:
     'JWT signing secret — generate with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"',
-  DATABASE_URL: "PostgreSQL connection string — configure in your environment secrets",
 };
 
 const RECOMMENDED: Record<string, string> = {
@@ -18,6 +17,22 @@ export function validateEnv(): void {
   if (missing.length > 0) {
     const lines = missing.map(([k, hint]) => `  ${k}\n    → ${hint}`).join("\n");
     const msg = `[env] ✗ FATAL — Missing required environment variables:\n\n${lines}\n\n[env] Set these via environment secrets before starting the server.`;
+    console.error(msg);
+    if (process.env.VERCEL === "1") {
+      throw new Error(msg);
+    }
+    process.exit(1);
+  }
+
+  // Accept any of the supported DB connection string env var names
+  const dbUrl =
+    process.env.DATABASE_URL ||
+    process.env.SUPABASE_POOLER_URL ||
+    process.env.SUPABASE_DATABASE_URL;
+  if (!dbUrl) {
+    const msg =
+      "[env] ✗ FATAL — No database connection string found.\n" +
+      "       Set DATABASE_URL or SUPABASE_POOLER_URL in your environment secrets.";
     console.error(msg);
     if (process.env.VERCEL === "1") {
       throw new Error(msg);

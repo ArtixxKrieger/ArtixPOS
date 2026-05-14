@@ -9,9 +9,14 @@ const isServerless = !!process.env.VERCEL;
 // Default: 10 per instance. Override with DB_POOL_MAX env var.
 const POOL_MAX = isServerless ? 5 : parseInt(process.env.DB_POOL_MAX ?? "10", 10);
 
+const connectionString =
+  process.env.DATABASE_URL ||
+  process.env.SUPABASE_POOLER_URL ||
+  process.env.SUPABASE_DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL,
-  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")
+  connectionString,
+  ssl: connectionString && !connectionString.includes("localhost")
     ? { rejectUnauthorized: false }
     : false,
 

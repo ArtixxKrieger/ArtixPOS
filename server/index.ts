@@ -229,7 +229,14 @@ function makeRedisRateLimiter(
 const authLimiter = makeRedisRateLimiter(getAuthRatelimit, authLimiterFallback);
 const apiLimiter  = makeRedisRateLimiter(getApiRatelimit,  apiLimiterFallback);
 
-app.use("/auth",     authLimiter);
+// OAuth callback routes are exempt — they're already protected by HMAC state
+// verification and must not be blocked mid-flow when users retry sign-in.
+app.use("/auth", (req, res, next) => {
+  if (req.path.startsWith("/google") || req.path.startsWith("/facebook")) {
+    return next();
+  }
+  return authLimiter(req, res, next);
+});
 app.use("/api/auth", authLimiter);
 app.use("/api",      apiLimiter);
 

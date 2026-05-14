@@ -364,7 +364,14 @@ async function _doInit() {
     console.log("Starting server initialization...");
 
     await initSentry();
-    await ensureIndexes();
+
+    // Skip on Vercel — running 49 sequential SQL statements on every cold start
+    // exceeds the function timeout. Indexes and column migrations must be applied
+    // as a one-off step (npm run db:push) before deploying to Vercel.
+    if (process.env.VERCEL !== "1") {
+      await ensureIndexes();
+    }
+
     setupAuth(app);
     await registerRoutes(httpServer, app);
     setupSwagger(app);

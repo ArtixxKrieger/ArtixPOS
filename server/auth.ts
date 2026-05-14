@@ -114,8 +114,12 @@ function getJwtSecret(): string {
 }
 
 export function getBaseUrl(): string {
+  // Explicit override always wins (recommended for custom domains on Vercel)
   const appUrl = process.env.APP_URL?.replace(/\/$/, "");
   if (appUrl) return appUrl;
+  // VERCEL_PROJECT_PRODUCTION_URL is the stable production/custom domain URL.
+  // VERCEL_URL is deployment-specific (changes each deploy) — only use as fallback.
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
   if (domain) return `https://${domain}`;

@@ -12,6 +12,11 @@ export function resolveUrl(url: string): string {
 }
 
 export function setNativeToken(token: string) {
+  // Only persist the token in localStorage for native (Capacitor) clients where
+  // API_BASE is set. Web clients authenticate via httpOnly cookie set by the
+  // server — storing the JWT in localStorage would expose it to any JavaScript
+  // running on the page, enabling token theft via XSS.
+  if (!API_BASE) return;
   localStorage.setItem(NATIVE_TOKEN_KEY, token);
 }
 

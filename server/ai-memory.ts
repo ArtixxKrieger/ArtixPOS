@@ -147,7 +147,8 @@ export async function extractAndStore(opts: {
     await db.insert(aiMemories).values(memory);
   }
 
-  console.log(`[ai-memory] stored ${facts.length} facts for tenant=${tenantId}`);
+  // Log fact count only — omit tenant ID to prevent sensitive data in logs.
+  console.log(`[ai-memory] stored ${facts.length} facts`);
 }
 
 // ─── Retrieve relevant memories for injection ──────────────────────────────────
@@ -248,7 +249,8 @@ export async function consolidateIfNeeded(tenantId: string): Promise<void> {
             AND access_count = 0`,
     );
 
-    console.log(`[ai-memory] consolidation done for tenant=${tenantId} (had ${total} memories)`);
+    // Omit tenant ID from logs to prevent sensitive data leakage.
+    console.log(`[ai-memory] consolidation done (had ${total} memories)`);
   } catch (err) {
     console.error("[ai-memory] consolidation error:", err);
   }

@@ -24,55 +24,25 @@ export interface AuthUser {
   activeBranch: ActiveBranchInfo | null;
 }
 
-function decodeJwtUser(token: string): AuthUser | null {
-  try {
-    const part = token.split(".")[1];
-    if (!part) return null;
-    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
-    if (!payload?.id) return null;
-    // Reject expired tokens
-    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
-    return {
-      id: payload.id,
-      name: payload.name ?? null,
-      email: payload.email ?? null,
-      avatar: payload.avatar ?? null,
-      provider: payload.provider ?? "unknown",
-      tenantId: payload.tenantId ?? null,
-      role: payload.role ?? "owner",
-      activeBranchId: payload.activeBranchId ?? null,
-      activeBranch: null,
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function fetchMe(): Promise<AuthUser | null> {
   const token = localStorage.getItem(NATIVE_TOKEN_KEY);
-  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-  // On native (API_BASE set) every request is cross-origin. Use "omit" even
-  // before the first token arrives so the initial /api/auth/me check doesn't
-  // fail CORS — the server never sends Allow-Credentials for native origins.
-  const credentials: RequestCredentials = token || API_BASE ? "omit" : "include";
+  // Only send a Bearer token for native (Capacitor) clients where API_BASE is set.
+  // Web clients authenticate via httpOnly cookie — never trust a localStorage token
+  // for web sessions, as any JS on the page could read or forge it.
+  const isNative = !!API_BASE;
+  const headers: Record<string, string> =
+    isNative && token ? { Authorization: `Bearer ${token}` } : {};
+  const credentials: RequestCredentials = isNative ? "omit" : "include";
 
   try {
     debugLog("auth", `fetchMe — token=${token ? "YES" : "NO"} url=${resolveUrl("/api/auth/me")}`);
     const res = await fetch(resolveUrl("/api/auth/me"), { credentials, headers });
     debugLog("auth", `fetchMe — status=${res.status}`);
     if (res.status === 401) {
-      // If we used a stale localStorage token, clear it and retry with cookie auth.
-      // This fixes the case where a user logged in via OAuth on web but still has
-      // an old native token in localStorage blocking cookie-based auth.
-      if (token && !API_BASE) {
-        debugLog("auth", "fetchMe — stale native token detected, clearing and retrying with cookie");
+      // If we used a stale localStorage token on native, clear it and return null.
+      if (isNative && token) {
+        debugLog("auth", "fetchMe — stale native token detected, clearing");
         clearNativeToken();
-        const retry = await fetch(resolveUrl("/api/auth/me"), { credentials: "include", headers: {} });
-        if (retry.ok) {
-          const data = await retry.json();
-          debugLog("auth", `fetchMe — retry user=${JSON.stringify(data.user?.id ?? null)}`);
-          return data.user ?? null;
-        }
       }
       return null;
     }
@@ -80,7 +50,6 @@ async function fetchMe(): Promise<AuthUser | null> {
       const data = await res.json().catch(() => ({}));
       if (data.banned) {
         clearNativeToken();
-        // Only redirect if not already on the login page to prevent infinite refresh loop
         if (!window.location.pathname.startsWith("/login")) {
           window.location.href = "/login?reason=banned";
         }
@@ -91,16 +60,10 @@ async function fetchMe(): Promise<AuthUser | null> {
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
     return data.user ?? null;
   } catch (err) {
-    // Network error (offline or CORS). If a valid stored token exists, keep the
-    // user logged in by decoding the token locally rather than logging them out.
+    // Network error — always return null and require re-authentication.
+    // Never decode the JWT locally; the signature cannot be verified in the browser
+    // and a forged token could grant attacker-controlled role/permissions.
     debugLog("auth", `fetchMe — NETWORK ERROR: ${err}`);
-    if (token) {
-      const userFromToken = decodeJwtUser(token);
-      if (userFromToken) {
-        debugLog("auth", `fetchMe — offline, returning user from stored token`);
-        return userFromToken;
-      }
-    }
     return null;
   }
 }
@@ -119,25 +82,9 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // ── WHY credentials:"include" (not nativeFetch) ───────────────────────
-      // nativeFetch() switches to credentials:"omit" whenever a native Bearer
-      // token exists in localStorage — which happens for web Google OAuth users
-      // too, because the web login flow also stores a token there.
-      //
-      // Browser security rule: when credentials:"omit" is used, Set-Cookie
-      // response headers are silently discarded. The server sends
-      // "Set-Cookie: auth_token=; expires=past" but the browser ignores it,
-      // leaving the cookie (and therefore the session) fully alive.
-      //
-      // Effect: first logout click appears to work (page navigates to /login)
-      // but the auth_token cookie is still set, so fetchMe() returns the user
-      // and the app immediately re-enters the authenticated state. A second
-      // click finally clears the cookie because clearNativeToken() already ran,
-      // so credentials:"include" is used and Set-Cookie is processed.
-      //
-      // Fix: always use credentials:"include" for the logout call so the
-      // cookie is reliably cleared. Still send Bearer token in the Authorization
-      // header so native (Capacitor) clients are also invalidated server-side.
+      // Always use credentials:"include" so the server's Set-Cookie: expires=past
+      // header is honoured by the browser and the httpOnly cookie is cleared.
+      // Also send Bearer token so native clients are invalidated server-side.
       const token = localStorage.getItem(NATIVE_TOKEN_KEY);
       try {
         await fetch(resolveUrl("/auth/logout"), {
@@ -148,11 +95,7 @@ export function useAuth() {
       } catch {
         // Offline or network error — still proceed with local-only logout.
       }
-      // Clear the native token AFTER the fetch so it's still in the
-      // Authorization header for the request above.
       clearNativeToken();
-      // Use clearApiCache (not clearAllCache) so any queued offline sales
-      // belonging to this session are preserved across a re-login.
       clearApiCache().catch(() => {});
     },
     onSuccess: () => {
@@ -161,7 +104,6 @@ export function useAuth() {
       window.location.href = "/login";
     },
     onError: () => {
-      // Even if mutation fails, force local logout
       clearNativeToken();
       queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();

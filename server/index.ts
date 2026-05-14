@@ -21,8 +21,6 @@ import { validateEnv } from "./env";
 import { initSentry, applySentryErrorHandler } from "./sentry";
 import { setupSwagger } from "./swagger";
 
-validateEnv();
-
 const app = express();
 const httpServer = createServer(app);
 
@@ -362,6 +360,7 @@ async function initializeApp() {
 
 async function _doInit() {
   try {
+    validateEnv();
     console.log("Starting server initialization...");
 
     await initSentry();

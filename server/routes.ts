@@ -672,6 +672,12 @@ export async function registerRoutes(
       cache.delByPrefix(`sales:${_uid}`);
       res.status(201).json(sale);
 
+      // Push real-time stats-update event to all dashboard tabs open for this tenant
+      const tid = (req.user as any)?.tenantId ?? null;
+      if (tid) {
+        emitTenantEvent(tid, { type: "stats-update", saleId: sale.id, total: sale.total });
+      }
+
       // Send email receipt to customer if they have an email on file — fire-and-forget
       if (input.customerId) {
         setImmediate(async () => {
@@ -2576,6 +2582,48 @@ export async function registerRoutes(
         send("order-update", { orderId: event.orderId, kitchenStatus: event.kitchenStatus, orderNumber: event.orderNumber });
       } else if (event.type === "kitchen-new-order") {
         send("new-order", { orderId: event.orderId, orderNumber: event.orderNumber, itemCount: event.itemCount });
+      }
+    });
+
+    const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 30_000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+  });
+
+  // ── SSE: Dashboard real-time channel ─────────────────────────────────────
+  // Pushes a lightweight "stats-update" ping the instant a sale is recorded so
+  // every open dashboard tab refreshes its numbers without any polling.
+  app.get("/api/sse/dashboard", async (req: Request, res: Response) => {
+    let user = req.user as any;
+    if (!user) {
+      const qToken = (req.query as any).token as string | undefined;
+      if (qToken) {
+        try { user = verifyToken(qToken); } catch { /* invalid token */ }
+      }
+    }
+    if (!user) { res.status(401).end(); return; }
+
+    const tid: string | null = user.tenantId ?? null;
+    if (!tid) { res.status(403).json({ message: "No tenant" }); return; }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (event: string, data: Record<string, any> = {}) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    send("connected", { ts: new Date().toISOString() });
+
+    const unsubscribe = subscribeTenantEvent(tid, (event) => {
+      if (event.type === "stats-update") {
+        send("stats-update", { saleId: event.saleId, total: event.total });
       }
     });
 

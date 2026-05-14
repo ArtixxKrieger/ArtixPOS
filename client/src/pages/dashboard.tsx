@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch } from "@/lib/queryClient";
+import { useDashboardSse } from "@/hooks/use-dashboard-sse";
 
 type DashboardStats = {
   todaySales: any[];
@@ -49,6 +50,8 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  // Subscribe to real-time sale events — invalidates stats the instant a sale lands
+  useDashboardSse();
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {

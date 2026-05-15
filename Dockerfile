@@ -27,9 +27,14 @@ COPY --from=builder /app/package.json ./package.json
 
 # Non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copy and permission the entrypoint before switching to non-root
+COPY --chown=appuser:appgroup docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
+
 USER appuser
 
 EXPOSE 5000
 
-# Use cluster mode to utilise all CPU cores
-CMD ["node", "dist/cluster.cjs"]
+# Entrypoint pushes schema on first boot, then starts the cluster
+ENTRYPOINT ["./docker-entrypoint.sh"]

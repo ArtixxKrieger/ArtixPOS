@@ -4,21 +4,13 @@
 
 <a href="#"><img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=7C3AED&center=true&vCenter=true&random=false&width=500&height=40&lines=Point+of+Sale+that+works+offline+%F0%9F%9B%92;BIR+Compliant+out+of+the+box+%F0%9F%87%B5%F0%9F%87%AD;AI+assistant+built+right+in+%F0%9F%A4%96;Multi-branch+%26+multi-staff+%F0%9F%8F%A2;Runs+on+Android+%26+iOS+too+%F0%9F%93%B1" alt="Typing SVG" /></a>
 
-<br />
-
-<a href="#"><img src="https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" /></a>
-<a href="#"><img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" /></a>
-<a href="#"><img src="https://img.shields.io/badge/Express_5-000000?style=for-the-badge&logo=express&logoColor=white" /></a>
-<a href="#"><img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" /></a>
-<a href="#"><img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" /></a>
-<a href="#"><img src="https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white" /></a>
-
 <br /><br />
 
 <img src="https://img.shields.io/badge/Offline_Ready-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/Multi--Branch-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/BIR_Compliant-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/AI_Powered-%E2%9C%93-brightgreen?style=flat-square" />
+[![CI](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/ci.yml)
 <img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
 
 <br /><br />
@@ -164,66 +156,50 @@ The goal was simple: one app that handles everything, works without internet, an
 
 ## Tech Stack
 
-<table>
-  <tr>
-    <td><b>Frontend</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/React_18-20232A?style=flat-square&logo=react&logoColor=61DAFB" />
-      <img src="https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white" />
-      <img src="https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white" />
-      <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white" />
-      <img src="https://img.shields.io/badge/Radix_UI-161618?style=flat-square&logo=radix-ui&logoColor=white" />
-      <img src="https://img.shields.io/badge/Framer_Motion-0055FF?style=flat-square&logo=framer&logoColor=white" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>Backend</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/Express_5-000000?style=flat-square&logo=express&logoColor=white" />
-      <img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
-      <img src="https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>Database</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white" />
-      <img src="https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=flat-square&logo=drizzle&logoColor=black" />
-      <img src="https://img.shields.io/badge/Upstash_Redis-00E9A3?style=flat-square&logo=redis&logoColor=black" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>Offline / PWA</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/Service_Worker-5A0FC8?style=flat-square&logo=pwa&logoColor=white" />
-      <img src="https://img.shields.io/badge/IndexedDB-FF6B35?style=flat-square&logoColor=white" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>AI</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/Groq-F55036?style=flat-square&logoColor=white" />
-      <img src="https://img.shields.io/badge/Cerebras-1A1A2E?style=flat-square&logoColor=white" />
-      <img src="https://img.shields.io/badge/Mistral-FF7000?style=flat-square&logoColor=white" />
-      <img src="https://img.shields.io/badge/Ollama_(offline)-000000?style=flat-square&logoColor=white" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>Mobile</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/Capacitor-119EFF?style=flat-square&logo=capacitor&logoColor=white" />
-      <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white" />
-      <img src="https://img.shields.io/badge/iOS-000000?style=flat-square&logo=apple&logoColor=white" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>Deployment</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" />
-      <img src="https://img.shields.io/badge/Self--Hosted_Cluster-1C1C1C?style=flat-square&logo=linux&logoColor=white" />
-    </td>
-  </tr>
-</table>
+<div align="center">
+
+**Frontend**
+
+<img src="https://skillicons.dev/icons?i=react,ts,vite,tailwind&theme=dark&perline=4" />
+
+<br /><br />
+
+**Backend**
+
+<img src="https://skillicons.dev/icons?i=nodejs,express,ts&theme=dark&perline=3" />
+
+<br /><br />
+
+**Database & Cache**
+
+<img src="https://skillicons.dev/icons?i=postgres,redis&theme=dark&perline=2" />
+
+<br /><br />
+
+**Mobile & Deployment**
+
+<img src="https://skillicons.dev/icons?i=androidstudio,apple,vercel,linux&theme=dark&perline=4" />
+
+</div>
+
+<br />
+
+<details>
+<summary><b>Full stack breakdown</b></summary>
+<br />
+
+| Layer | Tech |
+|---|---|
+| UI Components | Radix UI, Framer Motion, Lucide Icons |
+| Routing | Wouter |
+| Data Fetching | TanStack Query v5 |
+| Auth | Custom JWT, Passport.js, Google OAuth |
+| Offline | Service Worker, IndexedDB, mutation sync queue |
+| AI Providers | Groq, Cerebras, Mistral, Ollama (offline fallback) |
+| Mobile wrapper | Capacitor (Android + iOS) |
+| ORM | Drizzle ORM |
+
+</details>
 
 <br />
 

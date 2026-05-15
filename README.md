@@ -232,7 +232,6 @@ It brings together every tool a business owner needs into one fast, offline-capa
     <td><b>Deployment</b></td>
     <td>
       <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" />
-      <img src="https://img.shields.io/badge/Replit-F26207?style=flat-square&logo=replit&logoColor=white" />
       <img src="https://img.shields.io/badge/Self--Hosted_Cluster-1C1C1C?style=flat-square&logo=linux&logoColor=white" />
     </td>
   </tr>

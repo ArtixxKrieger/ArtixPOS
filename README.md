@@ -10,7 +10,6 @@
 <img src="https://img.shields.io/badge/Multi--Branch-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/BIR_Compliant-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/AI_Powered-%E2%9C%93-brightgreen?style=flat-square" />
-[![CI](https://github.com/ArtixxKrieger/ArtixPOS/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtixxKrieger/ArtixPOS/actions/workflows/ci.yml)
 <img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
 
 <br /><br />

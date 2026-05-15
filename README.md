@@ -1,181 +1,168 @@
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:4F1FBF,50:7C3AED,100:A78BFA&height=200&section=header&text=ArtixPOS&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Business%20OS%20for%20Filipino%20Stores&descAlignY=58&descSize=18&descColor=E9D5FF" width="100%" />
+
 <div align="center">
-  <br />
-  <img src="client/public/logo192.png" width="96" alt="ArtixPOS" />
-  <br /><br />
 
-  <h1>ArtixPOS — Business OS</h1>
+<a href="#"><img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=7C3AED&center=true&vCenter=true&random=false&width=500&height=40&lines=Point+of+Sale+that+works+offline+%F0%9F%9B%92;BIR+Compliant+out+of+the+box+%F0%9F%87%B5%F0%9F%87%AD;AI+assistant+built+right+in+%F0%9F%A4%96;Multi-branch+%26+multi-staff+%F0%9F%8F%A2;Runs+on+Android+%26+iOS+too+%F0%9F%93%B1" alt="Typing SVG" /></a>
 
-  <p>
-    <b>The complete Point of Sale & Business Management platform for Filipino businesses.</b><br />
-    From the counter to the cloud — sales, staff, inventory, AI, and compliance in one place.
-  </p>
+<br />
 
-  <br />
+<a href="#"><img src="https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" /></a>
+<a href="#"><img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" /></a>
+<a href="#"><img src="https://img.shields.io/badge/Express_5-000000?style=for-the-badge&logo=express&logoColor=white" /></a>
+<a href="#"><img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" /></a>
+<a href="#"><img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" /></a>
+<a href="#"><img src="https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white" /></a>
 
-  <a href="#"><img src="https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/Express_5-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA" /></a>
+<br /><br />
 
-  <br /><br />
+<img src="https://img.shields.io/badge/Offline_Ready-%E2%9C%93-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/Multi--Branch-%E2%9C%93-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/BIR_Compliant-%E2%9C%93-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/AI_Powered-%E2%9C%93-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
 
-  <img src="https://img.shields.io/badge/Offline_Ready-✓-brightgreen?style=flat-square" />
-  <img src="https://img.shields.io/badge/Multi--Branch-✓-brightgreen?style=flat-square" />
-  <img src="https://img.shields.io/badge/BIR_Compliant-✓-brightgreen?style=flat-square" />
-  <img src="https://img.shields.io/badge/AI_Powered-✓-brightgreen?style=flat-square" />
-  <img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
+<br /><br />
 
-  <br /><br />
-
-  <img src="screenshots/login.jpg" width="900" alt="ArtixPOS Screenshot" />
-
-  <br /><br />
-  <i>Your store. Fully in control.</i>
-  <br /><br />
+<img src="screenshots/login.jpg" width="900" alt="ArtixPOS" />
 
 </div>
 
----
+<br />
 
-## 📖 Overview
+## What is ArtixPOS?
 
-ArtixPOS is a **full-stack, multi-tenant Business Operating System** designed specifically for modern Philippine businesses — retailers, restaurants, salons, clinics, pharmacies, hotels, and more.
+ArtixPOS is a full-stack POS and business management system built for Filipino stores, restaurants, salons, clinics, pharmacies, hotels, and pretty much any business that needs more than just a cash register.
 
-It brings together every tool a business owner needs into one fast, offline-capable platform:
+The goal was simple: one app that handles everything, works without internet, and actually makes sense to use day to day. No more jumping between a POS, a separate inventory tool, a spreadsheet for payroll, and another app for BIR reports.
 
-> Replace your disconnected spreadsheets, paper logs, and siloed apps with a single system that works — even without internet.
+> Works on the web, installable as a PWA, and wraps into native Android and iOS via Capacitor.
 
 <br />
 
 <table>
   <tr>
     <td align="center" width="200">
-      <br />
-      ⚡
-      <br /><b>Blazing Fast</b><br />
-      <sub>Sub-50ms API responses with two-tier caching</sub>
+      <br />⚡<br />
+      <b>Fast</b><br />
+      <sub>Sub-50ms responses with two-tier caching</sub>
       <br /><br />
     </td>
     <td align="center" width="200">
-      <br />
-      📶
-      <br /><b>Works Offline</b><br />
-      <sub>Full POS operation without internet via IndexedDB</sub>
+      <br />📶<br />
+      <b>Offline</b><br />
+      <sub>Sell without internet, sync when you're back</sub>
       <br /><br />
     </td>
     <td align="center" width="200">
-      <br />
-      🏢
-      <br /><b>Multi-Branch</b><br />
-      <sub>One account for all your store locations</sub>
+      <br />🏢<br />
+      <b>Multi-Branch</b><br />
+      <sub>All your locations under one account</sub>
       <br /><br />
     </td>
     <td align="center" width="200">
-      <br />
-      🇵🇭
-      <br /><b>BIR Ready</b><br />
+      <br />🇵🇭<br />
+      <b>BIR Ready</b><br />
       <sub>X/Z-Reports, e-Journal, OR Numbers, VAT</sub>
       <br /><br />
     </td>
   </tr>
 </table>
 
----
+<br />
 
-## ✨ Features
+## Features
 
 ### 🛒 Point of Sale
-- Touch-optimized register with barcode scanner support
-- Product variants, sizes, modifiers, and add-ons
-- Cash, card, GCash, and Maya payment types
-- WiFi voucher auto-generation on printed receipts
-- Pending orders queue — dine-in, takeout, delivery
-- Full offline mode: sales saved locally and synced when back online
+- Touch-friendly register with barcode scanning built in
+- Products support variants, sizes, modifiers, and add-ons
+- Accepts cash, card, GCash, and Maya
+- Auto-generates WiFi voucher codes on receipts
+- Handles dine-in, takeout, and delivery queues
+- Goes fully offline and syncs everything back when you reconnect
 
-### 📦 Inventory & Products
-- Complete product catalog with categories, SKUs, and barcodes
-- Real-time stock tracking with low-stock threshold alerts
-- Expiry date & batch number tracking (pharmacy / grocery)
-- Supplier directory and Purchase Order management
+### 📦 Inventory and Products
+- Full product catalog with categories, SKUs, and barcodes
+- Stock levels update in real time with low-stock alerts
+- Expiry date and batch number tracking for pharmacies and groceries
+- Supplier profiles and Purchase Order tracking
 
-### 📊 Analytics & Reports
-- Live revenue dashboard — daily, weekly, monthly breakdowns
-- Top products, category performance, and hourly traffic heatmaps
-- Shift reports with cash drawer open/close reconciliation
-- Expense tracking to show true net profit
+### 📊 Analytics and Reports
+- Revenue dashboard broken down by day, week, and month
+- See your top products, category performance, and hourly traffic
+- Shift reports with cash drawer reconciliation built in
+- Expense tracking so you can see actual net profit
 
 ### 🇵🇭 BIR Compliance
-| Feature | Details |
+
+| Feature | What it does |
 |---|---|
-| X-Reports | Per-shift transaction summary |
+| X-Reports | Shift-level transaction summary |
 | Z-Reports | End-of-day fiscal report |
-| e-Journal | Downloadable electronic journal |
-| VAT Breakdown | VATable / VAT-exempt / zero-rated |
-| Form 2550M | Monthly VAT worksheet |
-| OR Sequencing | Atomic official receipt numbering |
-| SC/PWD Discounts | Senior citizen and PWD exemptions |
-| Audit Trail | Tamper-evident log for voided transactions |
+| e-Journal | Electronic journal you can download |
+| VAT Breakdown | VATable, VAT-exempt, and zero-rated sales |
+| Form 2550M | Monthly VAT worksheet ready to print |
+| OR Sequencing | Official receipt numbers that never repeat |
+| SC/PWD Discounts | Senior citizen and PWD exemptions handled automatically |
+| Audit Trail | Every voided transaction is logged and tamper-evident |
 
-### 👥 Customer & Loyalty
-- Customer profiles with full transaction history
-- Multi-tiered loyalty points with birthday and referral bonuses
-- Digital stamp cards (e.g., "Buy 10, get 1 free")
+### 👥 Customers and Loyalty
+- Customer profiles with their full purchase history
+- Loyalty points with birthday bonuses and referral rewards
+- Digital stamp cards (buy 10, get 1 free style)
 - Membership and subscription plans
-- Discount codes with usage caps, minimum order rules, and expiry dates
+- Promo codes with usage limits, minimum order rules, and expiry
 
-### 🏢 Staff & Payroll
-- Staff profiles, service specialties, and role-based permissions
-- Time clock with clock-in / clock-out tracking
-- Payroll computation — hourly rate, monthly salary, or commission-based
-- Appointment & calendar booking (salons, clinics, gyms)
-- Service staff assignment per transaction
+### 🏢 Staff and Payroll
+- Staff profiles with role-based access controls
+- Time clock for clock-in and clock-out
+- Payroll that handles hourly, monthly, and commission-based staff
+- Calendar booking system for salons, clinics, and gyms
+- Assign specific staff members to transactions
 
 ### 🍽️ Industry Modules
 
 <table>
   <tr>
     <th>Module</th>
-    <th>Built For</th>
-    <th>Key Capability</th>
+    <th>Who it's for</th>
+    <th>What it does</th>
   </tr>
   <tr>
     <td>🍳 Kitchen Display System</td>
-    <td>Restaurants & cafes</td>
-    <td>Real-time order queue for kitchen staff</td>
+    <td>Restaurants and cafes</td>
+    <td>Live order queue screen for kitchen staff</td>
   </tr>
   <tr>
-    <td>🪑 Table & Floor Management</td>
-    <td>Dine-in restaurants & bars</td>
-    <td>Visual table layout — available, occupied, reserved</td>
+    <td>🪑 Table and Floor Management</td>
+    <td>Dine-in restaurants and bars</td>
+    <td>Visual floor layout showing table status at a glance</td>
   </tr>
   <tr>
     <td>📅 Appointment Calendar</td>
     <td>Salons, clinics, spas</td>
-    <td>Booking system with staff assignment</td>
+    <td>Booking system with per-staff scheduling</td>
   </tr>
   <tr>
     <td>🛏️ Room Management</td>
-    <td>Hotels & guesthouses</td>
-    <td>Room status tracking and occupancy</td>
+    <td>Hotels and guesthouses</td>
+    <td>Track room availability and occupancy</td>
   </tr>
   <tr>
     <td>💊 Expiry Tracking</td>
-    <td>Pharmacies & groceries</td>
-    <td>Batch numbers, generic names, expiry alerts</td>
+    <td>Pharmacies and groceries</td>
+    <td>Batch numbers, generic names, and expiry alerts</td>
   </tr>
 </table>
 
 ### 🤖 AI Business Assistant
-- Intelligent business insights powered by multiple AI providers
-- Automatic failover — if one provider is down, the next takes over seamlessly
-- Works **fully offline** using a local AI model when there's no internet
-- Accessible via a floating button on every screen
+- Pulls insights from your actual sales data
+- Runs on multiple AI providers with automatic failover if one goes down
+- Falls back to a local AI model when there's no internet at all
+- Floating button keeps it one tap away from any screen
 
----
+<br />
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 <table>
   <tr>
@@ -238,36 +225,31 @@ It brings together every tool a business owner needs into one fast, offline-capa
   </tr>
 </table>
 
----
+<br />
 
-## 📱 Offline-First Architecture
+## How offline works
 
-ArtixPOS is a **Progressive Web App** built to survive real-world conditions — power cuts, weak signal, dead routers.
+The app is a PWA so it installs like a native app and keeps working when the internet drops. Sales get written to IndexedDB on the device, a mutation queue tracks everything that happened while offline, and once connectivity comes back it syncs automatically. Nothing gets lost and nobody has to do anything manually.
 
 ```
-User sells offline  →  Saved to IndexedDB
-Connection returns  →  Mutation queue syncs automatically
-App always loads    →  Service Worker serves from cache
-AI still works      →  Local model handles queries offline
+Sell while offline   →  Saved to device (IndexedDB)
+Back online          →  Queue syncs automatically
+App won't load?      →  Service Worker serves it from cache
+AI goes down?        →  Local model picks up the slack
 ```
 
-Everything syncs the moment connectivity is restored — no data lost, no manual intervention needed.
+<br />
 
----
+## License
 
-## ⚖️ License
+Copyright 2025 ArtixPOS. All rights reserved.
 
-**Copyright © 2025 ArtixPOS. All Rights Reserved.**
+This repo is up for portfolio and demo purposes only. You can look but you can't copy, fork, or use any of this in your own projects without written permission from the author.
 
-This repository is shared for **portfolio and demonstration purposes only.**  
-No part of this codebase may be copied, modified, redistributed, or used in any product without explicit written permission from the author.
+<br />
 
----
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:4F1FBF,50:7C3AED,100:A78BFA&height=120&section=footer&animation=fadeIn" width="100%" />
 
 <div align="center">
-  <br />
-  <img src="client/public/logo192.png" width="40" alt="ArtixPOS" />
-  <br />
-  <sub>Built with care for Filipino businesses 🇵🇭</sub>
-  <br /><br />
+  <sub>Built for Filipino businesses 🇵🇭</sub>
 </div>

@@ -1,138 +1,273 @@
 <div align="center">
+  <br />
+  <img src="client/public/logo192.png" width="96" alt="ArtixPOS" />
+  <br /><br />
 
-<img src="client/public/logo192.png" width="80" alt="ArtixPOS Logo" />
+  <h1>ArtixPOS — Business OS</h1>
 
-# ArtixPOS — Business OS
+  <p>
+    <b>The complete Point of Sale & Business Management platform for Filipino businesses.</b><br />
+    From the counter to the cloud — sales, staff, inventory, AI, and compliance in one place.
+  </p>
 
-**The all-in-one Point of Sale & Business Management platform.**  
-Sales · Inventory · Staff · Analytics · AI — fully in your control.
+  <br />
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org/)
-[![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Drizzle_ORM-336791?style=flat-square&logo=postgresql&logoColor=white)](https://orm.drizzle.team/)
-[![PWA](https://img.shields.io/badge/PWA-Offline_Ready-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
-[![License](https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square)](#license)
+  <a href="#"><img src="https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Express_5-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA" /></a>
 
-<br />
+  <br /><br />
 
-![ArtixPOS Login Screen](screenshots/login.jpg)
+  <img src="https://img.shields.io/badge/Offline_Ready-✓-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/Multi--Branch-✓-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/BIR_Compliant-✓-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/AI_Powered-✓-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
+
+  <br /><br />
+
+  <img src="screenshots/login.jpg" width="900" alt="ArtixPOS Screenshot" />
+
+  <br /><br />
+  <i>Your store. Fully in control.</i>
+  <br /><br />
 
 </div>
 
 ---
 
-## What is ArtixPOS?
+## 📖 Overview
 
-ArtixPOS is a full-stack, multi-tenant **Business Operating System** built for modern Philippine retailers, restaurants, salons, clinics, and service businesses. It replaces a handful of disconnected tools with a single, fast, and offline-capable platform — from ringing up a sale to filing your BIR Z-Report.
+ArtixPOS is a **full-stack, multi-tenant Business Operating System** designed specifically for modern Philippine businesses — retailers, restaurants, salons, clinics, pharmacies, hotels, and more.
 
-> Built with speed in mind. Works without internet. Scales from a single register to a multi-branch enterprise.
+It brings together every tool a business owner needs into one fast, offline-capable platform:
 
-> **Note:** This repository is a portfolio showcase. The source code is not licensed for reuse, forking, or self-hosting. See [License](#license).
+> Replace your disconnected spreadsheets, paper logs, and siloed apps with a single system that works — even without internet.
+
+<br />
+
+<table>
+  <tr>
+    <td align="center" width="200">
+      <br />
+      ⚡
+      <br /><b>Blazing Fast</b><br />
+      <sub>Sub-50ms API responses with two-tier caching</sub>
+      <br /><br />
+    </td>
+    <td align="center" width="200">
+      <br />
+      📶
+      <br /><b>Works Offline</b><br />
+      <sub>Full POS operation without internet via IndexedDB</sub>
+      <br /><br />
+    </td>
+    <td align="center" width="200">
+      <br />
+      🏢
+      <br /><b>Multi-Branch</b><br />
+      <sub>One account for all your store locations</sub>
+      <br /><br />
+    </td>
+    <td align="center" width="200">
+      <br />
+      🇵🇭
+      <br /><b>BIR Ready</b><br />
+      <sub>X/Z-Reports, e-Journal, OR Numbers, VAT</sub>
+      <br /><br />
+    </td>
+  </tr>
+</table>
 
 ---
 
-## Features
+## ✨ Features
 
 ### 🛒 Point of Sale
-- Touch-optimized POS interface with barcode scanning
-- Product variants, modifiers, and add-ons
-- Cash, card, GCash, Maya payment types
-- Offline sale processing with automatic sync on reconnect
-- Pending orders queue (dine-in, takeout, delivery)
-- Receipt printing & re-printing, WiFi voucher generation
+- Touch-optimized register with barcode scanner support
+- Product variants, sizes, modifiers, and add-ons
+- Cash, card, GCash, and Maya payment types
+- WiFi voucher auto-generation on printed receipts
+- Pending orders queue — dine-in, takeout, delivery
+- Full offline mode: sales saved locally and synced when back online
 
 ### 📦 Inventory & Products
-- Full product catalog with categories, SKUs, and barcodes
-- Real-time stock tracking with low-stock alerts
-- Expiry date & batch number tracking (pharmacy/grocery)
-- Supplier management and Purchase Order workflow
+- Complete product catalog with categories, SKUs, and barcodes
+- Real-time stock tracking with low-stock threshold alerts
+- Expiry date & batch number tracking (pharmacy / grocery)
+- Supplier directory and Purchase Order management
 
 ### 📊 Analytics & Reports
-- Live revenue dashboard with charts
-- Top-selling products, category breakdowns, hourly heatmaps
-- Shift reports, cash drawer reconciliation
-- Expense tracking for true net profit visibility
+- Live revenue dashboard — daily, weekly, monthly breakdowns
+- Top products, category performance, and hourly traffic heatmaps
+- Shift reports with cash drawer open/close reconciliation
+- Expense tracking to show true net profit
 
-### 🇵🇭 BIR Compliance (Philippines)
-- X-Reports (shift reading) and Z-Reports (end-of-day)
-- Electronic Journal (e-Journal) download
-- VATable / VAT-exempt / zero-rated sales breakdown
-- BIR Form 2550M VAT worksheet
-- OR Number atomic sequencing
-- SC / PWD senior citizen and PWD discount support
-- Tamper-evident audit log for voided transactions
+### 🇵🇭 BIR Compliance
+| Feature | Details |
+|---|---|
+| X-Reports | Per-shift transaction summary |
+| Z-Reports | End-of-day fiscal report |
+| e-Journal | Downloadable electronic journal |
+| VAT Breakdown | VATable / VAT-exempt / zero-rated |
+| Form 2550M | Monthly VAT worksheet |
+| OR Sequencing | Atomic official receipt numbering |
+| SC/PWD Discounts | Senior citizen and PWD exemptions |
+| Audit Trail | Tamper-evident log for voided transactions |
 
 ### 👥 Customer & Loyalty
-- Customer profiles with full purchase history
-- Multi-tiered loyalty points — birthday bonuses, referral bonuses, multipliers
-- Digital stamp cards (e.g., Buy 10 Get 1 Free)
-- Membership plans and subscriptions
-- Discount code engine with usage limits & expiry
+- Customer profiles with full transaction history
+- Multi-tiered loyalty points with birthday and referral bonuses
+- Digital stamp cards (e.g., "Buy 10, get 1 free")
+- Membership and subscription plans
+- Discount codes with usage caps, minimum order rules, and expiry dates
 
-### 🏢 Staff & Operations
-- Staff profiles, roles, and permission controls
-- Shift management with open/close cash drawer
-- Time clock — staff clock-in / clock-out
-- Payroll computation (hourly, monthly salary, commission-based)
-- Appointments & calendar booking (salons, clinics, gyms)
-- Service staff assignment and tracking
+### 🏢 Staff & Payroll
+- Staff profiles, service specialties, and role-based permissions
+- Time clock with clock-in / clock-out tracking
+- Payroll computation — hourly rate, monthly salary, or commission-based
+- Appointment & calendar booking (salons, clinics, gyms)
+- Service staff assignment per transaction
 
-### 🍽️ Industry-Specific Modules
+### 🍽️ Industry Modules
 
-| Module | For |
-|---|---|
-| Kitchen Display System | Restaurants & cafes |
-| Table & floor layout | Dine-in restaurants & bars |
-| Appointment calendar | Salons, clinics, spas |
-| Room management | Hotels & guesthouses |
-| Pharmacy/expiry tracking | Drugstores & groceries |
+<table>
+  <tr>
+    <th>Module</th>
+    <th>Built For</th>
+    <th>Key Capability</th>
+  </tr>
+  <tr>
+    <td>🍳 Kitchen Display System</td>
+    <td>Restaurants & cafes</td>
+    <td>Real-time order queue for kitchen staff</td>
+  </tr>
+  <tr>
+    <td>🪑 Table & Floor Management</td>
+    <td>Dine-in restaurants & bars</td>
+    <td>Visual table layout — available, occupied, reserved</td>
+  </tr>
+  <tr>
+    <td>📅 Appointment Calendar</td>
+    <td>Salons, clinics, spas</td>
+    <td>Booking system with staff assignment</td>
+  </tr>
+  <tr>
+    <td>🛏️ Room Management</td>
+    <td>Hotels & guesthouses</td>
+    <td>Room status tracking and occupancy</td>
+  </tr>
+  <tr>
+    <td>💊 Expiry Tracking</td>
+    <td>Pharmacies & groceries</td>
+    <td>Batch numbers, generic names, expiry alerts</td>
+  </tr>
+</table>
 
 ### 🤖 AI Business Assistant
-- Multi-provider AI with automatic failover
-- Works offline with a local model when internet is unavailable
-- Accessible from a floating button on every page
-
-### 🌐 Multi-Branch & Admin
-- Manage multiple store branches from one account
-- Per-branch inventory, staff, and analytics
-- Global admin panel: user management, audit logs, permissions
-- Dynamic UI that adapts labels and modules to your business type
-
-### 📱 Offline-First PWA
-- Full sale processing while offline via IndexedDB
-- Service Worker caches the entire app shell
-- Automatic background sync when connectivity returns
-- Installable on desktop and mobile (Add to Home Screen)
+- Intelligent business insights powered by multiple AI providers
+- Automatic failover — if one provider is down, the next takes over seamlessly
+- Works **fully offline** using a local AI model when there's no internet
+- Accessible via a floating button on every screen
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS, Radix UI, Framer Motion |
-| **Routing** | Wouter |
-| **Data Fetching** | TanStack Query v5 |
-| **Backend** | Express 5, Node.js, TypeScript |
-| **Database** | PostgreSQL via Drizzle ORM |
-| **Offline** | Service Worker (PWA), IndexedDB, mutation sync queue |
-| **AI** | Multi-provider router with circuit breakers + local offline fallback |
-| **Mobile** | Capacitor (Android / iOS) |
-| **Deployment** | Vercel (serverless) · Node cluster (self-hosted) |
+<table>
+  <tr>
+    <td><b>Frontend</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/React_18-20232A?style=flat-square&logo=react&logoColor=61DAFB" />
+      <img src="https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white" />
+      <img src="https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white" />
+      <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white" />
+      <img src="https://img.shields.io/badge/Radix_UI-161618?style=flat-square&logo=radix-ui&logoColor=white" />
+      <img src="https://img.shields.io/badge/Framer_Motion-0055FF?style=flat-square&logo=framer&logoColor=white" />
+    </td>
+  </tr>
+  <tr>
+    <td><b>Backend</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/Express_5-000000?style=flat-square&logo=express&logoColor=white" />
+      <img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
+      <img src="https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white" />
+    </td>
+  </tr>
+  <tr>
+    <td><b>Database</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white" />
+      <img src="https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=flat-square&logo=drizzle&logoColor=black" />
+    </td>
+  </tr>
+  <tr>
+    <td><b>Offline / PWA</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/Service_Worker-5A0FC8?style=flat-square&logo=pwa&logoColor=white" />
+      <img src="https://img.shields.io/badge/IndexedDB-FF6B35?style=flat-square&logoColor=white" />
+    </td>
+  </tr>
+  <tr>
+    <td><b>AI</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/Groq-F55036?style=flat-square&logoColor=white" />
+      <img src="https://img.shields.io/badge/Cerebras-1A1A2E?style=flat-square&logoColor=white" />
+      <img src="https://img.shields.io/badge/Mistral-FF7000?style=flat-square&logoColor=white" />
+      <img src="https://img.shields.io/badge/Ollama_(offline)-000000?style=flat-square&logoColor=white" />
+    </td>
+  </tr>
+  <tr>
+    <td><b>Mobile</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/Capacitor-119EFF?style=flat-square&logo=capacitor&logoColor=white" />
+      <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white" />
+      <img src="https://img.shields.io/badge/iOS-000000?style=flat-square&logo=apple&logoColor=white" />
+    </td>
+  </tr>
+  <tr>
+    <td><b>Deployment</b></td>
+    <td>
+      <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" />
+      <img src="https://img.shields.io/badge/Replit-F26207?style=flat-square&logo=replit&logoColor=white" />
+      <img src="https://img.shields.io/badge/Self--Hosted_Cluster-1C1C1C?style=flat-square&logo=linux&logoColor=white" />
+    </td>
+  </tr>
+</table>
 
 ---
 
-## License
+## 📱 Offline-First Architecture
 
-Copyright © 2025 ArtixPOS. **All rights reserved.**
+ArtixPOS is a **Progressive Web App** built to survive real-world conditions — power cuts, weak signal, dead routers.
 
-This repository is shared for **portfolio and demonstration purposes only**. No part of this codebase may be copied, modified, distributed, or used in any form without explicit written permission from the author.
+```
+User sells offline  →  Saved to IndexedDB
+Connection returns  →  Mutation queue syncs automatically
+App always loads    →  Service Worker serves from cache
+AI still works      →  Local model handles queries offline
+```
+
+Everything syncs the moment connectivity is restored — no data lost, no manual intervention needed.
+
+---
+
+## ⚖️ License
+
+**Copyright © 2025 ArtixPOS. All Rights Reserved.**
+
+This repository is shared for **portfolio and demonstration purposes only.**  
+No part of this codebase may be copied, modified, redistributed, or used in any product without explicit written permission from the author.
 
 ---
 
 <div align="center">
-
-Built with care for Filipino businesses. 🇵🇭
-
+  <br />
+  <img src="client/public/logo192.png" width="40" alt="ArtixPOS" />
+  <br />
+  <sub>Built with care for Filipino businesses 🇵🇭</sub>
+  <br /><br />
 </div>

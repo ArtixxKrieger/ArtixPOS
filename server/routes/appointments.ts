@@ -3,6 +3,9 @@ import { storage } from "../storage";
 import { requireAuth, requireProOrBusinessFeature } from "../middleware";
 import { insertAppointmentSchema } from "@shared/schema";
 import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
+import { db } from "../db";
+import { appointments as appointmentsTable } from "@shared/schema";
+import { and, eq, isNull, lte, gte } from "drizzle-orm";
 
 export function registerAppointmentRoutes(app: Express): void {
 
@@ -28,6 +31,35 @@ export function registerAppointmentRoutes(app: Express): void {
   app.post("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     try {
       const input = insertAppointmentSchema.parse(req.body);
+
+      // Server-side overlap check — prevents double-booking the same room or
+      // staff member even if the request bypasses the frontend UI guard.
+      if (input.startTime && input.endTime) {
+        const conflictConditions = [
+          isNull((appointmentsTable as any).deletedAt),
+          lte((appointmentsTable as any).startTime, input.endTime),
+          gte((appointmentsTable as any).endTime, input.startTime),
+        ];
+        if (input.roomId) {
+          const roomConflict = await db.select({ id: appointmentsTable.id })
+            .from(appointmentsTable)
+            .where(and(eq((appointmentsTable as any).roomId, input.roomId), ...conflictConditions))
+            .limit(1);
+          if (roomConflict.length > 0) {
+            return res.status(409).json({ message: "This room is already booked for the selected time slot." });
+          }
+        }
+        if (input.staffId) {
+          const staffConflict = await db.select({ id: appointmentsTable.id })
+            .from(appointmentsTable)
+            .where(and(eq((appointmentsTable as any).staffId, input.staffId), ...conflictConditions))
+            .limit(1);
+          if (staffConflict.length > 0) {
+            return res.status(409).json({ message: "This staff member already has an appointment at the selected time." });
+          }
+        }
+      }
+
       const appt = await storage.createAppointment(getUserId(req), input);
       await auditLog(req, "create", "appointment", String(appt.id), { title: appt.title, customerId: appt.customerId });
       res.status(201).json(appt);

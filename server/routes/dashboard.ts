@@ -76,34 +76,81 @@ export function registerDashboardRoutes(app: Express): void {
   });
 
   // ── Data backup export ─────────────────────────────────────────────────────
+  // Streams the backup as newline-delimited JSON sections to avoid loading
+  // all data into memory at once and crashing on large tenants.
   app.get("/api/backup/export", requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const bid = getActiveBranchId(req);
-    const opts = { branchId: bid ?? undefined, limit: 10000 };
-
-    const [settings, productsList, salesList, customersList, expensesList] = await Promise.all([
-      storage.getSettings(uid),
-      storage.getProducts(uid),
-      storage.getSales(uid, opts),
-      storage.getCustomers(uid, { limit: 10000 }).catch(() => [] as any[]),
-      storage.getExpenses(uid, { branchId: bid ?? undefined, limit: 10000 }).catch(() => [] as any[]),
-    ]);
-
-    const backup = {
-      exportedAt: new Date().toISOString(),
-      version: "1.0",
-      storeName: (settings as any)?.storeName ?? "Store",
-      settings,
-      products: productsList,
-      sales: salesList,
-      customers: customersList,
-      expenses: expensesList,
-    };
+    const BATCH = 2000;
 
     const filename = `artixpos-backup-${new Date().toISOString().slice(0, 10)}.json`;
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Cache-Control", "no-store");
-    res.json(backup);
+    res.setHeader("Transfer-Encoding", "chunked");
+
+    try {
+      const settings = await storage.getSettings(uid);
+      const productsList = await storage.getProducts(uid);
+
+      res.write('{\n');
+      res.write(`"exportedAt":${JSON.stringify(new Date().toISOString())},\n`);
+      res.write(`"version":"1.0",\n`);
+      res.write(`"storeName":${JSON.stringify((settings as any)?.storeName ?? "Store")},\n`);
+      res.write(`"settings":${JSON.stringify(settings)},\n`);
+      res.write(`"products":${JSON.stringify(productsList)},\n`);
+
+      // Sales — stream in batches to avoid OOM
+      res.write('"sales":[');
+      let salesOffset = 0, firstSale = true;
+      while (true) {
+        const batch = await storage.getSales(uid, { branchId: bid ?? undefined, limit: BATCH, offset: salesOffset });
+        if (batch.length === 0) break;
+        for (const s of batch) {
+          res.write((firstSale ? '' : ',') + JSON.stringify(s));
+          firstSale = false;
+        }
+        salesOffset += batch.length;
+        if (batch.length < BATCH) break;
+      }
+      res.write('],\n');
+
+      // Customers — stream in batches
+      res.write('"customers":[');
+      let custOffset = 0, firstCust = true;
+      while (true) {
+        const batch = await storage.getCustomers(uid, { limit: BATCH, offset: custOffset }).catch(() => [] as any[]);
+        if (batch.length === 0) break;
+        for (const c of batch) {
+          res.write((firstCust ? '' : ',') + JSON.stringify(c));
+          firstCust = false;
+        }
+        custOffset += batch.length;
+        if (batch.length < BATCH) break;
+      }
+      res.write('],\n');
+
+      // Expenses — stream in batches
+      res.write('"expenses":[');
+      let expOffset = 0, firstExp = true;
+      while (true) {
+        const batch = await storage.getExpenses(uid, { branchId: bid ?? undefined, limit: BATCH, offset: expOffset }).catch(() => [] as any[]);
+        if (batch.length === 0) break;
+        for (const e of batch) {
+          res.write((firstExp ? '' : ',') + JSON.stringify(e));
+          firstExp = false;
+        }
+        expOffset += batch.length;
+        if (batch.length < BATCH) break;
+      }
+      res.write(']\n}');
+      res.end();
+    } catch (err) {
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Backup export failed" });
+      } else {
+        res.end();
+      }
+    }
   });
 }

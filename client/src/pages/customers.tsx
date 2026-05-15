@@ -175,7 +175,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
       setCustomer(c); setManualDelta(""); setManualNote("");
       toast({ title: "Points adjusted" });
     },
-    onError: () => toast({ title: "Failed to adjust points", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Failed to adjust points", description: err?.message ?? "Please try again", variant: "destructive" }),
   });
 
   const redeemReward = useMutation({

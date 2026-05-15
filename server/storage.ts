@@ -222,17 +222,17 @@ export interface IStorage {
   getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
 
   // Loyalty points
-  adjustLoyaltyPoints(customerId: number, delta: number, userId: string): Promise<Customer | undefined>;
+  adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined>;
 
   // Service Staff
-  getServiceStaff(userId: string): Promise<ServiceStaff[]>;
+  getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]>;
   getServiceStaffMember(id: number, userId: string): Promise<ServiceStaff | undefined>;
   createServiceStaff(userId: string, staff: InsertServiceStaff): Promise<ServiceStaff>;
   updateServiceStaff(id: number, userId: string, staff: Partial<InsertServiceStaff>): Promise<ServiceStaff | undefined>;
   deleteServiceStaff(id: number, userId: string): Promise<void>;
 
   // Service Rooms
-  getServiceRooms(userId: string): Promise<ServiceRoom[]>;
+  getServiceRooms(userId: string, branchId?: number | null): Promise<ServiceRoom[]>;
   createServiceRoom(userId: string, room: InsertServiceRoom): Promise<ServiceRoom>;
   updateServiceRoom(id: number, userId: string, room: Partial<InsertServiceRoom>): Promise<ServiceRoom | undefined>;
   deleteServiceRoom(id: number, userId: string): Promise<void>;
@@ -1421,6 +1421,8 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
       if (!po || !userIds.includes(po.userId)) return undefined;
+      // Idempotency guard — if already received, return as-is without adding stock again
+      if ((po as any).status === "received") return po as PurchaseOrder;
 
       // Fetch all items in one query
       const items = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, id));
@@ -1788,11 +1790,14 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Service Staff ────────────────────────────────────────────────────────
 
-  async getServiceStaff(userId: string): Promise<ServiceStaff[]> {
+  async getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]> {
     const userIds = await this.getTenantUserIds(userId);
-    const condition = userIds.length === 1
+    const userCondition = userIds.length === 1
       ? eq(serviceStaff.userId, userIds[0])
       : inArray(serviceStaff.userId, userIds);
+    const condition = branchId != null
+      ? and(userCondition, eq((serviceStaff as any).branchId, branchId))
+      : userCondition;
     return db.select().from(serviceStaff).where(condition).orderBy(desc(serviceStaff.createdAt));
   }
 
@@ -1825,11 +1830,14 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Service Rooms ────────────────────────────────────────────────────────
 
-  async getServiceRooms(userId: string): Promise<ServiceRoom[]> {
+  async getServiceRooms(userId: string, branchId?: number | null): Promise<ServiceRoom[]> {
     const userIds = await this.getTenantUserIds(userId);
-    const condition = userIds.length === 1
+    const userCondition = userIds.length === 1
       ? and(eq(serviceRooms.userId, userIds[0]), isNull(serviceRooms.deletedAt))
       : and(inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
+    const condition = branchId != null
+      ? and(userCondition, eq((serviceRooms as any).branchId, branchId))
+      : userCondition;
     return db.select().from(serviceRooms).where(condition).orderBy(desc(serviceRooms.createdAt));
   }
 

@@ -83,9 +83,12 @@ export function registerPendingOrderRoutes(app: Express): void {
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
-          void storage.deductProductStockForSale(uid, input.items as any[]).catch(e =>
-            console.error("Stock deduction failed:", e)
-          );
+          try {
+            await storage.deductProductStockForSale(uid, input.items as any[]);
+          } catch (stockErr) {
+            // Log prominently — stock is now inconsistent and needs manual review.
+            console.error("[CRITICAL] Stock deduction failed for sale", sale.id, "— inventory may be inconsistent:", stockErr);
+          }
 
           if (input.discountCode) {
             try {

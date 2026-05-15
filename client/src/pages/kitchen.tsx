@@ -70,8 +70,9 @@ export default function KitchenPage() {
 
   const { data: orders = [], isLoading, isFetching, refetch } = useQuery<PendingOrder[]>({
     queryKey: ["/api/pending-orders"],
-    // Keep a fallback poll at 30 s in case SSE drops; SSE makes it instant for all normal operations
-    refetchInterval: 30_000,
+    // Only poll when SSE is disconnected — SSE handles real-time updates when connected,
+    // so polling while SSE is live causes redundant network requests.
+    refetchInterval: connected ? false : 30_000,
   });
 
   // Tick every 30 s so elapsed times stay accurate without re-fetching
@@ -91,7 +92,7 @@ export default function KitchenPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pending-orders"] });
     },
-    onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Failed to update status", description: err?.message ?? "Please try again", variant: "destructive" }),
   });
 
   function handleStatusChange(order: PendingOrder) {

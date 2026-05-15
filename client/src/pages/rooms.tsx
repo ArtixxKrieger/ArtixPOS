@@ -64,7 +64,7 @@ function RoomForm({ initial, onClose }: { initial?: ServiceRoom; onClose: () => 
       toast({ title: isEdit ? "Room updated" : "Room added" });
       onClose();
     },
-    onError: () => toast({ title: "Error", description: "Failed to save", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to save room", variant: "destructive" }),
   });
 
   return (

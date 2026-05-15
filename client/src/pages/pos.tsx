@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { nanoid } from "nanoid";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "react-i18next";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -277,7 +278,7 @@ export default function POS() {
         live ?? (stored.id && stored.name && stored.price ? (stored as Product) : null);
       if (!productToUse) { missing++; continue; }
       restored.push({
-        cartId:    Math.random().toString(36).slice(2),
+        cartId:    nanoid(),
         product:   productToUse,
         quantity:  Math.max(1, Number(it?.quantity) || 1),
         size:      it?.size?.name ? { name: String(it.size.name), price: String(it.size.price ?? "0") } : undefined,

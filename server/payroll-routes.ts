@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { users, timeLogs, sales, payrollPeriods, payrollEntries } from "@shared/schema";
-import { and, eq, gte, lte, inArray, isNull, isNotNull } from "drizzle-orm";
+import { and, eq, gte, lte, inArray, isNull, isNotNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
 
@@ -256,5 +256,84 @@ export function registerPayrollRoutes(app: Express) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
     }
+  });
+
+  // ── Save a payroll period (persists computed entries for history) ────────────
+  app.post("/api/payroll/periods", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const schema = z.object({
+        name: z.string().min(1),
+        from: z.string().min(1),
+        to: z.string().min(1),
+        entries: z.array(z.object({
+          userId: z.string(),
+          employeeName: z.string().nullable().optional(),
+          wageType: z.string(),
+          hoursWorked: z.number().optional(),
+          baseAmount: z.union([z.string(), z.number()]).transform(String),
+          commissionAmount: z.union([z.string(), z.number()]).transform(String).optional(),
+          tipAmount: z.union([z.string(), z.number()]).transform(String).optional(),
+          bonusAmount: z.union([z.string(), z.number()]).transform(String).optional(),
+          deductionAmount: z.union([z.string(), z.number()]).transform(String).optional(),
+          advanceAmount: z.union([z.string(), z.number()]).transform(String).optional(),
+          netAmount: z.union([z.string(), z.number()]).transform(String),
+          notes: z.string().optional(),
+        })),
+      });
+      const input = schema.parse(req.body);
+
+      const [period] = await db
+        .insert(payrollPeriods as any)
+        .values({
+          tenantId: user.tenantId,
+          name: input.name,
+          startDate: input.from,
+          endDate: input.to,
+          status: "draft",
+          createdBy: user.id,
+        })
+        .returning();
+
+      if (input.entries.length > 0) {
+        await db.insert(payrollEntries as any).values(
+          input.entries.map((e) => ({
+            periodId: (period as any).id,
+            userId: e.userId,
+            employeeName: e.employeeName ?? null,
+            wageType: e.wageType,
+            hoursWorked: e.hoursWorked ?? 0,
+            baseAmount: e.baseAmount,
+            commissionAmount: e.commissionAmount ?? "0",
+            tipAmount: e.tipAmount ?? "0",
+            bonusAmount: e.bonusAmount ?? "0",
+            deductionAmount: e.deductionAmount ?? "0",
+            advanceAmount: e.advanceAmount ?? "0",
+            netAmount: e.netAmount,
+            notes: e.notes ?? "",
+          }))
+        );
+      }
+
+      res.status(201).json({ period, entryCount: input.entries.length });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // ── List saved payroll periods ───────────────────────────────────────────────
+  app.get("/api/payroll/periods", requireAuth, requireTenant, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const periods = await db
+        .select()
+        .from(payrollPeriods as any)
+        .where(and(eq((payrollPeriods as any).tenantId, user.tenantId!), isNull((payrollPeriods as any).deletedAt)))
+        .orderBy(desc((payrollPeriods as any).createdAt));
+      res.json(periods);
+    } catch (err) { next(err); }
   });
 }

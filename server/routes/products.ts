@@ -101,11 +101,8 @@ export function registerProductRoutes(app: Express): void {
   app.delete(api.products.delete.path, requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     const uid = getUserId(req);
-    // Fetch for audit log + delete run in parallel — saves one DB round trip
-    const [existing] = await Promise.all([
-      storage.getProduct(id, uid),
-      storage.deleteProduct(id, uid),
-    ]);
+    const existing = await storage.getProduct(id, uid);
+    await storage.deleteProduct(id, uid);
     cache.del(productsCacheKey(uid));
     await auditLog(req, "delete", "product", String(id), { name: existing?.name });
     res.status(204).end();
@@ -200,6 +197,7 @@ export function registerProductRoutes(app: Express): void {
       }).parse(req.body);
 
       const uid = getUserId(req);
+      const branchId = await resolveBranchId(req);
       const existing = await storage.getProducts(uid);
       const bySku  = new Map(existing.filter(p => p.sku).map(p => [p.sku!.toLowerCase(), p]));
       const byName = new Map(existing.map(p => [p.name.toLowerCase(), p]));
@@ -209,6 +207,10 @@ export function registerProductRoutes(app: Express): void {
 
       for (const row of rows) {
         try {
+          const rawStock = row.stock ?? 0;
+          const rawThreshold = row.lowStockThreshold ?? 5;
+          const safeStock = rawStock < 0 ? 0 : rawStock;
+          const safeThreshold = rawThreshold < 0 ? 5 : rawThreshold;
           const payload: Record<string, unknown> = {
             name: row.name,
             category: row.category || "General",
@@ -217,12 +219,13 @@ export function registerProductRoutes(app: Express): void {
             barcode: row.barcode || null,
             taxRate: row.taxRate || null,
             trackStock: row.trackStock ?? false,
-            stock: row.trackStock ? (row.stock ?? 0) : null,
-            lowStockThreshold: row.trackStock ? (row.lowStockThreshold ?? 5) : null,
+            stock: row.trackStock ? safeStock : null,
+            lowStockThreshold: row.trackStock ? safeThreshold : null,
             sizes: [],
             modifiers: [],
             hasSizes: false,
             hasModifiers: false,
+            branchId: branchId ?? null,
           };
           const match = (row.sku ? bySku.get(row.sku.toLowerCase()) : null)
             ?? byName.get(row.name.toLowerCase());

@@ -5,6 +5,7 @@
  * Depends on useToast for stock-guard feedback.
  */
 import { useState, useCallback } from "react";
+import { nanoid } from "nanoid";
 import type { Product } from "@shared/schema";
 
 export type CartItem = {
@@ -67,7 +68,7 @@ export function useCart(toast: ToastFn) {
         return [
           ...prev,
           {
-            cartId: Math.random().toString(36).slice(2),
+            cartId: nanoid(),
             product,
             quantity: 1,
             size,

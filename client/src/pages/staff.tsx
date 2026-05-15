@@ -57,7 +57,7 @@ function StaffForm({ initial, onClose }: { initial?: ServiceStaff; onClose: () =
       toast({ title: isEdit ? "Staff updated" : "Staff added" });
       onClose();
     },
-    onError: () => toast({ title: "Error", description: "Failed to save staff member", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to save staff member", variant: "destructive" }),
   });
 
   const selectedColor = form.watch("color");

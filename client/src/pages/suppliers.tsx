@@ -488,7 +488,7 @@ export default function SuppliersPage() {
 
   function handleSubmit() {
     if (!form.name.trim()) { toast({ title: t("suppliers.businessName") + " required", variant: "destructive" }); return; }
-    const data = { name: form.name, contactPerson: form.contactPerson || null, phone: form.phone || null, email: form.email || null, address: form.address || null, notes: form.notes || null };
+    const data = { name: form.name, contactPerson: form.contactPerson || undefined, phone: form.phone || undefined, email: form.email || undefined, address: form.address || undefined, notes: form.notes || undefined };
     if (editing) updateMutation.mutate({ id: editing.id, data });
     else createMutation.mutate(form);
   }

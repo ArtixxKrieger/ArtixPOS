@@ -168,7 +168,7 @@ export function registerSaleRoutes(app: Express): void {
                 subtotal: (sale as any).subtotal ?? sale.total,
                 tax: (sale as any).tax,
                 discount: sale.discount,
-                paymentMethod: sale.paymentMethod,
+                paymentMethod: sale.paymentMethod ?? "cash",
                 customerName: sale.customerName,
                 items: sale.items,
                 orNumber: (sale as any).orNumber,

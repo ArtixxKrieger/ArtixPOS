@@ -122,12 +122,12 @@ export async function redisDelByPattern(pattern: string): Promise<void> {
     // SCAN is safe on large keyspaces — non-blocking unlike KEYS.
     let cursor: string | number = 0;
     do {
-      const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
+      const [nextCursor, keys]: [string | number, string[]] = await redis.scan(cursor, { match: pattern, count: 100 });
       cursor = nextCursor;
       if (keys.length > 0) {
         await redis.del(...keys);
       }
-    } while (cursor !== 0 && cursor !== "0");
+    } while (String(cursor) !== "0");
   } catch (err) {
     console.error("[redis] DEL_BY_PATTERN error:", err);
   }

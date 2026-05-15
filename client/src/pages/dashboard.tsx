@@ -406,7 +406,7 @@ export default function Dashboard() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-bold px-5 py-3.5 text-primary tabular-nums">
-                        {formatCurrency(sale.total, settings?.currency)}
+                        {formatCurrency(sale.total, settings?.currency ?? undefined)}
                       </TableCell>
                     </TableRow>
                   );

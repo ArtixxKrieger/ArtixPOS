@@ -301,7 +301,7 @@ export default function PendingOrders() {
                       <Button
                         size="sm"
                         className="h-8 px-3 text-[10px] font-bold rounded-xl"
-                        onClick={() => handleUpdatePayment(order)}
+                        onClick={() => handleUpdatePayment(order as any)}
                       >
                         Set
                       </Button>
@@ -333,7 +333,7 @@ export default function PendingOrders() {
                   <Button
                     variant="ghost"
                     className="h-12 rounded-none rounded-br-3xl text-primary hover:bg-primary/8 text-xs font-bold tracking-wide"
-                    onClick={() => handleComplete(order)}
+                    onClick={() => handleComplete(order as any)}
                     disabled={createSale.isPending}
                     data-testid={`button-finalize-${order.id}`}
                   >

@@ -522,12 +522,12 @@ export default function Transactions() {
                         )}
                         {visibleColumns.has("tax") && (
                           <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                            {formatCurrency(sale.tax, currency)}
+                            {formatCurrency(sale.tax ?? "0", currency)}
                           </TableCell>
                         )}
                         {visibleColumns.has("discount") && (
                           <TableCell className="px-5 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                            {formatCurrency(sale.discount, currency)}
+                            {formatCurrency(sale.discount ?? "0", currency)}
                           </TableCell>
                         )}
                         {visibleColumns.has("total") && (

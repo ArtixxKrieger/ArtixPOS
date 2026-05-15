@@ -176,7 +176,7 @@ export default function BIRPage() {
   });
 
   const monthOptions = useMemo(() => {
-    const opts = [];
+    const opts: { value: string; label: string }[] = [];
     for (let i = 0; i < 13; i++) {
       const d = subMonths(new Date(), i);
       opts.push({ value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy") });

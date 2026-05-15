@@ -353,7 +353,7 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
 
   const smartRestockAlerts = lowStockProducts.map((p) => {
     const velocity = soldLast30[p.name] || 0;
-    const daysLeft = velocity > 0 ? Math.round((p.stock / velocity) * 30) : null;
+    const daysLeft = velocity > 0 ? Math.round(((p.stock ?? 0) / velocity) * 30) : null;
     const velocityStr = velocity > 0 ? ` | Selling ${(velocity / 30).toFixed(1)}/day` : "";
     const urgency = daysLeft !== null ? ` | Est. ${daysLeft} day${daysLeft !== 1 ? "s" : ""} of stock left` : "";
     return `${p.name}: ${p.stock} left (threshold: ${p.lowStockThreshold})${velocityStr}${urgency}`;
@@ -361,12 +361,12 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
 
   // ── Customer insights ─────────────────────────────────────────────────────
   const sortedBySpend = [...allCustomers].sort((a, b) =>
-    (parseFloat(b.totalSpent) || 0) - (parseFloat(a.totalSpent) || 0)
+    (parseFloat(b.totalSpent ?? "0") || 0) - (parseFloat(a.totalSpent ?? "0") || 0)
   );
   const topCustomer = sortedBySpend[0];
   const _inactiveRegulars = allCustomers
-    .filter(c => c.visitCount >= 3)
-    .sort((a, b) => (parseFloat(b.totalSpent) || 0) - (parseFloat(a.totalSpent) || 0))
+    .filter(c => (c.visitCount ?? 0) >= 3)
+    .sort((a, b) => (parseFloat(b.totalSpent ?? "0") || 0) - (parseFloat(a.totalSpent ?? "0") || 0))
     .slice(0, 3)
     .map(c => `${c.name} — ${c.visitCount} visits | Spent: ${fmt(parseFloat(c.totalSpent || "0"))}`);
 

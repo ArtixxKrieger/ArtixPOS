@@ -72,7 +72,7 @@ export function registerPayrollRoutes(app: Express) {
       const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
       const lines = [
         headers.join(","),
-        ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")),
+        ...rows.map((r) => headers.map((h) => JSON.stringify((r as Record<string, unknown>)[h] ?? "")).join(",")),
       ].join("\n");
 
       const name = ((period as any).name || `period-${periodId}`).replace(/[^a-z0-9_\-]/gi, "_");

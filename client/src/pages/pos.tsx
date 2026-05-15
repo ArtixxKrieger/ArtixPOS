@@ -388,7 +388,7 @@ export default function POS() {
       discountCode:        snapshotScPwdType !== "none" ? null : (snapshotAppliedCode?.code ?? null),
       loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
       orderNumber:         null,
-      orNumber:            null,
+      orNumber:            undefined,
       discountType:        snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
       scPwdId:             snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
       vatableSales:        snapshotScPwdType === "none" ? discountedSubtotal : 0,

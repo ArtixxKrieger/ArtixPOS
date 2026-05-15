@@ -972,7 +972,7 @@ export function registerAdminRoutes(app: Express) {
           canVoidOrder: true,
         });
       }
-      res.json({ role: user.role, ...perm });
+      res.json({ ...perm, role: user.role });
     } catch (err) { next(err); }
   });
 

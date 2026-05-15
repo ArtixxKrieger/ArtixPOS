@@ -284,7 +284,7 @@ export function registerPayrollRoutes(app: Express) {
       });
       const input = schema.parse(req.body);
 
-      const [period] = await db
+      const rows = await db
         .insert(payrollPeriods as any)
         .values({
           tenantId: user.tenantId,
@@ -294,7 +294,8 @@ export function registerPayrollRoutes(app: Express) {
           status: "draft",
           createdBy: user.id,
         })
-        .returning();
+        .returning() as any[];
+      const period = rows[0];
 
       if (input.entries.length > 0) {
         await db.insert(payrollEntries as any).values(

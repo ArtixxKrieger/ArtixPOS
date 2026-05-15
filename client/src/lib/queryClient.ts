@@ -29,6 +29,26 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// ── CSRF token ───────────────────────────────────────────────────────────────
+// Read the csrf_token cookie set by the server (not httpOnly, so JS can read
+// it) and return it as the X-CSRF-Token header for state-changing requests.
+// Native clients (API_BASE set) use Bearer tokens — they are CSRF-safe by
+// definition and the server will exempt them, so we skip this for them.
+const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
+
+function getCsrfToken(): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match?.[1] ?? "";
+}
+
+function getCsrfHeaders(method: string): Record<string, string> {
+  if (!UNSAFE_METHODS.has(method.toUpperCase())) return {};
+  if (API_BASE) return {}; // Native client — Bearer token, CSRF not needed
+  const token = getCsrfToken();
+  return token ? { "X-CSRF-Token": token } : {};
+}
+
 export async function nativeFetch(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(resolveUrl(url), {
     ...options,
@@ -72,6 +92,7 @@ export async function apiRequest(
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
       ...getAuthHeaders(),
+      ...getCsrfHeaders(method),
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: getCredentials(),

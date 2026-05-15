@@ -20,6 +20,7 @@ import { getAllBreakerStates } from "./circuit-breaker";
 import { validateEnv } from "./env";
 import { initSentry, applySentryErrorHandler } from "./sentry";
 import { setupSwagger } from "./swagger";
+import { csrfCookieMiddleware, csrfProtection } from "./csrf";
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,16 +56,20 @@ const scriptSrc: string[] = isDevelopment
 const cspDirectives = {
   defaultSrc: ["'self'"],
   scriptSrc,
-  // Styles: unsafe-inline is still required for CSS-in-JS (Tailwind/Radix).
+  // Styles: unsafe-inline is a required trade-off for Tailwind v3 + Radix UI
+  // which generate runtime inline styles. XSS risk via style injection is
+  // substantially lower than via script injection; this is an accepted gap.
   styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-  fontSrc: ["'self'", "https://fonts.gstatic.com"],
+  fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
   // Restrict images: blob/data for local POS images; restrict arbitrary https in production.
   imgSrc: isDevelopment
     ? ["'self'", "data:", "https:", "blob:"]
     : ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com", "https://graph.facebook.com"],
+  // Production connect-src explicitly enumerates every allowed external
+  // endpoint. Sentry DSN is included so error reports are not blocked.
   connectSrc: isDevelopment
-    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com"]
-    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
+    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io"]
+    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io"],
   frameSrc: ["https://accounts.google.com"],
   frameAncestors: isDevelopment
     ? ["'self'", "https://replit.com", "https://*.replit.com"]
@@ -74,6 +79,12 @@ const cspDirectives = {
   baseUri: ["'self'"],
   // Prevent form action hijacking — forms may only submit to same origin
   formAction: ["'self'"],
+  // Service Worker + PWA
+  workerSrc: ["'self'", "blob:"],
+  // PWA manifest
+  manifestSrc: ["'self'"],
+  // Audio/video (receipt printing sounds, etc.)
+  mediaSrc: ["'self'", "blob:", "data:"],
   // Upgrade plain HTTP sub-resources to HTTPS in production
   ...(isDevelopment ? {} : { upgradeInsecureRequests: [] }),
 };
@@ -88,18 +99,37 @@ app.use(
   })
 );
 
-// FedCM (Federated Credential Management) requires the identity-credentials-get
-// permission to be explicitly allowed. Helmet may set a restrictive
-// Permissions-Policy that omits it, silently preventing the native account
-// bottom-sheet from appearing even when google.accounts.id is initialized.
+// ── Security headers beyond Helmet defaults ───────────────────────────────
+// Cross-Origin-Opener-Policy: allows Google OAuth popup flow while still
+// isolating the browsing context from unrelated opener windows.
+// Cross-Origin-Resource-Policy: restricts cross-origin reads of our
+// responses to same-site requests only.
 app.use((_req, res, next) => {
-  const existing = res.getHeader("Permissions-Policy") as string | undefined;
-  const needed = "identity-credentials-get=*";
-  if (!existing) {
-    res.setHeader("Permissions-Policy", needed);
-  } else if (!existing.includes("identity-credentials-get")) {
-    res.setHeader("Permissions-Policy", `${existing}, ${needed}`);
-  }
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
+// ── Permissions-Policy ────────────────────────────────────────────────────
+// Restrict browser APIs this app does not use. identity-credentials-get
+// is explicitly allowed because Google One Tap / FedCM needs it.
+// Camera/microphone are kept accessible for potential future barcode
+// scanning; geolocation and payment APIs are disabled.
+app.use((_req, res, next) => {
+  res.setHeader(
+    "Permissions-Policy",
+    [
+      "identity-credentials-get=*",
+      "geolocation=()",
+      "microphone=()",
+      "payment=()",
+      "usb=()",
+      "accelerometer=()",
+      "gyroscope=()",
+      "magnetometer=()",
+    ].join(", "),
+  );
   next();
 });
 
@@ -277,6 +307,11 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 app.use(cookieParser());
 
+// ── CSRF cookie ───────────────────────────────────────────────────────────────
+// Sets a readable csrf_token cookie used by the double-submit pattern.
+// Must come after cookieParser() so req.cookies is already populated.
+app.use(csrfCookieMiddleware);
+
 // ── X-Request-ID ─────────────────────────────────────────────────────────────
 // Assigns a unique correlation ID to every request. Existing IDs from trusted
 // upstream proxies (Replit, Vercel, load balancers) are preserved.
@@ -314,6 +349,12 @@ app.use(jwtAuthMiddleware);
 
 // Passport (strategies only — no session serialisation needed)
 app.use(passport.initialize());
+
+// ── CSRF protection ───────────────────────────────────────────────────────────
+// Validates X-CSRF-Token header == csrf_token cookie on all state-changing
+// requests. Must come AFTER jwtAuthMiddleware so Bearer-token clients
+// (native Capacitor) are already identified and can be exempted.
+app.use(csrfProtection);
 
 export function log(message: string, source = "express") {
   logger.info({ source }, message);

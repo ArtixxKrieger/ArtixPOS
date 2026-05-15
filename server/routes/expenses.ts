@@ -1,0 +1,67 @@
+import type { Express } from "express";
+import { storage } from "../storage";
+import { requireAuth, requirePro } from "../middleware";
+import { insertExpenseSchema, expenses } from "@shared/schema";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { getUserId, getActiveBranchId, resolveBranchId, auditLog, handleZodError } from "../lib/route-utils";
+
+export function registerExpenseRoutes(app: Express): void {
+
+  // ── List expenses ──────────────────────────────────────────────────────────
+  app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
+    const list = await storage.getExpenses(getUserId(req), {
+      branchId: getActiveBranchId(req),
+      limit: 500,
+    });
+    res.json(list);
+  });
+
+  // ── Create expense ─────────────────────────────────────────────────────────
+  app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
+    try {
+      const input = insertExpenseSchema.extend({ amount: z.coerce.string() }).parse(req.body);
+      const branchId = await resolveBranchId(req);
+      const expense = await storage.createExpense(getUserId(req), { ...input, branchId });
+      await auditLog(req, "create", "expense", String(expense.id), {
+        description: expense.description,
+        amount: expense.amount,
+        category: expense.category,
+      });
+      res.status(201).json(expense);
+    } catch (err) {
+      if (!handleZodError(err, res)) throw err;
+    }
+  });
+
+  // ── Update expense ─────────────────────────────────────────────────────────
+  app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
+    try {
+      const input = insertExpenseSchema.partial().extend({ amount: z.coerce.string().optional() }).parse(req.body);
+      const expense = await storage.updateExpense(Number(req.params.id), getUserId(req), input);
+      if (!expense) return res.status(404).json({ message: "Expense not found" });
+      await auditLog(req, "update", "expense", String(expense.id), {
+        description: expense.description,
+        amount: expense.amount,
+      });
+      res.json(expense);
+    } catch (err) {
+      if (!handleZodError(err, res)) throw err;
+    }
+  });
+
+  // ── Delete expense ─────────────────────────────────────────────────────────
+  app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
+      await storage.deleteExpense(id, getUserId(req));
+      await auditLog(req, "delete", "expense", String(id), {
+        description: existing?.description,
+        amount: existing?.amount,
+      });
+      res.status(204).end();
+    } catch (err) { next(err); }
+  });
+}

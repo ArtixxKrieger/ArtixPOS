@@ -124,7 +124,7 @@ function getDedupeKey(userId: string, lastMessage: string): string {
 
 // ─── Get userId from request ──────────────────────────────────────────────────
 function getUserId(req: Request): string {
-  return (req.user as any).id;
+  return req.user.id;
 }
 
 // The user's currently-selected branch. AI-created records (products, sales,
@@ -134,7 +134,7 @@ function getUserId(req: Request): string {
 // "Add Product" screenshot where the success toast fired but the product
 // never showed up in the Products page.
 function activeBranchId(req: Request): number | null {
-  return (req.user as any)?.activeBranchId ?? null;
+  return req.user?.activeBranchId ?? null;
 }
 
 // ─── Supported AI action tags ─────────────────────────────────────────────────
@@ -165,10 +165,10 @@ export const SUPPORTED_ACTION_TAGS = [
 interface ContextResult {
   contextText: string;
   currency: string;
-  allProducts: any[];
-  allCustomers: any[];
-  rawSales: any[];
-  rawExpenses: any[];
+  allProducts: Record<string, unknown>[];
+  allCustomers: Record<string, unknown>[];
+  rawSales: Record<string, unknown>[];
+  rawExpenses: Record<string, unknown>[];
   businessType: string | null;
   businessSubType: string | null;
 }
@@ -298,8 +298,8 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
   const currency = settings?.currency || "$";
   const storeName = settings?.storeName || "Store";
   const monthlyGoal = settings?.monthlyRevenueGoal ? parseFloat(settings.monthlyRevenueGoal) : null;
-  const businessType: string | null = (settings as any)?.businessType ?? null;
-  const businessSubType: string | null = (settings as any)?.businessSubType ?? null;
+  const businessType: string | null = (settings as Record<string, unknown>)?.businessType as string ?? null;
+  const businessSubType: string | null = (settings as Record<string, unknown>)?.businessSubType as string ?? null;
 
   // Format a number as currency with comma separators: 10000.5 → ₱10,000.50
   const fmt = (n: number) =>
@@ -320,7 +320,8 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
       salesByProduct[name] = salesByProduct[name] || { count: 0, total: 0 };
       salesByProduct[name].count += item.quantity || 1;
       const basePrice = parseFloat(item.size?.price ?? item.product?.price ?? item.price ?? "0");
-      const modsTotal = (item.modifiers ?? []).reduce((s: number, m: any) => s + parseFloat(m.price || "0"), 0);
+      const modifiers = (item.modifiers ?? []) as Array<{ price?: string | number }>;
+      const modsTotal = modifiers.reduce((s: number, m) => s + parseFloat(String(m.price || "0")), 0);
       salesByProduct[name].total += (basePrice + modsTotal) * (item.quantity || 1);
     }
   }
@@ -373,8 +374,8 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
   // ── Day-of-week sales patterns ───────────────────────────────────────────
   const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const _dowLines = dayOfWeekRows
-    .sort((a: any, b: any) => (Number(b.total) || 0) - (Number(a.total) || 0))
-    .map((r: any) => `${DOW_NAMES[Number(r.dow)] || "?"}: ${fmt(Number(r.total))} avg (${r.count} sales)`);
+    .sort((a: Record<string, unknown>, b: Record<string, unknown>) => (Number(b.total) || 0) - (Number(a.total) || 0))
+    .map((r: Record<string, unknown>) => `${DOW_NAMES[Number(r.dow)] || "?"}: ${fmt(Number(r.total))} avg (${r.count} sales)`);
 
   // ── Expense comparison ──────────────────────────────────────────────────
   const thisMonthExpenses = Number(thisMonthExpenseRow?.total) || 0;
@@ -415,12 +416,13 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
     .slice(0, 5)
     .map((s, i) => {
       const items = Array.isArray(s.items) ? s.items : [];
-      const itemParts = items.slice(0, 4).map((it: any) => {
-        const name = it.product?.name || it.name || "Unknown";
-        const basePrice = parseFloat(it.size?.price ?? it.product?.price ?? it.price ?? "0");
-        const modsTotal = (it.modifiers ?? []).reduce((sum: number, m: any) => sum + parseFloat(m.price || "0"), 0);
+      const itemParts = items.slice(0, 4).map((it: Record<string, unknown>) => {
+        const name = (it.product as any)?.name || it.name || "Unknown";
+        const basePrice = parseFloat(String((it.size as any)?.price ?? (it.product as any)?.price ?? it.price ?? "0"));
+        const modifiers = (it.modifiers ?? []) as Array<{ price?: string | number }>;
+        const modsTotal = modifiers.reduce((sum: number, m) => sum + parseFloat(String(m.price || "0")), 0);
         const unitPrice = basePrice + modsTotal;
-        const qty = it.quantity || 1;
+        const qty = (it.quantity as number) || 1;
         const lineTotal = unitPrice * qty;
         return qty > 1
           ? `  • ${name} x${qty} — ${fmt(lineTotal)}`
@@ -441,7 +443,7 @@ async function gatherContext(userId: string, forceRefresh = false): Promise<Cont
     const firstDate = firstSaleRow.createdAt ? firstSaleRow.createdAt.replace("T", " ").slice(0, 16) : "unknown";
     const firstTotal = parseFloat(String(firstSaleRow.total) || "0").toFixed(2);
     const firstItems = Array.isArray(firstSaleRow.items) ? firstSaleRow.items : [];
-    const firstItemNames = firstItems.slice(0, 5).map((it: any) => it.product?.name || it.name || "Unknown").join(", ");
+    const firstItemNames = firstItems.slice(0, 5).map((it: Record<string, unknown>) => (it.product as any)?.name || it.name || "Unknown").join(", ");
     firstSaleStr = `${firstDate} | Total: ${currency}${firstTotal}${firstItemNames ? ` | Items: ${firstItemNames}` : ""}`;
   }
 
@@ -865,11 +867,11 @@ async function runDynamicQuery(
         const date = r.createdAt?.slice(0, 16).replace("T", " ") ?? "unknown";
         const total = fmt(parseFloat(String(r.total) || "0"));
         const items = Array.isArray(r.items) ? r.items : [];
-        const itemList = items.slice(0, 5).map((it: any) => {
-          const name = it.product?.name || it.name || "?";
-          const qty = it.quantity > 1 ? ` x${it.quantity}` : "";
-          const price = parseFloat(it.size?.price ?? it.product?.price ?? it.price ?? "0");
-          return `  • ${name}${qty} — ${fmt(price * (it.quantity || 1))}`;
+        const itemList = items.slice(0, 5).map((it: Record<string, unknown>) => {
+          const name = (it.product as any)?.name || it.name || "?";
+          const qty = (it.quantity as number) > 1 ? ` x${it.quantity}` : "";
+          const price = parseFloat(String((it.size as any)?.price ?? (it.product as any)?.price ?? it.price ?? "0"));
+          return `  • ${name}${qty} — ${fmt(price * ((it.quantity as number) || 1))}`;
         });
         if (items.length > 5) itemList.push(`  • +${items.length - 5} more item(s)`);
         return `#${i + 1} ${date} | ${total} | ${r.paymentMethod || "cash"}\n${itemList.join("\n") || "  • (no items)"}`;
@@ -964,19 +966,20 @@ async function runDynamicQuery(
         const date = r.createdAt?.slice(0, 16).replace("T", " ") ?? "unknown";
         const total = fmt(parseFloat(String(r.total) || "0"));
         const items = Array.isArray(r.items) ? r.items : [];
-        const itemList = items.slice(0, 5).map((it: any) => {
-          const name = it.product?.name || it.name || "?";
-          const qty = it.quantity > 1 ? ` x${it.quantity}` : "";
-          const price = parseFloat(it.size?.price ?? it.product?.price ?? it.price ?? "0");
-          return `  • ${name}${qty} — ${fmt(price * (it.quantity || 1))}`;
+        const itemList = items.slice(0, 5).map((it: Record<string, unknown>) => {
+          const name = (it.product as any)?.name || it.name || "?";
+          const qty = (it.quantity as number) > 1 ? ` x${it.quantity}` : "";
+          const price = parseFloat(String((it.size as any)?.price ?? (it.product as any)?.price ?? it.price ?? "0"));
+          return `  • ${name}${qty} — ${fmt(price * ((it.quantity as number) || 1))}`;
         });
         if (items.length > 5) itemList.push(`  • +${items.length - 5} more item(s)`);
         return `#${i + 1} ${date} | ${total} | ${r.paymentMethod || "cash"}\n${itemList.join("\n") || "  • (no items)"}`;
       });
       return `QUERIED: RECENT ${intent.limit} TRANSACTIONS (newest first):\n${lines.join("\n")}`;
     }
-  } catch (err: any) {
-    console.error(`[ai][${requestId}] runDynamicQuery error (intent: ${intent.type}):`, err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[ai][${requestId}] runDynamicQuery error (intent: ${intent.type}):`, message);
     return null;
   }
   return null;
@@ -1547,14 +1550,14 @@ async function parseFileContent(file: Express.Multer.File): Promise<string> {
   const ext = path.extname(file.originalname).toLowerCase();
   if (ext === ".pdf") {
     const pdfParseModule = await import("pdf-parse");
-    const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
+    const pdfParse = (pdfParseModule as { default?: any }).default ?? pdfParseModule;
     const data = await pdfParse(file.buffer);
     return data.text.slice(0, 8000);
   }
   if (ext === ".csv") return file.buffer.toString("utf-8").slice(0, 8000);
   if (ext === ".xlsx" || ext === ".xls") {
     const ExcelJS = (await import("exceljs")).default ?? (await import("exceljs"));
-    const workbook = new (ExcelJS as any).Workbook();
+    const workbook = new (ExcelJS as { Workbook: any }).Workbook();
     await workbook.xlsx.load(file.buffer);
     const sheets: string[] = [];
     let sheetIdx = 0;
@@ -2302,9 +2305,10 @@ export function registerAiRoutes(app: Express) {
       let aiResponse: Awaited<ReturnType<typeof fetch>>;
       try {
         aiResponse = await resolveAIStream(groqMessages as any, maxTokens, temperature, requestId, { preferSmart: wantsSmartModel });
-      } catch (aiErr: any) {
+      } catch (aiErr: unknown) {
+        const message = aiErr instanceof Error ? aiErr.message : String(aiErr);
         const elapsed = Date.now() - requestStart;
-        console.error(`[ai][${requestId}] resolveAIStream threw: ${aiErr.message} | total elapsed: ${elapsed}ms | debug: ${aiErr.debugInfo ?? "n/a"}`);
+        console.error(`[ai][${requestId}] resolveAIStream threw: ${message} | total elapsed: ${elapsed}ms | debug: ${(aiErr as any).debugInfo ?? "n/a"}`);
         // User-facing error stays clean. Debug info is logged server-side only —
         // we never want users to see "all providers exhausted" / "HTTP 429" /
         // "requestId xyz" in the chat bubble.
@@ -2322,7 +2326,7 @@ export function registerAiRoutes(app: Express) {
       // output safety check at the end; if a violation is detected we send
       // a correction/override event the client will display in place of the
       // problematic content.
-      const reader = (aiResponse.body as any).getReader();
+      const reader = (aiResponse.body as unknown as ReadableStream<Uint8Array>).getReader();
       const decoder = new TextDecoder();
       let sseBuffer = "";
       let accumulated = "";
@@ -2352,8 +2356,9 @@ export function registerAiRoutes(app: Express) {
           }
         }
         console.log(`[ai][${requestId}] stream done in ${Date.now() - streamStart}ms — ${accumulated.length} chars | total: ${Date.now() - requestStart}ms`);
-      } catch (streamErr: any) {
-        console.error(`[ai][${requestId}] stream read ERROR after ${Date.now() - streamStart}ms: ${streamErr.message}`);
+      } catch (streamErr: unknown) {
+        const message = streamErr instanceof Error ? streamErr.message : String(streamErr);
+        console.error(`[ai][${requestId}] stream read ERROR after ${Date.now() - streamStart}ms: ${message}`);
         // Client already received partial content — send error notice
         sendEvent({ type: "error", message: "The response was cut off. Please try again." });
         sendDone();
@@ -2415,14 +2420,15 @@ export function registerAiRoutes(app: Express) {
           console.error(`[ai-memory] background extraction error: ${err.message}`);
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       const totalElapsed = Date.now() - requestStart;
       console.error(
         `[ai][${requestId}] *** UNHANDLED ERROR after ${totalElapsed}ms ***\n` +
-        `  message: ${err.message}\n` +
-        `  statusCode: ${err.statusCode ?? "n/a"}\n` +
-        `  debugInfo: ${err.debugInfo ?? "n/a"}\n` +
-        `  stack: ${err.stack ?? "n/a"}`
+        `  message: ${message}\n` +
+        `  statusCode: ${(err as any).statusCode ?? "n/a"}\n` +
+        `  debugInfo: ${(err as any).debugInfo ?? "n/a"}\n` +
+        `  stack: ${(err as any).stack ?? "n/a"}`
       );
       const msg = "Something went wrong. Please try again.";
       if (!res.headersSent) {
@@ -2444,9 +2450,10 @@ export function registerAiRoutes(app: Express) {
         if (!req.file) return res.status(400).json({ message: "No file uploaded." });
         const content = await parseFileContent(req.file);
         res.json({ content, filename: req.file.originalname, size: req.file.size });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         console.error("File parse error:", err);
-        res.status(400).json({ message: err.message || "Failed to parse file." });
+        res.status(400).json({ message: message || "Failed to parse file." });
       }
     },
   );
@@ -2543,7 +2550,7 @@ export function registerAiRoutes(app: Express) {
       }
       invalidateCache(uid);
       res.json({ imported: created.length, errors, products: created });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Import products error:", err);
       res.status(500).json({ message: "Failed to import products." });
     }
@@ -2594,7 +2601,7 @@ export function registerAiRoutes(app: Express) {
       });
       invalidateCache(uid);
       res.json({ product });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Add product error:", err);
       res.status(500).json({ message: "Failed to add product." });
     }
@@ -2642,7 +2649,7 @@ export function registerAiRoutes(app: Express) {
       const updated = await storage.updateProduct(match.id, uid, updates);
       invalidateCache(uid);
       res.json({ product: updated, originalName: match.name });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Update product error:", err);
       res.status(500).json({ message: "Failed to update product." });
     }
@@ -2666,7 +2673,7 @@ export function registerAiRoutes(app: Express) {
       await storage.deleteProduct(match.id, uid);
       invalidateCache(uid);
       res.json({ deleted: true, name: match.name });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Delete product error:", err);
       res.status(500).json({ message: "Failed to delete product." });
     }
@@ -2692,7 +2699,7 @@ export function registerAiRoutes(app: Express) {
       } as any);
       invalidateCache(uid);
       res.json({ customer });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Add customer error:", err);
       res.status(500).json({ message: "Failed to add customer." });
     }
@@ -2718,7 +2725,7 @@ export function registerAiRoutes(app: Express) {
       } as any);
       invalidateCache(uid);
       res.json({ expense });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Log expense error:", err);
       res.status(500).json({ message: "Failed to log expense." });
     }
@@ -2742,7 +2749,7 @@ export function registerAiRoutes(app: Express) {
       await storage.deleteProduct(id, uid);
       invalidateCache(uid);
       res.json({ undone: true, name: existing.name });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Undo add-product error:", err);
       res.status(500).json({ message: "Failed to undo." });
     }
@@ -2760,7 +2767,7 @@ export function registerAiRoutes(app: Express) {
       await storage.deleteExpense(id, uid);
       invalidateCache(uid);
       res.json({ undone: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Undo log-expense error:", err);
       res.status(500).json({ message: "Failed to undo." });
     }
@@ -2832,7 +2839,7 @@ export function registerAiRoutes(app: Express) {
         },
         orders,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Customer orders error:", err);
       res.status(500).json({ message: "Failed to fetch customer orders." });
     }
@@ -2865,7 +2872,7 @@ export function registerAiRoutes(app: Express) {
       const newStock = Math.max(0, currentStock + adjustment);
       await storage.updateProduct(product.id, uid, { stock: newStock });
       res.json({ success: true, productId: product.id, name: product.name, oldStock: currentStock, newStock, adjustment });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI adjust-stock error:", err);
       res.status(500).json({ message: "Failed to adjust stock." });
     }
@@ -2915,7 +2922,7 @@ export function registerAiRoutes(app: Express) {
 
       invalidateCache(uid);
       res.json({ success: true, poId: po.id, itemCount: matchedItems.length, notFound });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI create-reorder error:", err);
       res.status(500).json({ message: "Failed to create purchase order." });
     }
@@ -2952,7 +2959,7 @@ export function registerAiRoutes(app: Express) {
 
       await storage.updateCustomer(customer.id, uid, updates);
       res.json({ success: true, customerId: customer.id, updated: updates });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI update-customer error:", err);
       res.status(500).json({ message: "Failed to update customer." });
     }
@@ -2981,7 +2988,7 @@ export function registerAiRoutes(app: Express) {
         branchId,
       } as any);
       res.json({ discount });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Create discount error:", err);
       res.status(500).json({ message: "Failed to create discount code." });
     }
@@ -3007,7 +3014,7 @@ export function registerAiRoutes(app: Express) {
       const updated = await storage.updateDiscountCode(existing.id, uid, updates);
       invalidateCache(uid);
       res.json({ discount: updated });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Update discount error:", err);
       res.status(500).json({ message: "Failed to update discount code." });
     }
@@ -3024,7 +3031,7 @@ export function registerAiRoutes(app: Express) {
       await storage.deleteDiscountCode(existing.id, uid);
       invalidateCache(uid);
       res.json({ deleted: true, code: existing.code });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Delete discount error:", err);
       res.status(500).json({ message: "Failed to delete discount code." });
     }
@@ -3041,7 +3048,7 @@ export function registerAiRoutes(app: Express) {
       const updated = await storage.updateDiscountCode(existing.id, uid, { isActive: !!isActive });
       invalidateCache(uid);
       res.json({ discount: updated });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Toggle discount error:", err);
       res.status(500).json({ message: "Failed to toggle discount code." });
     }
@@ -3066,7 +3073,7 @@ export function registerAiRoutes(app: Express) {
           .map(ub => allBranches.find(b => b.id === ub.branchId)?.name || `Branch #${ub.branchId}`),
       }));
       res.json({ staff: staffWithBranches, branches: allBranches });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Staff info error:", err);
       res.status(500).json({ message: "Failed to load staff info." });
     }
@@ -3183,7 +3190,7 @@ export function registerAiRoutes(app: Express) {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Pragma", "no-cache");
       res.send(Buffer.from(buf));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Export error:", err);
       res.status(500).json({ message: "Failed to generate export." });
     }
@@ -3215,7 +3222,7 @@ export function registerAiRoutes(app: Express) {
       }
       invalidateCache(uid);
       res.json({ updated: updated.length, notFound: notFound.length, updatedList: updated, notFoundList: notFound });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Update prices error:", err);
       res.status(500).json({ message: "Failed to update prices." });
     }
@@ -3227,7 +3234,7 @@ export function registerAiRoutes(app: Express) {
       const uid = getUserId(req);
       const ctx = await gatherContext(uid, true);
       res.json({ context: ctx.contextText, currency: ctx.currency });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Digest error:", err);
       res.status(500).json({ message: "Failed to generate digest." });
     }
@@ -3245,7 +3252,7 @@ export function registerAiRoutes(app: Express) {
       await storage.updateSettings(uid, { monthlyRevenueGoal: String(parsed) });
       invalidateCache(uid);
       res.json({ goal: parsed });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Goal error:", err);
       res.status(500).json({ message: "Failed to save goal." });
     }
@@ -3282,8 +3289,9 @@ export function registerAiRoutes(app: Express) {
       const items = await buildSmartSuggestions(uid);
       suggestionCache.set(cacheKey, { items, expiry: Date.now() + 60_000 });
       res.json({ suggestions: items });
-    } catch (err: any) {
-      console.warn(`[ai] suggestions failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[ai] suggestions failed: ${message}`);
       res.json({ suggestions: DEFAULT_SUGGESTIONS });
     }
   });

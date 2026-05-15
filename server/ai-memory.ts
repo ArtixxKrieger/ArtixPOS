@@ -76,6 +76,7 @@ Output ONLY valid JSON, no markdown fences:
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed?.memories)) return null;
     return parsed.memories.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (m: any) =>
         typeof m.content === "string" &&
         m.content.trim().length > 5 &&
@@ -142,6 +143,7 @@ export async function extractAndStore(opts: {
       lastAccessedAt: null,
       createdAt: now,
       expiresAt,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
 
     await db.insert(aiMemories).values(memory);

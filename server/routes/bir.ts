@@ -568,4 +568,51 @@ export function registerBirRoutes(app: Express): void {
       checkedAt: new Date().toISOString(),
     });
   });
+
+  // ── BIR Refund Audit Trail CSV Export ──────────────────────────────────────
+  app.get("/api/bir/refund-trail/export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const uid = getUserId(req);
+    const rows = await db.execute(sql`
+      SELECT
+        r.id, r.sale_id, r.amount, r.reason, r.created_at,
+        u.name AS processed_by_name,
+        s.or_number, s.receipt_number, s.total AS sale_total
+      FROM refunds r
+      LEFT JOIN users u ON u.id = r.processed_by
+      LEFT JOIN sales s ON s.id = r.sale_id
+      WHERE r.user_id = ANY(
+        SELECT id FROM users
+        WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = ${uid})
+      )
+      ORDER BY r.created_at DESC
+      LIMIT 10000
+    `);
+
+    const headers = [
+      "Refund ID", "Sale ID", "OR Number", "Receipt Number",
+      "Refund Amount", "Original Total", "Reason", "Processed At", "Processed By"
+    ];
+
+    const csvRows = (rows.rows as any[]).map(r => [
+      `REF-${String(r.id).padStart(4, "0")}`,
+      `TXN-${String(r.sale_id).padStart(4, "0")}`,
+      r.or_number || "",
+      r.receipt_number || "",
+      parseFloat(r.amount || "0").toFixed(2),
+      parseFloat(r.sale_total || "0").toFixed(2),
+      r.reason || "",
+      r.created_at ? new Date(r.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : "",
+      r.processed_by_name || ""
+    ]);
+
+    const csv = [
+      headers.join(","),
+      ...csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="BIR-RefundAuditLog-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.send(csv);
+  });
 }

@@ -79,7 +79,7 @@ export async function sendReceiptEmail(
   const fmt = (v: string | null | undefined) =>
     `${currency}${parseFloat(v ?? "0").toFixed(2)}`;
 
-  const items = Array.isArray(sale.items) ? sale.items : [];
+  const items = Array.isArray(sale.items) ? (sale.items as any[]) : [];
   const itemRows = items
     .map((item: any) => {
       const name = item?.product?.name ?? item?.name ?? item?.title ?? "Item";

@@ -16,7 +16,7 @@ import {
   Medal, Plus, Edit2, Trash2, Check, X, Tag, Percent, Package, Stamp,
   Settings2, ChevronRight, Award, BarChart3, Coins,
 } from "lucide-react";
-import type { Customer, LoyaltyTier, LoyaltyReward } from "@shared/schema";
+import type { Customer, LoyaltyTier, LoyaltyReward, Product } from "@shared/schema";
 
 // ─── Tier config helper ───────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ const REWARD_TYPE_OPTIONS = [
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon: Icon, label, value, sub, color = "text-primary" }: {
-  icon: any; label: string; value: string; sub?: string; color?: string;
+  icon: React.ComponentType<{ className?: string }>; label: string; value: string; sub?: string; color?: string;
 }) {
   return (
     <div className="rounded-2xl bg-card border border-border/40 p-4 shadow-sm">
@@ -56,7 +56,7 @@ function StatCard({ icon: Icon, label, value, sub, color = "text-primary" }: {
 // ─── Tier Form Dialog ─────────────────────────────────────────────────────────
 
 function TierFormDialog({ open, onClose, initial, onSave }: {
-  open: boolean; onClose: () => void; initial?: LoyaltyTier | null; onSave: (data: any) => void;
+  open: boolean; onClose: () => void; initial?: LoyaltyTier | null; onSave: (data: Partial<LoyaltyTier>) => void;
 }) {
   const form = useForm({ defaultValues: { name: "", minLifetimePoints: 0, multiplier: "1", color: "#CD7F32", perks: "", sortOrder: 0 } });
   useEffect(() => {
@@ -113,7 +113,7 @@ function TierFormDialog({ open, onClose, initial, onSave }: {
 // ─── Reward Form Dialog ───────────────────────────────────────────────────────
 
 function RewardFormDialog({ open, onClose, initial, onSave, products }: {
-  open: boolean; onClose: () => void; initial?: LoyaltyReward | null; onSave: (data: any) => void; products: any[];
+  open: boolean; onClose: () => void; initial?: LoyaltyReward | null; onSave: (data: any) => void; products: Product[];
 }) {
   const form = useForm({ defaultValues: { name: "", description: "", type: "discount_fixed", pointsCost: 100, value: "0", isActive: true, maxRedemptions: "", expiresAt: "" } });
   const watchedType = form.watch("type");
@@ -150,7 +150,7 @@ function RewardFormDialog({ open, onClose, initial, onSave, products }: {
               {watchedType === "free_product" ? (
                 <select {...form.register("value")} className="w-full h-9 rounded-xl border border-input bg-background px-3 text-sm">
                   <option value="">Select product…</option>
-                  {products.map((p: any) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+                  {products.map((p) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
                 </select>
               ) : (
                 <Input {...form.register("value")} placeholder="0" className="rounded-xl" />
@@ -194,7 +194,7 @@ export default function LoyaltyPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const isOwner = user?.role === "owner";
-  const currency = (settings as any)?.currency || "₱";
+  const currency = settings?.currency || "₱";
 
   const [tab, setTab] = useState<"dashboard" | "tiers" | "rewards" | "settings">("dashboard");
   const [tierDialog, setTierDialog] = useState<{ open: boolean; tier?: LoyaltyTier | null }>({ open: false });
@@ -205,7 +205,7 @@ export default function LoyaltyPage() {
   const { data: customers = [] } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: tiers = [] } = useQuery<LoyaltyTier[]>({ queryKey: ["/api/loyalty/tiers"] });
   const { data: rewards = [] } = useQuery<LoyaltyReward[]>({ queryKey: ["/api/loyalty/rewards"] });
-  const { data: products = [] } = useQuery<any[]>({ queryKey: ["/api/products"] });
+  const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
   // Settings form
   const settingsForm = useForm({
@@ -223,13 +223,13 @@ export default function LoyaltyPage() {
   useEffect(() => {
     if (settings) {
       settingsForm.reset({
-        loyaltyPointsPerUnit: (settings as any).loyaltyPointsPerUnit?.toString() || "1",
-        loyaltyRedemptionRate: (settings as any).loyaltyRedemptionRate?.toString() || "100",
-        loyaltyExpiryDays: (settings as any).loyaltyExpiryDays?.toString() || "0",
-        loyaltyBirthdayBonus: (settings as any).loyaltyBirthdayBonus?.toString() || "0",
-        loyaltyReferralBonus: (settings as any).loyaltyReferralBonus?.toString() || "0",
-        loyaltyStampTarget: (settings as any).loyaltyStampTarget?.toString() || "10",
-        loyaltyStampEnabled: (settings as any).loyaltyStampEnabled ?? false,
+        loyaltyPointsPerUnit: settings.loyaltyPointsPerUnit?.toString() || "1",
+        loyaltyRedemptionRate: settings.loyaltyRedemptionRate?.toString() || "100",
+        loyaltyExpiryDays: settings.loyaltyExpiryDays?.toString() || "0",
+        loyaltyBirthdayBonus: settings.loyaltyBirthdayBonus?.toString() || "0",
+        loyaltyReferralBonus: settings.loyaltyReferralBonus?.toString() || "0",
+        loyaltyStampTarget: settings.loyaltyStampTarget?.toString() || "10",
+        loyaltyStampEnabled: !!settings.loyaltyStampEnabled,
       });
     }
   }, [settings]);
@@ -253,31 +253,31 @@ export default function LoyaltyPage() {
 
   // Tier mutations
   const createTier = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/loyalty/tiers", data).then(r => r.json()),
-    onSuccess: (result) => {
-      qc.setQueryData<any[]>(["/api/loyalty/tiers"], (old) => old ? [...old, result] : [result]);
+    mutationFn: (data: Partial<LoyaltyTier>) => apiRequest("POST", "/api/loyalty/tiers", data).then(r => r.json()),
+    onSuccess: (result: LoyaltyTier) => {
+      qc.setQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"], (old) => old ? [...old, result] : [result]);
       setTierDialog({ open: false });
       toast({ title: "Tier created" });
     },
     onError: () => toast({ title: "Failed to create tier", variant: "destructive" }),
   });
   const updateTier = useMutation({
-    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/loyalty/tiers/${id}`, data).then(r => r.json()),
-    onMutate: async ({ id, ...data }: any) => {
+    mutationFn: ({ id, ...data }: Partial<LoyaltyTier> & { id: number }) => apiRequest("PATCH", `/api/loyalty/tiers/${id}`, data).then(r => r.json()),
+    onMutate: async ({ id, ...data }: Partial<LoyaltyTier> & { id: number }) => {
       await qc.cancelQueries({ queryKey: ["/api/loyalty/tiers"] });
-      const previous = qc.getQueryData<any[]>(["/api/loyalty/tiers"]);
-      qc.setQueryData<any[]>(["/api/loyalty/tiers"], (old) => old ? old.map(t => t.id === id ? { ...t, ...data } : t) : []);
+      const previous = qc.getQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"]);
+      qc.setQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"], (old) => old ? old.map(t => t.id === id ? { ...t, ...data } : t) : []);
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/loyalty/tiers"], ctx.previous); toast({ title: "Failed to update tier", variant: "destructive" }); },
-    onSuccess: (result) => { qc.setQueryData<any[]>(["/api/loyalty/tiers"], (old) => old ? old.map(t => t.id === result.id ? result : t) : []); setTierDialog({ open: false }); toast({ title: "Tier updated" }); },
+    onSuccess: (result: LoyaltyTier) => { qc.setQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"], (old) => old ? old.map(t => t.id === result.id ? result : t) : []); setTierDialog({ open: false }); toast({ title: "Tier updated" }); },
   });
   const deleteTier = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/loyalty/tiers/${id}`),
     onMutate: async (id: number) => {
       await qc.cancelQueries({ queryKey: ["/api/loyalty/tiers"] });
-      const previous = qc.getQueryData<any[]>(["/api/loyalty/tiers"]);
-      qc.setQueryData<any[]>(["/api/loyalty/tiers"], (old) => old ? old.filter(t => t.id !== id) : []);
+      const previous = qc.getQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"]);
+      qc.setQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"], (old) => old ? old.filter(t => t.id !== id) : []);
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/loyalty/tiers"], ctx.previous); toast({ title: "Failed to delete tier", variant: "destructive" }); },
@@ -286,31 +286,31 @@ export default function LoyaltyPage() {
 
   // Reward mutations
   const createReward = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/loyalty/rewards", data).then(r => r.json()),
-    onSuccess: (result) => {
-      qc.setQueryData<any[]>(["/api/loyalty/rewards"], (old) => old ? [...old, result] : [result]);
+    mutationFn: (data: Partial<LoyaltyReward>) => apiRequest("POST", "/api/loyalty/rewards", data).then(r => r.json()),
+    onSuccess: (result: LoyaltyReward) => {
+      qc.setQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"], (old) => old ? [...old, result] : [result]);
       setRewardDialog({ open: false });
       toast({ title: "Reward created" });
     },
     onError: () => toast({ title: "Failed to create reward", variant: "destructive" }),
   });
   const updateReward = useMutation({
-    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/loyalty/rewards/${id}`, data).then(r => r.json()),
-    onMutate: async ({ id, ...data }: any) => {
+    mutationFn: ({ id, ...data }: Partial<LoyaltyReward> & { id: number }) => apiRequest("PATCH", `/api/loyalty/rewards/${id}`, data).then(r => r.json()),
+    onMutate: async ({ id, ...data }: Partial<LoyaltyReward> & { id: number }) => {
       await qc.cancelQueries({ queryKey: ["/api/loyalty/rewards"] });
-      const previous = qc.getQueryData<any[]>(["/api/loyalty/rewards"]);
-      qc.setQueryData<any[]>(["/api/loyalty/rewards"], (old) => old ? old.map(r => r.id === id ? { ...r, ...data } : r) : []);
+      const previous = qc.getQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"]);
+      qc.setQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"], (old) => old ? old.map(r => r.id === id ? { ...r, ...data } : r) : []);
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/loyalty/rewards"], ctx.previous); toast({ title: "Failed to update reward", variant: "destructive" }); },
-    onSuccess: (result) => { qc.setQueryData<any[]>(["/api/loyalty/rewards"], (old) => old ? old.map(r => r.id === result.id ? result : r) : []); setRewardDialog({ open: false }); toast({ title: "Reward updated" }); },
+    onSuccess: (result: LoyaltyReward) => { qc.setQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"], (old) => old ? old.map(r => r.id === result.id ? result : r) : []); setRewardDialog({ open: false }); toast({ title: "Reward updated" }); },
   });
   const deleteReward = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/loyalty/rewards/${id}`),
     onMutate: async (id: number) => {
       await qc.cancelQueries({ queryKey: ["/api/loyalty/rewards"] });
-      const previous = qc.getQueryData<any[]>(["/api/loyalty/rewards"]);
-      qc.setQueryData<any[]>(["/api/loyalty/rewards"], (old) => old ? old.filter(r => r.id !== id) : []);
+      const previous = qc.getQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"]);
+      qc.setQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"], (old) => old ? old.filter(r => r.id !== id) : []);
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/loyalty/rewards"], ctx.previous); toast({ title: "Failed to delete reward", variant: "destructive" }); },
@@ -320,25 +320,25 @@ export default function LoyaltyPage() {
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => apiRequest("PATCH", `/api/loyalty/rewards/${id}`, { isActive }),
     onMutate: async ({ id, isActive }: { id: number; isActive: boolean }) => {
       await qc.cancelQueries({ queryKey: ["/api/loyalty/rewards"] });
-      const previous = qc.getQueryData<any[]>(["/api/loyalty/rewards"]);
-      qc.setQueryData<any[]>(["/api/loyalty/rewards"], (old) => old ? old.map(r => r.id === id ? { ...r, isActive } : r) : []);
+      const previous = qc.getQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"]);
+      qc.setQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"], (old) => old ? old.map(r => r.id === id ? { ...r, isActive } : r) : []);
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/loyalty/rewards"], ctx.previous); },
   });
 
-  const handleTierSave = (data: any) => {
+  const handleTierSave = (data: Partial<LoyaltyTier>) => {
     if (tierDialog.tier) updateTier.mutate({ id: tierDialog.tier.id, ...data });
     else createTier.mutate(data);
   };
 
-  const handleRewardSave = (data: any) => {
+  const handleRewardSave = (data: Partial<LoyaltyReward> & { maxRedemptions?: string; expiresAt?: string; pointsCost: string | number }) => {
     const payload = { ...data, maxRedemptions: data.maxRedemptions ? parseInt(data.maxRedemptions) : null, expiresAt: data.expiresAt || null, pointsCost: Number(data.pointsCost) };
     if (rewardDialog.reward) updateReward.mutate({ id: rewardDialog.reward.id, ...payload });
     else createReward.mutate(payload);
   };
 
-  const onSaveSettings = (data: any) => {
+  const onSaveSettings = (data: Record<string, unknown>) => {
     updateSettings.mutate(data as any, { onSuccess: () => toast({ title: "Settings saved" }) });
   };
 

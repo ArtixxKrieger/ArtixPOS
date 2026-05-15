@@ -278,6 +278,8 @@ export async function initOllama(): Promise<void> {
   // Pull model asynchronously so it doesn't block server startup
   pullOllamaModel().then((ok) => {
     ollamaModelReady = ok;
+  }).catch(() => {
+    ollamaModelReady = false;
   });
 }
 
@@ -409,6 +411,7 @@ async function callCloudProvider(
 
 // ─── Provider status for logging/debugging ───────────────────────────────────
 export function getProviderStatus(): Record<string, { available: boolean; requests: number; tokens: number }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const out: Record<string, any> = {};
   for (const cfg of PROVIDERS) {
     const state = getState(cfg.name);

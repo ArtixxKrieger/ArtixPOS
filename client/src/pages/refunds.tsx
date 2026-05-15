@@ -5,8 +5,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import {
   RotateCcw, Search, X, Hash, UserCircle2, Calendar, ChevronDown, Check,
+  Download,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { RefundWithDetails } from "@shared/schema";
@@ -67,7 +71,9 @@ function DropdownItem({
 
 export default function Refunds() {
   const { data: settings } = useSettings();
-  const { isOwner } = useAuth();
+  const { isOwner, isAdminOrAbove } = useAuth();
+  const { toast } = useToast();
+  const { t } = useTranslation();
   const currency = (settings as any)?.currency || "₱";
 
   const { data: refunds = [], isLoading } = useQuery<RefundWithDetails[]>({
@@ -117,6 +123,30 @@ export default function Refunds() {
 
   const totalRefunded = filtered.reduce((acc, r) => acc + parseNumeric(r.amount), 0);
 
+  function downloadAuditCsv() {
+    const token = localStorage.getItem("cafebara_native_token") ?? "";
+    fetch("/api/bir/refund-trail/export", {
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => {
+        if (!r.ok) throw new Error("Export failed");
+        return r.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `BIR-RefundAuditLog-${format(new Date(), "yyyy-MM-dd")}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast({ title: t("birRefundExport") || "Refund audit log exported" });
+      })
+      .catch(() => toast({ title: "Export failed", variant: "destructive" }));
+  }
+
   const dateFilterLabels: Record<DateFilter, string> = {
     all: "All time",
     today: "Today",
@@ -128,19 +158,33 @@ export default function Refunds() {
     <div className="space-y-4 page-enter">
 
       {/* Summary bar */}
-      <div className="glass-card rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap">
-        <div>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Refunds</p>
-          <p className="text-lg font-bold">
-            {filtered.length}
-            <span className="text-sm font-normal text-muted-foreground ml-1">{filtered.length === 1 ? "refund" : "refunds"}</span>
-          </p>
+      <div className="glass-card rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Refunds</p>
+            <p className="text-lg font-bold">
+              {filtered.length}
+              <span className="text-sm font-normal text-muted-foreground ml-1">{filtered.length === 1 ? "refund" : "refunds"}</span>
+            </p>
+          </div>
+          <div className="w-px h-8 bg-border hidden sm:block" />
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Refunded</p>
+            <p className="text-lg font-bold text-rose-500 tabular-nums">{formatCurrency(totalRefunded, currency)}</p>
+          </div>
         </div>
-        <div className="w-px h-8 bg-border hidden sm:block" />
-        <div>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Refunded</p>
-          <p className="text-lg font-bold text-rose-500 tabular-nums">{formatCurrency(totalRefunded, currency)}</p>
-        </div>
+
+        {isAdminOrAbove && (
+          <Button
+            size="sm"
+            onClick={downloadAuditCsv}
+            data-testid="button-export-refund-trail"
+            className="gap-1.5 text-xs"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Audit CSV
+          </Button>
+        )}
       </div>
 
       {/* Filters */}

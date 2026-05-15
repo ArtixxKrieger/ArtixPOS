@@ -155,8 +155,19 @@ function verifyAndParseState(state: string | undefined): { valid: boolean; extra
   }
 }
 
-export function verifyToken(token: string): any {
-  const payload = jwt.verify(token, getJwtSecret()) as any;
+export interface TokenUser {
+  id: string;
+  name: string | null;
+  email: string | null;
+  avatar: string | null;
+  provider: string;
+  tenantId: string | null;
+  role: string;
+  activeBranchId: number | null;
+}
+
+export function verifyToken(token: string): Express.User {
+  const payload = jwt.verify(token, getJwtSecret()) as import("jsonwebtoken").JwtPayload;
   return {
     id: payload.id,
     name: payload.name,
@@ -169,7 +180,7 @@ export function verifyToken(token: string): any {
   };
 }
 
-export function signToken(user: any): string {
+export function signToken(user: TokenUser): string {
   return jwt.sign(
     {
       jti: crypto.randomUUID(),
@@ -197,7 +208,7 @@ export const AUTH_COOKIE_OPTIONS = {
   path: "/",
 };
 
-export function setAuthCookie(res: Response, user: any, rememberMe = false) {
+export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false) {
   const token = signToken(user);
   // rememberMe = false → session ends when browser closes (1 day max)
   // rememberMe = true  → cookie persists for 30 days
@@ -231,7 +242,7 @@ db.select({ id: users.id })
   .catch((err) => console.error("[auth] Failed to seed banned users from DB:", err));
 
 export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
-  let token = (req as any).cookies?.[AUTH_COOKIE];
+  let token = req.cookies?.[AUTH_COOKIE];
 
   if (!token) {
     const authHeader = req.headers.authorization;
@@ -242,7 +253,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
 
   if (token) {
     try {
-      const payload = jwt.verify(token, getJwtSecret()) as any;
+      const payload = jwt.verify(token, getJwtSecret()) as import("jsonwebtoken").JwtPayload;
 
       // ── Revocation check (O(1) in-memory Set) ──────────────────────────────
       if (payload.jti && _revokedJtis.has(payload.jti)) {
@@ -251,7 +262,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
       }
 
       if (bannedUserIds.has(payload.id)) {
-        (req as any).isBanned = true;
+        req.isBanned = true;
         next();
         return;
       }
@@ -266,8 +277,8 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
         activeBranchId: payload.activeBranchId ?? null,
       };
       // Store jti on request so logout can revoke it
-      (req as any).tokenJti = payload.jti ?? null;
-      (req as any).tokenExp = payload.exp ?? null;
+      req.tokenJti = payload.jti ?? null;
+      req.tokenExp = payload.exp ?? null;
       if (req.path.startsWith("/api/")) {
         import("./admin-storage").then(m => m.updateLastSeen(payload.id)).catch(() => {});
       }
@@ -281,14 +292,16 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
 async function findOrCreateUser(data: {
   id: string; email: string | null; name: string | null;
   avatar: string | null; provider: string; providerId: string;
-}) {
+}): Promise<import("@shared/schema").User> {
   const [existing] = await db.select().from(users).where(eq(users.id, data.id));
   if (existing) return existing;
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.insert(users).values(data as any);
-  } catch (err: any) {
-    if (!err?.message?.toLowerCase().includes("unique")) throw err;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.toLowerCase().includes("unique")) throw err;
   }
 
   const [created] = await db.select().from(users).where(eq(users.id, data.id));
@@ -323,27 +336,39 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   ).map(r => r.id);
 
   // 1. Deepest leaves
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(membershipCheckIns).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(membershipCheckIns.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(inArray(timeLogs.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(refunds).set({ status: "refunded" } as any).where(inArray(refunds.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(shifts).set({ status: "closed" } as any).where(inArray(shifts.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(discountCodes).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(discountCodes.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(inArray(expenses.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(wifiVouchers).set({ status: "expired" } as any).where(inArray(wifiVouchers.userId, uids));
 
   // 2. Payroll entries (FK → payrollPeriods.id AND users.id)
   if (userPayrollPeriodIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.employeeUserId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString(), notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollPeriods.userId, uids));
 
   // 3. purchaseOrderItems MUST go before purchaseOrders
   if (userPoIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(purchaseOrderItems).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
   }
 
   // 4. Invite tokens — referenced by both createdBy AND usedBy
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(inviteTokens).set({ expiresAt: new Date().toISOString() } as any).where(or(
     inArray(inviteTokens.createdBy, uids),
     inArray(inviteTokens.usedBy, uids),
@@ -351,45 +376,64 @@ async function deleteUsersData(uids: string[]): Promise<void> {
 
   // 5. Product children: recipes (FK → products.id, ingredients.id), sizes, modifiers
   if (userProductIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(productRecipes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productRecipes.productId, userProductIds));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(productSizes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productSizes.productId, userProductIds));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(productModifiers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productModifiers.productId, userProductIds));
   }
   if (userIngredientIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(productRecipes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productRecipes.ingredientId, userIngredientIds));
   }
 
   // 6. Appointments (refs serviceStaff/Rooms/customers)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(appointments).set({ deletedAt: new Date().toISOString() } as any).where(inArray(appointments.userId, uids));
 
   // 7. Memberships
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(memberships).set({ deletedAt: new Date().toISOString() } as any).where(inArray(memberships.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(membershipPlans).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(membershipPlans.userId, uids));
 
   // 8. Staff & rooms
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(serviceStaff).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(serviceStaff.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(serviceRooms).set({ deletedAt: new Date().toISOString() } as any).where(inArray(serviceRooms.userId, uids));
 
   // 9. Purchase orders & suppliers
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(purchaseOrders).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrders.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(suppliers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(suppliers.userId, uids));
 
   // 10. Pending orders & tables
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(pendingOrders).set({ deletedAt: new Date().toISOString() } as any).where(inArray(pendingOrders.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(tables).set({ deletedAt: new Date().toISOString() } as any).where(inArray(tables.userId, uids));
 
   // 11. Customers
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(customers.userId, uids));
 
   // 12. Sales, ingredients, products
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(sales).set({ deletedAt: new Date().toISOString() } as any).where(inArray(sales.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(inArray(ingredients.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(inArray(products.userId, uids));
 
   // 13. Audit logs (no FK — GDPR hygiene)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { deleted: true } } as any).where(inArray(auditLogs.userId, uids));
 
   // 14. Settings & branch links
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(userSettings).set({ onboardingComplete: 0 } as any).where(inArray(userSettings.userId, uids));
   await db.delete(userBranches).where(inArray(userBranches.userId, uids));
 
@@ -413,12 +457,15 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
       db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId))
     )
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(branches).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(branches.tenantId, tenantId));
   await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
   await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
   await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
   await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { tenantDeleted: true } } as any).where(eq(auditLogs.tenantId, tenantId));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(inviteTokens).set({ expiresAt: new Date().toISOString() } as any).where(eq(inviteTokens.tenantId, tenantId));
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
@@ -452,8 +499,8 @@ export function setupAuth(app: Express) {
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           callbackURL: `${baseUrl}/auth/google/callback`,
           store: {
-            store: (_req: any, _state: any, _meta: any, cb: any) => cb(null, crypto.randomBytes(4).toString("hex")),
-            verify: (_req: any, _state: any, cb: any) => cb(null, true, {}),
+            store: (_req: unknown, _state: unknown, _meta: unknown, cb: (err: unknown, code: string) => void) => cb(null, crypto.randomBytes(4).toString("hex")),
+            verify: (_req: unknown, _state: unknown, cb: (err: unknown, valid: boolean, meta: unknown) => void) => cb(null, true, {}),
           } as any,
         },
         async (_accessToken, _refreshToken, profile, done) => {
@@ -467,8 +514,8 @@ export function setupAuth(app: Express) {
               providerId: profile.id,
             });
             return done(null, user);
-          } catch (err: any) {
-            console.error("[auth] Google strategy error:", err?.message ?? err);
+          } catch (err: unknown) {
+            console.error("[auth] Google strategy error:", err instanceof Error ? err.message : String(err));
             return done(err as Error);
           }
         }
@@ -501,8 +548,8 @@ export function setupAuth(app: Express) {
       const stateExtra = isNative ? "native" : isPopup ? "popup" : undefined;
       const state = generateState(stateExtra);
       passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(req, res, next);
-    } catch (err: any) {
-      console.error("[auth] Google initiation error:", err?.message ?? err);
+    } catch (err: unknown) {
+      console.error("[auth] Google initiation error:", err instanceof Error ? err.message : String(err));
       if (isPopup) return res.send(popupResultPage({ ok: false, error: "google_init" }));
       res.redirect("/login?error=google_init");
     }
@@ -520,9 +567,9 @@ export function setupAuth(app: Express) {
     const isNative = extra === "native";
     const isPopup  = extra === "popup";
 
-    passport.authenticate("google", { session: false }, (err: any, user: any) => {
+    passport.authenticate("google", { session: false }, (err: unknown, user: Express.User | false | null) => {
       if (err) {
-        const msg = String(err?.message ?? err).slice(0, 120);
+        const msg = String(err instanceof Error ? err.message : err).slice(0, 120);
         console.error("[auth] Google callback error:", msg);
         if (isPopup) {
           return res.send(popupResultPage({ ok: false, error: msg }));
@@ -668,7 +715,7 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
-      if ((user as any).isBanned) {
+      if (user.isBanned) {
         return res.status(403).json({ banned: true, message: "This account has been suspended for violating our Terms of Service. If you believe this is a mistake, please contact support." });
       }
 
@@ -679,8 +726,8 @@ export function setupAuth(app: Express) {
       }
 
       recordSuccessfulLogin(ip);
-      setAuthCookie(res, user, rememberMe === true);
-      logAuthEvent({ userId: user.id, tenantId: (user as any).tenantId ?? null, action: "login", metadata: { provider: "email", ip } });
+      setAuthCookie(res, user as any, rememberMe === true);
+      logAuthEvent({ userId: user.id, tenantId: user.tenantId ?? null, action: "login", metadata: { provider: "email", ip } });
       res.json({
         ok: true,
         user: {
@@ -689,8 +736,8 @@ export function setupAuth(app: Express) {
           email: user.email ?? null,
           avatar: user.avatar ?? null,
           provider: user.provider,
-          tenantId: (user as any).tenantId ?? null,
-          role: (user as any).role ?? "owner",
+          tenantId: user.tenantId ?? null,
+          role: user.role ?? "owner",
           activeBranchId: (user as any).activeBranchId ?? null,
           activeBranch: null,
         },
@@ -703,10 +750,10 @@ export function setupAuth(app: Express) {
   // ── Logout & account management ───────────────────────────────────────────────
 
   app.post("/auth/logout", async (req, res) => {
-    const jti = (req as any).tokenJti;
-    const exp = (req as any).tokenExp;
-    const uid = (req.user as any)?.id;
-    const tid = (req.user as any)?.tenantId ?? null;
+    const jti = req.tokenJti;
+    const exp = req.tokenExp;
+    const uid = req.user?.id;
+    const tid = req.user?.tenantId ?? null;
 
     if (jti && uid && exp) {
       const expiresAt = new Date(exp * 1000).toISOString();
@@ -742,12 +789,12 @@ export function setupAuth(app: Express) {
 
       const [user] = await db.select().from(users).where(eq(users.id, payload.id));
       if (!user) return res.status(401).json({ message: "User not found" });
-      if ((user as any).isBanned) {
+      if (user.isBanned) {
         return res.status(403).json({ banned: true, message: "Account suspended" });
       }
 
-      const rememberMe = (req as any).cookies?.["remember_me"] === "1";
-      setAuthCookie(res, user, rememberMe);
+      const rememberMe = req.cookies?.["remember_me"] === "1";
+      setAuthCookie(res, user as any, rememberMe);
       res.json({ ok: true });
     } catch {
       res.status(401).json({ message: "Invalid or expired token" });
@@ -759,7 +806,7 @@ export function setupAuth(app: Express) {
   // before they delete the account. Non-owners get just their personal rows.
   app.get("/api/auth/export", async (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-    const uid = (req.user as any).id;
+    const uid = req.user.id;
 
     try {
       const [liveUser] = await db.select().from(users).where(eq(users.id, uid));
@@ -932,15 +979,15 @@ export function setupAuth(app: Express) {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Pragma", "no-cache");
       res.send(JSON.stringify(archive, null, 2));
-    } catch (err: any) {
-      console.error("[export-account] failed:", err?.message ?? err);
+    } catch (err: unknown) {
+      console.error("[export-account] failed:", err instanceof Error ? err.message : String(err));
       next(err);
     }
   });
 
   app.delete("/api/auth/account", async (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-    const uid = (req.user as any).id;
+    const uid = req.user.id;
     try {
       // Look up the live user row — JWT can be stale (e.g. role changed since
       // login). We need the up-to-date tenantId + role to decide whether to
@@ -985,18 +1032,18 @@ export function setupAuth(app: Express) {
 
       clearAuthCookie(res);
       res.json({ ok: true });
-    } catch (err: any) {
-      console.error("[delete-account] failed:", err?.message ?? err);
+    } catch (err: unknown) {
+      console.error("[delete-account] failed:", err instanceof Error ? err.message : String(err));
       next(err);
     }
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    if ((req as any).isBanned) {
+    if (req.isBanned) {
       return res.status(403).json({ banned: true, message: "Your account has been suspended for violating our Terms of Service." });
     }
     if (!req.user) return res.status(401).json({ user: null });
-    const u = req.user as any;
+    const u = req.user;
 
     // Resolve the active branch's businessType / businessSubType so the client
     // can adapt navigation, terminology, and quick actions on a per-branch

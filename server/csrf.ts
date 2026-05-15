@@ -43,9 +43,9 @@ export function csrfCookieMiddleware(
       maxAge: COOKIE_MAX_AGE_MS,
       path: "/",
     });
-    (req as any)._csrfToken = token;
+    req._csrfToken = token;
   } else {
-    (req as any)._csrfToken = req.cookies[CSRF_COOKIE];
+    req._csrfToken = req.cookies[CSRF_COOKIE];
   }
   next();
 }
@@ -76,7 +76,7 @@ export function csrfProtection(
   const hasBearer = (req.headers.authorization ?? "").startsWith("Bearer ");
   if (hasBearer) return next();
 
-  const cookieToken  = (req as any)._csrfToken as string | undefined;
+  const cookieToken  = req._csrfToken;
   const headerToken  = req.headers[CSRF_HEADER] as string | undefined;
 
   if (!cookieToken || !headerToken) {

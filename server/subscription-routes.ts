@@ -116,12 +116,13 @@ export function registerSubscriptionRoutes(app: Express) {
   // GET /api/subscription — current subscription for authenticated tenant
   app.get("/api/subscription", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.json({ plan: "free", status: "active", billingCycle: null, currentPeriodEnd: null });
 
       let sub = await getOrCreateSubscription(tenantId);
       if (!sub) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await db.insert(tenantSubscriptions).values({ tenantId, plan: "free", status: "active" } as any);
         sub = await getOrCreateSubscription(tenantId);
       }
@@ -132,6 +133,7 @@ export function registerSubscriptionRoutes(app: Express) {
         if (expired && sub.status === "active") {
           await db
             .update(tenantSubscriptions)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .set({ plan: "free", status: "expired", billingCycle: null, currentPeriodEnd: null, updatedAt: new Date().toISOString() } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
           sub = await getOrCreateSubscription(tenantId);
@@ -139,7 +141,7 @@ export function registerSubscriptionRoutes(app: Express) {
       }
 
       return res.json(sub);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[subscription] GET error:", err);
       return res.status(500).json({ message: "Failed to load subscription" });
     }
@@ -148,7 +150,7 @@ export function registerSubscriptionRoutes(app: Express) {
   // GET /api/subscription/payments — payment history
   app.get("/api/subscription/payments", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.json([]);
 
@@ -167,7 +169,7 @@ export function registerSubscriptionRoutes(app: Express) {
   // POST /api/subscription/checkout — create a PayMongo checkout session
   app.post("/api/subscription/checkout", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.status(400).json({ message: "No tenant found. Complete onboarding first." });
 
@@ -195,6 +197,7 @@ export function registerSubscriptionRoutes(app: Express) {
       const checkoutId  = session.data.id;
       const checkoutUrl = session.data.attributes.checkout_url;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.insert(subscriptionPayments).values({
         tenantId,
         plan: "pro",
@@ -206,16 +209,16 @@ export function registerSubscriptionRoutes(app: Express) {
       } as any);
 
       return res.json({ checkoutUrl, checkoutId });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[subscription] checkout error:", err);
-      return res.status(500).json({ message: err.message ?? "Failed to create checkout session" });
+      return res.status(500).json({ message: (err as Error).message ?? "Failed to create checkout session" });
     }
   });
 
   // POST /api/subscription/verify — verify payment after return from PayMongo
   app.post("/api/subscription/verify", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -254,6 +257,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
         await db
           .update(subscriptionPayments)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .set({ status: "paid", paidAt: now.toISOString() } as any)
           .where(eq(subscriptionPayments.id, pending.id));
 
@@ -261,6 +265,7 @@ export function registerSubscriptionRoutes(app: Express) {
         if (existing) {
           await db
             .update(tenantSubscriptions)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .set({
               plan: "pro",
               billingCycle,
@@ -272,6 +277,7 @@ export function registerSubscriptionRoutes(app: Express) {
             } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await db.insert(tenantSubscriptions).values({
             tenantId,
             plan: "pro",
@@ -286,16 +292,16 @@ export function registerSubscriptionRoutes(app: Express) {
       }
 
       return res.json({ success: false, status: paymentStatus });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[subscription] verify error:", err);
-      return res.status(500).json({ message: err.message ?? "Verification failed" });
+      return res.status(500).json({ message: (err as Error).message ?? "Verification failed" });
     }
   });
 
   // POST /api/subscription/redeem-voucher — activate Pro from a configured voucher code
   app.post("/api/subscription/redeem-voucher", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.status(400).json({ message: "No tenant found. Complete onboarding first." });
 
@@ -312,6 +318,7 @@ export function registerSubscriptionRoutes(app: Express) {
       const periodEnd = new Date(startFrom);
       periodEnd.setDate(periodEnd.getDate() + durationDays);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.insert(subscriptionPayments).values({
         tenantId,
         plan: "pro",
@@ -325,6 +332,7 @@ export function registerSubscriptionRoutes(app: Express) {
       if (existing) {
         await db
           .update(tenantSubscriptions)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .set({
             plan: "pro",
             billingCycle: "voucher",
@@ -336,6 +344,7 @@ export function registerSubscriptionRoutes(app: Express) {
           } as any)
           .where(eq(tenantSubscriptions.tenantId, tenantId));
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await db.insert(tenantSubscriptions).values({
           tenantId,
           plan: "pro",
@@ -347,7 +356,7 @@ export function registerSubscriptionRoutes(app: Express) {
       }
 
       return res.json({ success: true, plan: "pro", periodEnd: periodEnd.toISOString() });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[subscription] voucher error:", err);
       return res.status(500).json({ message: "Failed to apply voucher code" });
     }
@@ -356,12 +365,13 @@ export function registerSubscriptionRoutes(app: Express) {
   // POST /api/subscription/cancel — cancel at period end
   app.post("/api/subscription/cancel", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.status(400).json({ message: "No tenant" });
 
       await db
         .update(tenantSubscriptions)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .set({ cancelAtPeriodEnd: true, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
@@ -374,12 +384,13 @@ export function registerSubscriptionRoutes(app: Express) {
   // POST /api/subscription/reactivate — undo cancel
   app.post("/api/subscription/reactivate", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = req.user;
       const tenantId = user?.tenantId;
       if (!tenantId) return res.status(400).json({ message: "No tenant" });
 
       await db
         .update(tenantSubscriptions)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .set({ cancelAtPeriodEnd: false, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 

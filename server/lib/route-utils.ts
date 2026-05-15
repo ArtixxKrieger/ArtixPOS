@@ -18,12 +18,12 @@ import { createAuditLog } from "../admin-storage";
 /** Returns the authenticated user's ID. Throws if the request is unauthenticated. */
 export function getUserId(req: Request): string {
   if (!req.user) throw new Error("getUserId() called on unauthenticated request");
-  return (req.user as any).id;
+  return req.user.id;
 }
 
 /** Returns the authenticated user's tenant ID, or null for unattached accounts. */
 export function getTenantId(req: Request): string | null {
-  return (req.user as any)?.tenantId ?? null;
+  return req.user?.tenantId ?? null;
 }
 
 /**
@@ -32,7 +32,7 @@ export function getTenantId(req: Request): string | null {
  * Returns null when no branch is yet assigned (e.g. during onboarding).
  */
 export function getActiveBranchId(req: Request): number | null {
-  return (req.user as any)?.activeBranchId ?? null;
+  return req.user?.activeBranchId ?? null;
 }
 
 /**

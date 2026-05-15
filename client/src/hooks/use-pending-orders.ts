@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { type InsertPendingOrder } from "@shared/schema";
+import { type PendingOrder, type InsertPendingOrder, type Product } from "@shared/schema";
 import { getCached, setCached, patchCached, queueMutation, makeOfflineId } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
@@ -40,21 +40,21 @@ export function useCreatePendingOrder() {
         // True network failure — go offline
         await queueMutation("POST", api.pendingOrders.create.path, data, "pending-order");
         const optimistic = { ...data, id: makeOfflineId(), createdAt: new Date().toISOString() };
-        await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
-        return optimistic as any;
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => [...prev, optimistic as unknown as PendingOrder]);
+        return optimistic as unknown as PendingOrder;
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error((body as any)?.message ?? `Server error ${res.status}`);
+        throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
       const result = api.pendingOrders.create.responses[201].parse(await res.json());
-      await patchCached(LIST_URL, (prev: any[]) => [...prev, result]);
+      await patchCached(LIST_URL, (prev: PendingOrder[]) => [...prev, result]);
       return result;
     },
     onSuccess: (result) => {
       // Append to cache instantly — no refetch needed
-      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
-        old ? [...old.filter((o: any) => o.id !== result.id), result] : [result]
+      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
+        old ? [...old.filter((o) => o.id !== result.id), result] : [result]
       );
       // Deduct stock in products cache for paid orders
       if (result.status === "paid" && Array.isArray(result.items)) {
@@ -66,8 +66,8 @@ export function useCreatePendingOrder() {
             deductions.set(pid, (deductions.get(pid) ?? 0) + qty);
         }
         if (deductions.size > 0) {
-          queryClient.setQueryData<any[]>(["/api/products"], (old) =>
-            old ? old.map((p: any) => {
+          queryClient.setQueryData<Product[]>(["/api/products"], (old) =>
+            old ? old.map((p) => {
               const sold = deductions.get(p.id);
               if (!sold || !p.trackStock) return p;
               return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
@@ -84,9 +84,9 @@ export function useDeletePendingOrder() {
   return useMutation({
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
-      const previous = queryClient.getQueryData<any[]>([LIST_URL]);
-      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
-        old ? old.filter((o: any) => o.id !== id) : []
+      const previous = queryClient.getQueryData<PendingOrder[]>([LIST_URL]);
+      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
+        old ? old.filter((o) => o.id !== id) : []
       );
       return { previous };
     },
@@ -97,18 +97,18 @@ export function useDeletePendingOrder() {
         res = await nativeFetch(url, { method: api.pendingOrders.delete.method });
       } catch {
         await queueMutation("DELETE", url, undefined, "pending-order");
-        await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.filter((o) => o.id !== id));
         return;
       }
       if (!res.ok && res.status !== 404) {
         const body = await res.json().catch(() => ({}));
-        throw new Error((body as any)?.message ?? `Server error ${res.status}`);
+        throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
-      await patchCached(LIST_URL, (prev: any[]) => prev.filter((o: any) => o.id !== id));
+      await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.filter((o) => o.id !== id));
     },
     onError: (_err, _id, context) => {
       if (context?.previous)
-        queryClient.setQueryData<any[]>([LIST_URL], context.previous);
+        queryClient.setQueryData<PendingOrder[]>([LIST_URL], context.previous);
     },
   });
 }
@@ -118,9 +118,9 @@ export function useUpdatePendingOrder() {
   return useMutation({
     onMutate: async ({ id, ...data }: { id: number } & Partial<InsertPendingOrder>) => {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
-      const previous = queryClient.getQueryData<any[]>([LIST_URL]);
-      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
-        old ? old.map((o: any) => (o.id === id ? { ...o, ...data } : o)) : []
+      const previous = queryClient.getQueryData<PendingOrder[]>([LIST_URL]);
+      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
+        old ? old.map((o) => (o.id === id ? { ...o, ...data } : o)) : []
       );
       return { previous };
     },
@@ -135,26 +135,26 @@ export function useUpdatePendingOrder() {
         });
       } catch {
         await queueMutation("PUT", url, data, "pending-order");
-        await patchCached(LIST_URL, (prev: any[]) => prev.map((o: any) => (o.id === id ? { ...o, ...data } : o)));
-        return { id, ...data } as any;
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.map((o) => (o.id === id ? { ...o, ...data } : o)));
+        return { id, ...data } as unknown as PendingOrder;
       }
       if (!res.ok) {
         if (res.status === 404) throw new Error("Order not found");
         const body = await res.json().catch(() => ({}));
-        throw new Error((body as any)?.message ?? `Server error ${res.status}`);
+        throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
       const result = api.pendingOrders.update.responses[200].parse(await res.json());
-      await patchCached(LIST_URL, (prev: any[]) => prev.map((o: any) => (o.id === id ? result : o)));
+      await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.map((o) => (o.id === id ? result : o)));
       return result;
     },
     onError: (_err, _vars, context) => {
       if (context?.previous)
-        queryClient.setQueryData<any[]>([LIST_URL], context.previous);
+        queryClient.setQueryData<PendingOrder[]>([LIST_URL], context.previous);
     },
     onSuccess: (result) => {
       // Sync confirmed server result into cache
-      queryClient.setQueryData<any[]>([LIST_URL], (old) =>
-        old ? old.map((o: any) => (o.id === result.id ? result : o)) : []
+      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
+        old ? old.map((o) => (o.id === result.id ? result : o)) : []
       );
     },
   });

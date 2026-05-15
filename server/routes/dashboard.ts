@@ -54,7 +54,9 @@ export function registerDashboardRoutes(app: Express): void {
       .select({
         orderCount: sql<number>`COUNT(*)::integer`,
         gross:       sql<number>`COALESCE(SUM(CAST(${salesTable.total} AS NUMERIC)), 0)::float8`,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         net:         sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         refundTotal: sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NOT NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
       })
       .from(salesTable)

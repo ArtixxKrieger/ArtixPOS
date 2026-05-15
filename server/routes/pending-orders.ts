@@ -161,7 +161,7 @@ export function registerPendingOrderRoutes(app: Express): void {
 
   // ── Delete (void) pending order ────────────────────────────────────────────
   app.delete(api.pendingOrders.delete.path, requireAuth, async (req, res) => {
-    const user = req.user as any;
+    const user = req.user;
     if (user?.tenantId && user.role !== "owner") {
       const perm = await getRolePermissionForRole(user.tenantId, user.role);
       if (perm && perm.canVoidOrder === false) {

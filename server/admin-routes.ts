@@ -116,7 +116,18 @@ export function registerAdminRoutes(app: Express) {
       const updatedUser = await getUserById(user.id);
       if (!updatedUser) return res.status(404).json({ message: "User not found" });
 
-      const newToken = signToken(updatedUser);
+      const tokenUser: TokenUser = {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        avatar: updatedUser.avatar,
+        provider: updatedUser.provider,
+        tenantId: updatedUser.tenantId,
+        role: updatedUser.role || "staff",
+        activeBranchId: null, // Just redeemed, hasn't picked a branch yet
+      };
+
+      const newToken = signToken(tokenUser);
       res.cookie(AUTH_COOKIE, newToken, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ ok: true, token: newToken, role: result.role, tenantId: result.tenantId });
     } catch (err) {
@@ -200,7 +211,7 @@ export function registerAdminRoutes(app: Express) {
       const branch = await createBranch(user.tenantId!, input as any);
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "branch", entityId: String(branch.id), metadata: { name: branch.name } });
       res.status(201).json(branch);
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
     }
@@ -253,6 +264,7 @@ export function registerAdminRoutes(app: Express) {
       let productsCreated = 0;
       for (const item of template.items) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await storage.createProduct(user.id, {
             name: item.name,
             price: item.price,
@@ -269,6 +281,7 @@ export function registerAdminRoutes(app: Express) {
       if (template.tables?.length) {
         for (const t of template.tables) {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await storage.createTable(user.id, {
               name: t.name,
               seats: t.seats,
@@ -339,6 +352,7 @@ export function registerAdminRoutes(app: Express) {
           await tx.delete(productModifiers).where(inArray(productModifiers.productId, productIds));
           // purchase_order_items keeps the historical row but unlinks the deleted product.
           await tx.update(purchaseOrderItems)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .set({ productId: null } as any)
             .where(inArray(purchaseOrderItems.productId, productIds));
           await tx.delete(products).where(inArray(products.id, productIds));
@@ -346,9 +360,11 @@ export function registerAdminRoutes(app: Express) {
         if (tableIds.length) {
           // Detach historical sales/pending orders from the deleted tables (FKs are nullable).
           await tx.update(sales)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .set({ tableId: null } as any)
             .where(inArray(sales.tableId, tableIds));
           await tx.update(pendingOrders)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .set({ tableId: null } as any)
             .where(inArray(pendingOrders.tableId, tableIds));
           await tx.delete(tables).where(inArray(tables.id, tableIds));
@@ -368,6 +384,7 @@ export function registerAdminRoutes(app: Express) {
           templateLabel = template.label;
           for (const item of template.items) {
             try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await storage.createProduct(user.id, {
                 name: item.name,
                 price: item.price,
@@ -382,6 +399,7 @@ export function registerAdminRoutes(app: Express) {
           if (template.tables?.length) {
             for (const t of template.tables) {
               try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await storage.createTable(user.id, {
                   name: t.name,
                   seats: t.seats,
@@ -457,7 +475,7 @@ export function registerAdminRoutes(app: Express) {
       if (!branch) return res.status(404).json({ message: "Branch not found" });
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "update", entity: "branch", entityId: String(id), metadata: { name: input.name } });
       res.json(branch);
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
     }
@@ -547,7 +565,7 @@ export function registerAdminRoutes(app: Express) {
           orders: Number(r.orders),
         })),
       });
-    } catch (err) { next(err); }
+    } catch (err: unknown) { next(err); }
   });
 
   // ─── Duplicate branch (copy settings only, not data) ──────────────────────

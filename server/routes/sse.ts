@@ -26,12 +26,12 @@ function setupSseHeaders(res: Response): void {
 
 // ── Auth helper for SSE endpoints ─────────────────────────────────────────
 // Returns the user object if authenticated, null otherwise.
-function resolveSseUser(req: Request): any | null {
-  const user = req.user as any;
+function resolveSseUser(req: Request): Express.User | null {
+  const user = req.user;
   if (user) return user;
   const qToken = (req.query as any).token as string | undefined;
   if (!qToken) return null;
-  try { return verifyToken(qToken); } catch { return null; }
+  try { return verifyToken(qToken) as any; } catch { return null; }
 }
 
 function sseWrite(res: Response, event: string, data: Record<string, unknown> = {}): void {

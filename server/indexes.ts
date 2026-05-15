@@ -134,22 +134,22 @@ export async function ensureIndexes(): Promise<void> {
     for (const stmt of COLUMN_MIGRATIONS) {
       try {
         await client.query(stmt);
-      } catch (err: any) {
-        console.warn("[migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
+      } catch (err: unknown) {
+        console.warn("[migrations]", stmt.slice(0, 60), "—", (err as Error)?.message ?? String(err));
       }
     }
     for (const stmt of FK_CASCADE_MIGRATIONS) {
       try {
         await client.query(stmt);
-      } catch (err: any) {
-        console.warn("[fk-migrations]", stmt.slice(0, 60), "—", err?.message ?? err);
+      } catch (err: unknown) {
+        console.warn("[fk-migrations]", stmt.slice(0, 60), "—", (err as Error)?.message ?? String(err));
       }
     }
     for (const stmt of INDEXES) {
       try {
         await client.query(stmt);
-      } catch (err: any) {
-        console.warn("[indexes]", stmt.slice(0, 60), "—", err?.message ?? err);
+      } catch (err: unknown) {
+        console.warn("[indexes]", stmt.slice(0, 60), "—", (err as Error)?.message ?? String(err));
       }
     }
   } finally {

@@ -318,7 +318,7 @@ app.use(csrfCookieMiddleware);
 app.use((req: Request, res: Response, next: NextFunction) => {
   const existing = req.headers["x-request-id"];
   const id = Array.isArray(existing) ? existing[0] : existing ?? randomUUID();
-  (req as any).requestId = id;
+  req.requestId = id;
   res.setHeader("X-Request-ID", id);
   next();
 });
@@ -375,7 +375,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api") || path.startsWith("/auth")) {
       recordRequest(duration, res.statusCode);
-      const rid = (req as any).requestId?.slice(0, 8);
+      const rid = req.requestId?.slice(0, 8);
       logger.info({
         source: "express",
         method: req.method,
@@ -532,7 +532,7 @@ export default async function handler(req: Request, res: Response) {
     if (!res.headersSent) {
       // For OAuth callbacks, redirect to login with an error instead of
       // showing a raw JSON response — gives the user a recoverable path.
-      const path = (req as any).url ?? req.path ?? "";
+      const path = req.url ?? req.path ?? "";
       const isOAuthCallback =
         path.includes("/auth/google/callback") ||
         path.includes("/auth/facebook/callback") ||

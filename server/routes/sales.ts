@@ -92,7 +92,7 @@ export function registerSaleRoutes(app: Express): void {
       const uid = getUserId(req);
 
       // Enforce maxDiscountPercent for non-owners
-      const saleUser = req.user as any;
+      const saleUser = req.user;
       if (saleUser?.tenantId && saleUser.role !== "owner") {
         const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
         if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
@@ -152,7 +152,7 @@ export function registerSaleRoutes(app: Express): void {
       res.status(201).json(sale);
 
       // Push real-time stats-update event to all dashboard tabs open for this tenant
-      const tid = (req.user as any)?.tenantId ?? null;
+      const tid = req.user?.tenantId ?? null;
       if (tid) emitTenantEvent(tid, { type: "stats-update", saleId: sale.id, total: sale.total });
 
       // Send email receipt to customer — fire-and-forget
@@ -194,7 +194,7 @@ export function registerSaleRoutes(app: Express): void {
   // Locked sales (those already included in a closed shift Z-report) cannot be
   // voided to preserve BIR audit integrity.
   app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
-    const saleUser = req.user as any;
+    const saleUser = req.user;
     if (saleUser?.tenantId && saleUser.role !== "owner") {
       const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
       if (perm && perm.canDeleteSale === false) {

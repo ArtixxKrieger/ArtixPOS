@@ -6,6 +6,7 @@ const MAX_ENTRIES = 5_000; // prevent unbounded growth under high tenant load
 type Entry<T> = { value: T; expiresAt: number };
 
 class TtlCache {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private store = new Map<string, Entry<any>>();
 
   // ── L1: synchronous in-memory ──────────────────────────────────────────────

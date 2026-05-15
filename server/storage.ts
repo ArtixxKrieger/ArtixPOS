@@ -91,7 +91,7 @@ import {
   loyaltyPointsLog,
   type LoyaltyPointsLog,
 } from "@shared/schema";
-import { eq, and, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, inArray, desc, sql, type SQL } from "drizzle-orm";
 
 export interface IStorage {
   // Products
@@ -124,6 +124,8 @@ export interface IStorage {
   createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
   softDeleteSale(id: number, userId: string, deletedBy: string, reason?: string): Promise<boolean>;
   getDeletedSales(userId: string): Promise<Sale[]>;
+
+  deductIngredientsForSale(userId: string, items: { productId: number; quantity: number }[]): Promise<void>;
 
   // Settings
   getSettings(userId: string): Promise<UserSetting | undefined>;
@@ -216,7 +218,19 @@ export interface IStorage {
   clockOut(userId: string, notes?: string): Promise<TimeLog | undefined>;
   startBreak(userId: string): Promise<TimeLog | undefined>;
   endBreak(userId: string): Promise<TimeLog | undefined>;
-  getTeamTimeLogs(userId: string): Promise<any[]>;
+  getTeamTimeLogs(userId: string): Promise<{
+    id: number;
+    userId: string;
+    clockIn: string;
+    clockOut: string | null;
+    notes: string | null;
+    clockOutNotes: string | null;
+    breakStart: string | null;
+    breakMinutes: number | null;
+    createdAt: string | null;
+    userName: string | null;
+    userEmail: string | null;
+  }[]>;
 
   // Product barcode lookup
   getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
@@ -298,10 +312,10 @@ export class DatabaseStorage implements IStorage {
       const limit: number | undefined = isOpts(branchIdOrOpts) ? branchIdOrOpts.limit : undefined;
       const offset: number = (isOpts(branchIdOrOpts) ? branchIdOrOpts.offset : undefined) ?? 0;
       const userIds = await this.getTenantUserIds(userId);
-      const conditions: any[] = [];
+      const conditions: SQL<unknown>[] = [];
       conditions.push(userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds));
       if (branchId != null) conditions.push(eq(products.branchId, branchId));
-      let query: any = dbRead.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
+      let query = dbRead.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
       }
@@ -315,7 +329,7 @@ export class DatabaseStorage implements IStorage {
   async getLowStockProducts(userId: string, branchId?: number | null): Promise<Product[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const conditions: any[] = [
+      const conditions: SQL<unknown>[] = [
         isNull(products.deletedAt),
         eq(products.trackStock, true),
         sql`${products.stock} <= ${products.lowStockThreshold}`,
@@ -348,6 +362,7 @@ export class DatabaseStorage implements IStorage {
 
   async createProduct(userId: string, product: Omit<InsertProduct, "userId">): Promise<Product> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(products).values({ ...product, userId } as any).returning();
       return created;
     } catch (error) {
@@ -360,6 +375,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getProduct(id, userId);
       if (!existing) return undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(products)
         .set(product as any)
         .where(eq(products.id, id))
@@ -375,6 +391,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getProduct(id, userId);
       if (!existing) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(eq(products.id, id));
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -389,12 +406,14 @@ export class DatabaseStorage implements IStorage {
       const previousStock = existing.stock ?? 0;
       // Use a SQL expression for the increment so concurrent stock adjustments
       // can't race and overwrite each other (eliminates the read-modify-write gap).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(products)
         .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) + ${delta})` } as any)
         .where(eq(products.id, id))
         .returning();
       if (updated) {
         const newStock = updated.stock ?? 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await db.insert(stockLogs).values({
           productId: id,
           userId,
@@ -417,11 +436,13 @@ export class DatabaseStorage implements IStorage {
       if (!existing) return undefined;
       const previousStock = existing.stock ?? 0;
       const clampedStock = Math.max(0, newStock);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(products)
         .set({ stock: clampedStock } as any)
         .where(eq(products.id, id))
         .returning();
       if (updated) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await db.insert(stockLogs).values({
           productId: id,
           userId,
@@ -457,7 +478,7 @@ export class DatabaseStorage implements IStorage {
   async getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      const conditions: any[] = [];
+      const conditions: SQL<unknown>[] = [];
       conditions.push(userIds.length === 1 ? eq(pendingOrders.userId, userIds[0]) : inArray(pendingOrders.userId, userIds));
       if (branchId != null) conditions.push(eq(pendingOrders.branchId, branchId));
       conditions.push(isNull(pendingOrders.deletedAt));
@@ -484,6 +505,7 @@ export class DatabaseStorage implements IStorage {
 
   async createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(pendingOrders).values({ ...order, userId } as any).returning();
       return created;
     } catch (error) {
@@ -496,6 +518,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getPendingOrder(id, userId);
       if (!existing) return undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(pendingOrders)
         .set(order as any)
         .where(eq(pendingOrders.id, id))
@@ -511,6 +534,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getPendingOrder(id, userId);
       if (!existing) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.update(pendingOrders).set({ deletedAt: new Date().toISOString() } as any).where(eq(pendingOrders.id, id));
     } catch (error) {
       console.error("Error deleting pending order:", error);
@@ -546,6 +570,7 @@ export class DatabaseStorage implements IStorage {
 
   async createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const saleInput = sale as any;
 
       // ── Resolve tenant for the per-tenant OR sequence ──────────────────────
@@ -564,7 +589,8 @@ export class DatabaseStorage implements IStorage {
         RETURNING next_val
       `);
       const seqRows = (seqResult as any).rows ?? seqResult;
-      const nextSeq = Number((Array.isArray(seqRows) ? seqRows[0] : seqRows)?.next_val ?? 1);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nextSeq = Number((Array.isArray(seqRows) ? seqRows[0] : (seqRows as any))?.next_val ?? 1);
       const padded = String(nextSeq).padStart(6, "0");
       const receiptNumber = `SR-${padded}`;
       const orNumber      = receiptNumber;
@@ -593,6 +619,7 @@ export class DatabaseStorage implements IStorage {
       ].join("|");
       const saleHash = createHash("sha256").update(hashPayload).digest("hex");
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(sales).values({
         ...saleInput,
         userId,
@@ -611,7 +638,7 @@ export class DatabaseStorage implements IStorage {
         void this.updateCustomerStats(sale.customerId, parseFloat(sale.total) || 0);
       }
       // Auto-deduct ingredients via product recipes (cafés / production kitchens).
-      void this.deductIngredientsForSale(userId, sale.items as any[]).catch((e) => {
+      void this.deductIngredientsForSale(userId, sale.items as { productId: number; quantity: number }[]).catch((e) => {
         console.error("Recipe deduction failed:", e);
       });
       return created;
@@ -622,7 +649,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   /** Deduct ingredient stock based on product recipes (BOM) for sold items. */
-  async deductIngredientsForSale(userId: string, items: any[]): Promise<void> {
+  async deductIngredientsForSale(userId: string, items: { productId: number; quantity: number }[]): Promise<void> {
     if (!Array.isArray(items) || items.length === 0) return;
     const userIds = await this.getTenantUserIds(userId);
 
@@ -662,6 +689,7 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       await Promise.all(
         [...ingredientDelta.entries()].map(([ingId, delta]) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           tx.update(ingredients)
             .set({ stockQty: sql`(COALESCE(stock_qty::numeric, 0) - ${delta})::text` } as any)
             .where(eq(ingredients.id, ingId))
@@ -696,6 +724,7 @@ export class DatabaseStorage implements IStorage {
         and(eq(sales.id, id), userCondition, isNull(sales.deletedAt))
       );
       if (!sale) return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db.update(sales) as any)
         .set({ deletedAt: new Date().toISOString(), deletedBy, ...(reason ? { voidReason: reason } : {}) })
         .where(eq(sales.id, id));
@@ -735,12 +764,14 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getSettings(userId);
       if (existing) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const [updated] = await db.update(userSettings)
           .set(settings as any)
           .where(eq(userSettings.userId, userId))
           .returning();
         return updated;
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const [created] = await db.insert(userSettings)
           .values({ ...settings, userId } as any)
           .returning();
@@ -767,7 +798,7 @@ export class DatabaseStorage implements IStorage {
       const orderExpr = orderByTopSpenders
         ? sql`CAST(total_spent AS NUMERIC) DESC NULLS LAST`
         : desc(customers.createdAt);
-      let query: any = dbRead.select().from(customers).where(whereCond).orderBy(orderExpr);
+      let query = dbRead.select().from(customers).where(whereCond).orderBy(orderExpr);
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
       }
@@ -793,6 +824,7 @@ export class DatabaseStorage implements IStorage {
 
   async createCustomer(userId: string, customer: InsertCustomer): Promise<Customer> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(customers).values({ ...customer, userId } as any).returning();
       return created;
     } catch (error) {
@@ -805,6 +837,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getCustomer(id, userId);
       if (!existing) return undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(customers)
         .set(customer as any)
         .where(eq(customers.id, id))
@@ -820,6 +853,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getCustomer(id, userId);
       if (!existing) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(eq(customers.id, id));
     } catch (error) {
       console.error("Error deleting customer:", error);
@@ -855,10 +889,10 @@ export class DatabaseStorage implements IStorage {
       const limit: number | undefined = isOpts(branchIdOrOpts) ? branchIdOrOpts.limit : undefined;
       const offset: number = (isOpts(branchIdOrOpts) ? branchIdOrOpts.offset : undefined) ?? 0;
       const userIds = await this.getTenantUserIds(userId);
-      const conditions: any[] = [];
+      const conditions: SQL<unknown>[] = [];
       conditions.push(userIds.length === 1 ? eq(expenses.userId, userIds[0]) : inArray(expenses.userId, userIds));
       if (branchId != null) conditions.push(eq(expenses.branchId, branchId));
-      let query: any = db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
+      let query = db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
       }
@@ -871,6 +905,7 @@ export class DatabaseStorage implements IStorage {
 
   async createExpense(userId: string, expense: InsertExpense): Promise<Expense> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(expenses).values({ ...expense, userId } as any).returning();
       return created;
     } catch (error) {
@@ -884,6 +919,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
       if (!existing || !userIds.includes(existing.userId)) return undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(expenses)
         .set(expense as any)
         .where(eq(expenses.id, id))
@@ -900,6 +936,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
       if (!existing || !userIds.includes(existing.userId)) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(eq(expenses.id, id));
     } catch (error) {
       console.error("Error deleting expense:", error);
@@ -943,6 +980,7 @@ export class DatabaseStorage implements IStorage {
 
   async openShift(userId: string, openingBalance: string, notes?: string, denominationOpen?: string): Promise<Shift> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(shifts).values({
         userId,
         openingBalance,
@@ -984,6 +1022,7 @@ export class DatabaseStorage implements IStorage {
       );
       const totalExpensesAmount = shiftExpenses.reduce((acc, e) => acc + parseFloat(e.amount || "0"), 0);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(shifts)
         .set({
           status: "closed",
@@ -1019,6 +1058,7 @@ export class DatabaseStorage implements IStorage {
       const prevOut = parseFloat(existing.cashOut ?? "0");
       const amtNum = parseFloat(amount) || 0;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(shifts).set({
         cashAdjustments: JSON.stringify(existingAdjs),
         cashIn: type === "in" ? (prevIn + amtNum).toFixed(2) : existing.cashIn,
@@ -1043,7 +1083,7 @@ export class DatabaseStorage implements IStorage {
       const whereCond = userIds.length === 1
         ? and(eq(discountCodes.userId, userIds[0]), isNull(discountCodes.deletedAt))
         : and(inArray(discountCodes.userId, userIds), isNull(discountCodes.deletedAt));
-      let query: any = db.select().from(discountCodes).where(whereCond).orderBy(desc(discountCodes.createdAt));
+      let query = db.select().from(discountCodes).where(whereCond).orderBy(desc(discountCodes.createdAt));
       if (typeof limit === "number" && limit > 0) {
         query = query.limit(limit).offset(offset);
       }
@@ -1071,6 +1111,7 @@ export class DatabaseStorage implements IStorage {
 
   async createDiscountCode(userId: string, code: InsertDiscountCode): Promise<DiscountCode> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [created] = await db.insert(discountCodes).values({
         ...code,
         code: code.code.toUpperCase(),
@@ -1569,7 +1610,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getTeamTimeLogs(userId: string): Promise<any[]> {
+  async getTeamTimeLogs(userId: string): Promise<{
+    id: number;
+    userId: string;
+    clockIn: string;
+    clockOut: string | null;
+    notes: string | null;
+    clockOutNotes: string | null;
+    breakStart: string | null;
+    breakMinutes: number | null;
+    createdAt: string | null;
+    userName: string | null;
+    userEmail: string | null;
+  }[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       if (userIds.length === 0) return [];
@@ -1630,6 +1683,7 @@ export class DatabaseStorage implements IStorage {
 
       // Atomic update — GREATEST(0, ...) and the CASE prevent a lost-update race
       // when two concurrent sales credit/debit the same customer simultaneously.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updated] = await db.update(customers).set({
         loyaltyPoints: sql`GREATEST(0, COALESCE(loyalty_points, 0) + ${delta})`,
         lifetimePoints: sql`CASE WHEN ${delta} > 0 THEN COALESCE(lifetime_points, 0) + ${delta} ELSE COALESCE(lifetime_points, 0) END`,
@@ -1637,6 +1691,7 @@ export class DatabaseStorage implements IStorage {
       const newPoints = updated?.loyaltyPoints ?? 0;
 
       // Log the change
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       void db.insert(loyaltyPointsLog).values({
         userId,
         customerId,
@@ -1669,6 +1724,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLoyaltyTier(userId: string, tier: InsertLoyaltyTier): Promise<LoyaltyTier> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(loyaltyTiers).values({ ...tier, userId } as any).returning();
     return created;
   }
@@ -1676,6 +1732,7 @@ export class DatabaseStorage implements IStorage {
   async updateLoyaltyTier(id: number, userId: string, tier: Partial<InsertLoyaltyTier>): Promise<LoyaltyTier | undefined> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(loyaltyTiers).set(tier as any).where(condition).returning();
     return updated;
   }
@@ -1683,6 +1740,7 @@ export class DatabaseStorage implements IStorage {
   async deleteLoyaltyTier(id: number, userId: string): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(loyaltyTiers).set({ deletedAt: new Date().toISOString() } as any).where(condition);
   }
 
@@ -1695,6 +1753,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLoyaltyReward(userId: string, reward: InsertLoyaltyReward): Promise<LoyaltyReward> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(loyaltyRewards).values({ ...reward, userId } as any).returning();
     return created;
   }
@@ -1702,6 +1761,7 @@ export class DatabaseStorage implements IStorage {
   async updateLoyaltyReward(id: number, userId: string, reward: Partial<InsertLoyaltyReward>): Promise<LoyaltyReward | undefined> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(loyaltyRewards).set(reward as any).where(condition).returning();
     return updated;
   }
@@ -1709,6 +1769,7 @@ export class DatabaseStorage implements IStorage {
   async deleteLoyaltyReward(id: number, userId: string): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(loyaltyRewards).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(condition);
   }
 
@@ -1726,13 +1787,16 @@ export class DatabaseStorage implements IStorage {
 
       // Both updates are atomic SQL expressions — no lost-update race possible
       // even when two redemptions are processed concurrently for the same customer.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [updatedCustomer] = await db.update(customers).set({
         loyaltyPoints: sql`GREATEST(0, COALESCE(loyalty_points, 0) - ${reward.pointsCost})`,
       } as any).where(eq(customers.id, customerId)).returning();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.update(loyaltyRewards).set({
         redemptionCount: sql`COALESCE(redemption_count, 0) + 1`,
       } as any).where(eq(loyaltyRewards.id, rewardId));
       const newPoints = updatedCustomer?.loyaltyPoints ?? 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [log] = await db.insert(loyaltyPointsLog).values({
         userId,
         customerId,
@@ -1764,6 +1828,7 @@ export class DatabaseStorage implements IStorage {
   async addLoyaltyPointsLog(userId: string, customerId: number, delta: number, reason: string, opts?: { saleId?: number; rewardId?: number; note?: string; expiresAt?: string }): Promise<LoyaltyPointsLog> {
     const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
     const balance = Math.max(0, (customer?.loyaltyPoints ?? 0) + delta);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [log] = await db.insert(loyaltyPointsLog).values({
       userId, customerId, delta, balance, reason,
       saleId: opts?.saleId ?? null,
@@ -1783,6 +1848,7 @@ export class DatabaseStorage implements IStorage {
       const matched = sorted.find(t => lifetimePts >= t.minLifetimePoints);
       const newTier = matched?.name?.toLowerCase() ?? "none";
       if (newTier !== customer.tier) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await db.update(customers).set({ tier: newTier } as any).where(eq(customers.id, customerId));
       }
     } catch { /* ignore */ }
@@ -1796,6 +1862,7 @@ export class DatabaseStorage implements IStorage {
       ? eq(serviceStaff.userId, userIds[0])
       : inArray(serviceStaff.userId, userIds);
     const condition = branchId != null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? and(userCondition, eq((serviceStaff as any).branchId, branchId))
       : userCondition;
     return db.select().from(serviceStaff).where(condition).orderBy(desc(serviceStaff.createdAt));
@@ -1811,6 +1878,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createServiceStaff(userId: string, staff: InsertServiceStaff): Promise<ServiceStaff> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(serviceStaff).values({ ...staff, userId } as any).returning();
     return created;
   }
@@ -1818,6 +1886,7 @@ export class DatabaseStorage implements IStorage {
   async updateServiceStaff(id: number, userId: string, staff: Partial<InsertServiceStaff>): Promise<ServiceStaff | undefined> {
     const existing = await this.getServiceStaffMember(id, userId);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(serviceStaff).set(staff as any).where(eq(serviceStaff.id, id)).returning();
     return updated;
   }
@@ -1825,6 +1894,7 @@ export class DatabaseStorage implements IStorage {
   async deleteServiceStaff(id: number, userId: string): Promise<void> {
     const existing = await this.getServiceStaffMember(id, userId);
     if (!existing) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(serviceStaff).set({ deletedAt: new Date().toISOString() } as any).where(eq(serviceStaff.id, id));
   }
 
@@ -1836,12 +1906,14 @@ export class DatabaseStorage implements IStorage {
       ? and(eq(serviceRooms.userId, userIds[0]), isNull(serviceRooms.deletedAt))
       : and(inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
     const condition = branchId != null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? and(userCondition, eq((serviceRooms as any).branchId, branchId))
       : userCondition;
     return db.select().from(serviceRooms).where(condition).orderBy(desc(serviceRooms.createdAt));
   }
 
   async createServiceRoom(userId: string, room: InsertServiceRoom): Promise<ServiceRoom> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(serviceRooms).values({ ...room, userId } as any).returning();
     return created;
   }
@@ -1853,6 +1925,7 @@ export class DatabaseStorage implements IStorage {
       : and(eq(serviceRooms.id, id), inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
     const [existing] = await db.select().from(serviceRooms).where(condition);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(serviceRooms).set(room as any).where(eq(serviceRooms.id, id)).returning();
     return updated;
   }
@@ -1864,6 +1937,7 @@ export class DatabaseStorage implements IStorage {
       : and(eq(serviceRooms.id, id), inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
     const [existing] = await db.select().from(serviceRooms).where(condition);
     if (!existing) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(serviceRooms).set({ deletedAt: new Date().toISOString() } as any).where(eq(serviceRooms.id, id));
   }
 
@@ -1875,12 +1949,15 @@ export class DatabaseStorage implements IStorage {
       ? and(eq(appointments.userId, userIds[0]), isNull(appointments.deletedAt))
       : and(inArray(appointments.userId, userIds), isNull(appointments.deletedAt));
     if (opts?.date) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       condition = and(condition, eq(appointments.date, opts.date)) as any;
     }
     if (opts?.staffId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       condition = and(condition, eq(appointments.staffId, opts.staffId)) as any;
     }
     if (opts?.status) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       condition = and(condition, eq(appointments.status, opts.status)) as any;
     }
     return db.select().from(appointments).where(condition).orderBy(appointments.date, appointments.startTime);
@@ -1896,6 +1973,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAppointment(userId: string, appt: InsertAppointment): Promise<Appointment> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(appointments).values({ ...appt, userId } as any).returning();
     return created;
   }
@@ -1903,6 +1981,7 @@ export class DatabaseStorage implements IStorage {
   async updateAppointment(id: number, userId: string, appt: Partial<InsertAppointment>): Promise<Appointment | undefined> {
     const existing = await this.getAppointment(id, userId);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(appointments).set(appt as any).where(eq(appointments.id, id)).returning();
     return updated;
   }
@@ -1910,6 +1989,7 @@ export class DatabaseStorage implements IStorage {
   async deleteAppointment(id: number, userId: string): Promise<void> {
     const existing = await this.getAppointment(id, userId);
     if (!existing) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(appointments).set({ deletedAt: new Date().toISOString() } as any).where(eq(appointments.id, id));
   }
 
@@ -1924,6 +2004,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMembershipPlan(userId: string, plan: InsertMembershipPlan): Promise<MembershipPlan> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(membershipPlans).values({ ...plan, userId } as any).returning();
     return created;
   }
@@ -1935,6 +2016,7 @@ export class DatabaseStorage implements IStorage {
       : and(eq(membershipPlans.id, id), inArray(membershipPlans.userId, userIds), isNull(membershipPlans.deletedAt));
     const [existing] = await db.select().from(membershipPlans).where(condition);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(membershipPlans).set(plan as any).where(eq(membershipPlans.id, id)).returning();
     return updated;
   }
@@ -1946,6 +2028,7 @@ export class DatabaseStorage implements IStorage {
       : and(eq(membershipPlans.id, id), inArray(membershipPlans.userId, userIds), isNull(membershipPlans.deletedAt));
     const [existing] = await db.select().from(membershipPlans).where(condition);
     if (!existing) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(membershipPlans).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(membershipPlans.id, id));
   }
 
@@ -1977,6 +2060,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(customers, eq(memberships.customerId, customers.id))
       .where(condition)
       .orderBy(desc(memberships.createdAt));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rows as any;
   }
 
@@ -1990,6 +2074,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMembership(userId: string, m: InsertMembership): Promise<Membership> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(memberships).values({ ...m, userId } as any).returning();
     return created;
   }
@@ -1997,6 +2082,7 @@ export class DatabaseStorage implements IStorage {
   async updateMembership(id: number, userId: string, m: Partial<InsertMembership>): Promise<Membership | undefined> {
     const existing = await this.getMembership(id, userId);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(memberships).set(m as any).where(eq(memberships.id, id)).returning();
     return updated;
   }
@@ -2004,11 +2090,14 @@ export class DatabaseStorage implements IStorage {
   async deleteMembership(id: number, userId: string): Promise<void> {
     const existing = await this.getMembership(id, userId);
     if (!existing) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(memberships).set({ deletedAt: new Date().toISOString() } as any).where(eq(memberships.id, id));
   }
 
   async checkInMember(userId: string, data: InsertMembershipCheckIn): Promise<MembershipCheckIn> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [checkIn] = await db.insert(membershipCheckIns).values({ ...data, userId } as any).returning();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(memberships).set({
       checkInsUsed: sql`check_ins_used + 1`,
     } as any).where(eq(memberships.id, data.membershipId));
@@ -2038,6 +2127,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createIngredient(userId: string, data: InsertIngredient): Promise<Ingredient> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(ingredients).values({ ...data, userId } as any).returning();
     return created;
   }
@@ -2045,6 +2135,7 @@ export class DatabaseStorage implements IStorage {
   async updateIngredient(id: number, userId: string, data: Partial<InsertIngredient>): Promise<Ingredient | undefined> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(ingredients).set(data as any).where(eq(ingredients.id, id)).returning();
     return updated;
   }
@@ -2052,12 +2143,14 @@ export class DatabaseStorage implements IStorage {
   async deleteIngredient(id: number, userId: string): Promise<void> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(eq(ingredients.id, id));
   }
 
   async adjustIngredientStock(id: number, userId: string, delta: number): Promise<Ingredient | undefined> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(ingredients)
       .set({ stockQty: sql`(COALESCE(stock_qty::numeric, 0) + ${delta})::text` } as any)
       .where(eq(ingredients.id, id))
@@ -2084,6 +2177,7 @@ export class DatabaseStorage implements IStorage {
     }).from(productRecipes)
       .leftJoin(ingredients, eq(productRecipes.ingredientId, ingredients.id))
       .where(eq(productRecipes.productId, productId));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rows as any;
   }
 
@@ -2104,6 +2198,7 @@ export class DatabaseStorage implements IStorage {
       await db.transaction(async (tx) => {
         await tx.delete(productRecipes).where(eq(productRecipes.productId, productId));
         if (filtered.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await tx.insert(productRecipes).values(filtered.map(i => ({
             productId,
             ingredientId: i.ingredientId,
@@ -2128,6 +2223,7 @@ export class DatabaseStorage implements IStorage {
 
   async createWifiVoucher(userId: string, data: InsertWifiVoucher & { saleId?: number | null }): Promise<WifiVoucher> {
     const code = (Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6)).toUpperCase();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(wifiVouchers).values({
       userId,
       branchId: data.branchId ?? null,
@@ -2150,6 +2246,7 @@ export class DatabaseStorage implements IStorage {
     if (v.status !== "unused") return v;
     const now = new Date();
     const expires = new Date(now.getTime() + (v.durationMinutes ?? 60) * 60_000);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [updated] = await db.update(wifiVouchers).set({
       status: "active",
       redeemedAt: now.toISOString(),

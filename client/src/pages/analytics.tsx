@@ -21,7 +21,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { DateRange } from "react-day-picker";
+import type { Sale, UserSetting } from "@shared/schema";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -269,7 +269,7 @@ function ToggleGroup<T extends string>({ value, onChange, options }: {
 }
 
 /* ── Insight Card ────────────────────────────────── */
-function InsightCard({ icon: Icon, text, color }: { icon: any; text: string; color: string }) {
+function InsightCard({ icon: Icon, text, color }: { icon: React.ComponentType<{ className?: string }>; text: string; color: string }) {
   return (
     <div className="flex items-start gap-3 p-3.5 bg-secondary/40 dark:bg-white/[0.04] border border-border/30 rounded-2xl">
       <div className={cn("h-7 w-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5", color)}>
@@ -285,7 +285,7 @@ function FreeAnalyticsView({
   currency,
   terminology,
 }: {
-  sales: any[];
+  sales: Sale[];
   currency: string;
   terminology: ReturnType<typeof getBusinessFeatures>["terminology"];
 }) {
@@ -296,7 +296,7 @@ function FreeAnalyticsView({
     () => sales.filter(s => isWithinInterval(new Date(s.createdAt!), { start: range.s, end: range.e })),
     [sales, range],
   );
-  const activeSales = useMemo(() => periodSales.filter(s => !(s as any).refundedAt), [periodSales]);
+  const activeSales = useMemo(() => periodSales.filter(s => !s.refundedAt), [periodSales]);
 
   const revenue = useMemo(() => activeSales.reduce((a, s) => a + parseNumeric(s.total), 0), [activeSales]);
   const orders = periodSales.length;
@@ -478,13 +478,13 @@ function FreeAnalyticsView({
 
 /* ── Main Component ──────────────────────────────── */
 export default function Analytics() {
-  const { data: sales = [], isLoading } = useSales();
-  const { data: settings } = useSettings();
+  const { data: sales = [] } = useSales() as { data: Sale[] | undefined };
+  const { data: settings } = useSettings() as { data: UserSetting | null | undefined };
   const { isFree } = useSubscription();
-  const currency = (settings as any)?.currency || "₱";
+  const currency = settings?.currency || "₱";
   const { terminology } = getBusinessFeatures(
-    (settings as any)?.businessType,
-    (settings as any)?.businessSubType,
+    settings?.businessType || undefined,
+    settings?.businessSubType || undefined,
   );
 
   const CurrencyIcon = ({ className }: { className?: string }) => (

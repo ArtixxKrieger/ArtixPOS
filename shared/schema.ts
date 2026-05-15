@@ -81,6 +81,7 @@ export const auditLogs = pgTable("audit_logs", {
   action: text("action").notNull(),
   entity: text("entity").notNull(),
   entityId: text("entity_id"),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: jsonb("metadata").$type<Record<string, any>>(),
   previousHash: text("previous_hash"),
   recordHash: text("record_hash"),
@@ -307,6 +308,7 @@ export const sales = pgTable("sales", {
   customerId: integer("customer_id").references(() => customers.id),
   customerName: text("customer_name"), // Free-text guest name (Starbucks-style, not a stored customer)
   tableId: integer("table_id").references(() => tables.id),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   items: jsonb("items").notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
   tax: text("tax").default("0"),
@@ -343,6 +345,7 @@ export const refunds = pgTable("refunds", {
   id: serial("id").primaryKey(),
   saleId: integer("sale_id").notNull().references(() => sales.id),
   userId: text("user_id").notNull().references(() => users.id),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   items: jsonb("items").$type<any[]>(),
   amount: text("amount").notNull(),
   reason: text("reason"),
@@ -361,6 +364,7 @@ export const pendingOrders = pgTable("pending_orders", {
   tableId: integer("table_id").references(() => tables.id),
   orderNumber: integer("order_number"),
   kitchenStatus: text("kitchen_status").default("pending"), // pending | preparing | ready | done
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   items: jsonb("items").notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
   tax: text("tax").default("0"),

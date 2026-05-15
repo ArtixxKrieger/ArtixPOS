@@ -35,7 +35,8 @@ function localDateString(timezone: string, date: Date = new Date()): string {
 
 function toRows(result: any): Row[] {
   if (!result) return [];
-  if (Array.isArray(result.rows)) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (Array.isArray((result as any).rows)) {
     if (result.rows.length === 0) return [];
     const cols: string[] = result.columns ?? Object.keys(result.rows[0] ?? {});
     if (cols.length === 0) return result.rows as Row[];

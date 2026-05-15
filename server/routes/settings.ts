@@ -79,7 +79,7 @@ export function registerSettingsRoutes(app: Express): void {
       try {
         const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.id, uid)).limit(1);
         if (!existingUser) {
-          const u = req.user as any;
+          const u = req.user!;
           console.warn(`[settings] User row missing for ${u.id} — auto-creating from JWT`);
           await db.insert(users).values({
             id: u.id,
@@ -88,9 +88,10 @@ export function registerSettingsRoutes(app: Express): void {
             avatar: u.avatar ?? null,
             provider: u.provider ?? "email",
             providerId: u.email ?? u.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any).onConflictDoNothing();
         }
-      } catch (userCheckErr: any) {
+      } catch (userCheckErr: unknown) {
         console.error("[settings] Failed to ensure user row:", userCheckErr);
       }
 
@@ -107,7 +108,7 @@ export function registerSettingsRoutes(app: Express): void {
       // Auto-create tenant + main branch when owner completes onboarding
       if (input.onboardingComplete === 1) {
         try {
-          const user = req.user as any;
+          const user = req.user!;
           const branchName = (input.storeName as string | undefined) || settings.storeName || "Main Branch";
 
           // Always re-read the user row from the DB instead of trusting the JWT's

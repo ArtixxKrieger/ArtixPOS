@@ -14,14 +14,7 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
-import {
-  initAiStore,
-  getSessions, getSession, createSession, updateSession,
-  deleteSession, groupSessionsByDate, getFloatEnabled, setFloatEnabled,
-  getIconSize, setIconSize, getIconOpacity, setIconOpacity,
-  getFloatDraggable, setFloatDraggable,
-  type AiSession, type AiMessage,
-} from "@/lib/ai-store";
+import type { Product, Expense, DiscountCode, Customer, Sale } from "@shared/schema";
 
 interface ImportPayload {
   products: Array<{ name: string; price: string; category?: string; stock?: number; trackStock?: boolean }>;

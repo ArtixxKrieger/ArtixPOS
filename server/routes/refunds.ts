@@ -23,7 +23,7 @@ export function registerRefundRoutes(app: Express): void {
   // ── Create refund ──────────────────────────────────────────────────────────
   app.post("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
-      const refundUser = req.user as any;
+      const refundUser = req.user;
       if (refundUser?.tenantId && refundUser.role !== "owner") {
         const perm = await getRolePermissionForRole(refundUser.tenantId, refundUser.role);
         if (perm && perm.canRefund === false) {

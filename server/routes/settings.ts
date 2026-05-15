@@ -4,7 +4,7 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { api } from "@shared/routes";
 import { requireAuth } from "../middleware";
-import { createTenant, createAuditLog, getBranches, createBranch } from "../admin-storage";
+import { createTenant, getBranches, createBranch } from "../admin-storage";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
 import { users, tenants } from "@shared/schema";

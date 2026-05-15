@@ -11,7 +11,7 @@
  *   a. Create server/routes/<domain>.ts and export registerXxxRoutes(app).
  *   b. Import + call it below — that's all.
  */
-import type { Express, Request, Response } from "express";
+import type { Express } from "express";
 import type { Server } from "http";
 import { rateLimit } from "express-rate-limit";
 import { registerAdminRoutes } from "./admin-routes";

@@ -145,7 +145,7 @@ export function registerDashboardRoutes(app: Express): void {
       }
       res.write(']\n}');
       res.end();
-    } catch (err) {
+    } catch {
       if (!res.headersSent) {
         res.status(500).json({ message: "Backup export failed" });
       } else {

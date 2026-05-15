@@ -17,13 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Redis (optional — for L2 cache & rate limiting) ──────────────────────────
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-
   # ── ArtixPOS app ─────────────────────────────────────────────────────────────
   app:
     build: .
@@ -38,25 +31,32 @@ services:
       DATABASE_URL: postgres://artixpos:${POSTGRES_PASSWORD:-changeme}@db:5432/artixpos
       SESSION_SECRET: ${SESSION_SECRET}
 
-      # ── Optional ──────────────────────────────────────────────────────────────
+      # ── OAuth (optional) ──────────────────────────────────────────────────────
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
       FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
 
+      # ── AI assistant (optional) ───────────────────────────────────────────────
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
 
+      # ── Email / password reset (optional) ─────────────────────────────────────
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       APP_URL: ${APP_URL:-}
 
-      SENTRY_DSN: ${SENTRY_DSN:-}
+      # ── Redis L2 cache (optional) ─────────────────────────────────────────────
+      # The app uses the Upstash REST API, not the native Redis protocol.
+      # If you have an Upstash account set these two vars; otherwise the app
+      # falls back to a fast in-memory cache automatically — no action needed.
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
 
-      # Point at the Redis container
-      UPSTASH_REDIS_REST_URL: redis://redis:6379
+      # ── Observability (optional) ───────────────────────────────────────────────
+      SENTRY_DSN: ${SENTRY_DSN:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/auth/config || exit 1"]
       interval: 30s
@@ -65,4 +65,3 @@ services:
 
 volumes:
   pg_data:
-  redis_data:

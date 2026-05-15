@@ -4,13 +4,15 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+# NOTE: do NOT use --ignore-scripts — native packages like esbuild need
+# their postinstall step to download the correct platform binary.
+RUN npm ci
 
 COPY . .
 RUN npm run build
 
 # Prune dev dependencies so only production deps end up in the final image
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm prune --omit=dev
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime

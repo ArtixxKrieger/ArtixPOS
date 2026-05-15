@@ -744,11 +744,15 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Bottom — version badge */}
-          <div style={{ position: "relative" }}>
+          {/* Bottom — badges */}
+          <div style={{ position: "relative", display: "flex", flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}>
               <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
               <span style={{ color: "rgba(167,139,250,0.65)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>ARTIXPOS · BUSINESS PLATFORM</span>
+            </div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)" }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399" }} />
+              <span style={{ color: "rgba(52,211,153,0.75)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>VPS READY · NODE.JS</span>
             </div>
           </div>
         </div>

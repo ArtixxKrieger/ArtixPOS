@@ -158,27 +158,7 @@ The goal was simple: one app that handles everything, works without internet, an
 
 <div align="center">
 
-**Frontend**
-
-<img src="https://skillicons.dev/icons?i=react,ts,vite,tailwind&theme=dark&perline=4" />
-
-<br /><br />
-
-**Backend**
-
-<img src="https://skillicons.dev/icons?i=nodejs,express,ts&theme=dark&perline=3" />
-
-<br /><br />
-
-**Database & Cache**
-
-<img src="https://skillicons.dev/icons?i=postgres,redis&theme=dark&perline=2" />
-
-<br /><br />
-
-**Mobile & Deployment**
-
-<img src="https://skillicons.dev/icons?i=androidstudio,apple,vercel,linux&theme=dark&perline=4" />
+<img src="screenshots/tech-stack.svg" width="100%" alt="Tech Stack" />
 
 </div>
 

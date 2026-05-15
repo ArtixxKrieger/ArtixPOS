@@ -25,7 +25,7 @@ import type { DateRange } from "react-day-picker";
 
 /* ── helpers ─────────────────────────────────────── */
 
-function Counter({ value, prefix = "", decimals }: { value: number; prefix?: string; decimals?: number }) {
+function Counter({ value, prefix = "", decimals, compact }: { value: number; prefix?: string; decimals?: number; compact?: boolean }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
     if (value === 0) { setDisplay(0); return; }
@@ -38,6 +38,9 @@ function Counter({ value, prefix = "", decimals }: { value: number; prefix?: str
     }, 14);
     return () => clearInterval(t);
   }, [value]);
+  if (compact && display >= 1_000_000) return <>{prefix}{(display / 1_000_000).toFixed(1)}M</>;
+  if (compact && display >= 10_000)    return <>{prefix}{(display / 1_000).toFixed(0)}k</>;
+  if (compact && display >= 1_000)     return <>{prefix}{(display / 1_000).toFixed(1)}k</>;
   const d = decimals ?? (value % 1 !== 0 ? 2 : 0);
   return <>{prefix}{display.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d })}</>;
 }
@@ -709,7 +712,16 @@ export default function Analytics() {
     return <FreeAnalyticsView sales={sales} currency={currency} terminology={terminology} />;
   }
 
-  const yFmt = (v: number) => metric === "revenue" ? `${currency}${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}` : String(v);
+  const yFmt = (v: number) => {
+    if (metric === "revenue") {
+      if (v >= 1_000_000) return `${currency}${(v / 1_000_000).toFixed(1)}M`;
+      if (v >= 1_000)     return `${currency}${(v / 1_000).toFixed(0)}k`;
+      return `${currency}${v}`;
+    }
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}k`;
+    return String(v);
+  };
   const ttFmt = (v: number) => metric === "revenue" ? formatCurrency(v, currency) : String(v);
 
   return (
@@ -863,11 +875,11 @@ export default function Analytics() {
               <card.icon className="h-10 w-10" />
             </div>
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{card.label}</p>
-            <p className={`text-2xl font-black tabular-nums leading-none ${card.color}`}>
-              <Counter value={card.value} prefix={card.prefix} decimals={card.prefix ? 0 : 0} />
+            <p className={`text-2xl font-black tabular-nums leading-none truncate ${card.color}`} title={card.prefix ? `${card.prefix}${card.value.toLocaleString()}` : String(card.value)}>
+              <Counter value={card.value} prefix={card.prefix} decimals={0} compact />
             </p>
-            {card.growth ?? <p className="text-[10px] text-muted-foreground mt-1">{card.sub}</p>}
-            {card.growth && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{card.sub}</p>}
+            {card.growth ?? <p className="text-[10px] text-muted-foreground mt-1 truncate">{card.sub}</p>}
+            {card.growth && <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">{card.sub}</p>}
           </div>
         ))}
       </div>
@@ -986,7 +998,7 @@ export default function Analytics() {
                             <span className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-black shrink-0" style={{ background: color + "30", color }}>
                               {i + 1}
                             </span>
-                            <span className="font-semibold">{p.name}</span>
+                            <span className="font-semibold truncate">{p.name}</span>
                           </div>
                           <span className="font-bold tabular-nums shrink-0" style={{ color }}>
                             {prodSort === "qty" ? `${p.qty} ${terminology.itemUnit}${p.qty !== 1 ? "s" : ""}` : formatCurrency(p.revenue, currency)}

@@ -163,8 +163,8 @@ export default function Dashboard() {
             {todaySales.length} {todaySales.length === 1 ? terminology.orderLabel : `${terminology.orderLabel}s`} {t("dashboard.completedToday")}
           </p>
           {todayRefundCount > 0 && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">
-              -{formatCurrency(todayRefundTotal, currency)} refunded ({todayRefundCount})
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full max-w-[220px]">
+              <span className="truncate">-{formatCurrency(todayRefundTotal, currency)} refunded ({todayRefundCount})</span>
             </span>
           )}
         </div>
@@ -200,7 +200,7 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="text-xs font-medium text-muted-foreground mb-0.5">{card.label}</p>
-            <p className={`text-xl font-bold tabular-nums ${card.color}`}>{card.display}</p>
+            <p className={`text-xl font-bold tabular-nums truncate ${card.color}`} title={card.display}>{card.display}</p>
           </div>
         ))}
       </div>

@@ -212,7 +212,10 @@ The goal was simple: one app that handles everything, works without internet, an
     <td><b>Deployment</b></td>
     <td>
       <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" />
-      <img src="https://img.shields.io/badge/Self--Hosted_Cluster-1C1C1C?style=flat-square&logo=linux&logoColor=white" />
+      <img src="https://img.shields.io/badge/VPS_Ready-1C1C1C?style=flat-square&logo=linux&logoColor=white" />
+      <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
+      <img src="https://img.shields.io/badge/PM2-2B037A?style=flat-square&logo=pm2&logoColor=white" />
+      <img src="https://img.shields.io/badge/nginx-009639?style=flat-square&logo=nginx&logoColor=white" />
     </td>
   </tr>
 </table>

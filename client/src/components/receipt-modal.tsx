@@ -59,15 +59,17 @@ export function buildReceiptHtml(
 ): string | null {
   const el = document.getElementById(printableId);
   if (!el) return null;
-  const width = (settings?.receiptWidth ?? "58mm") === "58mm" ? 210 : 280;
+  const paperMm = (settings?.receiptWidth ?? "58mm") === "58mm" ? "58mm" : "80mm";
   const fs = settings?.receiptFontSize ?? 25;
   return `<!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8" />
     <title>Receipt</title>
     <style>
+      @page { size: ${paperMm} auto; margin: 0; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 600; width: ${width}px; padding: 12px; }
+      html, body { font-family: 'Courier New', 'Lucida Console', monospace; font-size: ${fs}px; font-weight: 600; color: #000; background: #fff; width: ${paperMm}; padding: 3mm 2mm 8mm 2mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .center { text-align: center; }
       .bold { font-weight: 800; }
       .line { border-top: 1px dashed #000; margin: 6px 0; }
@@ -214,7 +216,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         }
       });
     } else {
-      const width = receiptWidth === "58mm" ? 210 : 280;
       const fs = receiptFontSize;
       const fmt = (n: number) => formatCurrency(n, currency);
       const dateStr = format(now, "MMM d, yyyy h:mm a");
@@ -235,13 +236,37 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         `;
       }).join("");
 
+      const paperWidth = receiptWidth === "58mm" ? "58mm" : "80mm";
       const printHtml = `<!DOCTYPE html>
 <html>
   <head>
     <title>Receipt</title>
+    <meta charset="utf-8" />
     <style>
+      /* ── Critical for plug-and-play thermal printers ──────────────────────
+         Without @page, the browser injects its own margins (~20mm) which
+         causes content to overflow or get cut off on 58mm / 80mm paper.
+         "size: Xmm auto" tells the browser (and OS print driver) the exact
+         paper width; "auto" height lets the receipt grow as long as needed. */
+      @page {
+        size: ${paperWidth} auto;
+        margin: 0;
+      }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: ${fs}px; font-weight: 900; color: #000; width: ${width}px; padding: 12px 12px 24px 12px; }
+      html, body {
+        font-family: 'Courier New', 'Lucida Console', monospace;
+        font-size: ${fs}px;
+        font-weight: 900;
+        color: #000;
+        background: #fff;
+        /* Use physical mm width so it maps 1-to-1 onto the paper */
+        width: ${paperWidth};
+        /* Tiny side padding so text isn't flush against the cutter rail */
+        padding: 3mm 2mm 8mm 2mm;
+        /* Force black ink — no gray, no color */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
       .center { text-align: center; }
       .bold { font-weight: 900; }
       .line { border-top: 2px solid #000; margin: 6px 0; }
@@ -308,7 +333,10 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 </html>`;
 
       onClose();
-      const win = window.open("", "_blank", "width=360,height=700");
+      // Window width is just a preview hint — actual paper width is set via
+      // @page CSS. 240px ≈ 58mm at 96dpi; 340px ≈ 80mm.
+      const winWidth = receiptWidth === "58mm" ? 260 : 340;
+      const win = window.open("", "_blank", `width=${winWidth},height=700`);
       if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
       win.document.write(printHtml);
       win.document.close();

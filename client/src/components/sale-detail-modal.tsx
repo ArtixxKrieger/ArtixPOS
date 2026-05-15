@@ -250,11 +250,13 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
       `;
     }).join("");
 
+    const paperMm = receiptWidth === "58mm" ? "58mm" : "80mm";
     const html = `<!DOCTYPE html>
-<html><head><title>Receipt</title>
+<html><head><meta charset="utf-8"><title>Receipt</title>
 <style>
+  @page{size:${paperMm} auto;margin:0}
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:${fs}px;font-weight:900;color:#000;width:${paperPx}px;padding:12px 12px 24px 12px}
+  html,body{font-family:'Courier New','Lucida Console',monospace;font-size:${fs}px;font-weight:900;color:#000;background:#fff;width:${paperMm};padding:3mm 2mm 8mm 2mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .center{text-align:center}
   .bold{font-weight:900}
   .line{border-top:2px solid #000;margin:6px 0}
@@ -298,7 +300,8 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
 <script>window.onload=function(){window.print();window.close()}<\/script>
 </body></html>`;
 
-    const win = window.open("", "_blank", "width=360,height=700");
+    const winWidth = receiptWidth === "58mm" ? 260 : 340;
+    const win = window.open("", "_blank", `width=${winWidth},height=700`);
     if (!win) { alert("Please allow pop-ups to print receipts."); return; }
     win.document.write(html);
     win.document.close();

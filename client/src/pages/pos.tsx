@@ -196,9 +196,6 @@ export default function POS() {
   // Loyalty points
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
   const loyaltyRedemptionRate = parseNumeric(settings?.loyaltyRedemptionRate || "100"); // pts per currency unit
-  const loyaltyDiscount = selectedCustomer && loyaltyPointsToRedeem > 0 && !isScPwd
-    ? loyaltyPointsToRedeem / loyaltyRedemptionRate
-    : 0;
   const validateDiscountMutation = useMutation({
     mutationFn: (params: { code: string; orderTotal: number }) =>
       apiRequest("POST", "/api/discount-codes/validate", params).then(r => r.json()),
@@ -346,6 +343,9 @@ export default function POS() {
   const globalTaxRate = parseNumeric(settings?.taxRate || 0);
   // SC/PWD discount: 20% of subtotal; VAT-exempt (no VAT charged)
   const isScPwd = scPwdType !== "none";
+  const loyaltyDiscount = selectedCustomer && loyaltyPointsToRedeem > 0 && !isScPwd
+    ? loyaltyPointsToRedeem / loyaltyRedemptionRate
+    : 0;
   const scPwdDiscount = isScPwd ? subtotal * 0.20 : 0;
   // SC/PWD takes precedence over manual discount and coupon codes
   const effectiveDiscount = isScPwd ? scPwdDiscount : discount;

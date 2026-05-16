@@ -1,14 +1,14 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { requireAuth, requireManagerOrAbove } from "../middleware";
+import { requireAuth, requireManagerOrAbove, requirePro } from "../middleware";
 import { getUserId, getActiveBranchId, resolveBranchId } from "../lib/route-utils";
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
 
   // ── Waste Log ──────────────────────────────────────────────────────────────
 
-  app.get("/api/waste-log", requireAuth, async (req, res, next) => {
+  app.get("/api/waste-log", requireAuth, requirePro, async (req, res, next) => {
     try {
       const uid = getUserId(req);
       const branch = getActiveBranchId(req);
@@ -17,7 +17,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  app.post("/api/waste-log", requireAuth, requireManagerOrAbove, async (req, res, next) => {
+  app.post("/api/waste-log", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
     try {
       const schema = z.object({
         productId: z.number().int().positive().optional().nullable(),
@@ -39,7 +39,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
 
   // ── Stock Transfers ────────────────────────────────────────────────────────
 
-  app.get("/api/stock-transfers", requireAuth, async (req, res, next) => {
+  app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res, next) => {
     try {
       const uid = getUserId(req);
       const branch = getActiveBranchId(req);
@@ -48,7 +48,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  app.post("/api/stock-transfers", requireAuth, requireManagerOrAbove, async (req, res, next) => {
+  app.post("/api/stock-transfers", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
     try {
       const schema = z.object({
         fromBranchId: z.number().int().positive().optional().nullable(),
@@ -68,7 +68,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  app.patch("/api/stock-transfers/:id/status", requireAuth, requireManagerOrAbove, async (req, res, next) => {
+  app.patch("/api/stock-transfers/:id/status", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       const { status } = z.object({
@@ -82,7 +82,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
 
   // ── Reorder Suggestions ────────────────────────────────────────────────────
 
-  app.get("/api/inventory/reorder-suggestions", requireAuth, async (req, res, next) => {
+  app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res, next) => {
     try {
       const uid = getUserId(req);
       const branch = getActiveBranchId(req);
@@ -91,7 +91,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  app.post("/api/inventory/generate-reorder-po", requireAuth, requireManagerOrAbove, async (req, res, next) => {
+  app.post("/api/inventory/generate-reorder-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
     try {
       const { items, supplierId, notes } = z.object({
         supplierId: z.number().int().positive().optional().nullable(),

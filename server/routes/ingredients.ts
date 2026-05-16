@@ -1,20 +1,20 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { requireAuth, requireManagerOrAbove } from "../middleware";
+import { requireAuth, requireManagerOrAbove, requirePro } from "../middleware";
 import { insertIngredientSchema, insertWifiVoucherSchema } from "@shared/schema";
 import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerIngredientRoutes(app: Express): void {
 
   // ── List ingredients ───────────────────────────────────────────────────────
-  app.get("/api/ingredients", requireAuth, async (req, res) => {
+  app.get("/api/ingredients", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getIngredients(getUserId(req));
     res.json(list);
   });
 
   // ── Create ingredient ──────────────────────────────────────────────────────
-  app.post("/api/ingredients", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.post("/api/ingredients", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertIngredientSchema.parse(req.body);
       const created = await storage.createIngredient(getUserId(req), input);
@@ -26,7 +26,7 @@ export function registerIngredientRoutes(app: Express): void {
   });
 
   // ── Update ingredient ──────────────────────────────────────────────────────
-  app.put("/api/ingredients/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.put("/api/ingredients/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertIngredientSchema.partial().parse(req.body);
       const updated = await storage.updateIngredient(Number(req.params.id), getUserId(req), input);
@@ -39,7 +39,7 @@ export function registerIngredientRoutes(app: Express): void {
   });
 
   // ── Delete ingredient ──────────────────────────────────────────────────────
-  app.delete("/api/ingredients/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.delete("/api/ingredients/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const id = Number(req.params.id);
     const uid = getUserId(req);
     const existing = await storage.getIngredients(uid).then(list => list.find(i => i.id === id));
@@ -49,7 +49,7 @@ export function registerIngredientRoutes(app: Express): void {
   });
 
   // ── Adjust ingredient stock ────────────────────────────────────────────────
-  app.post("/api/ingredients/:id/stock", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.post("/api/ingredients/:id/stock", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const delta = Number(req.body?.delta);
     if (!Number.isFinite(delta)) return res.status(400).json({ message: "delta must be a number" });
     const updated = await storage.adjustIngredientStock(Number(req.params.id), getUserId(req), delta);
@@ -61,13 +61,13 @@ export function registerIngredientRoutes(app: Express): void {
 export function registerRecipeRoutes(app: Express): void {
 
   // ── Get product recipe ─────────────────────────────────────────────────────
-  app.get("/api/products/:id/recipe", requireAuth, async (req, res) => {
+  app.get("/api/products/:id/recipe", requireAuth, requirePro, async (req, res) => {
     const items = await storage.getRecipeForProduct(Number(req.params.id), getUserId(req));
     res.json(items);
   });
 
   // ── Set product recipe (replace all items) ─────────────────────────────────
-  app.put("/api/products/:id/recipe", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.put("/api/products/:id/recipe", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const schema = z.object({
         items: z.array(z.object({
@@ -89,13 +89,13 @@ export function registerRecipeRoutes(app: Express): void {
 export function registerWifiVoucherRoutes(app: Express): void {
 
   // ── List WiFi vouchers ─────────────────────────────────────────────────────
-  app.get("/api/wifi-vouchers", requireAuth, async (req, res) => {
+  app.get("/api/wifi-vouchers", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getWifiVouchers(getUserId(req));
     res.json(list);
   });
 
   // ── Create WiFi voucher ────────────────────────────────────────────────────
-  app.post("/api/wifi-vouchers", requireAuth, async (req, res) => {
+  app.post("/api/wifi-vouchers", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertWifiVoucherSchema.parse(req.body);
       const created = await storage.createWifiVoucher(getUserId(req), input);
@@ -107,7 +107,7 @@ export function registerWifiVoucherRoutes(app: Express): void {
   });
 
   // ── Redeem WiFi voucher ────────────────────────────────────────────────────
-  app.post("/api/wifi-vouchers/redeem", requireAuth, async (req, res) => {
+  app.post("/api/wifi-vouchers/redeem", requireAuth, requirePro, async (req, res) => {
     const code = String(req.body?.code || "").trim();
     if (!code) return res.status(400).json({ message: "code is required" });
     const v = await storage.redeemWifiVoucher(code, getUserId(req));

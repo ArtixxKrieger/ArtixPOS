@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import { z } from "zod";
 import { storage } from "../storage";
 import { api } from "@shared/routes";
-import { requireAuth } from "../middleware";
+import { requireAuth, getSubscription, isProSubscription } from "../middleware";
 import { createTenant, getBranches, createBranch, updateBranch } from "../admin-storage";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
@@ -116,6 +116,28 @@ export function registerSettingsRoutes(app: Express): void {
         }
       } catch (userCheckErr: unknown) {
         console.error("[settings] Failed to ensure user row:", userCheckErr);
+      }
+
+      // ── Pro-only field guard ───────────────────────────────────────────────
+      // Strip WiFi voucher fields server-side if the tenant is not on Pro.
+      // This prevents free users from bypassing the UI paywall via direct API calls.
+      const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
+      if (tenantIdForProCheck) {
+        try {
+          const sub = await getSubscription(tenantIdForProCheck);
+          if (!isProSubscription(sub)) {
+            const proOnlyWifiFields = [
+              "wifiEnabled", "wifiSsid", "wifiPassword", "wifiDurationMinutes",
+              "wifiSecurityType", "wifiVoucherTitle", "wifiSpeedLabel", "wifiVoucherNote",
+              "wifiShowQr", "wifiNetworkProfiles", "wifiActiveProfileId",
+            ];
+            for (const field of proOnlyWifiFields) {
+              delete (input as any)[field];
+            }
+          }
+        } catch (proCheckErr) {
+          console.warn("[settings] Pro check failed — allowing save without WiFi fields:", proCheckErr);
+        }
       }
 
       let settings: any;

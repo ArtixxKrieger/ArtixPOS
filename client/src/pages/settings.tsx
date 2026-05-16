@@ -47,11 +47,6 @@ const settingsSchema = z.object({
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
-  loyaltyPointsPerUnit: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
-  loyaltyRedemptionRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 1, { message: "Must be at least 1" }),
-  wifiSsid: z.string().optional().or(z.literal("")),
-  wifiPassword: z.string().optional().or(z.literal("")),
-  wifiDurationMinutes: z.string().refine(v => !v || (!isNaN(Number(v)) && Number(v) > 0), { message: "Must be greater than 0" }).optional(),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -163,9 +158,7 @@ export default function Settings() {
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      storeName: "", taxRate: "0", address: "", phone: "",
-      emailContact: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
-      wifiSsid: "", wifiPassword: "", wifiDurationMinutes: "60",
+      storeName: "", taxRate: "0", address: "", phone: "", emailContact: "",
     }
   });
 
@@ -177,11 +170,6 @@ export default function Settings() {
         address: (settings as any).address || "",
         phone: (settings as any).phone || "",
         emailContact: (settings as any).emailContact || "",
-        loyaltyPointsPerUnit: (settings as any).loyaltyPointsPerUnit?.toString() || "1",
-        loyaltyRedemptionRate: (settings as any).loyaltyRedemptionRate?.toString() || "100",
-        wifiSsid: (settings as any).wifiSsid || "",
-        wifiPassword: (settings as any).wifiPassword || "",
-        wifiDurationMinutes: (settings as any).wifiDurationMinutes?.toString() || "60",
       });
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
@@ -238,11 +226,6 @@ export default function Settings() {
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,
-      loyaltyPointsPerUnit: data.loyaltyPointsPerUnit,
-      loyaltyRedemptionRate: data.loyaltyRedemptionRate,
-      wifiSsid: data.wifiSsid || null,
-      wifiPassword: data.wifiPassword || null,
-      wifiDurationMinutes: data.wifiDurationMinutes ? Number(data.wifiDurationMinutes) : 60,
     };
     updateSettings.mutate(payload, {
       onSuccess: () => toast({ title: "Settings saved" })
@@ -431,91 +414,6 @@ export default function Settings() {
               </SettingRow>
 
             </div>
-
-            {/* Loyalty */}
-            <SectionLabel>Loyalty Points</SectionLabel>
-            <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-              <SettingRow label="Points per 1 unit spent">
-                <FormField control={form.control} name="loyaltyPointsPerUnit" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input type="number" step="0.01" min="0" {...field} value={field.value || "1"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" data-testid="input-loyalty-points-per-unit" />
-                    </FormControl>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
-              </SettingRow>
-
-              <SettingRow label="Points for 1 unit discount">
-                <FormField control={form.control} name="loyaltyRedemptionRate" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input type="number" step="1" min="1" {...field} value={field.value || "100"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" data-testid="input-loyalty-redemption-rate" />
-                    </FormControl>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
-              </SettingRow>
-            </div>
-
-            {/* Café WiFi vouchers — shown for cafés/restaurants/bars/bakeries (Pro feature) */}
-            {["cafe", "restaurant", "bar", "bakery", "food_truck"].includes(businessSubType) && (
-              <>
-                <SectionLabel>Free WiFi Vouchers</SectionLabel>
-                {isPro ? (
-                  <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-                    <SettingRow label="Network (SSID)" hint="Shown on receipt voucher">
-                      <FormField control={form.control} name="wifiSsid" render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="e.g. ArtixCafe-Guest" data-testid="input-wifi-ssid" />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                    </SettingRow>
-                    <SettingRow label="WiFi Password">
-                      <FormField control={form.control} name="wifiPassword" render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="Leave blank if open" data-testid="input-wifi-password" />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                    </SettingRow>
-                    <SettingRow label="Voucher duration" hint="Minutes per voucher">
-                      <FormField control={form.control} name="wifiDurationMinutes" render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input type="number" min="1" {...field} value={field.value || "60"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" data-testid="input-wifi-duration" />
-                          </FormControl>
-                          <FormMessage className="text-right text-[10px]" />
-                        </FormItem>
-                      )} />
-                    </SettingRow>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setLocation("/billing?reason=pro_required")}
-                    data-testid="button-upgrade-wifi"
-                    className="w-full text-left bg-gradient-to-br from-violet-500/10 via-fuchsia-500/10 to-amber-500/10 border border-violet-500/30 rounded-2xl px-4 py-3.5 shadow-sm hover:from-violet-500/15 hover:via-fuchsia-500/15 hover:to-amber-500/15 transition-all"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0 shadow-md shadow-violet-500/30">
-                        <Sparkles className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold text-foreground">WiFi voucher printing is a Pro feature</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                          Print time-limited WiFi codes on every receipt to delight guests and reduce staff requests. Tap to upgrade.
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-                    </div>
-                  </button>
-                )}
-              </>
-            )}
 
             {/* Contact */}
             <SectionLabel>Contact</SectionLabel>

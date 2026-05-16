@@ -8,7 +8,7 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
-  Sun, Moon, ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu,
+  Sun, Moon, ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -81,6 +81,7 @@ const NAV_SECTIONS = [
       { label: "Transactions", url: "/transactions", icon: ScrollText },
       { label: "Discounts", url: "/discount-codes", icon: Tag, managerOnly: true, proOnly: true },
       { label: "Loyalty", url: "/loyalty", icon: Gift, proOnly: true },
+      { label: "WiFi Vouchers", url: "/wifi-vouchers", icon: Wifi, proOnly: true },
       { label: "Refunds", url: "/refunds", icon: RotateCcw, managerOnly: true },
     ],
   },
@@ -136,6 +137,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/transactions": "nav.transactions",
   "/discount-codes": "nav.discounts",
   "/loyalty": "nav.loyalty",
+  "/wifi-vouchers": "nav.wifiVouchers",
   "/refunds": "nav.refunds",
   "/analytics": "nav.analytics",
   "/expenses": "nav.expenses",
@@ -186,6 +188,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/ai": "AI Assistant",
   "/print-settings": "Print Settings",
   "/loyalty": "Loyalty Program",
+  "/wifi-vouchers": "WiFi Vouchers",
   "/payroll": "Payroll",
   "/bir": "BIR Compliance",
   "/bir-audit-log": "Void Audit Log",

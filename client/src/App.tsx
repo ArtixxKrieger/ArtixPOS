@@ -59,6 +59,7 @@ const BillingPage = lazy(() => import("@/pages/billing"));
 const PrintSettings = lazy(() => import("@/pages/print-settings"));
 const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
 const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
+const WifiVouchersPage = lazy(() => import("@/pages/wifi-vouchers"));
 const PayrollPage = lazy(() => import("@/pages/payroll"));
 const BIRPage = lazy(() => import("@/pages/bir"));
 const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
@@ -453,6 +454,7 @@ function AppRouter() {
           <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
           <Route path="/hardware-settings" component={() => <HardwareSettings />} />
           <Route path="/loyalty" component={() => <ProGuard url="/loyalty" component={LoyaltyPage} />} />
+          <Route path="/wifi-vouchers" component={() => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />} />
           <Route path="/payroll" component={() => <ProGuard url="/payroll" component={PayrollPage} />} />
           <Route path="/bir" component={() => <ProAndOwnerGuard component={BIRPage} />} />
           <Route path="/bir-audit-log" component={() => <ProAndOwnerGuard component={BIRAuditLogPage} />} />

@@ -6,7 +6,7 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock,
+  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -41,6 +41,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/discount-codes": "nav.discounts",
   "/refunds": "nav.refunds",
   "/loyalty": "nav.loyalty",
+  "/wifi-vouchers": "nav.wifiVouchers",
   "/payroll": "nav.payroll",
   "/bir": "nav.bir",
   "/bir-audit-log": "nav.birAuditLog",
@@ -75,6 +76,7 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/discount-codes": { defaultLabel: "Discounts", icon: Tag },
   "/refunds": { defaultLabel: "Refunds", icon: RotateCcw },
   "/loyalty": { defaultLabel: "Loyalty", icon: Gift },
+  "/wifi-vouchers": { defaultLabel: "WiFi Vouchers", icon: Wifi },
   "/payroll": { defaultLabel: "Payroll", icon: Banknote },
   "/bir": { defaultLabel: "BIR", icon: FileCheck },
   "/bir-audit-log": { defaultLabel: "Void Log", icon: BookLock },
@@ -119,6 +121,7 @@ const MORE_NAV_FULL: MoreNavItem[] = [
   { url: "/transactions",     category: "management", cashierHidden: true },
   { url: "/discount-codes",   category: "management", cashierHidden: true, proOnly: true },
   { url: "/loyalty",          category: "management", cashierHidden: true, proOnly: true },
+  { url: "/wifi-vouchers",    category: "management", cashierHidden: true, proOnly: true },
   { url: "/refunds",          category: "management", cashierHidden: true, managerOnly: true },
   // ── Finance & Analytics ───────────────────────────────────────────────────────
   { url: "/analytics",        category: "finance",    cashierHidden: true },

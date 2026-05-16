@@ -17,7 +17,8 @@
     "allowImportingTsExtensions": false,
     "outDir": "./dist",
     "noEmit": false,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]

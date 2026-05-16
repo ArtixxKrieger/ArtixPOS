@@ -44,19 +44,9 @@ const SUBTYPE_LABELS: Record<string, string> = {
 const settingsSchema = z.object({
   storeName: z.string().min(1, "Store name is required"),
   taxRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
-  receiptTitle: z.string().min(1, "Receipt title is required"),
-  receiptWidth: z.enum(["58mm", "80mm"]),
-  receiptShowOrderNumber: z.coerce.number().int().min(0).max(1),
-  receiptShowAddress: z.coerce.number().int().min(0).max(1),
-  receiptShowPhone: z.coerce.number().int().min(0).max(1),
-  receiptShowEmail: z.coerce.number().int().min(0).max(1),
-  receiptShowCashier: z.coerce.number().int().min(0).max(1),
-  receiptShowUnitPrice: z.coerce.number().int().min(0).max(1),
-  receiptShowPoweredBy: z.coerce.number().int().min(0).max(1),
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
-  receiptFooter: z.string().optional().or(z.literal("")),
   loyaltyPointsPerUnit: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
   loyaltyRedemptionRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 1, { message: "Must be at least 1" }),
   wifiSsid: z.string().optional().or(z.literal("")),
@@ -174,10 +164,7 @@ export default function Settings() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       storeName: "", taxRate: "0", address: "", phone: "",
-      emailContact: "", receiptTitle: "OFFICIAL RECEIPT", receiptWidth: "80mm", receiptShowOrderNumber: 1,
-      receiptShowAddress: 1, receiptShowPhone: 1, receiptShowEmail: 0,
-      receiptShowCashier: 0, receiptShowUnitPrice: 1, receiptShowPoweredBy: 1,
-      receiptFooter: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
+      emailContact: "", loyaltyPointsPerUnit: "1", loyaltyRedemptionRate: "100",
       wifiSsid: "", wifiPassword: "", wifiDurationMinutes: "60",
     }
   });
@@ -187,19 +174,9 @@ export default function Settings() {
       form.reset({
         storeName: (settings as any).storeName || "",
         taxRate: (settings as any).taxRate || "0",
-        receiptTitle: (settings as any).receiptTitle || "OFFICIAL RECEIPT",
-        receiptWidth: (settings as any).receiptWidth || "80mm",
-        receiptShowOrderNumber: Number((settings as any).receiptShowOrderNumber ?? 1),
-        receiptShowAddress: Number((settings as any).receiptShowAddress ?? 1),
-        receiptShowPhone: Number((settings as any).receiptShowPhone ?? 1),
-        receiptShowEmail: Number((settings as any).receiptShowEmail ?? 0),
-        receiptShowCashier: Number((settings as any).receiptShowCashier ?? 0),
-        receiptShowUnitPrice: Number((settings as any).receiptShowUnitPrice ?? 1),
-        receiptShowPoweredBy: Number((settings as any).receiptShowPoweredBy ?? 1),
         address: (settings as any).address || "",
         phone: (settings as any).phone || "",
         emailContact: (settings as any).emailContact || "",
-        receiptFooter: (settings as any).receiptFooter || "",
         loyaltyPointsPerUnit: (settings as any).loyaltyPointsPerUnit?.toString() || "1",
         loyaltyRedemptionRate: (settings as any).loyaltyRedemptionRate?.toString() || "100",
         wifiSsid: (settings as any).wifiSsid || "",
@@ -258,19 +235,9 @@ export default function Settings() {
     const payload: Partial<InsertUserSetting> = {
       storeName: data.storeName,
       taxRate: data.taxRate,
-      receiptTitle: data.receiptTitle,
-      receiptWidth: data.receiptWidth,
-      receiptShowOrderNumber: data.receiptShowOrderNumber,
-      receiptShowAddress: data.receiptShowAddress,
-      receiptShowPhone: data.receiptShowPhone,
-      receiptShowEmail: data.receiptShowEmail,
-      receiptShowCashier: data.receiptShowCashier,
-      receiptShowUnitPrice: data.receiptShowUnitPrice,
-      receiptShowPoweredBy: data.receiptShowPoweredBy,
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,
-      receiptFooter: data.receiptFooter,
       loyaltyPointsPerUnit: data.loyaltyPointsPerUnit,
       loyaltyRedemptionRate: data.loyaltyRedemptionRate,
       wifiSsid: data.wifiSsid || null,
@@ -463,72 +430,6 @@ export default function Settings() {
                 )} />
               </SettingRow>
 
-              <SettingRow label="Receipt Footer" hint="Shown on receipts">
-                <FormField control={form.control} name="receiptFooter" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="e.g. Thank you!" data-testid="input-receipt-footer" />
-                    </FormControl>
-                  </FormItem>
-                )} />
-              </SettingRow>
-            </div>
-
-            {/* Receipt Printing */}
-            <SectionLabel>Receipt Printing</SectionLabel>
-            <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-              <SettingRow label="Receipt Title">
-                <FormField control={form.control} name="receiptTitle" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="OFFICIAL RECEIPT" data-testid="input-receipt-title" />
-                    </FormControl>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
-              </SettingRow>
-
-              <SettingRow label="Paper Width">
-                <FormField control={form.control} name="receiptWidth" render={({ field }) => (
-                  <FormItem>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="h-8 text-sm rounded-lg bg-secondary/60 border-none" data-testid="select-receipt-width">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="58mm">58 mm (small)</SelectItem>
-                        <SelectItem value="80mm">80 mm (standard)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-              </SettingRow>
-
-              {(
-                [
-                  { name: "receiptShowOrderNumber" as const, label: "Show Order Number" },
-                  { name: "receiptShowAddress" as const, label: "Show Address" },
-                  { name: "receiptShowPhone" as const, label: "Show Phone" },
-                  { name: "receiptShowEmail" as const, label: "Show Email" },
-                  { name: "receiptShowCashier" as const, label: "Show Cashier Name" },
-                  { name: "receiptShowUnitPrice" as const, label: "Show Unit Price" },
-                  { name: "receiptShowPoweredBy" as const, label: "Show \"Powered by ArtixPOS\"" },
-                ] as const
-              ).map(({ name, label }) => (
-                <FormField key={name} control={form.control} name={name} render={({ field }) => (
-                  <SettingRow label={label}>
-                    <div className="flex justify-end">
-                      <Switch
-                        data-testid={`toggle-${name}`}
-                        checked={field.value === 1}
-                        onCheckedChange={v => field.onChange(v ? 1 : 0)}
-                      />
-                    </div>
-                  </SettingRow>
-                )} />
-              ))}
             </div>
 
             {/* Loyalty */}

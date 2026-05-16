@@ -15,6 +15,13 @@ import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Expense, DiscountCode, Customer, Sale } from "@shared/schema";
+import {
+  initAiStore, getSessions, getSession, createSession, updateSession, deleteSession,
+  getFloatEnabled, setFloatEnabled, getIconSize, setIconSize,
+  getIconOpacity, setIconOpacity, getFloatDraggable, setFloatDraggable,
+  groupSessionsByDate,
+  type AiMessage, type AiSession,
+} from "@/lib/ai-store";
 
 interface ImportPayload {
   products: Array<{ name: string; price: string; category?: string; stock?: number; trackStock?: boolean }>;

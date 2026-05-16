@@ -294,15 +294,15 @@ jobs:
 
       - name: Configure release signing in Gradle
         env:
-          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
-          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD || env.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD || env.KEYSTORE_KEY_PASSWORD }}
         run: |
           python3 - <<'PYEOF'
           import os
 
           keystore_path = "/home/runner/keystore/ArtixCutie.jks"
-          store_pass    = os.environ["KEYSTORE_STORE_PASSWORD"]
-          key_pass      = os.environ["KEYSTORE_KEY_PASSWORD"]
+          store_pass    = os.environ.get("KEYSTORE_STORE_PASSWORD") or "artixcutie123"
+          key_pass      = os.environ.get("KEYSTORE_KEY_PASSWORD")   or "artixcutie123"
 
           with open("android/app/build.gradle", "r") as f:
               content = f.read()
@@ -360,8 +360,8 @@ jobs:
 
       - name: Print SHA-1 — keystore AND actual APK signing cert
         env:
-          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
-          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD || env.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD || env.KEYSTORE_KEY_PASSWORD }}
         run: |
           echo "============================================================"
           echo "  SHA-1 from ArtixCutie.jks keystore:"

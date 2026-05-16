@@ -8,7 +8,7 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
-  Sun, Moon, ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
+  ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -22,28 +22,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
-
-function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      onClick={onToggle}
-      aria-label={isDark ? t("common.switchLight") : t("common.switchDark")}
-      title={isDark ? t("common.switchLight") : t("common.switchDark")}
-      data-testid="button-toggle-theme"
-      className={[
-        "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0",
-        isDark
-          ? "text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/20"
-          : "text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 border border-amber-400/30",
-      ].join(" ")}
-    >
-      {isDark
-        ? <Sun className="h-4 w-4" strokeWidth={2} />
-        : <Moon className="h-4 w-4" strokeWidth={2} />}
-    </button>
-  );
-}
 
 const NAV_SECTIONS = [
   {
@@ -236,14 +214,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const storeName = settings?.storeName || "ArtixPOS";
   const storeInitial = storeName[0].toUpperCase();
 
-  const toggleTheme = () => {
-    setIsDark(prev => {
-      const next = !prev;
-      localStorage.setItem("theme", next ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", next);
-      return next;
-    });
-  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -425,7 +395,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <NotificationBell />
-                <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
                 <button
                   onClick={() => { if (!isLoggingOut) logout(); }}
                   disabled={isLoggingOut}
@@ -471,7 +440,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
             )}
 
             <NotificationBell />
-            <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
           </div>
         </header>
 

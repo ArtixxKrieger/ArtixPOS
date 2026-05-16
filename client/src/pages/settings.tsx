@@ -14,17 +14,16 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
-  Loader2, Download, Globe, Check, Wifi, Printer, Cpu, Sun, Moon, Store,
-  Phone, Mail, MapPin, Receipt, DollarSign, Palette, Shield, Settings2,
-  FileText, Sparkles, BadgeCheck, Star,
+  Loader2, Globe, Check, Sun, Moon, Monitor, Store,
+  Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
+  Sparkles, BadgeCheck, Star,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest, clearNativeToken, nativeFetch } from "@/lib/queryClient";
+import { apiRequest, clearNativeToken } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
 
@@ -75,7 +74,6 @@ const settingsSchema = z.object({
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
   currency: z.string().optional().or(z.literal("")),
-  receiptFooter: z.string().max(120, "Max 120 characters").optional().or(z.literal("")),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -112,39 +110,12 @@ function SettingRow({ label, hint, icon: Icon, iconColor, children }: {
   );
 }
 
-function NavCard({ icon: Icon, iconBg, label, sublabel, onClick }: {
-  icon: React.ElementType; iconBg: string; label: string; sublabel: string; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-card border border-border/25 rounded-2xl shadow-sm hover:bg-secondary/30 hover:border-border/40 transition-all active:scale-[0.99] text-left"
-    >
-      <div className={`h-9 w-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
-        <Icon className="h-4.5 w-4.5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground leading-none">{label}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sublabel}</p>
-      </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-    </button>
-  );
-}
-
 const LANG_FLAGS: Record<string, string> = {
   en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪", pt: "🇧🇷",
   it: "🇮🇹", nl: "🇳🇱", ru: "🇷🇺", tr: "🇹🇷", ar: "🇸🇦",
   hi: "🇮🇳", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", th: "🇹🇭",
   vi: "🇻🇳", id: "🇮🇩", ms: "🇲🇾", tl: "🇵🇭",
 };
-
-function getInitialDark() {
-  const stored = localStorage.getItem("theme");
-  if (stored === "dark") return true;
-  if (stored === "light") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
 
 export default function Settings() {
   const { t, i18n: i18nInstance } = useTranslation();
@@ -163,40 +134,24 @@ export default function Settings() {
   const [showPaymentManager, setShowPaymentManager] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
-  const [isBackingUp, setIsBackingUp] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [langSearch, setLangSearch] = useState("");
-  const [isDark, setIsDark] = useState(getInitialDark);
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored === "dark") return "dark";
+    if (stored === "light") return "light";
+    return "system";
+  });
 
-  const toggleTheme = () => {
-    setIsDark(prev => {
-      const next = !prev;
-      localStorage.setItem("theme", next ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", next);
-      return next;
-    });
-  };
-
-  const handleExportBackup = async () => {
-    if (isBackingUp) return;
-    setIsBackingUp(true);
-    try {
-      const res = await nativeFetch("/api/backup/export");
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `artixpos-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: "Backup downloaded" });
-    } catch {
-      toast({ title: "Backup failed", description: "Please try again.", variant: "destructive" });
-    } finally {
-      setIsBackingUp(false);
+  const applyTheme = (mode: "light" | "dark" | "system") => {
+    setThemeMode(mode);
+    if (mode === "system") {
+      localStorage.removeItem("theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.classList.toggle("dark", prefersDark);
+    } else {
+      localStorage.setItem("theme", mode);
+      document.documentElement.classList.toggle("dark", mode === "dark");
     }
   };
 
@@ -234,7 +189,7 @@ export default function Settings() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       storeName: "", taxRate: "0", address: "", phone: "", emailContact: "",
-      currency: "₱", receiptFooter: "",
+      currency: "₱",
     }
   });
 
@@ -247,7 +202,6 @@ export default function Settings() {
         phone: (settings as any).phone || "",
         emailContact: (settings as any).emailContact || "",
         currency: (settings as any).currency || "₱",
-        receiptFooter: (settings as any).receiptFooter || "",
       });
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
@@ -305,7 +259,6 @@ export default function Settings() {
       phone: data.phone,
       emailContact: data.emailContact,
       currency: data.currency,
-      receiptFooter: data.receiptFooter,
     };
     updateSettings.mutate(payload, {
       onSuccess: () => toast({ title: "Settings saved" })
@@ -380,53 +333,42 @@ export default function Settings() {
         )}
       </div>
 
-      {/* ── Quick links ─────────────────────────────────────────── */}
-      <SectionLabel icon={ChevronRight}>Quick Access</SectionLabel>
-      <div className="grid grid-cols-1 gap-2">
-        <NavCard
-          icon={Wifi}
-          iconBg="bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-500/20"
-          label="WiFi Vouchers"
-          sublabel="Print guest WiFi on receipts"
-          onClick={() => setLocation("/wifi-vouchers")}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <NavCard
-            icon={Printer}
-            iconBg="bg-gradient-to-br from-sky-500 to-blue-600 shadow-md shadow-sky-500/20"
-            label="Print Settings"
-            sublabel="Thermal printer config"
-            onClick={() => setLocation("/print-settings")}
-          />
-          <NavCard
-            icon={Cpu}
-            iconBg="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20"
-            label="Hardware"
-            sublabel="Devices & peripherals"
-            onClick={() => setLocation("/hardware-settings")}
-          />
-        </div>
-      </div>
-
       {/* ── Appearance ──────────────────────────────────────────── */}
       <SectionLabel icon={Palette}>Appearance</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
-        {/* Dark mode */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/20">
-          <div className="flex items-center gap-3">
-            <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-amber-400/20"}`}>
-              {isDark ? <Moon className="h-3.5 w-3.5 text-slate-300" /> : <Sun className="h-3.5 w-3.5 text-amber-500" />}
+        {/* Theme selector */}
+        <div className="px-4 py-3.5 border-b border-border/20">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+              <Palette className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium">{isDark ? "Dark Mode" : "Light Mode"}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Switch interface theme</p>
+              <p className="text-sm font-medium">Theme</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Choose how the interface looks</p>
             </div>
           </div>
-          <Switch
-            checked={isDark}
-            onCheckedChange={toggleTheme}
-            data-testid="button-toggle-theme"
-          />
+          <div className="grid grid-cols-3 gap-1.5 bg-secondary/50 rounded-xl p-1">
+            {([
+              { mode: "light" as const, icon: Sun, label: "Light" },
+              { mode: "dark" as const, icon: Moon, label: "Dark" },
+              { mode: "system" as const, icon: Monitor, label: "System" },
+            ]).map(({ mode, icon: Icon, label }) => (
+              <button
+                key={mode}
+                onClick={() => applyTheme(mode)}
+                data-testid={`button-theme-${mode}`}
+                className={[
+                  "flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all",
+                  themeMode === mode
+                    ? "bg-card shadow-sm text-foreground border border-border/30"
+                    : "text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Language */}
@@ -622,31 +564,6 @@ export default function Settings() {
               </SettingRow>
             </div>
 
-            {/* Receipt */}
-            <SectionLabel icon={Receipt}>Receipt</SectionLabel>
-            <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-              <SettingRow label="Footer Message" hint="Printed at the bottom of every receipt" icon={FileText} iconColor="bg-orange-500/10">
-                <FormField control={form.control} name="receiptFooter" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        value={field.value || ""}
-                        className="text-sm rounded-lg bg-secondary/60 border-none resize-none text-right min-h-[56px] py-1.5 pr-3"
-                        rows={2}
-                        placeholder="Thank you for your purchase!"
-                        data-testid="input-receipt-footer"
-                      />
-                    </FormControl>
-                    <p className="text-[10px] text-muted-foreground text-right mt-0.5">
-                      {(field.value || "").length}/120
-                    </p>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
-              </SettingRow>
-            </div>
-
             <Button
               type="submit"
               className="w-full h-11 rounded-xl font-semibold mt-3 bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 transition-all"
@@ -807,32 +724,6 @@ export default function Settings() {
             )}
           </div>
 
-          {/* ── Data Backup ──────────────────────────────────────── */}
-          <SectionLabel icon={Download}>Data</SectionLabel>
-          <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
-            <div className="px-4 py-3.5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Export Data Backup</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Products, sales & customers as JSON</p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleExportBackup}
-                disabled={isBackingUp}
-                className="h-8 rounded-xl shrink-0 border-border/40"
-                data-testid="button-export-backup"
-              >
-                {isBackingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-          </div>
         </>
       )}
 

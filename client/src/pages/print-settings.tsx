@@ -735,32 +735,6 @@ export default function PrintSettings() {
 
           <SectionLabel>Paper & Layout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-            {/* Currency Symbol — full-width grid so buttons wrap properly on mobile */}
-            <div className="py-3 border-b border-border/20">
-              <div className="mb-2.5">
-                <p className="text-sm font-medium text-foreground leading-none">Currency Symbol</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Symbol shown on receipts and throughout the app</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {["₱", "$", "€", "£", "¥", "S$", "RM", "Rp", "฿", "₩", "₹", "A$", "CA$"].map(sym => (
-                  <button
-                    key={sym}
-                    type="button"
-                    data-testid={`button-currency-${sym}`}
-                    onClick={() => set("currency", sym)}
-                    className={[
-                      "px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors",
-                      cfg.currency === sym
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted text-muted-foreground border-transparent hover:border-border",
-                    ].join(" ")}
-                  >
-                    {sym}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <SettingRow label="Paper Width" hint="Match your thermal printer roll size">
               <div className="flex gap-2 justify-end">
                 {(["58mm", "80mm"] as const).map(w => (

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2, CalendarClock, Pill, FlaskConical } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2, CalendarClock, Pill, FlaskConical, ScanBarcode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
@@ -117,6 +117,57 @@ export default function Products() {
   const [importFileName, setImportFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // ── Barcode scan-into-field ──────────────────────────────────────────────────
+  const [scanningBarcode, setScanningBarcode] = useState(false);
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!scanningBarcode || !isDialogOpen) return;
+
+    let buf = "";
+    let lastAt = 0;
+
+    function onKey(e: KeyboardEvent) {
+      const now = Date.now();
+      const gap = now - lastAt;
+      const isTerminator = e.key === "Enter" || e.key === "Tab" || e.key === "\r";
+
+      if (isTerminator) {
+        if (buf.length >= 4) {
+          // Strip GS1 AIM prefixes and control characters
+          let s = buf;
+          for (const pfx of ["]C1","]C0","]E0","]E2","]Q1","]A0","]I1","]d1","]G0","]F1"]) {
+            if (s.startsWith(pfx)) { s = s.slice(pfx.length); break; }
+          }
+          // eslint-disable-next-line no-control-regex
+          s = s.replace(/[\x00-\x1F\x7F]/g, "").trim();
+          if (s.length >= 4) {
+            form.setValue("barcode", s, { shouldDirty: true });
+            setScanningBarcode(false);
+            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+            e.preventDefault();
+          }
+        }
+        buf = ""; lastAt = 0;
+        return;
+      }
+      if (e.key === "Escape") { setScanningBarcode(false); buf = ""; return; }
+      if (e.key.length !== 1) return;
+      if (gap > 100 && buf.length > 0) buf = "";
+      buf += e.key;
+      lastAt = now;
+    }
+
+    document.addEventListener("keydown", onKey);
+    // Auto-cancel after 15 s if no scan arrives
+    scanTimeoutRef.current = setTimeout(() => setScanningBarcode(false), 15_000);
+
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+    };
+  }, [scanningBarcode, isDialogOpen, form]);
 
   const importMutation = useMutation({
     mutationFn: async (rows: CsvRow[]) => {
@@ -340,7 +391,7 @@ export default function Products() {
             <span className="hidden sm:inline">Import</span>
           </button>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(v) => { setIsDialogOpen(v); if (!v) setScanningBarcode(false); }}>
             <DialogTrigger asChild>
               <Button
                 onClick={openCreate}
@@ -405,10 +456,44 @@ export default function Products() {
                     )} />
                     <FormField control={form.control} name="barcode" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="font-semibold text-sm">Barcode <span className="text-muted-foreground font-normal">(opt.)</span></FormLabel>
+                        <FormLabel className="font-semibold text-sm">
+                          Barcode <span className="text-muted-foreground font-normal">(opt.)</span>
+                        </FormLabel>
                         <FormControl>
-                          <Input {...field} value={field.value ?? ""} placeholder="e.g. 4006381333931" className="h-11 rounded-xl bg-secondary border-none font-mono" data-testid="input-product-barcode" />
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              value={field.value ?? ""}
+                              placeholder={scanningBarcode ? "Aim scanner and scan now…" : "e.g. 4006381333931"}
+                              readOnly={scanningBarcode}
+                              className={[
+                                "h-11 rounded-xl bg-secondary border-none font-mono pr-10 transition-all",
+                                scanningBarcode ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 placeholder:text-emerald-600 dark:placeholder:text-emerald-400 placeholder:font-sans placeholder:text-xs" : "",
+                              ].join(" ")}
+                              data-testid="input-product-barcode"
+                            />
+                            <button
+                              type="button"
+                              title={scanningBarcode ? "Cancel scan (Esc)" : "Scan barcode with scanner"}
+                              onClick={() => setScanningBarcode(v => !v)}
+                              data-testid="button-scan-barcode"
+                              className={[
+                                "absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 transition-all",
+                                scanningBarcode
+                                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 animate-pulse"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                              ].join(" ")}
+                            >
+                              <ScanBarcode className="w-4 h-4" />
+                            </button>
+                          </div>
                         </FormControl>
+                        {scanningBarcode && (
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Listening for scanner — press Esc to cancel
+                          </p>
+                        )}
                       </FormItem>
                     )} />
                   </div>

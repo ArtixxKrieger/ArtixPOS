@@ -692,6 +692,50 @@ export const stockLogs = pgTable("stock_logs", {
 
 export type StockLog = typeof stockLogs.$inferSelect;
 
+// ─── Waste / Spoilage Log ─────────────────────────────────────────────────────
+
+export const wasteLog = pgTable("waste_log", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  branchId: integer("branch_id").references(() => branches.id),
+  productId: integer("product_id").references(() => products.id),
+  ingredientId: integer("ingredient_id").references(() => ingredients.id),
+  itemName: text("item_name").notNull(),
+  quantity: text("quantity").notNull().default("0"),
+  unit: text("unit").default("pcs"),
+  reason: text("reason").notNull().default("expired"), // expired | damaged | theft | sample | cooking_loss | other
+  costImpact: text("cost_impact").notNull().default("0"),
+  note: text("note"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export type WasteLogEntry = typeof wasteLog.$inferSelect;
+
+// ─── Stock Transfers (branch-to-branch) ───────────────────────────────────────
+
+export const stockTransfers = pgTable("stock_transfers", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  fromBranchId: integer("from_branch_id").references(() => branches.id),
+  toBranchId: integer("to_branch_id").references(() => branches.id),
+  status: text("status").notNull().default("pending"), // pending | in_transit | received | rejected
+  notes: text("notes"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at"),
+});
+
+export const stockTransferItems = pgTable("stock_transfer_items", {
+  id: serial("id").primaryKey(),
+  transferId: integer("transfer_id").notNull().references(() => stockTransfers.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  productName: text("product_name").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  note: text("note"),
+});
+
+export type StockTransfer = typeof stockTransfers.$inferSelect;
+export type StockTransferItem = typeof stockTransferItems.$inferSelect;
+
 // ─── Loyalty Tiers ─────────────────────────────────────────────────────────────
 
 export const loyaltyTiers = pgTable("loyalty_tiers", {

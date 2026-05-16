@@ -82,6 +82,12 @@ import {
   type Notification,
   stockLogs,
   type StockLog,
+  wasteLog,
+  type WasteLogEntry,
+  stockTransfers,
+  stockTransferItems,
+  type StockTransfer,
+  type StockTransferItem,
   loyaltyTiers,
   type LoyaltyTier,
   type InsertLoyaltyTier,
@@ -2486,6 +2492,220 @@ export class DatabaseStorage implements IStorage {
     } catch (e) {
       console.error("markAllNotificationsRead error:", e);
     }
+  }
+
+  // ─── Waste / Spoilage Log ──────────────────────────────────────────────────
+
+  async getWasteLogs(userId: string, branchId?: number | null): Promise<WasteLogEntry[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    const conds: ReturnType<typeof eq>[] = [inArray(wasteLog.userId, userIds) as ReturnType<typeof eq>];
+    if (branchId != null) conds.push(eq(wasteLog.branchId, branchId) as ReturnType<typeof eq>);
+    return db.select().from(wasteLog).where(and(...conds)).orderBy(desc(wasteLog.createdAt));
+  }
+
+  async createWasteLog(userId: string, data: {
+    productId?: number | null;
+    ingredientId?: number | null;
+    itemName: string;
+    quantity: string;
+    unit?: string;
+    reason: string;
+    costImpact: string;
+    note?: string;
+    branchId?: number | null;
+  }): Promise<WasteLogEntry> {
+    const [entry] = await db.insert(wasteLog).values({
+      userId,
+      productId: data.productId ?? null,
+      ingredientId: data.ingredientId ?? null,
+      itemName: data.itemName,
+      quantity: data.quantity,
+      unit: data.unit ?? "pcs",
+      reason: data.reason,
+      costImpact: data.costImpact,
+      note: data.note ?? null,
+      branchId: data.branchId ?? null,
+    }).returning();
+    // Deduct from product stock
+    if (data.productId && Number(data.quantity) > 0) {
+      const qty = Math.round(Number(data.quantity));
+      const [prod] = await db.select({ stock: products.stock }).from(products).where(eq(products.id, data.productId));
+      const prev = prod?.stock ?? 0;
+      const next = Math.max(0, prev - qty);
+      await (db.update(products) as ReturnType<typeof db.update>)
+        .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${qty})` })
+        .where(eq(products.id, data.productId));
+      await db.insert(stockLogs).values({
+        productId: data.productId, userId,
+        previousStock: prev, newStock: next, delta: -qty,
+        reason: "waste", note: `${data.reason}${data.note ? ": " + data.note : ""}`,
+      });
+    }
+    // Deduct from ingredient stock
+    if (data.ingredientId && Number(data.quantity) > 0) {
+      await (db.update(ingredients) as ReturnType<typeof db.update>)
+        .set({ stockQty: sql`GREATEST('0', (COALESCE(stock_qty, '0')::numeric - ${Number(data.quantity)})::text)` })
+        .where(eq(ingredients.id, data.ingredientId));
+    }
+    return entry;
+  }
+
+  // ─── Stock Transfers ────────────────────────────────────────────────────────
+
+  async getStockTransfers(userId: string, branchId?: number | null): Promise<(StockTransfer & { items: StockTransferItem[] })[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    const conds: ReturnType<typeof eq>[] = [inArray(stockTransfers.userId, userIds) as ReturnType<typeof eq>];
+    if (branchId != null) {
+      conds.push(sql`(${stockTransfers.fromBranchId} = ${branchId} OR ${stockTransfers.toBranchId} = ${branchId})` as ReturnType<typeof eq>);
+    }
+    const transfers = await db.select().from(stockTransfers).where(and(...conds)).orderBy(desc(stockTransfers.createdAt));
+    if (transfers.length === 0) return [];
+    const ids = transfers.map(t => t.id);
+    const items = await db.select().from(stockTransferItems).where(inArray(stockTransferItems.transferId, ids));
+    const itemsByTransfer = new Map<number, StockTransferItem[]>();
+    for (const item of items) {
+      const arr = itemsByTransfer.get(item.transferId) ?? [];
+      arr.push(item);
+      itemsByTransfer.set(item.transferId, arr);
+    }
+    return transfers.map(t => ({ ...t, items: itemsByTransfer.get(t.id) ?? [] }));
+  }
+
+  async createStockTransfer(userId: string, data: {
+    fromBranchId?: number | null;
+    toBranchId?: number | null;
+    notes?: string;
+    items: { productId: number; productName: string; quantity: number; note?: string }[];
+  }): Promise<StockTransfer & { items: StockTransferItem[] }> {
+    const [transfer] = await db.insert(stockTransfers).values({
+      userId,
+      fromBranchId: data.fromBranchId ?? null,
+      toBranchId: data.toBranchId ?? null,
+      notes: data.notes ?? null,
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+    }).returning();
+    let insertedItems: StockTransferItem[] = [];
+    if (data.items.length > 0) {
+      insertedItems = await db.insert(stockTransferItems).values(
+        data.items.map(i => ({ transferId: transfer.id, productId: i.productId, productName: i.productName, quantity: i.quantity, note: i.note ?? null }))
+      ).returning();
+      // Deduct stock from source branch immediately
+      for (const item of data.items) {
+        await (db.update(products) as ReturnType<typeof db.update>)
+          .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${item.quantity})` })
+          .where(and(eq(products.id, item.productId), inArray(products.userId, await this.getTenantUserIds(userId))));
+        await db.insert(stockLogs).values({
+          productId: item.productId, userId,
+          previousStock: 0, newStock: 0, delta: -item.quantity,
+          reason: "transfer_out", note: `Transfer to branch ${data.toBranchId ?? "?"}`,
+        });
+      }
+    }
+    return { ...transfer, items: insertedItems };
+  }
+
+  async updateStockTransferStatus(id: number, userId: string, status: "in_transit" | "received" | "rejected"): Promise<void> {
+    const userIds = await this.getTenantUserIds(userId);
+    const [transfer] = await db.select().from(stockTransfers)
+      .where(and(eq(stockTransfers.id, id), inArray(stockTransfers.userId, userIds)));
+    if (!transfer) throw new Error("Transfer not found");
+    await (db.update(stockTransfers) as ReturnType<typeof db.update>)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq(stockTransfers.id, id));
+    if (status === "received" && transfer.toBranchId != null) {
+      const items = await db.select().from(stockTransferItems).where(eq(stockTransferItems.transferId, id));
+      for (const item of items) {
+        await (db.update(products) as ReturnType<typeof db.update>)
+          .set({ stock: sql`COALESCE(stock, 0) + ${item.quantity}` })
+          .where(and(eq(products.id, item.productId), inArray(products.userId, userIds)));
+        await db.insert(stockLogs).values({
+          productId: item.productId, userId,
+          previousStock: 0, newStock: 0, delta: item.quantity,
+          reason: "transfer_in", note: `Received transfer from branch ${transfer.fromBranchId ?? "?"}`,
+        });
+      }
+    } else if (status === "rejected") {
+      // Return stock to source branch
+      const items = await db.select().from(stockTransferItems).where(eq(stockTransferItems.transferId, id));
+      for (const item of items) {
+        await (db.update(products) as ReturnType<typeof db.update>)
+          .set({ stock: sql`COALESCE(stock, 0) + ${item.quantity}` })
+          .where(and(eq(products.id, item.productId), inArray(products.userId, userIds)));
+        await db.insert(stockLogs).values({
+          productId: item.productId, userId,
+          previousStock: 0, newStock: 0, delta: item.quantity,
+          reason: "transfer_rejected", note: `Transfer rejected — stock returned`,
+        });
+      }
+    }
+  }
+
+  // ─── Reorder Suggestions (velocity-based) ──────────────────────────────────
+
+  async getReorderSuggestions(userId: string, branchId?: number | null): Promise<{
+    productId: number; productName: string; currentStock: number;
+    lowStockThreshold: number; soldLast30Days: number; avgDailySales: number;
+    daysOfStockLeft: number; suggestedOrderQty: number; preferredSupplierId: number | null;
+    preferredSupplierName: string | null; unitCost: string | null;
+  }[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    const userCond = userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds);
+    const branchCond = branchId != null ? eq(products.branchId, branchId) : undefined;
+    const lowStockProds = await db.select().from(products).where(
+      and(userCond, branchCond, eq(products.trackStock, true), sql`COALESCE(stock, 0) <= COALESCE(low_stock_threshold, 10)`, isNull(products.deletedAt))
+    );
+    if (lowStockProds.length === 0) return [];
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const recentSales = await db.select({ id: sales.id, items: sales.items, createdAt: sales.createdAt })
+      .from(sales)
+      .where(and(inArray(sales.userId, userIds), sql`${sales.createdAt} >= ${thirtyDaysAgo}`, isNull(sales.deletedAt)));
+
+    const soldMap = new Map<number, number>();
+    for (const sale of recentSales) {
+      const items = (sale.items ?? []) as { productId?: number; id?: number; quantity?: number }[];
+      for (const item of items) {
+        const pid = Number(item.productId ?? item.id);
+        if (!Number.isFinite(pid)) continue;
+        soldMap.set(pid, (soldMap.get(pid) ?? 0) + Number(item.quantity ?? 1));
+      }
+    }
+
+    const productIds = lowStockProds.map(p => p.id);
+    const supplierProds = productIds.length > 0
+      ? await db.select({ productId: supplierProducts.productId, supplierId: supplierProducts.supplierId, unitCost: supplierProducts.unitCost })
+          .from(supplierProducts).where(inArray(supplierProducts.productId, productIds))
+      : [];
+    const supplierMap = new Map<number, { supplierId: number; unitCost: string }>();
+    for (const sp of supplierProds) { if (!supplierMap.has(sp.productId)) supplierMap.set(sp.productId, { supplierId: sp.supplierId, unitCost: sp.unitCost }); }
+
+    const supplierIdSet = new Set<number>();
+    for (const sv of supplierMap.values()) supplierIdSet.add(sv.supplierId);
+    const supplierIds = [...supplierIdSet];
+    const supplierNames = supplierIds.length > 0
+      ? await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(inArray(suppliers.id, supplierIds as number[]))
+      : [];
+    const supplierNameMap = new Map(supplierNames.map(s => [s.id, s.name]));
+
+    return lowStockProds.map(prod => {
+      const sold30 = soldMap.get(prod.id) ?? 0;
+      const avgDaily = sold30 / 30;
+      const current = prod.stock ?? 0;
+      const daysLeft = avgDaily > 0 ? Math.floor(current / avgDaily) : 999;
+      const reorderDays = 14;
+      const suggested = Math.max(prod.lowStockThreshold ?? 10, Math.ceil(avgDaily * reorderDays * 1.2));
+      const sp = supplierMap.get(prod.id);
+      return {
+        productId: prod.id, productName: prod.name,
+        currentStock: current, lowStockThreshold: prod.lowStockThreshold ?? 10,
+        soldLast30Days: sold30, avgDailySales: Math.round(avgDaily * 10) / 10,
+        daysOfStockLeft: daysLeft, suggestedOrderQty: suggested,
+        preferredSupplierId: sp?.supplierId ?? null,
+        preferredSupplierName: sp ? (supplierNameMap.get(sp.supplierId) ?? null) : null,
+        unitCost: sp?.unitCost ?? null,
+      };
+    }).sort((a, b) => a.daysOfStockLeft - b.daysOfStockLeft);
   }
 
   /** Deduct product stock after a sale and create restock notifications for items that hit 0 or low threshold. */

@@ -7,7 +7,7 @@ import {
   Home, ShoppingCart, Clock, Package,
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
-  LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
+  LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   Sun, Moon, ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
@@ -75,6 +75,7 @@ const NAV_SECTIONS = [
     label: "Management",
     items: [
       { label: "Products", url: "/products", icon: Package },
+      { label: "Inventory Hub", url: "/inventory", icon: Warehouse },
       { label: "Expiry Tracker", url: "/expiry", icon: CalendarClock },
       { label: "Customers", url: "/customers", icon: UserCircle2, managerOnly: true, proOnly: true },
       { label: "Transactions", url: "/transactions", icon: ScrollText },

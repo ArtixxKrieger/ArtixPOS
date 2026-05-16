@@ -61,6 +61,7 @@ const PayrollPage = lazy(() => import("@/pages/payroll"));
 const BIRPage = lazy(() => import("@/pages/bir"));
 const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
 const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
+const InventoryHubPage = lazy(() => import("@/pages/inventory-hub"));
 const VercelAnalytics = lazy(() =>
   import("@vercel/analytics/react").then((m) => ({ default: m.Analytics }))
 );
@@ -452,6 +453,7 @@ function AppRouter() {
           <Route path="/bir" component={() => <ProAndOwnerGuard component={BIRPage} />} />
           <Route path="/bir-audit-log" component={() => <ProAndOwnerGuard component={BIRAuditLogPage} />} />
           <Route path="/expiry" component={() => <CashierGuard component={ExpiryTrackerPage} />} />
+          <Route path="/inventory" component={() => <CashierGuard component={InventoryHubPage} />} />
           <Route path="/billing" component={() => <BillingPage />} />
           <Route component={NotFound} />
         </Switch>

@@ -69,7 +69,7 @@ const VercelAnalytics = lazy(() =>
  * Extract and store the JWT token from an OAuth deep-link URL.
  * com.cafebara.app://auth?token=<jwt>
  */
-function decodeJwtPayload(token: string): Record<string, any> | null {
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const part = token.split(".")[1];
     if (!part) return null;
@@ -190,7 +190,7 @@ function ProGuard({ component: Component, url }: { component: ComponentType; url
   const { isPro, isLoading } = useSubscription();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   if (isLoading || settingsLoading) return null;
-  if (!isPro && !isEssentialBusinessUrl(url, (settings as any)?.businessType, (settings as any)?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
+  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
   return <Component />;
 }
 
@@ -199,7 +199,7 @@ function ProAndCashierGuard({ component: Component, url }: { component: Componen
   const { isPro, isLoading } = useSubscription();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   if (isLoading || settingsLoading) return null;
-  if (!isPro && !isEssentialBusinessUrl(url, (settings as any)?.businessType, (settings as any)?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
+  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
   if (user?.role === "cashier") return <Redirect to="/" />;
   return <Component />;
 }

@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ── Secret scanning ────────────────────────────────────────────────────────
   # Fails the build if any credentials, API keys, or tokens are committed.
@@ -83,14 +86,6 @@ jobs:
 
       - name: Run test suite with coverage
         run: npx vitest run --reporter=verbose --coverage
-
-      - name: Enforce minimum coverage thresholds
-        run: |
-          npx vitest run --coverage --coverage.thresholds.lines=10 \
-            --coverage.thresholds.functions=10 \
-            --coverage.thresholds.branches=10 \
-            --coverage.thresholds.statements=10 || \
-          echo "::warning::Coverage below 10% threshold — increase test coverage"
 
       - name: Upload coverage report
         if: always()

@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { AiFloatButton } from "@/components/ai-float-button";
 import {
+  type LucideIcon,
   Home, ShoppingCart, Clock, Package,
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
@@ -225,7 +226,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     branchBusinessSubType,
   );
 
-  const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
+  const pendingCount = pendingOrders.filter(o => o.status !== "paid").length;
   const storeName = settings?.storeName || "ArtixPOS";
   const storeInitial = storeName[0].toUpperCase();
 
@@ -266,18 +267,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [location, storeName, businessLabels]);
 
   function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean }) {
-    if (businessHiddenUrls.has(item.url as any)) return false;
-    if ((item as any).proOnly && isFree && !businessEssentialUrls.has(item.url)) return false;
+    if (businessHiddenUrls.has(item.url)) return false;
+    if (item.proOnly && isFree && !businessEssentialUrls.has(item.url)) return false;
     if (isCashier) {
       const cashierUrls = ["/", "/pos", "/pending", "/settings", ...businessEssentialUrls];
       return cashierUrls.includes(item.url);
     }
-    if ((item as any).managerOnly && !isManagerOrAbove) return false;
-    if ((item as any).ownerOnly && !isOwner) return false;
+    if (item.managerOnly && !isManagerOrAbove) return false;
+    if (item.ownerOnly && !isOwner) return false;
     return true;
   }
 
-  const NavItem = ({ item }: { item: { label: string; url: string; icon: any; managerOnly?: boolean; ownerOnly?: boolean } }) => {
+  const NavItem = ({ item }: { item: { label: string; url: string; icon: LucideIcon; managerOnly?: boolean; ownerOnly?: boolean } }) => {
     if (!shouldShowNavItem(item)) return null;
     const Icon = item.icon;
     const isActive = location === item.url;

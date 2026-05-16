@@ -57,6 +57,7 @@ const RoomsPage = lazy(() => import("@/pages/rooms"));
 const MembershipsPage = lazy(() => import("@/pages/memberships"));
 const BillingPage = lazy(() => import("@/pages/billing"));
 const PrintSettings = lazy(() => import("@/pages/print-settings"));
+const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
 const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
 const PayrollPage = lazy(() => import("@/pages/payroll"));
 const BIRPage = lazy(() => import("@/pages/bir"));
@@ -332,6 +333,7 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/memberships"),
   () => import("@/pages/billing"),
   () => import("@/pages/print-settings"),
+  () => import("@/pages/hardware-settings"),
   () => import("@/pages/loyalty"),
   () => import("@/pages/payroll"),
   () => import("@/pages/bir"),
@@ -449,6 +451,7 @@ function AppRouter() {
           <Route path="/rooms" component={() => <ProGuard url="/rooms" component={RoomsPage} />} />
           <Route path="/memberships" component={() => <ProGuard url="/memberships" component={MembershipsPage} />} />
           <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
+          <Route path="/hardware-settings" component={() => <HardwareSettings />} />
           <Route path="/loyalty" component={() => <ProGuard url="/loyalty" component={LoyaltyPage} />} />
           <Route path="/payroll" component={() => <ProGuard url="/payroll" component={PayrollPage} />} />
           <Route path="/bir" component={() => <ProAndOwnerGuard component={BIRPage} />} />

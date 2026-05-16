@@ -8,7 +8,7 @@ import {
   Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
-  Sun, Moon, ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock,
+  Sun, Moon, ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -101,6 +101,7 @@ const NAV_SECTIONS = [
     label: "Tools",
     items: [
       { label: "AI Assistant", url: "/ai", icon: Sparkles, proOnly: true },
+      { label: "Hardware", url: "/hardware-settings", icon: Cpu },
       { label: "Print Settings", url: "/print-settings", icon: ReceiptText, ownerOnly: true },
       { label: "Billing", url: "/billing", icon: CreditCard, ownerOnly: true },
       { label: "Settings", url: "/settings", icon: Settings },
@@ -143,6 +144,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/bir": "nav.bir",
   "/bir-audit-log": "nav.birAuditLog",
   "/ai": "nav.ai",
+  "/hardware-settings": "nav.hardwareSettings",
   "/print-settings": "nav.printSettings",
   "/billing": "nav.billing",
   "/settings": "nav.settings",

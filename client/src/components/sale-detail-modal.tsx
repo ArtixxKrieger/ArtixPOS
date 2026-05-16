@@ -16,6 +16,7 @@ import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useDeleteSale } from "@/hooks/use-sales";
+import { type UserSetting } from "@shared/schema";
 
 type SaleItem = {
   cartId?: string;
@@ -46,6 +47,9 @@ type Sale = {
   deletedAt?: string | null;
   deletedBy?: string | null;
   voidReason?: string | null;
+  receiptNumber?: string | null;
+  orNumber?: string | null;
+  invoiceNumber?: string | null;
 };
 
 interface SaleDetailModalProps {
@@ -80,7 +84,7 @@ const PAYMENT_COLORS: Record<string, string> = {
 
 export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const { data: settings } = useSettings();
-  const currency = (settings as any)?.currency || "₱";
+  const currency = settings?.currency || "₱";
   const { toast } = useToast();
   const { isManagerOrAbove } = useAuth();
   const { data: perms } = useMyPermissions();
@@ -145,9 +149,8 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const method = sale.paymentMethod || "cash";
 
   const handleReprint = async () => {
-    const s = (settings ?? {}) as Record<string, any>;
+    const s: Partial<UserSetting> = settings ?? {};
     const receiptWidth = s.receiptWidth ?? "80mm";
-    const paperPx = receiptWidth === "58mm" ? 210 : 280;
     const storeName = s.storeName ?? "";
     const address = s.address ?? "";
     const phone = s.phone ?? "";
@@ -165,15 +168,15 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     const showPoweredBy = true;
     const fs = 25;
     const cur = currency;
-    const taxRateNum = parseNumeric(s.taxRate || 0);
+    const taxRateNum = parseNumeric(s.taxRate ?? 0);
     const vatLabel = s.taxRate ? `VAT (${s.taxRate}%)` : "VAT";
     const printDarkness = s.printDarkness ?? 65535;
 
     const fmt = (n: number) => formatCurrency(n, cur);
     const txn = `TXN-${String(sale.id ?? 0).padStart(4, "0")}`;
-    const receiptNumber = (sale as any).receiptNumber || txn;
-    const orNumber = (sale as any).orNumber || receiptNumber;
-    const invoiceNumber = (sale as any).invoiceNumber || "";
+    const receiptNumber = sale.receiptNumber || txn;
+    const orNumber = sale.orNumber || receiptNumber;
+    const invoiceNumber = sale.invoiceNumber || "";
     const dateStr = sale.createdAt ? format(new Date(sale.createdAt), "MMM d, yyyy h:mm a") : format(new Date(), "MMM d, yyyy h:mm a");
 
     if (blePrinter.connected) {
@@ -196,14 +199,14 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
         orderNumber: sale.id ?? undefined,
         dateStr,
         items: items.map(item => {
-          const basePrice = parseNumeric((item.size as any)?.price || (item.product as any)?.price);
-          const modsTotal = ((item.modifiers || []) as any[]).reduce((acc: number, m: any) => acc + parseNumeric(m.price), 0);
+          const basePrice = parseNumeric(item.size?.price ?? item.product?.price);
+          const modsTotal = (item.modifiers ?? []).reduce((acc, m) => acc + parseNumeric(m.price), 0);
           return {
-            name: (item.product as any)?.name ?? "Item",
-            sizeName: (item.size as any)?.name,
+            name: item.product?.name ?? "Item",
+            sizeName: item.size?.name,
             qty: item.quantity || 1,
             unitPrice: basePrice + modsTotal,
-            modifiers: ((item.modifiers || []) as any[]).map((m: any) => ({ name: m.name ?? "", price: String(m.price ?? "0") })),
+            modifiers: (item.modifiers ?? []).map(m => ({ name: m.name ?? "", price: String(m.price ?? "0") })),
           };
         }),
         subtotal,
@@ -236,17 +239,17 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     }
 
     const itemsHtml = items.map(item => {
-      const basePrice = parseNumeric((item.size as any)?.price || (item.product as any)?.price);
-      const modsTotal = ((item.modifiers || []) as any[]).reduce((s: number, m: any) => s + parseNumeric(m.price), 0);
+      const basePrice = parseNumeric(item.size?.price ?? item.product?.price);
+      const modsTotal = (item.modifiers ?? []).reduce((acc, m) => acc + parseNumeric(m.price), 0);
       const unitPrice = basePrice + modsTotal;
       const lineTotal = unitPrice * (item.quantity || 1);
       return `
         <div class="row">
-          <span class="item-name">${(item.product as any)?.name ?? "Item"}${(item.size as any)?.name ? ` (${(item.size as any).name})` : ""} x${item.quantity}</span>
+          <span class="item-name">${item.product?.name ?? "Item"}${item.size?.name ? ` (${item.size.name})` : ""} x${item.quantity}</span>
           <span class="price">${fmt(lineTotal)}</span>
         </div>
         ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px;font-size:${fs - 2}px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
-        ${((item.modifiers || []) as any[]).length > 0 ? `<div class="muted" style="padding-left:12px">+ ${((item.modifiers || []) as any[]).map((m: any) => m.name).join(", ")}</div>` : ""}
+        ${(item.modifiers ?? []).length > 0 ? `<div class="muted" style="padding-left:12px">+ ${(item.modifiers ?? []).map(m => m.name).join(", ")}</div>` : ""}
       `;
     }).join("");
 
@@ -483,7 +486,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
                 )}
                 {tax > 0 && (
                   <div className="flex justify-between text-muted-foreground">
-                    <span>{(settings as any)?.taxRate ? `VAT (${(settings as any).taxRate}%)` : "VAT"}</span>
+                    <span>{settings?.taxRate ? `VAT (${settings.taxRate}%)` : "VAT"}</span>
                     <span className="tabular-nums font-medium">{formatCurrency(tax, currency)}</span>
                   </div>
                 )}

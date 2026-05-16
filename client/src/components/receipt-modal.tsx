@@ -8,6 +8,7 @@ import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useToast } from "@/hooks/use-toast";
+import { type UserSetting } from "@shared/schema";
 
 interface ReceiptItem {
   product: { name: string; price?: string | number };
@@ -55,7 +56,7 @@ interface ReceiptModalProps {
 
 export function buildReceiptHtml(
   printableId: string,
-  settings: Record<string, any>,
+  settings: Partial<UserSetting> | null | undefined,
 ): string | null {
   const el = document.getElementById(printableId);
   if (!el) return null;
@@ -96,7 +97,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
   if (!receipt) return null;
 
-  const s = (settings ?? {}) as Record<string, any>;
+  const s: Partial<UserSetting> = settings ?? {};
   const { currency } = receipt;
   const now = new Date();
 

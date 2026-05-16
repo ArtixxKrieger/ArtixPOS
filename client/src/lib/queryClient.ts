@@ -42,7 +42,7 @@ function getCsrfToken(): string {
   return match?.[1] ?? "";
 }
 
-function getCsrfHeaders(method: string): Record<string, string> {
+export function getCsrfHeaders(method: string): Record<string, string> {
   if (!UNSAFE_METHODS.has(method.toUpperCase())) return {};
   if (API_BASE) return {}; // Native client — Bearer token, CSRF not needed
   const token = getCsrfToken();

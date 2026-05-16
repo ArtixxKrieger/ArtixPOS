@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY } from "@/lib/queryClient";
+import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY, getCsrfHeaders } from "@/lib/queryClient";
 import { clearApiCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 
@@ -90,7 +90,10 @@ export function useAuth() {
         await fetch(resolveUrl("/auth/logout"), {
           method: "POST",
           credentials: "include",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          headers: {
+            ...getCsrfHeaders("POST"),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
       } catch {
         // Offline or network error — still proceed with local-only logout.

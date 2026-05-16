@@ -12,7 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket, Loader2, Download, Globe, Check } from "lucide-react";
+import {
+  Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
+  Loader2, Download, Globe, Check, Wifi, Printer, Cpu, Sun, Moon, Store,
+  Phone, Mail, MapPin, Receipt, DollarSign, Palette, Shield, Settings2,
+  FileText, Sparkles, BadgeCheck, Star,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +27,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest, clearNativeToken, nativeFetch } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
-import { Sparkles } from "lucide-react";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   food_beverage: "Food & Beverage",
@@ -41,36 +45,105 @@ const SUBTYPE_LABELS: Record<string, string> = {
   tutoring: "Tutoring / Education", repair: "Repair & Maintenance", other: "Other",
 };
 
+const CURRENCIES = [
+  { code: "₱", label: "Philippine Peso (₱)" },
+  { code: "$", label: "US Dollar ($)" },
+  { code: "€", label: "Euro (€)" },
+  { code: "£", label: "British Pound (£)" },
+  { code: "¥", label: "Japanese Yen (¥)" },
+  { code: "₩", label: "Korean Won (₩)" },
+  { code: "฿", label: "Thai Baht (฿)" },
+  { code: "Rp", label: "Indonesian Rupiah (Rp)" },
+  { code: "RM", label: "Malaysian Ringgit (RM)" },
+  { code: "S$", label: "Singapore Dollar (S$)" },
+  { code: "₹", label: "Indian Rupee (₹)" },
+  { code: "د.إ", label: "UAE Dirham (د.إ)" },
+  { code: "﷼", label: "Saudi Riyal (﷼)" },
+  { code: "kr", label: "Swedish Krona (kr)" },
+  { code: "Fr", label: "Swiss Franc (Fr)" },
+  { code: "R$", label: "Brazilian Real (R$)" },
+  { code: "A$", label: "Australian Dollar (A$)" },
+  { code: "C$", label: "Canadian Dollar (C$)" },
+  { code: "MXN", label: "Mexican Peso (MXN)" },
+  { code: "ZAR", label: "South African Rand (ZAR)" },
+];
+
 const settingsSchema = z.object({
   storeName: z.string().min(1, "Store name is required"),
   taxRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
+  currency: z.string().optional().or(z.literal("")),
+  receiptFooter: z.string().max(120, "Max 120 characters").optional().or(z.literal("")),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, icon: Icon }: { children: React.ReactNode; icon?: React.ElementType }) {
   return (
-    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 px-1 pt-2 pb-1">
-      {children}
-    </p>
+    <div className="flex items-center gap-2 px-1 pt-3 pb-1.5">
+      {Icon && <Icon className="h-3 w-3 text-muted-foreground/60" />}
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{children}</p>
+    </div>
   );
 }
 
-function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function SettingRow({ label, hint, icon: Icon, iconColor, children }: {
+  label: string; hint?: string; icon?: React.ElementType; iconColor?: string; children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/20 last:border-0">
-      <div className="shrink-0 pt-1.5">
-        <p className="text-sm font-medium text-foreground leading-none">{label}</p>
-        {hint && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{hint}</p>}
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border/20 last:border-0">
+      <div className="flex items-start gap-3 shrink-0 flex-1 min-w-0">
+        {Icon && (
+          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconColor ?? "bg-muted/60"}`}>
+            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground leading-none">{label}</p>
+          {hint && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{hint}</p>}
+        </div>
       </div>
-      <div className="min-w-0 flex-1 max-w-[55%]">
+      <div className="min-w-0 shrink-0 max-w-[52%]">
         {children}
       </div>
     </div>
   );
+}
+
+function NavCard({ icon: Icon, iconBg, label, sublabel, onClick }: {
+  icon: React.ElementType; iconBg: string; label: string; sublabel: string; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-card border border-border/25 rounded-2xl shadow-sm hover:bg-secondary/30 hover:border-border/40 transition-all active:scale-[0.99] text-left"
+    >
+      <div className={`h-9 w-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground leading-none">{label}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sublabel}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+    </button>
+  );
+}
+
+const LANG_FLAGS: Record<string, string> = {
+  en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪", pt: "🇧🇷",
+  it: "🇮🇹", nl: "🇳🇱", ru: "🇷🇺", tr: "🇹🇷", ar: "🇸🇦",
+  hi: "🇮🇳", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", th: "🇹🇭",
+  vi: "🇻🇳", id: "🇮🇩", ms: "🇲🇾", tl: "🇵🇭",
+};
+
+function getInitialDark() {
+  const stored = localStorage.getItem("theme");
+  if (stored === "dark") return true;
+  if (stored === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 export default function Settings() {
@@ -93,12 +166,15 @@ export default function Settings() {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [langSearch, setLangSearch] = useState("");
+  const [isDark, setIsDark] = useState(getInitialDark);
 
-  const LANG_FLAGS: Record<string, string> = {
-    en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪", pt: "🇧🇷",
-    it: "🇮🇹", nl: "🇳🇱", ru: "🇷🇺", tr: "🇹🇷", ar: "🇸🇦",
-    hi: "🇮🇳", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", th: "🇹🇭",
-    vi: "🇻🇳", id: "🇮🇩", ms: "🇲🇾", tl: "🇵🇭",
+  const toggleTheme = () => {
+    setIsDark(prev => {
+      const next = !prev;
+      localStorage.setItem("theme", next ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", next);
+      return next;
+    });
   };
 
   const handleExportBackup = async () => {
@@ -145,7 +221,6 @@ export default function Settings() {
     try {
       await apiRequest("DELETE", "/api/auth/account");
       clearNativeToken();
-      // clearAllCache is best-effort — don't let it block the redirect
       try { await clearAllCache(); } catch {}
       queryClient.clear();
       window.location.href = "/login";
@@ -159,6 +234,7 @@ export default function Settings() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       storeName: "", taxRate: "0", address: "", phone: "", emailContact: "",
+      currency: "₱", receiptFooter: "",
     }
   });
 
@@ -170,6 +246,8 @@ export default function Settings() {
         address: (settings as any).address || "",
         phone: (settings as any).phone || "",
         emailContact: (settings as any).emailContact || "",
+        currency: (settings as any).currency || "₱",
+        receiptFooter: (settings as any).receiptFooter || "",
       });
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
@@ -226,6 +304,8 @@ export default function Settings() {
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,
+      currency: data.currency,
+      receiptFooter: data.receiptFooter,
     };
     updateSettings.mutate(payload, {
       onSuccess: () => toast({ title: "Settings saved" })
@@ -257,10 +337,17 @@ export default function Settings() {
     }
   };
 
+  const handleLanguageChange = (code: string) => {
+    setCurrentLang(code);
+    i18n.changeLanguage(code);
+    localStorage.setItem("artixpos_language", code);
+  };
+
   if (isLoading) {
     return (
-      <div className="max-w-lg space-y-2">
-        {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />)}
+      <div className="max-w-lg space-y-3 py-2">
+        <div className="h-24 bg-muted rounded-2xl animate-pulse" />
+        {[1, 2, 3].map(i => <div key={i} className="h-32 bg-muted rounded-2xl animate-pulse" />)}
       </div>
     );
   }
@@ -271,39 +358,99 @@ export default function Settings() {
     ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
     : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
 
-  const handleLanguageChange = (code: string) => {
-    setCurrentLang(code);
-    i18n.changeLanguage(code);
-    localStorage.setItem("artixpos_language", code);
-  };
-
   return (
-    <div className="max-w-lg page-enter space-y-1">
+    <div className="max-w-lg page-enter space-y-0.5">
 
-      {/* Language selector — available to all users */}
-      <SectionLabel>{t("settings.language")}</SectionLabel>
+      {/* ── Hero header ─────────────────────────────────────────── */}
+      <div className="flex items-center gap-4 pb-3 pt-1">
+        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
+          <Settings2 className="h-6 w-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-xl font-black text-foreground leading-tight">Settings</h1>
+          <p className="text-[12px] text-muted-foreground">
+            {(settings as any)?.storeName || "Your store"} · {businessLabel || "Business"}
+          </p>
+        </div>
+        {isPro && (
+          <div className="ml-auto flex items-center gap-1.5 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 rounded-full px-3 py-1 shrink-0">
+            <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
+            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Quick links ─────────────────────────────────────────── */}
+      <SectionLabel icon={ChevronRight}>Quick Access</SectionLabel>
+      <div className="grid grid-cols-1 gap-2">
+        <NavCard
+          icon={Wifi}
+          iconBg="bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-500/20"
+          label="WiFi Vouchers"
+          sublabel="Print guest WiFi on receipts"
+          onClick={() => setLocation("/wifi-vouchers")}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <NavCard
+            icon={Printer}
+            iconBg="bg-gradient-to-br from-sky-500 to-blue-600 shadow-md shadow-sky-500/20"
+            label="Print Settings"
+            sublabel="Thermal printer config"
+            onClick={() => setLocation("/print-settings")}
+          />
+          <NavCard
+            icon={Cpu}
+            iconBg="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20"
+            label="Hardware"
+            sublabel="Devices & peripherals"
+            onClick={() => setLocation("/hardware-settings")}
+          />
+        </div>
+      </div>
+
+      {/* ── Appearance ──────────────────────────────────────────── */}
+      <SectionLabel icon={Palette}>Appearance</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+        {/* Dark mode */}
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/20">
+          <div className="flex items-center gap-3">
+            <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-amber-400/20"}`}>
+              {isDark ? <Moon className="h-3.5 w-3.5 text-slate-300" /> : <Sun className="h-3.5 w-3.5 text-amber-500" />}
+            </div>
+            <div>
+              <p className="text-sm font-medium">{isDark ? "Dark Mode" : "Light Mode"}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Switch interface theme</p>
+            </div>
+          </div>
+          <Switch
+            checked={isDark}
+            onCheckedChange={toggleTheme}
+            data-testid="button-toggle-theme"
+          />
+        </div>
+
+        {/* Language */}
         <button
           onClick={() => setShowLangPicker(true)}
           data-testid="button-language-picker"
           className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-secondary/40 transition-colors active:bg-secondary/60"
         >
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <Globe className="h-4 w-4 text-primary" />
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Globe className="h-3.5 w-3.5 text-primary" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-semibold text-foreground leading-none">{t("settings.chooseLanguage")}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-sm font-medium text-foreground leading-none">{t("settings.chooseLanguage")}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
                 {LANG_FLAGS[currentLang]} {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName}
               </p>
             </div>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
         </button>
       </div>
 
-      {/* Language picker dialog */}
+      {/* ── Language picker dialog ───────────────────────────────── */}
       <Dialog open={showLangPicker} onOpenChange={(open) => { setShowLangPicker(open); if (!open) setLangSearch(""); }}>
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
@@ -340,48 +487,49 @@ export default function Settings() {
                 </div>
               );
               return filtered.map((lang) => {
-              const isSelected = currentLang === lang.code;
-              return (
-                <button
-                  key={lang.code}
-                  data-testid={`button-lang-${lang.code}`}
-                  onClick={() => { handleLanguageChange(lang.code); setShowLangPicker(false); setLangSearch(""); }}
-                  className={[
-                    "w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all text-left",
-                    isSelected
-                      ? "bg-primary/8 border-primary/30 shadow-sm shadow-primary/10"
-                      : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
-                  ].join(" ")}
-                >
-                  <span className="text-2xl leading-none shrink-0">{LANG_FLAGS[lang.code]}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
-                      {lang.nativeName}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{lang.name}</p>
-                  </div>
-                  {isSelected && (
-                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                      <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                const isSelected = currentLang === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    data-testid={`button-lang-${lang.code}`}
+                    onClick={() => { handleLanguageChange(lang.code); setShowLangPicker(false); setLangSearch(""); }}
+                    className={[
+                      "w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all text-left",
+                      isSelected
+                        ? "bg-primary/8 border-primary/30 shadow-sm shadow-primary/10"
+                        : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
+                    ].join(" ")}
+                  >
+                    <span className="text-2xl leading-none shrink-0">{LANG_FLAGS[lang.code]}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
+                        {lang.nativeName}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{lang.name}</p>
                     </div>
-                  )}
-                </button>
-              );
-            });
-          })()}
+                    {isSelected && (
+                      <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                );
+              });
+            })()}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Owner settings */}
+      {/* ── Owner settings ──────────────────────────────────────── */}
       {isOwner && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
 
-            {/* Store */}
-            <SectionLabel>Store</SectionLabel>
+            {/* Store identity */}
+            <SectionLabel icon={Store}>Store</SectionLabel>
             <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-              <SettingRow label="Store Name">
+
+              <SettingRow label="Store Name" icon={Store} iconColor="bg-primary/10">
                 <FormField control={form.control} name="storeName" render={({ field }) => (
                   <FormItem>
                     <FormControl>
@@ -393,13 +541,20 @@ export default function Settings() {
               </SettingRow>
 
               {businessLabel && (
-                <div className="flex items-center justify-between py-2.5 border-b border-border/20">
-                  <p className="text-sm font-medium text-foreground">Business Type</p>
-                  <p className="text-sm text-muted-foreground truncate max-w-[55%] text-right">{businessLabel}</p>
+                <div className="flex items-center justify-between gap-3 py-3 border-b border-border/20">
+                  <div className="flex items-start gap-3">
+                    <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                      <BadgeCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-foreground">Business Type</p>
+                  </div>
+                  <span className="text-[11px] font-medium bg-secondary px-2.5 py-1 rounded-full text-muted-foreground truncate max-w-[52%] text-right">
+                    {businessLabel}
+                  </span>
                 </div>
               )}
 
-              <SettingRow label="Tax Rate" hint="Applied at checkout">
+              <SettingRow label="Tax Rate" hint="Applied at checkout" icon={DollarSign} iconColor="bg-emerald-500/10">
                 <FormField control={form.control} name="taxRate" render={({ field }) => (
                   <FormItem>
                     <div className="relative">
@@ -413,12 +568,29 @@ export default function Settings() {
                 )} />
               </SettingRow>
 
+              <SettingRow label="Currency" hint="Symbol on receipts & reports" icon={DollarSign} iconColor="bg-amber-500/10">
+                <FormField control={form.control} name="currency" render={({ field }) => (
+                  <FormItem>
+                    <Select value={field.value || "₱"} onValueChange={field.onChange}>
+                      <SelectTrigger className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right" data-testid="select-currency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {CURRENCIES.map(c => (
+                          <SelectItem key={c.code} value={c.code} className="text-sm">{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+              </SettingRow>
+
             </div>
 
             {/* Contact */}
-            <SectionLabel>Contact</SectionLabel>
+            <SectionLabel icon={Phone}>Contact</SectionLabel>
             <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-              <SettingRow label="Address">
+              <SettingRow label="Address" icon={MapPin} iconColor="bg-rose-500/10">
                 <FormField control={form.control} name="address" render={({ field }) => (
                   <FormItem>
                     <FormControl>
@@ -428,7 +600,7 @@ export default function Settings() {
                 )} />
               </SettingRow>
 
-              <SettingRow label="Phone">
+              <SettingRow label="Phone" icon={Phone} iconColor="bg-sky-500/10">
                 <FormField control={form.control} name="phone" render={({ field }) => (
                   <FormItem>
                     <FormControl>
@@ -438,7 +610,7 @@ export default function Settings() {
                 )} />
               </SettingRow>
 
-              <SettingRow label="Email">
+              <SettingRow label="Email" icon={Mail} iconColor="bg-violet-500/10">
                 <FormField control={form.control} name="emailContact" render={({ field }) => (
                   <FormItem>
                     <FormControl>
@@ -450,31 +622,83 @@ export default function Settings() {
               </SettingRow>
             </div>
 
+            {/* Receipt */}
+            <SectionLabel icon={Receipt}>Receipt</SectionLabel>
+            <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+              <SettingRow label="Footer Message" hint="Printed at the bottom of every receipt" icon={FileText} iconColor="bg-orange-500/10">
+                <FormField control={form.control} name="receiptFooter" render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        value={field.value || ""}
+                        className="text-sm rounded-lg bg-secondary/60 border-none resize-none text-right min-h-[56px] py-1.5 pr-3"
+                        rows={2}
+                        placeholder="Thank you for your purchase!"
+                        data-testid="input-receipt-footer"
+                      />
+                    </FormControl>
+                    <p className="text-[10px] text-muted-foreground text-right mt-0.5">
+                      {(field.value || "").length}/120
+                    </p>
+                    <FormMessage className="text-right text-[10px]" />
+                  </FormItem>
+                )} />
+              </SettingRow>
+            </div>
+
             <Button
               type="submit"
-              className="w-full h-10 rounded-xl font-semibold mt-3 bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 transition-all"
+              className="w-full h-11 rounded-xl font-semibold mt-3 bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 transition-all"
               disabled={updateSettings.isPending}
               data-testid="button-save-settings"
             >
-              <Save className="mr-2 h-3.5 w-3.5" />
-              {updateSettings.isPending ? "Saving..." : "Save Changes"}
+              {updateSettings.isPending
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
+                : <><Save className="mr-2 h-4 w-4" /> Save Changes</>
+              }
             </Button>
           </form>
         </Form>
       )}
 
-      {/* Payment Methods */}
+      {/* ── Plan Voucher ────────────────────────────────────────── */}
       {isOwner && (
         <>
-          <SectionLabel>Plan Voucher</SectionLabel>
+          <SectionLabel icon={Sparkles}>Subscription</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 space-y-3">
-              <div className="flex items-start gap-2.5">
-                <Ticket className="h-4 w-4 text-violet-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Voucher Code</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Enter a Pro voucher code when one is available.</p>
+            {isPro ? (
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0">
+                  <Star className="h-4 w-4 text-white fill-white" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Pro Plan Active</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">All features unlocked</p>
+                </div>
+                <span className="text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 px-2.5 py-1 rounded-full">ACTIVE</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setLocation("/billing?reason=pro_required")}
+                className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/30 transition-colors text-left"
+              >
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0">
+                  <Sparkles className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Upgrade to Pro</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Unlock WiFi vouchers, advanced reports & more</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-1" />
+              </button>
+            )}
+
+            <div className="border-t border-border/20 px-4 py-3 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Ticket className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Redeem Voucher Code</p>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -482,14 +706,14 @@ export default function Settings() {
                   onChange={e => setVoucherCode(e.target.value.toUpperCase())}
                   onKeyDown={e => e.key === "Enter" && redeemVoucher()}
                   placeholder="ENTER CODE"
-                  className="h-9 text-sm rounded-xl bg-secondary/60 border-none uppercase tracking-wider"
+                  className="h-9 text-sm rounded-xl bg-secondary/60 border-none uppercase tracking-wider font-mono"
                   data-testid="input-voucher-code"
                 />
                 <Button
                   type="button"
                   onClick={redeemVoucher}
                   disabled={!voucherCode.trim() || redeemingVoucher}
-                  className="h-9 rounded-xl px-3"
+                  className="h-9 rounded-xl px-4"
                   data-testid="button-redeem-voucher"
                 >
                   {redeemingVoucher ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
@@ -498,33 +722,36 @@ export default function Settings() {
             </div>
           </div>
 
-          <SectionLabel>Checkout</SectionLabel>
+          {/* ── Payment Methods ───────────────────────────────────── */}
+          <SectionLabel icon={CreditCard}>Checkout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
             <button
               onClick={() => setShowPaymentManager(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/30 transition-colors"
               data-testid="button-open-payment-methods"
             >
-              <div className="flex items-center gap-2.5">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Payment Methods</span>
+              <div className="flex items-center gap-3">
+                <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center">
+                  <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium">Payment Methods</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{pmethods.length} method{pmethods.length !== 1 ? "s" : ""} configured</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{pmethods.length} active</span>
-                <ChevronRight className={["h-4 w-4 text-muted-foreground transition-transform duration-200", showPaymentManager ? "rotate-90" : ""].join(" ")} />
-              </div>
+              <ChevronRight className={["h-4 w-4 text-muted-foreground/40 transition-transform duration-200", showPaymentManager ? "rotate-90" : ""].join(" ")} />
             </button>
 
             {showPaymentManager && (
               <div className="border-t border-border/20 px-4 py-3 space-y-2">
                 {pmethods.map(m => (
-                  <div key={m.id} className="flex items-center gap-2">
+                  <div key={m.id} className="flex items-center gap-2 bg-secondary/30 rounded-xl px-3 py-2">
                     <span className="flex-1 text-sm font-medium">{m.label}</span>
                     <button
                       data-testid={`toggle-cash-${m.id}`}
                       onClick={() => togglePaymentCash(m.id)}
                       className={[
-                        "flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors",
+                        "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors",
                         m.isCash
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                           : "bg-secondary text-muted-foreground",
@@ -544,12 +771,12 @@ export default function Settings() {
                   </div>
                 ))}
 
-                <div className="flex gap-2 pt-1 border-t border-border/15">
+                <div className="flex gap-2 pt-1.5 border-t border-border/15">
                   <Input
                     value={newMethodName}
                     onChange={e => setNewMethodName(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && addPaymentMethod()}
-                    placeholder="Add method..."
+                    placeholder="New method name..."
                     className="h-8 text-sm rounded-lg bg-secondary/60 border-none flex-1"
                     data-testid="input-new-payment-method"
                   />
@@ -557,7 +784,7 @@ export default function Settings() {
                     data-testid="toggle-new-method-cash"
                     onClick={() => setNewMethodIsCash(v => !v)}
                     className={[
-                      "flex items-center gap-1 px-2 rounded-lg text-[10px] font-bold border transition-colors shrink-0",
+                      "flex items-center gap-1 px-2.5 rounded-lg text-[10px] font-bold border transition-colors shrink-0",
                       newMethodIsCash
                         ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/20"
                         : "bg-secondary text-muted-foreground border-border/40",
@@ -579,20 +806,18 @@ export default function Settings() {
               </div>
             )}
           </div>
-        </>
-      )}
 
-      {/* Data Backup */}
-      {isOwner && (
-        <>
-          <SectionLabel>Data</SectionLabel>
+          {/* ── Data Backup ──────────────────────────────────────── */}
+          <SectionLabel icon={Download}>Data</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Download className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Export Data Backup</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Download your products, sales &amp; customers as JSON</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Products, sales & customers as JSON</p>
                 </div>
               </div>
               <Button
@@ -601,7 +826,7 @@ export default function Settings() {
                 size="sm"
                 onClick={handleExportBackup}
                 disabled={isBackingUp}
-                className="h-8 rounded-xl shrink-0"
+                className="h-8 rounded-xl shrink-0 border-border/40"
                 data-testid="button-export-backup"
               >
                 {isBackingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -611,23 +836,23 @@ export default function Settings() {
         </>
       )}
 
-      {/* Account */}
-      <SectionLabel>Account</SectionLabel>
+      {/* ── Account ─────────────────────────────────────────────── */}
+      <SectionLabel icon={Shield}>Account</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
         {user && (
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/20">
+          <div className="flex items-center gap-3 px-4 py-4 border-b border-border/20">
             {user.avatar ? (
-              <img src={user.avatar} alt={user.name ?? ""} className="h-8 w-8 rounded-full object-cover shrink-0" />
+              <img src={user.avatar} alt={user.name ?? ""} className="h-10 w-10 rounded-full object-cover shrink-0 ring-2 ring-border/20" />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-primary">{(user.name ?? "?")[0].toUpperCase()}</span>
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shrink-0 shadow-md">
+                <span className="text-sm font-bold text-white">{(user.name ?? "?")[0].toUpperCase()}</span>
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate leading-none">{user.name ?? "User"}</p>
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user.email ?? `via ${user.provider}`}</p>
             </div>
-            <span className="text-[10px] font-semibold text-muted-foreground capitalize bg-muted px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-muted-foreground capitalize bg-muted px-2.5 py-1 rounded-full border border-border/30">
               {user.role}
             </span>
           </div>
@@ -637,9 +862,11 @@ export default function Settings() {
           onClick={() => { if (!isLoggingOut) logout(); }}
           disabled={isLoggingOut}
           data-testid="button-signout"
-          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <LogOut className={`h-4 w-4 text-muted-foreground ${isLoggingOut ? "animate-pulse" : ""}`} />
+          <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+            <LogOut className={`h-3.5 w-3.5 text-muted-foreground ${isLoggingOut ? "animate-pulse" : ""}`} />
+          </div>
           {isLoggingOut ? "Signing out…" : "Sign Out"}
         </button>
 
@@ -647,15 +874,20 @@ export default function Settings() {
           <button
             onClick={() => { setDeleteConfirmText(""); setShowDeleteConfirm(true); }}
             data-testid="button-delete-account"
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/5 transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-destructive hover:bg-destructive/5 transition-colors"
           >
-            <Trash2 className="h-4 w-4" />
+            <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            </div>
             Delete Account
           </button>
         )}
       </div>
 
-      {/* Delete Account Dialog */}
+      {/* Version */}
+      <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">ArtixPOS · Business OS</p>
+
+      {/* ── Delete Account Dialog ────────────────────────────────── */}
       <AlertDialog
         open={showDeleteConfirm}
         onOpenChange={(open) => {
@@ -663,14 +895,13 @@ export default function Settings() {
           setShowDeleteConfirm(open);
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently deletes your account and <strong>all your data</strong> — products, sales, orders, and settings. Cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
           <div className="px-1 pb-1">
             <p className="text-sm text-muted-foreground mb-2">
               Type <span className="font-mono font-bold text-destructive">DELETE</span> to confirm:

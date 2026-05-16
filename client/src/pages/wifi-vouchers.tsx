@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +10,7 @@ import {
   Wifi, Save, Eye, EyeOff, Clock, Receipt, Sparkles, ChevronRight,
   Info, CheckCircle2, WifiOff, Plus, Trash2, Lock, Unlock,
   Copy, Check, Zap, Shield, Settings2, ToggleLeft, ToggleRight,
-  Star, Signal, Pencil, X,
+  Star, Signal, Pencil, QrCode, Download,
 } from "lucide-react";
 
 type SecurityType = "WPA2" | "WPA" | "WEP" | "Open";
@@ -60,13 +61,217 @@ const SECURITY_TYPES: { type: SecurityType; label: string; color: string; icon: 
   { type: "Open", label: "Open", color: "text-muted-foreground", icon: Unlock },
 ];
 
+function getWifiQrString(ssid: string, password: string, securityType: SecurityType): string {
+  const escape = (s: string) => s.replace(/[\\;,":]/g, c => `\\${c}`);
+  if (securityType === "Open") {
+    return `WIFI:T:nopass;S:${escape(ssid)};;`;
+  }
+  const type = securityType === "WEP" ? "WEP" : "WPA";
+  return `WIFI:T:${type};S:${escape(ssid)};P:${escape(password)};;`;
+}
+
+function formatDuration(minutes: number): { label: string; shortLabel: string } {
+  if (minutes >= 1440) {
+    const d = Math.round(minutes / 1440);
+    return { label: `${d} day${d !== 1 ? "s" : ""}`, shortLabel: `${d}d` };
+  }
+  if (minutes >= 60) {
+    const h = minutes / 60;
+    const label = Number.isInteger(h) ? `${h} hour${h !== 1 ? "s" : ""}` : `${h.toFixed(1)}h`;
+    return { label, shortLabel: `${h % 1 === 0 ? h : h.toFixed(1)}h` };
+  }
+  return { label: `${minutes} min`, shortLabel: `${minutes}m` };
+}
+
+function getDurationColor(minutes: number): { ring: string; text: string; glow: string; bg: string } {
+  if (minutes <= 30) return { ring: "#f59e0b", text: "text-amber-500", glow: "rgba(245,158,11,0.35)", bg: "bg-amber-500/10" };
+  if (minutes <= 120) return { ring: "#10b981", text: "text-emerald-500", glow: "rgba(16,185,129,0.35)", bg: "bg-emerald-500/10" };
+  if (minutes <= 480) return { ring: "#8b5cf6", text: "text-violet-500", glow: "rgba(139,92,246,0.35)", bg: "bg-violet-500/10" };
+  return { ring: "#6366f1", text: "text-indigo-500", glow: "rgba(99,102,241,0.35)", bg: "bg-indigo-500/10" };
+}
+
+function DurationRing({ minutes, size = 140 }: { minutes: number; size?: number }) {
+  const maxMin = 480;
+  const progress = Math.min(minutes / maxMin, 1);
+  const color = getDurationColor(minutes);
+  const { label, shortLabel } = formatDuration(minutes);
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = (size / 2) - 10;
+  const circumference = 2 * Math.PI * r;
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90" style={{ position: "absolute", top: 0, left: 0 }}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" strokeWidth={6} className="text-muted/30" />
+          <circle
+            cx={cx} cy={cy} r={r}
+            fill="none"
+            stroke={color.ring}
+            strokeWidth={7}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            style={{
+              transition: "stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1), stroke 0.4s ease",
+              filter: `drop-shadow(0 0 6px ${color.glow})`,
+            }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <p className={`text-[11px] font-black leading-none ${color.text}`}>{shortLabel}</p>
+          <p className="text-[8px] text-muted-foreground mt-0.5 font-medium">session</p>
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground font-medium">{label} per session</p>
+    </div>
+  );
+}
+
+function WifiQRCard({
+  ssid, password, securityType, duration, title, speedLabel, note, enabled,
+}: {
+  ssid: string; password: string; securityType: SecurityType;
+  duration: number; title: string; speedLabel: string; note: string; enabled: boolean;
+}) {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  const qrValue = ssid ? getWifiQrString(ssid, password, securityType) : "WIFI:T:nopass;S:;;";
+  const color = getDurationColor(duration);
+  const { label: durationLabel } = formatDuration(duration);
+  const sec = SECURITY_TYPES.find(s => s.type === securityType);
+
+  const downloadQR = () => {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([svgData], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `wifi-qr-${ssid || "voucher"}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyQrString = () => {
+    navigator.clipboard.writeText(qrValue).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  if (!enabled || !ssid) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-8 opacity-40">
+        <WifiOff className="h-8 w-8 text-muted-foreground" />
+        <p className="text-[11px] text-muted-foreground">
+          {!enabled ? "Voucher disabled" : "Enter an SSID to generate QR"}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      {/* QR + Ring */}
+      <div className="relative flex items-center justify-center">
+        <DurationRing minutes={duration} size={180} />
+        <div
+          ref={qrRef}
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ padding: "22px" }}
+        >
+          <div
+            className="rounded-xl overflow-hidden bg-white p-2 shadow-md"
+            style={{ boxShadow: `0 0 20px ${getDurationColor(duration).glow}` }}
+          >
+            <QRCodeSVG
+              value={qrValue}
+              size={100}
+              bgColor="#ffffff"
+              fgColor="#111111"
+              level="M"
+              includeMargin={false}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Credentials summary */}
+      <div className="w-full bg-muted/30 rounded-xl px-4 py-3 space-y-1.5 font-mono text-center">
+        <p className="text-[11px] font-black uppercase tracking-widest">{title || "FREE WIFI"}</p>
+        {speedLabel && <p className="text-[9px] text-muted-foreground">{speedLabel}</p>}
+        <div className="space-y-0.5 pt-1 text-left">
+          <div className="flex justify-between text-[10px]">
+            <span className="text-muted-foreground">Network</span>
+            <span className="font-semibold truncate max-w-[60%]">{ssid}</span>
+          </div>
+          {securityType !== "Open" && password && (
+            <div className="flex justify-between text-[10px]">
+              <span className="text-muted-foreground">Password</span>
+              <span className="font-semibold font-mono">{password}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-[10px]">
+            <span className="text-muted-foreground">Security</span>
+            <span className={`font-semibold ${sec?.color}`}>{securityType}</span>
+          </div>
+          <div className="flex justify-between text-[10px]">
+            <span className="text-muted-foreground">Valid for</span>
+            <span className={`font-bold ${color.text}`}>{durationLabel}</span>
+          </div>
+        </div>
+        {note && <p className="text-[9px] text-muted-foreground italic pt-0.5">{note}</p>}
+      </div>
+
+      {/* Scan tip */}
+      <div className="flex items-center gap-2 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2 w-full">
+        <QrCode className="h-3.5 w-3.5 text-primary shrink-0" />
+        <p className="text-[10px] text-muted-foreground">
+          Scan with any camera to connect automatically — no typing needed.
+        </p>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2 w-full">
+        <button
+          type="button"
+          onClick={copyQrString}
+          className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold bg-muted/50 hover:bg-muted transition-colors border border-border/30"
+          data-testid="button-copy-qr-string"
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "Copied!" : "Copy QR string"}
+        </button>
+        <button
+          type="button"
+          onClick={downloadQR}
+          className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold bg-muted/50 hover:bg-muted transition-colors border border-border/30"
+          data-testid="button-download-qr"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Download SVG
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReceiptPreview({
-  enabled, title, ssid, password, securityType, duration, speedLabel, note, showPassword,
+  enabled, title, ssid, password, securityType, duration, speedLabel, note, showPassword, showQr,
 }: {
   enabled: boolean; title: string; ssid: string; password: string;
-  securityType: SecurityType; duration: number; speedLabel: string; note: string; showPassword: boolean;
+  securityType: SecurityType; duration: number; speedLabel: string; note: string;
+  showPassword: boolean; showQr: boolean;
 }) {
   const sec = SECURITY_TYPES.find(s => s.type === securityType);
+  const qrValue = ssid ? getWifiQrString(ssid, password, securityType) : "WIFI:T:nopass;S:;;";
+  const { label: durationLabel } = formatDuration(duration);
+
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-border/30 p-4 font-mono text-center shadow-inner">
       <div className="space-y-1">
@@ -84,9 +289,23 @@ function ReceiptPreview({
                 {title || "FREE WIFI"}
               </p>
             </div>
-            {speedLabel && (
-              <p className="text-[9px] text-muted-foreground">{speedLabel}</p>
+            {speedLabel && <p className="text-[9px] text-muted-foreground">{speedLabel}</p>}
+
+            {showQr && ssid && (
+              <div className="flex justify-center py-2">
+                <div className="bg-white p-1.5 rounded-lg inline-block">
+                  <QRCodeSVG
+                    value={qrValue}
+                    size={72}
+                    bgColor="#ffffff"
+                    fgColor="#111111"
+                    level="M"
+                    includeMargin={false}
+                  />
+                </div>
+              </div>
             )}
+
             <div className="space-y-0.5 pt-1">
               <div className="flex justify-between text-[10px]">
                 <span className="text-muted-foreground">Network</span>
@@ -106,18 +325,10 @@ function ReceiptPreview({
               </div>
               <div className="flex justify-between text-[10px]">
                 <span className="text-muted-foreground">Valid for</span>
-                <span className="font-semibold">
-                  {duration >= 1440
-                    ? `${duration / 1440} day${duration / 1440 !== 1 ? "s" : ""}`
-                    : duration >= 60
-                      ? `${duration / 60}hr`
-                      : `${duration}min`}
-                </span>
+                <span className="font-semibold">{durationLabel}</span>
               </div>
             </div>
-            {note && (
-              <p className="text-[9px] text-muted-foreground mt-1 italic">{note}</p>
-            )}
+            {note && <p className="text-[9px] text-muted-foreground mt-1 italic">{note}</p>}
           </>
         )}
         <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider pt-1">— — — — — — — — — —</p>
@@ -142,11 +353,13 @@ export default function WifiVouchersPage() {
   const [voucherTitle, setVoucherTitle] = useState("FREE WIFI");
   const [speedLabel, setSpeedLabel] = useState("");
   const [note, setNote] = useState("");
+  const [showQr, setShowQr] = useState(true);
   const [profiles, setProfiles] = useState<NetworkProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [newProfileName, setNewProfileName] = useState("");
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<"qr" | "receipt">("qr");
 
   useEffect(() => {
     if (!settings) return;
@@ -159,6 +372,7 @@ export default function WifiVouchersPage() {
     setVoucherTitle(s.wifiVoucherTitle || "FREE WIFI");
     setSpeedLabel(s.wifiSpeedLabel || "");
     setNote(s.wifiVoucherNote || "");
+    setShowQr(s.wifiShowQr !== false);
     const savedProfiles: NetworkProfile[] = s.wifiNetworkProfiles || [];
     setProfiles(savedProfiles);
     setActiveProfileId(s.wifiActiveProfileId || null);
@@ -179,6 +393,7 @@ export default function WifiVouchersPage() {
         wifiVoucherTitle: voucherTitle.trim() || "FREE WIFI",
         wifiSpeedLabel: speedLabel.trim() || null,
         wifiVoucherNote: note.trim() || null,
+        wifiShowQr: showQr,
         wifiNetworkProfiles: profiles,
         wifiActiveProfileId: activeProfileId,
       } as any,
@@ -243,7 +458,7 @@ export default function WifiVouchersPage() {
       {/* Header */}
       <div className="flex items-center gap-3 pb-1">
         <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
-          <Wifi className="h-5.5 w-5.5 text-white" />
+          <Wifi className="h-5 w-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-black leading-none">WiFi Vouchers</h1>
@@ -259,16 +474,15 @@ export default function WifiVouchersPage() {
 
       {!isPro ? (
         <>
-          {/* How it works — non-pro */}
           <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm space-y-3">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-muted-foreground" />
               <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">How it works</p>
             </div>
             {[
-              { icon: Receipt, color: "text-violet-500", bg: "bg-violet-500/10", title: "Printed on every receipt", desc: "WiFi credentials appear at the bottom of each receipt automatically after a sale." },
-              { icon: Wifi, color: "text-emerald-500", bg: "bg-emerald-500/10", title: "Customer connects", desc: "Guests read the printed credentials and connect to your guest network instantly." },
-              { icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10", title: "Time-limited sessions", desc: "Show how long access lasts — new receipts generate a fresh session note." },
+              { icon: QrCode, color: "text-violet-500", bg: "bg-violet-500/10", title: "QR code on every receipt", desc: "Guests scan the QR code with any camera app to connect instantly — no typing required." },
+              { icon: Wifi, color: "text-emerald-500", bg: "bg-emerald-500/10", title: "Dynamic session timer", desc: "The QR ring indicator changes color based on how long the session lasts." },
+              { icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10", title: "Time-limited sessions", desc: "Show how long access lasts — encourages repeat purchases for extended WiFi." },
             ].map((s, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className={`h-8 w-8 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
@@ -280,14 +494,7 @@ export default function WifiVouchersPage() {
                 </div>
               </div>
             ))}
-            <div className="flex items-start gap-2 bg-muted/40 rounded-xl px-3 py-2.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Works with any router — no integration needed. Prints credentials as readable text with an optional QR code.
-              </p>
-            </div>
           </div>
-
           <button
             type="button"
             onClick={() => setLocation("/billing?reason=pro_required")}
@@ -299,9 +506,9 @@ export default function WifiVouchersPage() {
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-foreground">WiFi voucher printing is a Pro feature</p>
+                <p className="text-sm font-bold">WiFi voucher printing is a Pro feature</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                  Multiple network profiles, custom titles, speed labels, session limits, and more. Tap to upgrade.
+                  QR codes, multiple network profiles, custom titles, speed labels, and more. Tap to upgrade.
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
@@ -321,7 +528,7 @@ export default function WifiVouchersPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold">{enabled ? "Voucher printing enabled" : "Voucher printing disabled"}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{enabled ? "Credentials printed on every receipt" : "No WiFi info on receipts"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{enabled ? "Credentials & QR printed on every receipt" : "No WiFi info on receipts"}</p>
                 </div>
               </div>
               <button
@@ -370,74 +577,47 @@ export default function WifiVouchersPage() {
                     <p className="text-[11px] text-muted-foreground truncate mt-0.5">{profile.ssid || "No SSID set"}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setEditingProfileId(profile.id)}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-                    >
+                    <button type="button" onClick={() => setEditingProfileId(profile.id)}
+                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
                       <Pencil className="h-3 w-3" />
                     </button>
                     {activeProfileId !== profile.id && (
-                      <button
-                        type="button"
-                        onClick={() => activateProfile(profile)}
+                      <button type="button" onClick={() => activateProfile(profile)}
                         className="h-7 px-2 rounded-lg text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors"
-                        data-testid={`button-activate-profile-${profile.id}`}
-                      >
+                        data-testid={`button-activate-profile-${profile.id}`}>
                         Use
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => removeProfile(profile.id)}
+                    <button type="button" onClick={() => removeProfile(profile.id)}
                       className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      data-testid={`button-remove-profile-${profile.id}`}
-                    >
+                      data-testid={`button-remove-profile-${profile.id}`}>
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
-
-                {/* Profile fields */}
                 <div className="border-t border-border/20 px-4 pb-3 space-y-2 pt-2.5">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground mb-1">SSID</p>
-                      <Input
-                        value={profile.ssid}
-                        onChange={e => updateProfile(profile.id, "ssid", e.target.value)}
-                        placeholder="Network name"
-                        className="h-7 text-xs rounded-lg bg-secondary/60 border-none"
-                        data-testid={`input-profile-ssid-${profile.id}`}
-                      />
+                      <Input value={profile.ssid} onChange={e => updateProfile(profile.id, "ssid", e.target.value)}
+                        placeholder="Network name" className="h-7 text-xs rounded-lg bg-secondary/60 border-none"
+                        data-testid={`input-profile-ssid-${profile.id}`} />
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground mb-1">Password</p>
-                      <Input
-                        type="password"
-                        value={profile.password}
-                        onChange={e => updateProfile(profile.id, "password", e.target.value)}
-                        placeholder="Optional"
-                        className="h-7 text-xs rounded-lg bg-secondary/60 border-none"
-                        data-testid={`input-profile-password-${profile.id}`}
-                      />
+                      <Input type="password" value={profile.password} onChange={e => updateProfile(profile.id, "password", e.target.value)}
+                        placeholder="Optional" className="h-7 text-xs rounded-lg bg-secondary/60 border-none"
+                        data-testid={`input-profile-password-${profile.id}`} />
                     </div>
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground mb-1">Security</p>
                     <div className="flex gap-1">
                       {SECURITY_TYPES.map(s => (
-                        <button
-                          key={s.type}
-                          type="button"
-                          onClick={() => updateProfile(profile.id, "securityType", s.type)}
-                          className={[
-                            "px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors",
-                            profile.securityType === s.type
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-muted text-muted-foreground border-transparent hover:border-border",
-                          ].join(" ")}
-                        >
+                        <button key={s.type} type="button" onClick={() => updateProfile(profile.id, "securityType", s.type)}
+                          className={["px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+                            profile.securityType === s.type ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent hover:border-border",
+                          ].join(" ")}>
                           {s.label}
                         </button>
                       ))}
@@ -447,26 +627,16 @@ export default function WifiVouchersPage() {
               </div>
             ))}
 
-            {/* Add profile */}
             {profiles.length < 5 && (
               <div className="flex gap-2">
-                <Input
-                  value={newProfileName}
-                  onChange={e => setNewProfileName(e.target.value)}
+                <Input value={newProfileName} onChange={e => setNewProfileName(e.target.value)}
                   placeholder="Profile name (e.g. Guest, VIP, Staff)"
                   className="h-9 text-sm rounded-xl bg-card border border-border/25"
                   onKeyDown={e => e.key === "Enter" && addProfile()}
-                  data-testid="input-new-profile-name"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addProfile}
-                  disabled={!newProfileName.trim()}
-                  className="h-9 px-3 rounded-xl shrink-0"
-                  data-testid="button-add-profile"
-                >
+                  data-testid="input-new-profile-name" />
+                <Button type="button" variant="outline" size="sm" onClick={addProfile}
+                  disabled={!newProfileName.trim()} className="h-9 px-3 rounded-xl shrink-0"
+                  data-testid="button-add-profile">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -476,34 +646,22 @@ export default function WifiVouchersPage() {
           {/* ── Active Network Config ────────────────────────────── */}
           <SectionLabel icon={Settings2}>Active Network</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-
             <SettingRow label="Network name (SSID)" hint="Printed on the receipt">
-              <Input
-                value={ssid}
-                onChange={e => setSsid(e.target.value)}
-                placeholder="e.g. CafeGuest-WiFi"
+              <Input value={ssid} onChange={e => setSsid(e.target.value)} placeholder="e.g. CafeGuest-WiFi"
                 className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
-                data-testid="input-wifi-ssid"
-              />
+                data-testid="input-wifi-ssid" />
             </SettingRow>
 
             <SettingRow label="Password" hint={securityType === "Open" ? "Not used for open networks" : "Leave blank if open"}>
               <div className="relative w-44">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder={securityType === "Open" ? "N/A" : "Password"}
+                <Input type={showPassword ? "text" : "password"} value={password}
+                  onChange={e => setPassword(e.target.value)} placeholder={securityType === "Open" ? "N/A" : "Password"}
                   disabled={securityType === "Open"}
                   className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-8 disabled:opacity-40"
-                  data-testid="input-wifi-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
+                  data-testid="input-wifi-password" />
+                <button type="button" onClick={() => setShowPassword(v => !v)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  data-testid="button-toggle-password"
-                >
+                  data-testid="button-toggle-password">
                   {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
               </div>
@@ -514,26 +672,17 @@ export default function WifiVouchersPage() {
                 {SECURITY_TYPES.map(s => {
                   const Icon = s.icon;
                   return (
-                    <button
-                      key={s.type}
-                      type="button"
-                      onClick={() => setSecurityType(s.type)}
+                    <button key={s.type} type="button" onClick={() => setSecurityType(s.type)}
                       data-testid={`button-security-${s.type}`}
-                      className={[
-                        "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors",
-                        securityType === s.type
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted text-muted-foreground border-transparent hover:border-border",
-                      ].join(" ")}
-                    >
-                      <Icon className="h-2.5 w-2.5" />
-                      {s.label}
+                      className={["flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+                        securityType === s.type ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent hover:border-border",
+                      ].join(" ")}>
+                      <Icon className="h-2.5 w-2.5" />{s.label}
                     </button>
                   );
                 })}
               </div>
             </SettingRow>
-
           </div>
 
           {/* ── Session Duration ─────────────────────────────────── */}
@@ -542,18 +691,13 @@ export default function WifiVouchersPage() {
             <div className="py-3 border-b border-border/20">
               <div className="flex flex-wrap gap-1.5">
                 {DURATION_PRESETS.map(p => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => setDuration(p.value)}
+                  <button key={p.value} type="button" onClick={() => setDuration(p.value)}
                     data-testid={`button-duration-${p.label}`}
-                    className={[
-                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                    className={["px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
                       duration === p.value
                         ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
                         : "bg-muted text-muted-foreground border-transparent hover:border-border",
-                    ].join(" ")}
-                  >
+                    ].join(" ")}>
                     {p.label}
                   </button>
                 ))}
@@ -561,14 +705,9 @@ export default function WifiVouchersPage() {
             </div>
             <SettingRow label="Custom duration" hint="Set any duration in minutes">
               <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="1"
-                  value={duration}
-                  onChange={e => setDuration(Number(e.target.value))}
+                <Input type="number" min="1" value={duration} onChange={e => setDuration(Number(e.target.value))}
                   className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-24"
-                  data-testid="input-wifi-duration"
-                />
+                  data-testid="input-wifi-duration" />
                 <span className="text-[11px] text-muted-foreground shrink-0">min</span>
               </div>
             </SettingRow>
@@ -577,67 +716,77 @@ export default function WifiVouchersPage() {
           {/* ── Voucher Appearance ───────────────────────────────── */}
           <SectionLabel icon={Receipt}>Voucher Appearance</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-
             <SettingRow label="Voucher title" hint='Shown on receipt (e.g. "FREE WIFI")'>
-              <Input
-                value={voucherTitle}
-                onChange={e => setVoucherTitle(e.target.value)}
-                placeholder="FREE WIFI"
-                maxLength={30}
-                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
-                data-testid="input-voucher-title"
-              />
+              <Input value={voucherTitle} onChange={e => setVoucherTitle(e.target.value)} placeholder="FREE WIFI"
+                maxLength={30} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                data-testid="input-voucher-title" />
             </SettingRow>
 
             <SettingRow label="Speed label" hint='Optional, e.g. "Up to 20 Mbps"'>
-              <Input
-                value={speedLabel}
-                onChange={e => setSpeedLabel(e.target.value)}
-                placeholder="Up to 20 Mbps"
-                maxLength={30}
-                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
-                data-testid="input-speed-label"
-              />
+              <Input value={speedLabel} onChange={e => setSpeedLabel(e.target.value)} placeholder="Up to 20 Mbps"
+                maxLength={30} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                data-testid="input-speed-label" />
             </SettingRow>
 
-            <SettingRow label="Footer note" hint='Printed below credentials, e.g. "Enjoy!"'>
-              <Input
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder="Optional message"
-                maxLength={60}
-                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
-                data-testid="input-voucher-note"
-              />
+            <SettingRow label="Footer note" hint='Printed below credentials'>
+              <Input value={note} onChange={e => setNote(e.target.value)} placeholder="Optional message"
+                maxLength={60} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                data-testid="input-voucher-note" />
             </SettingRow>
 
+            <SettingRow label="Print QR code" hint="Scan to connect instantly — no typing">
+              <button type="button" onClick={() => setShowQr(v => !v)} data-testid="toggle-show-qr" className="shrink-0">
+                {showQr
+                  ? <ToggleRight className="h-7 w-7 text-emerald-500" />
+                  : <ToggleLeft className="h-7 w-7 text-muted-foreground/40" />}
+              </button>
+            </SettingRow>
           </div>
 
-          {/* ── Receipt Preview ──────────────────────────────────── */}
+          {/* ── Live Preview (tabbed: QR card / Receipt) ─────────── */}
           <SectionLabel icon={Zap}>Live Preview</SectionLabel>
-          <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm">
-            <ReceiptPreview
-              enabled={enabled}
-              title={voucherTitle}
-              ssid={ssid}
-              password={password}
-              securityType={securityType}
-              duration={duration}
-              speedLabel={speedLabel}
-              note={note}
-              showPassword={showPassword}
-            />
-            <div className="flex gap-2 mt-3">
-              <button
-                type="button"
-                onClick={copyCredentials}
-                disabled={!ssid}
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold bg-muted/50 hover:bg-muted transition-colors border border-border/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                data-testid="button-copy-credentials"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "Copied!" : "Copy credentials"}
-              </button>
+          <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+            {/* Tab switcher */}
+            <div className="flex border-b border-border/20">
+              {([
+                { id: "qr" as const, label: "QR Card", icon: QrCode },
+                { id: "receipt" as const, label: "On Receipt", icon: Receipt },
+              ]).map(tab => (
+                <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
+                  className={[
+                    "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors",
+                    activeTab === tab.id
+                      ? "text-foreground border-b-2 border-primary -mb-px"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}>
+                  <tab.icon className="h-3.5 w-3.5" />{tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-4">
+              {activeTab === "qr" ? (
+                <WifiQRCard
+                  ssid={ssid} password={password} securityType={securityType}
+                  duration={duration} title={voucherTitle} speedLabel={speedLabel} note={note} enabled={enabled}
+                />
+              ) : (
+                <>
+                  <ReceiptPreview
+                    enabled={enabled} title={voucherTitle} ssid={ssid} password={password}
+                    securityType={securityType} duration={duration} speedLabel={speedLabel}
+                    note={note} showPassword={showPassword} showQr={showQr}
+                  />
+                  <div className="flex gap-2 mt-3">
+                    <button type="button" onClick={copyCredentials} disabled={!ssid}
+                      className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold bg-muted/50 hover:bg-muted transition-colors border border-border/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                      data-testid="button-copy-credentials">
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? "Copied!" : "Copy credentials"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -649,22 +798,19 @@ export default function WifiVouchersPage() {
             </div>
             <ul className="space-y-1.5 pl-5">
               {[
+                "QR ring color changes by duration: amber ≤30m, green ≤2h, violet ≤8h, indigo = full day.",
                 "Use a dedicated guest network — keep your main network private.",
                 "Set a short session (1–2h) to encourage repeat visits.",
-                "WPA2 offers the best security for your guest network.",
-                "Profiles let you quickly switch between different networks (e.g. indoor vs. outdoor).",
+                "Profiles let you quickly switch between networks (e.g. indoor vs. outdoor).",
               ].map((tip, i) => (
                 <li key={i} className="text-[11px] text-muted-foreground leading-relaxed list-disc">{tip}</li>
               ))}
             </ul>
           </div>
 
-          <Button
-            onClick={handleSave}
-            disabled={updateSettings.isPending}
+          <Button onClick={handleSave} disabled={updateSettings.isPending}
             className="w-full h-11 rounded-xl font-semibold bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 transition-all"
-            data-testid="button-save-wifi-settings"
-          >
+            data-testid="button-save-wifi-settings">
             <Save className="mr-2 h-4 w-4" />
             {updateSettings.isPending ? "Saving…" : "Save WiFi Settings"}
           </Button>

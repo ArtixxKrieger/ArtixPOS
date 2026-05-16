@@ -60,10 +60,10 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
       toast({ title: `Switched to ${branches.find((b) => b.id === branchId)?.name}` });
       setOpen(false);
       setTimeout(() => window.location.reload(), 150);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Could not switch branch",
-        description: err?.message || "Please try again.",
+        description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       });
     }

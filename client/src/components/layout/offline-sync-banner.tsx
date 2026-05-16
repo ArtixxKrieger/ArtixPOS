@@ -78,7 +78,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
     if (bannerState !== "sync-done") {
       setBannerState("hidden");
     }
-  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]);
+  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed, bannerState]);
 
   useEffect(() => {
     return () => {

@@ -278,7 +278,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return true;
   }
 
-  const NavItem = ({ item }: { item: { label: string; url: string; icon: LucideIcon; managerOnly?: boolean; ownerOnly?: boolean } }) => {
+  const NavItem = ({ item }: { item: { label: string; url: string; icon: LucideIcon; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean } }) => {
     if (!shouldShowNavItem(item)) return null;
     const Icon = item.icon;
     const isActive = location === item.url;
@@ -363,7 +363,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 )}
                 <div className="space-y-0.5">
                   {visibleItems.map((item) => (
-                    <NavItem key={item.url} item={item as any} />
+                    <NavItem key={item.url} item={item} />
                   ))}
                 </div>
               </div>
@@ -375,7 +375,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <p className="nav-section-label">{t("nav.sections.admin")}</p>
               <div className="space-y-0.5">
                 {ADMIN_NAV_ITEMS.map((item) => {
-                  if ((item as any).ownerOnly && !isOwner) return null;
+                  if ('ownerOnly' in item && item.ownerOnly && !isOwner) return null;
                   const Icon = item.icon;
                   const isActive = location === item.url;
                   return (
@@ -392,7 +392,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       ].join(" ")}
                     >
                       <Icon className={["h-[14px] w-[14px] shrink-0", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
-                      <span className="flex-1 text-left truncate">{t((item as any).i18nKey ?? item.label)}</span>
+                      <span className="flex-1 text-left truncate">{t(item.i18nKey)}</span>
                     </button>
                   );
                 })}

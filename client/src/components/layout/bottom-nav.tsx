@@ -77,7 +77,15 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
 
-const MORE_NAV_FULL = [
+interface MoreNavItem {
+  url: string;
+  cashierHidden: boolean;
+  proOnly?: boolean;
+  managerOnly?: boolean;
+  ownerOnly?: boolean;
+}
+
+const MORE_NAV_FULL: MoreNavItem[] = [
   { url: "/kitchen", cashierHidden: false, proOnly: true },
   { url: "/tables", cashierHidden: false, proOnly: true },
   { url: "/appointments", cashierHidden: false, proOnly: true },
@@ -152,10 +160,10 @@ export function BottomNav() {
 
   const MORE_NAV = MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
-    if (isFree && (i as any).proOnly && !essentialUrls.has(i.url)) return false;
+    if (isFree && i.proOnly && !essentialUrls.has(i.url)) return false;
     if (isCashier && i.cashierHidden) return false;
-    if ((i as any).managerOnly && !isManagerOrAbove) return false;
-    if ((i as any).ownerOnly && !isOwner) return false;
+    if (i.managerOnly && !isManagerOrAbove) return false;
+    if (i.ownerOnly && !isOwner) return false;
     if (hiddenUrls.has(i.url)) return false;
     return true;
   }).map((item) => {
@@ -170,7 +178,7 @@ export function BottomNav() {
   });
 
   // Count ALL pending orders — both paid (awaiting finalisation) and unpaid
-  const pendingCount = (pendingOrders as any[]).length;
+  const pendingCount = pendingOrders.length;
 
   // Use the FULL unfiltered list so navigating to any secondary page highlights "More",
   // even if that page is currently hidden from the nav (e.g. during subscription load).
@@ -349,7 +357,7 @@ export function BottomNav() {
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
-                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{t((item as any).i18nKey ?? item.label)}</span>
+                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{t(item.i18nKey)}</span>
                     </button>
                   );
                 })}

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest, nativeFetch, resolveUrl } from "@/lib/queryClient";
+import { apiRequest, nativeFetch, resolveUrl, getCsrfHeaders } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
@@ -2179,7 +2179,7 @@ export default function AiPage() {
             } else if (parsed.type === "account_banned") {
               // Force logout after a short delay so the user sees the ban message
               setTimeout(async () => {
-                try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+                try { await fetch("/auth/logout", { method: "POST", credentials: "include", headers: getCsrfHeaders("POST") }); } catch {}
                 queryClient.setQueryData(["auth-me"], null);
                 queryClient.clear();
                 window.location.href = "/login?reason=banned";
@@ -2216,7 +2216,7 @@ export default function AiPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/ai/upload", { method: "POST", body: formData, credentials: "include" });
+      const res = await fetch("/api/ai/upload", { method: "POST", body: formData, credentials: "include", headers: getCsrfHeaders("POST") });
       if (!res.ok) throw new Error((await res.json()).message || "Upload failed");
       const data = await res.json();
       setFileContent(data.content);

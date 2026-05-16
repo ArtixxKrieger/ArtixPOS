@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
-import { NATIVE_TOKEN_KEY, apiRequest, setNativeToken, queryClient, resolveUrl } from "@/lib/queryClient";
+import { NATIVE_TOKEN_KEY, apiRequest, setNativeToken, queryClient, resolveUrl, getCsrfHeaders } from "@/lib/queryClient";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -120,7 +120,7 @@ export default function Login() {
     localStorage.setItem(INVITE_STORAGE_KEY, inviteToken);
     if (isAuthenticated) {
       (async () => {
-        try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+        try { await fetch("/auth/logout", { method: "POST", credentials: "include", headers: getCsrfHeaders("POST") }); } catch {}
         const { clearNativeToken } = await import("@/lib/queryClient");
         clearNativeToken();
         queryClient.setQueryData(["auth-me"], null);
@@ -248,7 +248,7 @@ export default function Login() {
       if (mode === "signin") body.rememberMe = rememberMe;
       const res = await fetch(resolveUrl(endpoint), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders("POST") },
         body: JSON.stringify(body),
         credentials: "include",
       });
@@ -283,7 +283,7 @@ export default function Login() {
     try {
       const res = await fetch(resolveUrl("/api/auth/forgot-password"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders("POST") },
         body: JSON.stringify({ email: forgotEmail }),
         credentials: "include",
       });

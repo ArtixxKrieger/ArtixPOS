@@ -6,7 +6,7 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ReceiptText, Gift, Banknote, FileCheck,
+  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -28,6 +28,8 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/rooms": "nav.rooms",
   "/memberships": "nav.memberships",
   "/products": "nav.products",
+  "/inventory": "nav.inventory",
+  "/expiry": "nav.expiry",
   "/customers": "nav.customers",
   "/transactions": "nav.transactions",
   "/analytics": "nav.analytics",
@@ -38,11 +40,13 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/timeclock": "nav.timeclock",
   "/discount-codes": "nav.discounts",
   "/refunds": "nav.refunds",
-  "/ai": "nav.ai",
-  "/print-settings": "nav.printSettings",
   "/loyalty": "nav.loyalty",
   "/payroll": "nav.payroll",
   "/bir": "nav.bir",
+  "/bir-audit-log": "nav.birAuditLog",
+  "/ai": "nav.ai",
+  "/hardware-settings": "nav.hardwareSettings",
+  "/print-settings": "nav.printSettings",
   "/billing": "nav.billing",
   "/settings": "nav.settings",
 };
@@ -58,6 +62,8 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/rooms": { defaultLabel: "Rooms", icon: DoorOpen },
   "/memberships": { defaultLabel: "Memberships", icon: BadgeCheck },
   "/products": { defaultLabel: "Products", icon: Package },
+  "/inventory": { defaultLabel: "Inventory", icon: Warehouse },
+  "/expiry": { defaultLabel: "Expiry", icon: CalendarClock },
   "/customers": { defaultLabel: "Customers", icon: UserCircle2 },
   "/transactions": { defaultLabel: "Transactions", icon: ScrollText },
   "/analytics": { defaultLabel: "Analytics", icon: BarChart3 },
@@ -68,17 +74,25 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/timeclock": { defaultLabel: "Time Clock", icon: Timer },
   "/discount-codes": { defaultLabel: "Discounts", icon: Tag },
   "/refunds": { defaultLabel: "Refunds", icon: RotateCcw },
-  "/ai": { defaultLabel: "AI", icon: Sparkles },
-  "/print-settings": { defaultLabel: "Print Settings", icon: ReceiptText },
   "/loyalty": { defaultLabel: "Loyalty", icon: Gift },
   "/payroll": { defaultLabel: "Payroll", icon: Banknote },
   "/bir": { defaultLabel: "BIR", icon: FileCheck },
+  "/bir-audit-log": { defaultLabel: "Void Log", icon: BookLock },
+  "/ai": { defaultLabel: "AI", icon: Sparkles },
+  "/hardware-settings": { defaultLabel: "Hardware", icon: Cpu },
+  "/print-settings": { defaultLabel: "Print", icon: ReceiptText },
   "/billing": { defaultLabel: "Billing", icon: CreditCard },
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
 
+// ─── Category definitions ─────────────────────────────────────────────────────
+// Each item now carries a category so the More sheet can render grouped sections.
+
+type MoreCategory = "service" | "operations" | "management" | "finance" | "tools";
+
 interface MoreNavItem {
   url: string;
+  category: MoreCategory;
   cashierHidden: boolean;
   proOnly?: boolean;
   managerOnly?: boolean;
@@ -86,31 +100,50 @@ interface MoreNavItem {
 }
 
 const MORE_NAV_FULL: MoreNavItem[] = [
-  { url: "/kitchen", cashierHidden: false, proOnly: true },
-  { url: "/tables", cashierHidden: false, proOnly: true },
-  { url: "/appointments", cashierHidden: false, proOnly: true },
-  { url: "/staff", cashierHidden: true },
-  { url: "/rooms", cashierHidden: false, proOnly: true },
-  { url: "/memberships", cashierHidden: false, proOnly: true },
-  { url: "/products", cashierHidden: true },
-  { url: "/customers", cashierHidden: true, proOnly: true },
-  { url: "/transactions", cashierHidden: true },
-  { url: "/analytics", cashierHidden: true },
-  { url: "/expenses", cashierHidden: true, proOnly: true },
-  { url: "/suppliers", cashierHidden: true, proOnly: true },
-  { url: "/purchases", cashierHidden: true, proOnly: true },
-  { url: "/shifts", cashierHidden: false, proOnly: true },
-  { url: "/timeclock", cashierHidden: false, proOnly: true },
-  { url: "/discount-codes", cashierHidden: true, proOnly: true },
-  { url: "/refunds", cashierHidden: true, managerOnly: true },
-  { url: "/ai", cashierHidden: false, proOnly: true },
-  { url: "/loyalty", cashierHidden: true, proOnly: true },
-  { url: "/payroll", cashierHidden: true, ownerOnly: true, proOnly: true },
-  { url: "/bir", cashierHidden: true, ownerOnly: true },
-  { url: "/print-settings", cashierHidden: true, ownerOnly: true },
-  { url: "/billing", cashierHidden: true, ownerOnly: true },
-  { url: "/settings", cashierHidden: false },
+  // ── Service ──────────────────────────────────────────────────────────────────
+  { url: "/kitchen",          category: "service",    cashierHidden: false, proOnly: true },
+  { url: "/tables",           category: "service",    cashierHidden: false, proOnly: true },
+  { url: "/appointments",     category: "service",    cashierHidden: false, proOnly: true },
+  // ── Operations ───────────────────────────────────────────────────────────────
+  { url: "/staff",            category: "operations", cashierHidden: true },
+  { url: "/rooms",            category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/memberships",      category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/shifts",           category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/timeclock",        category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/payroll",          category: "operations", cashierHidden: true, ownerOnly: true, proOnly: true },
+  // ── Management ───────────────────────────────────────────────────────────────
+  { url: "/products",         category: "management", cashierHidden: true },
+  { url: "/inventory",        category: "management", cashierHidden: true },
+  { url: "/expiry",           category: "management", cashierHidden: true },
+  { url: "/customers",        category: "management", cashierHidden: true, proOnly: true },
+  { url: "/transactions",     category: "management", cashierHidden: true },
+  { url: "/discount-codes",   category: "management", cashierHidden: true, proOnly: true },
+  { url: "/loyalty",          category: "management", cashierHidden: true, proOnly: true },
+  { url: "/refunds",          category: "management", cashierHidden: true, managerOnly: true },
+  // ── Finance & Analytics ───────────────────────────────────────────────────────
+  { url: "/analytics",        category: "finance",    cashierHidden: true },
+  { url: "/expenses",         category: "finance",    cashierHidden: true, proOnly: true },
+  { url: "/suppliers",        category: "finance",    cashierHidden: true, proOnly: true },
+  { url: "/purchases",        category: "finance",    cashierHidden: true, proOnly: true },
+  { url: "/bir",              category: "finance",    cashierHidden: true, ownerOnly: true, proOnly: true },
+  { url: "/bir-audit-log",    category: "finance",    cashierHidden: true, ownerOnly: true, proOnly: true },
+  // ── Tools ─────────────────────────────────────────────────────────────────────
+  { url: "/ai",               category: "tools",      cashierHidden: false, proOnly: true },
+  { url: "/hardware-settings",category: "tools",      cashierHidden: false },
+  { url: "/print-settings",   category: "tools",      cashierHidden: true, ownerOnly: true },
+  { url: "/billing",          category: "tools",      cashierHidden: true, ownerOnly: true },
+  { url: "/settings",         category: "tools",      cashierHidden: false },
 ];
+
+const CATEGORY_LABELS: Record<MoreCategory, string> = {
+  service:    "Service",
+  operations: "Operations",
+  management: "Management",
+  finance:    "Finance & Analytics",
+  tools:      "Tools",
+};
+
+const CATEGORY_ORDER: MoreCategory[] = ["service", "operations", "management", "finance", "tools"];
 
 const ADMIN_NAV = [
   { label: "Overview", url: "/admin", icon: ShieldCheck, i18nKey: "nav.admin.overview" },
@@ -132,6 +165,7 @@ export function BottomNav() {
   const isCashier = role === "cashier";
   const isAdminOrAbove = role === "owner" || role === "manager" || role === "admin";
   const isManagerOrAbove = role === "owner" || role === "manager";
+  const isOwner = role === "owner";
 
   const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();
   const { hiddenUrls, essentialUrls, primaryNavUrls, labels } = getBusinessFeatures(
@@ -156,9 +190,8 @@ export function BottomNav() {
 
   const primaryNavUrlSet = new Set(primaryNavItems.map((i) => i.url));
 
-  const isOwner = role === "owner";
-
-  const MORE_NAV = MORE_NAV_FULL.filter((i) => {
+  // Filter items by role/subscription, then group by category
+  const filteredMoreItems = MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
     if (isFree && i.proOnly && !essentialUrls.has(i.url)) return false;
     if (isCashier && i.cashierHidden) return false;
@@ -172,30 +205,35 @@ export function BottomNav() {
     const translatedLabel = i18nKey ? t(i18nKey) : config.defaultLabel;
     return {
       url: item.url,
+      category: item.category,
       label: labels[item.url] ?? translatedLabel,
       icon: config.icon,
     };
   });
 
-  // Count ALL pending orders — both paid (awaiting finalisation) and unpaid
+  // Group into ordered sections, skipping empty ones
+  const grouped = CATEGORY_ORDER
+    .map(cat => ({
+      category: cat,
+      label: CATEGORY_LABELS[cat],
+      items: filteredMoreItems.filter(i => i.category === cat),
+    }))
+    .filter(g => g.items.length > 0);
+
   const pendingCount = pendingOrders.length;
 
-  // Use the FULL unfiltered list so navigating to any secondary page highlights "More",
-  // even if that page is currently hidden from the nav (e.g. during subscription load).
   const allSecondaryUrls = new Set([
     ...MORE_NAV_FULL.map((i) => i.url),
     ...ADMIN_NAV.map((i) => i.url),
   ]);
   const isMoreActive = allSecondaryUrls.has(location) || location.startsWith("/admin");
   const primaryActiveIndex = primaryNavItems.findIndex((item) => item.url === location);
-  // -1 means no pill shown; only show pill when we have a clear match
+  const hasMore = filteredMoreItems.length > 0 || isAdminOrAbove;
   const pillIndex = primaryActiveIndex !== -1
     ? primaryActiveIndex
     : isMoreActive
       ? primaryNavItems.length
       : -1;
-
-  const hasMore = MORE_NAV.length > 0 || isAdminOrAbove;
 
   const navigate = (url: string) => {
     startTransition(() => setLocation(url));
@@ -212,7 +250,7 @@ export function BottomNav() {
           className="pointer-events-auto glass-nav mx-3 mb-1.5 rounded-[24px] px-1 py-1 flex items-center w-full relative"
           style={{ maxWidth: "480px" }}
         >
-          {/* Sliding active pill — hidden when no nav item matches current page */}
+          {/* Sliding active pill */}
           <div
             className="absolute inset-y-1 pointer-events-none z-0 transition-all duration-300 ease-in-out"
             style={{
@@ -305,68 +343,71 @@ export function BottomNav() {
           )}
 
           <div className="overflow-y-auto" style={{ maxHeight: "calc(72dvh - env(safe-area-inset-bottom, 0px))" }}>
-          {MORE_NAV.length > 0 && (
-            <div className="px-4 pt-3 pb-2">
-              <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
-                {t("nav.more")}
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {MORE_NAV.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location === item.url;
-                  return (
-                    <button
-                      key={item.url}
-                      onClick={() => navigate(item.url)}
-                      aria-current={isActive ? "page" : undefined}
-                      className={[
-                        "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
-                        isActive
-                          ? "bg-primary/10 border-primary/20 text-primary"
-                          : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
-                      ].join(" ")}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
-          {isAdminOrAbove && (
-            <div className="px-4 pt-2 pb-2">
-              <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-3">
-                {t("nav.sections.admin")}
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {ADMIN_NAV.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location === item.url;
-                  return (
-                    <button
-                      key={item.url}
-                      onClick={() => navigate(item.url)}
-                      aria-current={isActive ? "page" : undefined}
-                      className={[
-                        "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
-                        isActive
-                          ? "bg-primary/10 border-primary/20 text-primary"
-                          : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
-                      ].join(" ")}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-[11px] font-medium text-center leading-tight px-0.5">{t(item.i18nKey)}</span>
-                    </button>
-                  );
-                })}
+            {/* Categorised nav sections */}
+            {grouped.map((group) => (
+              <div key={group.category} className="px-4 pt-4 pb-1">
+                <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-2">
+                  {group.label}
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location === item.url;
+                    return (
+                      <button
+                        key={item.url}
+                        onClick={() => navigate(item.url)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={[
+                          "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
+                          isActive
+                            ? "bg-primary/10 border-primary/20 text-primary"
+                            : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+                        ].join(" ")}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="text-[11px] font-medium text-center leading-tight px-0.5">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            ))}
 
-          <div style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)" }} />
-        </div>
+            {/* Admin section */}
+            {isAdminOrAbove && (
+              <div className="px-4 pt-4 pb-1">
+                <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-2">
+                  {t("nav.sections.admin")}
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  {ADMIN_NAV.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location === item.url;
+                    return (
+                      <button
+                        key={item.url}
+                        onClick={() => navigate(item.url)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={[
+                          "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
+                          isActive
+                            ? "bg-primary/10 border-primary/20 text-primary"
+                            : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+                        ].join(" ")}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="text-[11px] font-medium text-center leading-tight px-0.5">{t(item.i18nKey)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)" }} />
+          </div>
         </SheetContent>
       </Sheet>
     </>

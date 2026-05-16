@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Cpu, Usb, ScanBarcode, CheckCircle2, Circle, Zap, RefreshCw, Loader2, Info, Printer, WifiOff, AlertCircle } from "lucide-react";
+import { Cpu, Usb, ScanBarcode, CheckCircle2, Circle, Zap, Loader2, Info, Printer, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { buildTestPrintEscPos } from "@/lib/escpos";
@@ -24,9 +24,9 @@ function PageHeader() {
   );
 }
 
-function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`bg-card border border-border rounded-xl overflow-hidden ${className}`}>
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
       {children}
     </div>
   );
@@ -61,8 +61,7 @@ function StatusBadge({ active, label }: { active: boolean; label: string }) {
   );
 }
 
-// ─── Barcode scanner helpers (duplicated logic from useBarcodeScanner so we  ──
-// can capture events in our own test-area without affecting the global hook)  ──
+// ─── Barcode scanner helpers ──────────────────────────────────────────────────
 
 function cleanBarcode(raw: string): string {
   let s = raw;
@@ -88,12 +87,25 @@ function BarcodeScannerSection() {
   const activityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const testInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Track scanner activity for the live status badge
+  // Cleanup timer on unmount to avoid state-update-on-unmounted-component warnings
+  useEffect(() => {
+    return () => {
+      if (activityTimer.current) clearTimeout(activityTimer.current);
+    };
+  }, []);
+
   const markActive = useCallback(() => {
     setIsActive(true);
     if (activityTimer.current) clearTimeout(activityTimer.current);
     activityTimer.current = setTimeout(() => setIsActive(false), 60_000);
   }, []);
+
+  const handleScan = useCallback((barcode: string) => {
+    setLastScan({ barcode, at: new Date() });
+    setFlash(true);
+    setTimeout(() => setFlash(false), 600);
+    markActive();
+  }, [markActive]);
 
   // Global burst-detection listener (mirrors useBarcodeScanner logic)
   useEffect(() => {
@@ -111,12 +123,7 @@ function BarcodeScannerSection() {
       if (isTerminator) {
         if (buffer.length >= MIN_BARCODE_LENGTH) {
           const cleaned = cleanBarcode(buffer);
-          if (cleaned.length >= MIN_BARCODE_LENGTH) {
-            setLastScan({ barcode: cleaned, at: new Date() });
-            setFlash(true);
-            setTimeout(() => setFlash(false), 600);
-            markActive();
-          }
+          if (cleaned.length >= MIN_BARCODE_LENGTH) handleScan(cleaned);
         }
         buffer = "";
         lastCharAt = 0;
@@ -131,23 +138,19 @@ function BarcodeScannerSection() {
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [markActive]);
+  }, [handleScan]);
 
-  // Test-mode input handler — dedicated field the scanner can type into
+  // Test-mode input: scanner types into the dedicated field
   function onTestInput(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter" && e.key !== "Tab") return;
+    const isTerminator = e.key === "Enter" || e.key === "Tab";
+    if (!isTerminator) return;
+    e.preventDefault();
     const val = (e.target as HTMLInputElement).value.trim();
     if (val.length >= MIN_BARCODE_LENGTH) {
       const cleaned = cleanBarcode(val);
-      if (cleaned.length >= MIN_BARCODE_LENGTH) {
-        setLastScan({ barcode: cleaned, at: new Date() });
-        setFlash(true);
-        setTimeout(() => setFlash(false), 600);
-        markActive();
-      }
-      (e.target as HTMLInputElement).value = "";
-      e.preventDefault();
+      if (cleaned.length >= MIN_BARCODE_LENGTH) handleScan(cleaned);
     }
+    (e.target as HTMLInputElement).value = "";
   }
 
   useEffect(() => {
@@ -163,7 +166,7 @@ function BarcodeScannerSection() {
       />
 
       <div className="p-4 space-y-4">
-        {/* How it works */}
+        {/* Info banner */}
         <div className="flex gap-2.5 p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 text-blue-700 dark:text-blue-300">
           <Info className="w-4 h-4 mt-0.5 shrink-0" />
           <div className="text-xs leading-relaxed">
@@ -176,7 +179,7 @@ function BarcodeScannerSection() {
           </div>
         </div>
 
-        {/* Compatible types */}
+        {/* Compatible scanners */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Compatible Scanners</p>
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
@@ -201,16 +204,14 @@ function BarcodeScannerSection() {
         {/* Live test area */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Test Your Scanner</p>
-          <div
-            className={[
-              "relative rounded-lg border-2 transition-all duration-300 p-4",
-              flash
-                ? "border-emerald-500 bg-emerald-500/5"
-                : testMode
-                  ? "border-primary/40 bg-primary/3"
-                  : "border-dashed border-border",
-            ].join(" ")}
-          >
+          <div className={[
+            "relative rounded-lg border-2 transition-all duration-300 p-4",
+            flash
+              ? "border-emerald-500 bg-emerald-500/5"
+              : testMode
+                ? "border-primary/40 bg-primary/5"
+                : "border-dashed border-border",
+          ].join(" ")}>
             {testMode ? (
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground text-center">
@@ -292,7 +293,7 @@ function UsbPrinterSection() {
   const [testing, setTesting] = useState<string | null>(null);
   const webUsbSupported = typeof navigator !== "undefined" && !!(navigator as any).usb;
 
-  // Re-enumerate previously-granted WebUSB devices on mount
+  // Re-enumerate previously granted WebUSB devices on mount
   useEffect(() => {
     if (!webUsbSupported) return;
     (navigator as any).usb.getDevices().then((devices: USBDevice[]) => {
@@ -306,20 +307,16 @@ function UsbPrinterSection() {
   }, [webUsbSupported]);
 
   async function addPrinter() {
-    if (!webUsbSupported) {
-      toast({ title: "Not supported", description: "WebUSB requires Chrome or Edge on a desktop computer.", variant: "destructive" });
-      return;
-    }
     setScanning(true);
     try {
-      // filters: [] means "show all USB devices" — works with every thermal printer model
+      // filters: [] → shows every USB device — works with every thermal printer brand
       const device: USBDevice = await (navigator as any).usb.requestDevice({ filters: [] });
       const name = device.productName || device.manufacturerName || "USB Printer";
       setPrinters(prev => {
         const others = prev.filter(p => p.device !== device);
         return [...others, { name, device, connected: false }];
       });
-      // Try to open & claim immediately so we can show "connected" status
+      // Try to open & claim right away to show connected status immediately
       try {
         await device.open();
         if (device.configuration === null) await device.selectConfiguration(1);
@@ -347,11 +344,11 @@ function UsbPrinterSection() {
       const dev = printer.device;
       if (!dev.opened) await dev.open();
       if (dev.configuration === null) await dev.selectConfiguration(1);
-      // Try interfaces 0–2 (different printer brands expose different interface numbers)
+      // Try interfaces 0–2 (different brands expose different interface numbers)
       for (let iface = 0; iface <= 2; iface++) {
         try { await dev.claimInterface(iface); } catch {}
       }
-      // Try endpoints 1–3 (Epson=1, Xprinter=2, Star=1, Rongta=2 etc.)
+      // Try endpoints 1–3 (Epson=1, Xprinter=2, Star=1, Rongta=2, etc.)
       let sent = false;
       for (const ep of [1, 2, 3]) {
         try {
@@ -360,7 +357,7 @@ function UsbPrinterSection() {
         } catch {}
       }
       if (sent) {
-        setPrinters(prev => prev.map(p => p.name === printer.name ? { ...p, connected: true } : p));
+        setPrinters(prev => prev.map(p => p.device === printer.device ? { ...p, connected: true } : p));
         toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
       } else {
         toast({ title: "Print failed", description: "No working USB endpoint found. Try a different USB cable.", variant: "destructive" });
@@ -388,30 +385,30 @@ function UsbPrinterSection() {
       />
 
       <div className="p-4 space-y-4">
-        {/* Browser support notice */}
+        {/* Browser support warning */}
         {!webUsbSupported && (
-          <div className="flex gap-2.5 p-3 rounded-lg bg-amber-500/8 border border-amber-500/20 text-amber-700 dark:text-amber-300">
+          <div className="flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <div className="text-xs leading-relaxed">
               <p className="font-semibold mb-0.5">Chrome or Edge required for USB printing</p>
               <p className="text-amber-600/80 dark:text-amber-300/70">
-                Your current browser doesn't support WebUSB. Open ArtixPOS in Google Chrome or Microsoft Edge on a desktop
-                or Android device to connect a USB thermal printer.
+                Your current browser doesn't support WebUSB. Open ArtixPOS in Google Chrome or Microsoft Edge on a
+                desktop or Android device to connect a USB thermal printer.
               </p>
             </div>
           </div>
         )}
 
-        {/* How it works */}
+        {/* Info banner (only when supported) */}
         {webUsbSupported && (
           <div className="flex gap-2.5 p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 text-blue-700 dark:text-blue-300">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
             <div className="text-xs leading-relaxed">
               <p className="font-semibold mb-0.5">Plug-and-play for all thermal printer brands</p>
               <p className="text-blue-600/80 dark:text-blue-300/70">
-                Plug your printer into a USB port, click "Add Printer" below, select it from the browser popup,
-                then press Test Print. Receipts print in standard ESC/POS format — the same protocol used
-                by Epson, Xprinter, Star, Bixolon, Rongta, Hoin, Munbyn, and every other thermal printer brand.
+                Plug your printer into a USB port, click "Add Printer", select it from the browser popup, then press
+                Test Print. Receipts print using ESC/POS — the standard protocol supported by every major thermal
+                printer brand.
               </p>
             </div>
           </div>
@@ -448,7 +445,7 @@ function UsbPrinterSection() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Connected Printers</p>
             {printers.map(printer => (
               <div
-                key={printer.name}
+                key={printer.device.serialNumber || printer.name}
                 data-testid={`card-printer-${printer.name}`}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/50 bg-muted/20"
               >
@@ -460,7 +457,9 @@ function UsbPrinterSection() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{printer.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{printer.connected ? "Connected · ESC/POS" : "Added · not yet verified"}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {printer.connected ? "Connected · ESC/POS ready" : "Added · press Test Print to verify"}
+                  </p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   <Button
@@ -507,7 +506,7 @@ function UsbPrinterSection() {
           </Button>
         )}
 
-        {/* Bluetooth reminder */}
+        {/* Bluetooth note */}
         <div className="flex gap-2 text-xs text-muted-foreground/70 items-start pt-1">
           <Circle className="w-3 h-3 mt-0.5 shrink-0" />
           <span>

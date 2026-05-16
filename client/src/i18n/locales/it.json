@@ -45,7 +45,8 @@
     },
     "more": "Altro",
     "hardwareSettings": "Hardware",
-    "inventory": "Inventario"
+    "inventory": "Inventario",
+    "wifiVoucher": "Voucher WiFi"
   },
   "page": {
     "pointOfSale": "Punto vendita",

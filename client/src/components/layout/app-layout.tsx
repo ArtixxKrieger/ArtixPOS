@@ -115,7 +115,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/transactions": "nav.transactions",
   "/discount-codes": "nav.discounts",
   "/loyalty": "nav.loyalty",
-  "/wifi-vouchers": "nav.wifiVouchers",
+  "/wifi-vouchers": "nav.wifiVoucher",
   "/refunds": "nav.refunds",
   "/analytics": "nav.analytics",
   "/expenses": "nav.expenses",

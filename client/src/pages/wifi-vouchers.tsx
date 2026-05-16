@@ -7,78 +7,120 @@ import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import {
   Wifi, Save, Eye, EyeOff, Clock, Receipt, Sparkles, ChevronRight,
-  Info, CheckCircle2, WifiOff,
+  Info, CheckCircle2, WifiOff, Plus, Trash2, Lock, Unlock,
+  Copy, Check, Zap, Shield, Settings2, ToggleLeft, ToggleRight,
+  Star, Signal, Pencil, X,
 } from "lucide-react";
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+type SecurityType = "WPA2" | "WPA" | "WEP" | "Open";
+
+interface NetworkProfile {
+  id: string;
+  name: string;
+  ssid: string;
+  password: string;
+  securityType: SecurityType;
+}
+
+function SectionLabel({ children, icon: Icon }: { children: React.ReactNode; icon?: React.ElementType }) {
   return (
-    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">
-      {children}
-    </p>
+    <div className="flex items-center gap-1.5 pt-1 pb-0.5 px-1">
+      {Icon && <Icon className="h-3 w-3 text-muted-foreground/60" />}
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{children}</p>
+    </div>
   );
 }
 
 function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 py-3 border-b border-border/20 last:border-0">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium leading-tight">{label}</p>
         {hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}
       </div>
-      <div className="shrink-0 w-[52%]">{children}</div>
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
 
-function HowItWorksCard() {
-  const steps = [
-    {
-      icon: Receipt,
-      color: "text-violet-500",
-      bg: "bg-violet-500/10",
-      title: "Printed on every receipt",
-      desc: "When a sale is completed, the WiFi network name, password, and session duration appear automatically at the bottom of the receipt.",
-    },
-    {
-      icon: Wifi,
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
-      title: "Customer connects",
-      desc: "The customer scans or reads the receipt and connects to your guest WiFi using the printed credentials.",
-    },
-    {
-      icon: Clock,
-      color: "text-amber-500",
-      bg: "bg-amber-500/10",
-      title: "Time-limited session",
-      desc: "The voucher shows an expiry time so guests know how long their session lasts. New purchases generate a fresh voucher.",
-    },
-  ];
+const DURATION_PRESETS = [
+  { label: "15m", value: 15 },
+  { label: "30m", value: 30 },
+  { label: "1h", value: 60 },
+  { label: "2h", value: 120 },
+  { label: "4h", value: 240 },
+  { label: "8h", value: 480 },
+  { label: "24h", value: 1440 },
+];
 
+const SECURITY_TYPES: { type: SecurityType; label: string; color: string; icon: React.ElementType }[] = [
+  { type: "WPA2", label: "WPA2", color: "text-emerald-600 dark:text-emerald-400", icon: Shield },
+  { type: "WPA", label: "WPA", color: "text-amber-600 dark:text-amber-400", icon: Lock },
+  { type: "WEP", label: "WEP", color: "text-orange-600 dark:text-orange-400", icon: Lock },
+  { type: "Open", label: "Open", color: "text-muted-foreground", icon: Unlock },
+];
+
+function ReceiptPreview({
+  enabled, title, ssid, password, securityType, duration, speedLabel, note, showPassword,
+}: {
+  enabled: boolean; title: string; ssid: string; password: string;
+  securityType: SecurityType; duration: number; speedLabel: string; note: string; showPassword: boolean;
+}) {
+  const sec = SECURITY_TYPES.find(s => s.type === securityType);
   return (
-    <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm space-y-4">
-      <div className="flex items-center gap-2">
-        <Info className="h-4 w-4 text-muted-foreground" />
-        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">How it works</p>
-      </div>
-      <div className="space-y-3">
-        {steps.map((s, i) => (
-          <div key={i} className="flex items-start gap-3">
-            <div className={`h-8 w-8 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
-              <s.icon className={`h-4 w-4 ${s.color}`} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold">{s.title}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{s.desc}</p>
-            </div>
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-border/30 p-4 font-mono text-center shadow-inner">
+      <div className="space-y-1">
+        <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider">— — — — — — — — — —</p>
+        {!enabled ? (
+          <div className="flex flex-col items-center gap-1 py-2 opacity-40">
+            <WifiOff className="h-5 w-5 text-muted-foreground" />
+            <p className="text-[10px] text-muted-foreground">WiFi voucher disabled</p>
           </div>
-        ))}
-      </div>
-      <div className="flex items-start gap-2 bg-muted/40 rounded-xl px-3 py-2.5">
-        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          ArtixPOS prints the credentials as text — no router integration required. Works with any WiFi router that supports a guest network.
-        </p>
+        ) : (
+          <>
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <Wifi className={`h-3.5 w-3.5 ${ssid ? "text-emerald-500" : "text-muted-foreground"}`} />
+              <p className="text-[11px] font-black uppercase tracking-widest">
+                {title || "FREE WIFI"}
+              </p>
+            </div>
+            {speedLabel && (
+              <p className="text-[9px] text-muted-foreground">{speedLabel}</p>
+            )}
+            <div className="space-y-0.5 pt-1">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-muted-foreground">Network</span>
+                <span className="font-semibold">{ssid || "—"}</span>
+              </div>
+              {securityType !== "Open" && (
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-muted-foreground">Password</span>
+                  <span className="font-semibold">
+                    {password ? (showPassword ? password : "••••••••") : "—"}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-[10px]">
+                <span className="text-muted-foreground">Security</span>
+                <span className={`font-semibold ${sec?.color}`}>{securityType}</span>
+              </div>
+              <div className="flex justify-between text-[10px]">
+                <span className="text-muted-foreground">Valid for</span>
+                <span className="font-semibold">
+                  {duration >= 1440
+                    ? `${duration / 1440} day${duration / 1440 !== 1 ? "s" : ""}`
+                    : duration >= 60
+                      ? `${duration / 60}hr`
+                      : `${duration}min`}
+                </span>
+              </div>
+            </div>
+            {note && (
+              <p className="text-[9px] text-muted-foreground mt-1 italic">{note}</p>
+            )}
+          </>
+        )}
+        <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider pt-1">— — — — — — — — — —</p>
       </div>
     </div>
   );
@@ -91,74 +133,175 @@ export default function WifiVouchersPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  const [enabled, setEnabled] = useState(true);
   const [ssid, setSsid] = useState("");
   const [password, setPassword] = useState("");
-  const [duration, setDuration] = useState("60");
+  const [duration, setDuration] = useState(60);
   const [showPassword, setShowPassword] = useState(false);
+  const [securityType, setSecurityType] = useState<SecurityType>("WPA2");
+  const [voucherTitle, setVoucherTitle] = useState("FREE WIFI");
+  const [speedLabel, setSpeedLabel] = useState("");
+  const [note, setNote] = useState("");
+  const [profiles, setProfiles] = useState<NetworkProfile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (settings) {
-      setSsid((settings as any).wifiSsid || "");
-      setPassword((settings as any).wifiPassword || "");
-      setDuration((settings as any).wifiDurationMinutes?.toString() || "60");
-    }
+    if (!settings) return;
+    const s = settings as any;
+    setEnabled(s.wifiEnabled !== false);
+    setSsid(s.wifiSsid || "");
+    setPassword(s.wifiPassword || "");
+    setDuration(s.wifiDurationMinutes || 60);
+    setSecurityType(s.wifiSecurityType || "WPA2");
+    setVoucherTitle(s.wifiVoucherTitle || "FREE WIFI");
+    setSpeedLabel(s.wifiSpeedLabel || "");
+    setNote(s.wifiVoucherNote || "");
+    const savedProfiles: NetworkProfile[] = s.wifiNetworkProfiles || [];
+    setProfiles(savedProfiles);
+    setActiveProfileId(s.wifiActiveProfileId || null);
   }, [settings]);
 
   const handleSave = () => {
-    const dur = Number(duration);
-    if (!ssid.trim()) {
+    if (enabled && !ssid.trim()) {
       toast({ title: "Network name (SSID) is required", variant: "destructive" });
       return;
     }
-    if (isNaN(dur) || dur < 1) {
-      toast({ title: "Duration must be at least 1 minute", variant: "destructive" });
-      return;
-    }
     updateSettings.mutate(
-      { wifiSsid: ssid.trim(), wifiPassword: password.trim() || null, wifiDurationMinutes: dur } as any,
-      { onSuccess: () => toast({ title: "WiFi voucher settings saved" }) }
+      {
+        wifiEnabled: enabled,
+        wifiSsid: ssid.trim(),
+        wifiPassword: password.trim() || null,
+        wifiDurationMinutes: duration,
+        wifiSecurityType: securityType,
+        wifiVoucherTitle: voucherTitle.trim() || "FREE WIFI",
+        wifiSpeedLabel: speedLabel.trim() || null,
+        wifiVoucherNote: note.trim() || null,
+        wifiNetworkProfiles: profiles,
+        wifiActiveProfileId: activeProfileId,
+      } as any,
+      { onSuccess: () => toast({ title: "WiFi settings saved" }) }
     );
   };
 
+  const addProfile = () => {
+    if (!newProfileName.trim()) return;
+    const id = `p_${Date.now()}`;
+    const newProfile: NetworkProfile = {
+      id,
+      name: newProfileName.trim(),
+      ssid: "",
+      password: "",
+      securityType: "WPA2",
+    };
+    setProfiles(prev => [...prev, newProfile]);
+    setNewProfileName("");
+    setEditingProfileId(id);
+  };
+
+  const updateProfile = (id: string, field: keyof NetworkProfile, value: string) => {
+    setProfiles(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const removeProfile = (id: string) => {
+    setProfiles(prev => prev.filter(p => p.id !== id));
+    if (activeProfileId === id) setActiveProfileId(null);
+  };
+
+  const activateProfile = (p: NetworkProfile) => {
+    setActiveProfileId(p.id);
+    setSsid(p.ssid);
+    setPassword(p.password);
+    setSecurityType(p.securityType);
+  };
+
+  const copyCredentials = () => {
+    const text = [
+      `Network: ${ssid}`,
+      securityType !== "Open" && password ? `Password: ${password}` : null,
+      `Security: ${securityType}`,
+    ].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-lg mx-auto px-4 pt-6 space-y-3">
+        {[1, 2, 3].map(i => <div key={i} className="h-28 bg-muted rounded-2xl animate-pulse" />)}
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-lg mx-auto px-4 pt-4 pb-24 md:pb-8 space-y-4">
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-24 md:pb-8 space-y-3">
 
       {/* Header */}
       <div className="flex items-center gap-3 pb-1">
-        <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-violet-500/25 shrink-0">
-          <Wifi className="h-5 w-5 text-white" />
+        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
+          <Wifi className="h-5.5 w-5.5 text-white" />
         </div>
-        <div>
-          <h1 className="text-lg font-black">WiFi Vouchers</h1>
-          <p className="text-[11px] text-muted-foreground">Print guest WiFi access on every receipt</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-black leading-none">WiFi Vouchers</h1>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Print guest WiFi access on every receipt</p>
         </div>
+        {isPro && (
+          <div className="flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 rounded-full px-2.5 py-1 shrink-0">
+            <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
+            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
+          </div>
+        )}
       </div>
 
-      {/* How it works */}
-      <HowItWorksCard />
-
-      {/* Pro gate or config */}
-      {isLoading ? (
-        <div className="bg-card rounded-2xl border border-border/25 px-4 py-8 flex items-center justify-center">
-          <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      ) : !isPro ? (
+      {!isPro ? (
         <>
-          <SectionLabel>Configuration</SectionLabel>
+          {/* How it works — non-pro */}
+          <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">How it works</p>
+            </div>
+            {[
+              { icon: Receipt, color: "text-violet-500", bg: "bg-violet-500/10", title: "Printed on every receipt", desc: "WiFi credentials appear at the bottom of each receipt automatically after a sale." },
+              { icon: Wifi, color: "text-emerald-500", bg: "bg-emerald-500/10", title: "Customer connects", desc: "Guests read the printed credentials and connect to your guest network instantly." },
+              { icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10", title: "Time-limited sessions", desc: "Show how long access lasts — new receipts generate a fresh session note." },
+            ].map((s, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className={`h-8 w-8 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold">{s.title}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+            <div className="flex items-start gap-2 bg-muted/40 rounded-xl px-3 py-2.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Works with any router — no integration needed. Prints credentials as readable text with an optional QR code.
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={() => setLocation("/billing?reason=pro_required")}
             data-testid="button-upgrade-wifi"
-            className="w-full text-left bg-gradient-to-br from-violet-500/10 via-fuchsia-500/10 to-amber-500/10 border border-violet-500/30 rounded-2xl px-4 py-3.5 shadow-sm hover:from-violet-500/15 hover:via-fuchsia-500/15 hover:to-amber-500/15 transition-all"
+            className="w-full text-left bg-gradient-to-br from-violet-500/10 via-fuchsia-500/10 to-amber-500/10 border border-violet-500/30 rounded-2xl px-4 py-4 shadow-sm hover:from-violet-500/15 transition-all"
           >
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0 shadow-md shadow-violet-500/30">
-                <Sparkles className="h-4 w-4 text-white" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0 shadow-md shadow-violet-500/30">
+                <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-bold text-foreground">WiFi voucher printing is a Pro feature</p>
+                <p className="text-sm font-bold text-foreground">WiFi voucher printing is a Pro feature</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                  Print time-limited WiFi codes on every receipt to delight guests and cut down on staff interruptions. Tap to upgrade.
+                  Multiple network profiles, custom titles, speed labels, session limits, and more. Tap to upgrade.
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
@@ -167,85 +310,363 @@ export default function WifiVouchersPage() {
         </>
       ) : (
         <>
-          <SectionLabel>Configuration</SectionLabel>
+          {/* ── Master Switch ───────────────────────────────────── */}
+          <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+            <div className="flex items-center justify-between py-3.5">
+              <div className="flex items-center gap-3">
+                <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${enabled ? "bg-emerald-500/15" : "bg-muted/60"}`}>
+                  {enabled
+                    ? <Wifi className="h-4 w-4 text-emerald-500" />
+                    : <WifiOff className="h-4 w-4 text-muted-foreground" />}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{enabled ? "Voucher printing enabled" : "Voucher printing disabled"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{enabled ? "Credentials printed on every receipt" : "No WiFi info on receipts"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnabled(v => !v)}
+                data-testid="toggle-wifi-enabled"
+                className="shrink-0"
+              >
+                {enabled
+                  ? <ToggleRight className="h-8 w-8 text-emerald-500" />
+                  : <ToggleLeft className="h-8 w-8 text-muted-foreground/40" />}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Network Profiles ─────────────────────────────────── */}
+          <SectionLabel icon={Signal}>Network Profiles</SectionLabel>
+          <div className="space-y-2">
+            {profiles.map(profile => (
+              <div key={profile.id} className={[
+                "bg-card rounded-2xl border shadow-sm overflow-hidden transition-all",
+                activeProfileId === profile.id ? "border-violet-500/40 shadow-violet-500/10" : "border-border/25",
+              ].join(" ")}>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${activeProfileId === profile.id ? "bg-violet-500/15" : "bg-muted/50"}`}>
+                    <Wifi className={`h-3.5 w-3.5 ${activeProfileId === profile.id ? "text-violet-500" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {editingProfileId === profile.id ? (
+                      <Input
+                        value={profile.name}
+                        onChange={e => updateProfile(profile.id, "name", e.target.value)}
+                        className="h-7 text-sm rounded-lg bg-secondary/60 border-none px-2"
+                        autoFocus
+                        onBlur={() => setEditingProfileId(null)}
+                        onKeyDown={e => e.key === "Enter" && setEditingProfileId(null)}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold truncate">{profile.name}</p>
+                        {activeProfileId === profile.id && (
+                          <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full">ACTIVE</span>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{profile.ssid || "No SSID set"}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingProfileId(profile.id)}
+                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    {activeProfileId !== profile.id && (
+                      <button
+                        type="button"
+                        onClick={() => activateProfile(profile)}
+                        className="h-7 px-2 rounded-lg text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors"
+                        data-testid={`button-activate-profile-${profile.id}`}
+                      >
+                        Use
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeProfile(profile.id)}
+                      className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      data-testid={`button-remove-profile-${profile.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Profile fields */}
+                <div className="border-t border-border/20 px-4 pb-3 space-y-2 pt-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">SSID</p>
+                      <Input
+                        value={profile.ssid}
+                        onChange={e => updateProfile(profile.id, "ssid", e.target.value)}
+                        placeholder="Network name"
+                        className="h-7 text-xs rounded-lg bg-secondary/60 border-none"
+                        data-testid={`input-profile-ssid-${profile.id}`}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">Password</p>
+                      <Input
+                        type="password"
+                        value={profile.password}
+                        onChange={e => updateProfile(profile.id, "password", e.target.value)}
+                        placeholder="Optional"
+                        className="h-7 text-xs rounded-lg bg-secondary/60 border-none"
+                        data-testid={`input-profile-password-${profile.id}`}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground mb-1">Security</p>
+                    <div className="flex gap-1">
+                      {SECURITY_TYPES.map(s => (
+                        <button
+                          key={s.type}
+                          type="button"
+                          onClick={() => updateProfile(profile.id, "securityType", s.type)}
+                          className={[
+                            "px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+                            profile.securityType === s.type
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted text-muted-foreground border-transparent hover:border-border",
+                          ].join(" ")}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Add profile */}
+            {profiles.length < 5 && (
+              <div className="flex gap-2">
+                <Input
+                  value={newProfileName}
+                  onChange={e => setNewProfileName(e.target.value)}
+                  placeholder="Profile name (e.g. Guest, VIP, Staff)"
+                  className="h-9 text-sm rounded-xl bg-card border border-border/25"
+                  onKeyDown={e => e.key === "Enter" && addProfile()}
+                  data-testid="input-new-profile-name"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addProfile}
+                  disabled={!newProfileName.trim()}
+                  className="h-9 px-3 rounded-xl shrink-0"
+                  data-testid="button-add-profile"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Active Network Config ────────────────────────────── */}
+          <SectionLabel icon={Settings2}>Active Network</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
 
-            <SettingRow label="Network name (SSID)" hint="Printed on the receipt voucher">
+            <SettingRow label="Network name (SSID)" hint="Printed on the receipt">
               <Input
                 value={ssid}
                 onChange={e => setSsid(e.target.value)}
                 placeholder="e.g. CafeGuest-WiFi"
-                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
                 data-testid="input-wifi-ssid"
               />
             </SettingRow>
 
-            <SettingRow label="WiFi Password" hint="Leave blank for open networks">
-              <div className="relative">
+            <SettingRow label="Password" hint={securityType === "Open" ? "Not used for open networks" : "Leave blank if open"}>
+              <div className="relative w-44">
                 <Input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Leave blank if open"
-                  className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-8"
+                  placeholder={securityType === "Open" ? "N/A" : "Password"}
+                  disabled={securityType === "Open"}
+                  className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-8 disabled:opacity-40"
                   data-testid="input-wifi-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(v => !v)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  data-testid="button-toggle-wifi-password"
+                  data-testid="button-toggle-password"
                 >
-                  {showPassword
-                    ? <EyeOff className="h-3.5 w-3.5" />
-                    : <Eye className="h-3.5 w-3.5" />}
+                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
               </div>
             </SettingRow>
 
-            <SettingRow label="Session duration" hint="Minutes shown on the voucher">
-              <div className="flex items-center gap-1.5">
+            <SettingRow label="Security Type" hint="Encryption used by your router">
+              <div className="flex gap-1">
+                {SECURITY_TYPES.map(s => {
+                  const Icon = s.icon;
+                  return (
+                    <button
+                      key={s.type}
+                      type="button"
+                      onClick={() => setSecurityType(s.type)}
+                      data-testid={`button-security-${s.type}`}
+                      className={[
+                        "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+                        securityType === s.type
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted text-muted-foreground border-transparent hover:border-border",
+                      ].join(" ")}
+                    >
+                      <Icon className="h-2.5 w-2.5" />
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingRow>
+
+          </div>
+
+          {/* ── Session Duration ─────────────────────────────────── */}
+          <SectionLabel icon={Clock}>Session Duration</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+            <div className="py-3 border-b border-border/20">
+              <div className="flex flex-wrap gap-1.5">
+                {DURATION_PRESETS.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setDuration(p.value)}
+                    data-testid={`button-duration-${p.label}`}
+                    className={[
+                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                      duration === p.value
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
+                        : "bg-muted text-muted-foreground border-transparent hover:border-border",
+                    ].join(" ")}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <SettingRow label="Custom duration" hint="Set any duration in minutes">
+              <div className="flex items-center gap-2">
                 <Input
                   type="number"
                   min="1"
                   value={duration}
-                  onChange={e => setDuration(e.target.value)}
-                  className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                  onChange={e => setDuration(Number(e.target.value))}
+                  className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-24"
                   data-testid="input-wifi-duration"
                 />
                 <span className="text-[11px] text-muted-foreground shrink-0">min</span>
               </div>
             </SettingRow>
+          </div>
+
+          {/* ── Voucher Appearance ───────────────────────────────── */}
+          <SectionLabel icon={Receipt}>Voucher Appearance</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
+
+            <SettingRow label="Voucher title" hint='Shown on receipt (e.g. "FREE WIFI")'>
+              <Input
+                value={voucherTitle}
+                onChange={e => setVoucherTitle(e.target.value)}
+                placeholder="FREE WIFI"
+                maxLength={30}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                data-testid="input-voucher-title"
+              />
+            </SettingRow>
+
+            <SettingRow label="Speed label" hint='Optional, e.g. "Up to 20 Mbps"'>
+              <Input
+                value={speedLabel}
+                onChange={e => setSpeedLabel(e.target.value)}
+                placeholder="Up to 20 Mbps"
+                maxLength={30}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                data-testid="input-speed-label"
+              />
+            </SettingRow>
+
+            <SettingRow label="Footer note" hint='Printed below credentials, e.g. "Enjoy!"'>
+              <Input
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Optional message"
+                maxLength={60}
+                className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                data-testid="input-voucher-note"
+              />
+            </SettingRow>
 
           </div>
 
-          {/* Preview */}
-          <SectionLabel>Receipt Preview</SectionLabel>
+          {/* ── Receipt Preview ──────────────────────────────────── */}
+          <SectionLabel icon={Zap}>Live Preview</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm">
-            <div className="bg-muted/40 rounded-xl px-4 py-3 font-mono text-center space-y-1">
-              <div className="flex items-center justify-center gap-1.5 mb-2">
-                {ssid ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Free WiFi</p>
-              </div>
-              <p className="text-xs font-semibold">{ssid || <span className="text-muted-foreground italic">Network name</span>}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {password ? `Password: ${showPassword ? password : "••••••••"}` : "Open network — no password needed"}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Valid for {duration || "60"} minutes from purchase
-              </p>
+            <ReceiptPreview
+              enabled={enabled}
+              title={voucherTitle}
+              ssid={ssid}
+              password={password}
+              securityType={securityType}
+              duration={duration}
+              speedLabel={speedLabel}
+              note={note}
+              showPassword={showPassword}
+            />
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={copyCredentials}
+                disabled={!ssid}
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-semibold bg-muted/50 hover:bg-muted transition-colors border border-border/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                data-testid="button-copy-credentials"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied!" : "Copy credentials"}
+              </button>
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-2">This is how it will appear on the receipt</p>
+          </div>
+
+          {/* ── Tips ─────────────────────────────────────────────── */}
+          <div className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Info className="h-3.5 w-3.5 text-primary shrink-0" />
+              <p className="text-[11px] font-bold text-primary">Tips for better guest WiFi</p>
+            </div>
+            <ul className="space-y-1.5 pl-5">
+              {[
+                "Use a dedicated guest network — keep your main network private.",
+                "Set a short session (1–2h) to encourage repeat visits.",
+                "WPA2 offers the best security for your guest network.",
+                "Profiles let you quickly switch between different networks (e.g. indoor vs. outdoor).",
+              ].map((tip, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground leading-relaxed list-disc">{tip}</li>
+              ))}
+            </ul>
           </div>
 
           <Button
             onClick={handleSave}
             disabled={updateSettings.isPending}
-            className="w-full h-10 rounded-xl font-semibold bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 transition-all"
+            className="w-full h-11 rounded-xl font-semibold bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 transition-all"
             data-testid="button-save-wifi-settings"
           >
-            <Save className="mr-2 h-3.5 w-3.5" />
-            {updateSettings.isPending ? "Saving..." : "Save Settings"}
+            <Save className="mr-2 h-4 w-4" />
+            {updateSettings.isPending ? "Saving…" : "Save WiFi Settings"}
           </Button>
         </>
       )}

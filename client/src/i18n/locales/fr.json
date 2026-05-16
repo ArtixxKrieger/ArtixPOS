@@ -45,7 +45,8 @@
     },
     "more": "Plus",
     "hardwareSettings": "Matériel",
-    "inventory": "Inventaire"
+    "inventory": "Inventaire",
+    "wifiVoucher": "Bon WiFi"
   },
   "page": {
     "pointOfSale": "Point de vente",

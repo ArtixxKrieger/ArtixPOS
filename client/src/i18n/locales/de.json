@@ -45,7 +45,8 @@
     },
     "more": "Mehr",
     "hardwareSettings": "Hardware",
-    "inventory": "Inventar"
+    "inventory": "Inventar",
+    "wifiVoucher": "WLAN-Gutschein"
   },
   "page": {
     "pointOfSale": "Kassensystem",

@@ -45,7 +45,8 @@
     },
     "more": "더보기",
     "hardwareSettings": "하드웨어",
-    "inventory": "재고"
+    "inventory": "재고",
+    "wifiVoucher": "WiFi 쿠폰"
   },
   "page": {
     "pointOfSale": "판매 시점",

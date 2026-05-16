@@ -45,7 +45,8 @@
     },
     "more": "Meer",
     "hardwareSettings": "Hardware",
-    "inventory": "Inventaris"
+    "inventory": "Inventaris",
+    "wifiVoucher": "WiFi-voucher"
   },
   "page": {
     "pointOfSale": "Kassasysteem",

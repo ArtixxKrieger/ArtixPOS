@@ -46,7 +46,8 @@
     },
     "more": "Higit pa",
     "hardwareSettings": "Hardware",
-    "inventory": "Imbentaryo"
+    "inventory": "Imbentaryo",
+    "wifiVoucher": "WiFi Voucher"
   },
   "page": {
     "pointOfSale": "Punto ng Pagbebenta",

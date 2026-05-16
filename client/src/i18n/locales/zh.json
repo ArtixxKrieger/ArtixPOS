@@ -45,7 +45,8 @@
     },
     "more": "更多",
     "hardwareSettings": "硬件",
-    "inventory": "库存"
+    "inventory": "库存",
+    "wifiVoucher": "WiFi 凭证"
   },
   "page": {
     "pointOfSale": "销售点",

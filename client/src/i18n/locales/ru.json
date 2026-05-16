@@ -45,7 +45,8 @@
     },
     "more": "Ещё",
     "hardwareSettings": "Оборудование",
-    "inventory": "Инвентарь"
+    "inventory": "Инвентарь",
+    "wifiVoucher": "Ваучер WiFi"
   },
   "page": {
     "pointOfSale": "Точка продаж",

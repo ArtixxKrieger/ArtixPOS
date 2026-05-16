@@ -45,7 +45,8 @@
     },
     "more": "その他",
     "hardwareSettings": "ハードウェア",
-    "inventory": "在庫"
+    "inventory": "在庫",
+    "wifiVoucher": "WiFiバウチャー"
   },
   "page": {
     "pointOfSale": "レジシステム",

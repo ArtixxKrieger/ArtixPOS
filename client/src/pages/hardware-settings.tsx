@@ -445,7 +445,7 @@ function UsbPrinterSection() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Connected Printers</p>
             {printers.map(printer => (
               <div
-                key={printer.device.serialNumber || printer.name}
+                key={`${printer.device.vendorId}-${printer.device.productId}-${printer.name}`}
                 data-testid={`card-printer-${printer.name}`}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/50 bg-muted/20"
               >

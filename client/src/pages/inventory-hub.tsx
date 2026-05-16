@@ -134,7 +134,7 @@ export default function InventoryHub() {
         {activeTab === "overview" && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <KpiCard icon={Package} label="Tracked SKUs" value={String(trackedProducts.length)} color="blue" />
+              <KpiCard icon={Package} label="Tracked Items" value={String(trackedProducts.length)} color="blue" />
               <KpiCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} color="amber" urgent={lowStockCount > 0} />
               <KpiCard icon={XCircle} label="Out of Stock" value={String(outOfStockCount)} color="red" urgent={outOfStockCount > 0} />
               <KpiCard icon={Trash2} label="Waste Cost" value={formatCurrency(totalWasteCost, currency)} color="orange" />

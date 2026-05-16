@@ -4,7 +4,7 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { api } from "@shared/routes";
 import { requireAuth } from "../middleware";
-import { createTenant, getBranches, createBranch } from "../admin-storage";
+import { createTenant, getBranches, createBranch, updateBranch } from "../admin-storage";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
 import { users, tenants } from "@shared/schema";
@@ -55,6 +55,29 @@ export function registerSettingsRoutes(app: Express): void {
       cache.set(cacheKey, healed, TTL.SETTINGS);
       res.setHeader("Cache-Control", "private, max-age=120");
       return res.json(healed);
+    }
+
+    // Auto-heal: if the store settings have a businessType but the main branch
+    // has a different (or missing) businessType, sync them. This fixes stores
+    // where the branch was seeded with a different type than what the owner set.
+    const settingsBusinessType = (settings as any).businessType as string | null | undefined;
+    const settingsBusinessSubType = (settings as any).businessSubType as string | null | undefined;
+    if (settingsBusinessType) {
+      const tenantIdForHeal = getTenantId(req);
+      if (tenantIdForHeal) {
+        getBranches(tenantIdForHeal).then(async (branchList: any[]) => {
+          const mainBranch = branchList.find((b: any) => b.isMain) ?? branchList[0];
+          if (mainBranch && (
+            mainBranch.businessType !== settingsBusinessType ||
+            mainBranch.businessSubType !== settingsBusinessSubType
+          )) {
+            await updateBranch(mainBranch.id, tenantIdForHeal, {
+              businessType: settingsBusinessType,
+              businessSubType: settingsBusinessSubType ?? null,
+            });
+          }
+        }).catch(() => {});
+      }
     }
 
     cache.set(cacheKey, settings, TTL.SETTINGS);
@@ -168,8 +191,30 @@ export function registerSettingsRoutes(app: Express): void {
         }
       }
 
+      // Sync businessType / businessSubType to the main branch whenever they change.
+      // This keeps the nav labels in sync with what the owner sees in Settings.
+      const tenantId = getTenantId(req);
+      if (
+        tenantId &&
+        input.onboardingComplete !== 1 &&
+        (input.businessType !== undefined || input.businessSubType !== undefined)
+      ) {
+        try {
+          const branches = await getBranches(tenantId);
+          const mainBranch = branches.find((b: any) => b.isMain) ?? branches[0];
+          if (mainBranch) {
+            const patch: Record<string, string | null> = {};
+            if (input.businessType !== undefined) patch.businessType = (input.businessType as string) ?? null;
+            if (input.businessSubType !== undefined) patch.businessSubType = (input.businessSubType as string) ?? null;
+            await updateBranch(mainBranch.id, tenantId, patch);
+          }
+        } catch (branchSyncErr) {
+          console.warn("[settings] Failed to sync businessType to main branch:", branchSyncErr);
+        }
+      }
+
       // Log settings changes (skip onboarding-only updates)
-      if (input.onboardingComplete !== 1 && getTenantId(req)) {
+      if (input.onboardingComplete !== 1 && tenantId) {
         const changed: Record<string, unknown> = {};
         if (input.taxRate !== undefined) changed.taxRate = input.taxRate;
         if (input.loyaltyPointsPerUnit !== undefined) changed.loyaltyPointsPerUnit = input.loyaltyPointsPerUnit;

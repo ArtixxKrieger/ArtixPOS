@@ -260,20 +260,13 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setFormError(data.message ?? "Something went wrong."); return; }
       sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-      // Wipe ALL cached data before setting the new user — prevents any
-      // previous account's products/sales/customers bleeding through when
-      // staleTime:Infinity means React Query never re-fetches on its own.
-      queryClient.clear();
-      await clearAllCache();
-      queryClient.setQueryData(["auth-me"], data.user);
-      try {
-        const settingsRes = await fetch(resolveUrl("/api/settings"), { credentials: "include" });
-        if (settingsRes.ok) {
-          queryClient.setQueryData(["/api/settings"], await settingsRes.json());
-        } else if (settingsRes.status === 404) {
-          queryClient.setQueryData(["/api/settings"], null);
-        }
-      } catch {}
+      // Full page reload — identical to the logout pattern. This atomically
+      // destroys the QueryClient, all module-level state, and every in-flight
+      // request so no previous user's data can bleed through (SPA navigation
+      // with staleTime:Infinity has an unavoidable race condition otherwise).
+      // The auth cookie was already set by the server's login response, so
+      // the fresh page load picks it up and fetches data for the new user.
+      window.location.href = "/";
     } catch {
       setFormError("Network error. Please try again.");
     } finally {

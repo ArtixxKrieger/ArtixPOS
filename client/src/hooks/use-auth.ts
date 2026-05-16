@@ -104,15 +104,19 @@ export function useAuth() {
       clearAllCache().catch(() => {});
     },
     onSuccess: () => {
-      queryClient.setQueryData(["auth-me"], null);
-      queryClient.clear();
-      window.location.href = "/login";
+      // Cancel all in-flight queries first so they cannot land in the cache
+      // after clear() and before the page unloads.
+      queryClient.cancelQueries().finally(() => {
+        queryClient.clear();
+        window.location.href = "/login";
+      });
     },
     onError: () => {
       clearNativeToken();
-      queryClient.setQueryData(["auth-me"], null);
-      queryClient.clear();
-      window.location.href = "/login";
+      queryClient.cancelQueries().finally(() => {
+        queryClient.clear();
+        window.location.href = "/login";
+      });
     },
   });
 

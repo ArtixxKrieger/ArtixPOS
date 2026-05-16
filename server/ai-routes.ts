@@ -124,7 +124,7 @@ function getDedupeKey(userId: string, lastMessage: string): string {
 
 // ─── Get userId from request ──────────────────────────────────────────────────
 function getUserId(req: Request): string {
-  return req.user.id;
+  return req.user!.id;
 }
 
 // The user's currently-selected branch. AI-created records (products, sales,
@@ -3100,10 +3100,10 @@ export function registerAiRoutes(app: Express) {
         rows = rawSales
           .filter((s) => !s.deletedAt)
           .map((s) => ({
-            Date: s.createdAt ? s.createdAt.split("T")[0] : "",
-            Time: s.createdAt ? s.createdAt.split("T")[1]?.slice(0, 5) : "",
-            Total: parseFloat(s.total) || 0,
-            Subtotal: parseFloat(s.subtotal) || 0,
+            Date: s.createdAt ? String(s.createdAt).split("T")[0] : "",
+            Time: s.createdAt ? String(s.createdAt).split("T")[1]?.slice(0, 5) : "",
+            Total: parseFloat(String(s.total)) || 0,
+            Subtotal: parseFloat(String(s.subtotal)) || 0,
             "Payment Method": s.paymentMethod || "",
             "Customer": s.customerName || "",
           }));
@@ -3112,7 +3112,7 @@ export function registerAiRoutes(app: Express) {
         fileName = "products";
         rows = allProducts.map((p) => ({
           Name: p.name,
-          Price: parseFloat(p.price) || 0,
+          Price: parseFloat(String(p.price)) || 0,
           Category: p.category || "",
           "Track Stock": p.trackStock ? "Yes" : "No",
           Stock: p.trackStock ? p.stock : "N/A",
@@ -3126,17 +3126,17 @@ export function registerAiRoutes(app: Express) {
           Name: c.name,
           Email: c.email || "",
           Phone: c.phone || "",
-          "Total Spent": parseFloat(c.totalSpent) || 0,
+          "Total Spent": parseFloat(String(c.totalSpent)) || 0,
           Visits: c.visitCount || 0,
         }));
       } else if (type === "expenses") {
         sheetName = "Expenses";
         fileName = "expenses";
         rows = rawExpenses.map((e) => ({
-          Date: e.createdAt ? e.createdAt.split("T")[0] : "",
+          Date: e.createdAt ? String(e.createdAt).split("T")[0] : "",
           Description: e.description,
           Category: e.category || "",
-          Amount: parseFloat(e.amount) || 0,
+          Amount: parseFloat(String(e.amount)) || 0,
           "Recorded By": e.recordedBy || "",
         }));
       }

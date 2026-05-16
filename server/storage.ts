@@ -315,11 +315,10 @@ export class DatabaseStorage implements IStorage {
       const conditions: SQL<unknown>[] = [];
       conditions.push(userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds));
       if (branchId != null) conditions.push(eq(products.branchId, branchId));
-      let query = dbRead.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
-      if (typeof limit === "number" && limit > 0) {
-        query = query.limit(limit).offset(offset);
-      }
-      return await query;
+      const baseQuery = dbRead.select().from(products).where(and(...conditions)).orderBy(desc(products.id));
+      return await (typeof limit === "number" && limit > 0
+        ? baseQuery.limit(limit).offset(offset)
+        : baseQuery);
     } catch (error) {
       console.error("Error fetching products:", error);
       return [];
@@ -656,7 +655,7 @@ export class DatabaseStorage implements IStorage {
     // Tally quantity sold per productId
     const productQty = new Map<number, number>();
     for (const it of items) {
-      const pid = Number(it?.productId ?? it?.id);
+      const pid = Number(it?.productId);
       const qty = Number(it?.quantity ?? 1);
       if (!Number.isFinite(pid) || !Number.isFinite(qty) || qty <= 0) continue;
       productQty.set(pid, (productQty.get(pid) ?? 0) + qty);
@@ -798,11 +797,10 @@ export class DatabaseStorage implements IStorage {
       const orderExpr = orderByTopSpenders
         ? sql`CAST(total_spent AS NUMERIC) DESC NULLS LAST`
         : desc(customers.createdAt);
-      let query = dbRead.select().from(customers).where(whereCond).orderBy(orderExpr);
-      if (typeof limit === "number" && limit > 0) {
-        query = query.limit(limit).offset(offset);
-      }
-      return await query;
+      const baseQuery = dbRead.select().from(customers).where(whereCond).orderBy(orderExpr);
+      return await (typeof limit === "number" && limit > 0
+        ? baseQuery.limit(limit).offset(offset)
+        : baseQuery);
     } catch (error) {
       console.error("Error fetching customers:", error);
       return [];
@@ -892,11 +890,10 @@ export class DatabaseStorage implements IStorage {
       const conditions: SQL<unknown>[] = [];
       conditions.push(userIds.length === 1 ? eq(expenses.userId, userIds[0]) : inArray(expenses.userId, userIds));
       if (branchId != null) conditions.push(eq(expenses.branchId, branchId));
-      let query = db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
-      if (typeof limit === "number" && limit > 0) {
-        query = query.limit(limit).offset(offset);
-      }
-      return await query;
+      const baseQuery = db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.createdAt));
+      return await (typeof limit === "number" && limit > 0
+        ? baseQuery.limit(limit).offset(offset)
+        : baseQuery);
     } catch (error) {
       console.error("Error fetching expenses:", error);
       return [];
@@ -1083,11 +1080,10 @@ export class DatabaseStorage implements IStorage {
       const whereCond = userIds.length === 1
         ? and(eq(discountCodes.userId, userIds[0]), isNull(discountCodes.deletedAt))
         : and(inArray(discountCodes.userId, userIds), isNull(discountCodes.deletedAt));
-      let query = db.select().from(discountCodes).where(whereCond).orderBy(desc(discountCodes.createdAt));
-      if (typeof limit === "number" && limit > 0) {
-        query = query.limit(limit).offset(offset);
-      }
-      return await query;
+      const baseQuery = db.select().from(discountCodes).where(whereCond).orderBy(desc(discountCodes.createdAt));
+      return await (typeof limit === "number" && limit > 0
+        ? baseQuery.limit(limit).offset(offset)
+        : baseQuery);
     } catch (error) {
       console.error("Error fetching discount codes:", error);
       return [];

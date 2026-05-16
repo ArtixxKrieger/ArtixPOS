@@ -513,7 +513,7 @@ export function setupAuth(app: Express) {
               provider: "google",
               providerId: profile.id,
             });
-            return done(null, user);
+            return done(null, user as any);
           } catch (err: unknown) {
             console.error("[auth] Google strategy error:", err instanceof Error ? err.message : String(err));
             return done(err as Error);
@@ -632,7 +632,7 @@ export function setupAuth(app: Express) {
         provider: "google",
         providerId: payload.sub,
       });
-      const token = signToken(user);
+      const token = signToken({ id: user.id, name: user.name, email: user.email, avatar: user.avatar, provider: user.provider, tenantId: user.tenantId, role: user.role ?? "owner", activeBranchId: (user as any).activeBranchId ?? null });
       res.json({ token });
     } catch (err) {
       next(err);
@@ -675,7 +675,7 @@ export function setupAuth(app: Express) {
       const [created] = await db.select().from(users).where(eq(users.id, userId));
       if (!created) throw new Error("User not found after insert");
 
-      setAuthCookie(res, created);
+      setAuthCookie(res, { id: created.id, name: created.name ?? null, email: created.email ?? null, avatar: created.avatar ?? null, provider: created.provider, tenantId: (created as any).tenantId ?? null, role: created.role ?? "owner", activeBranchId: (created as any).activeBranchId ?? null });
       logAuthEvent({ userId: created.id, tenantId: (created as any).tenantId ?? null, action: "register", metadata: { provider: "email" } });
       res.status(201).json({
         ok: true,

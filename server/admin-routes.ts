@@ -25,7 +25,7 @@ import {
   productRecipes, purchaseOrderItems, pendingOrders, userBranches,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, sql, desc } from "drizzle-orm";
-import { signToken, AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getBaseUrl } from "./auth";
+import { signToken, AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getBaseUrl, type TokenUser } from "./auth";
 import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
 export function registerAdminRoutes(app: Express) {
@@ -56,7 +56,7 @@ export function registerAdminRoutes(app: Express) {
       }
 
       recordSuccessfulLogin(ip);
-      const token = signToken(user);
+      const token = signToken({ id: user.id, name: user.name, email: user.email, avatar: user.avatar, provider: user.provider, tenantId: user.tenantId, role: user.role ?? "owner", activeBranchId: (user as any).activeBranchId ?? null });
       res.cookie(AUTH_COOKIE, token, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, tenantId: user.tenantId } });
     } catch (err) {
@@ -799,7 +799,7 @@ export function registerAdminRoutes(app: Express) {
       const dbUser = await getUserById(user.id);
       if (!dbUser) return res.status(404).json({ message: "User not found" });
 
-      const token = signToken({ ...dbUser, activeBranchId: branchId });
+      const token = signToken({ id: dbUser.id, name: dbUser.name, email: dbUser.email, avatar: dbUser.avatar, provider: dbUser.provider, tenantId: dbUser.tenantId, role: dbUser.role ?? "owner", activeBranchId: branchId });
       await createAuditLog({
         tenantId: user.tenantId!,
         userId: user.id,

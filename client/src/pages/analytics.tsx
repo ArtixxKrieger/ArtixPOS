@@ -22,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { Sale, UserSetting } from "@shared/schema";
+import type { DateRange } from "react-day-picker";
 
 /* ── helpers ─────────────────────────────────────── */
 

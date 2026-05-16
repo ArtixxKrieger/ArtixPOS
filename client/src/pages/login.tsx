@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { NATIVE_TOKEN_KEY, apiRequest, setNativeToken, queryClient, resolveUrl, getCsrfHeaders } from "@/lib/queryClient";
+import { clearAllCache } from "@/lib/offline-db";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -200,6 +201,10 @@ export default function Login() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     try {
       const token = await nativeGoogleSignIn();
+      // Clear all cached data before setting the new user so no previous
+      // account's data bleeds through (staleTime:Infinity never auto-refetches).
+      queryClient.clear();
+      await clearAllCache();
       setNativeToken(token);
       const userFromToken = decodeTokenUser(token);
       if (userFromToken) {
@@ -255,6 +260,11 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setFormError(data.message ?? "Something went wrong."); return; }
       sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
+      // Wipe ALL cached data before setting the new user — prevents any
+      // previous account's products/sales/customers bleeding through when
+      // staleTime:Infinity means React Query never re-fetches on its own.
+      queryClient.clear();
+      await clearAllCache();
       queryClient.setQueryData(["auth-me"], data.user);
       try {
         const settingsRes = await fetch(resolveUrl("/api/settings"), { credentials: "include" });

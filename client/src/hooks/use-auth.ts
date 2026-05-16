@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY, getCsrfHeaders } from "@/lib/queryClient";
-import { clearApiCache } from "@/lib/offline-db";
+import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
@@ -99,7 +99,9 @@ export function useAuth() {
         // Offline or network error — still proceed with local-only logout.
       }
       clearNativeToken();
-      clearApiCache().catch(() => {});
+      // Use clearAllCache (not just clearApiCache) so queued offline mutations
+      // from the previous user are never replayed under a different account.
+      clearAllCache().catch(() => {});
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth-me"], null);

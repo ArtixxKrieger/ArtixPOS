@@ -118,57 +118,6 @@ export default function Products() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  // ── Barcode scan-into-field ──────────────────────────────────────────────────
-  const [scanningBarcode, setScanningBarcode] = useState(false);
-  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!scanningBarcode || !isDialogOpen) return;
-
-    let buf = "";
-    let lastAt = 0;
-
-    function onKey(e: KeyboardEvent) {
-      const now = Date.now();
-      const gap = now - lastAt;
-      const isTerminator = e.key === "Enter" || e.key === "Tab" || e.key === "\r";
-
-      if (isTerminator) {
-        if (buf.length >= 4) {
-          // Strip GS1 AIM prefixes and control characters
-          let s = buf;
-          for (const pfx of ["]C1","]C0","]E0","]E2","]Q1","]A0","]I1","]d1","]G0","]F1"]) {
-            if (s.startsWith(pfx)) { s = s.slice(pfx.length); break; }
-          }
-          // eslint-disable-next-line no-control-regex
-          s = s.replace(/[\x00-\x1F\x7F]/g, "").trim();
-          if (s.length >= 4) {
-            form.setValue("barcode", s, { shouldDirty: true });
-            setScanningBarcode(false);
-            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
-            e.preventDefault();
-          }
-        }
-        buf = ""; lastAt = 0;
-        return;
-      }
-      if (e.key === "Escape") { setScanningBarcode(false); buf = ""; return; }
-      if (e.key.length !== 1) return;
-      if (gap > 100 && buf.length > 0) buf = "";
-      buf += e.key;
-      lastAt = now;
-    }
-
-    document.addEventListener("keydown", onKey);
-    // Auto-cancel after 15 s if no scan arrives
-    scanTimeoutRef.current = setTimeout(() => setScanningBarcode(false), 15_000);
-
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
-    };
-  }, [scanningBarcode, isDialogOpen, form]);
-
   const importMutation = useMutation({
     mutationFn: async (rows: CsvRow[]) => {
       const res = await fetch("/api/products/import", {
@@ -251,6 +200,55 @@ export default function Products() {
   const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({
     control: form.control, name: "sizes"
   });
+
+  // ── Barcode scan-into-field ──────────────────────────────────────────────────
+  const [scanningBarcode, setScanningBarcode] = useState(false);
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!scanningBarcode || !isDialogOpen) return;
+
+    let buf = "";
+    let lastAt = 0;
+
+    function onKey(e: KeyboardEvent) {
+      const now = Date.now();
+      const gap = now - lastAt;
+      const isTerminator = e.key === "Enter" || e.key === "Tab" || e.key === "\r";
+
+      if (isTerminator) {
+        if (buf.length >= 4) {
+          let s = buf;
+          for (const pfx of ["]C1","]C0","]E0","]E2","]Q1","]A0","]I1","]d1","]G0","]F1"]) {
+            if (s.startsWith(pfx)) { s = s.slice(pfx.length); break; }
+          }
+          // eslint-disable-next-line no-control-regex
+          s = s.replace(/[\x00-\x1F\x7F]/g, "").trim();
+          if (s.length >= 4) {
+            form.setValue("barcode", s, { shouldDirty: true });
+            setScanningBarcode(false);
+            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+            e.preventDefault();
+          }
+        }
+        buf = ""; lastAt = 0;
+        return;
+      }
+      if (e.key === "Escape") { setScanningBarcode(false); buf = ""; return; }
+      if (e.key.length !== 1) return;
+      if (gap > 100 && buf.length > 0) buf = "";
+      buf += e.key;
+      lastAt = now;
+    }
+
+    document.addEventListener("keydown", onKey);
+    scanTimeoutRef.current = setTimeout(() => setScanningBarcode(false), 15_000);
+
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+    };
+  }, [scanningBarcode, isDialogOpen, form]);
 
   const filtered = products.filter(p =>
     p.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ?? false

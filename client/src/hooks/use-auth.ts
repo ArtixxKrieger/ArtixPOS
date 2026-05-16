@@ -99,9 +99,10 @@ export function useAuth() {
         // Offline or network error — still proceed with local-only logout.
       }
       clearNativeToken();
-      // Use clearAllCache (not just clearApiCache) so queued offline mutations
-      // from the previous user are never replayed under a different account.
-      clearAllCache().catch(() => {});
+      // Await clearAllCache so the IDB is fully wiped BEFORE the page reload.
+      // Fire-and-forget left a window where the page could unload mid-clear,
+      // leaving stale data from this user that the next account could read.
+      await clearAllCache();
     },
     onSuccess: () => {
       // Cancel all in-flight queries first so they cannot land in the cache

@@ -6,6 +6,30 @@ import { openDB, type IDBPDatabase } from "idb";
 const DB_NAME    = "pos-offline-v1";
 const DB_VERSION = 2;
 
+// ─── User session isolation ─────────────────────────────────────────────────
+// IDB api-cache keys are prefixed with the current user's ID so that cached
+// data from User A can never be served to User B, even if network fails.
+const LAST_USER_LS_KEY = "pos-last-uid";
+let _currentUserId: string | null = null;
+
+function cacheKey(url: string): string {
+  return _currentUserId ? `${_currentUserId}:${url}` : url;
+}
+
+/**
+ * Call once when the authenticated user is known (before any data fetching).
+ * If the userId changed since the last session, wipes the entire api-cache so
+ * no stale data from the previous account can leak through via IDB fallback.
+ */
+export async function initUserSession(userId: string): Promise<void> {
+  const lastId = localStorage.getItem(LAST_USER_LS_KEY);
+  if (lastId && lastId !== userId) {
+    await clearAllCache();
+  }
+  localStorage.setItem(LAST_USER_LS_KEY, userId);
+  _currentUserId = userId;
+}
+
 interface PosOfflineDB {
   "api-cache": {
     key: string;
@@ -94,7 +118,7 @@ export interface QueuedMutation {
 export async function getCached<T>(url: string): Promise<T | null> {
   try {
     const db = await getDB();
-    const entry = await db.get("api-cache", url);
+    const entry = await db.get("api-cache", cacheKey(url));
     return entry ? (entry.data as T) : null;
   } catch {
     return null;
@@ -104,7 +128,7 @@ export async function getCached<T>(url: string): Promise<T | null> {
 export async function setCached(url: string, data: unknown): Promise<void> {
   try {
     const db = await getDB();
-    await db.put("api-cache", { url, data, timestamp: Date.now() });
+    await db.put("api-cache", { url: cacheKey(url), data, timestamp: Date.now() });
   } catch {}
 }
 

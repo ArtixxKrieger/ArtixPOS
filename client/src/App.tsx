@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
+import { initUserSession } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
@@ -469,9 +470,11 @@ function ProtectedRouter() {
 
   // Fire all critical API requests in parallel the moment auth is confirmed.
   // Pages will find their data already in cache when they mount → zero loading time.
+  // initUserSession runs first: if the userId changed since the last session it
+  // wipes the IDB api-cache so no previous user's data can leak via IDB fallback.
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
-    prefetchBootstrapData(user.id);
+    initUserSession(user.id).then(() => prefetchBootstrapData(user.id));
   }, [isAuthenticated, user?.id]);
 
   // Clear the prefetch tracker on logout so re-login always prefetches fresh data.

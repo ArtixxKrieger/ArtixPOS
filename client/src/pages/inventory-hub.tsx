@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
 import {
   Package, Trash2, ArrowRightLeft, ShoppingCart, Plus, CheckCircle2,
-  XCircle, AlertTriangle, TrendingDown, RefreshCw, ChevronRight,
+  XCircle, AlertTriangle, TrendingDown, ChevronRight,
   Flame, Clock, AlertCircle, Zap, BarChart3, Box,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,69 +90,77 @@ export default function InventoryHub() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-screen bg-background pb-24 md:pb-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Box className="h-6 w-6 text-primary" /> Inventory Hub
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+              <Box className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+              <span>Inventory Hub</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Advanced stock management, waste tracking, and smart reordering</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-snug">
+              Stock management, waste tracking &amp; smart reordering
+            </p>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                data-testid={`tab-${tab.id}`}
-                onClick={() => setActiveTab(tab.id)}
-                className={[
-                  "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all relative",
-                  activeTab === tab.id
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
-                {tab.badge != null && tab.badge > 0 && (
-                  <span className="ml-0.5 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Tabs — horizontally scrollable on mobile */}
+        <div className="overflow-x-auto -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 scrollbar-none">
+          <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit min-w-full sm:min-w-0">
+            {TABS.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  data-testid={`tab-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={[
+                    "flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all relative whitespace-nowrap flex-1 justify-center sm:flex-none sm:justify-start",
+                    activeTab === tab.id
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{tab.label}</span>
+                  {tab.badge != null && tab.badge > 0 && (
+                    <span className="ml-0.5 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* ── OVERVIEW TAB ── */}
         {activeTab === "overview" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <KpiCard icon={Package} label="Tracked Items" value={String(trackedProducts.length)} color="blue" />
               <KpiCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} color="amber" urgent={lowStockCount > 0} />
               <KpiCard icon={XCircle} label="Out of Stock" value={String(outOfStockCount)} color="red" urgent={outOfStockCount > 0} />
               <KpiCard icon={Trash2} label="Waste Cost" value={formatCurrency(totalWasteCost, currency)} color="orange" />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {/* Low stock snapshot */}
               <div className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 text-amber-500" /> Low Stock Items</h3>
-                  <button onClick={() => setActiveTab("reorder")} className="text-xs text-primary flex items-center gap-0.5 hover:underline">
-                    View Reorder <ChevronRight className="h-3 w-3" />
+                  <h3 className="font-semibold text-sm flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /> Low Stock Items
+                  </h3>
+                  <button onClick={() => setActiveTab("reorder")} className="text-xs text-primary flex items-center gap-0.5 hover:underline shrink-0">
+                    Reorder <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
                 {trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).slice(0, 6).map(p => (
-                  <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-                    <span className="text-sm truncate flex-1">{p.name}</span>
-                    <span className={["text-xs font-mono font-bold tabular-nums ml-2", (p.stock ?? 0) === 0 ? "text-red-500" : "text-amber-500"].join(" ")}>
+                  <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0 gap-2">
+                    <span className="text-sm truncate flex-1 min-w-0">{p.name}</span>
+                    <span className={["text-xs font-mono font-bold tabular-nums shrink-0", (p.stock ?? 0) === 0 ? "text-red-500" : "text-amber-500"].join(" ")}>
                       {p.stock ?? 0} left
                     </span>
                   </div>
@@ -165,19 +173,21 @@ export default function InventoryHub() {
               {/* Recent waste */}
               <div className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm flex items-center gap-1.5"><Trash2 className="h-4 w-4 text-rose-500" /> Recent Waste</h3>
-                  <button onClick={() => setActiveTab("waste")} className="text-xs text-primary flex items-center gap-0.5 hover:underline">
+                  <h3 className="font-semibold text-sm flex items-center gap-1.5">
+                    <Trash2 className="h-4 w-4 text-rose-500 shrink-0" /> Recent Waste
+                  </h3>
+                  <button onClick={() => setActiveTab("waste")} className="text-xs text-primary flex items-center gap-0.5 hover:underline shrink-0">
                     View All <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
                 {wasteLogs.slice(0, 5).map(e => (
                   <div key={e.id} className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0">
-                    <span className="text-base">{REASON_ICONS[e.reason] ?? "📋"}</span>
+                    <span className="text-base shrink-0">{REASON_ICONS[e.reason] ?? "📋"}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{e.itemName}</p>
                       <p className="text-xs text-muted-foreground">{e.quantity} {e.unit} · {e.reason}</p>
                     </div>
-                    <span className="text-sm font-mono text-rose-500">-{formatCurrency(e.costImpact, currency)}</span>
+                    <span className="text-sm font-mono text-rose-500 shrink-0">-{formatCurrency(e.costImpact, currency)}</span>
                   </div>
                 ))}
                 {wasteLogs.length === 0 && (
@@ -263,12 +273,12 @@ function KpiCard({ icon: Icon, label, value, color, urgent }: {
     orange: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
   };
   return (
-    <div className={["glass-card rounded-2xl p-4 space-y-2", urgent ? "ring-1 ring-inset ring-amber-500/20" : ""].join(" ")}>
-      <div className={["w-8 h-8 rounded-lg flex items-center justify-center", colorMap[color]].join(" ")}>
-        <Icon className="h-4 w-4" />
+    <div className={["glass-card rounded-2xl p-3 sm:p-4 space-y-2", urgent ? "ring-1 ring-inset ring-amber-500/20" : ""].join(" ")}>
+      <div className={["w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0", colorMap[color]].join(" ")}>
+        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </div>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl sm:text-2xl font-bold tabular-nums leading-none">{value}</p>
+      <p className="text-[11px] sm:text-xs text-muted-foreground leading-tight">{label}</p>
     </div>
   );
 }
@@ -280,11 +290,11 @@ function WasteTab({ logs, isLoading, products, ingredients, currency, onAdd }: {
   const totalCost = logs.reduce((s, e) => s + Number(e.costImpact || 0), 0);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Total waste cost: <span className="font-bold text-rose-500">{formatCurrency(totalCost, currency)}</span></p>
-        </div>
-        <Button onClick={onAdd} size="sm" data-testid="button-log-waste">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground min-w-0">
+          Total: <span className="font-bold text-rose-500">{formatCurrency(totalCost, currency)}</span>
+        </p>
+        <Button onClick={onAdd} size="sm" className="shrink-0" data-testid="button-log-waste">
           <Plus className="h-4 w-4 mr-1" /> Log Waste
         </Button>
       </div>
@@ -304,11 +314,11 @@ function WasteTab({ logs, isLoading, products, ingredients, currency, onAdd }: {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-sm">{entry.itemName}</p>
-                <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0">
                   {WASTE_REASONS.find(r => r.value === entry.reason)?.label ?? entry.reason}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
                 {entry.quantity} {entry.unit ?? "pcs"} · {format(new Date(entry.createdAt), "MMM d, yyyy")}
                 {entry.note && ` · ${entry.note}`}
               </p>
@@ -341,9 +351,9 @@ function TransfersTab({ transfers, isLoading, onAdd }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{transfers.length} transfer{transfers.length !== 1 ? "s" : ""} total</p>
-        <Button onClick={onAdd} size="sm" data-testid="button-create-transfer">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">{transfers.length} transfer{transfers.length !== 1 ? "s" : ""}</p>
+        <Button onClick={onAdd} size="sm" className="shrink-0" data-testid="button-create-transfer">
           <Plus className="h-4 w-4 mr-1" /> New Transfer
         </Button>
       </div>
@@ -365,22 +375,26 @@ function TransfersTab({ transfers, isLoading, onAdd }: {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-sm">Transfer #{t.id}</p>
-                    <span className={["text-[10px] font-semibold px-2 py-0.5 rounded-full", cfg.color].join(" ")}>{cfg.label}</span>
+                    <span className={["text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0", cfg.color].join(" ")}>{cfg.label}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Branch {t.fromBranchId ?? "?"} → Branch {t.toBranchId ?? "?"} · {format(new Date(t.createdAt), "MMM d, yyyy")}
                   </p>
-                  {t.notes && <p className="text-xs text-muted-foreground/70 mt-0.5 italic">{t.notes}</p>}
+                  {t.notes && <p className="text-xs text-muted-foreground/70 mt-0.5 italic truncate">{t.notes}</p>}
                 </div>
-                <div className="flex gap-1.5 shrink-0">
+              </div>
+
+              {/* Action buttons — full width on mobile so they never overflow */}
+              {(t.status === "pending" || t.status === "in_transit") && (
+                <div className="flex gap-2">
                   {t.status === "pending" && (
                     <>
-                      <Button size="sm" variant="outline" className="h-7 text-xs"
+                      <Button size="sm" variant="outline" className="flex-1 sm:flex-none h-8 text-xs"
                         data-testid={`button-transit-transfer-${t.id}`}
                         onClick={() => statusMutation.mutate({ id: t.id, status: "in_transit" })}>
                         <TrendingDown className="h-3 w-3 mr-1" /> Ship
                       </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs text-red-500 border-red-500/30 hover:bg-red-500/10"
+                      <Button size="sm" variant="outline" className="flex-1 sm:flex-none h-8 text-xs text-red-500 border-red-500/30 hover:bg-red-500/10"
                         data-testid={`button-reject-transfer-${t.id}`}
                         onClick={() => statusMutation.mutate({ id: t.id, status: "rejected" })}>
                         <XCircle className="h-3 w-3 mr-1" /> Reject
@@ -388,14 +402,15 @@ function TransfersTab({ transfers, isLoading, onAdd }: {
                     </>
                   )}
                   {t.status === "in_transit" && (
-                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                    <Button size="sm" className="flex-1 sm:flex-none h-8 text-xs bg-green-600 hover:bg-green-700"
                       data-testid={`button-receive-transfer-${t.id}`}
                       onClick={() => statusMutation.mutate({ id: t.id, status: "received" })}>
-                      <CheckCircle2 className="h-3 w-3 mr-1" /> Receive
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Received
                     </Button>
                   )}
                 </div>
-              </div>
+              )}
+
               <div className="flex flex-wrap gap-1.5">
                 {t.items.map(item => (
                   <span key={item.id} className="text-[11px] bg-muted px-2 py-0.5 rounded-full">
@@ -469,21 +484,21 @@ function ReorderTab({ suggestions, isLoading, currency }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {suggestions.length} item{suggestions.length !== 1 ? "s" : ""} need restocking · sorted by urgency
-          </p>
-        </div>
-        <div className="flex gap-2">
+      {/* Header — stacks on mobile, side-by-side on tablet+ */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {suggestions.length} item{suggestions.length !== 1 ? "s" : ""} need restocking
+        </p>
+        <div className="flex gap-2 flex-wrap">
           {suggestions.length > 0 && (
-            <Button size="sm" variant="outline" onClick={toggleAll} data-testid="button-select-all-reorder">
+            <Button size="sm" variant="outline" onClick={toggleAll} className="flex-1 sm:flex-none" data-testid="button-select-all-reorder">
               {allSelected ? "Deselect All" : "Select All"}
             </Button>
           )}
           {selected.size > 0 && (
             <Button size="sm" onClick={() => generatePoMutation.mutate(selectedItems)}
               disabled={generatePoMutation.isPending}
+              className="flex-1 sm:flex-none"
               data-testid="button-generate-po">
               <Zap className="h-3.5 w-3.5 mr-1" />
               {generatePoMutation.isPending ? "Creating..." : `Generate PO (${selected.size})`}
@@ -507,46 +522,52 @@ function ReorderTab({ suggestions, isLoading, currency }: {
             data-testid={`reorder-row-${s.productId}`}
             onClick={() => toggle(s.productId)}
             className={[
-              "glass-card rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all",
+              "glass-card rounded-xl p-3 cursor-pointer transition-all",
               selected.has(s.productId) ? "ring-2 ring-primary ring-inset" : "hover:bg-muted/30",
             ].join(" ")}
           >
-            <input type="checkbox" checked={selected.has(s.productId)} onChange={() => toggle(s.productId)}
-              className="h-4 w-4 rounded accent-primary shrink-0" onClick={e => e.stopPropagation()} />
+            {/* Top row: checkbox + name + supplier tag + urgency + qty */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <input type="checkbox" checked={selected.has(s.productId)} onChange={() => toggle(s.productId)}
+                className="h-4 w-4 rounded accent-primary shrink-0" onClick={e => e.stopPropagation()} />
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-sm">{s.productName}</p>
-                {s.preferredSupplierName && (
-                  <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground">
-                    via {s.preferredSupplierName}
-                  </span>
-                )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-semibold text-sm">{s.productName}</p>
+                  {s.preferredSupplierName && (
+                    <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground shrink-0">
+                      via {s.preferredSupplierName}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Box className="h-3 w-3" /> {s.currentStock} in stock
-                </span>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Flame className="h-3 w-3" /> {s.soldLast30Days} sold / 30d
-                </span>
-                {s.avgDailySales > 0 && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <TrendingDown className="h-3 w-3" /> {s.avgDailySales}/day
-                  </span>
-                )}
+
+              {/* Right side: urgency + suggested qty — always visible, never pushed off */}
+              <div className="flex items-center gap-2 shrink-0">
+                <div className={["text-center px-2 py-1 rounded-lg text-xs font-bold min-w-[40px]", urgencyBg(s.daysOfStockLeft), urgencyColor(s.daysOfStockLeft)].join(" ")}>
+                  <Clock className="h-3 w-3 mx-auto mb-0.5" />
+                  {s.daysOfStockLeft >= 999 ? "N/A" : `${s.daysOfStockLeft}d`}
+                </div>
+                <div className="text-right min-w-[36px]">
+                  <p className="text-sm font-bold text-primary tabular-nums">×{s.suggestedOrderQty}</p>
+                  <p className="text-[10px] text-muted-foreground">order</p>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <div className={["text-center px-2 py-1 rounded-lg text-xs font-bold", urgencyBg(s.daysOfStockLeft), urgencyColor(s.daysOfStockLeft)].join(" ")}>
-                <Clock className="h-3 w-3 mx-auto mb-0.5" />
-                {s.daysOfStockLeft >= 999 ? "N/A" : `${s.daysOfStockLeft}d`}
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-primary tabular-nums">×{s.suggestedOrderQty}</p>
-                <p className="text-[10px] text-muted-foreground">suggested</p>
-              </div>
+            {/* Stats row — wraps naturally */}
+            <div className="flex items-center gap-x-3 gap-y-1 mt-1.5 ml-6 flex-wrap">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Box className="h-3 w-3 shrink-0" /> {s.currentStock} in stock
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Flame className="h-3 w-3 shrink-0" /> {s.soldLast30Days} / 30d
+              </span>
+              {s.avgDailySales > 0 && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <TrendingDown className="h-3 w-3 shrink-0" /> {s.avgDailySales}/day
+                </span>
+              )}
             </div>
           </div>
         ))}
@@ -555,8 +576,7 @@ function ReorderTab({ suggestions, isLoading, currency }: {
       {suggestions.length > 0 && (
         <div className="glass-card rounded-xl p-3 flex items-start gap-2 text-xs text-muted-foreground">
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          Suggestions based on 30-day sales velocity × 14-day reorder window × 1.2× safety factor.
-          Days-of-stock uses your actual average daily sales rate.
+          <span>Suggestions based on 30-day sales velocity × 14-day reorder window × 1.2× safety factor.</span>
         </div>
       )}
     </div>
@@ -606,12 +626,11 @@ function WasteLogForm({ products, ingredients, currency, onClose, onSuccess }: {
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-24px)] max-w-md sm:w-full rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Trash2 className="h-4 w-4" /> Log Waste / Write-off</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
-          {/* Source type */}
           <div>
             <label className="text-xs font-medium text-muted-foreground">Item Type</label>
             <div className="flex gap-2 mt-1.5">
@@ -762,7 +781,7 @@ function TransferForm({ products, onClose, onSuccess }: {
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[calc(100vw-24px)] max-w-lg sm:w-full rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><ArrowRightLeft className="h-4 w-4" /> New Stock Transfer</DialogTitle>
         </DialogHeader>
@@ -791,7 +810,7 @@ function TransferForm({ products, onClose, onSuccess }: {
               {items.map((item, i) => (
                 <div key={i} className="flex gap-2">
                   <Select value={item.productId} onValueChange={v => setItem(i, "productId", v)}>
-                    <SelectTrigger className="flex-1" data-testid={`select-transfer-product-${i}`}>
+                    <SelectTrigger className="flex-1 min-w-0" data-testid={`select-transfer-product-${i}`}>
                       <SelectValue placeholder="Select product..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -800,10 +819,10 @@ function TransferForm({ products, onClose, onSuccess }: {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Input type="number" min="1" className="w-20" value={item.quantity}
+                  <Input type="number" min="1" className="w-16 shrink-0" value={item.quantity}
                     onChange={e => setItem(i, "quantity", e.target.value)} data-testid={`input-transfer-qty-${i}`} />
                   {items.length > 1 && (
-                    <button onClick={() => removeItem(i)} className="text-muted-foreground hover:text-destructive">
+                    <button onClick={() => removeItem(i)} className="text-muted-foreground hover:text-destructive shrink-0">
                       <XCircle className="h-4 w-4" />
                     </button>
                   )}
@@ -820,7 +839,7 @@ function TransferForm({ products, onClose, onSuccess }: {
 
           <div className="glass-card rounded-xl p-3 flex items-start gap-2 text-xs text-muted-foreground">
             <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            Stock is deducted from source branch immediately. Destination branch stock is updated when you mark the transfer as Received.
+            <span>Stock is deducted from source branch immediately. Destination branch stock updates when you mark the transfer as Received.</span>
           </div>
 
           <div className="flex gap-2">

@@ -359,7 +359,7 @@ function FreeAnalyticsView({
   const peak = activityBars.reduce((best, row) => row.revenue > best.revenue ? row : best, activityBars[0] || { label: "None", orders: 0, revenue: 0, pct: 0 });
 
   return (
-    <div className="space-y-5 page-enter pb-6">
+    <div className="space-y-5 page-enter pb-24 md:pb-8">
       <div className="rounded-3xl border border-border/40 bg-card p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -726,10 +726,10 @@ export default function Analytics() {
   const ttFmt = (v: number) => metric === "revenue" ? formatCurrency(v, currency) : String(v);
 
   return (
-    <div className="space-y-5 page-enter pb-6">
+    <div className="space-y-5 page-enter pb-24 md:pb-8">
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
         <div className="flex items-center gap-3 flex-1">
           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
             <BarChart3 className="h-5 w-5" />
@@ -741,56 +741,59 @@ export default function Analytics() {
         </div>
 
         {/* Date range + export */}
-        <div className="flex flex-wrap gap-2 items-center">
-          {/* Preset pills */}
-          <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30">
-            {(["today", "yesterday", "7d", "30d"] as Preset[]).map(p => (
-              <button
-                key={p}
-                onClick={() => setPreset(p)}
-                data-testid={`btn-preset-${p}`}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200",
-                  preset === p
-                    ? "bg-primary text-white shadow-md shadow-primary/25"
-                    : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
-                )}
-              >
-                {p === "today" ? "Today" : p === "yesterday" ? "Yesterday" : p === "7d" ? "7 Days" : "30 Days"}
-              </button>
-            ))}
-
-            <Popover open={customOpen} onOpenChange={setCustomOpen}>
-              <PopoverTrigger asChild>
+        <div className="flex flex-col gap-2 sm:items-end">
+          {/* Preset pills — scrollable on narrow phones */}
+          <div className="overflow-x-auto scrollbar-none -mx-0.5 px-0.5 pb-0.5">
+            <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30 w-max">
+              {(["today", "yesterday", "7d", "30d"] as Preset[]).map(p => (
                 <button
-                  onClick={() => setPreset("custom")}
-                  data-testid="btn-preset-custom"
+                  key={p}
+                  onClick={() => setPreset(p)}
+                  data-testid={`btn-preset-${p}`}
                   className={cn(
-                    "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1",
-                    preset === "custom"
+                    "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 whitespace-nowrap",
+                    preset === p
                       ? "bg-primary text-white shadow-md shadow-primary/25"
                       : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
                   )}
                 >
-                  {preset === "custom" && customRange?.from
-                    ? `${format(customRange.from, "M/d")}${customRange.to ? `–${format(customRange.to, "M/d")}` : ""}`
-                    : "Custom"}
-                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                  {p === "today" ? "Today" : p === "yesterday" ? "Yesterday" : p === "7d" ? "7 Days" : "30 Days"}
                 </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="end">
-                <Calendar
-                  mode="range"
-                  selected={customRange}
-                  onSelect={(r) => { setCustomRange(r); if (r?.from && r?.to) { setPreset("custom"); setCustomOpen(false); } }}
-                  numberOfMonths={1}
-                  className="rounded-2xl"
-                />
-              </PopoverContent>
-            </Popover>
+              ))}
+
+              <Popover open={customOpen} onOpenChange={setCustomOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    onClick={() => setPreset("custom")}
+                    data-testid="btn-preset-custom"
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-200 flex items-center gap-1 whitespace-nowrap",
+                      preset === "custom"
+                        ? "bg-primary text-white shadow-md shadow-primary/25"
+                        : "text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80"
+                    )}
+                  >
+                    {preset === "custom" && customRange?.from
+                      ? `${format(customRange.from, "M/d")}${customRange.to ? `–${format(customRange.to, "M/d")}` : ""}`
+                      : "Custom"}
+                    <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start" sideOffset={6}>
+                  <Calendar
+                    mode="range"
+                    selected={customRange}
+                    onSelect={(r) => { setCustomRange(r); if (r?.from && r?.to) { setPreset("custom"); setCustomOpen(false); } }}
+                    numberOfMonths={1}
+                    className="rounded-2xl"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden">
+          {/* Export buttons */}
+          <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden self-start sm:self-auto">
             {[
               { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
               { label: "Excel", fn: () => exportExcel(currSales, rangeLabel, settings?.storeName || "Store"), testId: "button-export-excel" },
@@ -1185,13 +1188,13 @@ export default function Analytics() {
                 const color = getCategoryColor(i);
                 return (
                   <div key={cat.name} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
-                        <span className="font-semibold">{cat.name}</span>
-                        <span className="text-muted-foreground dark:text-white/55">{cat.orders} {terminology.itemUnit}{cat.orders !== 1 ? "s" : ""}</span>
+                    <div className="flex justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
+                        <span className="font-semibold truncate">{cat.name}</span>
+                        <span className="text-muted-foreground dark:text-white/55 shrink-0">{cat.orders} {terminology.itemUnit}{cat.orders !== 1 ? "s" : ""}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className="text-muted-foreground dark:text-white/50">{sharePct}%</span>
                         <span className="font-bold tabular-nums" style={{ color }}>{formatCurrency(cat.revenue, currency)}</span>
                       </div>

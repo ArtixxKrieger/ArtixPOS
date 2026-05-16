@@ -230,17 +230,64 @@ jobs:
         env:
           KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "✅ Using ArtixCutie release keystore from repository"
           mkdir -p /home/runner/keystore
-          cp keystore/ArtixCutie.jks /home/runner/keystore/ArtixCutie.jks
-          echo "✅ Keystore copied to /home/runner/keystore/ArtixCutie.jks"
-          # Verify the keystore is valid
+
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "✅ Decoding keystore from KEYSTORE_BASE64 secret"
+            echo "$KEYSTORE_BASE64" | base64 -d > /home/runner/keystore/ArtixCutie.jks
+
+          elif [ -f "keystore/ArtixCutie.jks" ]; then
+            echo "✅ Using ArtixCutie release keystore from repository"
+            cp keystore/ArtixCutie.jks /home/runner/keystore/ArtixCutie.jks
+
+          else
+            echo "⚠️  No keystore found — generating a new one for this build"
+            echo "    To reuse the same keystore across builds, encode it with:"
+            echo "    base64 -w 0 keystore/ArtixCutie.jks"
+            echo "    and save the output as the KEYSTORE_BASE64 GitHub secret."
+
+            # Use provided secrets or safe defaults for a first-time build
+            STORE_PASS="${KEYSTORE_STORE_PASSWORD:-artixcutie123}"
+            KEY_PASS="${KEYSTORE_KEY_PASSWORD:-artixcutie123}"
+
+            keytool -genkeypair \
+              -alias ArtixCutie \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -keystore /home/runner/keystore/ArtixCutie.jks \
+              -storepass "$STORE_PASS" \
+              -keypass "$KEY_PASS" \
+              -dname "CN=ArtixPOS, OU=Mobile, O=ArtixCutie, L=Unknown, ST=Unknown, C=US" \
+              -noprompt
+            echo "✅ New keystore generated"
+
+            # Override env vars so the Gradle config step uses the right passwords
+            echo "KEYSTORE_STORE_PASSWORD=$STORE_PASS" >> $GITHUB_ENV
+            echo "KEYSTORE_KEY_PASSWORD=$KEY_PASS"     >> $GITHUB_ENV
+
+            echo ""
+            echo "══════════════════════════════════════════════════════════════"
+            echo "  ACTION REQUIRED — save this keystore for future builds:"
+            echo "  1. Copy the base64 string below"
+            echo "  2. Add it as GitHub secret: KEYSTORE_BASE64"
+            echo "  3. Set KEYSTORE_STORE_PASSWORD = $STORE_PASS"
+            echo "  4. Set KEYSTORE_KEY_PASSWORD   = $KEY_PASS"
+            echo "  Without this, each build will generate a NEW keystore with"
+            echo "  a different SHA-1 — breaking Google/Firebase login."
+            echo "══════════════════════════════════════════════════════════════"
+            base64 -w 0 /home/runner/keystore/ArtixCutie.jks
+            echo ""
+            echo "══════════════════════════════════════════════════════════════"
+          fi
+
+          echo "✅ Keystore ready at /home/runner/keystore/ArtixCutie.jks"
           keytool -list \
             -keystore /home/runner/keystore/ArtixCutie.jks \
             -alias ArtixCutie \
-            -storepass "$KEYSTORE_STORE_PASSWORD" \
-            -keypass "$KEYSTORE_KEY_PASSWORD" \
+            -storepass "${KEYSTORE_STORE_PASSWORD:-artixcutie123}" \
             -noprompt \
             && echo "✅ Keystore verified successfully" \
             || echo "⚠️  Keystore verification failed — check credentials"
@@ -320,10 +367,10 @@ jobs:
           echo "  SHA-1 from ArtixCutie.jks keystore:"
           echo "============================================================"
           keytool -list -v \
-            -keystore keystore/ArtixCutie.jks \
+            -keystore /home/runner/keystore/ArtixCutie.jks \
             -alias ArtixCutie \
-            -storepass "$KEYSTORE_STORE_PASSWORD" \
-            -keypass "$KEYSTORE_KEY_PASSWORD" | grep -E "SHA1|SHA-1"
+            -storepass "${KEYSTORE_STORE_PASSWORD:-artixcutie123}" \
+            -keypass "${KEYSTORE_KEY_PASSWORD:-artixcutie123}" | grep -E "SHA1|SHA-1"
 
           echo ""
           echo "============================================================"

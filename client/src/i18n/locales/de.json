@@ -43,7 +43,9 @@
       "analytics": "Analysen",
       "auditLog": "Prüfungsprotokoll"
     },
-    "more": "Mehr"
+    "more": "Mehr",
+    "hardwareSettings": "Hardware",
+    "inventory": "Inventar"
   },
   "page": {
     "pointOfSale": "Kassensystem",

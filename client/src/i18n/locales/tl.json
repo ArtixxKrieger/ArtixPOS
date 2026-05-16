@@ -44,7 +44,9 @@
       "analytics": "Analytics",
       "auditLog": "Audit Log"
     },
-    "more": "Higit pa"
+    "more": "Higit pa",
+    "hardwareSettings": "Hardware",
+    "inventory": "Imbentaryo"
   },
   "page": {
     "pointOfSale": "Punto ng Pagbebenta",

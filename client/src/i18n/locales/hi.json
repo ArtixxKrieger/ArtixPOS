@@ -43,7 +43,9 @@
       "analytics": "विश्लेषण",
       "auditLog": "ऑडिट लॉग"
     },
-    "more": "अधिक"
+    "more": "अधिक",
+    "hardwareSettings": "हार्डवेयर",
+    "inventory": "सूची"
   },
   "page": {
     "pointOfSale": "बिक्री केंद्र",

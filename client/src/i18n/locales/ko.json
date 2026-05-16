@@ -43,7 +43,9 @@
       "analytics": "분석",
       "auditLog": "감사 로그"
     },
-    "more": "더보기"
+    "more": "더보기",
+    "hardwareSettings": "하드웨어",
+    "inventory": "재고"
   },
   "page": {
     "pointOfSale": "판매 시점",

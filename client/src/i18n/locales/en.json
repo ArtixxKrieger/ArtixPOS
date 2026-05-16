@@ -44,7 +44,9 @@
       "analytics": "Analytics",
       "auditLog": "Audit Log"
     },
-    "more": "More"
+    "more": "More",
+    "hardwareSettings": "Hardware",
+    "inventory": "Inventory"
   },
   "page": {
     "pointOfSale": "Point of Sale",

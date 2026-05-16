@@ -43,7 +43,9 @@
       "analytics": "Analyse",
       "auditLog": "Journal d'audit"
     },
-    "more": "Plus"
+    "more": "Plus",
+    "hardwareSettings": "Matériel",
+    "inventory": "Inventaire"
   },
   "page": {
     "pointOfSale": "Point de vente",

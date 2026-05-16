@@ -43,7 +43,9 @@
       "analytics": "数据分析",
       "auditLog": "审计日志"
     },
-    "more": "更多"
+    "more": "更多",
+    "hardwareSettings": "硬件",
+    "inventory": "库存"
   },
   "page": {
     "pointOfSale": "销售点",

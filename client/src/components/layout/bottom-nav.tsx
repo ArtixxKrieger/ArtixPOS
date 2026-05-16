@@ -360,14 +360,14 @@ export function BottomNav() {
                         onClick={() => navigate(item.url)}
                         aria-current={isActive ? "page" : undefined}
                         className={[
-                          "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
+                          "flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-200 active:scale-95 border h-[72px] w-full overflow-hidden",
                           isActive
                             ? "bg-primary/10 border-primary/20 text-primary"
                             : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                         ].join(" ")}
                       >
-                        <Icon className="h-5 w-5" />
-                        <span className="text-[11px] font-medium text-center leading-tight px-0.5">{item.label}</span>
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span className="text-[10px] font-medium text-center leading-tight px-1 w-full line-clamp-2 break-words">{item.label}</span>
                       </button>
                     );
                   })}
@@ -391,14 +391,14 @@ export function BottomNav() {
                         onClick={() => navigate(item.url)}
                         aria-current={isActive ? "page" : undefined}
                         className={[
-                          "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all duration-200 active:scale-95 border",
+                          "flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-200 active:scale-95 border h-[72px] w-full overflow-hidden",
                           isActive
                             ? "bg-primary/10 border-primary/20 text-primary"
                             : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
                         ].join(" ")}
                       >
-                        <Icon className="h-5 w-5" />
-                        <span className="text-[11px] font-medium text-center leading-tight px-0.5">{t(item.i18nKey)}</span>
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span className="text-[10px] font-medium text-center leading-tight px-1 w-full line-clamp-2 break-words">{t(item.i18nKey)}</span>
                       </button>
                     );
                   })}

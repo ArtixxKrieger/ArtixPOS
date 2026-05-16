@@ -43,7 +43,9 @@
       "analytics": "Analitik",
       "auditLog": "Log Audit"
     },
-    "more": "Lainnya"
+    "more": "Lainnya",
+    "hardwareSettings": "Perangkat",
+    "inventory": "Inventaris"
   },
   "page": {
     "pointOfSale": "Titik Penjualan",

@@ -43,7 +43,9 @@
       "analytics": "Phân tích",
       "auditLog": "Nhật ký kiểm toán"
     },
-    "more": "Thêm"
+    "more": "Thêm",
+    "hardwareSettings": "Phần cứng",
+    "inventory": "Hàng tồn kho"
   },
   "page": {
     "pointOfSale": "Điểm bán hàng",

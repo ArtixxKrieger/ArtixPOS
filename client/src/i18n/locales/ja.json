@@ -43,7 +43,9 @@
       "analytics": "分析",
       "auditLog": "監査ログ"
     },
-    "more": "その他"
+    "more": "その他",
+    "hardwareSettings": "ハードウェア",
+    "inventory": "在庫"
   },
   "page": {
     "pointOfSale": "レジシステム",

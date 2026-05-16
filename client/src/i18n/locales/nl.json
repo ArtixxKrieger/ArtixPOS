@@ -43,7 +43,9 @@
       "analytics": "Analyse",
       "auditLog": "Auditlogboek"
     },
-    "more": "Meer"
+    "more": "Meer",
+    "hardwareSettings": "Hardware",
+    "inventory": "Inventaris"
   },
   "page": {
     "pointOfSale": "Kassasysteem",

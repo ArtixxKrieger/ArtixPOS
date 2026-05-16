@@ -43,7 +43,9 @@
       "analytics": "Аналитика",
       "auditLog": "Журнал аудита"
     },
-    "more": "Ещё"
+    "more": "Ещё",
+    "hardwareSettings": "Оборудование",
+    "inventory": "Инвентарь"
   },
   "page": {
     "pointOfSale": "Точка продаж",

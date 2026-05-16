@@ -43,7 +43,9 @@
       "analytics": "Analitik",
       "auditLog": "Log Audit"
     },
-    "more": "Lagi"
+    "more": "Lagi",
+    "hardwareSettings": "Perkakasan",
+    "inventory": "Inventori"
   },
   "page": {
     "pointOfSale": "Titik Jualan",

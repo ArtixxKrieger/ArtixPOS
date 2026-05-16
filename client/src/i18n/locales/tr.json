@@ -43,7 +43,9 @@
       "analytics": "Analitik",
       "auditLog": "Denetim Günlüğü"
     },
-    "more": "Daha Fazla"
+    "more": "Daha Fazla",
+    "hardwareSettings": "Donanım",
+    "inventory": "Envanter"
   },
   "page": {
     "pointOfSale": "Satış Noktası",

@@ -43,7 +43,9 @@
       "analytics": "วิเคราะห์ข้อมูล",
       "auditLog": "บันทึกการตรวจสอบ"
     },
-    "more": "เพิ่มเติม"
+    "more": "เพิ่มเติม",
+    "hardwareSettings": "ฮาร์ดแวร์",
+    "inventory": "สินค้าคงคลัง"
   },
   "page": {
     "pointOfSale": "จุดขาย",

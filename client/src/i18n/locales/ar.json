@@ -43,7 +43,9 @@
       "analytics": "التحليلات",
       "auditLog": "سجل التدقيق"
     },
-    "more": "المزيد"
+    "more": "المزيد",
+    "hardwareSettings": "الأجهزة",
+    "inventory": "المخزون"
   },
   "page": {
     "pointOfSale": "نقطة البيع",

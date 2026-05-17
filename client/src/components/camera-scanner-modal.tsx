@@ -1,16 +1,14 @@
 /**
  * CameraScannerModal — two scanning modes:
  *
- * 1. LIVE viewfinder (getUserMedia + BarcodeDetector) — best experience.
- *    Permission flow:
- *      "granted"  → auto-starts immediately
- *      "prompt"   → shows "Start Camera" tap so Chrome gets a real user gesture
- *      "denied"   → shows fix instructions + offers Photo fallback
+ * 1. LIVE viewfinder (getUserMedia + BarcodeDetector)
+ * 2. PHOTO fallback (<input capture="environment">) — works even when the
+ *    browser blocks getUserMedia, because it opens the OS camera app directly.
  *
- * 2. PHOTO fallback (<input capture="environment">) — always works even when
- *    the site-level camera permission is blocked, because it opens the OS
- *    camera app instead of the browser's getUserMedia API.
- *    Requires BarcodeDetector to read the captured image.
+ * IMPORTANT: We do NOT pre-check navigator.permissions.query before trying.
+ * Chrome sometimes returns "denied" even right after a user clears site data,
+ * which would block us from ever asking. Instead we always show the button,
+ * let the click be the user gesture, and only show the error if it actually fails.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,16 +38,7 @@ function isBarcodeDetectorSupported(): boolean {
   return typeof window !== "undefined" && "BarcodeDetector" in window;
 }
 
-async function queryCameraPermission(): Promise<PermissionState | "unknown"> {
-  try {
-    const result = await navigator.permissions.query({ name: "camera" as PermissionName });
-    return result.state;
-  } catch {
-    return "unknown";
-  }
-}
-
-type CameraState = "checking" | "idle" | "starting" | "active" | "error" | "unsupported";
+type CameraState = "idle" | "starting" | "active" | "denied" | "error" | "unsupported";
 type PhotoState = "idle" | "scanning" | "no-result" | "error";
 
 export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModalProps) {
@@ -63,7 +52,6 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [isPermDenied, setIsPermDenied] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const [photoState, setPhotoState] = useState<PhotoState>("idle");
@@ -83,11 +71,10 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     setTimeout(() => { stopCamera(); onScan(rawValue); onClose(); }, 300);
   }, [onScan, onClose, stopCamera]);
 
+  // Called directly from a button click — guarantees the user gesture Chrome needs
   const startCamera = useCallback(async () => {
     setCameraState("starting");
     setCameraError(null);
-    setIsPermDenied(false);
-    setPhotoState("idle");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -115,50 +102,45 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     } catch (err: any) {
       stopCamera();
       if (err?.name === "NotAllowedError") {
-        setIsPermDenied(true);
-        setCameraState("error");
+        setCameraState("denied");
       } else {
-        setCameraError(err?.name === "NotFoundError" ? "No camera found on this device." : "Could not access the camera.");
+        setCameraError(err?.name === "NotFoundError" ? "No camera found on this device." : "Could not start the camera.");
         setCameraState("error");
       }
     }
   }, [handleDetected, stopCamera]);
 
-  // Reset on open/close
+  // Reset when modal opens/closes — no permission pre-check
   useEffect(() => {
     if (!open) {
       stopCamera();
       setCameraState("idle");
       setCameraError(null);
-      setIsPermDenied(false);
       setManualInput("");
       setFlashActive(false);
       setPhotoState("idle");
       lastScannedRef.current = null;
       return;
     }
-    if (!isBarcodeDetectorSupported()) { setCameraState("unsupported"); return; }
-    setCameraState("checking");
-    queryCameraPermission().then(state => {
-      if (state === "granted") startCamera();
-      else if (state === "denied") { setIsPermDenied(true); setCameraState("error"); }
-      else setCameraState("idle");
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (!isBarcodeDetectorSupported()) {
+      setCameraState("unsupported");
+    } else {
+      setCameraState("idle"); // always start here — let the button click trigger getUserMedia
+    }
+  }, [open, stopCamera]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── Photo fallback ──────────────────────────────────────────────────────────
+  // ── Photo fallback — uses OS camera app, bypasses browser camera permission ──
   const triggerPhotoCapture = () => {
-    setPhotoState("idle");
+    setPhotoState("scanning"); // set before click so UI updates immediately
     photoInputRef.current?.click();
   };
 
   const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = ""; // reset so the same file can be picked again
-    if (!file) return;
+    e.target.value = "";
+    if (!file) { setPhotoState("idle"); return; }
     setPhotoState("scanning");
     try {
       const bitmap = await createImageBitmap(file);
@@ -186,19 +168,17 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     onClose();
   };
 
-  // Shared "Take Photo" button used in multiple states
-  const TakePhotoButton = ({ label = "Take Photo Instead", size = "sm" as "sm" | "default" }) => (
+  const PhotoButton = ({ label = "Take a Photo to Scan", variant = "secondary" as "secondary" | "default" }) => (
     <Button
-      size={size}
-      variant="secondary"
+      variant={variant}
       onClick={triggerPhotoCapture}
       disabled={photoState === "scanning"}
       data-testid="button-take-photo"
-      className="gap-2"
+      className="gap-2 w-full"
     >
       {photoState === "scanning"
-        ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" />Scanning photo…</>
-        : <><ImageIcon className="h-3.5 w-3.5" />{label}</>
+        ? <><RefreshCw className="h-4 w-4 animate-spin" /> Scanning photo…</>
+        : <><ImageIcon className="h-4 w-4" /> {label}</>
       }
     </Button>
   );
@@ -213,7 +193,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
           </DialogTitle>
         </DialogHeader>
 
-        {/* Hidden native camera file input — bypasses site-level permissions */}
+        {/* Hidden native-camera file input */}
         <input
           ref={photoInputRef}
           type="file"
@@ -233,7 +213,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             data-testid="video-camera-preview"
           />
 
-          {/* Viewfinder overlay */}
+          {/* Live viewfinder overlay */}
           {cameraState === "active" && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="absolute inset-0 bg-black/40" />
@@ -253,38 +233,41 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             </div>
           )}
 
-          {/* Checking */}
-          {cameraState === "checking" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs text-white/60">Checking camera access…</p>
-            </div>
-          )}
-
-          {/* Idle — first-time permission prompt needs user tap */}
+          {/* Idle — always start here, let the tap be the user gesture */}
           {cameraState === "idle" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Camera className="h-8 w-8 text-primary" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Camera className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white mb-1">Ready to scan</p>
-                <p className="text-xs text-white/50">Chrome will ask for camera permission</p>
+                <p className="text-sm font-semibold text-white">Scan a barcode</p>
+                <p className="text-xs text-white/50 mt-0.5">Choose an option below</p>
               </div>
-              <Button onClick={startCamera} className="rounded-xl px-6" data-testid="button-start-camera">
-                Start Live Camera
+
+              {/* Primary: live camera */}
+              <Button onClick={startCamera} className="w-full max-w-xs rounded-xl" data-testid="button-start-camera">
+                <Camera className="h-4 w-4 mr-2" /> Start Live Camera
               </Button>
+
               <div className="flex items-center gap-2 w-full max-w-xs">
                 <div className="flex-1 h-px bg-white/10" />
                 <span className="text-[10px] text-white/30 uppercase tracking-wide">or</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
-              <TakePhotoButton label="Take a Photo to Scan" size="default" />
+
+              {/* Secondary: photo */}
+              <div className="w-full max-w-xs">
+                <PhotoButton label="Take a Photo to Scan" variant="secondary" />
+                <p className="text-[10px] text-white/30 mt-1.5">
+                  Opens your camera app · no browser permission needed
+                </p>
+              </div>
+
               {photoState === "no-result" && (
-                <p className="text-xs text-amber-400">No barcode found in that photo. Try again with better lighting.</p>
+                <p className="text-xs text-amber-400 max-w-xs">No barcode found in that photo. Try better lighting or hold the camera closer.</p>
               )}
               {photoState === "error" && (
-                <p className="text-xs text-destructive">Could not read the photo. Please try again.</p>
+                <p className="text-xs text-destructive max-w-xs">Couldn't read the photo. Please try again.</p>
               )}
             </div>
           )}
@@ -297,54 +280,61 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             </div>
           )}
 
-          {/* Error — permission denied — show photo fallback prominently */}
-          {cameraState === "error" && isPermDenied && (
+          {/* Denied — camera blocked, photo fallback is the main CTA */}
+          {cameraState === "denied" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center overflow-y-auto">
-              <CameraOff className="h-8 w-8 text-destructive shrink-0" />
-              <p className="text-sm font-semibold text-destructive">Camera blocked for this site</p>
+              <CameraOff className="h-7 w-7 text-destructive shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-destructive">Camera blocked</p>
+                <p className="text-xs text-white/50 mt-0.5">Chrome denied camera access for this site</p>
+              </div>
 
-              {/* Photo fallback — most prominent option */}
+              {/* Photo fallback — most prominent */}
               <div className="w-full max-w-xs bg-primary/10 border border-primary/20 rounded-2xl p-4 space-y-2">
-                <p className="text-xs font-semibold text-white">Quickest fix — no settings needed:</p>
-                <TakePhotoButton label="Take a Photo to Scan" size="default" />
-                <p className="text-[11px] text-white/50">Opens your phone's camera app. Take a photo of the barcode and we'll read it automatically.</p>
+                <p className="text-xs font-semibold text-white">Use your phone camera instead:</p>
+                <PhotoButton label="Take a Photo to Scan" />
+                <p className="text-[11px] text-white/40">
+                  Tap → your camera app opens → take a photo of the barcode → done.
+                  No Chrome settings needed.
+                </p>
                 {photoState === "no-result" && (
-                  <p className="text-xs text-amber-400">No barcode found. Try with better lighting or hold closer.</p>
+                  <p className="text-xs text-amber-400">No barcode found. Try better lighting or hold closer.</p>
                 )}
                 {photoState === "error" && (
-                  <p className="text-xs text-destructive">Could not read the photo. Please try again.</p>
+                  <p className="text-xs text-destructive">Couldn't read the photo. Try again.</p>
                 )}
               </div>
 
-              {/* Settings instructions as secondary option */}
+              {/* Chrome fix — collapsed by default */}
               <details className="w-full max-w-xs text-left">
-                <summary className="text-[11px] text-white/40 cursor-pointer select-none text-center">
-                  Or fix Chrome's site permission ›
+                <summary className="text-[11px] text-white/35 cursor-pointer select-none text-center py-1">
+                  Fix Chrome's camera permission instead ›
                 </summary>
-                <div className="mt-2 text-xs text-white/60 space-y-2 bg-white/5 rounded-xl p-3">
-                  <p className="text-[11px] font-semibold text-white/80">Via Chrome menu:</p>
-                  <ol className="space-y-1">
-                    <li className="flex gap-2"><span className="text-primary font-bold shrink-0">1.</span>Tap <strong className="text-white">⋮</strong> → Settings → Site settings → Camera</li>
-                    <li className="flex gap-2"><span className="text-primary font-bold shrink-0">2.</span>Find <strong className="text-white">artixpos.com</strong> → set to <strong className="text-white">Allow</strong></li>
-                    <li className="flex gap-2"><span className="text-primary font-bold shrink-0">3.</span>Return here and tap <strong className="text-white">Try Again</strong></li>
+                <div className="mt-2 text-xs text-white/60 bg-white/5 rounded-xl p-3 space-y-1.5">
+                  <p><strong className="text-white">Via Chrome menu (⋮):</strong></p>
+                  <ol className="space-y-1 list-none">
+                    <li>1. Settings → Site settings → Camera</li>
+                    <li>2. Find <strong className="text-white">artixpos.com</strong> → Allow</li>
+                    <li>3. Return here → tap "Try Live Camera"</li>
                   </ol>
                 </div>
               </details>
+
               <Button size="sm" variant="outline" onClick={startCamera} data-testid="button-retry-camera">
-                Try Live Camera Again
+                Try Live Camera
               </Button>
             </div>
           )}
 
-          {/* Error — other */}
-          {cameraState === "error" && !isPermDenied && (
+          {/* Other error */}
+          {cameraState === "error" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
               <CameraOff className="h-10 w-10 text-destructive" />
               <p className="text-sm text-destructive leading-snug">{cameraError}</p>
-              <TakePhotoButton label="Take a Photo Instead" />
-              <Button size="sm" variant="outline" onClick={startCamera} data-testid="button-retry-camera">
-                Try Again
-              </Button>
+              <div className="w-full max-w-xs space-y-2">
+                <PhotoButton label="Take a Photo Instead" />
+              </div>
+              <Button size="sm" variant="outline" onClick={startCamera} data-testid="button-retry-camera">Try Again</Button>
             </div>
           )}
 

@@ -24,6 +24,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ReceiptModal } from "@/components/receipt-modal";
 import type { ReceiptData } from "@/components/receipt-modal";
 import { CameraScannerModal } from "@/components/camera-scanner-modal";
+import { QuickAddProductDialog } from "@/components/quick-add-product-dialog";
 
 // ── New extracted helpers ──────────────────────────────────────────────────
 import { useCart, type CartItem } from "@/hooks/use-cart";
@@ -112,6 +113,7 @@ export default function POS() {
   const [scanFlash, setScanFlash] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
+  const [quickAddBarcode, setQuickAddBarcode] = useState<string | null>(null);
 
   // ── Receipt ────────────────────────────────────────────────────────────────
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -198,9 +200,9 @@ export default function POS() {
       setBarcodeInput("");
       toast({ title: `Added: ${product.name}` });
     },
-    onError: () => {
+    onError: (_err, barcode) => {
       setBarcodeInput("");
-      toast({ title: "Product not found for this barcode", variant: "destructive" });
+      setQuickAddBarcode(barcode);
     },
   });
 
@@ -1362,6 +1364,18 @@ export default function POS() {
         open={showCameraScanner}
         onClose={() => setShowCameraScanner(false)}
         onScan={(barcode) => barcodeLookupMutation.mutate(barcode)}
+      />
+
+      {/* Quick Add Product — shown when a scanned barcode has no match */}
+      <QuickAddProductDialog
+        open={quickAddBarcode !== null}
+        barcode={quickAddBarcode ?? ""}
+        existingCategories={categories}
+        onClose={() => setQuickAddBarcode(null)}
+        onCreated={(product) => {
+          handleProductClickRef.current(product);
+          toast({ title: `${product.name} added to cart` });
+        }}
       />
 
       {/* Customer picker dialog */}

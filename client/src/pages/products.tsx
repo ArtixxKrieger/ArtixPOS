@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2, CalendarClock, Pill, FlaskConical, ScanBarcode } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2, CalendarClock, Pill, FlaskConical, ScanBarcode, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CameraScannerModal } from "@/components/camera-scanner-modal";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
 
 interface SizeItem { name: string; price: string; }
@@ -116,7 +117,22 @@ export default function Products() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
   const queryClient = useQueryClient();
+
+  // Handle a barcode scanned from the camera on the catalog page
+  const handleCatalogScan = (barcode: string) => {
+    const match = products.find(p => p.barcode === barcode);
+    if (match) {
+      openEdit(match);
+    } else {
+      // Open create dialog with barcode pre-filled
+      setEditingId(null);
+      form.reset({ name: "", price: "", category: "General", sku: "", barcode, taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [], expiryDate: "", batchNumber: "", requiresPrescription: false, genericName: "" });
+      setIsDialogOpen(true);
+      toast({ title: `Barcode ${barcode} not found — fill in the details to create a new product` });
+    }
+  };
 
   const importMutation = useMutation({
     mutationFn: async (rows: CsvRow[]) => {
@@ -368,6 +384,16 @@ export default function Products() {
             onChange={handleFileChange}
             data-testid="input-import-csv"
           />
+
+          <button
+            onClick={() => setShowCameraScanner(true)}
+            className="h-10 px-3 rounded-2xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5 text-sm font-medium shadow-sm shrink-0"
+            data-testid="button-open-camera-scanner"
+            title="Scan barcode with camera"
+          >
+            <Camera className="h-4 w-4" />
+            <span className="hidden sm:inline">Scan</span>
+          </button>
 
           <button
             onClick={handleExport}
@@ -1078,6 +1104,13 @@ export default function Products() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Camera barcode scanner for catalog page */}
+      <CameraScannerModal
+        open={showCameraScanner}
+        onClose={() => setShowCameraScanner(false)}
+        onScan={handleCatalogScan}
+      />
     </div>
   );
 }

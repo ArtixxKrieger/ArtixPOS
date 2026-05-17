@@ -2,18 +2,20 @@
  * CameraScannerModal — uses the device camera + native BarcodeDetector API
  * to scan barcodes and QR codes. Falls back gracefully on unsupported browsers.
  *
+ * Permission flow:
+ *   - "granted"  → auto-starts camera immediately (no extra tap needed)
+ *   - "prompt"   → shows "Start Camera" tap button (required for Android Chrome
+ *                  to associate getUserMedia with a real user gesture)
+ *   - "denied"   → shows site-settings instructions right away (no spinner)
+ *
  * Supported in Chrome 83+ on Android and Chrome 88+ on desktop.
  * Safari / Firefox show a "not supported" message and prompt manual entry.
- *
- * IMPORTANT: getUserMedia() must only be called directly from a click handler
- * (a real user gesture). Calling it from useEffect silently fails on Android
- * Chrome because the browser doesn't consider it user-initiated.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, CameraOff, ScanLine } from "lucide-react";
+import { Camera, CameraOff, ScanLine, ExternalLink } from "lucide-react";
 
 interface CameraScannerModalProps {
   open: boolean;
@@ -37,7 +39,16 @@ function isBarcodeDetectorSupported(): boolean {
   return typeof window !== "undefined" && "BarcodeDetector" in window;
 }
 
-type CameraState = "idle" | "starting" | "active" | "error" | "unsupported";
+async function queryCameraPermission(): Promise<PermissionState | "unknown"> {
+  try {
+    const result = await navigator.permissions.query({ name: "camera" as PermissionName });
+    return result.state;
+  } catch {
+    return "unknown";
+  }
+}
+
+type CameraState = "checking" | "idle" | "starting" | "active" | "error" | "unsupported";
 
 export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -49,6 +60,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isPermDenied, setIsPermDenied] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
   const [manualInput, setManualInput] = useState("");
 
@@ -63,47 +75,10 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     }
   }, []);
 
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!open) {
-      stopCamera();
-      setCameraState("idle");
-      setCameraError(null);
-      setManualInput("");
-      setFlashActive(false);
-      lastScannedRef.current = null;
-    } else {
-      // Check support when modal opens, but do NOT auto-start the camera
-      if (!isBarcodeDetectorSupported()) {
-        setCameraState("unsupported");
-      } else {
-        setCameraState("idle");
-      }
-    }
-  }, [open, stopCamera]);
-
-  // Clean up on unmount
-  useEffect(() => () => stopCamera(), [stopCamera]);
-
-  const handleDetected = useCallback((rawValue: string) => {
-    const now = Date.now();
-    if (rawValue === lastScannedRef.current && now - lastScannedAtRef.current < 2000) return;
-    lastScannedRef.current = rawValue;
-    lastScannedAtRef.current = now;
-
-    setFlashActive(true);
-    setTimeout(() => setFlashActive(false), 600);
-    setTimeout(() => {
-      stopCamera();
-      onScan(rawValue);
-      onClose();
-    }, 300);
-  }, [onScan, onClose, stopCamera]);
-
-  // Called directly from a button onClick — guarantees user gesture on Android Chrome
   const startCamera = useCallback(async () => {
     setCameraState("starting");
     setCameraError(null);
+    setIsPermDenied(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -141,16 +116,74 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
       rafRef.current = requestAnimationFrame(scan);
     } catch (err: any) {
       stopCamera();
-      const msg =
-        err?.name === "NotAllowedError"
-          ? "Camera permission denied. Open your browser's site settings and allow camera access for this site, then try again."
-          : err?.name === "NotFoundError"
-          ? "No camera found on this device."
-          : "Could not access the camera. Please try again.";
-      setCameraError(msg);
-      setCameraState("error");
+      if (err?.name === "NotAllowedError") {
+        setIsPermDenied(true);
+        setCameraState("error");
+      } else {
+        const msg =
+          err?.name === "NotFoundError"
+            ? "No camera found on this device."
+            : "Could not access the camera. Please try again.";
+        setCameraError(msg);
+        setCameraState("error");
+      }
     }
-  }, [handleDetected, stopCamera]);
+  }, [stopCamera]); // handleDetected added below via ref trick
+
+  const handleDetected = useCallback((rawValue: string) => {
+    const now = Date.now();
+    if (rawValue === lastScannedRef.current && now - lastScannedAtRef.current < 2000) return;
+    lastScannedRef.current = rawValue;
+    lastScannedAtRef.current = now;
+    setFlashActive(true);
+    setTimeout(() => setFlashActive(false), 600);
+    setTimeout(() => {
+      stopCamera();
+      onScan(rawValue);
+      onClose();
+    }, 300);
+  }, [onScan, onClose, stopCamera]);
+
+  // Patch handleDetected into startCamera's closure via ref
+  const handleDetectedRef = useRef(handleDetected);
+  useEffect(() => { handleDetectedRef.current = handleDetected; }, [handleDetected]);
+
+  // When modal opens: check permission state and react accordingly
+  useEffect(() => {
+    if (!open) {
+      stopCamera();
+      setCameraState("idle");
+      setCameraError(null);
+      setIsPermDenied(false);
+      setManualInput("");
+      setFlashActive(false);
+      lastScannedRef.current = null;
+      return;
+    }
+
+    if (!isBarcodeDetectorSupported()) {
+      setCameraState("unsupported");
+      return;
+    }
+
+    // Check existing permission state — do NOT call getUserMedia here
+    setCameraState("checking");
+    queryCameraPermission().then(state => {
+      if (state === "granted") {
+        // Already permitted — auto-start without requiring an extra tap
+        startCamera();
+      } else if (state === "denied") {
+        setIsPermDenied(true);
+        setCameraState("error");
+      } else {
+        // "prompt" or "unknown" — show the tap button so the click IS the user gesture
+        setCameraState("idle");
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
   const handleManualSubmit = () => {
     const value = manualInput.trim();
@@ -207,7 +240,15 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             </div>
           )}
 
-          {/* Idle — prompt user to tap and start */}
+          {/* Checking permission */}
+          {cameraState === "checking" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs text-white/60">Checking camera access…</p>
+            </div>
+          )}
+
+          {/* Idle — need user tap to fire the permission prompt */}
           {cameraState === "idle" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -215,7 +256,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
               </div>
               <div>
                 <p className="text-sm font-medium text-white mb-1">Ready to scan</p>
-                <p className="text-xs text-white/50">Tap the button below to start your camera</p>
+                <p className="text-xs text-white/50">Tap the button below — your browser will ask for camera access</p>
               </div>
               <Button
                 onClick={startCamera}
@@ -235,8 +276,36 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             </div>
           )}
 
-          {/* Error */}
-          {cameraState === "error" && (
+          {/* Error — permission denied */}
+          {cameraState === "error" && isPermDenied && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center overflow-y-auto">
+              <CameraOff className="h-10 w-10 text-destructive shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-destructive">Camera access blocked</p>
+                <p className="text-xs text-white/60 leading-relaxed">
+                  This site was previously denied camera access. To fix it in Chrome:
+                </p>
+              </div>
+              <ol className="text-left text-xs text-white/70 space-y-1.5 w-full max-w-xs">
+                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">1.</span>Tap the <strong className="text-white">lock icon</strong> in the address bar</li>
+                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">2.</span>Tap <strong className="text-white">Site settings</strong></li>
+                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">3.</span>Set <strong className="text-white">Camera</strong> to <strong className="text-white">Allow</strong></li>
+                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">4.</span>Reload the page and try again</li>
+              </ol>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={startCamera}
+                data-testid="button-retry-camera"
+                className="mt-1"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {/* Error — other */}
+          {cameraState === "error" && !isPermDenied && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
               <CameraOff className="h-10 w-10 text-destructive" />
               <p className="text-sm text-destructive leading-snug">{cameraError}</p>

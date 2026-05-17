@@ -105,19 +105,19 @@ export function useAuth() {
       await clearAllCache();
     },
     onSuccess: () => {
-      // Cancel all in-flight queries first so they cannot land in the cache
-      // after clear() and before the page unloads.
-      queryClient.cancelQueries().finally(() => {
-        queryClient.clear();
-        window.location.href = "/login";
-      });
+      // Synchronously kill all in-flight queries and wipe the cache BEFORE
+      // navigating. The async cancelQueries().finally() pattern had a race:
+      // queries could resolve between clear() and the navigation, repopulating
+      // the cache with the previous user's data.
+      queryClient.cancelQueries();
+      queryClient.clear();
+      window.location.href = "/login";
     },
     onError: () => {
       clearNativeToken();
-      queryClient.cancelQueries().finally(() => {
-        queryClient.clear();
-        window.location.href = "/login";
-      });
+      queryClient.cancelQueries();
+      queryClient.clear();
+      window.location.href = "/login";
     },
   });
 

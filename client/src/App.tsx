@@ -7,7 +7,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
+import { useEffect, useState, useRef, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
@@ -473,6 +473,7 @@ function ProtectedRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [location] = useLocation();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
+  const prevAuthRef = useRef<boolean | null>(null);
 
   // Fire all critical API requests in parallel the moment auth is confirmed.
   // Pages will find their data already in cache when they mount → zero loading time.
@@ -489,6 +490,25 @@ function ProtectedRouter() {
       console.warn("[revenuecat] init error:", e)
     );
   }, [isAuthenticated, user?.tenantId]);
+
+  // Session-expiry cache nuke.
+  // When the auth state transitions from authenticated → unauthenticated without
+  // an explicit logout (e.g. the JWT expires, server returns 401), the logout
+  // mutation never runs, so queryClient.clear() is never called. That leaves
+  // the previous user's data sitting in the cache with staleTime:Infinity.
+  // The next person who logs in on the same tab would briefly see that data.
+  // Fix: detect the transition here and synchronously wipe the cache + IDB.
+  useEffect(() => {
+    if (isLoading) return;
+    const wasAuthenticated = prevAuthRef.current;
+    prevAuthRef.current = isAuthenticated;
+    if (wasAuthenticated === true && !isAuthenticated) {
+      queryClient.cancelQueries();
+      queryClient.clear();
+      clearAllCache().catch(() => {});
+      clearPrefetchCache();
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Clear the prefetch tracker on logout so re-login always prefetches fresh data.
   useEffect(() => {

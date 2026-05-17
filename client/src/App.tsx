@@ -486,11 +486,16 @@ function ProtectedRouter() {
     if (!isAuthenticated || !user?.id) return;
 
     // If the authenticated user changed without a full page reload (e.g. native
-    // OAuth token swap), nuke the in-memory QueryClient immediately so no
+    // OAuth token swap), remove all non-auth cache entries immediately so no
     // staleTime:Infinity data from the previous account leaks into this session.
+    // We deliberately skip auth-me here — it already contains the new user's
+    // data (set by handleNativeGoogleSignIn before this effect fires), so
+    // removing it would trigger a re-fetch that briefly makes isAuthenticated
+    // false, causing the session-expiry effect to fire and the login page to
+    // flash. Keeping auth-me intact means isAuthenticated stays true throughout.
     if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
       queryClient.cancelQueries();
-      queryClient.clear();
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearPrefetchCache();
     }
     prevUserIdRef.current = user.id;

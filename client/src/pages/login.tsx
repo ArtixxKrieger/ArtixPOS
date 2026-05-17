@@ -212,28 +212,27 @@ export default function Login() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     try {
       const token = await nativeGoogleSignIn();
-      // Clear all cached data before setting the new user so no previous
-      // account's data bleeds through (staleTime:Infinity never auto-refetches).
-      queryClient.clear();
-      await clearAllCache();
+      // Stop any in-flight requests that are using the old user's credentials.
+      // We do NOT call queryClient.clear() here — that would remove auth-me from
+      // the cache, causing a re-fetch with the old/empty token, which makes
+      // isAuthenticated briefly false and triggers the session-expiry effect,
+      // producing the visible "reload" the user sees.
+      await queryClient.cancelQueries();
+      // Set the new token BEFORE touching auth state so any subsequent re-fetch
+      // (e.g. from App.tsx's prevUserIdRef effect) uses the correct credentials.
       setNativeToken(token);
+      // Set auth state immediately from the decoded JWT — no network round-trip.
       const userFromToken = decodeTokenUser(token);
       if (userFromToken) {
         queryClient.setQueryData(["auth-me"], userFromToken);
       } else {
+        // Token couldn't be decoded locally — let the server verify it.
         await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       }
-      try {
-        const settingsRes = await fetch(resolveUrl("/api/settings"), {
-          credentials: "omit",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (settingsRes.ok) {
-          queryClient.setQueryData(["/api/settings"], await settingsRes.json());
-        } else if (settingsRes.status === 404) {
-          queryClient.setQueryData(["/api/settings"], null);
-        }
-      } catch {}
+      // Remove all non-auth cached data so the new user's data loads fresh.
+      // Keeps auth-me intact → isAuthenticated stays true → no login-page flash.
+      // App.tsx's prevUserIdRef effect and initUserSession handle IDB clearing.
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
       const isUserCancel = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("dismissed") || msg.toLowerCase().includes("12501");

@@ -612,7 +612,7 @@ export function registerRevenueCatWebhookRoutes(app: Express) {
     }
 
     // ── 1. Verify authorization header ──────────────────────────────────────
-    const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+    const secret = process.env.REVENUECAT_WEBHOOK_SECRET || process.env.REVENUECAT_SECRET_KEY;
     if (secret) {
       const auth = String(req.headers["authorization"] ?? "");
       if (auth !== secret) {
@@ -620,10 +620,10 @@ export function registerRevenueCatWebhookRoutes(app: Express) {
         return res.status(401).json({ message: "Unauthorized" });
       }
     } else if (process.env.NODE_ENV === "production") {
-      console.error("[webhook/revenuecat] REVENUECAT_WEBHOOK_SECRET required in production");
+      console.error("[webhook/revenuecat] REVENUECAT_WEBHOOK_SECRET or REVENUECAT_SECRET_KEY required in production");
       return res.status(500).json({ message: "Webhook secret not configured" });
     } else {
-      console.warn("[webhook/revenuecat] REVENUECAT_WEBHOOK_SECRET not set — skipping auth check (dev only)");
+      console.warn("[webhook/revenuecat] No webhook secret set — skipping auth check (dev only)");
     }
 
     // ── 2. Parse event ────────────────────────────────────────────────────────

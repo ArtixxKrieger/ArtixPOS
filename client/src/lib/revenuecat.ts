@@ -46,7 +46,7 @@ export async function getCustomerInfo() {
 
 export async function getOfferings() {
   if (!isNative()) return null;
-  const { offerings } = await Purchases.getOfferings();
+  const offerings = await Purchases.getOfferings();
   return offerings;
 }
 

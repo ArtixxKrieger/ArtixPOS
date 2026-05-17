@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
@@ -84,6 +85,7 @@ type AuthMode = "signin" | "register";
 export default function Login() {
   const { t } = useTranslation();
   const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
   const [nativeError, setNativeError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -131,12 +133,19 @@ export default function Login() {
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
-    // Always do a full page reload when leaving the login page so the new
-    // user starts with a completely fresh JS heap and empty QueryClient.
-    // Using setLocation("/") would be SPA navigation and could leave the
-    // previous account's staleTime:Infinity data alive in memory.
-    window.location.replace("/");
-  }, [isAuthenticated, isLoading]);
+    // SPA navigation — no hard page reload needed here.
+    // • Email/password login already navigates via window.location.href="/" in
+    //   its own handler before isAuthenticated can flip, so this branch is never
+    //   reached for that flow.
+    // • Native Google: cache was cleared inline before setQueryData; a wouter
+    //   navigate is sufficient and avoids a jarring WebView white-flash reload.
+    // • Web OAuth: the server redirect already did a full page navigation; this
+    //   just handles the edge-case where we still land on /login after the
+    //   redirect without triggering a second hard reload.
+    // Data isolation is guaranteed by the App.tsx prevUserIdRef + session-expiry
+    // effects (which call queryClient.clear()) and the server's no-store headers.
+    setLocation("/");
+  }, [isAuthenticated, isLoading, setLocation]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);

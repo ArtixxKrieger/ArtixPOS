@@ -7,7 +7,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
+import { useEffect, useState, useRef, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
@@ -474,12 +474,27 @@ function ProtectedRouter() {
   const [location] = useLocation();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
 
+  // Track the previously-seen userId so we can detect an in-session account
+  // switch (e.g. native Google OAuth re-login without a full page reload).
+  const prevUserIdRef = useRef<string | null>(null);
+
   // Fire all critical API requests in parallel the moment auth is confirmed.
   // Pages will find their data already in cache when they mount → zero loading time.
   // initUserSession runs first: if the userId changed since the last session it
   // wipes the IDB api-cache so no previous user's data can leak via IDB fallback.
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
+
+    // If the authenticated user changed without a full page reload (e.g. native
+    // OAuth token swap), nuke the in-memory QueryClient immediately so no
+    // staleTime:Infinity data from the previous account leaks into this session.
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
+      queryClient.cancelQueries();
+      queryClient.clear();
+      clearPrefetchCache();
+    }
+    prevUserIdRef.current = user.id;
+
     initUserSession(user.id).then(() => prefetchBootstrapData(user.id));
   }, [isAuthenticated, user?.id]);
 
@@ -491,14 +506,17 @@ function ProtectedRouter() {
   }, [isAuthenticated, user?.tenantId]);
 
   // When a session expires without explicit logout (JWT expires, server 401),
-  // wipe IDB so the next user's session starts clean. Also clear the prefetch
-  // tracker so re-login always triggers fresh bootstrap prefetches.
-  // We intentionally do NOT call queryClient.clear() here — the login page's
-  // full-page reload destroys the JS heap and empties the cache automatically.
+  // wipe BOTH the in-memory QueryClient AND IDB so the next user's session
+  // starts completely clean. The explicit logout path calls queryClient.clear()
+  // itself; this covers the implicit expiry / 401 path where no full page
+  // reload is guaranteed (e.g. SPA redirect to /login after token expiry).
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
+      queryClient.cancelQueries();
+      queryClient.clear();
       clearAllCache().catch(() => {});
       clearPrefetchCache();
+      prevUserIdRef.current = null;
     }
   }, [isAuthenticated, isLoading]);
 

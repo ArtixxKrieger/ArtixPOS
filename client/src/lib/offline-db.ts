@@ -302,8 +302,13 @@ export async function clearApiCache(): Promise<void> {
 }
 
 /** Clear everything: API cache + mutation queue.
- *  Call only on account switch — not on simple logout. */
+ *  Resets the in-process userId so no stale IDB reads can happen between
+ *  the clear and the next initUserSession call. */
 export async function clearAllCache(): Promise<void> {
+  // Reset immediately (synchronously) so any getCached / setCached calls
+  // that fire before the next initUserSession() see a null userId and
+  // safely return null / skip the write.
+  _currentUserId = null;
   try {
     const db = await getDB();
     await db.clear("api-cache");

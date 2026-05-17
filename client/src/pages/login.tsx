@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { NATIVE_TOKEN_KEY, apiRequest, setNativeToken, queryClient, resolveUrl, getCsrfHeaders } from "@/lib/queryClient";
@@ -85,7 +84,6 @@ type AuthMode = "signin" | "register";
 export default function Login() {
   const { t } = useTranslation();
   const { isAuthenticated, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
   const [nativeError, setNativeError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -133,8 +131,12 @@ export default function Login() {
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
-    setLocation("/");
-  }, [isAuthenticated, isLoading, setLocation]);
+    // Always do a full page reload when leaving the login page so the new
+    // user starts with a completely fresh JS heap and empty QueryClient.
+    // Using setLocation("/") would be SPA navigation and could leave the
+    // previous account's staleTime:Infinity data alive in memory.
+    window.location.replace("/");
+  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);

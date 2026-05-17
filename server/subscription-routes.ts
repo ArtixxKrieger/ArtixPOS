@@ -224,19 +224,43 @@ export function registerSubscriptionRoutes(app: Express) {
 
       const { checkoutId } = req.body as { checkoutId?: string };
 
-      // Find the most recent pending payment for this tenant
+      // Fetch ALL payments for this tenant so we can cross-reference the
+      // client-supplied checkoutId against records we own — this prevents
+      // cross-tenant payment theft where an attacker supplies another
+      // tenant's paid checkout session ID to upgrade their own account.
       const payments = await db
         .select()
         .from(subscriptionPayments)
         .where(eq(subscriptionPayments.tenantId, tenantId));
 
-      const pending = payments
+      // If client supplies a checkoutId it MUST match a record owned by this
+      // tenant; otherwise it is silently ignored and we fall back to the most
+      // recent pending record. We NEVER call PayMongo with an id the client
+      // provides that we cannot confirm belongs to this tenant.
+      const pendingPayments = payments
         .filter((p) => p.status === "pending")
-        .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+        .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+
+      let pending = pendingPayments[0] ?? null;
+      if (checkoutId) {
+        const ownedMatch = payments.find((p) => p.paymongoCheckoutId === checkoutId);
+        if (!ownedMatch) {
+          // Client provided a checkout ID that does not belong to this tenant
+          console.warn(`[subscription/verify] Tenant ${tenantId} supplied foreign checkoutId ${checkoutId} — rejected`);
+          return res.status(403).json({ message: "Checkout session not found for this account." });
+        }
+        if (ownedMatch.status === "pending") {
+          pending = ownedMatch;
+        } else if (ownedMatch.status === "paid") {
+          // Already verified — idempotent success response
+          return res.json({ success: true, plan: "pro", alreadyVerified: true });
+        }
+      }
 
       if (!pending) return res.status(404).json({ message: "No pending payment found" });
 
-      const sessionId = checkoutId ?? pending.paymongoCheckoutId;
+      // Always use the checkout session ID from the DB record — never the raw client input
+      const sessionId = pending.paymongoCheckoutId;
       if (!sessionId) return res.status(400).json({ message: "No checkout session ID" });
 
       const session = await retrieveCheckoutSession(sessionId);

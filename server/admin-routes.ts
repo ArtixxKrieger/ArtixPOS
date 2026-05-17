@@ -706,6 +706,13 @@ export function registerAdminRoutes(app: Express) {
         name: z.string().min(1).optional(),
       }).parse(req.body);
 
+      // Owners cannot change their own role — prevents accidental self-lockout
+      // and blocks any privilege-escalation attack that gains owner-level access
+      // and then tries to use this endpoint to demote the real owner.
+      if (input.role && targetId === user.id) {
+        return res.status(403).json({ message: "You cannot change your own role." });
+      }
+
       if (input.role) {
         const updated = await updateUserRole(targetId, user.tenantId!, input.role);
         if (!updated) return res.status(404).json({ message: "User not found" });

@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { tenantSubscriptions, subscriptionPayments } from "@shared/schema";
@@ -422,5 +423,184 @@ export function registerSubscriptionRoutes(app: Express) {
     } catch {
       return res.status(500).json({ message: "Failed to reactivate subscription" });
     }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PayMongo Webhook
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/webhooks/paymongo
+//
+// PayMongo calls this endpoint server-to-server whenever a payment event
+// occurs. This is the authoritative upgrade path — it fires even if the user
+// closes the browser before being redirected back to the app.
+//
+// Setup (one-time in your PayMongo dashboard):
+//   URL:    https://<your-domain>/api/webhooks/paymongo
+//   Events: checkout_session.payment.paid
+//   Then copy the webhook secret into PAYMONGO_WEBHOOK_SECRET.
+//
+// Signature verification (PayMongo docs):
+//   Header: x-paymongo-signature
+//   Format: t=<timestamp>,te=<test_sig>,li=<live_sig>
+//   Signed payload: "<timestamp>.<raw_body_string>"
+//   Algorithm: HMAC-SHA256(signed_payload, webhook_secret) → hex
+// ─────────────────────────────────────────────────────────────────────────────
+
+function verifyPayMongoSignature(rawBody: Buffer, signatureHeader: string): boolean {
+  const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
+  if (!secret) {
+    // No secret configured — skip verification only in development so the
+    // webhook can be tested locally without a real secret.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[webhook/paymongo] PAYMONGO_WEBHOOK_SECRET not set — skipping signature check (dev only)");
+      return true;
+    }
+    console.error("[webhook/paymongo] PAYMONGO_WEBHOOK_SECRET is required in production");
+    return false;
+  }
+
+  // Parse t=...,te=...,li=... header
+  const parts: Record<string, string> = {};
+  for (const part of signatureHeader.split(",")) {
+    const [k, v] = part.split("=");
+    if (k && v) parts[k.trim()] = v.trim();
+  }
+
+  const timestamp = parts["t"];
+  // PayMongo sends either li (live) or te (test) depending on key mode
+  const receivedSig = parts["li"] ?? parts["te"];
+  if (!timestamp || !receivedSig) return false;
+
+  // Reject payloads older than 5 minutes to prevent replay attacks
+  const age = Date.now() - Number(timestamp) * 1000;
+  if (age > 5 * 60 * 1000) {
+    console.warn(`[webhook/paymongo] Signature timestamp too old: ${age}ms`);
+    return false;
+  }
+
+  const signedPayload = `${timestamp}.${rawBody.toString("utf8")}`;
+  const expected = createHmac("sha256", secret).update(signedPayload).digest("hex");
+
+  try {
+    return timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(receivedSig, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+async function activateProForTenant(tenantId: string, billingCycle: "monthly" | "annual" | "voucher") {
+  const now = new Date();
+  const periodEnd = new Date(now);
+  if (billingCycle === "annual") {
+    periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+  } else if (billingCycle === "voucher") {
+    periodEnd.setDate(periodEnd.getDate() + 30);
+  } else {
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+  }
+
+  const existing = await db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
+
+  if (existing[0]) {
+    await db.update(tenantSubscriptions)
+      .set({
+        plan: "pro", billingCycle, status: "active",
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+        cancelAtPeriodEnd: false,
+        updatedAt: now.toISOString(),
+      } as any)
+      .where(eq(tenantSubscriptions.tenantId, tenantId));
+  } else {
+    await db.insert(tenantSubscriptions).values({
+      tenantId, plan: "pro", billingCycle, status: "active",
+      currentPeriodStart: now.toISOString(),
+      currentPeriodEnd: periodEnd.toISOString(),
+    } as any);
+  }
+
+  return periodEnd;
+}
+
+export function registerPaymentWebhookRoutes(app: Express) {
+
+  // PayMongo calls this after every successful payment — no auth cookie/token
+  // needed, but the HMAC signature on the raw body must be valid.
+  app.post("/api/webhooks/paymongo", async (req: Request, res: Response) => {
+    // req.body is a raw Buffer here because of the express.raw() middleware
+    // mounted on /api/webhooks in index.ts — before express.json() runs.
+    const rawBody: Buffer = req.body;
+    if (!Buffer.isBuffer(rawBody) || rawBody.length === 0) {
+      return res.status(400).json({ message: "Empty or non-raw body" });
+    }
+
+    // ── 1. Verify signature ─────────────────────────────────────────────────
+    const sigHeader = String(req.headers["x-paymongo-signature"] ?? "");
+    if (!verifyPayMongoSignature(rawBody, sigHeader)) {
+      console.warn("[webhook/paymongo] Invalid signature — rejecting");
+      return res.status(401).json({ message: "Invalid signature" });
+    }
+
+    // ── 2. Parse event ──────────────────────────────────────────────────────
+    let event: any;
+    try {
+      event = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({ message: "Invalid JSON body" });
+    }
+
+    const eventType: string = event?.data?.attributes?.type ?? "";
+    console.log(`[webhook/paymongo] Received event: ${eventType}`);
+
+    // ── 3. Handle checkout_session.payment.paid ─────────────────────────────
+    if (eventType === "checkout_session.payment.paid") {
+      try {
+        const checkoutId: string = event?.data?.attributes?.data?.id ?? "";
+        if (!checkoutId) {
+          console.error("[webhook/paymongo] No checkout session ID in event payload");
+          return res.status(422).json({ message: "Missing checkout session ID" });
+        }
+
+        // Look up which tenant owns this checkout session
+        const allPayments = await db.select().from(subscriptionPayments);
+        const match = allPayments.find((p) => p.paymongoCheckoutId === checkoutId);
+
+        if (!match) {
+          // Could be a test payment or from a different environment — log and
+          // acknowledge so PayMongo doesn't retry indefinitely.
+          console.warn(`[webhook/paymongo] No payment record for checkoutId ${checkoutId} — ignoring`);
+          return res.status(200).json({ received: true, note: "No matching payment record" });
+        }
+
+        if (match.status === "paid") {
+          // Idempotent — already processed, just acknowledge
+          console.log(`[webhook/paymongo] Payment ${checkoutId} already marked paid — skipping`);
+          return res.status(200).json({ received: true, note: "Already processed" });
+        }
+
+        const tenantId = match.tenantId!;
+        const billingCycle = (match.billingCycle as "monthly" | "annual") ?? "monthly";
+
+        // Mark payment as paid
+        await db.update(subscriptionPayments)
+          .set({ status: "paid", paidAt: new Date().toISOString() } as any)
+          .where(eq(subscriptionPayments.id, match.id));
+
+        // Activate Pro subscription
+        const periodEnd = await activateProForTenant(tenantId, billingCycle);
+
+        console.log(`[webhook/paymongo] ✓ Tenant ${tenantId} upgraded to Pro until ${periodEnd.toISOString()}`);
+        return res.status(200).json({ received: true, tenantId, plan: "pro", periodEnd: periodEnd.toISOString() });
+
+      } catch (err) {
+        console.error("[webhook/paymongo] Error processing checkout_session.payment.paid:", err);
+        // Return 500 so PayMongo retries — better to retry than silently drop
+        return res.status(500).json({ message: "Internal error processing payment" });
+      }
+    }
+
+    // Acknowledge all other event types without processing them
+    return res.status(200).json({ received: true, note: `Unhandled event type: ${eventType}` });
   });
 }

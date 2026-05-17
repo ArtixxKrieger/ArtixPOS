@@ -69,6 +69,12 @@ Server listens on port **5000** (webview).
 | `CEREBRAS_API_KEY` | Cerebras AI API key (fallback) |
 | `MISTRAL_API_KEY` | Mistral AI API key (fallback) |
 
+### Payments (optional — required to accept PayMongo payments)
+| Variable | Description |
+|---|---|
+| `PAYMONGO_SECRET_KEY` | PayMongo secret key (sk_live_… or sk_test_…) |
+| `PAYMONGO_WEBHOOK_SECRET` | Webhook signing secret from PayMongo dashboard (whsk_…). Set this after creating the webhook at `POST /api/webhooks/paymongo`. Without it, signature verification is skipped in development but **rejected in production**. |
+
 ### Cache & Rate Limiting (optional — falls back to in-memory)
 | Variable | Description |
 |---|---|

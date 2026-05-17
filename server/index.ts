@@ -302,6 +302,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Webhook raw body (must come BEFORE express.json) ─────────────────────────
+// PayMongo (and future payment providers) sign the raw request body with
+// HMAC-SHA256. Once express.json() parses the body the raw bytes are gone,
+// so we intercept /api/webhooks/* first with express.raw() which sets
+// req.body to a Buffer. The signature-verification handler reads that Buffer;
+// express.json() sees the body is already consumed and skips re-parsing.
+app.use("/api/webhooks", express.raw({ type: "application/json", limit: "1mb" }));
+
 // ── Body parsing (with size limits to prevent DoS) ────────────────────────────
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));

@@ -260,15 +260,10 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setFormError(data.message ?? "Something went wrong."); return; }
       sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-      // Synchronously nuke the QueryClient cache BEFORE navigating so that any
-      // stale data from a previous session (e.g. expired token → Wouter redirect
-      // to /login without explicit logout) can never be served to the new user.
-      // The full page reload that follows also destroys the JS heap, but clearing
-      // first closes the window where React could briefly render cached data
-      // during the unload phase.
-      queryClient.cancelQueries();
-      queryClient.clear();
-      await clearAllCache().catch(() => {});
+      // Full page reload — destroys the QueryClient, all module-level state, and
+      // every in-flight request so no previous user's data can bleed through.
+      // The auth cookie was already set by the server's login response, so
+      // the fresh page load picks it up and fetches data for the new user.
       window.location.href = "/";
     } catch {
       setFormError("Network error. Please try again.");

@@ -7,7 +7,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useEffect, useState, useRef, lazy, Suspense, ComponentType } from "react";
+import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
@@ -473,7 +473,6 @@ function ProtectedRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [location] = useLocation();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
-  const prevAuthRef = useRef<boolean | null>(null);
 
   // Fire all critical API requests in parallel the moment auth is confirmed.
   // Pages will find their data already in cache when they mount → zero loading time.
@@ -491,20 +490,12 @@ function ProtectedRouter() {
     );
   }, [isAuthenticated, user?.tenantId]);
 
-  // Session-expiry cache nuke.
-  // When the auth state transitions from authenticated → unauthenticated without
-  // an explicit logout (e.g. the JWT expires, server returns 401), the logout
-  // mutation never runs, so queryClient.clear() is never called. That leaves
-  // the previous user's data sitting in the cache with staleTime:Infinity.
-  // The next person who logs in on the same tab would briefly see that data.
-  // Fix: detect the transition here and synchronously wipe the cache + IDB.
+  // When a session expires without explicit logout (JWT expires, server returns
+  // 401), wipe IDB so the next user's session starts clean. We intentionally
+  // do NOT call queryClient.clear() here — that is handled by the login page's
+  // full-page reload, which destroys the entire JS heap including the cache.
   useEffect(() => {
-    if (isLoading) return;
-    const wasAuthenticated = prevAuthRef.current;
-    prevAuthRef.current = isAuthenticated;
-    if (wasAuthenticated === true && !isAuthenticated) {
-      queryClient.cancelQueries();
-      queryClient.clear();
+    if (!isAuthenticated && !isLoading) {
       clearAllCache().catch(() => {});
       clearPrefetchCache();
     }

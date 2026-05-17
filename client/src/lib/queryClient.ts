@@ -50,12 +50,14 @@ export function getCsrfHeaders(method: string): Record<string, string> {
 }
 
 export async function nativeFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const method = (options.method ?? "GET").toUpperCase();
   return fetch(resolveUrl(url), {
     ...options,
     credentials: getCredentials(),
     headers: {
       ...(options.headers ?? {}),
       ...getAuthHeaders(),
+      ...getCsrfHeaders(method),
     },
   });
 }

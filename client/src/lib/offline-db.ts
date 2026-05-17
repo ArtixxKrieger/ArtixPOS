@@ -116,6 +116,11 @@ export interface QueuedMutation {
 
 // ─── API cache ─────────────────────────────────────────────────────────────
 export async function getCached<T>(url: string): Promise<T | null> {
+  // Never serve IDB data when the session isn't initialized yet.
+  // Without _currentUserId, the cache key has no user prefix, so we would
+  // serve data written by any previous user's uninitialized page load —
+  // the classic multi-tenant data-leak window. Force a network fetch instead.
+  if (!_currentUserId) return null;
   try {
     const db = await getDB();
     const entry = await db.get("api-cache", cacheKey(url));
@@ -126,6 +131,9 @@ export async function getCached<T>(url: string): Promise<T | null> {
 }
 
 export async function setCached(url: string, data: unknown): Promise<void> {
+  // Don't write to IDB before the session is initialized — a write with a
+  // null prefix would be readable by any subsequent user's uninitialized load.
+  if (!_currentUserId) return;
   try {
     const db = await getDB();
     await db.put("api-cache", { url: cacheKey(url), data, timestamp: Date.now() });

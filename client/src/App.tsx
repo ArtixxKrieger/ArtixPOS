@@ -490,20 +490,16 @@ function ProtectedRouter() {
     );
   }, [isAuthenticated, user?.tenantId]);
 
-  // When a session expires without explicit logout (JWT expires, server returns
-  // 401), wipe IDB so the next user's session starts clean. We intentionally
-  // do NOT call queryClient.clear() here — that is handled by the login page's
-  // full-page reload, which destroys the entire JS heap including the cache.
+  // When a session expires without explicit logout (JWT expires, server 401),
+  // wipe IDB so the next user's session starts clean. Also clear the prefetch
+  // tracker so re-login always triggers fresh bootstrap prefetches.
+  // We intentionally do NOT call queryClient.clear() here — the login page's
+  // full-page reload destroys the JS heap and empties the cache automatically.
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
       clearAllCache().catch(() => {});
       clearPrefetchCache();
     }
-  }, [isAuthenticated, isLoading]);
-
-  // Clear the prefetch tracker on logout so re-login always prefetches fresh data.
-  useEffect(() => {
-    if (!isAuthenticated && !isLoading) clearPrefetchCache();
   }, [isAuthenticated, isLoading]);
 
   // Redeem a pending invite as soon as the user is authenticated.

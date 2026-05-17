@@ -72,7 +72,7 @@ const VercelAnalytics = lazy(() =>
 
 /**
  * Extract and store the JWT token from an OAuth deep-link URL.
- * com.cafebara.app://auth?token=<jwt>
+ * com.artixpos.app://auth?token=<jwt>
  */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -87,7 +87,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 function handleAuthDeepLink(url: string) {
   debugLog("deeplink", `handleAuthDeepLink: ${url.slice(0, 80)}`);
-  if (!url.startsWith("com.cafebara.app://auth")) {
+  if (!url.startsWith("com.artixpos.app://auth")) {
     debugLog("deeplink", `URL doesn't match scheme — ignored`);
     return;
   }

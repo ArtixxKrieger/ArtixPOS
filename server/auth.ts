@@ -309,7 +309,7 @@ async function findOrCreateUser(data: {
   return created;
 }
 
-const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.cafebara.app";
+const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.artixpos.app";
 
 /**
  * Wipe every row scoped to the given user IDs, in strict FK order

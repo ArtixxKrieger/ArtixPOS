@@ -48,9 +48,9 @@ const PRODUCT_USER_FACING_TITLE = "ArtixPOS Pro";
 const PRODUCT_DURATION = "P1M";
 
 const APP_STORE_APP_NAME = "ArtixPOS iOS";
-const APP_STORE_BUNDLE_ID = "com.cafebara.app";
+const APP_STORE_BUNDLE_ID = "com.artixpos.app";
 const PLAY_STORE_APP_NAME = "ArtixPOS Android";
-const PLAY_STORE_PACKAGE_NAME = "com.cafebara.app";
+const PLAY_STORE_PACKAGE_NAME = "com.artixpos.app";
 
 const ENTITLEMENT_IDENTIFIER = "pro";
 const ENTITLEMENT_DISPLAY_NAME = "ArtixPOS Pro Access";

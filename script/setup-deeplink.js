@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Patches the native Android and iOS project files so the OS routes the
- * OAuth deep-link  com.cafebara.app://auth?token=...  back into the app.
+ * OAuth deep-link  com.artixpos.app://auth?token=...  back into the app.
  *
  * Run AFTER  npx cap sync:
  *   node script/setup-deeplink.js
@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-const APP_SCHEME = "com.cafebara.app";
+const APP_SCHEME = "com.artixpos.app";
 
 // ── Android ───────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ const ANDROID_MANIFEST = path.join(
 );
 
 const DEEP_LINK_INTENT_FILTER = `
-        <!-- OAuth deep-link: com.cafebara.app://auth?token=... -->
+        <!-- OAuth deep-link: com.artixpos.app://auth?token=... -->
         <intent-filter>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
@@ -64,15 +64,15 @@ function patchAndroid() {
 const IOS_PLIST = path.join(root, "ios/App/App/Info.plist");
 
 const URL_SCHEME_ENTRY = `
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>${APP_SCHEME}</string>
-			</array>
-		</dict>
-	</array>`;
+        <key>CFBundleURLTypes</key>
+        <array>
+                <dict>
+                        <key>CFBundleURLSchemes</key>
+                        <array>
+                                <string>${APP_SCHEME}</string>
+                        </array>
+                </dict>
+        </array>`;
 
 function patchIOS() {
   if (!fs.existsSync(IOS_PLIST)) {

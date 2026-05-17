@@ -4,7 +4,7 @@ const webClientId = process.env.GOOGLE_CLIENT_ID;
 const iosClientId = process.env.GOOGLE_IOS_CLIENT_ID || webClientId;
 
 const config: CapacitorConfig = {
-  appId: 'com.cafebara.app',
+  appId: 'com.artixpos.app',
   appName: 'ArtixPOS',
   webDir: 'dist/public',
   server: {

@@ -290,19 +290,34 @@ function LoadingScreen({ message }: { message?: string }) {
     );
   }
 
-  // Named message (e.g. "Joining your team…") → minimal centred spinner
-  if (message) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-[3px] border-violet-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-muted-foreground">{message}</p>
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-[#09090f]">
+      <div className="flex flex-col items-center gap-5 animate-[fadeSlideUp_0.4s_ease_both]">
+        {/* Logo with ambient glow */}
+        <div className="relative">
+          <div className="absolute inset-0 rounded-[22px] bg-violet-500/25 dark:bg-violet-400/20 blur-2xl scale-[2] animate-pulse" />
+          <div className="relative w-[72px] h-[72px] rounded-[22px] bg-[#7c3aed] flex items-center justify-center shadow-xl shadow-violet-600/30">
+            <span className="text-white text-[30px] font-black select-none leading-none">A</span>
+          </div>
+        </div>
+
+        {/* App name */}
+        <div className="text-center space-y-0.5">
+          <p className="text-[17px] font-bold text-slate-800 dark:text-white tracking-[-0.3px]">ArtixPOS</p>
+          <p className="text-xs text-slate-400 dark:text-white/30 font-medium">
+            {message ?? "Business OS"}
+          </p>
+        </div>
+
+        {/* Staggered bouncing dots */}
+        <div className="flex items-center gap-1.5 pt-1">
+          <span className="w-2 h-2 rounded-full bg-violet-500 dark:bg-violet-400 animate-bounce [animation-delay:0ms] [animation-duration:900ms]" />
+          <span className="w-2 h-2 rounded-full bg-violet-400/60 dark:bg-violet-400/50 animate-bounce [animation-delay:180ms] [animation-duration:900ms]" />
+          <span className="w-2 h-2 rounded-full bg-violet-400/25 dark:bg-violet-400/25 animate-bounce [animation-delay:360ms] [animation-duration:900ms]" />
         </div>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 // Eagerly warm-up every lazy route in the background so the service worker

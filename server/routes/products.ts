@@ -19,14 +19,14 @@ export function registerProductRoutes(app: Express): void {
       const etag = `"p-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
       res.setHeader("ETag", etag);
-      res.setHeader("Cache-Control", "private, max-age=120");
+      res.setHeader("Cache-Control", "no-store");
       return res.json(cached);
     }
     const products = await storage.getProducts(uid, branch);
     cache.set(cacheKey, products, TTL.PRODUCTS);
     const etag = `"p-${createHash("sha1").update(JSON.stringify(products)).digest("hex").slice(0, 16)}"`;
     res.setHeader("ETag", etag);
-    res.setHeader("Cache-Control", "private, max-age=120");
+    res.setHeader("Cache-Control", "no-store");
     res.json(products);
   });
 

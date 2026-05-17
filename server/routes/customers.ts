@@ -24,12 +24,12 @@ export function registerCustomerRoutes(app: Express): void {
       const ck = customersCacheKey(uid);
       const cached = cache.get<object[]>(ck);
       if (cached) {
-        res.setHeader("Cache-Control", "private, max-age=60");
+        res.setHeader("Cache-Control", "no-store");
         return res.json(cached);
       }
       const list = await storage.getCustomers(uid, opts);
       cache.set(ck, list, 60_000); // 60 s
-      res.setHeader("Cache-Control", "private, max-age=60");
+      res.setHeader("Cache-Control", "no-store");
       return res.json(list);
     }
     res.json(await storage.getCustomers(uid, opts));

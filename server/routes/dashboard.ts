@@ -20,7 +20,7 @@ export function registerDashboardRoutes(app: Express): void {
     const cacheKey = dashboardCacheKey(uid, bid);
     const cached = cache.get<object>(cacheKey);
     if (cached) {
-      res.setHeader("Cache-Control", "private, max-age=30");
+      res.setHeader("Cache-Control", "no-store");
       return res.json(cached);
     }
 

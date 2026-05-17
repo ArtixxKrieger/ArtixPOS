@@ -24,7 +24,7 @@ export function registerSettingsRoutes(app: Express): void {
       const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
       res.setHeader("ETag", etag);
-      res.setHeader("Cache-Control", "private, max-age=120");
+      res.setHeader("Cache-Control", "no-store");
       return res.json(cached);
     }
 
@@ -53,7 +53,7 @@ export function registerSettingsRoutes(app: Express): void {
       storage.updateSettings(uid, { onboardingComplete: 1 }).catch(() => {});
       const healed = { ...settings, onboardingComplete: 1 };
       cache.set(cacheKey, healed, TTL.SETTINGS);
-      res.setHeader("Cache-Control", "private, max-age=120");
+      res.setHeader("Cache-Control", "no-store");
       return res.json(healed);
     }
 
@@ -81,7 +81,7 @@ export function registerSettingsRoutes(app: Express): void {
     }
 
     cache.set(cacheKey, settings, TTL.SETTINGS);
-    res.setHeader("Cache-Control", "private, max-age=120");
+    res.setHeader("Cache-Control", "no-store");
     res.json(settings);
   });
 

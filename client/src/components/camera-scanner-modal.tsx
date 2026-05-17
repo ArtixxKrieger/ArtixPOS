@@ -281,23 +281,31 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center overflow-y-auto">
               <CameraOff className="h-10 w-10 text-destructive shrink-0" />
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-destructive">Camera access blocked</p>
+                <p className="text-sm font-semibold text-destructive">Camera blocked for this site</p>
                 <p className="text-xs text-white/60 leading-relaxed">
-                  This site was previously denied camera access. To fix it in Chrome:
+                  Chrome has two permission layers. Your phone already allows Chrome to use the camera, but <strong className="text-white">Chrome is blocking this specific website.</strong> Fix it in Chrome's own settings:
                 </p>
               </div>
-              <ol className="text-left text-xs text-white/70 space-y-1.5 w-full max-w-xs">
-                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">1.</span>Tap the <strong className="text-white">lock icon</strong> in the address bar</li>
-                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">2.</span>Tap <strong className="text-white">Site settings</strong></li>
-                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">3.</span>Set <strong className="text-white">Camera</strong> to <strong className="text-white">Allow</strong></li>
-                <li className="flex gap-2"><span className="text-primary font-bold shrink-0">4.</span>Reload the page and try again</li>
-              </ol>
+              <div className="text-left text-xs text-white/70 space-y-2 w-full max-w-xs bg-white/5 rounded-xl p-3">
+                <p className="font-semibold text-white/90 text-[11px] uppercase tracking-wide">Option A — from this page</p>
+                <ol className="space-y-1.5">
+                  <li className="flex gap-2"><span className="text-primary font-bold shrink-0">1.</span>Tap the <strong className="text-white">⋮</strong> menu (top-right of Chrome)</li>
+                  <li className="flex gap-2"><span className="text-primary font-bold shrink-0">2.</span>Tap <strong className="text-white">Settings → Site settings → Camera</strong></li>
+                  <li className="flex gap-2"><span className="text-primary font-bold shrink-0">3.</span>Find <strong className="text-white">artixpos.com</strong> and set it to <strong className="text-white">Allow</strong></li>
+                </ol>
+                <p className="font-semibold text-white/90 text-[11px] uppercase tracking-wide pt-1">Option B — tap the address bar</p>
+                <ol className="space-y-1.5">
+                  <li className="flex gap-2"><span className="text-primary font-bold shrink-0">1.</span>Tap the address bar at the top of Chrome</li>
+                  <li className="flex gap-2"><span className="text-primary font-bold shrink-0">2.</span>Look for a <strong className="text-white">lock 🔒 or info ⓘ icon</strong> beside the URL</li>
+                  <li className="flex gap-2"><span className="text-primary font-bold shrink-0">3.</span>Tap it → <strong className="text-white">Permissions → Camera → Allow</strong></li>
+                </ol>
+              </div>
+              <p className="text-[11px] text-white/40">After changing the setting, come back and tap Try Again.</p>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={startCamera}
                 data-testid="button-retry-camera"
-                className="mt-1"
               >
                 Try Again
               </Button>

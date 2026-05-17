@@ -523,6 +523,149 @@ async function activateProForTenant(tenantId: string, billingCycle: "monthly" | 
   return periodEnd;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RevenueCat Webhook
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/webhooks/revenuecat
+//
+// RevenueCat calls this endpoint server-to-server whenever a subscription event
+// occurs (purchase, renewal, cancellation, expiry, etc.).
+//
+// Setup (one-time in your RevenueCat dashboard):
+//   Integrations → Webhooks → Add webhook
+//   URL:    https://<your-domain>/api/webhooks/revenuecat
+//   Authorization header value: copy into REVENUECAT_WEBHOOK_SECRET
+//
+// The app_user_id in the payload is the tenantId set at SDK init time.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RC_PRO_EVENTS = new Set([
+  "INITIAL_PURCHASE",
+  "RENEWAL",
+  "UNCANCELLATION",
+  "PRODUCT_CHANGE",
+  "TRANSFER",
+]);
+
+const RC_REVOKE_EVENTS = new Set([
+  "CANCELLATION",
+  "EXPIRATION",
+  "BILLING_ISSUE",
+]);
+
+async function activateRevenueCatPro(tenantId: string, expirationAtMs: number | null) {
+  const now = new Date();
+  const periodEnd = expirationAtMs
+    ? new Date(expirationAtMs)
+    : (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })();
+
+  const existing = await db
+    .select()
+    .from(tenantSubscriptions)
+    .where(eq(tenantSubscriptions.tenantId, tenantId));
+
+  if (existing[0]) {
+    await db
+      .update(tenantSubscriptions)
+      .set({
+        plan: "pro",
+        billingCycle: "monthly",
+        status: "active",
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+        cancelAtPeriodEnd: false,
+        updatedAt: now.toISOString(),
+      } as any)
+      .where(eq(tenantSubscriptions.tenantId, tenantId));
+  } else {
+    await db.insert(tenantSubscriptions).values({
+      tenantId,
+      plan: "pro",
+      billingCycle: "monthly",
+      status: "active",
+      currentPeriodStart: now.toISOString(),
+      currentPeriodEnd: periodEnd.toISOString(),
+    } as any);
+  }
+}
+
+async function revokeRevenueCatPro(tenantId: string) {
+  const now = new Date();
+  await db
+    .update(tenantSubscriptions)
+    .set({
+      plan: "free",
+      status: "expired",
+      billingCycle: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      updatedAt: now.toISOString(),
+    } as any)
+    .where(eq(tenantSubscriptions.tenantId, tenantId));
+}
+
+export function registerRevenueCatWebhookRoutes(app: Express) {
+  app.post("/api/webhooks/revenuecat", async (req: Request, res: Response) => {
+    const rawBody: Buffer = req.body;
+    if (!Buffer.isBuffer(rawBody) || rawBody.length === 0) {
+      return res.status(400).json({ message: "Empty or non-raw body" });
+    }
+
+    // ── 1. Verify authorization header ──────────────────────────────────────
+    const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+    if (secret) {
+      const auth = String(req.headers["authorization"] ?? "");
+      if (auth !== secret) {
+        console.warn("[webhook/revenuecat] Invalid authorization header — rejecting");
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      console.error("[webhook/revenuecat] REVENUECAT_WEBHOOK_SECRET required in production");
+      return res.status(500).json({ message: "Webhook secret not configured" });
+    } else {
+      console.warn("[webhook/revenuecat] REVENUECAT_WEBHOOK_SECRET not set — skipping auth check (dev only)");
+    }
+
+    // ── 2. Parse event ────────────────────────────────────────────────────────
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({ message: "Invalid JSON body" });
+    }
+
+    const event = payload?.event;
+    const eventType: string = event?.type ?? "";
+    const tenantId: string = event?.app_user_id ?? "";
+    const expirationAtMs: number | null = event?.expiration_at_ms ?? null;
+    const productId: string = event?.product_id ?? "";
+
+    console.log(`[webhook/revenuecat] Event: ${eventType} | tenant: ${tenantId} | product: ${productId}`);
+
+    if (!tenantId) {
+      console.warn("[webhook/revenuecat] No app_user_id in event payload");
+      return res.status(422).json({ message: "Missing app_user_id" });
+    }
+
+    // ── 3. Handle event types ─────────────────────────────────────────────────
+    try {
+      if (RC_PRO_EVENTS.has(eventType)) {
+        await activateRevenueCatPro(tenantId, expirationAtMs);
+        console.log(`[webhook/revenuecat] Activated Pro for tenant ${tenantId} until ${expirationAtMs ? new Date(expirationAtMs).toISOString() : "unknown"}`);
+      } else if (RC_REVOKE_EVENTS.has(eventType)) {
+        await revokeRevenueCatPro(tenantId);
+        console.log(`[webhook/revenuecat] Revoked Pro for tenant ${tenantId}`);
+      } else {
+        console.log(`[webhook/revenuecat] Unhandled event type: ${eventType} — acknowledged`);
+      }
+      return res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error("[webhook/revenuecat] DB error:", err?.message);
+      return res.status(500).json({ message: "Internal error processing webhook" });
+    }
+  });
+}
+
 export function registerPaymentWebhookRoutes(app: Express) {
 
   // PayMongo calls this after every successful payment — no auth cookie/token

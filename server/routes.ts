@@ -16,7 +16,7 @@ import type { Server } from "http";
 import { rateLimit } from "express-rate-limit";
 import { registerAdminRoutes } from "./admin-routes";
 import { registerAiRoutes } from "./ai-routes";
-import { registerSubscriptionRoutes, registerPaymentWebhookRoutes } from "./subscription-routes";
+import { registerSubscriptionRoutes, registerPaymentWebhookRoutes, registerRevenueCatWebhookRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -64,6 +64,7 @@ export async function registerRoutes(
   registerAiRoutes(app);
   registerSubscriptionRoutes(app);
   registerPaymentWebhookRoutes(app);
+  registerRevenueCatWebhookRoutes(app);
   registerPayrollRoutes(app);
 
   // ── Public branch profile (no auth) ───────────────────────────────────────

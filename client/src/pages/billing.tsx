@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSubscription, PRO_FEATURES, FREE_LIMITS, type BillingCycle, type TenantSubscription } from "@/hooks/use-subscription";
+import { useRevenueCat, isNative } from "@/lib/revenuecat";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, Crown, Zap, X, Loader2, CreditCard, Calendar, AlertTriangle, Lock } from "lucide-react";
+import { Check, Crown, Zap, X, Loader2, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
 
 interface SubscriptionPayment {
   id: number;
@@ -48,13 +49,17 @@ export default function BillingPage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
+  const native = isNative();
+  const rc = useRevenueCat(user?.tenantId ?? undefined);
+
   const { data: payments = [], isLoading: paymentsLoading } = useQuery<SubscriptionPayment[]>({
     queryKey: ["/api/subscription/payments"],
     enabled: !!user,
   });
 
-  // Handle return from PayMongo checkout
+  // Handle return from PayMongo checkout (web only)
   useEffect(() => {
+    if (native) return;
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
     if (status === "success") {
@@ -112,6 +117,31 @@ export default function BillingPage() {
     onError: () => toast({ title: "Error", description: "Could not reactivate. Please try again.", variant: "destructive" }),
   });
 
+  const handleNativePurchase = async () => {
+    if (!rc.monthlyPackage) {
+      toast({ title: "Store unavailable", description: "Could not load products from the App Store. Please try again.", variant: "destructive" });
+      return;
+    }
+    try {
+      await rc.purchase(rc.monthlyPackage);
+      toast({ title: "Purchase successful!", description: "Welcome to ArtixPOS Pro!" });
+      refetch();
+    } catch (e: any) {
+      if (e?.userCancelled || e?.code === "1") return;
+      toast({ title: "Purchase failed", description: e?.message ?? "Something went wrong. Please try again.", variant: "destructive" });
+    }
+  };
+
+  const handleNativeRestore = async () => {
+    try {
+      await rc.restore();
+      toast({ title: "Purchases restored", description: "Your previous purchases have been restored." });
+      refetch();
+    } catch (e: any) {
+      toast({ title: "Restore failed", description: e?.message ?? "Could not restore purchases. Please try again.", variant: "destructive" });
+    }
+  };
+
   const isOwner = user?.role === "owner";
 
   if (isLoading || verifying) {
@@ -123,6 +153,8 @@ export default function BillingPage() {
   }
 
   const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
+
+  const nativePrice = rc.monthlyPackage?.product?.priceString ?? null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
@@ -138,6 +170,7 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+
       {/* Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h1>
@@ -184,20 +217,22 @@ export default function BillingPage() {
                   <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                   <div className="text-sm text-amber-700 dark:text-amber-400">
                     Your plan is set to cancel. You'll lose Pro features after {formatDate(subscription.currentPeriodEnd)}.
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-amber-700 dark:text-amber-400 p-0 h-auto ml-1 underline"
-                      onClick={() => reactivateMutation.mutate()}
-                      disabled={reactivateMutation.isPending}
-                      data-testid="button-reactivate"
-                    >
-                      Reactivate
-                    </Button>
+                    {!native && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-amber-700 dark:text-amber-400 p-0 h-auto ml-1 underline"
+                        onClick={() => reactivateMutation.mutate()}
+                        disabled={reactivateMutation.isPending}
+                        data-testid="button-reactivate"
+                      >
+                        Reactivate
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (
-                isOwner && (
+                isOwner && !native && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -209,6 +244,13 @@ export default function BillingPage() {
                   </Button>
                 )
               )}
+
+              {/* Native: manage subscription note */}
+              {native && isOwner && (
+                <p className="text-xs text-slate-500 dark:text-white/40 mt-1">
+                  To cancel or manage your subscription, go to your device's App Store / Play Store subscription settings.
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -218,7 +260,7 @@ export default function BillingPage() {
         </CardContent>
       </Card>
 
-      {/* Upgrade Section — show for free users or pro users wanting to renew */}
+      {/* Upgrade Section */}
       {isOwner && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -229,31 +271,34 @@ export default function BillingPage() {
               <p className="text-sm text-muted-foreground">Keep essentials free. Pro unlocks scale, automation, and cross-business tools.</p>
             </div>
 
-            <div className="inline-flex rounded-xl border border-border p-1 bg-muted/40 w-fit">
-              <button
-                onClick={() => setBillingCycle("monthly")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                  billingCycle === "monthly"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="button-billing-monthly"
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setBillingCycle("annual")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                  billingCycle === "annual"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="button-billing-annual"
-              >
-                Annual
-                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save</Badge>
-              </button>
-            </div>
+            {/* Billing cycle toggle — web only */}
+            {!native && (
+              <div className="inline-flex rounded-xl border border-border p-1 bg-muted/40 w-fit">
+                <button
+                  onClick={() => setBillingCycle("monthly")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    billingCycle === "monthly"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="button-billing-monthly"
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingCycle("annual")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                    billingCycle === "annual"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="button-billing-annual"
+                >
+                  Annual
+                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save</Badge>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -294,6 +339,7 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
+            {/* Pro Card */}
             <Card className={`relative overflow-hidden bg-card ${isPro ? "border-primary/60" : "border-border/60"}`}>
               <div className="absolute top-3 right-3 z-10">
                 <Badge className="bg-violet-600 text-white gap-1">
@@ -308,7 +354,20 @@ export default function BillingPage() {
                   Pro
                 </CardTitle>
                 <CardDescription>
-                  {billingCycle === "monthly" ? (
+                  {native ? (
+                    rc.isLoadingOfferings ? (
+                      <span className="flex items-center gap-2 text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Loading price…
+                      </span>
+                    ) : nativePrice ? (
+                      <>
+                        <span className="text-3xl font-black text-slate-900 dark:text-white">{nativePrice}</span>
+                        <span className="text-slate-400 ml-1">/ month</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-400 text-sm">Price unavailable</span>
+                    )
+                  ) : billingCycle === "monthly" ? (
                     <>
                       <span className="text-3xl font-black text-slate-900 dark:text-white">₱30</span>
                       <span className="text-slate-400 ml-1">/ month</span>
@@ -337,119 +396,180 @@ export default function BillingPage() {
                   ))}
                 </ul>
 
-                <div className="pt-2">
-                  {isPro ? (
-                    <Button
-                      className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                      onClick={() => checkoutMutation.mutate(billingCycle)}
-                      disabled={checkoutMutation.isPending}
-                      data-testid="button-renew-pro"
-                    >
-                      {checkoutMutation.isPending ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                <div className="pt-2 space-y-2">
+                  {native ? (
+                    /* ── Native iOS/Android: RevenueCat purchase flow ── */
+                    <>
+                      {isPro ? (
+                        <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border-0">
+                          <Crown className="w-3.5 h-3.5 mr-1.5" /> Active subscription
+                        </Badge>
                       ) : (
-                        `Renew / Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`
+                        <Button
+                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                          onClick={handleNativePurchase}
+                          disabled={rc.isPurchasing || rc.isLoadingOfferings || !rc.monthlyPackage}
+                          data-testid="button-native-upgrade-pro"
+                        >
+                          {rc.isPurchasing ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…</>
+                          ) : rc.isLoadingOfferings ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading…</>
+                          ) : (
+                            <>
+                              <Crown className="w-4 h-4 mr-2" />
+                              Subscribe{nativePrice ? ` — ${nativePrice}/mo` : " to Pro"}
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-slate-500 dark:text-white/40 text-xs"
+                        onClick={handleNativeRestore}
+                        disabled={rc.isRestoring}
+                        data-testid="button-native-restore"
+                      >
+                        {rc.isRestoring ? (
+                          <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Restoring…</>
+                        ) : (
+                          <><RefreshCw className="w-3 h-3 mr-1" /> Restore previous purchase</>
+                        )}
+                      </Button>
+                      <p className="text-xs text-center text-slate-400 mt-1">
+                        Billed via the App Store / Play Store
+                      </p>
+                    </>
                   ) : (
-                    <Button
-                      className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                      onClick={() => checkoutMutation.mutate(billingCycle)}
-                      disabled={checkoutMutation.isPending}
-                      data-testid="button-upgrade-pro"
-                    >
-                      {checkoutMutation.isPending ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                    /* ── Web: PayMongo checkout flow ── */
+                    <>
+                      {isPro ? (
+                        <Button
+                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                          onClick={() => checkoutMutation.mutate(billingCycle)}
+                          disabled={checkoutMutation.isPending}
+                          data-testid="button-renew-pro"
+                        >
+                          {checkoutMutation.isPending ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                          ) : (
+                            `Renew / Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`
+                          )}
+                        </Button>
                       ) : (
-                        <>
-                          <Crown className="w-4 h-4 mr-2" />
-                          Upgrade to Pro — {billingCycle === "monthly" ? "₱30/mo" : "₱4,999/yr"}
-                        </>
+                        <Button
+                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                          onClick={() => checkoutMutation.mutate(billingCycle)}
+                          disabled={checkoutMutation.isPending}
+                          data-testid="button-upgrade-pro"
+                        >
+                          {checkoutMutation.isPending ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                          ) : (
+                            <>
+                              <Crown className="w-4 h-4 mr-2" />
+                              Upgrade to Pro — {billingCycle === "monthly" ? "₱30/mo" : "₱4,999/yr"}
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      <p className="text-xs text-center text-slate-400 mt-2">
+                        Secure payment via GCash, Card, GrabPay, or Maya
+                      </p>
+                    </>
                   )}
-                  <p className="text-xs text-center text-slate-400 mt-2">
-                    Secure payment via GCash, Card, GrabPay, or Maya
-                  </p>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Native store badge */}
+          {native && (
+            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/30 justify-center">
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Payments are processed securely by Apple / Google</span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Payment History */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payment History</h2>
-        {paymentsLoading ? (
-          <div className="flex justify-center py-6">
-            <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
-          </div>
-        ) : payments.length === 0 ? (
-          <div
-            className="text-center py-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 text-sm flex flex-col items-center gap-2"
-            data-testid="empty-payment-history"
-          >
-            <CreditCard className="h-7 w-7 opacity-40" />
-            <span>No payments yet — your billing history will appear here.</span>
-          </div>
-        ) : (
-          <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Plan</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Cycle</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-white/60">Amount</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-white/60">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {payments.map((p) => (
-                  <tr key={p.id} className="bg-white dark:bg-transparent" data-testid={`row-payment-${p.id}`}>
-                    <td className="px-4 py-3 text-slate-700 dark:text-white/70">{formatDate(p.paidAt ?? p.createdAt)}</td>
-                    <td className="px-4 py-3 capitalize text-slate-700 dark:text-white/70">{p.plan}</td>
-                    <td className="px-4 py-3 capitalize text-slate-700 dark:text-white/70">{p.billingCycle}</td>
-                    <td className="px-4 py-3 text-right text-slate-700 dark:text-white/70">{formatAmount(p.amount)}</td>
-                    <td className="px-4 py-3 text-right">
-                      {p.status === "paid" ? (
-                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Paid</Badge>
-                      ) : p.status === "pending" ? (
-                        <Badge variant="secondary">Pending</Badge>
-                      ) : (
-                        <Badge variant="destructive">Failed</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Cancel Confirm Dialog */}
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your Pro features will remain active until <strong>{formatDate(subscription.currentPeriodEnd)}</strong>. After that, your account will revert to the Free plan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-dialog-no">Keep Pro</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => { cancelMutation.mutate(); setShowCancelDialog(false); }}
-              data-testid="button-cancel-dialog-confirm"
+      {/* Payment History — web only (App Store receipts managed by Apple/Google) */}
+      {!native && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payment History</h2>
+          {paymentsLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
+            </div>
+          ) : payments.length === 0 ? (
+            <div
+              className="text-center py-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 text-sm flex flex-col items-center gap-2"
+              data-testid="empty-payment-history"
             >
-              Yes, Cancel
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <CreditCard className="h-7 w-7 opacity-40" />
+              <span>No payments yet — your billing history will appear here.</span>
+            </div>
+          ) : (
+            <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Plan</th>
+                    <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Cycle</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-white/60">Amount</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-white/60">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {payments.map((p) => (
+                    <tr key={p.id} className="bg-white dark:bg-transparent" data-testid={`row-payment-${p.id}`}>
+                      <td className="px-4 py-3 text-slate-700 dark:text-white/70">{formatDate(p.paidAt ?? p.createdAt)}</td>
+                      <td className="px-4 py-3 capitalize text-slate-700 dark:text-white/70">{p.plan}</td>
+                      <td className="px-4 py-3 capitalize text-slate-700 dark:text-white/70">{p.billingCycle}</td>
+                      <td className="px-4 py-3 text-right text-slate-700 dark:text-white/70">{formatAmount(p.amount)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {p.status === "paid" ? (
+                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Paid</Badge>
+                        ) : p.status === "pending" ? (
+                          <Badge variant="secondary">Pending</Badge>
+                        ) : (
+                          <Badge variant="destructive">Failed</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cancel Confirm Dialog — web only */}
+      {!native && (
+        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your Pro features will remain active until <strong>{formatDate(subscription.currentPeriodEnd)}</strong>. After that, your account will revert to the Free plan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-dialog-no">Keep Pro</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => { cancelMutation.mutate(); setShowCancelDialog(false); }}
+                data-testid="button-cancel-dialog-confirm"
+              >
+                Yes, Cancel
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useEffect, useState, lazy, Suspense, ComponentType } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
+import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
 import { initUserSession } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
@@ -481,6 +482,13 @@ function ProtectedRouter() {
     if (!isAuthenticated || !user?.id) return;
     initUserSession(user.id).then(() => prefetchBootstrapData(user.id));
   }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.tenantId) return;
+    initRevenueCat(user.tenantId).catch((e) =>
+      console.warn("[revenuecat] init error:", e)
+    );
+  }, [isAuthenticated, user?.tenantId]);
 
   // Clear the prefetch tracker on logout so re-login always prefetches fresh data.
   useEffect(() => {

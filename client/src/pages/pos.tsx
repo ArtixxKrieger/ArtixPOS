@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag, Camera } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ReceiptModal } from "@/components/receipt-modal";
 import type { ReceiptData } from "@/components/receipt-modal";
+import { CameraScannerModal } from "@/components/camera-scanner-modal";
 
 // ── New extracted helpers ──────────────────────────────────────────────────
 import { useCart, type CartItem } from "@/hooks/use-cart";
@@ -110,6 +111,7 @@ export default function POS() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanFlash, setScanFlash] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
 
   // ── Receipt ────────────────────────────────────────────────────────────────
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -1066,28 +1068,40 @@ export default function POS() {
             />
           </div>
           {showBarcode && (
-            <div className="relative">
-              <Barcode className={[
-                "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-150",
-                scanFlash ? "text-primary" : "text-muted-foreground",
-              ].join(" ")} />
-              <Input
-                ref={barcodeRef}
-                placeholder={t("pos.scanBarcode")}
-                className={[
-                  "pl-9 h-12 w-40 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20 transition-colors duration-150",
-                  scanFlash ? "ring-2 ring-primary/30" : "",
-                ].join(" ")}
-                value={barcodeInput}
-                onChange={e => setBarcodeInput(e.target.value)}
-                onKeyDown={handleBarcodeKeyDown}
-                data-testid="input-barcode-scan"
-              />
-              {scanFlash && (
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary animate-pulse pointer-events-none">
-                  {t("pos.scanning")}
-                </span>
-              )}
+            <div className="flex gap-2">
+              <div className="relative">
+                <Barcode className={[
+                  "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-150",
+                  scanFlash ? "text-primary" : "text-muted-foreground",
+                ].join(" ")} />
+                <Input
+                  ref={barcodeRef}
+                  placeholder={t("pos.scanBarcode")}
+                  className={[
+                    "pl-9 h-12 w-40 rounded-2xl bg-card border-none shadow-sm text-sm focus-visible:ring-primary/20 transition-colors duration-150",
+                    scanFlash ? "ring-2 ring-primary/30" : "",
+                  ].join(" ")}
+                  value={barcodeInput}
+                  onChange={e => setBarcodeInput(e.target.value)}
+                  onKeyDown={handleBarcodeKeyDown}
+                  data-testid="input-barcode-scan"
+                />
+                {scanFlash && (
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary animate-pulse pointer-events-none">
+                    {t("pos.scanning")}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12 rounded-2xl bg-card border-none shadow-sm shrink-0"
+                onClick={() => setShowCameraScanner(true)}
+                title="Scan with camera"
+                data-testid="button-open-camera-scanner"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>
@@ -1341,6 +1355,13 @@ export default function POS() {
         open={showReceipt}
         onClose={() => setShowReceipt(false)}
         receipt={receiptData}
+      />
+
+      {/* Camera Scanner Modal */}
+      <CameraScannerModal
+        open={showCameraScanner}
+        onClose={() => setShowCameraScanner(false)}
+        onScan={(barcode) => barcodeLookupMutation.mutate(barcode)}
       />
 
       {/* Customer picker dialog */}

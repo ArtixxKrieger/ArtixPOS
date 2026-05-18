@@ -22,13 +22,7 @@ export function registerCustomerRoutes(app: Express): void {
     const isDefault = !req.query.limit && !req.query.offset && !req.query.orderByTopSpenders;
     if (isDefault) {
       const ck = customersCacheKey(uid);
-      const cached = cache.get<object[]>(ck);
-      if (cached) {
-        res.setHeader("Cache-Control", "no-store");
-        return res.json(cached);
-      }
-      const list = await storage.getCustomers(uid, opts);
-      cache.set(ck, list, 60_000); // 60 s
+      const list = await cache.getOrFetch(ck, () => storage.getCustomers(uid, opts), 60_000);
       res.setHeader("Cache-Control", "no-store");
       return res.json(list);
     }

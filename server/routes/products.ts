@@ -14,20 +14,12 @@ export function registerProductRoutes(app: Express): void {
     const branch = getActiveBranchId(req);
     const uid = getUserId(req);
     const cacheKey = productsCacheKey(uid) + (branch != null ? `:b${branch}` : "");
-    const cached = cache.get<object[]>(cacheKey);
-    if (cached) {
-      const etag = `"p-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
-      if (req.headers["if-none-match"] === etag) return res.status(304).end();
-      res.setHeader("ETag", etag);
-      res.setHeader("Cache-Control", "no-store");
-      return res.json(cached);
-    }
-    const products = await storage.getProducts(uid, branch);
-    cache.set(cacheKey, products, TTL.PRODUCTS);
-    const etag = `"p-${createHash("sha1").update(JSON.stringify(products)).digest("hex").slice(0, 16)}"`;
+    const data = await cache.getOrFetch(cacheKey, () => storage.getProducts(uid, branch), TTL.PRODUCTS);
+    const etag = `"p-${createHash("sha1").update(JSON.stringify(data)).digest("hex").slice(0, 16)}"`;
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
     res.setHeader("ETag", etag);
     res.setHeader("Cache-Control", "no-store");
-    res.json(products);
+    res.json(data);
   });
 
   // ── Get single product ─────────────────────────────────────────────────────

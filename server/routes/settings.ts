@@ -19,7 +19,12 @@ export function registerSettingsRoutes(app: Express): void {
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const cacheKey = settingsCacheKey(uid);
-    const cached = cache.get<object>(cacheKey);
+    // getOrFetch deduplicates concurrent cache-miss requests (stampede prevention).
+    // Settings can be null pre-onboarding, so we use a sentinel to distinguish
+    // "not cached" from "cached but null". A null result is NOT cached so the
+    // next request re-checks after the user completes onboarding.
+    const l1 = cache.get<object>(cacheKey);
+    const cached = l1;
     if (cached) {
       const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();

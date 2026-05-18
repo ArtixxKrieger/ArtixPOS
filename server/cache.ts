@@ -9,6 +9,13 @@ class TtlCache {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private store = new Map<string, Entry<any>>();
 
+  // ── Stampede prevention ────────────────────────────────────────────────────
+  // When the same key is requested by N concurrent callers after a cache miss,
+  // only ONE fetch is issued. All other callers piggyback on that same Promise.
+  // Without this, a cache expiry under load triggers N simultaneous DB queries.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private inflight = new Map<string, Promise<any>>();
+
   // ── L1: synchronous in-memory ──────────────────────────────────────────────
 
   set<T>(key: string, value: T, ttlMs: number): void {
@@ -54,6 +61,50 @@ class TtlCache {
     for (const [key, entry] of this.store) {
       if (now > entry.expiresAt) this.store.delete(key);
     }
+  }
+
+  // ── getOrFetch — stampede-safe async read ─────────────────────────────────
+  // The recommended method for any route that does get→miss→fetch→set.
+  // Usage:  const data = await cache.getOrFetch(key, () => storage.getX(uid), TTL.X);
+  //
+  // Guarantees:
+  //   1. L1 hit  → returns immediately (synchronous, no await)
+  //   2. L2 hit  → returns from Redis, warms L1
+  //   3. Miss    → calls fetchFn ONCE regardless of how many concurrent callers
+  //                are waiting. All waiters receive the same result when it resolves.
+  async getOrFetch<T>(key: string, fetchFn: () => Promise<T>, ttlMs: number): Promise<T> {
+    // Fast-path: L1 hit — synchronous, zero overhead.
+    const l1 = this.get<T>(key);
+    if (l1 !== undefined) return l1;
+
+    // If another coroutine is already fetching this key, piggyback on it.
+    const existing = this.inflight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    // We're the first concurrent caller for this key — start the fetch.
+    const promise: Promise<T> = (async () => {
+      try {
+        // Try L2 Redis before hitting the DB (warm across replicas).
+        if (redisAvailable) {
+          const l2 = await redisGet<T>(key);
+          if (l2 !== null && l2 !== undefined) {
+            this.set(key, l2, ttlMs);
+            recordCacheHit();
+            return l2;
+          }
+        }
+        // Full miss — call the data source.
+        const value = await fetchFn();
+        await this.setAsync(key, value, ttlMs);
+        return value;
+      } finally {
+        // Always remove the in-flight entry so future calls re-check the cache.
+        this.inflight.delete(key);
+      }
+    })();
+
+    this.inflight.set(key, promise);
+    return promise;
   }
 
   // ── L2: Redis-aware async API ──────────────────────────────────────────────

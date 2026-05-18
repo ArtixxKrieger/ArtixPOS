@@ -21,6 +21,8 @@ import { validateEnv } from "./env";
 import { initSentry, applySentryErrorHandler } from "./sentry";
 import { setupSwagger } from "./swagger";
 import { csrfCookieMiddleware, csrfProtection } from "./csrf";
+import { warmCache } from "./startup-warm";
+import { cache } from "./cache";
 
 const app = express();
 const httpServer = createServer(app);
@@ -451,6 +453,9 @@ async function _doInit() {
     setupAuth(app);
     console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
+    // Fire-and-forget: pre-load cache for onboarded users after routes are ready.
+    // Never blocks startup — if the DB is slow the server still starts immediately.
+    warmCache().catch(() => {});
     console.log("[init] step 6/8 — setupSwagger");
     setupSwagger(app);
 
@@ -462,13 +467,31 @@ async function _doInit() {
     await applySentryErrorHandler(app);
 
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+      if (res.headersSent) return next(err);
+
+      // DB pool exhaustion / connection timeout → retry-able 503 (not a bug 500).
+      // pg throws these when all connections are in use or the DB is unreachable.
+      const msg: string = err?.message ?? "";
+      if (
+        err?.code === "ECONNREFUSED" ||
+        msg.includes("too many clients") ||
+        msg.includes("Connection terminated") ||
+        msg.includes("connection timeout") ||
+        msg.includes("Client was closed") ||
+        msg.includes("pool is draining")
+      ) {
+        return res.status(503).json({
+          message: "Server is temporarily overloaded — please retry in a moment.",
+          code: "DB_UNAVAILABLE",
+        });
+      }
+
       const status = err.status || err.statusCode || 500;
       const isProduction = process.env.NODE_ENV === "production";
       const message = isProduction && status >= 500
         ? "Internal Server Error"
         : err.message || "Internal Server Error";
       console.error("Internal Server Error:", err);
-      if (res.headersSent) return next(err);
       return res.status(status).json({ message });
     });
 
@@ -526,23 +549,48 @@ if (process.env.VERCEL !== "1") {
   })();
 
   process.on("SIGTERM", () => {
-    console.log("SIGTERM received, shutting down gracefully");
+    console.log("[shutdown] SIGTERM — draining in-flight requests (15s max)");
     stopOllama();
+    // Hard kill after 15s so a stuck request never prevents a clean deploy.
+    const killTimer = setTimeout(() => {
+      console.warn("[shutdown] Force exit — requests still in flight after 15s");
+      process.exit(0);
+    }, 15_000);
+    killTimer.unref(); // don't prevent the normal close path from exiting sooner
     httpServer.close(() => {
-      console.log("Server closed");
+      clearTimeout(killTimer);
+      console.log("[shutdown] Clean exit");
       process.exit(0);
     });
   });
 
   process.on("uncaughtException", (error) => {
-    console.error("Uncaught Exception:", error);
+    console.error("[server] Uncaught Exception:", error);
     process.exit(1);
   });
 
-  process.on("unhandledRejection", (reason, promise) => {
-    console.error("Unhandled Rejection at:", promise, "reason:", reason);
-    process.exit(1);
+  process.on("unhandledRejection", (reason, _promise) => {
+    console.error("[server] Unhandled Rejection:", reason);
+    // In production: log but don't crash. The cluster primary restarts workers
+    // that are genuinely broken. Crashing here drops all in-flight requests for
+    // what is usually a recoverable per-request error.
+    // In development: crash immediately so bugs surface during testing.
+    if (process.env.NODE_ENV !== "production") {
+      process.exit(1);
+    }
   });
+
+  // ── Periodic health telemetry ────────────────────────────────────────────────
+  // Logs heap + cache stats every 60s. Visible in deployment logs and helps
+  // catch memory leaks before they OOM the process.
+  setInterval(() => {
+    const h = process.memoryUsage();
+    const mb = (n: number) => Math.round(n / 1_048_576);
+    console.log(
+      `[health] heap ${mb(h.heapUsed)}/${mb(h.heapTotal)}MB  rss=${mb(h.rss)}MB  ` +
+      `cache=${cache.size()} entries`
+    );
+  }, 60_000).unref();
 }
 
 // ── Vercel serverless handler ────────────────────────────────────────────────

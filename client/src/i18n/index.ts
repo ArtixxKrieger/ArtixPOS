@@ -83,7 +83,11 @@ i18n
     },
     fallbackLng: "en",
     detection: {
-      order: ["localStorage", "navigator"],
+      // Only read from localStorage — never auto-detect from the browser's
+      // navigator.language. The browser language reflects language preference,
+      // not a user choice inside the app. English is the default until the
+      // user explicitly picks a different language in Settings.
+      order: ["localStorage"],
       caches: ["localStorage"],
       lookupLocalStorage: "artixpos_language",
     },
@@ -106,18 +110,17 @@ i18n.changeLanguage = async (lng?: string, callback?: any) => {
 i18n.on("languageChanged", applyLanguageAttrs);
 applyLanguageAttrs(i18n.language);
 
-// Pre-load the initially detected locale in the background so the UI
-// switches to the correct language as soon as the first render happens.
-// This is fire-and-forget — English renders instantly, locale swaps in ~50ms.
+// Pre-load the user's saved language preference so the UI switches on first
+// render without a flash. Only reads from localStorage — never from the
+// browser navigator so English stays the default for new users.
 const _initialLang = (() => {
-  try { return localStorage.getItem("artixpos_language") || navigator.language?.split("-")[0] || "en"; }
+  try { return localStorage.getItem("artixpos_language") || "en"; }
   catch { return "en"; }
 })();
 
 if (_initialLang !== "en" && LOCALE_LOADERS[_initialLang]) {
   loadLocale(_initialLang).then(() => {
     if (!i18n.hasResourceBundle(_initialLang, "translation")) return;
-    // Force react-i18next to re-render with the newly loaded translations
     if (i18n.language === _initialLang || i18n.language.startsWith(_initialLang)) {
       i18n.emit("languageChanged", i18n.language);
     } else {

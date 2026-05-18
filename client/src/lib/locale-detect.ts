@@ -191,8 +191,31 @@ export interface LocaleInfo {
 }
 
 export function detectLocale(): LocaleInfo {
+  // Timezone is the most reliable country signal — it reflects the device's
+  // actual physical location regardless of browser language settings.
+  // Browser language (e.g. en-GB) only tells us language preference,
+  // NOT the user's country, so we check timezone first.
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
+  // 1. Try timezone → exact country match (highest confidence)
+  if (TIMEZONE_CURRENCY_MAP[timezone]) {
+    const match = COUNTRY_LIST.find(c => c.timezone === timezone);
+    if (match) {
+      return { timezone, currency: match.currency, countryCode: match.code };
+    }
+    return { timezone, currency: TIMEZONE_CURRENCY_MAP[timezone], countryCode: null };
+  }
+
+  // 2. Try broad timezone region → currency (no precise country)
+  const tzRegion = timezone.split("/")[0];
+  if (tzRegion === "Europe") return { timezone, currency: "€", countryCode: null };
+  if (tzRegion === "America") return { timezone, currency: "$", countryCode: null };
+  if (tzRegion === "Australia") return { timezone, currency: "A$", countryCode: null };
+  if (tzRegion === "Pacific") return { timezone, currency: "$", countryCode: null };
+  if (tzRegion === "Africa") return { timezone, currency: "$", countryCode: null };
+
+  // 3. Last resort: browser language region tag (least reliable for country)
+  //    Only used when timezone gives no usable signal at all.
   const languages: string[] = Array.isArray(navigator.languages) && navigator.languages.length
     ? Array.from(navigator.languages)
     : [navigator.language || ""];
@@ -207,18 +230,6 @@ export function detectLocale(): LocaleInfo {
       }
     }
   }
-
-  if (TIMEZONE_CURRENCY_MAP[timezone]) {
-    const match = COUNTRY_LIST.find(c => c.timezone === timezone);
-    return { timezone, currency: TIMEZONE_CURRENCY_MAP[timezone], countryCode: match?.code ?? null };
-  }
-
-  const tzRegion = timezone.split("/")[0];
-  if (tzRegion === "Europe") return { timezone, currency: "€", countryCode: null };
-  if (tzRegion === "America") return { timezone, currency: "$", countryCode: null };
-  if (tzRegion === "Australia") return { timezone, currency: "A$", countryCode: null };
-  if (tzRegion === "Pacific") return { timezone, currency: "$", countryCode: null };
-  if (tzRegion === "Africa") return { timezone, currency: "$", countryCode: null };
 
   return { timezone, currency: "$", countryCode: null };
 }

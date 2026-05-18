@@ -1,12 +1,16 @@
-// ArtixPOS Service Worker v7
+// ArtixPOS Service Worker v8
 // Caching strategies:
 //   HTML/navigation   → network-first, cache fallback, offline page last
 //   Hashed assets     → cache-first, immutable
 //   Fonts             → cache-first
 //   Images            → stale-while-revalidate
 //   API calls         → network-only
+//
+// v8 additions:
+//   Background Sync   → fires 'pos-offline-sync' tag; notifies all open tabs
+//                       to run syncOfflineData even after tab was backgrounded
 
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;
@@ -44,6 +48,33 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+});
+
+// ── Background Sync ────────────────────────────────────────────────────────
+// Fires when the OS restores network connectivity while all tabs may be
+// backgrounded. We notify every open window client to run their sync logic
+// rather than attempting fetch() from inside the SW (which has no access to
+// the app's IndexedDB mutation queue or auth cookies).
+//
+// Registration is done in use-online-status.ts:
+//   navigator.serviceWorker.ready.then(reg => reg.sync.register('pos-offline-sync'))
+//
+// The 'sync' event will also fire immediately if the device is already online
+// at registration time, ensuring queued mutations are not forgotten.
+self.addEventListener("sync", (event) => {
+  if (event.tag === "pos-offline-sync") {
+    event.waitUntil(
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clients) => {
+          if (clients.length === 0) return;
+          clients.forEach((client) =>
+            client.postMessage({ type: "TRIGGER_SYNC" })
+          );
+        })
+        .catch(() => {})
+    );
   }
 });
 

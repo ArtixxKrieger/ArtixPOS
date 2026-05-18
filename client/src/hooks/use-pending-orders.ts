@@ -37,9 +37,20 @@ export function useCreatePendingOrder() {
           body: JSON.stringify(data),
         });
       } catch {
-        // True network failure — go offline
-        await queueMutation("POST", api.pendingOrders.create.path, data, "pending-order");
-        const optimistic = { ...data, id: makeOfflineId(), createdAt: new Date().toISOString() };
+        // Offline — generate a stable temp ID first so both the queue item
+        // (offlineId) and the optimistic cache entry reference the same value.
+        // foldQueue uses offlineId to collapse a subsequent DELETE into a no-op,
+        // and syncOfflineData uses it to remap any subsequent PUT after the real
+        // server ID is assigned.
+        const tempId = makeOfflineId();
+        await queueMutation(
+          "POST",
+          api.pendingOrders.create.path,
+          data,
+          "pending-order",
+          tempId, // offlineId
+        );
+        const optimistic = { ...data, id: tempId, createdAt: new Date().toISOString() };
         await patchCached(LIST_URL, (prev: PendingOrder[]) => [...prev, optimistic as unknown as PendingOrder]);
         return optimistic as unknown as PendingOrder;
       }
@@ -52,7 +63,6 @@ export function useCreatePendingOrder() {
       return result;
     },
     onSuccess: (result) => {
-      // Append to cache instantly — no refetch needed
       queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
         old ? [...old.filter((o) => o.id !== result.id), result] : [result]
       );
@@ -152,7 +162,6 @@ export function useUpdatePendingOrder() {
         queryClient.setQueryData<PendingOrder[]>([LIST_URL], context.previous);
     },
     onSuccess: (result) => {
-      // Sync confirmed server result into cache
       queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
         old ? old.map((o) => (o.id === result.id ? result : o)) : []
       );

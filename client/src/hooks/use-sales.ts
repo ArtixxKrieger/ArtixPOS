@@ -72,8 +72,18 @@ export function useCreateSale() {
           body: JSON.stringify(data),
         });
       } catch {
-        await queueMutation("POST", api.sales.create.path, data, "sale");
-        const optimistic = { ...data, id: makeOfflineId(), createdAt: new Date().toISOString() };
+        // Offline — pin the temp ID before async work so the queue item and
+        // the optimistic cache entry share the exact same value.
+        // offlineId lets foldQueue cancel the sale if it's voided offline too.
+        const tempId = makeOfflineId();
+        await queueMutation(
+          "POST",
+          api.sales.create.path,
+          data,
+          "sale",
+          tempId, // offlineId
+        );
+        const optimistic = { ...data, id: tempId, createdAt: new Date().toISOString() };
         await patchCached(BASE_URL, (prev: any[]) => [...prev, optimistic]);
         return optimistic as any;
       }

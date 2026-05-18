@@ -58,8 +58,18 @@ export function useCreateProduct() {
           body: JSON.stringify(data),
         });
       } catch {
-        await queueMutation("POST", api.products.create.path, data);
-        const optimistic = { ...data, id: Date.now(), sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
+        // Offline — queue the mutation and return an optimistic result.
+        // We pin the temp ID before any async work so it's consistent between
+        // the queue item (offlineId) and the optimistic cache entry.
+        const tempId = Date.now();
+        await queueMutation(
+          "POST",
+          api.products.create.path,
+          data,
+          "product",
+          tempId, // offlineId — enables foldQueue and ID remapping after sync
+        );
+        const optimistic = { ...data, id: tempId, sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
         await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
         return optimistic as any;
       }
@@ -74,7 +84,6 @@ export function useCreateProduct() {
       return api.products.create.responses[201].parse(await res.json());
     },
     onSuccess: (result) => {
-      // Update React Query cache instantly — no network round-trip
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
         old ? [...old, result] : [result]
       );
@@ -99,7 +108,7 @@ export function useUpdateProduct() {
           body: JSON.stringify(data),
         });
       } catch {
-        await queueMutation("PUT", url, data);
+        await queueMutation("PUT", url, data, "product");
         await patchCached(LIST_URL, (prev: any[]) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
         return { id, ...data } as any;
       }
@@ -111,7 +120,6 @@ export function useUpdateProduct() {
       return api.products.update.responses[200].parse(await res.json());
     },
     onSuccess: (result) => {
-      // Update React Query cache instantly — no network round-trip
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
         old ? old.map((p) => (p.id === result.id ? result : p)) : [result]
       );
@@ -137,7 +145,7 @@ export function useDeleteProduct() {
       try {
         res = await nativeFetch(url, { method: api.products.delete.method });
       } catch {
-        await queueMutation("DELETE", url);
+        await queueMutation("DELETE", url, undefined, "product");
         await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
         return;
       }

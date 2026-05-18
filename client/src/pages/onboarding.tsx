@@ -18,7 +18,7 @@ import { queryClient } from "@/lib/queryClient";
 import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 
 type Role = "owner" | "employee";
-type BusinessType = "food_beverage" | "retail" | "services" | "other";
+type BusinessType = "food_beverage" | "retail" | "services";
 type Step = "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "done";
 
 const STORE_NAME_PLACEHOLDER: Record<string, string> = {
@@ -78,14 +78,6 @@ const BUSINESS_TYPES = [
     color: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400",
     activeColor: "bg-rose-100 border-rose-400 dark:bg-rose-900/60 dark:border-rose-600",
   },
-  {
-    id: "other" as BusinessType,
-    label: "Other",
-    description: "Any other type of business",
-    icon: Store,
-    color: "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800/40 dark:border-slate-700 dark:text-slate-400",
-    activeColor: "bg-slate-100 border-slate-400 dark:bg-slate-700/60 dark:border-slate-500",
-  },
 ];
 
 const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.ElementType }[]> = {
@@ -95,7 +87,6 @@ const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.E
     { id: "bakery", label: "Bakery", icon: Cake },
     { id: "bar", label: "Bar / Pub", icon: Wine },
     { id: "food_truck", label: "Food Truck", icon: Truck },
-    { id: "other", label: "Other F&B", icon: Store },
   ],
   retail: [
     { id: "clothing", label: "Clothing / Fashion", icon: Shirt },
@@ -104,7 +95,6 @@ const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.E
     { id: "pharmacy", label: "Pharmacy / Drugstore", icon: Stethoscope },
     { id: "perishable_goods", label: "Wet Market / Perishables", icon: UtensilsCrossed },
     { id: "bookstore", label: "Bookstore", icon: BookOpen },
-    { id: "other", label: "Other Retail", icon: Store },
   ],
   services: [
     { id: "salon", label: "Salon / Barbershop", icon: Scissors },
@@ -118,10 +108,6 @@ const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.E
     { id: "cleaning", label: "Cleaning Service", icon: Home },
     { id: "tutoring", label: "Tutoring / Education", icon: GraduationCap },
     { id: "repair", label: "Repair & Maintenance", icon: Wrench },
-    { id: "other", label: "Other Services", icon: Store },
-  ],
-  other: [
-    { id: "other", label: "Other", icon: Store },
   ],
 };
 
@@ -296,7 +282,7 @@ export default function Onboarding() {
   };
 
   const BUSINESS_TYPE_LABELS: Record<string, string> = {
-    food_beverage: "Food & Beverage", retail: "Retail", services: "Services", other: "Other",
+    food_beverage: "Food & Beverage", retail: "Retail", services: "Services",
   };
 
   function getFeaturePreview(type: BusinessType | null, subType?: string | null): string[] {
@@ -385,8 +371,8 @@ export default function Onboarding() {
     setSubmitError(null);
     try {
       await updateSettings.mutateAsync({
-        businessType: businessType ?? "other",
-        businessSubType: businessSubType ?? "other",
+        businessType: businessType ?? "food_beverage",
+        businessSubType: businessSubType ?? "cafe",
         storeName: storeName.trim(),
         address: storeAddress.trim() || null,
         phone: storePhone.trim() || null,
@@ -410,8 +396,8 @@ export default function Onboarding() {
   async function handleDone() {
     await queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     localStorage.setItem("ai_welcome_pending", JSON.stringify({
-      businessType: businessType ?? "other",
-      businessSubType: businessSubType ?? "other",
+      businessType: businessType ?? "food_beverage",
+      businessSubType: businessSubType ?? "cafe",
       storeName: storeName.trim() || "Your Store",
     }));
     setLocation("/");

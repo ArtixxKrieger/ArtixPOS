@@ -65,7 +65,6 @@ const BUSINESS_TYPES: { value: string; label: string }[] = [
   { value: "food_beverage", label: "Food & Beverage" },
   { value: "retail", label: "Retail" },
   { value: "services", label: "Services" },
-  { value: "other", label: "Other" },
 ];
 
 const BUSINESS_SUBTYPES: Record<string, { value: string; label: string }[]> = {
@@ -95,7 +94,6 @@ const BUSINESS_SUBTYPES: Record<string, { value: string; label: string }[]> = {
     { value: "tutoring", label: "Tutoring / Education" },
     { value: "repair", label: "Repair & Maintenance" },
   ],
-  other: [],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

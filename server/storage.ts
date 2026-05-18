@@ -2748,6 +2748,19 @@ export class DatabaseStorage implements IStorage {
             message: `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`,
             productId: product.id,
           });
+          // Fire push notification to all tenant users — non-blocking
+          setImmediate(async () => {
+            try {
+              const { sendPushToUsers } = await import("./push");
+              const tenantUserIds = await this.getTenantUserIds(userId);
+              await sendPushToUsers(tenantUserIds, {
+                title: `⚠️ Out of stock: ${product.name}`,
+                body:  `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`,
+                tag:   `stock-${product.id}`,
+                url:   "/products",
+              });
+            } catch {}
+          });
         } else if (newStock > 0 && newStock <= threshold && prevStock > threshold) {
           // Notify only when crossing the low-stock threshold (not on every sale below it)
           await this.createNotification(userId, {
@@ -2755,6 +2768,19 @@ export class DatabaseStorage implements IStorage {
             title: `${product.name} is running low`,
             message: `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`,
             productId: product.id,
+          });
+          // Fire push notification to all tenant users — non-blocking
+          setImmediate(async () => {
+            try {
+              const { sendPushToUsers } = await import("./push");
+              const tenantUserIds = await this.getTenantUserIds(userId);
+              await sendPushToUsers(tenantUserIds, {
+                title: `📦 Low stock: ${product.name}`,
+                body:  `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`,
+                tag:   `stock-${product.id}`,
+                url:   "/products",
+              });
+            } catch {}
           });
         }
       }

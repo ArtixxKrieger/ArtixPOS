@@ -16,8 +16,9 @@ import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Loader2, Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
-  Sparkles, BadgeCheck, Star,
+  Sparkles, BadgeCheck, Star, Bell, BellOff,
 } from "lucide-react";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -127,6 +128,7 @@ export default function Settings() {
   const { isPro } = useSubscription();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -726,6 +728,58 @@ export default function Settings() {
 
         </>
       )}
+
+      {/* ── Notifications ───────────────────────────────────────── */}
+      <SectionLabel icon={Bell}>Notifications</SectionLabel>
+      <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden px-4 py-1">
+        {pushSupported ? (
+          <SettingRow
+            label="Push Notifications"
+            hint={
+              pushPermission === "denied"
+                ? "Blocked by your browser — update site permissions to enable"
+                : pushSubscribed
+                ? "You'll be alerted for new orders and low stock, even when the app is closed"
+                : "Get alerted for new orders and low stock, even when the app is closed"
+            }
+            icon={pushSubscribed ? Bell : BellOff}
+            iconColor={pushSubscribed ? "bg-violet-100 dark:bg-violet-900/30" : "bg-muted/60"}
+          >
+            <button
+              data-testid="toggle-push-notifications"
+              onClick={() => pushSubscribed ? pushUnsubscribe() : pushSubscribe()}
+              disabled={pushLoading || pushPermission === "denied"}
+              className={[
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
+                "transition-colors duration-200 ease-in-out focus:outline-none",
+                "disabled:opacity-40 disabled:cursor-not-allowed",
+                pushSubscribed
+                  ? "bg-violet-600 dark:bg-violet-500"
+                  : "bg-slate-200 dark:bg-white/10",
+              ].join(" ")}
+              role="switch"
+              aria-checked={pushSubscribed}
+            >
+              <span
+                className={[
+                  "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm",
+                  "transform transition duration-200 ease-in-out",
+                  pushSubscribed ? "translate-x-5" : "translate-x-0",
+                ].join(" ")}
+              />
+            </button>
+          </SettingRow>
+        ) : (
+          <div className="py-3 flex items-center gap-3">
+            <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+              <BellOff className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Push notifications are not supported in this browser or environment.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* ── Account ─────────────────────────────────────────────── */}
       <SectionLabel icon={Shield}>Account</SectionLabel>

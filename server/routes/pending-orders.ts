@@ -124,6 +124,21 @@ export function registerPendingOrderRoutes(app: Express): void {
           orderNumber: (order as any).orderNumber ?? null,
           itemCount: Array.isArray(input.items) ? input.items.length : 0,
         });
+        // Send background push notification so staff are alerted even when the
+        // kitchen display tab is closed or the device screen is off.
+        const itemCount  = Array.isArray(input.items) ? input.items.length : 1;
+        const orderLabel = (order as any).orderNumber ? `#${(order as any).orderNumber}` : `#${order.id}`;
+        setImmediate(async () => {
+          try {
+            const { sendPushToTenant } = await import("../push");
+            await sendPushToTenant(tid, {
+              title: `🍽️ New Order ${orderLabel}`,
+              body:  `${itemCount} item${itemCount !== 1 ? "s" : ""} waiting in the kitchen.`,
+              tag:   `order-${order.id}`,
+              url:   "/kitchen",
+            });
+          } catch {}
+        });
       }
 
       // Merge BIR receipt identifiers from the auto-created sale into the

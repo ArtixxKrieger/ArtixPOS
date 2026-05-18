@@ -255,3 +255,51 @@ self.addEventListener("fetch", (event) => {
   }
   // Cross-origin requests not matched above: fall through to browser default
 });
+
+// ── Push notifications ─────────────────────────────────────────────────────
+// Receives push events from the server and displays a system notification
+// even when all app tabs are closed or in the background.
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let data;
+  try { data = event.data.json(); } catch { return; }
+
+  const options = {
+    body:             data.body  ?? "",
+    icon:             data.icon  ?? "/logo192.png",
+    badge:            "/logo192.png",
+    tag:              data.tag   ?? "artixpos",
+    data:             { url: data.url ?? "/" },
+    requireInteraction: false,
+    silent:           false,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? "ArtixPOS", options)
+  );
+});
+
+// ── Notification click ─────────────────────────────────────────────────────
+// When the user taps the notification, focus an existing app window or open
+// a new one at the URL embedded in the notification data.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url ?? "/";
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windowClients) => {
+        // Focus the first existing tab that belongs to this origin
+        for (const client of windowClients) {
+          if ("focus" in client) {
+            client.focus();
+            if ("navigate" in client) client.navigate(targetUrl);
+            return;
+          }
+        }
+        // No existing tab — open a new one
+        if (clients.openWindow) return clients.openWindow(targetUrl);
+      })
+  );
+});

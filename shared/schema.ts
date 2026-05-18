@@ -1310,3 +1310,19 @@ export const revokedTokens = pgTable("revoked_tokens", {
 });
 
 export type RevokedToken = typeof revokedTokens.$inferSelect;
+
+// ─── Push Subscriptions ───────────────────────────────────────────────────────
+// Stores Web Push API subscriptions so the server can send background
+// notifications (low stock, new orders) even when the app is not open.
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;

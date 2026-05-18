@@ -846,9 +846,25 @@ export function getBusinessFeatures(
     }
   }
 
-  const EXPIRY_SUBTYPES = new Set(["pharmacy", "drugstore", "perishable_goods", "grocery", "grocery_enhanced"]);
-  if (!EXPIRY_SUBTYPES.has(businessSubType ?? "")) {
-    hidden.add("/expiry");
+  // ── Whitelist enforcement ─────────────────────────────────────────────────
+  // Every business type defines its own sidebarOrder — the exact set of modules
+  // it needs. Anything not in that list is irrelevant and should be hidden.
+  // This replaces the old piecemeal hidden.add() calls for modules that were
+  // accidentally left visible (e.g. wifi-vouchers on a salon, payroll on a cafe,
+  // BIR compliance on a retail store that's not configured for it, etc.).
+  const ALL_FILTERABLE_URLS = [
+    "/pending", "/kitchen", "/tables",
+    "/appointments", "/staff", "/rooms", "/memberships",
+    "/shifts", "/timeclock", "/payroll",
+    "/inventory", "/expiry",
+    "/customers", "/discount-codes", "/loyalty", "/wifi-vouchers", "/refunds",
+    "/expenses", "/suppliers", "/purchases",
+    "/bir", "/bir-audit-log",
+  ];
+  for (const url of ALL_FILTERABLE_URLS) {
+    if (!sidebarOrder.includes(url)) {
+      hidden.add(url);
+    }
   }
 
   return { hiddenUrls: hidden, essentialUrls: getEssentialBusinessUrls(businessType, businessSubType), showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };

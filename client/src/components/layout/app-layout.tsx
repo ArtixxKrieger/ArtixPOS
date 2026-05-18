@@ -211,7 +211,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 
   const pendingCount = pendingOrders.filter(o => o.status !== "paid").length;
-  const storeName = settings?.storeName || "ArtixPOS";
+  const tenantStoreName = settings?.storeName || "ArtixPOS";
+  const activeBranchName = user?.activeBranch?.name ?? null;
+  const storeName = activeBranchName ?? tenantStoreName;
   const storeInitial = storeName[0].toUpperCase();
 
 

@@ -307,8 +307,8 @@ export default function Settings() {
     );
   }
 
-  const businessSubType = (settings as any)?.businessSubType;
-  const businessType = (settings as any)?.businessType;
+  const businessSubType = user?.activeBranch?.businessSubType ?? (settings as any)?.businessSubType;
+  const businessType = user?.activeBranch?.businessType ?? (settings as any)?.businessType;
   const businessLabel = businessSubType && businessSubType !== "other"
     ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
     : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
@@ -324,7 +324,7 @@ export default function Settings() {
         <div>
           <h1 className="text-xl font-black text-foreground leading-tight">Settings</h1>
           <p className="text-[12px] text-muted-foreground">
-            {(settings as any)?.storeName || "Your store"} · {businessLabel || "Business"}
+            {user?.activeBranch?.name ?? (settings as any)?.storeName ?? "Your store"} · {businessLabel || "Business"}
           </p>
         </div>
         {isPro && (

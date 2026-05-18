@@ -1,13 +1,24 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import os from "os";
 import * as schema from "@shared/schema";
 
 const isServerless = !!process.env.VERCEL;
 
-// Per-instance connection limit. Each autoscaled replica gets its own pool,
-// so keep this low enough that N replicas don't exhaust the DB server limit.
-// Default: 10 per instance. Override with DB_POOL_MAX env var.
-const POOL_MAX = isServerless ? 5 : parseInt(process.env.DB_POOL_MAX ?? "10", 10);
+// Total DB connection budget across ALL workers.
+// In cluster mode (N forks) each worker gets budget ÷ N connections so the
+// grand total never exceeds DB_POOL_MAX regardless of how many cores are used.
+//
+// Example: DB_POOL_MAX=20, 4-core production cluster → 5 per worker = 20 total.
+// Example: DB_POOL_MAX=20, dev (1 process)           → 20 per worker = 20 total.
+//
+// Override DB_POOL_MAX to raise the total budget (e.g. 40 on a dedicated DB).
+// Override CLUSTER_WORKERS to tell each worker how many siblings exist.
+const TOTAL_POOL     = isServerless ? 5 : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
+const CLUSTER_WORKERS_ENV = parseInt(process.env.CLUSTER_WORKERS ?? "0", 10);
+const EFFECTIVE_WORKERS   = CLUSTER_WORKERS_ENV > 0 ? CLUSTER_WORKERS_ENV
+  : (process.env.NODE_ENV === "production" ? os.cpus().length : 1);
+const POOL_MAX = Math.max(2, Math.floor(TOTAL_POOL / EFFECTIVE_WORKERS));
 
 const connectionString =
   process.env.DATABASE_URL ||

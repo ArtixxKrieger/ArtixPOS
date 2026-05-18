@@ -60,7 +60,7 @@ export function getApiRatelimit(): Ratelimit | null {
   if (!redis) { _apiRatelimit = null; return null; }
   _apiRatelimit = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(300, "15 m"),
+    limiter: Ratelimit.slidingWindow(1000, "15 m"),
     prefix: "rl:api",
     analytics: false,
   });

@@ -183,6 +183,22 @@ app.get("/api/health", async (_req, res) => {
   res.status(dbOk ? 200 : 503).json(payload);
 });
 
+// ── Geo detection ─────────────────────────────────────────────────────────────
+// Reads country headers injected by the reverse proxy — no DB, no external call.
+// Mounted before rate limiters so it is never throttled (called on every page load).
+app.get("/api/geo", (req, res) => {
+  const country =
+    (req.headers["x-vercel-ip-country"] as string) ||
+    (req.headers["cf-ipcountry"] as string) ||
+    (req.headers["x-country-code"] as string) ||
+    null;
+  const clean = country && /^[A-Z]{2}$/.test(country.toUpperCase())
+    ? country.toUpperCase()
+    : null;
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ countryCode: clean });
+});
+
 // ── Metrics ───────────────────────────────────────────────────────────────────
 // Exposes request counts, latency percentiles, and cache hit rate.
 // Optional token auth: set METRICS_TOKEN env var to require Bearer <token>.
@@ -217,7 +233,7 @@ const authLimiterFallback = rateLimit({
 
 const apiLimiterFallback = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1000,
   message: { message: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,

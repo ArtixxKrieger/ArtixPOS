@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import i18n, { SUPPORTED_LANGUAGES } from "@/i18n";
@@ -16,8 +16,9 @@ import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Loader2, Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
-  Sparkles, BadgeCheck, Star, Bell, BellOff,
+  Sparkles, BadgeCheck, Star, Bell, BellOff, Search,
 } from "lucide-react";
+import { COUNTRY_LIST, getCountryByCode, type CountryData } from "@/lib/locale-detect";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -138,6 +139,10 @@ export default function Settings() {
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [langSearch, setLangSearch] = useState("");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const countrySearchRef = useRef<HTMLInputElement>(null);
+  const [currentCountry, setCurrentCountry] = useState<CountryData | null>(null);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(() => {
     const stored = localStorage.getItem("theme");
     if (stored === "dark") return "dark";
@@ -205,6 +210,11 @@ export default function Settings() {
         emailContact: (settings as any).emailContact || "",
         currency: (settings as any).currency || "₱",
       });
+      const savedCountry = (settings as any).country;
+      if (savedCountry) {
+        const found = COUNTRY_LIST.find(c => c.code === savedCountry) ?? null;
+        if (found) setCurrentCountry(found);
+      }
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
     }
@@ -254,15 +264,16 @@ export default function Settings() {
   };
 
   const onSubmit = (data: SettingsFormData) => {
-    const payload: Partial<InsertUserSetting> = {
+    const payload: Partial<InsertUserSetting> & { country?: string | null } = {
       storeName: data.storeName,
       taxRate: data.taxRate,
       address: data.address,
       phone: data.phone,
       emailContact: data.emailContact,
       currency: data.currency,
+      country: currentCountry?.code ?? null,
     };
-    updateSettings.mutate(payload, {
+    updateSettings.mutate(payload as any, {
       onSuccess: () => toast({ title: "Settings saved" })
     });
   };
@@ -464,6 +475,81 @@ export default function Settings() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Country picker dialog ────────────────────────────────── */}
+      <Dialog open={showCountryPicker} onOpenChange={(open) => { setShowCountryPicker(open); if (!open) setCountrySearch(""); }}>
+        <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-sky-500/10 flex items-center justify-center">
+                <Globe className="h-5 w-5 text-sky-500" />
+              </div>
+              <DialogTitle className="text-lg font-black">Select Country</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="px-4 pb-3 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 pointer-events-none" />
+              <input
+                ref={countrySearchRef}
+                type="text"
+                value={countrySearch}
+                onChange={(e) => setCountrySearch(e.target.value)}
+                placeholder="Search country..."
+                data-testid="input-country-search"
+                className="w-full h-10 pl-10 pr-4 rounded-2xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 focus:bg-secondary/80 transition-all placeholder:text-muted-foreground/40 font-medium"
+              />
+            </div>
+          </div>
+          <div className="overflow-y-auto px-4 pb-6 space-y-1.5">
+            {(() => {
+              const q = countrySearch.toLowerCase();
+              const filtered = COUNTRY_LIST.filter(c =>
+                !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+              );
+              if (filtered.length === 0) return (
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
+                  <Globe className="h-8 w-8" strokeWidth={1.2} />
+                  <p className="text-sm font-medium">No countries found</p>
+                </div>
+              );
+              return filtered.map((c) => {
+                const isSelected = currentCountry?.code === c.code;
+                return (
+                  <button
+                    key={c.code}
+                    data-testid={`button-country-${c.code}`}
+                    onClick={() => {
+                      setCurrentCountry(c);
+                      // Also update currency in the form
+                      form.setValue("currency", c.currency);
+                      setShowCountryPicker(false);
+                      setCountrySearch("");
+                    }}
+                    className={[
+                      "w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all text-left",
+                      isSelected
+                        ? "bg-primary/8 border-primary/30 shadow-sm shadow-primary/10"
+                        : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
+                    ].join(" ")}
+                  >
+                    <span className="text-2xl leading-none shrink-0">{c.flag}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>{c.name}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{c.currency} · {c.phonePrefix} · {c.timezone}</p>
+                    </div>
+                    {isSelected && (
+                      <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Owner settings ──────────────────────────────────────── */}
       {isOwner && (
         <Form {...form}>
@@ -497,6 +583,35 @@ export default function Settings() {
                   </span>
                 </div>
               )}
+
+              {/* Country row */}
+              <button
+                type="button"
+                data-testid="button-country-picker"
+                onClick={() => { setShowCountryPicker(true); setTimeout(() => countrySearchRef.current?.focus(), 50); }}
+                className="w-full flex items-center justify-between gap-3 py-3 border-b border-border/20 hover:bg-secondary/30 transition-colors -mx-4 px-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-7 w-7 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Globe className="h-3.5 w-3.5 text-sky-500" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-foreground leading-none">Country</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Sets default currency &amp; timezone</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {currentCountry ? (
+                    <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                      <span className="text-base leading-none">{currentCountry.flag}</span>
+                      <span>{currentCountry.name}</span>
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">Not set</span>
+                  )}
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+                </div>
+              </button>
 
               <SettingRow label="Tax Rate" hint="Applied at checkout" icon={DollarSign} iconColor="bg-emerald-500/10">
                 <FormField control={form.control} name="taxRate" render={({ field }) => (

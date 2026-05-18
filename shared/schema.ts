@@ -427,6 +427,7 @@ export const userSettings = pgTable("user_settings", {
   wifiPassword: text("wifi_password"),
   wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
   wifiAutoIssue: integer("wifi_auto_issue").default(0),
+  country: text("country"),
   // BIR Compliance (Philippines Bureau of Internal Revenue)
   tin: text("tin"),
   ptuNumber: text("ptu_number"),

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Sparkles, Loader2, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Sparkles, Loader2, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check, Search } from "lucide-react";
+import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -454,6 +455,10 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   const [createdBranch, setCreatedBranch] = useState<Branch | null>(null);
   const [seedTemplate, setSeedTemplate] = useState<BranchSeedTemplate | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [branchCountry, setBranchCountry] = useState<CountryData | null>(null);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const countrySearchRef = useRef<HTMLInputElement>(null);
 
   const isEditing = !!branch;
 
@@ -497,12 +502,19 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
         businessType: branch.businessType ?? "",
         businessSubType: branch.businessSubType ?? "",
       });
+      // Infer country from the branch's saved timezone
+      if (branch.timezone) {
+        const match = COUNTRY_LIST.find(c => c.timezone === branch.timezone);
+        setBranchCountry(match ?? null);
+      }
     }
     if (!open) {
       setStep("form");
       setActiveTab("basic");
       setCreatedBranch(null);
       setSeedTemplate(null);
+      setBranchCountry(null);
+      setCountrySearch("");
     }
   }, [open, branch]);
 
@@ -781,22 +793,100 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
 
                 {/* Settings Tab */}
                 <TabsContent value="settings" className="space-y-3 mt-3">
+
+                  {/* Country picker */}
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1">
+                      <Globe className="h-3.5 w-3.5 inline mr-0.5" />Country
+                    </p>
+                    <button
+                      type="button"
+                      data-testid="btn-branch-country-picker"
+                      onClick={() => { setShowCountryPicker(true); setTimeout(() => countrySearchRef.current?.focus(), 50); }}
+                      className="flex items-center gap-2 w-full h-10 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-left text-sm transition-colors"
+                    >
+                      {branchCountry ? (
+                        <>
+                          <span className="text-base leading-none">{branchCountry.flag}</span>
+                          <span className="flex-1 font-medium">{branchCountry.name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">{branchCountry.currency}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground flex-1">Select country (sets timezone)</span>
+                      )}
+                    </button>
+                    <p className="text-[11px] text-muted-foreground">Choosing a country auto-sets the timezone below.</p>
+                  </div>
+
+                  {/* Country picker modal */}
+                  {showCountryPicker && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCountryPicker(false)}>
+                      <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
+                        <div className="px-4 pt-4 pb-3 border-b border-border/30">
+                          <p className="text-sm font-bold text-foreground mb-2">Select Country</p>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none" />
+                            <input
+                              ref={countrySearchRef}
+                              type="text"
+                              value={countrySearch}
+                              onChange={e => setCountrySearch(e.target.value)}
+                              placeholder="Search country…"
+                              className="w-full h-9 pl-8 pr-3 rounded-xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 transition-all"
+                            />
+                          </div>
+                        </div>
+                        <div className="overflow-y-auto py-2">
+                          {COUNTRY_LIST.filter(c => !countrySearch || c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.toLowerCase().includes(countrySearch.toLowerCase())).map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              data-testid={`btn-branch-country-${c.code}`}
+                              onClick={() => {
+                                setBranchCountry(c);
+                                form.setValue("timezone", c.timezone);
+                                setShowCountryPicker(false);
+                                setCountrySearch("");
+                              }}
+                              className={["w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/60 transition-colors text-left", branchCountry?.code === c.code ? "bg-primary/8" : ""].join(" ")}
+                            >
+                              <span className="text-xl leading-none w-7 text-center">{c.flag}</span>
+                              <span className="flex-1 text-sm font-medium">{c.name}</span>
+                              <span className="text-xs text-muted-foreground shrink-0">{c.currency} · {c.phonePrefix}</span>
+                              {branchCountry?.code === c.code && <Check className="h-4 w-4 text-primary shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <FormField control={form.control} name="timezone" render={({ field }) => (
                     <FormItem>
                       <FormLabel><Clock className="h-3.5 w-3.5 inline mr-1" />Timezone</FormLabel>
-                      <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-branch-timezone">
-                            <SelectValue placeholder="Select timezone" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {TIMEZONES.map((tz) => (
-                            <SelectItem key={tz} value={tz}>{tz.replace(/_/g, " ")}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[11px] text-muted-foreground">Used to display "Open Now" based on local time.</p>
+                      {branchCountry ? (
+                        <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-secondary/50 text-sm text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          <span className="flex-1">{field.value || branchCountry.timezone}</span>
+                          <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded font-medium">Auto</span>
+                        </div>
+                      ) : (
+                        <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-branch-timezone">
+                              <SelectValue placeholder="Select timezone" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TIMEZONES.map((tz) => (
+                              <SelectItem key={tz} value={tz}>{tz.replace(/_/g, " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        {branchCountry ? `Set automatically from ${branchCountry.name}.` : 'Used to display "Open Now" based on local time.'}
+                      </p>
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="taxRate" render={({ field }) => (

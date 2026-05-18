@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Coffee, UtensilsCrossed, Cake, Wine, Truck, ChevronRight,
   ChevronLeft, ShoppingBag, Cpu, ShoppingCart, BookOpen,
   Scissors, Dumbbell, Sparkles, Store, Users, CheckCircle2,
   Building2, Link, Shirt, Car, Stethoscope,
-  PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle,
+  PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle, Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { useUpdateSettings } from "@/hooks/use-settings";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { detectLocale, COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 
 type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services" | "other";
@@ -144,6 +145,83 @@ function StepDots({ current, total }: { current: number; total: number }) {
   );
 }
 
+function CountryPicker({
+  value,
+  onChange,
+}: {
+  value: CountryData | null;
+  onChange: (c: CountryData) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filtered = COUNTRY_LIST.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="btn-country-picker"
+        onClick={() => { setOpen(true); setTimeout(() => searchRef.current?.focus(), 50); }}
+        className="flex items-center gap-2 w-full h-10 px-3 rounded-xl bg-secondary/60 border border-border/40 hover:border-primary/40 transition-colors text-left"
+      >
+        {value ? (
+          <>
+            <span className="text-xl leading-none">{value.flag}</span>
+            <span className="flex-1 text-sm font-medium text-foreground truncate">{value.name}</span>
+            <span className="text-xs text-muted-foreground shrink-0">{value.currency}</span>
+          </>
+        ) : (
+          <span className="text-sm text-muted-foreground flex-1">Select your country…</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 pt-4 pb-3 border-b border-border/30">
+              <p className="text-sm font-bold text-foreground mb-2">Select Country</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search country…"
+                  className="w-full h-9 pl-8 pr-3 rounded-xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 transition-all"
+                />
+              </div>
+            </div>
+            <div className="overflow-y-auto py-2">
+              {filtered.map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  data-testid={`btn-country-${c.code}`}
+                  onClick={() => { onChange(c); setOpen(false); setSearch(""); }}
+                  className={[
+                    "w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/60 transition-colors text-left",
+                    value?.code === c.code ? "bg-primary/8" : "",
+                  ].join(" ")}
+                >
+                  <span className="text-xl leading-none w-7 text-center">{c.flag}</span>
+                  <span className="flex-1 text-sm font-medium text-foreground">{c.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{c.currency} · {c.phonePrefix}</span>
+                  {value?.code === c.code && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<Step>("role");
@@ -154,6 +232,7 @@ export default function Onboarding() {
   const [storeAddress, setStoreAddress] = useState("");
   const [storePhone, setStorePhone] = useState("");
   const [storeEmail, setStoreEmail] = useState("");
+  const [storeCountry, setStoreCountry] = useState<CountryData | null>(null);
   const [inviteInput, setInviteInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -161,6 +240,28 @@ export default function Onboarding() {
 
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
+
+  // Auto-detect country on mount
+  useEffect(() => {
+    const locale = detectLocale();
+    if (locale.countryCode) {
+      const country = COUNTRY_LIST.find(c => c.code === locale.countryCode) ?? null;
+      if (country) {
+        setStoreCountry(country);
+        if (!storePhone) setStorePhone(country.phonePrefix + " ");
+      }
+    }
+  }, []);
+
+  // When country changes, update phone prefix
+  function handleCountryChange(country: CountryData) {
+    setStoreCountry(country);
+    // Replace prefix: strip old prefix if it starts with a + and matches a country prefix
+    const hasPrefix = storePhone.startsWith("+");
+    if (!hasPrefix || storePhone.trim() === "" || storePhone.trim() === (storeCountry?.phonePrefix ?? "") || storePhone.trim() === (storeCountry?.phonePrefix ?? "") + " ") {
+      setStorePhone(country.phonePrefix + " ");
+    }
+  }
 
   const SUBTYPE_LABELS: Record<string, string> = {
     cafe: "Cafe / Coffee Shop", restaurant: "Restaurant", bakery: "Bakery",
@@ -222,7 +323,6 @@ export default function Onboarding() {
     const trimmed = input.trim();
     try {
       const url = new URL(trimmed);
-      // Invite links use ?invite=TOKEN; also support ?token=TOKEN as fallback
       return url.searchParams.get("invite") ?? url.searchParams.get("token") ?? trimmed;
     } catch {
       return trimmed;
@@ -262,15 +362,18 @@ export default function Onboarding() {
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await updateSettings.mutateAsync({
+      await updateSettings.mutateAsync({
         businessType: businessType ?? "other",
         businessSubType: businessSubType ?? "other",
         storeName: storeName.trim(),
         address: storeAddress.trim() || null,
         phone: storePhone.trim() || null,
         emailContact: storeEmail.trim() || null,
+        currency: storeCountry?.currency ?? null,
+        timezone: storeCountry?.timezone ?? null,
+        country: storeCountry?.code ?? null,
         onboardingComplete: 1,
-      });
+      } as any);
       setStep("done");
     } catch (err: any) {
       console.error("[onboarding] handleOwnerComplete failed:", err);
@@ -504,6 +607,17 @@ export default function Onboarding() {
               <p className="text-sm text-muted-foreground">This will be set as your main branch. You can edit it anytime in Settings.</p>
             </div>
             <div className="space-y-3">
+              {/* Country */}
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Country</Label>
+                <CountryPicker value={storeCountry} onChange={handleCountryChange} />
+                {storeCountry && (
+                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                    <span className="font-medium text-foreground">{storeCountry.currency}</span> currency ·
+                    <span className="font-medium text-foreground">{storeCountry.timezone}</span>
+                  </p>
+                )}
+              </div>
               <div>
                 <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store Name *</Label>
                 <Input
@@ -531,7 +645,7 @@ export default function Onboarding() {
                     data-testid="input-store-phone"
                     value={storePhone}
                     onChange={e => setStorePhone(e.target.value)}
-                    placeholder="+63 912 345 6789"
+                    placeholder={storeCountry ? `${storeCountry.phonePrefix} 912 345 6789` : "+63 912 345 6789"}
                     className="rounded-xl"
                     type="tel"
                   />
@@ -589,6 +703,15 @@ export default function Onboarding() {
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Store</p>
                       <p className="text-sm font-bold text-foreground">{storeName}</p>
                     </div>
+                    {storeCountry && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Country</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {storeCountry.flag} {storeCountry.name}
+                          <span className="text-muted-foreground font-normal"> · {storeCountry.currency}</span>
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Business Type</p>
                       <p className="text-sm font-semibold text-foreground">

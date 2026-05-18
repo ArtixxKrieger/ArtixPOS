@@ -1,12 +1,3 @@
-/**
- * Web Push notification service.
- *
- * Reads VAPID credentials from env, exposes helpers to send push
- * notifications to individual users or every user in a tenant.
- * Each helper is fire-and-forget safe — expired/invalid subscriptions
- * are automatically pruned from the database.
- */
-
 import webpush from "web-push";
 import { db } from "./db";
 import { pushSubscriptions, users } from "@shared/schema";
@@ -30,7 +21,6 @@ export interface PushPayload {
   url?:  string;
 }
 
-/** Send a push notification to every subscription belonging to the given user IDs. */
 export async function sendPushToUsers(userIds: string[], payload: PushPayload): Promise<void> {
   if (!pushConfigured || userIds.length === 0) return;
 
@@ -55,7 +45,7 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
           message
         )
         .catch(async (err: any) => {
-          // 404 / 410 = subscription no longer valid — remove it
+          // 404/410 = subscription expired — remove it
           if (err?.statusCode === 404 || err?.statusCode === 410) {
             await db.delete(pushSubscriptions)
               .where(eq(pushSubscriptions.id, sub.id))
@@ -66,12 +56,8 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
   );
 }
 
-/** Send a push notification to all users in a tenant. */
 export async function sendPushToTenant(tenantId: string, payload: PushPayload): Promise<void> {
   if (!pushConfigured) return;
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.tenantId, tenantId));
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, tenantId));
   await sendPushToUsers(rows.map((r) => r.id), payload);
 }

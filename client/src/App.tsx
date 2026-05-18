@@ -493,21 +493,13 @@ function ProtectedRouter() {
   // switch (e.g. native Google OAuth re-login without a full page reload).
   const prevUserIdRef = useRef<string | null>(null);
 
-  // Fire all critical API requests in parallel the moment auth is confirmed.
-  // Pages will find their data already in cache when they mount → zero loading time.
-  // initUserSession runs first: if the userId changed since the last session it
-  // wipes the IDB api-cache so no previous user's data can leak via IDB fallback.
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
-    // If the authenticated user changed without a full page reload (e.g. native
-    // OAuth token swap), remove all non-auth cache entries immediately so no
-    // staleTime:Infinity data from the previous account leaks into this session.
-    // We deliberately skip auth-me here — it already contains the new user's
-    // data (set by handleNativeGoogleSignIn before this effect fires), so
-    // removing it would trigger a re-fetch that briefly makes isAuthenticated
-    // false, causing the session-expiry effect to fire and the login page to
-    // flash. Keeping auth-me intact means isAuthenticated stays true throughout.
+    // If the user changed without a full page reload (e.g. native OAuth token swap),
+    // remove all non-auth cache entries. We deliberately skip auth-me — it already
+    // holds the new user's data, and removing it would make isAuthenticated briefly
+    // false, causing the session-expiry effect to fire and flashing the login page.
     if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
       queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
@@ -525,11 +517,7 @@ function ProtectedRouter() {
     );
   }, [isAuthenticated, user?.tenantId]);
 
-  // When a session expires without explicit logout (JWT expires, server 401),
-  // wipe BOTH the in-memory QueryClient AND IDB so the next user's session
-  // starts completely clean. The explicit logout path calls queryClient.clear()
-  // itself; this covers the implicit expiry / 401 path where no full page
-  // reload is guaranteed (e.g. SPA redirect to /login after token expiry).
+  // On session expiry / 401, wipe in-memory + IDB so the next session starts clean
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
       queryClient.cancelQueries();
@@ -540,8 +528,6 @@ function ProtectedRouter() {
     }
   }, [isAuthenticated, isLoading]);
 
-  // Redeem a pending invite as soon as the user is authenticated.
-  // Works for both email/password login and OAuth flows.
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
 
@@ -559,12 +545,10 @@ function ProtectedRouter() {
           if (data.token) {
             setNativeToken(data.token);
           }
-          // Mark onboarding complete so the user goes straight to the POS
           await apiRequest("PUT", "/api/settings", { onboardingComplete: 1 }).catch(() => {});
           await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
           await queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
         } else {
-          // Store error so onboarding page can surface it via toast
           sessionStorage.setItem("invite_error", data.message || "This invite link is invalid or has already been used.");
         }
       })

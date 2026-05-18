@@ -8,8 +8,6 @@ import { pushConfigured } from "../push";
 
 export function registerPushRoutes(app: Express): void {
 
-  // ── VAPID public key ────────────────────────────────────────────────────────
-  // The client needs this to create a PushSubscription in the browser.
   app.get("/api/push/vapid-key", (_req, res) => {
     const key = process.env.VAPID_PUBLIC_KEY ?? "";
     if (!key || !pushConfigured) {
@@ -18,7 +16,6 @@ export function registerPushRoutes(app: Express): void {
     res.json({ key });
   });
 
-  // ── Save subscription ───────────────────────────────────────────────────────
   app.post("/api/push/subscribe", requireAuth, async (req, res) => {
     try {
       const uid = getUserId(req);
@@ -29,8 +26,7 @@ export function registerPushRoutes(app: Express): void {
       if (!endpoint || !keys?.p256dh || !keys?.auth) {
         return res.status(400).json({ message: "Invalid subscription payload" });
       }
-      // Upsert: delete existing entry for this endpoint first, then re-insert.
-      // This handles the case where the browser re-generates keys for the same endpoint.
+      // Delete-then-insert upsert: handles browser key regeneration for the same endpoint
       await db.delete(pushSubscriptions)
         .where(and(eq(pushSubscriptions.userId, uid), eq(pushSubscriptions.endpoint, endpoint)));
       await db.insert(pushSubscriptions).values({
@@ -47,7 +43,6 @@ export function registerPushRoutes(app: Express): void {
     }
   });
 
-  // ── Remove subscription ─────────────────────────────────────────────────────
   app.delete("/api/push/unsubscribe", requireAuth, async (req, res) => {
     try {
       const uid = getUserId(req);
@@ -56,8 +51,7 @@ export function registerPushRoutes(app: Express): void {
         await db.delete(pushSubscriptions)
           .where(and(eq(pushSubscriptions.userId, uid), eq(pushSubscriptions.endpoint, endpoint)));
       } else {
-        await db.delete(pushSubscriptions)
-          .where(eq(pushSubscriptions.userId, uid));
+        await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, uid));
       }
       res.json({ ok: true });
     } catch (err) {

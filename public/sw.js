@@ -1,19 +1,10 @@
-// ═══════════════════════════════════════════════════════════════════════════
 // ArtixPOS Service Worker v7
-//
-// Caching strategies per resource type:
-//   • HTML / navigation   → Network-first, cache fallback, offline page last
-//   • Hashed assets       → Cache-first, immutable (content hash = permanent)
-//   • Fonts               → Cache-first, long TTL
-//   • Images              → Stale-while-revalidate
-//   • API calls           → Network-only (never cache — app layer handles IDB)
-//   • /api/health         → Network-only (used for connectivity probing)
-//
-// Update flow:
-//   • New SW waits to activate until all tabs send SKIP_WAITING or close.
-//   • main.tsx sends SKIP_WAITING on load (so single-tab users get instant
-//     updates); multi-tab POS sessions wait for all tabs to reload first.
-// ═══════════════════════════════════════════════════════════════════════════
+// Caching strategies:
+//   HTML/navigation   → network-first, cache fallback, offline page last
+//   Hashed assets     → cache-first, immutable
+//   Fonts             → cache-first
+//   Images            → stale-while-revalidate
+//   API calls         → network-only
 
 const CACHE_VERSION = "v7";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
@@ -23,24 +14,20 @@ const IMAGE_CACHE   = `artix-images-${CACHE_VERSION}`;
 
 const ALL_CACHES = [SHELL_CACHE, ASSET_CACHE, FONT_CACHE, IMAGE_CACHE];
 
-// URLs to pre-cache on install so the app shell loads even on first offline visit
 const PRECACHE_URLS = ["/", "/index.html", "/manifest.json"];
 
 // ── Install ───────────────────────────────────────────────────────────────
-// Pre-cache the shell. Errors are swallowed — a failed pre-cache is not fatal;
-// the runtime fetch handler will populate the cache on first real visit.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SHELL_CACHE)
       .then((cache) => cache.addAll(PRECACHE_URLS))
       .catch(() => {})
-    // DO NOT call skipWaiting() here. We wait for the explicit SKIP_WAITING
+    // DO NOT call skipWaiting() here — we wait for the explicit SKIP_WAITING
     // message from main.tsx so we don't activate mid-session on a live POS tab.
   );
 });
 
 // ── Activate ──────────────────────────────────────────────────────────────
-// Delete every cache that doesn't belong to this SW version.
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -54,8 +41,6 @@ self.addEventListener("activate", (event) => {
 });
 
 // ── Message handler ───────────────────────────────────────────────────────
-// main.tsx sends SKIP_WAITING after React mounts, giving us a clean window
-// to take over. This replaces the old skipWaiting()-in-install approach.
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") {
     self.skipWaiting();
@@ -69,7 +54,6 @@ function isSameOrigin(url) {
 }
 
 function isHashedAsset(pathname) {
-  // Vite fingerprinted assets: /assets/vendor-Ab3Cd4EF.js, /assets/index-Xx.css
   return /\/assets\/[^/]+-[A-Za-z0-9_-]{7,}\.(js|css|woff2?)(\?.*)?$/.test(pathname);
 }
 
@@ -87,8 +71,6 @@ function isNavigation(req) {
   return req.mode === "navigate";
 }
 
-// Clone, store, and return the original — background best-effort.
-// Never awaited by the caller so it doesn't block the response.
 async function cacheResponse(cacheName, request, response) {
   if (!response || !response.ok) return;
   try {
@@ -98,8 +80,6 @@ async function cacheResponse(cacheName, request, response) {
 }
 
 // ── Offline fallback HTML ─────────────────────────────────────────────────
-// Returned only when the user navigates while offline AND the shell isn't
-// cached yet (e.g. first-ever visit with no network).
 function offlineFallbackResponse() {
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -140,39 +120,34 @@ function offlineFallbackResponse() {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
-  // Only handle GET — POST/PUT/DELETE go straight to network (mutation queue
-  // is managed by the app layer in offline-db.ts, not by the SW).
+  // Only intercept GETs — mutations are queued by the app layer, not the SW
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
 
-  // ── 1. API & auth — network only, never intercept ─────────────────────
+  // 1. API & auth — always network
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) {
-    return; // fall through: browser handles it directly
+    return;
   }
 
-  // ── 2. Hashed Vite assets — cache-first, immutable ───────────────────
-  // Content hash in the filename guarantees the file never changes.
-  // Serve from cache immediately; fetch and cache on first miss.
+  // 2. Hashed Vite assets — cache-first, immutable
   //
-  // STALE-DEPLOYMENT GUARD: if a hashed asset returns 404 it means the
-  // server has a new deployment and our cached HTML is pointing to
-  // files that no longer exist. In that case:
+  // STALE-DEPLOYMENT GUARD: if a hashed asset returns 404 the server has a new
+  // deployment and our cached HTML points to files that no longer exist.
   //   1. Delete the shell cache so the next navigation fetches fresh HTML.
-  //   2. Broadcast SW_ASSET_404 to all open tabs so main.tsx can wipe
-  //      all caches and hard-reload without waiting for the user to act.
+  //   2. Broadcast SW_ASSET_404 to all open tabs so main.tsx can wipe all
+  //      caches and hard-reload without waiting for the user to act.
   if (isSameOrigin(req.url) && isHashedAsset(url.pathname)) {
     event.respondWith(
       caches.match(req, { cacheName: ASSET_CACHE }).then((cached) => {
         if (cached) return cached;
         return fetch(req).then((res) => {
           if (res.status === 404) {
-            // Stale deployment detected — nuke shell cache + notify clients.
             caches.delete(SHELL_CACHE).catch(() => {});
             self.clients.matchAll({ type: "window", includeUncontrolled: true })
               .then((clients) => clients.forEach((c) => c.postMessage({ type: "SW_ASSET_404" })))
               .catch(() => {});
-            return res; // pass 404 to the app so ErrorBoundary can react
+            return res;
           }
           cacheResponse(ASSET_CACHE, req, res);
           return res;
@@ -182,7 +157,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 3. Web fonts — cache-first, long TTL ─────────────────────────────
+  // 3. Web fonts — cache-first
   if (isFont(url)) {
     event.respondWith(
       caches.match(req, { cacheName: FONT_CACHE }).then((cached) => {
@@ -196,51 +171,44 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 4. Images — stale-while-revalidate ───────────────────────────────
+  // 4. Images — stale-while-revalidate
   if (isSameOrigin(req.url) && isImage(url)) {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
-        // Kick off a background revalidation regardless
         const networkPromise = fetch(req)
           .then((res) => {
             if (res.ok) cache.put(req, res.clone());
             return res;
           })
           .catch(() => null);
-        // Return cached immediately if available, otherwise wait for network
         return cached ?? networkPromise ?? new Response("", { status: 503 });
       })
     );
     return;
   }
 
-  // ── 5. Navigation requests (HTML pages) — network-first ──────────────
-  // Try network first to get the freshest shell. On failure, fall back to
-  // any cached version of the URL, then the root /, then the inline page.
+  // 5. Navigation requests — network-first, cache fallback
   if (isNavigation(req) || (isSameOrigin(req.url) && url.pathname.endsWith(".html"))) {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          // Cache every successful navigation response for offline use
           cacheResponse(SHELL_CACHE, req, res);
           return res;
         })
         .catch(async () => {
-          // Network failed — try the cache
           const fromCache =
             (await caches.match(req, { cacheName: SHELL_CACHE })) ??
             (await caches.match("/", { cacheName: SHELL_CACHE })) ??
             (await caches.match("/index.html", { cacheName: SHELL_CACHE }));
           if (fromCache) return fromCache;
-          // Nothing in cache — serve the inline offline page
           return offlineFallbackResponse();
         })
     );
     return;
   }
 
-  // ── 6. Everything else same-origin — network-first, cache fallback ────
+  // 6. Everything else same-origin — network-first, cache fallback
   if (isSameOrigin(req.url)) {
     event.respondWith(
       fetch(req)
@@ -253,12 +221,9 @@ self.addEventListener("fetch", (event) => {
         )
     );
   }
-  // Cross-origin requests not matched above: fall through to browser default
 });
 
 // ── Push notifications ─────────────────────────────────────────────────────
-// Receives push events from the server and displays a system notification
-// even when all app tabs are closed or in the background.
 self.addEventListener("push", (event) => {
   if (!event.data) return;
   let data;
@@ -280,8 +245,6 @@ self.addEventListener("push", (event) => {
 });
 
 // ── Notification click ─────────────────────────────────────────────────────
-// When the user taps the notification, focus an existing app window or open
-// a new one at the URL embedded in the notification data.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url ?? "/";
@@ -290,7 +253,6 @@ self.addEventListener("notificationclick", (event) => {
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((windowClients) => {
-        // Focus the first existing tab that belongs to this origin
         for (const client of windowClients) {
           if ("focus" in client) {
             client.focus();
@@ -298,7 +260,6 @@ self.addEventListener("notificationclick", (event) => {
             return;
           }
         }
-        // No existing tab — open a new one
         if (clients.openWindow) return clients.openWindow(targetUrl);
       })
   );

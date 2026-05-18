@@ -1,14 +1,3 @@
-/**
- * usePushNotifications
- *
- * Manages Web Push API subscription lifecycle:
- *   - Detects browser support (requires HTTPS + service worker)
- *   - Requests notification permission
- *   - Subscribes / unsubscribes via the server API
- *   - Persists subscription state in localStorage so the toggle
- *     reflects reality after a page reload
- */
-
 import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -45,59 +34,52 @@ export function usePushNotifications(): UsePushNotifications {
   });
   const [permission, setPermission] = useState<PushPermission>(() => {
     if (!isSupported) return "unsupported";
-    return (Notification.permission as PushPermission);
+    return Notification.permission as PushPermission;
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sync actual browser permission state on mount
   useEffect(() => {
     if (!isSupported) return;
     setPermission(Notification.permission as PushPermission);
   }, [isSupported]);
 
-  // Verify the stored subscription is still active in the browser
+  // Verify stored subscription is still active in the browser
   useEffect(() => {
     if (!isSupported || !isSubscribed) return;
-    navigator.serviceWorker.ready.then((reg) =>
-      reg.pushManager.getSubscription()
-    ).then((sub) => {
-      if (!sub) {
-        setIsSubscribed(false);
-        localStorage.removeItem(SUBSCRIBED_KEY);
-      }
-    }).catch(() => {});
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => {
+        if (!sub) {
+          setIsSubscribed(false);
+          localStorage.removeItem(SUBSCRIBED_KEY);
+        }
+      })
+      .catch(() => {});
   }, [isSupported, isSubscribed]);
 
   const subscribe = useCallback(async () => {
     if (!isSupported || isLoading) return;
     setIsLoading(true);
     try {
-      // 1. Request notification permission
       const perm = await Notification.requestPermission();
       setPermission(perm as PushPermission);
       if (perm !== "granted") return;
 
-      // 2. Fetch VAPID public key from server
       const keyRes = await fetch("/api/push/vapid-key");
       if (!keyRes.ok) throw new Error("Push not configured on server");
       const { key } = await keyRes.json();
 
-      // 3. Create push subscription in the browser
       const reg = await navigator.serviceWorker.ready;
       const pushSub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(key),
       });
 
-      // 4. Send subscription to server
       const json = pushSub.toJSON() as {
         endpoint: string;
         keys: { p256dh: string; auth: string };
       };
-      await apiRequest("POST", "/api/push/subscribe", {
-        endpoint: json.endpoint,
-        keys:     json.keys,
-      });
+      await apiRequest("POST", "/api/push/subscribe", { endpoint: json.endpoint, keys: json.keys });
 
       setIsSubscribed(true);
       localStorage.setItem(SUBSCRIBED_KEY, "1");
@@ -112,16 +94,11 @@ export function usePushNotifications(): UsePushNotifications {
     if (!isSupported || isLoading) return;
     setIsLoading(true);
     try {
-      const reg    = await navigator.serviceWorker.ready;
+      const reg     = await navigator.serviceWorker.ready;
       const pushSub = await reg.pushManager.getSubscription();
       const endpoint = pushSub?.endpoint;
-
-      // Unsubscribe in the browser first
       if (pushSub) await pushSub.unsubscribe();
-
-      // Then remove from server
       await apiRequest("DELETE", "/api/push/unsubscribe", endpoint ? { endpoint } : {});
-
       setIsSubscribed(false);
       localStorage.removeItem(SUBSCRIBED_KEY);
     } catch (err) {

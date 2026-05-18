@@ -123,7 +123,7 @@ export function registerSaleRoutes(app: Express): void {
         branchId: enforcedBranch,
       });
 
-      // Deduct stock with up to 3 retries — non-blocking so the sale response returns immediately
+      // Non-blocking stock deduction with 3 retries
       (async () => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -146,16 +146,13 @@ export function registerSaleRoutes(app: Express): void {
         discountCode: sale.discountCode,
       });
 
-      // Invalidate dashboard + sales list caches so fresh data shows immediately.
       cache.del(dashboardCacheKey(uid, getActiveBranchId(req)));
       cache.delByPrefix(`sales:${uid}`);
       res.status(201).json(sale);
 
-      // Push real-time stats-update event to all dashboard tabs open for this tenant
       const tid = req.user?.tenantId ?? null;
       if (tid) emitTenantEvent(tid, { type: "stats-update", saleId: sale.id, total: sale.total });
 
-      // Send email receipt to customer — fire-and-forget
       if (input.customerId) {
         setImmediate(async () => {
           try {

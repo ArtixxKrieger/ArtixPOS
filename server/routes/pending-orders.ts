@@ -113,7 +113,6 @@ export function registerPendingOrderRoutes(app: Express): void {
         }
       }
 
-      // Notify connected kitchen SSE clients about the new order.
       // Emit for ALL orders regardless of payment status — quick-pay F&B
       // orders (paid at counter, prepared in kitchen) must also reach the display.
       const tid = getTenantId(req);
@@ -124,8 +123,6 @@ export function registerPendingOrderRoutes(app: Express): void {
           orderNumber: (order as any).orderNumber ?? null,
           itemCount: Array.isArray(input.items) ? input.items.length : 0,
         });
-        // Send background push notification so staff are alerted even when the
-        // kitchen display tab is closed or the device screen is off.
         const itemCount  = Array.isArray(input.items) ? input.items.length : 1;
         const orderLabel = (order as any).orderNumber ? `#${(order as any).orderNumber}` : `#${order.id}`;
         setImmediate(async () => {
@@ -141,8 +138,8 @@ export function registerPendingOrderRoutes(app: Express): void {
         });
       }
 
-      // Merge BIR receipt identifiers from the auto-created sale into the
-      // order response so the POS client can display the correct OR number.
+      // Merge BIR receipt identifiers from the auto-created sale into the order response
+
       res.status(201).json({
         ...order,
         orNumber: saleOrNumber ?? (order as any).orNumber ?? null,

@@ -2748,7 +2748,6 @@ export class DatabaseStorage implements IStorage {
             message: `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`,
             productId: product.id,
           });
-          // Fire push notification to all tenant users — non-blocking
           setImmediate(async () => {
             try {
               const { sendPushToUsers } = await import("./push");
@@ -2762,14 +2761,13 @@ export class DatabaseStorage implements IStorage {
             } catch {}
           });
         } else if (newStock > 0 && newStock <= threshold && prevStock > threshold) {
-          // Notify only when crossing the low-stock threshold (not on every sale below it)
+          // Only notify when crossing the threshold, not on every sale below it
           await this.createNotification(userId, {
             type: "low_stock",
             title: `${product.name} is running low`,
             message: `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`,
             productId: product.id,
           });
-          // Fire push notification to all tenant users — non-blocking
           setImmediate(async () => {
             try {
               const { sendPushToUsers } = await import("./push");

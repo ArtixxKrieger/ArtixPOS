@@ -68,6 +68,24 @@ export async function registerRoutes(
   registerRevenueCatWebhookRoutes(app);
   registerPayrollRoutes(app);
 
+  // ── Geo detection — reads headers injected by the reverse proxy ───────────
+  // Replit runs behind Cloudflare → CF-IPCountry header (ISO 3166-1 alpha-2)
+  // Vercel injects x-vercel-ip-country at the edge (same format)
+  // No external API call, no rate limits, zero added latency.
+  app.get("/api/geo", (req, res) => {
+    const country =
+      (req.headers["x-vercel-ip-country"] as string) ||
+      (req.headers["cf-ipcountry"] as string) ||
+      (req.headers["x-country-code"] as string) ||
+      null;
+
+    const clean = country && /^[A-Z]{2}$/.test(country.toUpperCase())
+      ? country.toUpperCase()
+      : null;
+
+    res.json({ countryCode: clean });
+  });
+
   // ── Public branch profile (no auth) ───────────────────────────────────────
   app.get("/api/public/branch/:id", publicBranchLimiter, async (req, res, next) => {
     try {

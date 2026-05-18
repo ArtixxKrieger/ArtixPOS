@@ -153,11 +153,7 @@
     "vite": "^7.3.0",
     "vitest": "^4.1.6"
   },
-  "overrides": {
-    "drizzle-kit": {
-      "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
-    }
-  },
+  "overrides": {},
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
   }

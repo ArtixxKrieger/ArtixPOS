@@ -84,11 +84,11 @@ function isKnownTempId(value: unknown): boolean {
 
 function entityUrlMatchesTempId(url: string, baseCollectionUrl: string, tempId: string | number): boolean {
   const idStr = String(tempId);
-  const lastSegment = url.split("/").pop() ?? "";
-  return (
-    (url === `${baseCollectionUrl}/${idStr}` || url.endsWith(`/${idStr}`)) &&
-    url.startsWith(baseCollectionUrl.split("/").slice(0, -0).join("/"))
-  );
+  // Guard: the URL must start with the same collection base (prevents
+  // cross-collection false positives, e.g. /api/sales/123 matching a POST to
+  // /api/products when both happen to share the same temp ID string).
+  // Then check the last path segment equals the temp ID.
+  return url.startsWith(baseCollectionUrl) && url.endsWith(`/${idStr}`);
 }
 
 export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {

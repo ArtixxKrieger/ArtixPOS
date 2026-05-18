@@ -55,7 +55,10 @@ let _db: IDBPDatabase<PosOfflineDB> | null = null;
 async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
   if (_db) return _db;
   _db = await openDB<PosOfflineDB>(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion) {
+    // The upgrade callback receives (db, oldVersion, newVersion, transaction).
+    // We MUST use the `transaction` parameter to access existing object stores —
+    // calling db.createObjectStore() again on an already-existing store would throw.
+    upgrade(db, oldVersion, _newVersion, transaction) {
       // ── v1 setup ──
       if (oldVersion < 1) {
         db.createObjectStore("api-cache", { keyPath: "url" });
@@ -67,18 +70,19 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
       }
 
       // ── v1 → v2 migration ──
+      // Use transaction.objectStore() — this is the only correct way to access
+      // an existing store during an IDB version upgrade with the `idb` library.
       if (oldVersion < 2) {
-        const qs2 = (db as any).objectStore?.("mutation-queue") ??
-          (db as any).transaction?.objectStore?.("mutation-queue");
         try {
-          if (qs2 && !qs2.indexNames?.contains("by-category")) {
+          const qs2 = transaction.objectStore("mutation-queue");
+          if (!qs2.indexNames.contains("by-category")) {
             qs2.createIndex("by-category", "category");
           }
-          if (qs2 && !qs2.indexNames?.contains("by-failed")) {
+          if (!qs2.indexNames.contains("by-failed")) {
             qs2.createIndex("by-failed", "permanentlyFailed");
           }
         } catch {
-          // Index may already exist or store not accessible — skip
+          // Defensive: index already exists or store not yet present in this tx
         }
       }
 

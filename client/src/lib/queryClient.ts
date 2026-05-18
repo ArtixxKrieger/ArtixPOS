@@ -62,6 +62,54 @@ export async function nativeFetch(url: string, options: RequestInit = {}): Promi
   });
 }
 
+// ── 503 retry-with-backoff ───────────────────────────────────────────────────
+// When the server is under load it returns 503. We silently retry up to
+// MAX_503_RETRIES times with exponential back-off + ±20 % jitter before
+// surfacing the error to the caller. The Retry-After response header (seconds)
+// is honoured when present. If the request's abort signal fires mid-wait the
+// pending delay is cancelled and the abort reason propagates immediately.
+const MAX_503_RETRIES = 3;
+const BASE_503_DELAY_MS = 1_000;
+
+async function retryOn503(
+  fn: () => Promise<Response>,
+  signal?: AbortSignal | null,
+): Promise<Response> {
+  let attempt = 0;
+
+  while (true) {
+    const res = await fn();
+
+    if (res.status !== 503 || attempt >= MAX_503_RETRIES) {
+      return res;
+    }
+
+    // Honour Retry-After header when the server provides it (value in seconds)
+    const retryAfterHeader = res.headers.get("Retry-After");
+    const serverDelayMs = retryAfterHeader ? parseFloat(retryAfterHeader) * 1_000 : null;
+
+    // Exponential back-off: 1 s, 2 s, 4 s — capped at 10 s
+    const backoffMs = Math.min(BASE_503_DELAY_MS * 2 ** attempt, 10_000);
+    // ±20 % jitter to spread burst retries across clients
+    const jitterMs = backoffMs * 0.2 * (Math.random() * 2 - 1);
+    const delayMs = Math.round(serverDelayMs ?? backoffMs + jitterMs);
+
+    await new Promise<void>((resolve, reject) => {
+      const id = setTimeout(resolve, delayMs);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(id);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
+    });
+
+    attempt++;
+  }
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = await res.text();
@@ -89,16 +137,19 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(resolveUrl(url), {
-    method,
-    headers: {
-      ...(data ? { "Content-Type": "application/json" } : {}),
-      ...getAuthHeaders(),
-      ...getCsrfHeaders(method),
-    },
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: getCredentials(),
-  });
+  const res = await retryOn503(
+    () =>
+      fetch(resolveUrl(url), {
+        method,
+        headers: {
+          ...(data ? { "Content-Type": "application/json" } : {}),
+          ...getAuthHeaders(),
+          ...getCsrfHeaders(method),
+        },
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: getCredentials(),
+      }),
+  );
   await throwIfResNotOk(res);
   return res;
 }
@@ -131,8 +182,12 @@ function fetchWithTimeout(
     }
   }
 
-  return fetch(url, { ...init, signal: controller.signal })
-    .finally(() => clearTimeout(timeoutId));
+  // 503 retries run inside the timeout window and propagate the combined
+  // abort signal so a tab-unload or query cancellation stops them immediately.
+  return retryOn503(
+    () => fetch(url, { ...init, signal: controller.signal }),
+    controller.signal,
+  ).finally(() => clearTimeout(timeoutId));
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -164,11 +219,21 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: Infinity,
       gcTime: 10 * 60 * 1000,
-      retry: 2,
+      // 503s are already retried silently inside fetchWithTimeout/retryOn503.
+      // Only retry here for genuine network failures or other transient errors,
+      // but never re-retry a 503 (it has already exhausted its own retry budget).
+      retry: (failureCount, error) => {
+        if (failureCount >= 2) return false;
+        const msg = (error as Error)?.message ?? "";
+        // 503 exhausted its own retries — don't retry again at this layer
+        if (msg.toLowerCase().includes("service unavailable") || msg.includes("503")) return false;
+        return true;
+      },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       networkMode: "always",
     },
     mutations: {
+      // 503s are silently retried inside apiRequest/retryOn503.
       retry: false,
       networkMode: "always",
     },

@@ -15,7 +15,7 @@ import { useUpdateSettings } from "@/hooks/use-settings";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { detectLocale, COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
+import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 
 type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services" | "other";
@@ -241,22 +241,44 @@ export default function Onboarding() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
 
-  // Auto-detect country on mount
+  // Track whether the user has manually picked a country so the async IP
+  // lookup never overrides an explicit user choice.
+  const userPickedCountry = useRef(false);
+
+  // Phase 1 — instant: use device timezone (works offline, no latency)
+  // Phase 2 — async: IP geolocation corrects cases like a phone bought
+  //           overseas whose timezone/locale still reflects the origin country.
   useEffect(() => {
     const locale = detectLocale();
     if (locale.countryCode) {
       const country = COUNTRY_LIST.find(c => c.code === locale.countryCode) ?? null;
       if (country) {
         setStoreCountry(country);
-        if (!storePhone) setStorePhone(country.phonePrefix + " ");
+        setStorePhone(p => (!p ? country.phonePrefix + " " : p));
       }
     }
+
+    // Phase 2 — fire IP lookup in background; only applies if the user hasn't
+    // touched the picker yet and IP gives a different (more reliable) answer.
+    detectCountryByIP().then(ipCountry => {
+      if (!ipCountry) return;
+      if (userPickedCountry.current) return;
+      setStoreCountry(prev => {
+        if (prev?.code === ipCountry.code) return prev;
+        setStorePhone(p => {
+          const oldPrefix = prev?.phonePrefix ?? "";
+          const isDefault = !p || p.trim() === oldPrefix || p.trim() === oldPrefix + " " || p.trim() === "";
+          return isDefault ? ipCountry.phonePrefix + " " : p;
+        });
+        return ipCountry;
+      });
+    }).catch(() => {});
   }, []);
 
   // When country changes, update phone prefix
   function handleCountryChange(country: CountryData) {
+    userPickedCountry.current = true;
     setStoreCountry(country);
-    // Replace prefix: strip old prefix if it starts with a + and matches a country prefix
     const hasPrefix = storePhone.startsWith("+");
     if (!hasPrefix || storePhone.trim() === "" || storePhone.trim() === (storeCountry?.phonePrefix ?? "") || storePhone.trim() === (storeCountry?.phonePrefix ?? "") + " ") {
       setStorePhone(country.phonePrefix + " ");

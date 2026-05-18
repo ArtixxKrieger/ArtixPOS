@@ -184,6 +184,38 @@ export function getCountryByCode(code: string): CountryData | null {
   return COUNTRY_BY_CODE[code] ?? null;
 }
 
+// ── Async IP-based country detection ─────────────────────────────────────────
+// Tries two free, no-key-required APIs in sequence.
+// Returns null on failure so callers can fall back gracefully.
+export async function detectCountryByIP(): Promise<CountryData | null> {
+  const ENDPOINTS = [
+    // ipapi.co — 1 000 req/day free, HTTPS, no key
+    async () => {
+      const r = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return null;
+      const d = await r.json();
+      return typeof d.country_code === "string" ? d.country_code.toUpperCase() : null;
+    },
+    // ipwho.is — generous free tier, HTTPS, no key
+    async () => {
+      const r = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return null;
+      const d = await r.json();
+      return typeof d.country_code === "string" ? d.country_code.toUpperCase() : null;
+    },
+  ];
+
+  for (const fetch of ENDPOINTS) {
+    try {
+      const code = await fetch();
+      if (code && COUNTRY_BY_CODE[code]) return COUNTRY_BY_CODE[code];
+    } catch {
+      // try next endpoint
+    }
+  }
+  return null;
+}
+
 export interface LocaleInfo {
   timezone: string;
   currency: string;

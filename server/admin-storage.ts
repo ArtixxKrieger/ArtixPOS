@@ -36,7 +36,9 @@ export async function updateTenant(tenantId: string, name: string): Promise<Tena
 // ─── Branches ─────────────────────────────────────────────────────────────────
 
 export async function getBranches(tenantId: string): Promise<Branch[]> {
-  return await db.select().from(branches).where(eq(branches.tenantId, tenantId));
+  return await db.select().from(branches).where(
+    and(eq(branches.tenantId, tenantId), isNull(branches.deletedAt))
+  );
 }
 
 export async function getBranch(id: number, tenantId: string): Promise<Branch | undefined> {

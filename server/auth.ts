@@ -20,6 +20,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "./email";
 import { hashPassword, verifyPassword } from "./crypto";
+import { cache, settingsCacheKey } from "./cache";
+import { invalidateTenantCache } from "./storage";
 import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
 
 function getClientIp(req: Request): string {
@@ -1123,6 +1125,16 @@ export function setupAuth(app: Express) {
       // Finally remove the user rows themselves
       if (userIdsToWipe.length > 0) {
         await db.delete(users).where(inArray(users.id, userIdsToWipe));
+      }
+
+      // ── Bust all server-side caches for every wiped user ─────────────────
+      // The settings cache is keyed by userId. Because email-based userIds are
+      // deterministic (sha256 of email), a stale cache entry would be served to
+      // the same user if they re-register with the same email — making it look
+      // like "the business is still there" even though all DB rows were deleted.
+      for (const wuid of userIdsToWipe) {
+        cache.del(settingsCacheKey(wuid));
+        invalidateTenantCache(wuid);
       }
 
       clearAuthCookie(res);

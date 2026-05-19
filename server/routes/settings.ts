@@ -102,13 +102,21 @@ export function registerSettingsRoutes(app: Express): void {
       // Bust settings cache so the next GET returns fresh data
       cache.del(settingsCacheKey(uid));
 
-      // Guard: ensure the user row exists before inserting settings (FK constraint)
-      // Handles cases where the JWT was issued but the DB row was never persisted.
+      // Guard: ensure the user row exists before inserting settings (FK constraint).
+      // IMPORTANT: we only auto-create for OAuth/native providers (Google, Facebook,
+      // Capacitor). Email/password users are always created during /api/auth/register
+      // so a missing row means the account was deleted — do NOT recreate it or a
+      // deleted account can be brought back by replaying a stale JWT.
       try {
         const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.id, uid)).limit(1);
         if (!existingUser) {
           const u = req.user!;
-          console.warn(`[settings] User row missing for ${u.id} — auto-creating from JWT`);
+          const isEmailUser = !u.provider || u.provider === "email";
+          if (isEmailUser) {
+            // Email users are hard-deleted — do not resurrect from a stale JWT.
+            return res.status(401).json({ message: "Account not found. Please log in again." });
+          }
+          console.warn(`[settings] User row missing for ${u.id} (${u.provider}) — auto-creating from JWT`);
           await db.insert(users).values({
             id: u.id,
             email: u.email ?? null,

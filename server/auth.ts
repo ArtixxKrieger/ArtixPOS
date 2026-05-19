@@ -6,7 +6,8 @@ import {
   customers, serviceStaff, serviceRooms, appointments,
   membershipPlans, memberships, membershipCheckIns,
   expenses, shifts, discountCodes, refunds, timeLogs,
-  tables, suppliers, purchaseOrders, purchaseOrderItems, userBranches, inviteTokens, auditLogs,
+  tables, suppliers, purchaseOrders, purchaseOrderItems, supplierProducts,
+  userBranches, inviteTokens, auditLogs,
   ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
   branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
   revokedTokens,
@@ -324,140 +325,202 @@ const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.artixpos.app";
 async function deleteUsersData(uids: string[]): Promise<void> {
   if (uids.length === 0) return;
 
+  // ── Pre-fetch IDs needed for child-table deletes ─────────────────────────
+  // We need parent IDs so we can cascade into child tables that don't carry
+  // a userId column directly (purchaseOrderItems, stockTransferItems, etc.)
   const userProductIds = (
     await db.select({ id: products.id }).from(products).where(inArray(products.userId, uids))
   ).map(r => r.id);
+
   const userIngredientIds = (
     await db.select({ id: ingredients.id }).from(ingredients).where(inArray(ingredients.userId, uids))
   ).map(r => r.id);
+
+  const userSaleIds = (
+    await db.select({ id: sales.id }).from(sales).where(inArray(sales.userId, uids))
+  ).map(r => r.id);
+
   const userPoIds = (
     await db.select({ id: purchaseOrders.id }).from(purchaseOrders).where(inArray(purchaseOrders.userId, uids))
   ).map(r => r.id);
+
+  const userSupplierIds = (
+    await db.select({ id: suppliers.id }).from(suppliers).where(inArray(suppliers.userId, uids))
+  ).map(r => r.id);
+
+  const userMembershipIds = (
+    await db.select({ id: memberships.id }).from(memberships).where(inArray(memberships.userId, uids))
+  ).map(r => r.id);
+
   const userPayrollPeriodIds = (
     await db.select({ id: payrollPeriods.id }).from(payrollPeriods).where(inArray(payrollPeriods.userId, uids))
   ).map(r => r.id);
+
   const userStockTransferIds = (
     await db.select({ id: stockTransfers.id }).from(stockTransfers).where(inArray(stockTransfers.userId, uids))
   ).map(r => r.id);
 
-  // 1. Deepest leaves (no FK to users.id that would block the final DELETE users)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(membershipCheckIns).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(membershipCheckIns.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(inArray(timeLogs.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(refunds).set({ status: "refunded" } as any).where(inArray(refunds.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(shifts).set({ status: "closed" } as any).where(inArray(shifts.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(discountCodes).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(discountCodes.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(inArray(expenses.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(wifiVouchers).set({ status: "expired" } as any).where(inArray(wifiVouchers.userId, uids));
+  // ── DELETION ORDER (FK dependency graph, leaves first) ───────────────────
+  // Rule: every table with a NOT NULL FK → another table being deleted must
+  // be deleted BEFORE its parent. Soft-deletes (UPDATE) are NOT used here —
+  // a soft-deleted row still holds its FK pointer and will block the final
+  // DELETE FROM users.
 
-  // 2. Payroll entries — DELETE rows where employeeUserId references the user being deleted
-  //    (employeeUserId is NOT NULL FK → users.id; UPDATE would leave the FK in place and block DELETE users)
-  if (userPayrollPeriodIds.length > 0) {
-    await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
+  // Step 1 — membership_check_ins
+  //   refs: memberships.id NOT NULL, customers.id NOT NULL, users.id NOT NULL
+  if (userMembershipIds.length > 0) {
+    await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.membershipId, userMembershipIds));
   }
-  await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString(), notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollPeriods.userId, uids));
+  await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.userId, uids));
 
-  // 3. purchaseOrderItems MUST go before purchaseOrders
+  // Step 2 — loyalty_points_log
+  //   refs: customers.id NOT NULL, loyalty_rewards.id nullable, users.id NOT NULL
+  await db.delete(loyaltyPointsLog).where(inArray(loyaltyPointsLog.userId, uids));
+
+  // Step 3 — refunds  (refs: sales.id NOT NULL, users.id NOT NULL)
+  if (userSaleIds.length > 0) {
+    await db.delete(refunds).where(inArray(refunds.saleId, userSaleIds));
+  }
+  await db.delete(refunds).where(inArray(refunds.userId, uids));
+
+  // Step 4 — stock_transfer_items  (refs: stock_transfers.id NOT NULL, products.id NOT NULL)
+  if (userStockTransferIds.length > 0) {
+    await db.delete(stockTransferItems).where(inArray(stockTransferItems.transferId, userStockTransferIds));
+  }
+
+  // Step 5 — product_recipes  (refs: products.id NOT NULL, ingredients.id NOT NULL)
+  if (userProductIds.length > 0) {
+    await db.delete(productRecipes).where(inArray(productRecipes.productId, userProductIds));
+    await db.delete(productSizes).where(inArray(productSizes.productId, userProductIds));
+    await db.delete(productModifiers).where(inArray(productModifiers.productId, userProductIds));
+  }
+  if (userIngredientIds.length > 0) {
+    await db.delete(productRecipes).where(inArray(productRecipes.ingredientId, userIngredientIds));
+  }
+
+  // Step 6 — purchase_order_items  (refs: purchase_orders.id NOT NULL)
   if (userPoIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(purchaseOrderItems).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
+    await db.delete(purchaseOrderItems).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
   }
 
-  // 4. Invite tokens — DELETE entirely (createdBy is NOT NULL FK → users.id; a soft-update keeps
-  //    the row alive and will cause FK violation when the user row is hard-deleted below)
+  // Step 7 — supplier_products  (refs: suppliers.id NOT NULL, products.id NOT NULL)
+  if (userSupplierIds.length > 0) {
+    await db.delete(supplierProducts).where(inArray(supplierProducts.supplierId, userSupplierIds));
+  }
+  if (userProductIds.length > 0) {
+    await db.delete(supplierProducts).where(inArray(supplierProducts.productId, userProductIds));
+  }
+
+  // Step 8 — stock_logs  (refs: products.id NOT NULL, users.id NOT NULL)
+  await db.delete(stockLogs).where(inArray(stockLogs.userId, uids));
+  if (userProductIds.length > 0) {
+    await db.delete(stockLogs).where(inArray(stockLogs.productId, userProductIds));
+  }
+
+  // Step 9 — waste_log  (refs: products.id nullable, ingredients.id nullable, users.id NOT NULL)
+  await db.delete(wasteLog).where(inArray(wasteLog.userId, uids));
+
+  // Step 10 — appointments
+  //   refs: customers.id nullable, service_staff.id nullable, service_rooms.id nullable, users.id NOT NULL
+  await db.delete(appointments).where(inArray(appointments.userId, uids));
+
+  // Step 11 — memberships  (refs: customers.id NOT NULL, membership_plans.id nullable, users.id NOT NULL)
+  await db.delete(memberships).where(inArray(memberships.userId, uids));
+
+  // Step 12 — wifi_vouchers  (refs: sales.id nullable, users.id NOT NULL)
+  await db.delete(wifiVouchers).where(inArray(wifiVouchers.userId, uids));
+  if (userSaleIds.length > 0) {
+    await db.delete(wifiVouchers).where(inArray(wifiVouchers.saleId, userSaleIds));
+  }
+
+  // Step 13 — notifications  (refs: users.id NOT NULL)
+  await db.delete(notifications).where(inArray(notifications.userId, uids));
+
+  // Step 14 — invite_tokens  (refs: tenants.id NOT NULL, users.id NOT NULL x2)
   await db.delete(inviteTokens).where(or(
     inArray(inviteTokens.createdBy, uids),
     inArray(inviteTokens.usedBy, uids),
   ));
 
-  // 5. Product children: recipes (FK → products.id, ingredients.id), sizes, modifiers
-  if (userProductIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(productRecipes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productRecipes.productId, userProductIds));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(productSizes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productSizes.productId, userProductIds));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(productModifiers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productModifiers.productId, userProductIds));
+  // Step 15 — time_logs  (refs: users.id NOT NULL)
+  await db.delete(timeLogs).where(inArray(timeLogs.userId, uids));
+
+  // Step 16 — payroll_entries
+  //   refs: payroll_periods.id NOT NULL, users.id NOT NULL (employeeUserId)
+  if (userPayrollPeriodIds.length > 0) {
+    await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
-  if (userIngredientIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(productRecipes).set({ deletedAt: new Date().toISOString() } as any).where(inArray(productRecipes.ingredientId, userIngredientIds));
-  }
+  await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
 
-  // 6. Appointments (refs serviceStaff/Rooms/customers)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(appointments).set({ deletedAt: new Date().toISOString() } as any).where(inArray(appointments.userId, uids));
+  // ── Parents that had children deleted above ───────────────────────────────
 
-  // 7. Memberships
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(memberships).set({ deletedAt: new Date().toISOString() } as any).where(inArray(memberships.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(membershipPlans).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(membershipPlans.userId, uids));
-
-  // 8. Staff & rooms
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(serviceStaff).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(serviceStaff.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(serviceRooms).set({ deletedAt: new Date().toISOString() } as any).where(inArray(serviceRooms.userId, uids));
-
-  // 9. Purchase orders & suppliers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(purchaseOrders).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrders.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(suppliers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(suppliers.userId, uids));
-
-  // 10. Pending orders & tables
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(pendingOrders).set({ deletedAt: new Date().toISOString() } as any).where(inArray(pendingOrders.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(tables).set({ deletedAt: new Date().toISOString() } as any).where(inArray(tables.userId, uids));
-
-  // 11. Customers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(customers.userId, uids));
-
-  // 12. Stock transfers — items (FK → stockTransfers.id) must be deleted before the transfer rows
-  if (userStockTransferIds.length > 0) {
-    await db.delete(stockTransferItems).where(inArray(stockTransferItems.transferId, userStockTransferIds));
-  }
+  // Step 17 — stock_transfers  (refs: users.id NOT NULL — children deleted in step 4)
   await db.delete(stockTransfers).where(inArray(stockTransfers.userId, uids));
 
-  // 13. Notifications, stock logs, waste log — completely absent from original code; all have
-  //     userId NOT NULL FK → users.id, so they must be removed before deleting user rows
-  await db.delete(notifications).where(inArray(notifications.userId, uids));
-  await db.delete(stockLogs).where(inArray(stockLogs.userId, uids));
-  await db.delete(wasteLog).where(inArray(wasteLog.userId, uids));
+  // Step 18 — sales  (refs: customers.id nullable, tables.id nullable, users.id NOT NULL)
+  //   Children refunds deleted in step 3, wifi_vouchers in step 12.
+  await db.delete(sales).where(inArray(sales.userId, uids));
 
-  // 14. Loyalty — pointsLog references loyaltyRewards (nullable FK), so delete log first
-  await db.delete(loyaltyPointsLog).where(inArray(loyaltyPointsLog.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(loyaltyRewards).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(loyaltyRewards.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(loyaltyTiers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(loyaltyTiers.userId, uids));
+  // Step 19 — pending_orders  (refs: customers.id nullable, tables.id nullable, users.id NOT NULL)
+  await db.delete(pendingOrders).where(inArray(pendingOrders.userId, uids));
 
-  // 15. Sales, ingredients, products
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(sales).set({ deletedAt: new Date().toISOString() } as any).where(inArray(sales.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(inArray(ingredients.userId, uids));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(inArray(products.userId, uids));
+  // Step 20 — purchase_orders  (refs: suppliers.id nullable, users.id NOT NULL — children deleted in step 6)
+  await db.delete(purchaseOrders).where(inArray(purchaseOrders.userId, uids));
 
-  // 16. Audit logs (no hard FK — GDPR hygiene)
+  // Step 21 — payroll_periods  (refs: users.id NOT NULL — entries deleted in step 16)
+  await db.delete(payrollPeriods).where(inArray(payrollPeriods.userId, uids));
+
+  // Step 22 — membership_plans  (refs: users.id NOT NULL — memberships deleted in step 11)
+  await db.delete(membershipPlans).where(inArray(membershipPlans.userId, uids));
+
+  // Step 23 — loyalty_rewards  (refs: products.id nullable, users.id NOT NULL — log deleted in step 2)
+  await db.delete(loyaltyRewards).where(inArray(loyaltyRewards.userId, uids));
+
+  // Step 24 — service_staff  (refs: users.id NOT NULL — appointments deleted in step 10)
+  await db.delete(serviceStaff).where(inArray(serviceStaff.userId, uids));
+
+  // Step 25 — service_rooms  (refs: users.id NOT NULL — appointments deleted in step 10)
+  await db.delete(serviceRooms).where(inArray(serviceRooms.userId, uids));
+
+  // Step 26 — customers  (refs: users.id NOT NULL)
+  //   All child tables (memberships, membershipCheckIns, loyaltyPointsLog,
+  //   appointments, sales, pendingOrders) deleted above.
+  await db.delete(customers).where(inArray(customers.userId, uids));
+
+  // Step 27 — ingredients  (refs: users.id NOT NULL — productRecipes + wasteLog deleted above)
+  await db.delete(ingredients).where(inArray(ingredients.userId, uids));
+
+  // Step 28 — products  (refs: users.id NOT NULL)
+  //   All child tables (productRecipes, supplierProducts, stockLogs,
+  //   stockTransferItems, wifiVouchers, purchaseOrderItems) deleted above.
+  await db.delete(products).where(inArray(products.userId, uids));
+
+  // Step 29 — suppliers  (refs: users.id NOT NULL — supplierProducts + purchaseOrders deleted above)
+  await db.delete(suppliers).where(inArray(suppliers.userId, uids));
+
+  // Step 30 — tables  (refs: users.id NOT NULL — sales + pendingOrders deleted above)
+  await db.delete(tables).where(inArray(tables.userId, uids));
+
+  // Step 31 — loyalty_tiers  (refs: users.id NOT NULL)
+  await db.delete(loyaltyTiers).where(inArray(loyaltyTiers.userId, uids));
+
+  // Step 32 — shifts  (refs: users.id NOT NULL)
+  await db.delete(shifts).where(inArray(shifts.userId, uids));
+
+  // Step 33 — discount_codes  (refs: users.id NOT NULL)
+  await db.delete(discountCodes).where(inArray(discountCodes.userId, uids));
+
+  // Step 34 — expenses  (refs: users.id NOT NULL)
+  await db.delete(expenses).where(inArray(expenses.userId, uids));
+
+  // Step 35 — audit_logs (userId column has no FK constraint — just a text field; GDPR hygiene)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { deleted: true } } as any).where(inArray(auditLogs.userId, uids));
 
-  // 17. Settings & branch links — DELETE (userSettings.userId is NOT NULL FK → users.id;
-  //     an UPDATE leaves the row in place and will block the final DELETE users below)
+  // Step 36 — user_settings  (refs: users.id NOT NULL UNIQUE)
   await db.delete(userSettings).where(inArray(userSettings.userId, uids));
+
+  // Step 37 — user_branches  (refs: users.id NOT NULL)
   await db.delete(userBranches).where(inArray(userBranches.userId, uids));
 
   // (caller deletes the user rows themselves)

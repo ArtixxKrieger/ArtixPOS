@@ -552,7 +552,7 @@ export default function Login() {
           <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)", display: "block", marginBottom: 5 }}>
             {t("login.emailAddress")}
           </label>
-          <input type="email" placeholder="you@example.com" value={formEmail} onChange={e => setFormEmail(e.target.value)}
+          <input type="email" placeholder="Email" value={formEmail} onChange={e => setFormEmail(e.target.value)}
             required data-testid="input-email" className="form-input" style={inputStyle} />
         </div>
 
@@ -563,7 +563,7 @@ export default function Login() {
           <div style={{ position: "relative" }}>
             <input
               type={showPassword ? "text" : "password"}
-              placeholder={mode === "register" ? "Create a password" : "Your password"}
+              placeholder={mode === "register" ? "Create a password" : "Password"}
               value={formPassword} onChange={e => setFormPassword(e.target.value)}
               required minLength={mode === "register" ? 8 : undefined}
               data-testid="input-password" className="form-input"

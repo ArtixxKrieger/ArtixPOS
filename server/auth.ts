@@ -10,6 +10,8 @@ import {
   ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
   branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
   revokedTokens,
+  notifications, stockLogs, wasteLog, stockTransfers, stockTransferItems,
+  loyaltyTiers, loyaltyRewards, loyaltyPointsLog,
 } from "@shared/schema";
 import { eq, or, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
@@ -334,8 +336,11 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   const userPayrollPeriodIds = (
     await db.select({ id: payrollPeriods.id }).from(payrollPeriods).where(inArray(payrollPeriods.userId, uids))
   ).map(r => r.id);
+  const userStockTransferIds = (
+    await db.select({ id: stockTransfers.id }).from(stockTransfers).where(inArray(stockTransfers.userId, uids))
+  ).map(r => r.id);
 
-  // 1. Deepest leaves
+  // 1. Deepest leaves (no FK to users.id that would block the final DELETE users)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(membershipCheckIns).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(membershipCheckIns.userId, uids));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -351,13 +356,12 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(wifiVouchers).set({ status: "expired" } as any).where(inArray(wifiVouchers.userId, uids));
 
-  // 2. Payroll entries (FK → payrollPeriods.id AND users.id)
+  // 2. Payroll entries — DELETE rows where employeeUserId references the user being deleted
+  //    (employeeUserId is NOT NULL FK → users.id; UPDATE would leave the FK in place and block DELETE users)
   if (userPayrollPeriodIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
+    await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollEntries.employeeUserId, uids));
+  await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString(), notes: sql`COALESCE(notes, '')` } as any).where(inArray(payrollPeriods.userId, uids));
 
@@ -367,9 +371,9 @@ async function deleteUsersData(uids: string[]): Promise<void> {
     await db.update(purchaseOrderItems).set({ notes: sql`COALESCE(notes, '')` } as any).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
   }
 
-  // 4. Invite tokens — referenced by both createdBy AND usedBy
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(inviteTokens).set({ expiresAt: new Date().toISOString() } as any).where(or(
+  // 4. Invite tokens — DELETE entirely (createdBy is NOT NULL FK → users.id; a soft-update keeps
+  //    the row alive and will cause FK violation when the user row is hard-deleted below)
+  await db.delete(inviteTokens).where(or(
     inArray(inviteTokens.createdBy, uids),
     inArray(inviteTokens.usedBy, uids),
   ));
@@ -420,7 +424,26 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(customers.userId, uids));
 
-  // 12. Sales, ingredients, products
+  // 12. Stock transfers — items (FK → stockTransfers.id) must be deleted before the transfer rows
+  if (userStockTransferIds.length > 0) {
+    await db.delete(stockTransferItems).where(inArray(stockTransferItems.transferId, userStockTransferIds));
+  }
+  await db.delete(stockTransfers).where(inArray(stockTransfers.userId, uids));
+
+  // 13. Notifications, stock logs, waste log — completely absent from original code; all have
+  //     userId NOT NULL FK → users.id, so they must be removed before deleting user rows
+  await db.delete(notifications).where(inArray(notifications.userId, uids));
+  await db.delete(stockLogs).where(inArray(stockLogs.userId, uids));
+  await db.delete(wasteLog).where(inArray(wasteLog.userId, uids));
+
+  // 14. Loyalty — pointsLog references loyaltyRewards (nullable FK), so delete log first
+  await db.delete(loyaltyPointsLog).where(inArray(loyaltyPointsLog.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await db.update(loyaltyRewards).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(inArray(loyaltyRewards.userId, uids));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await db.update(loyaltyTiers).set({ deletedAt: new Date().toISOString() } as any).where(inArray(loyaltyTiers.userId, uids));
+
+  // 15. Sales, ingredients, products
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(sales).set({ deletedAt: new Date().toISOString() } as any).where(inArray(sales.userId, uids));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -428,13 +451,13 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(inArray(products.userId, uids));
 
-  // 13. Audit logs (no FK — GDPR hygiene)
+  // 16. Audit logs (no hard FK — GDPR hygiene)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { deleted: true } } as any).where(inArray(auditLogs.userId, uids));
 
-  // 14. Settings & branch links
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(userSettings).set({ onboardingComplete: 0 } as any).where(inArray(userSettings.userId, uids));
+  // 17. Settings & branch links — DELETE (userSettings.userId is NOT NULL FK → users.id;
+  //     an UPDATE leaves the row in place and will block the final DELETE users below)
+  await db.delete(userSettings).where(inArray(userSettings.userId, uids));
   await db.delete(userBranches).where(inArray(userBranches.userId, uids));
 
   // (caller deletes the user rows themselves)
@@ -457,6 +480,9 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
       db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId))
     )
   );
+  // Soft-delete branches. branches.tenantId is NOT NULL with no ON DELETE CASCADE, so we
+  // cannot hard-delete the tenant while branch rows still reference it. Soft-delete is fine
+  // because all queries already filter on deletedAt IS NULL.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(branches).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(branches.tenantId, tenantId));
   await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
@@ -465,9 +491,15 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
   await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { tenantDeleted: true } } as any).where(eq(auditLogs.tenantId, tenantId));
+  // DELETE invite tokens (tenantId is NOT NULL FK → tenants.id; a soft-update keeps the rows
+  // in place and will cause an FK violation when we soft-delete the tenant row below)
+  await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, tenantId));
+  // Soft-delete the tenant row (tenants now has a deletedAt column). We cannot hard-delete it
+  // because branches.tenantId is NOT NULL with no cascade — the branch rows would block the DELETE.
+  // Soft-deletion is safe: the user row is already gone, so no new session can ever reference
+  // this tenantId again. A re-registration with the same email creates a fresh user → fresh tenant.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(inviteTokens).set({ expiresAt: new Date().toISOString() } as any).where(eq(inviteTokens.tenantId, tenantId));
-  await db.delete(tenants).where(eq(tenants.id, tenantId));
+  await db.update(tenants).set({ deletedAt: new Date().toISOString() } as any).where(eq(tenants.id, tenantId));
 }
 
 function popupResultPage({ ok, error }: { ok: boolean; error?: string }): string {

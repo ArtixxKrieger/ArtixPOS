@@ -9,6 +9,7 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  deletedAt: text("deleted_at"),
 });
 
 // ─── Branches ─────────────────────────────────────────────────────────────────

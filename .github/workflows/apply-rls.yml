@@ -1,9 +1,8 @@
 name: Apply RLS Policies
 
 # Runs on every push to main/master — after code is merged.
-# Connects to the production Supabase database and applies all
-# Row-Level Security policies, helper functions, and FK indexes.
-# Everything is idempotent so re-running is always safe.
+# Connects to Supabase and applies all RLS policies, helper functions,
+# and FK indexes. Everything is idempotent — safe to re-run anytime.
 
 on:
   push:
@@ -29,9 +28,9 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci --include=dev
+        run: npm ci
 
       - name: Apply RLS policies
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:rls
+          SUPABASE_POOLER_URL: ${{ secrets.SUPABASE_POOLER_URL }}
+        run: node scripts/apply-rls.mjs

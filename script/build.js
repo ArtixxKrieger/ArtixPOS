@@ -66,6 +66,24 @@ try {
     );
   }
 
+  // ── 0b. Re-apply RLS after schema push ─────────────────────────────────────
+  // drizzle-kit push can DROP and RECREATE tables, wiping all RLS policies.
+  // Re-applying here ensures security is restored immediately after every schema sync.
+  console.log("[0b/4] Re-applying RLS policies after schema sync...");
+  try {
+    execSync("node scripts/apply-rls.mjs", {
+      stdio: ["ignore", "pipe", "pipe"],
+      cwd: projectRoot,
+    });
+    console.log("✓ RLS policies applied\n");
+  } catch (err) {
+    console.warn(
+      "⚠  RLS apply failed (continuing):",
+      err.stderr?.toString().trim() || err.message,
+      "\n"
+    );
+  }
+
   // ── 1. Frontend ─────────────────────────────────────────────────────────────
   console.log("[1/4] Building frontend with Vite...");
   try {

@@ -453,9 +453,7 @@ async function _doInit() {
     }
 
     console.log("[init] step 3b/8 — setupRLS");
-    if (process.env.VERCEL !== "1") {
-      await setupRLS();
-    }
+    await setupRLS();
 
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);

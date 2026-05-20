@@ -533,6 +533,58 @@
   animation: nav-left-glow-dark 3s ease-in-out infinite;
 }
 
+/* ─── POS product card image sweep on hover ─────────────────────────────── */
+@keyframes card-sweep {
+  from { transform: translateX(-130%) skewX(-12deg); opacity: 1; }
+  to   { transform: translateX(220%)  skewX(-12deg); opacity: 1; }
+}
+.pos-card-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.pos-card-sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.13) 50%,
+    transparent 65%
+  );
+  pointer-events: none;
+  transform: translateX(-130%) skewX(-12deg);
+  opacity: 0;
+  transition: none;
+}
+.group:hover .pos-card-sweep::after {
+  opacity: 1;
+  animation: card-sweep 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Checkout button pulse when cart has items ──────────────────────────── */
+@keyframes checkout-ready {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.30), 0 0 0 0   rgba(124, 58, 237, 0.00);
+  }
+  55% {
+    box-shadow: 0 6px 28px rgba(124, 58, 237, 0.45), 0 0 0 7px rgba(124, 58, 237, 0.00);
+  }
+}
+.checkout-pulse {
+  animation: checkout-ready 2.6s ease-in-out infinite;
+}
+
+/* ─── Category pill active glow ──────────────────────────────────────────── */
+.cat-pill-active {
+  box-shadow: 0 0 0 1.5px rgba(124, 58, 237, 0.40),
+              0 3px 14px rgba(124, 58, 237, 0.22) !important;
+}
+.dark .cat-pill-active {
+  box-shadow: 0 0 0 1.5px rgba(139, 92, 246, 0.45),
+              0 3px 16px rgba(139, 92, 246, 0.28) !important;
+}
+
 /* ─── Premium stat card gradient borders ─────────────────────────────────── */
 .stat-card {
   position: relative;

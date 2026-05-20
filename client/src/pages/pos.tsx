@@ -1025,7 +1025,7 @@ export default function POS() {
       {/* Checkout button — pinned at bottom */}
       <div className="shrink-0 pt-2 border-t border-border/40">
         <Button
-          className="w-full h-11 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-primary/25 hover:opacity-90 transition-all active:scale-[0.98]"
+          className={`w-full h-11 rounded-2xl font-bold text-white bg-primary hover:opacity-90 transition-all active:scale-[0.98] shiny-btn${cart.length > 0 && !createPending.isPending ? " checkout-pulse" : ""}`}
           onClick={handleCheckout}
           disabled={cart.length === 0 || createPending.isPending}
           data-testid="button-checkout"
@@ -1118,7 +1118,7 @@ export default function POS() {
               className={[
                 "shrink-0 rounded-full px-5 h-9 capitalize font-semibold text-sm tracking-tight transition-all duration-200 border",
                 category === cat
-                  ? "bg-primary text-white border-primary shadow-md shadow-primary/25 scale-[1.02]"
+                  ? "bg-primary text-white border-primary shadow-md shadow-primary/25 scale-[1.02] cat-pill-active"
                   : "bg-card border-border/40 text-foreground/60 hover:text-foreground hover:bg-secondary/60",
               ].join(" ")}
             >
@@ -1144,7 +1144,7 @@ export default function POS() {
                   className="group text-left bg-card rounded-3xl shadow-sm border border-border/30 overflow-hidden hover:shadow-xl hover:-translate-y-1 active:scale-[0.97] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 animate-fade-scale"
                 >
                   <div className={[
-                    "aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
+                    "pos-card-sweep aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
                     product.trackStock && product.stock === 0 ? "opacity-50" : "",
                   ].join(" ")}>
                     <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

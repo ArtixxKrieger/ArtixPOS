@@ -24,7 +24,13 @@ export interface AuthUser {
   activeBranch: ActiveBranchInfo | null;
 }
 
-async function fetchMe(): Promise<AuthUser | null> {
+// fetchMe is a proper React Query queryFn — it receives the QueryFunctionContext
+// so it can (a) honour the query's AbortSignal (fired by cancelQueries on tab
+// resume / unmount) and (b) enforce its own 20-second hard timeout.
+// Without the signal/timeout, a frozen fetch caused by Android tab suspension
+// would leave isLoading=true forever because cancelQueries can't abort a raw
+// fetch that has no associated AbortController.
+async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthUser | null> {
   const token = localStorage.getItem(NATIVE_TOKEN_KEY);
   // Only send a Bearer token for native (Capacitor) clients where API_BASE is set.
   // Web clients authenticate via httpOnly cookie — never trust a localStorage token
@@ -34,9 +40,28 @@ async function fetchMe(): Promise<AuthUser | null> {
     isNative && token ? { Authorization: `Bearer ${token}` } : {};
   const credentials: RequestCredentials = isNative ? "omit" : "include";
 
+  // Hard 20-second timeout — prevents indefinite hang when:
+  //  · Vercel cold start is slow (setupRLS / ensureIndexes running)
+  //  · Android Chrome suspends the tab mid-fetch (Promise freezes until resume)
+  // The outer AbortController merges the query signal with the timeout signal.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(new DOMException("fetchMe timeout", "TimeoutError")), 20_000);
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort(signal.reason);
+    } else {
+      signal.addEventListener("abort", () => {
+        clearTimeout(timeoutId);
+        controller.abort(signal.reason);
+      }, { once: true });
+    }
+  }
+
   try {
     debugLog("auth", `fetchMe — token=${token ? "YES" : "NO"} url=${resolveUrl("/api/auth/me")}`);
-    const res = await fetch(resolveUrl("/api/auth/me"), { credentials, headers });
+    const res = await fetch(resolveUrl("/api/auth/me"), { credentials, headers, signal: controller.signal });
+    clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — status=${res.status}`);
     if (res.status === 401) {
       // If we used a stale localStorage token on native, clear it and return null.
@@ -60,10 +85,11 @@ async function fetchMe(): Promise<AuthUser | null> {
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
     return data.user ?? null;
   } catch (err) {
-    // Network error — always return null and require re-authentication.
+    clearTimeout(timeoutId);
+    // Network error, timeout, or abort — always return null and require re-auth.
     // Never decode the JWT locally; the signature cannot be verified in the browser
     // and a forged token could grant attacker-controlled role/permissions.
-    debugLog("auth", `fetchMe — NETWORK ERROR: ${err}`);
+    debugLog("auth", `fetchMe — NETWORK ERROR / TIMEOUT: ${err}`);
     return null;
   }
 }

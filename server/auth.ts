@@ -575,7 +575,7 @@ function popupResultPage({ ok, error }: { ok: boolean; error?: string }): string
 <style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#0f0a1e;color:#fff;font-size:14px}</style>
 </head><body><p>${ok ? "Signing you in…" : "Sign-in failed. You can close this window."}</p>
 <script>
-try{if(window.opener){window.opener.postMessage(${payload},window.location.origin)}}catch(e){}
+try{if(window.opener){window.opener.postMessage(${payload},"*")}}catch(e){}
 ${ok ? "setTimeout(function(){try{window.close()}catch(e){}},300);" : ""}
 </script></body></html>`;
 }

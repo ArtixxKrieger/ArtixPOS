@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
@@ -143,8 +143,22 @@ export default function Login() {
     //   it resolves with a user, this effect fires and navigates to "/".
     // Data isolation is guaranteed by the App.tsx prevUserIdRef + session-expiry
     // effects (which call queryClient.clear()) and the server's no-store headers.
+    receivedAuthOk.current = false;
     setLocation("/");
   }, [isAuthenticated, isLoading, setLocation]);
+
+  // Safety valve: if we got google-auth-ok from the popup but then fetchMe
+  // still returned null (cookie not set, network error, etc.), clear the
+  // spinner so the user isn't stuck indefinitely.
+  useEffect(() => {
+    if (!signingIn || isLoading) return;
+    if (!isAuthenticated && receivedAuthOk.current) {
+      // Auth-me resolved as unauthenticated despite the popup saying ok.
+      receivedAuthOk.current = false;
+      setSigningIn(false);
+      setNativeError("Sign-in failed — please try again.");
+    }
+  }, [signingIn, isLoading, isAuthenticated]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -174,26 +188,33 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
+  // Track whether we received the auth-ok message from the popup.
+  // Used by the poll-timer so it doesn't prematurely clear the loading state.
+  const receivedAuthOk = useRef(false);
+
   // Listen for the OAuth popup result.
-  // The popup page calls window.opener.postMessage({ type: "google-auth-ok" })
+  // The popup page calls window.opener.postMessage({ type: "google-auth-ok" }, "*")
   // after the server sets the auth cookie, then closes itself.
   // Since the popup is same-origin, the cookie is already present in the
   // parent window — we just need to invalidate the auth query to pick it up.
+  // We do NOT check event.origin strictly here because the postMessage target
+  // is "*" (needed to work across Replit/Vercel proxy domains) and the message
+  // carries no sensitive data — real auth state lives in the httpOnly cookie.
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
-      // Only accept messages from same origin to prevent XSS via cross-origin postMessage
-      if (event.origin !== window.location.origin) return;
-
       const data = event.data;
       if (!data || typeof data !== "object") return;
 
       if (data.type === "google-auth-ok") {
-        setSigningIn(false);
+        receivedAuthOk.current = true;
         sessionStorage.removeItem(OAUTH_FLOW_KEY);
         // The auth cookie was set by the popup (same origin).
         // Invalidate the cached auth query so it re-fetches with the new cookie.
+        // Keep signingIn=true so the loading spinner stays visible until the
+        // [isAuthenticated, isLoading] effect navigates us away.
         queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       } else if (data.type === "google-auth-error") {
+        receivedAuthOk.current = false;
         setSigningIn(false);
         sessionStorage.removeItem(OAUTH_FLOW_KEY);
         const msg = data.error ?? "google_error";
@@ -277,6 +298,7 @@ export default function Login() {
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
     if (signingIn) return;
+    receivedAuthOk.current = false;
     setSigningIn(true);
     setNativeError(null);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
@@ -297,12 +319,20 @@ export default function Login() {
       return;
     }
 
-    // Poll for popup being closed by the user without completing auth
+    // Poll for popup being closed by the user without completing auth.
+    // If we already received google-auth-ok, leave signingIn=true so the
+    // loading spinner stays visible while auth-me refetches and navigates.
     const pollTimer = setInterval(() => {
       if (popup.closed) {
         clearInterval(pollTimer);
-        setSigningIn(false);
-        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        if (!receivedAuthOk.current) {
+          // User dismissed the popup before completing auth — cancel the spinner.
+          setSigningIn(false);
+          sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        }
+        // If receivedAuthOk.current is true, signingIn stays true.
+        // The [isAuthenticated, isLoading] effect will navigate to "/" once
+        // auth-me resolves, and signingIn is cleaned up on component unmount.
       }
     }, 400);
   }
@@ -372,7 +402,7 @@ export default function Login() {
     setForgotError(null); setForgotEmail("");
   }
 
-  if (isLoading) {
+  if (isLoading || signingIn) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-[#06060f]" : "bg-[#f4f3f9]"}`}>
         <div className={`w-7 h-7 border-2 rounded-full animate-spin ${isDark ? "border-violet-500 border-t-transparent" : "border-violet-600 border-t-transparent"}`} />

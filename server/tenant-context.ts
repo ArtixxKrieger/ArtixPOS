@@ -65,6 +65,11 @@ export function tenantContextMiddleware(pool: Pool) {
     try {
       client = await pool.connect();
       await client.query("BEGIN");
+      // Switch to the non-superuser app role so that FORCE ROW LEVEL SECURITY
+      // and all RLS policies are actually enforced.  Postgres superusers
+      // bypass RLS unconditionally; artixpos_app has NOBYPASSRLS so it does not.
+      // SET LOCAL means the role reverts automatically at COMMIT / ROLLBACK.
+      await client.query(`SET LOCAL ROLE artixpos_app`);
       await client.query(
         `SELECT set_config('app.current_tenant', $1, TRUE)`,
         [user.tenantId]

@@ -68,6 +68,35 @@ export const db = new Proxy(_baseDb, {
   get(target, prop: string | symbol) {
     const store = _tenantStore.getStore();
     const activeDb = (store && store !== "admin") ? store.db : target;
+
+    // ── SAVEPOINT shim for nested transactions ────────────────────────────────
+    // If route code calls db.transaction() while we are already inside the
+    // per-request tenant transaction, issuing a second BEGIN would silently
+    // continue the existing transaction and then COMMIT it prematurely when the
+    // inner callback finishes — destroying the SET LOCAL app.current_tenant
+    // setting for all subsequent queries in the same request.
+    //
+    // Instead, we use PostgreSQL SAVEPOINTs, which give proper rollback
+    // semantics without touching the outer transaction.
+    if (prop === "transaction" && store && store !== "admin") {
+      const { client, db: tenantDb } = store;
+      return async (
+        callback: (tx: typeof tenantDb) => Promise<unknown>,
+        _config?: unknown,
+      ) => {
+        const sp = `sp_${Math.random().toString(36).slice(2, 10)}`;
+        await client.query(`SAVEPOINT ${sp}`);
+        try {
+          const result = await callback(tenantDb);
+          await client.query(`RELEASE SAVEPOINT ${sp}`);
+          return result;
+        } catch (err) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${sp}`).catch(() => {});
+          throw err;
+        }
+      };
+    }
+
     const value = Reflect.get(activeDb, prop, activeDb);
     return typeof value === "function" ? value.bind(activeDb) : value;
   },

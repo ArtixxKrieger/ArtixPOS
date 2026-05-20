@@ -5,39 +5,84 @@ import { pool } from "./db";
  * table.  Safe to call on every startup — all statements are idempotent.
  *
  * Design:
- *  - A helper function `current_tenant_id()` reads the session variable
- *    `app.current_tenant` that the tenant middleware sets via SET LOCAL.
- *  - FORCE ROW LEVEL SECURITY ensures the policies apply even to the
- *    database superuser, so a missing WHERE clause in application code can
- *    never leak cross-tenant rows.
+ *  - A non-superuser role `artixpos_app` is created and granted all DML
+ *    privileges on every table.  Per-request tenant transactions switch to
+ *    this role via `SET LOCAL ROLE artixpos_app` so RLS is enforced — even
+ *    though the pool connects as the `postgres` superuser (who normally
+ *    bypasses RLS, including FORCE ROW LEVEL SECURITY).
+ *
+ *  - `current_tenant_id()` reads the session variable `app.current_tenant`
+ *    set by tenantContextMiddleware.
+ *
+ *  - `current_tenant_user_ids()` is SECURITY DEFINER (runs as its owner,
+ *    `postgres`) so it can query the `users` table without hitting `users`
+ *    own RLS policy — avoiding a circular dependency where the product
+ *    policy asks "which users?" and the users policy asks "which tenant?"
+ *    using the same call stack.
+ *
+ *  - FORCE ROW LEVEL SECURITY on all tenant tables forces the policies to
+ *    apply even to the table owner role.  Superuser (postgres) is still
+ *    exempt — that is intentional: auth routes and runAsAdmin run as postgres
+ *    and need cross-tenant access.
+ *
  *  - Tables used during authentication (users, tenants, revoked_tokens) are
- *    NOT forced — auth queries run before any tenant context is established
- *    and need unrestricted access.
- *  - Admin bypass is achieved via `SET LOCAL row_security = off` in an
- *    explicit transaction (see runAsAdmin in server/tenant-context.ts).
+ *    NOT forced — auth queries run before any tenant context is established.
+ *
+ *  - Admin bypass is achieved via runAsAdmin in server/tenant-context.ts,
+ *    which never calls SET LOCAL ROLE artixpos_app (stays as postgres).
  */
 export async function setupRLS(): Promise<void> {
   const client = await pool.connect();
   try {
+    // ── 1. Create non-superuser app role ──────────────────────────────────────
+    // `artixpos_app` has no SUPERUSER and no BYPASSRLS — so every query it
+    // runs is fully subject to the RLS policies defined below.
     await client.query(`
-      -- ── Helper: read current tenant from session variable ──────────────────
-      -- STABLE means Postgres can cache the result within a single query,
-      -- which is critical for user_id-based policies that call this in a
-      -- subquery evaluated once per candidate row.
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'artixpos_app') THEN
+          CREATE ROLE artixpos_app
+            NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+            NOREPLICATION NOBYPASSRLS;
+        END IF;
+      END
+      $$;
+
+      -- Broad DML grant on all existing tables/sequences so artixpos_app can
+      -- read and write data.  RLS policies are the real access control layer.
+      GRANT SELECT, INSERT, UPDATE, DELETE
+        ON ALL TABLES IN SCHEMA public TO artixpos_app;
+      GRANT USAGE, SELECT
+        ON ALL SEQUENCES IN SCHEMA public TO artixpos_app;
+    `);
+
+    // ── 2. Helper functions ───────────────────────────────────────────────────
+    await client.query(`
+      -- Read the tenant ID the middleware stored in the session variable.
+      -- STABLE lets Postgres cache the result within one query execution.
       CREATE OR REPLACE FUNCTION current_tenant_id()
-      RETURNS TEXT STABLE LANGUAGE SQL AS $$
+      RETURNS TEXT STABLE LANGUAGE SQL
+      SECURITY INVOKER AS $$
         SELECT NULLIF(current_setting('app.current_tenant', TRUE), '')
       $$;
 
-      -- ── Helper: set of user IDs belonging to the current tenant ────────────
-      -- Used by all tables that are scoped by user_id rather than tenant_id.
+      -- Return every user ID that belongs to the current tenant.
+      -- SECURITY DEFINER runs this as the function owner (postgres/superuser)
+      -- so it can SELECT from the users table without being blocked by the
+      -- users table's own RLS policy — preventing a circular dependency.
+      -- The WHERE clause still limits results to the current tenant.
       CREATE OR REPLACE FUNCTION current_tenant_user_ids()
-      RETURNS SETOF TEXT STABLE LANGUAGE SQL AS $$
+      RETURNS SETOF TEXT STABLE LANGUAGE SQL
+      SECURITY DEFINER AS $$
         SELECT id FROM users WHERE tenant_id = current_tenant_id()
       $$;
+
+      -- Make sure artixpos_app can call both helpers.
+      GRANT EXECUTE ON FUNCTION current_tenant_id()       TO artixpos_app;
+      GRANT EXECUTE ON FUNCTION current_tenant_user_ids() TO artixpos_app;
     `);
 
-    // ── Group A: tables with a direct tenant_id column ──────────────────────
+    // ── 3. Group A: tables with a direct tenant_id column ────────────────────
     const tenantIdTables = [
       "branches",
       "audit_logs",
@@ -61,7 +106,7 @@ export async function setupRLS(): Promise<void> {
       `);
     }
 
-    // ── Group B: tables scoped by user_id (resolved via users.tenant_id) ───
+    // ── 4. Group B: tables scoped by user_id (via users.tenant_id) ───────────
     const userIdTables = [
       "products",
       "tables",
@@ -106,7 +151,7 @@ export async function setupRLS(): Promise<void> {
       `);
     }
 
-    // ── Group C: child tables without a direct user_id or tenant_id ─────────
+    // ── 5. Group C: child tables (no direct user_id / tenant_id) ─────────────
 
     // product_sizes / product_modifiers / product_recipes → via products
     for (const t of ["product_sizes", "product_modifiers", "product_recipes"]) {
@@ -117,12 +162,14 @@ export async function setupRLS(): Promise<void> {
         CREATE POLICY tenant_isolation ON ${t}
           USING (
             product_id IN (
-              SELECT id FROM products WHERE user_id IN (SELECT current_tenant_user_ids())
+              SELECT id FROM products
+              WHERE user_id IN (SELECT current_tenant_user_ids())
             )
           )
           WITH CHECK (
             product_id IN (
-              SELECT id FROM products WHERE user_id IN (SELECT current_tenant_user_ids())
+              SELECT id FROM products
+              WHERE user_id IN (SELECT current_tenant_user_ids())
             )
           );
       `);
@@ -136,12 +183,14 @@ export async function setupRLS(): Promise<void> {
       CREATE POLICY tenant_isolation ON purchase_order_items
         USING (
           purchase_order_id IN (
-            SELECT id FROM purchase_orders WHERE user_id IN (SELECT current_tenant_user_ids())
+            SELECT id FROM purchase_orders
+            WHERE user_id IN (SELECT current_tenant_user_ids())
           )
         )
         WITH CHECK (
           purchase_order_id IN (
-            SELECT id FROM purchase_orders WHERE user_id IN (SELECT current_tenant_user_ids())
+            SELECT id FROM purchase_orders
+            WHERE user_id IN (SELECT current_tenant_user_ids())
           )
         );
     `);
@@ -154,12 +203,14 @@ export async function setupRLS(): Promise<void> {
       CREATE POLICY tenant_isolation ON supplier_products
         USING (
           supplier_id IN (
-            SELECT id FROM suppliers WHERE user_id IN (SELECT current_tenant_user_ids())
+            SELECT id FROM suppliers
+            WHERE user_id IN (SELECT current_tenant_user_ids())
           )
         )
         WITH CHECK (
           supplier_id IN (
-            SELECT id FROM suppliers WHERE user_id IN (SELECT current_tenant_user_ids())
+            SELECT id FROM suppliers
+            WHERE user_id IN (SELECT current_tenant_user_ids())
           )
         );
     `);
@@ -172,17 +223,19 @@ export async function setupRLS(): Promise<void> {
       CREATE POLICY tenant_isolation ON stock_transfer_items
         USING (
           transfer_id IN (
-            SELECT id FROM stock_transfers WHERE user_id IN (SELECT current_tenant_user_ids())
+            SELECT id FROM stock_transfers
+            WHERE user_id IN (SELECT current_tenant_user_ids())
           )
         )
         WITH CHECK (
           transfer_id IN (
-            SELECT id FROM stock_transfers WHERE user_id IN (SELECT current_tenant_user_ids())
+            SELECT id FROM stock_transfers
+            WHERE user_id IN (SELECT current_tenant_user_ids())
           )
         );
     `);
 
-    // payroll_entries → via employee_user_id (must be in same tenant)
+    // payroll_entries → via employee_user_id
     await client.query(`
       ALTER TABLE payroll_entries ENABLE ROW LEVEL SECURITY;
       ALTER TABLE payroll_entries FORCE ROW LEVEL SECURITY;
@@ -196,18 +249,17 @@ export async function setupRLS(): Promise<void> {
         );
     `);
 
-    // ── Group D: users — RLS enabled but NOT forced ─────────────────────────
-    // Auth queries (login, token validation) run as the postgres superuser
-    // BEFORE any tenant context is set.  Superusers bypass non-forced RLS,
-    // so login can still look up any user by email.
-    // Tenant-scoped requests run with SET LOCAL app.current_tenant, which
-    // passes through the policy and limits visibility to same-tenant users.
+    // ── 6. users — RLS enabled but NOT forced ─────────────────────────────────
+    // Auth queries (login, token validation) run as postgres BEFORE any tenant
+    // context.  Postgres superuser bypasses non-forced RLS, so login can still
+    // find users by email.  Tenant-scoped requests run as artixpos_app (after
+    // SET LOCAL ROLE in the middleware), which IS subject to this policy.
     await client.query(`
       ALTER TABLE users ENABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation ON users;
       CREATE POLICY tenant_isolation ON users
-        USING  (tenant_id = current_tenant_id() OR tenant_id IS NULL)
-        WITH CHECK (tenant_id = current_tenant_id() OR tenant_id IS NULL);
+        USING  (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
     `);
 
     console.log("[rls] ✓ Row-Level Security policies applied to all tenant tables");

@@ -453,7 +453,15 @@ async function _doInit() {
     }
 
     console.log("[init] step 3b/8 — setupRLS");
-    await setupRLS();
+    try {
+      await setupRLS();
+    } catch (rlsErr: unknown) {
+      // Non-fatal: RLS setup fails in dev environments with no local DB.
+      // On production deployments the build step and GitHub Actions apply
+      // the policies before the server starts.
+      const msg = rlsErr instanceof Error ? rlsErr.message : String(rlsErr);
+      console.warn("[rls] ⚠  setupRLS skipped (no DB or tables not yet created):", msg);
+    }
 
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);

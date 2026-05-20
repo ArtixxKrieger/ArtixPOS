@@ -84,9 +84,11 @@ export async function setupRLS(): Promise<void> {
         SELECT id FROM public.users WHERE tenant_id = public.current_tenant_id()
       $$;
 
-      -- Revoke broad PUBLIC execute on the SECURITY DEFINER function and
-      -- re-grant only to the app role (fixes Supabase advisor warnings).
+      -- Revoke execute from all public/Supabase roles so only the app role
+      -- can call this SECURITY DEFINER function (fixes advisor warnings).
       REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM PUBLIC;
+      REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM anon;
+      REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM authenticated;
 
       -- Make sure artixpos_app can call both helpers.
       GRANT EXECUTE ON FUNCTION public.current_tenant_id()       TO artixpos_app;

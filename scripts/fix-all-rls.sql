@@ -39,8 +39,10 @@ AS $$
   SELECT id FROM public.users WHERE tenant_id = public.current_tenant_id()
 $$;
 
--- Restrict SECURITY DEFINER function to app role only
+-- Restrict SECURITY DEFINER function — revoke from all Supabase public roles
 REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM authenticated;
 GRANT  EXECUTE ON FUNCTION public.current_tenant_id()       TO artixpos_app;
 GRANT  EXECUTE ON FUNCTION public.current_tenant_user_ids() TO artixpos_app;
 

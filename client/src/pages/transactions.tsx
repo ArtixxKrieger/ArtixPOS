@@ -362,7 +362,7 @@ export default function Transactions() {
                   key={sale.id}
                   onClick={() => setSelectedSale(sale)}
                   className={[
-                    "glass-card rounded-2xl px-4 py-3 flex items-center gap-3 cursor-pointer active:scale-[0.99] transition-transform",
+                    "glass-card glow-hover-card rounded-2xl px-4 py-3 flex items-center gap-3 cursor-pointer active:scale-[0.99] transition-transform",
                     isVoided ? "opacity-60 border-rose-500/10" : "",
                   ].join(" ")}
                   data-testid={`card-transaction-${sale.id}`}

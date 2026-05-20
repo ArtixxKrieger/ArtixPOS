@@ -389,14 +389,14 @@ function FreeAnalyticsView({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 stagger-reveal">
         {[
           { label: "Sales", value: formatCurrency(revenue, currency), icon: TrendingUp, testId: "text-free-sales" },
           { label: "Orders", value: orders.toLocaleString(), icon: ShoppingBag, testId: "text-free-orders" },
           { label: "Avg. order", value: formatCurrency(avgOrder, currency), icon: CreditCard, testId: "text-free-average-order" },
           { label: "Best time", value: peak?.revenue > 0 ? peak.label : "No sales yet", icon: Clock, testId: "text-free-best-time" },
         ].map(card => (
-          <div key={card.label} className="rounded-2xl border border-border/40 bg-card p-4 shadow-sm">
+          <div key={card.label} className="rounded-2xl border border-border/40 bg-card p-4 shadow-sm glow-hover-card">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</p>
               <card.icon className="h-4 w-4 text-muted-foreground" />
@@ -447,7 +447,7 @@ function FreeAnalyticsView({
           ) : (
             <div className="space-y-3">
               {topItems.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/35 px-3 py-3" data-testid={`row-free-top-item-${index}`}>
+                <div key={item.name} className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/35 px-3 py-3 row-interactive" data-testid={`row-free-top-item-${index}`}>
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.qty} {terminology.itemUnit}{item.qty !== 1 ? "s" : ""}</p>

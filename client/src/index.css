@@ -533,6 +533,74 @@
   animation: nav-left-glow-dark 3s ease-in-out infinite;
 }
 
+/* ─── Global table row hover ─────────────────────────────────────────────── */
+/* Automatically adds a premium hover to every data table across every page.  */
+/* No per-page class changes needed — this selector does the work globally.   */
+tbody tr {
+  transition: background-color 0.13s ease;
+}
+tbody tr:hover {
+  background-color: rgba(124, 58, 237, 0.032) !important;
+}
+.dark tbody tr:hover {
+  background-color: rgba(139, 92, 246, 0.052) !important;
+}
+
+/* ─── Enhanced input / textarea focus glow (global) ─────────────────────── */
+/* Every <input> and <textarea> in the app gets a soft violet halo on focus. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+textarea:focus {
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.42),
+              0 0 0 3px rgba(124, 58, 237, 0.13) !important;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+/* ─── Clickable list row ─────────────────────────────────────────────────── */
+/* Apply to any div/li that acts as an interactive row (not a table <tr>).   */
+.row-interactive {
+  transition: background-color 0.12s ease,
+              transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.row-interactive:hover {
+  background-color: rgba(124, 58, 237, 0.04);
+}
+.dark .row-interactive:hover {
+  background-color: rgba(139, 92, 246, 0.06);
+}
+.row-interactive:active {
+  transform: scale(0.998);
+}
+
+/* ─── Stagger-reveal for card grids ─────────────────────────────────────── */
+/* Wrap a grid/flex list with this class for a smooth staggered entrance.    */
+.stagger-reveal > * {
+  opacity: 0;
+  animation: slide-up 0.30s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger-reveal > *:nth-child(1)  { animation-delay:   0ms; }
+.stagger-reveal > *:nth-child(2)  { animation-delay:  55ms; }
+.stagger-reveal > *:nth-child(3)  { animation-delay: 110ms; }
+.stagger-reveal > *:nth-child(4)  { animation-delay: 155ms; }
+.stagger-reveal > *:nth-child(n+5){ animation-delay: 200ms; }
+
+/* ─── Section mini-card hover (for stat cells inside glass-card grids) ───── */
+.mini-stat-card {
+  transition: background-color 0.18s ease, border-color 0.18s ease,
+              box-shadow 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mini-stat-card:hover {
+  background-color: rgba(124, 58, 237, 0.05) !important;
+  border-color: rgba(124, 58, 237, 0.22) !important;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.10);
+  transform: translateY(-1px);
+}
+.dark .mini-stat-card:hover {
+  background-color: rgba(139, 92, 246, 0.08) !important;
+  border-color: rgba(139, 92, 246, 0.28) !important;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.14);
+}
+
 /* ─── POS product card image sweep on hover ─────────────────────────────── */
 @keyframes card-sweep {
   from { transform: translateX(-130%) skewX(-12deg); opacity: 1; }

@@ -212,20 +212,20 @@ export default function Dashboard() {
           </div>
           <h3 className="font-semibold text-sm">{t("dashboard.dayEndSummary")}</h3>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-reveal">
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3 mini-stat-card">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.grossSales")}</p>
             <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.gross, currency)}</p>
           </div>
-          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3 mini-stat-card">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.netSales")}</p>
             <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.net, currency)}</p>
           </div>
-          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3 mini-stat-card">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.vatCollected")}</p>
             <p className="text-sm font-bold tabular-nums">{formatCurrency(daySummary.tax, currency)}</p>
           </div>
-          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+          <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3 mini-stat-card">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t("dashboard.refunds")}</p>
             <p className="text-sm font-bold tabular-nums">-{formatCurrency(daySummary.refunds, currency)}</p>
           </div>
@@ -252,7 +252,7 @@ export default function Dashboard() {
           </div>
           <div className="divide-y divide-amber-500/10">
             {lowStockProducts.slice(0, 5).map(p => (
-              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3 row-interactive">
                 <div className="h-8 w-8 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
                   <Package className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                 </div>
@@ -273,9 +273,9 @@ export default function Dashboard() {
       )}
 
       {/* Best Seller + All-Time Row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 stagger-reveal">
         {/* Best Seller Today */}
-        <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-violet-500/8 to-transparent animate-fade-scale">
+        <div className="glass-card glow-hover-card rounded-2xl p-4 bg-gradient-to-br from-violet-500/8 to-transparent animate-fade-scale">
           <div className="flex items-center gap-2 mb-2.5">
             <div className="h-7 w-7 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
               <Trophy className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
@@ -295,7 +295,7 @@ export default function Dashboard() {
         </div>
 
         {/* All-Time Total — server-computed, no row-count limit */}
-        <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-primary/8 to-transparent animate-fade-scale">
+        <div className="glass-card glow-hover-card rounded-2xl p-4 bg-gradient-to-br from-primary/8 to-transparent animate-fade-scale">
           <div className="flex items-center gap-2 mb-2.5">
             <div className="h-7 w-7 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <BarChart3 className="h-3.5 w-3.5 text-primary" />
@@ -318,11 +318,11 @@ export default function Dashboard() {
           </div>
           <h3 className="font-semibold text-sm">{t("dashboard.topProducts")}</h3>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-reveal">
           {reportHighlights.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className="rounded-2xl border border-border/30 bg-secondary/20 p-3">
+              <div key={item.label} className="rounded-2xl border border-border/30 bg-secondary/20 p-3 mini-stat-card">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{item.label}</p>
                   <Icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -337,7 +337,7 @@ export default function Dashboard() {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment mix today</p>
             <div className="grid gap-2">
               {paymentBreakdown.map((p) => (
-                <div key={p.method} className="flex items-center justify-between rounded-xl border border-border/30 px-3 py-2">
+                <div key={p.method} className="flex items-center justify-between rounded-xl border border-border/30 px-3 py-2 row-interactive">
                   <span className="text-sm font-medium capitalize">{p.method}</span>
                   <span className="text-sm font-bold tabular-nums">{formatCurrency(p.revenue, currency)}</span>
                 </div>

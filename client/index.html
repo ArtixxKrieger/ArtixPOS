@@ -443,6 +443,50 @@
             _showCrash('Unhandled rejection: ' + msg);
           });
         })();
+
+        /* ── Auth-loop watchdog ──────────────────────────────────────────────
+         * Detects the infinite loading loop caused by queryClient.clear()
+         * wiping the auth-me cache, which triggers endless /api/auth/me calls.
+         * Patches window.fetch BEFORE React loads so it catches every request,
+         * even from old cached JS bundles served by a stale service worker.
+         *
+         * Trigger: /api/auth/me called 5+ times in 10 seconds → /clear.html
+         * Guard:   sessionStorage flag prevents redirect loops.
+         */
+        (function() {
+          var LOOP_KEY = '_artix_loop_redirect';
+          try {
+            if (sessionStorage.getItem(LOOP_KEY)) {
+              sessionStorage.removeItem(LOOP_KEY);
+              return; // already redirected once — don't loop the redirect itself
+            }
+          } catch(e) {}
+
+          var authMeCount = 0;
+          var windowStart = Date.now();
+          var WINDOW_MS = 10000;
+          var THRESHOLD = 5;
+
+          var _origFetch = window.fetch;
+          window.fetch = function(input, init) {
+            var url = (typeof input === 'string') ? input : (input && input.url) ? input.url : '';
+            if (url.indexOf('/api/auth/me') !== -1) {
+              var now = Date.now();
+              if (now - windowStart > WINDOW_MS) {
+                authMeCount = 0;
+                windowStart = now;
+              }
+              authMeCount++;
+              if (authMeCount >= THRESHOLD) {
+                authMeCount = 0;
+                try { sessionStorage.setItem(LOOP_KEY, '1'); } catch(e) {}
+                window.location.replace('/clear.html');
+                return new Promise(function() {}); // hang the original request
+              }
+            }
+            return _origFetch.apply(this, arguments);
+          };
+        })();
       })();
     </script>
   </head>

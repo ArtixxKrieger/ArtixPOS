@@ -23,6 +23,9 @@ import { setupSwagger } from "./swagger";
 import { csrfCookieMiddleware, csrfProtection } from "./csrf";
 import { warmCache } from "./startup-warm";
 import { cache } from "./cache";
+import { tenantContextMiddleware } from "./tenant-context";
+import { setupRLS } from "./rls-setup";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -449,8 +452,19 @@ async function _doInit() {
       console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
     }
 
+    console.log("[init] step 3b/8 — setupRLS");
+    if (process.env.VERCEL !== "1") {
+      await setupRLS();
+    }
+
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);
+
+    // Tenant context middleware — must come after auth so req.user is populated,
+    // and before route handlers so every authenticated request runs with an
+    // RLS-scoped DB connection (SET LOCAL app.current_tenant).
+    app.use(tenantContextMiddleware(pool));
+
     console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
     // Fire-and-forget: pre-load cache for onboarded users after routes are ready.

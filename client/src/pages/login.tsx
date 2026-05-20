@@ -139,9 +139,8 @@ export default function Login() {
     //   reached for that flow.
     // • Native Google: cache was cleared inline before setQueryData; a wouter
     //   navigate is sufficient and avoids a jarring WebView white-flash reload.
-    // • Web OAuth: the server redirect already did a full page navigation; this
-    //   just handles the edge-case where we still land on /login after the
-    //   redirect without triggering a second hard reload.
+    // • Web Google popup: the postMessage listener invalidates auth-me; once
+    //   it resolves with a user, this effect fires and navigates to "/".
     // Data isolation is guaranteed by the App.tsx prevUserIdRef + session-expiry
     // effects (which call queryClient.clear()) and the server's no-store headers.
     setLocation("/");
@@ -173,6 +172,43 @@ export default function Login() {
         if (cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
       })
       .catch(() => {});
+  }, []);
+
+  // Listen for the OAuth popup result.
+  // The popup page calls window.opener.postMessage({ type: "google-auth-ok" })
+  // after the server sets the auth cookie, then closes itself.
+  // Since the popup is same-origin, the cookie is already present in the
+  // parent window — we just need to invalidate the auth query to pick it up.
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      // Only accept messages from same origin to prevent XSS via cross-origin postMessage
+      if (event.origin !== window.location.origin) return;
+
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "google-auth-ok") {
+        setSigningIn(false);
+        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        // The auth cookie was set by the popup (same origin).
+        // Invalidate the cached auth query so it re-fetches with the new cookie.
+        queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      } else if (data.type === "google-auth-error") {
+        setSigningIn(false);
+        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        const msg = data.error ?? "google_error";
+        setNativeError(
+          msg === "google_not_configured"
+            ? "Google sign-in is not configured on this server."
+            : msg === "state_mismatch"
+            ? "Sign-in session expired — please try again."
+            : `Google sign-in failed: ${msg}`
+        );
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
 
@@ -236,12 +272,39 @@ export default function Login() {
   }
 
   // On native → Capacitor Google Auth plugin.
-  // On web   → plain server-side OAuth redirect.
+  // On web   → popup OAuth flow (avoids full-page reload and loading-screen loop).
+  //            Falls back to redirect if the browser blocks popups.
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
     if (signingIn) return;
+    setSigningIn(true);
+    setNativeError(null);
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-    window.location.href = `${API_BASE}/auth/google`;
+
+    const popupUrl = `${API_BASE}/auth/google?popup=1`;
+    const popup = window.open(
+      popupUrl,
+      "google-oauth",
+      "width=500,height=620,left=" + Math.round((screen.width - 500) / 2) +
+        ",top=" + Math.round((screen.height - 620) / 2) +
+        ",toolbar=no,menubar=no,scrollbars=yes,resizable=yes"
+    );
+
+    // Popup was blocked → fall back to full-page redirect
+    if (!popup || popup.closed) {
+      setSigningIn(false);
+      window.location.href = `${API_BASE}/auth/google`;
+      return;
+    }
+
+    // Poll for popup being closed by the user without completing auth
+    const pollTimer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollTimer);
+        setSigningIn(false);
+        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+      }
+    }, 400);
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

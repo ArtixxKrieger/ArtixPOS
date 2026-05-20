@@ -1,4 +1,4 @@
-// ArtixPOS Service Worker v8
+// ArtixPOS Service Worker v9
 // Caching strategies:
 //   HTML/navigation   → network-first, cache fallback, offline page last
 //   Hashed assets     → cache-first, immutable
@@ -6,11 +6,13 @@
 //   Images            → stale-while-revalidate
 //   API calls         → network-only
 //
-// v8 additions:
-//   Background Sync   → fires 'pos-offline-sync' tag; notifies all open tabs
-//                       to run syncOfflineData even after tab was backgrounded
+// v9 changes:
+//   skipWaiting() on install — new SW activates immediately so a stale/broken
+//   SW can never trap users in an infinite loading loop. Previously the page
+//   JS had to send SKIP_WAITING; if the page was stuck (e.g. the old loop bug)
+//   that message was never sent and the broken SW stayed in control forever.
 
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;
@@ -21,13 +23,16 @@ const ALL_CACHES = [SHELL_CACHE, ASSET_CACHE, FONT_CACHE, IMAGE_CACHE];
 const PRECACHE_URLS = ["/", "/index.html", "/manifest.json"];
 
 // ── Install ───────────────────────────────────────────────────────────────
+// skipWaiting() is called unconditionally so any newly downloaded sw.js
+// immediately takes over from a stale/broken predecessor. Without this, a
+// page that is stuck in a loading loop can never send the SKIP_WAITING
+// message, leaving the broken old SW in control indefinitely.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SHELL_CACHE)
       .then((cache) => cache.addAll(PRECACHE_URLS))
       .catch(() => {})
-    // DO NOT call skipWaiting() here — we wait for the explicit SKIP_WAITING
-    // message from main.tsx so we don't activate mid-session on a live POS tab.
+      .finally(() => self.skipWaiting())
   );
 });
 

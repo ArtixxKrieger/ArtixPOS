@@ -9,13 +9,14 @@ import { queryClient, getQueryFn } from "./queryClient";
  * are no-ops because TanStack Query won't re-fetch data that's already
  * in cache with staleTime: Infinity.
  */
+// Only prefetch small/fast endpoints at login. Heavy unbounded queries like
+// /api/products and /api/customers are intentionally excluded — they load on
+// demand and can fetch thousands of rows, slowing down the post-login experience.
 const BOOTSTRAP_URLS = [
   "/api/settings",
   "/api/subscription",
-  "/api/products",
   "/api/dashboard/stats",
   "/api/notifications",
-  "/api/customers",
 ];
 
 const prefetchedUsers = new Set<string>();

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { requireAuth } from "../middleware";
 import { storage } from "../storage";
 import { db } from "../db";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { users, sales as salesTable } from "@shared/schema";
 import { cache, dashboardCacheKey } from "../cache";
 import { getUserId, getActiveBranchId } from "../lib/route-utils";
@@ -26,41 +26,39 @@ export function registerDashboardRoutes(app: Express): void {
 
     const todayISO = new Date().toISOString().slice(0, 10);
 
-    // Run today's sales fetch + tenant resolution + aggregate in parallel.
-    const [todaySales, userRow] = await Promise.all([
+    // Resolve tenantId first (PK lookup — instant).
+    const [userRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, uid));
+    const tid = userRow?.tenantId ?? null;
+
+    // Build WHERE clauses. Use tenant_id directly when available so the query
+    // hits idx_sales_tenant_del instead of scanning per-user with inArray().
+    const aggUserWhere = tid
+      ? eq((salesTable as any).tenantId, tid)
+      : eq(salesTable.userId, uid);
+    const branchWhere = bid != null ? eq((salesTable as any).branchId, bid) : undefined;
+    const aggWhere = branchWhere ? and(aggUserWhere, branchWhere) : aggUserWhere;
+
+    // Scope today's sales to this user's branch (or all branches).
+    const todayUserWhere = eq(salesTable.userId, uid);
+    const todayWhere = branchWhere ? and(todayUserWhere, branchWhere) : todayUserWhere;
+
+    // Fire today's sales fetch and all-time aggregate in parallel.
+    const [todaySales, [agg]] = await Promise.all([
       storage.getSales(uid, {
         branchId: bid ?? undefined,
         startDate: todayISO,
         limit: 1000,
       }),
-      db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, uid)),
+      db
+        .select({
+          orderCount: sql<number>`COUNT(*)::integer`,
+          gross:       sql<number>`COALESCE(SUM(CAST(${salesTable.total} AS NUMERIC)), 0)::float8`,
+          net:         sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
+          refundTotal: sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NOT NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
+        })
+        .from(salesTable)
+        .where(aggWhere),
     ]);
-
-    // Resolve tenant user IDs so branch owners see combined data
-    const tid = userRow[0]?.tenantId;
-    let tenantUserIds: string[] = [uid];
-    if (tid) {
-      const rows = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, tid));
-      if (rows.length > 0) tenantUserIds = rows.map(r => r.id);
-    }
-
-    const userWhere = tenantUserIds.length === 1
-      ? eq(salesTable.userId, tenantUserIds[0])
-      : inArray(salesTable.userId, tenantUserIds);
-    const branchWhere = bid != null ? eq((salesTable as any).branchId, bid) : undefined;
-    const where = branchWhere ? and(userWhere, branchWhere) : userWhere;
-
-    const [agg] = await db
-      .select({
-        orderCount: sql<number>`COUNT(*)::integer`,
-        gross:       sql<number>`COALESCE(SUM(CAST(${salesTable.total} AS NUMERIC)), 0)::float8`,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        net:         sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        refundTotal: sql<number>`COALESCE(SUM(CASE WHEN ${(salesTable as any).deletedAt} IS NOT NULL THEN CAST(${salesTable.total} AS NUMERIC) ELSE 0 END), 0)::float8`,
-      })
-      .from(salesTable)
-      .where(where);
 
     const payload = {
       todaySales,

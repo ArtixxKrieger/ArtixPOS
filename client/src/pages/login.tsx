@@ -628,7 +628,7 @@ export default function Login() {
           </div>
         )}
 
-        <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary"
+        <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary shiny-btn"
           style={{ marginTop: 4, background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", color: "#ffffff", boxShadow: "0 4px 18px rgba(109,40,217,0.35)" }}>
           {formLoading
             ? (mode === "register" ? t("login.creatingAccount") : t("login.signingIn"))
@@ -689,10 +689,10 @@ export default function Login() {
         >
           {/* Grid overlay */}
           <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.06) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
-          {/* Neon glow orbs */}
-          <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%)", top: "-80px", left: "-80px", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%)", bottom: "5%", right: "-60px", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", top: "50%", left: "60%", pointerEvents: "none" }} />
+          {/* Neon glow orbs — CSS float animation, no JS */}
+          <div className="orb-a" style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%)", top: "-80px", left: "-80px", pointerEvents: "none" }} />
+          <div className="orb-b" style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%)", bottom: "5%", right: "-60px", pointerEvents: "none" }} />
+          <div className="orb-c" style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", top: "50%", left: "60%", pointerEvents: "none" }} />
 
           {/* Logo */}
           <div style={{ position: "relative" }}>
@@ -723,7 +723,10 @@ export default function Login() {
               margin: "0 0 18px",
             }}>
               <span style={{ color: "#fff" }}>{t("login.heroTitle1")}</span><br />
-              <span style={{ background: "linear-gradient(90deg, #a78bfa 0%, #818cf8 50%, #67e8f9 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+              <span
+                className="animated-gradient-text"
+                style={{ background: "linear-gradient(90deg, #a78bfa 0%, #818cf8 25%, #67e8f9 50%, #a78bfa 75%, #c084fc 100%)" }}
+              >
                 {t("login.heroTitle2")}
               </span>
             </h2>
@@ -734,13 +737,16 @@ export default function Login() {
             {/* Feature list */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[
-                { dot: "#a78bfa", text: t("login.featurePOS") },
-                { dot: "#818cf8", text: t("login.featureAnalytics") },
-                { dot: "#67e8f9", text: t("login.featureAI") },
-                { dot: "#4ade80", text: t("login.featureMulti") },
+                { dot: "#a78bfa", text: t("login.featurePOS"),       delay: "0s" },
+                { dot: "#818cf8", text: t("login.featureAnalytics"), delay: "0.6s" },
+                { dot: "#67e8f9", text: t("login.featureAI"),        delay: "1.2s" },
+                { dot: "#4ade80", text: t("login.featureMulti"),     delay: "1.8s" },
               ].map((f, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: f.dot, boxShadow: `0 0 8px ${f.dot}`, flexShrink: 0 }} />
+                  <div
+                    className="dot-pulse"
+                    style={{ width: 6, height: 6, borderRadius: "50%", background: f.dot, boxShadow: `0 0 8px ${f.dot}`, flexShrink: 0, animationDelay: f.delay }}
+                  />
                   <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13.5, fontWeight: 500 }}>{f.text}</span>
                 </div>
               ))}

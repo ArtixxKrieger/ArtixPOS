@@ -436,18 +436,101 @@
   --sileo-viewport-theme: dark;
 }
 
+/* ─── Animated gradient text (ReactBits-inspired, CSS only, GPU composited) ─ */
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animated-gradient-text {
+  background-size: 250% auto;
+  animation: gradient-shift 5s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Shiny button shimmer (CSS only, no JS) ─────────────────────────────── */
+@keyframes shimmer-slide {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(300%) skewX(-15deg); }
+}
+.shiny-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.shiny-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 70%
+  );
+  animation: shimmer-slide 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ─── Dot pulse (feature list dots on login) ─────────────────────────────── */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+.dot-pulse {
+  animation: dot-pulse 2.4s ease-in-out infinite;
+}
+
+/* ─── Orb float (ambient background orbs) ───────────────────────────────── */
+@keyframes orb-float-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, -20px) scale(1.04); }
+  66%       { transform: translate(-15px, 15px) scale(0.97); }
+}
+@keyframes orb-float-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-25px, 18px) scale(1.03); }
+  66%       { transform: translate(20px, -12px) scale(0.98); }
+}
+.orb-a { animation: orb-float-a 18s ease-in-out infinite; }
+.orb-b { animation: orb-float-b 22s ease-in-out infinite; }
+.orb-c { animation: orb-float-a 14s ease-in-out infinite reverse; }
+
+/* ─── Card glow on hover ─────────────────────────────────────────────────── */
+.glow-hover-card {
+  transition: box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glow-hover-card:hover {
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25), 0 6px 24px rgba(124, 58, 237, 0.09);
+  transform: translateY(-1px);
+}
+.dark .glow-hover-card:hover {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.32), 0 8px 28px rgba(139, 92, 246, 0.14);
+  transform: translateY(-1px);
+}
+
 /* ─── Nav item active glow ───────────────────────────────────────────────── */
+@keyframes nav-left-glow {
+  0%, 100% { box-shadow: inset 2px 0 0 hsl(262, 80%, 52%); }
+  50%       { box-shadow: inset 2px 0 0 hsl(262, 80%, 52%), 0 0 10px rgba(124, 58, 237, 0.12); }
+}
+@keyframes nav-left-glow-dark {
+  0%, 100% { box-shadow: inset 2px 0 0 hsl(265, 90%, 75%), 0 0 10px rgba(139, 92, 246, 0.10); }
+  50%       { box-shadow: inset 2px 0 0 hsl(265, 90%, 75%), 0 0 18px rgba(139, 92, 246, 0.22); }
+}
 .nav-item-active {
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.10) 0%, rgba(79, 70, 229, 0.06) 100%);
   border: 1px solid rgba(124, 58, 237, 0.22);
   color: hsl(262, 80%, 52%);
-  box-shadow: inset 2px 0 0 hsl(262, 80%, 52%);
+  animation: nav-left-glow 3s ease-in-out infinite;
 }
 .dark .nav-item-active {
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.22) 0%, rgba(79, 70, 229, 0.10) 100%);
   border: 1px solid rgba(139, 92, 246, 0.30);
   color: hsl(265, 90%, 75%);
-  box-shadow: inset 2px 0 0 hsl(265, 90%, 75%), 0 0 12px rgba(139, 92, 246, 0.12);
+  animation: nav-left-glow-dark 3s ease-in-out infinite;
 }
 
 /* ─── Premium stat card gradient borders ─────────────────────────────────── */

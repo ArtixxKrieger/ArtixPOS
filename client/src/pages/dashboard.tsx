@@ -193,7 +193,7 @@ export default function Dashboard() {
           { label: t("dashboard.avgOrder"), display: avgOrder > 0 ? `${currency}${avgOrder.toFixed(0)}` : `${currency}0`, icon: TrendingUp, color: "text-amber-600 dark:text-amber-400", iconBg: "bg-amber-500/10", glow: "from-amber-500/8" },
           { label: t("dashboard.taxCollected"), display: totalTax > 0 ? `${currency}${totalTax.toFixed(0)}` : `${currency}0`, icon: Receipt, color: "text-purple-600 dark:text-purple-400", iconBg: "bg-purple-500/10", glow: "from-purple-500/8" },
         ].map((card, i) => (
-          <div key={i} className={`glass-card rounded-2xl p-4 bg-gradient-to-br ${card.glow} to-transparent transition-all duration-300 animate-fade-scale card-press`}>
+          <div key={i} className={`glass-card glow-hover-card rounded-2xl p-4 bg-gradient-to-br ${card.glow} to-transparent animate-fade-scale card-press`}>
             <div className="flex items-start justify-between mb-3">
               <div className={`h-8 w-8 rounded-xl ${card.iconBg} flex items-center justify-center`}>
                 <card.icon className={`h-4 w-4 ${card.color}`} />

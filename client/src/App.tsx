@@ -517,11 +517,15 @@ function ProtectedRouter() {
     );
   }, [isAuthenticated, user?.tenantId]);
 
-  // On session expiry / 401, wipe in-memory + IDB so the next session starts clean
+  // On session expiry / 401, wipe in-memory + IDB so the next session starts clean.
+  // IMPORTANT: do NOT call queryClient.clear() here — that removes auth-me from
+  // the cache too, which causes TanStack Query to re-fetch it, land on 401 again,
+  // and trigger this effect in an infinite loop. Instead, only remove non-auth
+  // queries so auth-me stays as null (unauthenticated) and the loop never starts.
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
       queryClient.cancelQueries();
-      queryClient.clear();
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearAllCache().catch(() => {});
       clearPrefetchCache();
       prevUserIdRef.current = null;

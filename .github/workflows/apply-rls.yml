@@ -1,0 +1,40 @@
+name: Apply RLS Policies
+
+# Runs on every push to main/master — after code is merged.
+# Connects to the production Supabase database and applies all
+# Row-Level Security policies, helper functions, and FK indexes.
+# Everything is idempotent so re-running is always safe.
+
+on:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: apply-rls-${{ github.ref }}
+  cancel-in-progress: false   # never skip an RLS apply
+
+jobs:
+  apply-rls:
+    name: Apply RLS to Supabase
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply RLS policies
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:rls

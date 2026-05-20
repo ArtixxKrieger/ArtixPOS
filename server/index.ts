@@ -453,14 +453,21 @@ async function _doInit() {
     }
 
     console.log("[init] step 3b/8 — setupRLS");
-    try {
-      await setupRLS();
-    } catch (rlsErr: unknown) {
-      // Non-fatal: RLS setup fails in dev environments with no local DB.
-      // On production deployments the build step and GitHub Actions apply
-      // the policies before the server starts.
-      const msg = rlsErr instanceof Error ? rlsErr.message : String(rlsErr);
-      console.warn("[rls] ⚠  setupRLS skipped (no DB or tables not yet created):", msg);
+    if (process.env.VERCEL === "1") {
+      // Skipped on Vercel: running 40+ sequential SQL statements on a cold
+      // start exceeds the serverless function timeout and causes the site to
+      // hang. RLS is applied instead by:
+      //   1. script/build.js  — runs apply-rls.mjs right after drizzle-kit push
+      //   2. GitHub Actions   — apply-rls.yml runs on every push to main
+      console.log("[rls] skipped on Vercel — applied via build step & GitHub Actions");
+    } else {
+      try {
+        await setupRLS();
+      } catch (rlsErr: unknown) {
+        // Non-fatal in dev: no local DB tables yet.
+        const msg = rlsErr instanceof Error ? rlsErr.message : String(rlsErr);
+        console.warn("[rls] ⚠  setupRLS skipped (no DB or tables not yet created):", msg);
+      }
     }
 
     console.log("[init] step 4/8 — setupAuth");

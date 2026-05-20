@@ -97,7 +97,7 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
 export function useAuth() {
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading } = useQuery<AuthUser | null>({
+  const { data: user, isLoading, isFetching } = useQuery<AuthUser | null>({
     queryKey: ["auth-me"],
     queryFn: fetchMe,
     retry: false,
@@ -151,6 +151,7 @@ export function useAuth() {
   return {
     user: u,
     isLoading,
+    isFetching,
     isAuthenticated: !!u,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,

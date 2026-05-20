@@ -84,7 +84,7 @@ type AuthMode = "signin" | "register";
 
 export default function Login() {
   const { t } = useTranslation();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isFetching } = useAuth();
   const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
   const [nativeError, setNativeError] = useState<string | null>(null);
@@ -147,18 +147,26 @@ export default function Login() {
     setLocation("/");
   }, [isAuthenticated, isLoading, setLocation]);
 
-  // Safety valve: if we got google-auth-ok from the popup but then fetchMe
-  // still returned null (cookie not set, network error, etc.), clear the
-  // spinner so the user isn't stuck indefinitely.
+  // Safety valve: if we got google-auth-ok from the popup but fetchMe still
+  // returned null (cookie blocked, network error, etc.), clear the spinner.
+  //
+  // IMPORTANT: guard on BOTH isLoading AND isFetching.
+  // isLoading = status==="pending" (no cached data yet).
+  // isFetching = true whenever a fetch is in progress, even with cached data.
+  // After the first fetchMe returns null, auth-me has data=null (status="success"),
+  // so isLoading=false even while the invalidateQueries re-fetch is running.
+  // Without the isFetching guard the effect fires before fetchMe completes and
+  // prematurely clears signingIn, which is the root cause of the reset loop.
   useEffect(() => {
-    if (!signingIn || isLoading) return;
+    if (!signingIn || isLoading || isFetching) return;
+    // auth-me has fully settled (not pending, not mid-fetch)
     if (!isAuthenticated && receivedAuthOk.current) {
-      // Auth-me resolved as unauthenticated despite the popup saying ok.
+      console.log("[google-oauth] safety-valve: auth-me resolved null after popup ok — clearing spinner");
       receivedAuthOk.current = false;
       setSigningIn(false);
       setNativeError("Sign-in failed — please try again.");
     }
-  }, [signingIn, isLoading, isAuthenticated]);
+  }, [signingIn, isLoading, isFetching, isAuthenticated]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -204,16 +212,18 @@ export default function Login() {
     function handleMessage(event: MessageEvent) {
       const data = event.data;
       if (!data || typeof data !== "object") return;
+      // Ignore unrelated postMessages (Vite HMR, React DevTools, etc.)
+      if (data.type !== "google-auth-ok" && data.type !== "google-auth-error") return;
+
+      console.log("[google-oauth] postMessage received:", data.type, "| origin:", event.origin, "| receivedAuthOk was:", receivedAuthOk.current);
 
       if (data.type === "google-auth-ok") {
+        console.log("[google-oauth] → setting receivedAuthOk=true, keeping signingIn=true, invalidating auth-me");
         receivedAuthOk.current = true;
         sessionStorage.removeItem(OAUTH_FLOW_KEY);
-        // The auth cookie was set by the popup (same origin).
-        // Invalidate the cached auth query so it re-fetches with the new cookie.
-        // Keep signingIn=true so the loading spinner stays visible until the
-        // [isAuthenticated, isLoading] effect navigates us away.
         queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       } else if (data.type === "google-auth-error") {
+        console.log("[google-oauth] → auth error from popup:", data.error, "| setting signingIn=false");
         receivedAuthOk.current = false;
         setSigningIn(false);
         sessionStorage.removeItem(OAUTH_FLOW_KEY);
@@ -298,6 +308,8 @@ export default function Login() {
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
     if (signingIn) return;
+
+    console.log("[google-oauth] click — opening popup, resetting receivedAuthOk");
     receivedAuthOk.current = false;
     setSigningIn(true);
     setNativeError(null);
@@ -314,10 +326,13 @@ export default function Login() {
 
     // Popup was blocked → fall back to full-page redirect
     if (!popup || popup.closed) {
+      console.log("[google-oauth] popup blocked — falling back to full-page redirect");
       setSigningIn(false);
       window.location.href = `${API_BASE}/auth/google`;
       return;
     }
+
+    console.log("[google-oauth] popup opened successfully, starting poll timer");
 
     // Poll for popup being closed by the user without completing auth.
     // If we already received google-auth-ok, leave signingIn=true so the
@@ -325,14 +340,15 @@ export default function Login() {
     const pollTimer = setInterval(() => {
       if (popup.closed) {
         clearInterval(pollTimer);
+        console.log("[google-oauth] poll: popup closed | receivedAuthOk:", receivedAuthOk.current);
         if (!receivedAuthOk.current) {
           // User dismissed the popup before completing auth — cancel the spinner.
+          console.log("[google-oauth] poll: no auth-ok received → setSigningIn(false)");
           setSigningIn(false);
           sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        } else {
+          console.log("[google-oauth] poll: auth-ok was received → keeping spinner, waiting for auth-me refetch");
         }
-        // If receivedAuthOk.current is true, signingIn stays true.
-        // The [isAuthenticated, isLoading] effect will navigate to "/" once
-        // auth-me resolves, and signingIn is cleaned up on component unmount.
       }
     }, 400);
   }

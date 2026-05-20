@@ -60,9 +60,12 @@ export async function setupRLS(): Promise<void> {
     await client.query(`
       -- Read the tenant ID the middleware stored in the session variable.
       -- STABLE lets Postgres cache the result within one query execution.
-      CREATE OR REPLACE FUNCTION current_tenant_id()
+      -- SET search_path = '' prevents search-path injection (Supabase advisor).
+      CREATE OR REPLACE FUNCTION public.current_tenant_id()
       RETURNS TEXT STABLE LANGUAGE SQL
-      SECURITY INVOKER AS $$
+      SECURITY INVOKER
+      SET search_path = ''
+      AS $$
         SELECT NULLIF(current_setting('app.current_tenant', TRUE), '')
       $$;
 
@@ -71,15 +74,23 @@ export async function setupRLS(): Promise<void> {
       -- so it can SELECT from the users table without being blocked by the
       -- users table's own RLS policy — preventing a circular dependency.
       -- The WHERE clause still limits results to the current tenant.
-      CREATE OR REPLACE FUNCTION current_tenant_user_ids()
+      -- SET search_path = '' prevents search-path injection; table names are
+      -- fully-qualified to compensate.
+      CREATE OR REPLACE FUNCTION public.current_tenant_user_ids()
       RETURNS SETOF TEXT STABLE LANGUAGE SQL
-      SECURITY DEFINER AS $$
-        SELECT id FROM users WHERE tenant_id = current_tenant_id()
+      SECURITY DEFINER
+      SET search_path = ''
+      AS $$
+        SELECT id FROM public.users WHERE tenant_id = public.current_tenant_id()
       $$;
 
+      -- Revoke broad PUBLIC execute on the SECURITY DEFINER function and
+      -- re-grant only to the app role (fixes Supabase advisor warnings).
+      REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM PUBLIC;
+
       -- Make sure artixpos_app can call both helpers.
-      GRANT EXECUTE ON FUNCTION current_tenant_id()       TO artixpos_app;
-      GRANT EXECUTE ON FUNCTION current_tenant_user_ids() TO artixpos_app;
+      GRANT EXECUTE ON FUNCTION public.current_tenant_id()       TO artixpos_app;
+      GRANT EXECUTE ON FUNCTION public.current_tenant_user_ids() TO artixpos_app;
     `);
 
     // ── 3. Group A: tables with a direct tenant_id column ────────────────────
@@ -260,6 +271,38 @@ export async function setupRLS(): Promise<void> {
       CREATE POLICY tenant_isolation ON users
         USING  (tenant_id = current_tenant_id())
         WITH CHECK (tenant_id = current_tenant_id());
+    `);
+
+    // ── 7. tenants — RLS enabled but NOT forced ───────────────────────────────
+    // The postgres superuser (used for auth/admin) bypasses non-forced RLS so
+    // cross-tenant lookups (slug resolution, login) still work.
+    // artixpos_app (tenant-scoped requests) can only see the active tenant.
+    await client.query(`
+      ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS tenant_isolation ON tenants;
+      CREATE POLICY tenant_isolation ON tenants
+        USING  (id = current_tenant_id())
+        WITH CHECK (id = current_tenant_id());
+    `);
+
+    // ── 8. revoked_tokens — RLS enabled but NOT forced ────────────────────────
+    // Auth middleware (running as postgres) needs to check any token freely.
+    // artixpos_app is restricted to tokens belonging to the current tenant's users.
+    await client.query(`
+      ALTER TABLE revoked_tokens ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS tenant_isolation ON revoked_tokens;
+      CREATE POLICY tenant_isolation ON revoked_tokens
+        USING  (user_id IN (SELECT current_tenant_user_ids()))
+        WITH CHECK (user_id IN (SELECT current_tenant_user_ids()));
+    `);
+
+    // ── 9. Indexes for unindexed foreign keys on appointments ─────────────────
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_appointments_user_id     ON appointments(user_id);
+      CREATE INDEX IF NOT EXISTS idx_appointments_branch_id   ON appointments(branch_id);
+      CREATE INDEX IF NOT EXISTS idx_appointments_customer_id ON appointments(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_appointments_staff_id    ON appointments(staff_id);
+      CREATE INDEX IF NOT EXISTS idx_appointments_room_id     ON appointments(room_id);
     `);
 
     console.log("[rls] ✓ Row-Level Security policies applied to all tenant tables");

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, memo } from "react";
 import { nanoid } from "nanoid";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "react-i18next";
@@ -31,6 +31,89 @@ import { useCart, type CartItem } from "@/hooks/use-cart";
 import { useCartTotals } from "@/hooks/use-cart-totals";
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { DEFAULT_PAYMENT_METHODS, CAFE_STYLE_BUSINESS_SUBTYPES } from "@/constants/pos";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+// ── Responsive column count for the POS product grid ─────────────────────────
+// Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
+function useGridCols(): 2 | 3 | 4 {
+  const get = (): 2 | 3 | 4 => {
+    const w = window.innerWidth;
+    return w >= 1024 ? 4 : w >= 640 ? 3 : 2;
+  };
+  const [cols, setCols] = useState<2 | 3 | 4>(get);
+  useEffect(() => {
+    const handler = () => setCols(get());
+    window.addEventListener("resize", handler, { passive: true });
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return cols;
+}
+
+// ── Memoized product card — stable reference prevents unnecessary re-renders ──
+type ProductCardProps = {
+  product: Product;
+  onClick: (p: Product) => void;
+  addToCartLabel: string;
+  currency: string;
+};
+const ProductCard = memo(function ProductCard({ product, onClick, addToCartLabel, currency }: ProductCardProps) {
+  const { t } = useTranslation();
+  return (
+    <button
+      data-testid={`product-card-${product.id}`}
+      onClick={() => onClick(product)}
+      className="group text-left bg-card rounded-3xl shadow-sm border border-border/30 overflow-hidden hover:shadow-xl hover:-translate-y-1 active:scale-[0.97] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <div className={[
+        "pos-card-sweep aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
+        product.trackStock && product.stock === 0 ? "opacity-50" : "",
+      ].join(" ")}>
+        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <Package
+          className="h-14 w-14 md:h-16 md:w-16 text-primary/25 group-hover:scale-110 group-hover:text-primary/40 transition-all duration-500"
+          strokeWidth={1.2}
+        />
+        <div
+          aria-label={addToCartLabel}
+          className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 shadow-lg"
+        >
+          <Plus className="h-3.5 w-3.5 text-white" />
+        </div>
+        {product.trackStock && typeof product.stock === "number" && product.stock <= Math.max(0, product.lowStockThreshold ?? 5) && (
+          <div className={[
+            "absolute top-2 left-2 px-2 py-1 rounded-full text-[9px] font-bold tracking-wide backdrop-blur-sm border shadow-sm",
+            product.stock === 0
+              ? "bg-rose-500/90 text-white border-rose-300/30"
+              : "bg-amber-500/90 text-white border-amber-300/30",
+          ].join(" ")}>
+            {product.stock === 0 ? t("pos.outOfStock") : `${product.stock} ${t("pos.left")}`}
+          </div>
+        )}
+      </div>
+      <div className="p-3">
+        <h3 className={[
+          "font-bold text-sm leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2",
+          product.trackStock && product.stock === 0 ? "text-muted-foreground/60" : "",
+        ].join(" ")}>
+          {product.name}
+        </h3>
+        <div className="flex items-center justify-between gap-1">
+          <p className={[
+            "font-black text-base tabular-nums",
+            product.trackStock && product.stock === 0 ? "text-muted-foreground/50" : "text-primary",
+          ].join(" ")}>
+            {product.sizes && product.sizes.length > 0
+              ? `${formatCurrency(product.sizes[0].price, currency)}+`
+              : formatCurrency(product.price, currency)}
+          </p>
+        </div>
+        {product.category && (
+          <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium">{product.category}</p>
+        )}
+      </div>
+    </button>
+  );
+});
 
 function getQuickAmounts(total: number): number[] {
   const units = [5, 10, 20, 50, 100, 200, 500, 1000];
@@ -171,6 +254,25 @@ export default function POS() {
       return matchSearch && matchCat;
     });
   }, [products, debouncedSearch, category]);
+
+  // ── Virtual grid setup ─────────────────────────────────────────────────────
+  // Virtualizes the product list so only visible rows are in the DOM.
+  // With 1 000 products @ 4 cols = 250 rows; we render ≈ 9-12 at a time.
+  const productScrollRef = useRef<HTMLDivElement>(null);
+  const cols = useGridCols();
+  const rowCount = Math.ceil(filteredProducts.length / cols);
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => productScrollRef.current,
+    estimateSize: () => 260,
+    overscan: 3,
+  });
+
+  // Scroll to top when the search query or category filter changes so the
+  // user always sees results from the beginning of the filtered list.
+  useEffect(() => {
+    productScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [debouncedSearch, category]);
 
   // ── handleProductClick — memoized for product-grid render stability ────────
   const handleProductClick = useCallback((product: Product) => {
@@ -1127,72 +1229,50 @@ export default function POS() {
           ))}
         </div>
 
-        {/* Products */}
-        <div className={`flex-1 overflow-y-auto scrollbar-hide ${cart.length > 0 ? "pb-[88px] md:pb-4" : "pb-4"}`}>
+        {/* Products — virtual grid: only visible rows are in the DOM */}
+        <div
+          ref={productScrollRef}
+          className={`flex-1 overflow-y-auto scrollbar-hide ${cart.length > 0 ? "pb-[88px] md:pb-4" : "pb-4"}`}
+        >
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3 py-16">
               <Package className="h-14 w-14" strokeWidth={1.2} />
               <p className="font-medium">{t("pos.noProducts")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 stagger-children">
-              {filteredProducts.map(product => (
-                <button
-                  key={product.id}
-                  data-testid={`product-card-${product.id}`}
-                  onClick={() => handleProductClick(product)}
-                  className="group text-left bg-card rounded-3xl shadow-sm border border-border/30 overflow-hidden hover:shadow-xl hover:-translate-y-1 active:scale-[0.97] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 animate-fade-scale"
-                >
-                  <div className={[
-                    "pos-card-sweep aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
-                    product.trackStock && product.stock === 0 ? "opacity-50" : "",
-                  ].join(" ")}>
-                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <Package
-                      className="h-14 w-14 md:h-16 md:w-16 text-primary/25 group-hover:scale-110 group-hover:text-primary/40 transition-all duration-500"
-                      strokeWidth={1.2}
-                    />
-                    <div
-                      aria-label={addToCartLabel}
-                      className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 shadow-lg"
-                    >
-                      <Plus className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    {product.trackStock && typeof product.stock === "number" && product.stock <= Math.max(0, product.lowStockThreshold ?? 5) && (
-                      <div className={[
-                        "absolute top-2 left-2 px-2 py-1 rounded-full text-[9px] font-bold tracking-wide backdrop-blur-sm border shadow-sm",
-                        product.stock === 0
-                          ? "bg-rose-500/90 text-white border-rose-300/30"
-                          : "bg-amber-500/90 text-white border-amber-300/30",
-                      ].join(" ")}>
-                        {product.stock === 0 ? t("pos.outOfStock") : `${product.stock} ${t("pos.left")}`}
-                      </div>
-                    )}
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+              {rowVirtualizer.getVirtualItems().map(vRow => {
+                const startIdx = vRow.index * cols;
+                const rowProducts = filteredProducts.slice(startIdx, startIdx + cols);
+                return (
+                  <div
+                    key={vRow.key}
+                    data-index={vRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      transform: `translateY(${vRow.start}px)`,
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                      gap: "12px",
+                      paddingBottom: "12px",
+                    }}
+                  >
+                    {rowProducts.map(product => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onClick={handleProductClick}
+                        addToCartLabel={addToCartLabel}
+                        currency={currency}
+                      />
+                    ))}
                   </div>
-
-                  <div className="p-3">
-                    <h3 className={[
-                      "font-bold text-sm leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2",
-                      product.trackStock && product.stock === 0 ? "text-muted-foreground/60" : "",
-                    ].join(" ")}>
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center justify-between gap-1">
-                      <p className={[
-                        "font-black text-base tabular-nums",
-                        product.trackStock && product.stock === 0 ? "text-muted-foreground/50" : "text-primary",
-                      ].join(" ")}>
-                        {product.sizes && product.sizes.length > 0
-                          ? `${formatCurrency(product.sizes[0].price, currency)}+`
-                          : formatCurrency(product.price, currency)}
-                      </p>
-                    </div>
-                    {product.category && (
-                      <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium">{product.category}</p>
-                    )}
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

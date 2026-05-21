@@ -370,7 +370,7 @@ function LoadingScreen({ message }: { message?: string }) {
 // ── Persistent route paths ─────────────────────────────────────────────────
 // These routes are ALWAYS kept mounted after first visit and toggled via CSS.
 // Navigation between them is a pure style change — zero JS work, zero skeleton.
-const PINNED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics"]);
+const PINNED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics", "/products"]);
 
 /**
  * Mounts the children the first time the path is active, then keeps them
@@ -621,6 +621,9 @@ function AppRouter() {
       <PersistentRoute path="/analytics" currentPath={location}>
         <Suspense fallback={<PageFallback />}><CashierGuard component={Analytics} /></Suspense>
       </PersistentRoute>
+      <PersistentRoute path="/products" currentPath={location}>
+        <Suspense fallback={<PageFallback />}><Products /></Suspense>
+      </PersistentRoute>
 
       {/* ── On-demand routes ───────────────────────────────────────────────────
            Only rendered when not on a pinned path. First visit shows a brief
@@ -629,7 +632,6 @@ function AppRouter() {
       {!PINNED_PATHS.has(location) && (
         <Suspense fallback={<PageFallback />}>
           <Switch>
-            <Route path="/products" component={ProductsRoute} />
             <Route path="/transactions" component={TransactionsRoute} />
             <Route path="/admin" component={AdminRoute} />
             <Route path="/admin/branches" component={AdminBranchesRoute} />

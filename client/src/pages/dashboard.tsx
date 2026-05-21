@@ -82,14 +82,24 @@ export default function Dashboard() {
   const todaySales = stats?.todaySales ?? [];
   const allTime = stats?.allTime ?? { orderCount: 0, gross: 0, net: 0, refundTotal: 0 };
 
-  const todayRefundedSales = todaySales.filter((s: any) => !!(s as any).refundedAt);
-  const todayRefundTotal = todayRefundedSales.reduce((acc: number, s: any) => acc + parseNumeric(s.total), 0);
-  const todayRefundCount = todayRefundedSales.length;
-
-  const totalGrossRevenue = todaySales.reduce((acc: number, s: any) => acc + parseNumeric(s.total), 0);
-  const totalRevenue = totalGrossRevenue - todayRefundTotal;
-  const totalTax = todaySales.reduce((acc: number, s: any) => acc + parseNumeric(s.tax), 0);
-  const avgOrder = todaySales.length ? totalGrossRevenue / todaySales.length : 0;
+  const {
+    todayRefundedSales,
+    todayRefundTotal,
+    todayRefundCount,
+    totalGrossRevenue,
+    totalRevenue,
+    totalTax,
+    avgOrder,
+  } = useMemo(() => {
+    const todayRefundedSales = todaySales.filter((s: any) => !!(s as any).refundedAt);
+    const todayRefundTotal = todayRefundedSales.reduce((acc: number, s: any) => acc + parseNumeric(s.total), 0);
+    const todayRefundCount = todayRefundedSales.length;
+    const totalGrossRevenue = todaySales.reduce((acc: number, s: any) => acc + parseNumeric(s.total), 0);
+    const totalRevenue = totalGrossRevenue - todayRefundTotal;
+    const totalTax = todaySales.reduce((acc: number, s: any) => acc + parseNumeric(s.tax), 0);
+    const avgOrder = todaySales.length ? totalGrossRevenue / todaySales.length : 0;
+    return { todayRefundedSales, todayRefundTotal, todayRefundCount, totalGrossRevenue, totalRevenue, totalTax, avgOrder };
+  }, [todaySales]);
 
   const paymentBreakdown = useMemo(() => {
     const counts: Record<string, { count: number; revenue: number }> = {};
@@ -121,6 +131,8 @@ export default function Dashboard() {
     const sorted = Object.values(counts).sort((a, b) => b.qty - a.qty);
     return sorted[0] ?? null;
   }, [todaySales]);
+
+  const reversedSales = useMemo(() => [...todaySales].reverse(), [todaySales]);
 
   const currency = (settings as any)?.currency || "₱";
   const daySummary = {
@@ -378,7 +390,7 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...todaySales].reverse().map((sale: any) => {
+                {reversedSales.map((sale: any) => {
                   const items = (sale.items as any[]) || [];
                   const itemsSummary = items.length === 1
                     ? (items[0]?.product?.name || items[0]?.name || items[0]?.title || "1 item")

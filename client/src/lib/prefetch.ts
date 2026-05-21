@@ -27,6 +27,7 @@ const BOOTSTRAP_URLS = [
 const SECONDARY_URLS = [
   "/api/pending-orders",
   "/api/products",
+  "/api/customers",
 ];
 
 const prefetchedUsers = new Set<string>();

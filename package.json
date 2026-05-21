@@ -54,6 +54,7 @@
     "@revenuecat/purchases-capacitor": "^13.1.1",
     "@sentry/node": "^10.53.1",
     "@tanstack/react-query": "^5.60.5",
+    "@tanstack/react-virtual": "^3.13.25",
     "@types/better-sqlite3": "^7.6.13",
     "@types/compression": "^1.8.1",
     "@types/connect-sqlite3": "^0.9.6",

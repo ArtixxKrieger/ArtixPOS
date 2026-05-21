@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import os from "os";
 import * as schema from "@shared/schema";
 import { _tenantStore } from "./tenant-context";
@@ -60,6 +60,86 @@ const _baseDb = drizzle(pool, { schema });
 // keyed by userId) and tenant-context RLS would cause false-negative reads.
 export const dbSystem: typeof _baseDb = _baseDb;
 
+// ── Auto-SAVEPOINT wrapper ────────────────────────────────────────────────────
+// Wraps a Drizzle query builder (any thenable returned by select/insert/update/
+// delete/execute) so that its execution is bracketed by a PostgreSQL SAVEPOINT.
+//
+// Why this matters:
+//   PostgreSQL marks a transaction "aborted" the moment any query inside it
+//   throws an error. Every subsequent query on the SAME connection then fails
+//   with "current transaction is aborted, commands ignored until end of
+//   transaction block" — masking the real error with a confusing cascade.
+//
+//   By wrapping each individual query in a SAVEPOINT we get:
+//     • A failed query rolls back only to its savepoint — the outer transaction
+//       stays alive and subsequent queries work normally.
+//     • The real error is thrown and logged at the site of the actual failure,
+//       not buried under the cascade message.
+//     • Explicit db.transaction() calls keep their own dedicated savepoint
+//       (handled separately below) — no double-wrapping occurs.
+function savepointWrapBuilder(client: PoolClient, builder: unknown): unknown {
+  if (!builder || typeof builder !== "object" || typeof (builder as any).then !== "function") {
+    return builder;
+  }
+
+  return new Proxy(builder as object, {
+    get(target: any, prop: string | symbol) {
+      // Intercept Promise resolution — this is the moment the query executes.
+      if (prop === "then") {
+        return (onfulfilled?: unknown, onrejected?: unknown) => {
+          const sp = `sp_${Math.random().toString(36).slice(2, 10)}`;
+          const promise = client.query(`SAVEPOINT ${sp}`)
+            .then(async () => {
+              try {
+                const result = await new Promise<unknown>((resolve, reject) => {
+                  target.then(resolve, reject);
+                });
+                await client.query(`RELEASE SAVEPOINT ${sp}`).catch(() => {});
+                return result;
+              } catch (err: unknown) {
+                const pg = err as any;
+                // 25P02 = "in_failed_sql_transaction" — this is the cascade symptom.
+                // Log it distinctly so the real cause (logged above) is easy to find.
+                if (pg?.code === "25P02") {
+                  console.error(
+                    "[db] Cascading transaction-aborted error suppressed — see the real error logged above.",
+                    { code: pg.code, hint: pg.hint ?? "" },
+                  );
+                } else {
+                  console.error("[db] Query failed inside tenant transaction:", {
+                    code: pg?.code,
+                    message: pg?.message,
+                    detail: pg?.detail,
+                    hint: pg?.hint,
+                    table: pg?.table,
+                    constraint: pg?.constraint,
+                  });
+                }
+                await client.query(`ROLLBACK TO SAVEPOINT ${sp}`).catch(() => {});
+                throw err;
+              }
+            });
+          return promise.then(
+            onfulfilled as ((value: unknown) => unknown) | undefined,
+            onrejected as ((reason: unknown) => unknown) | undefined,
+          );
+        };
+      }
+
+      // Builder chain methods (.where, .limit, .returning, …) return new builders —
+      // propagate SAVEPOINT protection down the chain.
+      const val = Reflect.get(target, prop, target);
+      if (typeof val === "function") {
+        return (...args: unknown[]) => {
+          const result = val.apply(target, args);
+          return savepointWrapBuilder(client, result);
+        };
+      }
+      return val;
+    },
+  });
+}
+
 // ── RLS-aware DB proxy ────────────────────────────────────────────────────────
 // When a request is running inside tenantContextMiddleware, _tenantStore holds
 // a Drizzle instance backed by a dedicated connection that has:
@@ -76,7 +156,7 @@ export const db = new Proxy(_baseDb, {
     const store = _tenantStore.getStore();
     const activeDb = (store && store !== "admin") ? store.db : target;
 
-    // ── SAVEPOINT shim for nested transactions ────────────────────────────────
+    // ── SAVEPOINT shim for explicit db.transaction() calls ────────────────────
     // If route code calls db.transaction() while we are already inside the
     // per-request tenant transaction, issuing a second BEGIN would silently
     // continue the existing transaction and then COMMIT it prematurely when the
@@ -105,6 +185,19 @@ export const db = new Proxy(_baseDb, {
     }
 
     const value = Reflect.get(activeDb, prop, activeDb);
-    return typeof value === "function" ? value.bind(activeDb) : value;
+    if (typeof value !== "function") return value;
+
+    // ── Auto-SAVEPOINT for every individual query in tenant context ───────────
+    // Wrap each query builder so a single failed query cannot poison the rest
+    // of the request transaction. See savepointWrapBuilder() above for details.
+    if (store && store !== "admin" && prop !== "transaction") {
+      const { client } = store;
+      return function (this: unknown, ...args: unknown[]) {
+        const result = (value as (...a: unknown[]) => unknown).apply(activeDb, args);
+        return savepointWrapBuilder(client, result);
+      };
+    }
+
+    return value.bind(activeDb);
   },
 }) as typeof _baseDb;

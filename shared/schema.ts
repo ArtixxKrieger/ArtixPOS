@@ -997,6 +997,7 @@ export const insertUserSettingSchema = z.object({
   wifiPassword: z.string().optional().nullable(),
   wifiDurationMinutes: z.number().optional().nullable(),
   wifiAutoIssue: z.number().optional().nullable(),
+  country: z.string().optional().nullable(),
 });
 
 export const insertDiscountCodeSchema = z.object({

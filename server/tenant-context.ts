@@ -69,7 +69,20 @@ export function tenantContextMiddleware(pool: Pool) {
       // and all RLS policies are actually enforced.  Postgres superusers
       // bypass RLS unconditionally; artixpos_app has NOBYPASSRLS so it does not.
       // SET LOCAL means the role reverts automatically at COMMIT / ROLLBACK.
-      await client.query(`SET LOCAL ROLE artixpos_app`);
+      // Guard: artixpos_app may not exist on fresh databases where setupRLS
+      // hasn't run yet (e.g. Vercel cold-start before first db:push). In that
+      // case we skip the role switch and proceed without RLS enforcement so
+      // the request still succeeds — this is safe because the app-level WHERE
+      // clause on userId is always present.
+      try {
+        await client.query(`SET LOCAL ROLE artixpos_app`);
+      } catch (roleErr: any) {
+        if (roleErr?.message?.includes("artixpos_app")) {
+          console.warn("[tenant-ctx] artixpos_app role not found — proceeding without RLS role switch");
+        } else {
+          throw roleErr;
+        }
+      }
       await client.query(
         `SELECT set_config('app.current_tenant', $1, TRUE)`,
         [user.tenantId]

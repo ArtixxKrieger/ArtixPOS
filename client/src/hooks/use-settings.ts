@@ -125,7 +125,7 @@ export function useUpdateSettings() {
         await setCached(SETTINGS_URL, result);
         return result;
       } catch (err) {
-        if (!isNetworkError(err)) throw err;
+        if (!isNetworkOrTimeoutError(err)) throw err;
         await queueMutation("PUT", api.settings.update.path, data);
         const current = await getCached<any>(SETTINGS_URL);
         const updated = { ...current, ...data };

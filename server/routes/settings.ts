@@ -159,10 +159,20 @@ export function registerSettingsRoutes(app: Express): void {
       try {
         settings = await storage.updateSettings(uid, input);
       } catch (settingsErr: any) {
-        const detail = settingsErr?.message || String(settingsErr);
-        console.error("[settings] updateSettings failed — userId:", uid, "error:", settingsErr);
+        const pgDetail = {
+          code:       settingsErr?.code       ?? null,
+          message:    settingsErr?.message    ?? String(settingsErr),
+          detail:     settingsErr?.detail     ?? null,
+          hint:       settingsErr?.hint       ?? null,
+          table:      settingsErr?.table      ?? null,
+          column:     settingsErr?.column     ?? null,
+          constraint: settingsErr?.constraint ?? null,
+          schema:     settingsErr?.schema     ?? null,
+        };
+        console.error("[settings] updateSettings failed — userId:", uid, "pgDetail:", pgDetail, "full:", settingsErr);
         return res.status(500).json({
-          message: `Failed to save settings: ${detail}`,
+          message: pgDetail.message,
+          error: pgDetail,
         });
       }
 

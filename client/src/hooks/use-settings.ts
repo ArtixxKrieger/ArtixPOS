@@ -132,8 +132,10 @@ export function useUpdateSettings() {
             body = JSON.parse(rawText);
           } catch { body = { message: rawText || res.statusText }; }
           console.error("[useUpdateSettings] server error:", res.status, body, "url:", api.settings.update.path);
-          const detail = body?.message || body?.error || rawText || res.statusText || "Unknown error";
-          throw new Error(`[HTTP ${res.status}] ${detail}`);
+          const err = new Error(body?.message || body?.error || rawText || res.statusText || "Unknown error") as any;
+          err.status = res.status;
+          err.pgError = body?.error ?? null;
+          throw err;
         }
         const result = api.settings.update.responses[200].parse(await res.json());
         // Fire-and-forget IDB write — do NOT await so the mutation resolves

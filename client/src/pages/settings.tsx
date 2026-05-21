@@ -263,6 +263,40 @@ export default function Settings() {
     savePaymentMethods(updated);
   };
 
+  const showErrorToast = (err: unknown) => {
+    const e = err as any;
+    const pg = e?.pgError;
+    const lines: string[] = [];
+    if (e?.message) lines.push(e.message);
+    if (pg?.code)       lines.push(`Code: ${pg.code}`);
+    if (pg?.detail)     lines.push(`Detail: ${pg.detail}`);
+    if (pg?.hint)       lines.push(`Hint: ${pg.hint}`);
+    if (pg?.table)      lines.push(`Table: ${pg.table}`);
+    if (pg?.column)     lines.push(`Column: ${pg.column}`);
+    if (pg?.constraint) lines.push(`Constraint: ${pg.constraint}`);
+    const full = lines.join("\n");
+    toast({
+      title: "Failed to save settings",
+      description: (
+        <div className="space-y-1.5">
+          {lines.map((l, i) => (
+            <p key={i} className="text-xs font-mono break-all leading-tight">{l}</p>
+          ))}
+          <button
+            className="mt-1 text-xs underline opacity-70 hover:opacity-100"
+            onClick={() => {
+              navigator.clipboard?.writeText(full).catch(() => {});
+            }}
+          >
+            Copy error
+          </button>
+        </div>
+      ),
+      variant: "destructive",
+      duration: 15000,
+    });
+  };
+
   const onSubmit = (data: SettingsFormData) => {
     const payload: Partial<InsertUserSetting> & { country?: string | null } = {
       storeName: data.storeName,
@@ -275,11 +309,7 @@ export default function Settings() {
     };
     updateSettings.mutate(payload as any, {
       onSuccess: () => toast({ title: "Settings saved" }),
-      onError: (err: unknown) => toast({
-        title: "Failed to save settings",
-        description: (err as Error)?.message || "Please check your connection and try again.",
-        variant: "destructive",
-      }),
+      onError: showErrorToast,
     });
   };
 

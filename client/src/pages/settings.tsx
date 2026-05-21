@@ -274,24 +274,11 @@ export default function Settings() {
     if (pg?.table)      lines.push(`Table: ${pg.table}`);
     if (pg?.column)     lines.push(`Column: ${pg.column}`);
     if (pg?.constraint) lines.push(`Constraint: ${pg.constraint}`);
-    const full = lines.join("\n");
+    const full = lines.join(" | ");
+    navigator.clipboard?.writeText(full).catch(() => {});
     toast({
       title: "Failed to save settings",
-      description: (
-        <div className="space-y-1.5">
-          {lines.map((l, i) => (
-            <p key={i} className="text-xs font-mono break-all leading-tight">{l}</p>
-          ))}
-          <button
-            className="mt-1 text-xs underline opacity-70 hover:opacity-100"
-            onClick={() => {
-              navigator.clipboard?.writeText(full).catch(() => {});
-            }}
-          >
-            Copy error
-          </button>
-        </div>
-      ),
+      description: full,
       variant: "destructive",
       duration: 15000,
     });

@@ -125,9 +125,15 @@ export function useUpdateSettings() {
           body: JSON.stringify(data),
         });
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          console.error("[useUpdateSettings] server error:", res.status, body);
-          throw new Error(body?.message || `Server error ${res.status}`);
+          let body: any = {};
+          let rawText = "";
+          try {
+            rawText = await res.text();
+            body = JSON.parse(rawText);
+          } catch { body = { message: rawText || res.statusText }; }
+          console.error("[useUpdateSettings] server error:", res.status, body, "url:", api.settings.update.path);
+          const detail = body?.message || body?.error || rawText || res.statusText || "Unknown error";
+          throw new Error(`[HTTP ${res.status}] ${detail}`);
         }
         const result = api.settings.update.responses[200].parse(await res.json());
         // Fire-and-forget IDB write — do NOT await so the mutation resolves

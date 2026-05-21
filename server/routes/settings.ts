@@ -161,13 +161,8 @@ export function registerSettingsRoutes(app: Express): void {
       } catch (settingsErr: any) {
         const detail = settingsErr?.message || String(settingsErr);
         console.error("[settings] updateSettings failed — userId:", uid, "error:", settingsErr);
-        // Surface the real DB error in development so it is visible in the toast.
-        // In production we return a generic message to avoid leaking internals.
-        const isDev = process.env.NODE_ENV !== "production";
         return res.status(500).json({
-          message: isDev
-            ? `Failed to save settings: ${detail}`
-            : "Failed to save settings. Please try again.",
+          message: `Failed to save settings: ${detail}`,
         });
       }
 

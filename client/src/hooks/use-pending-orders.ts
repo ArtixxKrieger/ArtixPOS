@@ -56,7 +56,7 @@ export function useCreatePendingOrder() {
           tempId, // offlineId
         );
         const optimistic = { ...data, id: tempId, createdAt: new Date().toISOString() };
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => [...prev, optimistic as unknown as PendingOrder]);
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), optimistic as unknown as PendingOrder]);
         return optimistic as unknown as PendingOrder;
       }
       if (!res.ok) {
@@ -64,7 +64,7 @@ export function useCreatePendingOrder() {
         throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
       const result = api.pendingOrders.create.responses[201].parse(await res.json());
-      await patchCached(LIST_URL, (prev: PendingOrder[]) => [...prev, result]);
+      await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), result]);
       return result;
     },
     onSuccess: (result) => {
@@ -112,14 +112,14 @@ export function useDeletePendingOrder() {
         res = await nativeFetch(url, { method: api.pendingOrders.delete.method });
       } catch {
         await queueMutation("DELETE", url, undefined, "pending-order");
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.filter((o) => o.id !== id));
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => Array.isArray(prev) ? prev.filter((o) => o.id !== id) : []);
         return;
       }
       if (!res.ok && res.status !== 404) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
-      await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.filter((o) => o.id !== id));
+      await patchCached(LIST_URL, (prev: PendingOrder[]) => Array.isArray(prev) ? prev.filter((o) => o.id !== id) : []);
     },
     onError: (_err, _id, context) => {
       if (context?.previous)
@@ -150,7 +150,7 @@ export function useUpdatePendingOrder() {
         });
       } catch {
         await queueMutation("PUT", url, data, "pending-order");
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.map((o) => (o.id === id ? { ...o, ...data } : o)));
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => Array.isArray(prev) ? prev.map((o) => (o.id === id ? { ...o, ...data } : o)) : []);
         return { id, ...data } as unknown as PendingOrder;
       }
       if (!res.ok) {
@@ -159,7 +159,7 @@ export function useUpdatePendingOrder() {
         throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
       const result = api.pendingOrders.update.responses[200].parse(await res.json());
-      await patchCached(LIST_URL, (prev: PendingOrder[]) => prev.map((o) => (o.id === id ? result : o)));
+      await patchCached(LIST_URL, (prev: PendingOrder[]) => Array.isArray(prev) ? prev.map((o) => (o.id === id ? result : o)) : []);
       return result;
     },
     onError: (_err, _vars, context) => {

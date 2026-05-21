@@ -514,11 +514,8 @@ async function _doInit() {
       }
 
       const status = err.status || err.statusCode || 500;
-      const isProduction = process.env.NODE_ENV === "production";
-      const message = isProduction && status >= 500
-        ? "Internal Server Error"
-        : err.message || "Internal Server Error";
-      console.error("Internal Server Error:", err);
+      const message = err.message || "Internal Server Error";
+      console.error("[global-error] unhandled error:", err);
       return res.status(status).json({ message });
     });
 

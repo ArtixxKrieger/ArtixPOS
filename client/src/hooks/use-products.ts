@@ -76,7 +76,7 @@ export function useCreateProduct() {
           tempId, // offlineId — enables foldQueue and ID remapping after sync
         );
         const optimistic = { ...data, id: tempId, sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
-        await patchCached(LIST_URL, (prev: any[]) => [...prev, optimistic]);
+        await patchCached(LIST_URL, (prev: any[]) => [...(Array.isArray(prev) ? prev : []), optimistic]);
         return optimistic as any;
       }
       if (!res.ok) {
@@ -94,8 +94,9 @@ export function useCreateProduct() {
         old ? [...old, result] : [result]
       );
       patchCached(LIST_URL, (prev: any[]) => {
-        const exists = prev.some((p) => p.id === result.id);
-        return exists ? prev.map((p) => (p.id === result.id ? result : p)) : [...prev, result];
+        const list = Array.isArray(prev) ? prev : [];
+        const exists = list.some((p) => p.id === result.id);
+        return exists ? list.map((p) => (p.id === result.id ? result : p)) : [...list, result];
       });
     },
   });
@@ -115,7 +116,7 @@ export function useUpdateProduct() {
         });
       } catch {
         await queueMutation("PUT", url, data, "product");
-        await patchCached(LIST_URL, (prev: any[]) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
+        await patchCached(LIST_URL, (prev: any[]) => Array.isArray(prev) ? prev.map((p) => (p.id === id ? { ...p, ...data } : p)) : []);
         return { id, ...data } as any;
       }
       if (!res.ok) {
@@ -129,7 +130,10 @@ export function useUpdateProduct() {
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
         old ? old.map((p) => (p.id === result.id ? result : p)) : [result]
       );
-      patchCached(LIST_URL, (prev: any[]) => prev.map((p) => (p.id === result.id ? result : p)));
+      patchCached(LIST_URL, (prev: any[]) => {
+        const list = Array.isArray(prev) ? prev : [];
+        return list.map((p) => (p.id === result.id ? result : p));
+      });
     },
   });
 }
@@ -152,14 +156,14 @@ export function useDeleteProduct() {
         res = await nativeFetch(url, { method: api.products.delete.method });
       } catch {
         await queueMutation("DELETE", url, undefined, "product");
-        await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
+        await patchCached(LIST_URL, (prev: any[]) => Array.isArray(prev) ? prev.filter((p) => p.id !== id) : []);
         return;
       }
       if (!res.ok && res.status !== 404) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as any)?.message ?? `Server error ${res.status}`);
       }
-      await patchCached(LIST_URL, (prev: any[]) => prev.filter((p) => p.id !== id));
+      await patchCached(LIST_URL, (prev: any[]) => Array.isArray(prev) ? prev.filter((p) => p.id !== id) : []);
     },
     onError: (_err, _id, context) => {
       if (context?.previous)

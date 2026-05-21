@@ -84,7 +84,7 @@ export function useCreateSale() {
           tempId, // offlineId
         );
         const optimistic = { ...data, id: tempId, createdAt: new Date().toISOString() };
-        await patchCached(BASE_URL, (prev: any[]) => [...prev, optimistic]);
+        await patchCached(BASE_URL, (prev: any[]) => [...(Array.isArray(prev) ? prev : []), optimistic]);
         return optimistic as any;
       }
       if (!res.ok) {
@@ -152,7 +152,7 @@ export function useDeleteSale() {
         queryClient.setQueriesData({ queryKey: [BASE_URL] }, context.previous);
     },
     onSuccess: (_, { id }) => {
-      patchCached(BASE_URL, (prev: any[]) => prev.filter((s: any) => s.id !== id));
+      patchCached(BASE_URL, (prev: any[]) => Array.isArray(prev) ? prev.filter((s: any) => s.id !== id) : []);
     },
   });
 }

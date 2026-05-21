@@ -102,7 +102,7 @@ const ProductCard = memo(function ProductCard({ product, onClick, addToCartLabel
             "font-black text-base tabular-nums",
             product.trackStock && product.stock === 0 ? "text-muted-foreground/50" : "text-primary",
           ].join(" ")}>
-            {product.sizes && product.sizes.length > 0
+            {Array.isArray(product.sizes) && product.sizes.length > 0
               ? `${formatCurrency(product.sizes[0].price, currency)}+`
               : formatCurrency(product.price, currency)}
           </p>
@@ -276,7 +276,7 @@ export default function POS() {
 
   // ── handleProductClick — memoized for product-grid render stability ────────
   const handleProductClick = useCallback((product: Product) => {
-    if (product.sizes && product.sizes.length > 0) {
+    if (Array.isArray(product.sizes) && product.sizes.length > 0) {
       setSelectedProduct(product);
       setTempSize(product.sizes[0] || null);
     } else {
@@ -1371,7 +1371,7 @@ export default function POS() {
           </DialogHeader>
 
           <div className="p-6 space-y-6">
-            {selectedProduct?.sizes && selectedProduct.sizes.length > 0 && (
+            {Array.isArray(selectedProduct?.sizes) && selectedProduct.sizes.length > 0 && (
               <div className="space-y-3">
                 <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t("pos.selectSize")}</h4>
                 <div className="grid grid-cols-3 gap-2">

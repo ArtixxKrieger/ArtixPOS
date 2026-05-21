@@ -23,6 +23,13 @@ export function useSettings() {
 
   const query = useQuery({
     queryKey: [SETTINGS_URL],
+    // Once loaded, never auto-refetch on route changes / window focus.
+    // Settings are kept up-to-date exclusively by useUpdateSettings (which
+    // calls setQueryData on success) and the auto-sync effect below.
+    // Without this, staleTime defaults to 0 and every page navigation triggers
+    // a background refetch → one extra render pass per navigation for every
+    // component that calls useSettings().
+    staleTime: Infinity,
     // Settings query has a 10-second hard timeout.
     // nativeFetch() is a plain fetch() with no built-in timeout, so on a slow
     // Vercel cold-start or a weak mobile connection the Promise can hang
@@ -122,17 +129,26 @@ export function useUpdateSettings() {
           throw new Error(body?.message || `Server error ${res.status}`);
         }
         const result = api.settings.update.responses[200].parse(await res.json());
-        await setCached(SETTINGS_URL, result);
+        // Fire-and-forget IDB write — do NOT await so the mutation resolves
+        // immediately without blocking on IndexedDB I/O (~100-300 ms on mobile).
+        setCached(SETTINGS_URL, result).catch(() => {});
         return result;
       } catch (err) {
         if (!isNetworkOrTimeoutError(err)) throw err;
         await queueMutation("PUT", api.settings.update.path, data);
         const current = await getCached<any>(SETTINGS_URL);
         const updated = { ...current, ...data };
-        await setCached(SETTINGS_URL, updated);
+        // Also non-blocking in the offline path.
+        setCached(SETTINGS_URL, updated).catch(() => {});
         return updated as any;
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SETTINGS_URL] }),
+    // Use setQueryData instead of invalidateQueries so we:
+    //   1. Skip the redundant GET re-fetch (we already have fresh data from PUT)
+    //   2. Cause exactly one synchronous render pass instead of two
+    //      (invalidateQueries triggers stale→fetching→fresh = 2 renders)
+    //   3. Eliminate the 3-4 s UI freeze caused by the extra network round-trip
+    //      + second IDB write inside the queryFn's await setCached()
+    onSuccess: (data) => queryClient.setQueryData([SETTINGS_URL], data),
   });
 }

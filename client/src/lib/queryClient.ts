@@ -241,25 +241,27 @@ export const queryClient = new QueryClient({
 });
 
 // ── Visibility-change recovery ─────────────────────────────────────────────
-// When the user returns to the tab after the device was suspended or the
-// browser killed background processes, any queries that were mid-fetch will
-// be stuck (see fetchWithTimeout above — they'll eventually timeout and
-// retry). We additionally pro-actively refetch any query in an error state
-// and cancel/restart any that are still stuck in fetching state.
+// Fires when the user returns to the tab after switching apps, locking the
+// screen, or receiving a notification tap on mobile.
+//
+// IMPORTANT: We deliberately do NOT call cancelQueries here even for queries
+// that are currently fetching.  The previous version cancelled all in-flight
+// fetches on every tab-return, which is extremely common on Android Chrome.
+// Each cancelled query then retried up to 2× before completing, turning a
+// 1-2 s network request into a 5-8 s "loading loop" from the user's
+// perspective.  The 20-second fetchWithTimeout already handles the only
+// legitimate stuck-Promise case (Android suspends the tab mid-fetch): when
+// JavaScript execution resumes the queued setTimeout fires immediately,
+// cancelling the frozen Promise and letting React Query retry cleanly.
+//
+// We only restart queries that are ALREADY in an error state — those cannot
+// self-heal and benefit from an immediate retry when the user returns.
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
 
     queryClient.getQueryCache().getAll().forEach((query) => {
-      const { status, fetchStatus } = query.state;
-      // Re-try errored queries immediately on return
-      if (status === "error") {
-        queryClient.invalidateQueries({ queryKey: query.queryKey });
-      }
-      // If a query is stuck fetching (e.g. frozen Promise), cancel it so
-      // the timeout fires immediately and React Query reschedules a retry.
-      if (fetchStatus === "fetching") {
-        queryClient.cancelQueries({ queryKey: query.queryKey });
+      if (query.state.status === "error") {
         queryClient.invalidateQueries({ queryKey: query.queryKey });
       }
     });

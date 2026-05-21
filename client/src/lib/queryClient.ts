@@ -218,7 +218,9 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      gcTime: 10 * 60 * 1000,
+      // 30 min — keeps data alive across SPA navigations on low-end devices
+      // that frequently evict the bfcache, causing full JS re-boots.
+      gcTime: 30 * 60 * 1000,
       // 503s are already retried silently inside fetchWithTimeout/retryOn503.
       // Only retry here for genuine network failures or other transient errors,
       // but never re-retry a 503 (it has already exhausted its own retry budget).

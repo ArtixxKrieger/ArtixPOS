@@ -274,7 +274,12 @@ export default function Settings() {
       country: currentCountry?.code ?? null,
     };
     updateSettings.mutate(payload as any, {
-      onSuccess: () => toast({ title: "Settings saved" })
+      onSuccess: () => toast({ title: "Settings saved" }),
+      onError: (err: unknown) => toast({
+        title: "Failed to save settings",
+        description: (err as Error)?.message || "Please check your connection and try again.",
+        variant: "destructive",
+      }),
     });
   };
 

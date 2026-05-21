@@ -60,7 +60,8 @@ export function useSettings() {
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.settings.get.responses[200].parse(await res.json());
-        await setCached(SETTINGS_URL, data);
+        // Fire-and-forget — don't block returning data to React
+        setCached(SETTINGS_URL, data).catch(() => {});
         return data;
       } catch (err) {
         clearTimeout(timeoutId);

@@ -55,12 +55,29 @@ export function prefetchBootstrapData(userId: string): void {
       .catch(() => {});
   }
 
-  // ── Phase 2: Network refresh ───────────────────────────────────────────────
+  // ── Phase 2: Network refresh + IDB warm-up ────────────────────────────────
   // Fire all requests immediately.  TanStack Query deduplicates in-flight
   // requests, so if a useQuery / useSettings / useProducts mounts at the same
   // time it reuses the same pending Promise instead of making a second request.
+  //
+  // After each successful fetch we also write the result to IDB.  This is the
+  // critical piece for "Chrome back button on low-end devices": bfcache is
+  // often evicted under memory pressure, so the next page load reboots the
+  // whole React app.  Phase 1 above seeds from IDB in ~2-5 ms, but only if
+  // IDB was populated from a previous visit.  Without this write, IDB stays
+  // empty until the user explicitly saves something — and every back-navigation
+  // feels slow again.
   for (const url of ALL_PREFETCH_URLS) {
-    queryClient.prefetchQuery({ queryKey: [url], queryFn }).catch(() => {});
+    queryClient
+      .fetchQuery({ queryKey: [url], queryFn })
+      .then((data) => {
+        if (data != null) {
+          import("./offline-db").then(({ setCached }) => {
+            setCached(url, data).catch(() => {});
+          });
+        }
+      })
+      .catch(() => {});
   }
 }
 

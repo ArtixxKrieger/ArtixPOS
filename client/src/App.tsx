@@ -570,6 +570,14 @@ function AppRouter() {
     return () => clearTimeout(t);
   }, [settingsLoading]);
 
+  // Scroll the main content pane to the top on every route change.
+  // Required because all persistent views share the same scroll container.
+  // IMPORTANT: must be declared BEFORE any conditional early returns so the
+  // hook call order is identical on every render (Rules of Hooks).
+  useEffect(() => {
+    document.getElementById("app-scroll")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [location]);
+
   if (!settingsEverLoaded.current && settingsLoading && !settingsTimedOut) {
     return <LoadingScreen />;
   }
@@ -593,12 +601,6 @@ function AppRouter() {
       </Suspense>
     );
   }
-
-  // Scroll the main content pane to the top on every route change.
-  // Required because all persistent views share the same scroll container.
-  useEffect(() => {
-    document.getElementById("app-scroll")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-  }, [location]);
 
   return (
     <AppLayout>

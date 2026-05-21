@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState, startTransition } from "react";
+import { ReactNode, memo, useEffect, useState, startTransition } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { AiFloatButton } from "@/components/ai-float-button";
@@ -180,6 +180,58 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/audit-logs": "Audit Log",
 };
 
+// ── Stable module-level NavItem ──────────────────────────────────────────────
+// MUST be defined outside AppLayout. If defined inside the component body,
+// React sees a new function reference on every render (location change) and
+// fully unmounts + remounts every nav button — causing a visible flash and
+// wasting layout/paint work on every navigation.
+interface NavItemProps {
+  url: string;
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  displayLabel: string;
+  badge: number | null;
+  onNavigate: (url: string) => void;
+}
+
+const NavItem = memo(function NavItem({
+  url,
+  icon: Icon,
+  label,
+  isActive,
+  displayLabel,
+  badge,
+  onNavigate,
+}: NavItemProps) {
+  return (
+    <button
+      onClick={() => startTransition(() => onNavigate(url))}
+      data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      aria-current={isActive ? "page" : undefined}
+      className={[
+        "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
+        isActive
+          ? "nav-item-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent",
+      ].join(" ")}
+    >
+      <Icon
+        className={[
+          "h-[14px] w-[14px] shrink-0 transition-all duration-150",
+          isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100",
+        ].join(" ")}
+      />
+      <span className="flex-1 text-left truncate">{displayLabel}</span>
+      {badge ? (
+        <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      ) : null}
+    </button>
+  );
+});
+
 function getInitialDark(): boolean {
   if (typeof window === "undefined") return false;
   const stored = localStorage.getItem("theme");
@@ -256,38 +308,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return true;
   }
 
-  const NavItem = ({ item }: { item: { label: string; url: string; icon: LucideIcon; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean } }) => {
-    if (!shouldShowNavItem(item)) return null;
-    const Icon = item.icon;
-    const isActive = location === item.url;
-    const i18nKey = URL_TO_I18N_KEY[item.url];
-    const translatedLabel = i18nKey ? t(i18nKey) : item.label;
-    const displayLabel = businessLabels[item.url] ?? translatedLabel;
-    const badge = item.url === "/pending" && pendingCount > 0 ? pendingCount : null;
-
-    return (
-      <button
-        onClick={() => startTransition(() => setLocation(item.url))}
-        data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-        aria-current={isActive ? "page" : undefined}
-        className={[
-          "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
-          isActive
-            ? "nav-item-active"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent",
-        ].join(" ")}
-      >
-        <Icon className={["h-[14px] w-[14px] shrink-0 transition-all duration-150", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
-        <span className="flex-1 text-left truncate">{displayLabel}</span>
-        {badge ? (
-          <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
-            {badge > 9 ? "9+" : badge}
-          </span>
-        ) : null}
-      </button>
-    );
-  };
-
   return (
     <div className="h-screen w-full bg-background flex overflow-hidden">
       <OfflineSyncBanner status={onlineStatus} />
@@ -340,9 +360,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <p className="nav-section-label">{sectionLabel}</p>
                 )}
                 <div className="space-y-0.5">
-                  {visibleItems.map((item) => (
-                    <NavItem key={item.url} item={item} />
-                  ))}
+                  {visibleItems.map((item) => {
+                    const i18nKey = URL_TO_I18N_KEY[item.url];
+                    const translatedLabel = i18nKey ? t(i18nKey) : item.label;
+                    return (
+                      <NavItem
+                        key={item.url}
+                        url={item.url}
+                        icon={item.icon}
+                        label={item.label}
+                        isActive={location === item.url}
+                        displayLabel={businessLabels[item.url] ?? translatedLabel}
+                        badge={item.url === "/pending" && pendingCount > 0 ? pendingCount : null}
+                        onNavigate={setLocation}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             );

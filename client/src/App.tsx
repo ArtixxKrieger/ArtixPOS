@@ -510,20 +510,36 @@ function AppRouter() {
   // Apply the active branch's color as the app-wide primary theme color
   useBranchTheme();
 
-  // Cap how long we block on settings loading.
-  // useSettings uses nativeFetch (no built-in timeout). On Vercel cold-starts or
-  // poor mobile connections the request can hang beyond 10 s, keeping the splash
-  // screen up forever. After 4 s we render the app anyway — needsOnboarding
-  // below evaluates to false when settings is still undefined, so the user lands
-  // on the dashboard and will be redirected to onboarding once settings arrive.
-  const [settingsWaitExpired, setSettingsWaitExpired] = useState(false);
+  // ── First-load splash gate ─────────────────────────────────────────────────
+  // We only want to show the boot splash ONCE — during the very first settings
+  // fetch on a fresh page load. Every subsequent render (navigations, background
+  // refetches, or AppRouter remounts from /kitchen-display) will already have
+  // settings in the React Query cache, so settingsEverLoaded becomes true
+  // immediately and we skip the gate entirely.
+  //
+  // WHY a ref instead of state: changing this value must NOT trigger a re-render.
+  // It's a one-way latch (false → true, never back). State would cause an extra
+  // render cycle that defeats the purpose.
+  const settingsEverLoaded = useRef(settings !== undefined);
+  if (!settingsEverLoaded.current && settings !== undefined) {
+    settingsEverLoaded.current = true;
+  }
+
+  // 4-second bail-out: if settings hasn't arrived in 4 s on first load, render
+  // the app anyway (needsOnboarding will be false so the user lands on the
+  // dashboard; the onboarding redirect fires once settings eventually arrives).
+  // This effect is a guaranteed no-op after the first successful load because
+  // settingsEverLoaded.current will already be true.
+  const [settingsTimedOut, setSettingsTimedOut] = useState(false);
   useEffect(() => {
-    if (!settingsLoading) { setSettingsWaitExpired(false); return; }
-    const t = setTimeout(() => setSettingsWaitExpired(true), 4_000);
+    if (settingsEverLoaded.current || !settingsLoading) return;
+    const t = setTimeout(() => setSettingsTimedOut(true), 4_000);
     return () => clearTimeout(t);
   }, [settingsLoading]);
 
-  if (settingsLoading && !settingsWaitExpired) return <LoadingScreen />;
+  if (!settingsEverLoaded.current && settingsLoading && !settingsTimedOut) {
+    return <LoadingScreen />;
+  }
 
   // If settings failed to load, don't block the user — let them into the app.
   // Only redirect to onboarding when we have a confirmed 0 / falsy value.
@@ -539,7 +555,7 @@ function AppRouter() {
 
   if (location === "/onboarding") {
     return (
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={<PageFallback />}>
         <Onboarding />
       </Suspense>
     );
@@ -684,7 +700,7 @@ function ProtectedRouter() {
 
   if (location === "/kitchen-display") {
     return (
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={<PageFallback />}>
         <KitchenDisplayPage />
       </Suspense>
     );

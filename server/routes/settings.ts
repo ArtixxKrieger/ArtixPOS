@@ -275,11 +275,20 @@ export function registerSettingsRoutes(app: Express): void {
       }
 
       res.json(settings);
-    } catch (err) {
+    } catch (err: any) {
       if (handleZodError(err, res)) return;
-      const msg = (err as Error)?.message || String(err);
-      console.error("[settings] Unhandled error in PUT /api/settings:", err);
-      res.status(500).json({ message: `Failed to save settings: ${msg}` });
+      const pgDetail = {
+        code:       err?.code       ?? null,
+        message:    err?.message    ?? String(err),
+        detail:     err?.detail     ?? null,
+        hint:       err?.hint       ?? null,
+        table:      err?.table      ?? null,
+        column:     err?.column     ?? null,
+        constraint: err?.constraint ?? null,
+        schema:     err?.schema     ?? null,
+      };
+      console.error("[settings] Unhandled error in PUT /api/settings — pgDetail:", pgDetail, "full:", err);
+      res.status(500).json({ message: pgDetail.message, error: pgDetail });
     }
   });
 }

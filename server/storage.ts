@@ -769,7 +769,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting> {
-    try {
+    const doUpsert = async () => {
       // UPSERT: atomically insert or update so there is never a race between
       // "does the row exist?" and "write the row".  This also prevents the
       // duplicate-key 500 that occurred when getSettings() returned undefined
@@ -786,7 +786,19 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
       return result;
-    } catch (error) {
+    };
+
+    try {
+      return await doUpsert();
+    } catch (error: any) {
+      // 25P02 = "in_failed_sql_transaction" — a pool connection was returned
+      // while still inside an aborted transaction (pool contamination).
+      // Wait one tick so node-postgres can retire the bad connection, then retry once.
+      if (error?.code === "25P02") {
+        console.warn("[storage] updateSettings hit 25P02 — retrying after 50 ms");
+        await new Promise(r => setTimeout(r, 50));
+        return await doUpsert();
+      }
       console.error("Error updating settings:", error);
       throw error;
     }

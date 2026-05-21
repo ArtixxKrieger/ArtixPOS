@@ -539,32 +539,35 @@ async function deleteUsersData(uids: string[]): Promise<void> {
  * see remnants of the orphaned tenant.
  */
 async function deleteTenantShell(tenantId: string): Promise<void> {
+  // Step 1 — NULL out users.activeBranchId and users.tenantId for all tenant users
+  // so that branches and the tenant row can be hard-deleted without FK violations.
+  // (The user *rows* themselves are deleted by the caller right after this function.)
+  await db.execute(
+    sql`UPDATE users SET active_branch_id = NULL, tenant_id = NULL WHERE tenant_id = ${tenantId}`
+  );
+
+  // Step 2 — user_branches (refs: branches.id NOT NULL)
   await db.delete(userBranches).where(
     inArray(
       userBranches.branchId,
       db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId))
     )
   );
-  // Soft-delete branches. branches.tenantId is NOT NULL with no ON DELETE CASCADE, so we
-  // cannot hard-delete the tenant while branch rows still reference it. Soft-delete is fine
-  // because all queries already filter on deletedAt IS NULL.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(branches).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(branches.tenantId, tenantId));
+
+  // Step 3 — hard-delete branches (tenantId NOT NULL FK → tenants; cleared above)
+  await db.delete(branches).where(eq(branches.tenantId, tenantId));
+
+  // Step 4 — remaining tenant-scoped tables
   await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
   await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
   await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
   await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { tenantDeleted: true } } as any).where(eq(auditLogs.tenantId, tenantId));
-  // DELETE invite tokens (tenantId is NOT NULL FK → tenants.id; a soft-update keeps the rows
-  // in place and will cause an FK violation when we soft-delete the tenant row below)
   await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, tenantId));
-  // Soft-delete the tenant row (tenants now has a deletedAt column). We cannot hard-delete it
-  // because branches.tenantId is NOT NULL with no cascade — the branch rows would block the DELETE.
-  // Soft-deletion is safe: the user row is already gone, so no new session can ever reference
-  // this tenantId again. A re-registration with the same email creates a fresh user → fresh tenant.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(tenants).set({ deletedAt: new Date().toISOString() } as any).where(eq(tenants.id, tenantId));
+
+  // Step 5 — hard-delete the tenant row itself (no FK references remain)
+  await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
 
 function popupResultPage({ ok, error }: { ok: boolean; error?: string }): string {

@@ -5,7 +5,7 @@ import { storage } from "../storage";
 import { api } from "@shared/routes";
 import { requireAuth, getSubscription, isProSubscription } from "../middleware";
 import { createTenant, getBranches, createBranch, updateBranch } from "../admin-storage";
-import { db } from "../db";
+import { db, dbSystem } from "../db";
 import { eq, sql } from "drizzle-orm";
 import { users, tenants } from "@shared/schema";
 import { setAuthCookie } from "../auth";
@@ -103,12 +103,14 @@ export function registerSettingsRoutes(app: Express): void {
       cache.del(settingsCacheKey(uid));
 
       // Guard: ensure the user row exists before inserting settings (FK constraint).
+      // Uses dbSystem (postgres / BYPASSRLS) so the check never fails due to RLS
+      // and never poisons the tenant-context transaction with an aborted query.
       // IMPORTANT: we only auto-create for OAuth/native providers (Google, Facebook,
       // Capacitor). Email/password users are always created during /api/auth/register
       // so a missing row means the account was deleted — do NOT recreate it or a
       // deleted account can be brought back by replaying a stale JWT.
       try {
-        const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.id, uid)).limit(1);
+        const [existingUser] = await dbSystem.select({ id: users.id }).from(users).where(eq(users.id, uid)).limit(1);
         if (!existingUser) {
           const u = req.user!;
           const isEmailUser = !u.provider || u.provider === "email";
@@ -117,7 +119,7 @@ export function registerSettingsRoutes(app: Express): void {
             return res.status(401).json({ message: "Account not found. Please log in again." });
           }
           console.warn(`[settings] User row missing for ${u.id} (${u.provider}) — auto-creating from JWT`);
-          await db.insert(users).values({
+          await dbSystem.insert(users).values({
             id: u.id,
             email: u.email ?? null,
             name: u.name ?? null,
@@ -269,7 +271,10 @@ export function registerSettingsRoutes(app: Express): void {
 
       res.json(settings);
     } catch (err) {
-      if (!handleZodError(err, res)) throw err;
+      if (handleZodError(err, res)) return;
+      const msg = (err as Error)?.message || String(err);
+      console.error("[settings] Unhandled error in PUT /api/settings:", err);
+      res.status(500).json({ message: `Failed to save settings: ${msg}` });
     }
   });
 }

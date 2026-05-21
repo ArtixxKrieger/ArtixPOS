@@ -556,48 +556,54 @@ export default function Onboarding() {
 
         {/* ── Step: Business Sub-type ── */}
         {step === "business_subtype" && businessType && (
-          <div className="p-6">
-            <button onClick={() => setStep("business_type")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> Back
-            </button>
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-foreground">Be more specific</h2>
-                <StepDots current={2} total={4} />
+          <div className="flex flex-col" style={{ maxHeight: "calc(100vh - 180px)" }}>
+            <div className="px-6 pt-6 pb-0 flex-shrink-0">
+              <button onClick={() => setStep("business_type")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
+                <ChevronLeft className="w-3 h-3" /> Back
+              </button>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-xl font-bold text-foreground">Be more specific</h2>
+                  <StepDots current={2} total={4} />
+                </div>
+                <p className="text-sm text-muted-foreground">What best describes your business?</p>
               </div>
-              <p className="text-sm text-muted-foreground">What best describes your business?</p>
             </div>
-            <div className="flex flex-col gap-2">
-              {SUB_TYPES[businessType].map(sub => {
-                const Icon = sub.icon;
-                const isSelected = businessSubType === sub.id;
-                return (
-                  <button
-                    key={sub.id}
-                    data-testid={`btn-subtype-${sub.id}`}
-                    onClick={() => setBusinessSubType(sub.id)}
-                    className={[
-                      "flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-left",
-                      isSelected
-                        ? "border-primary bg-primary/5 dark:bg-primary/10"
-                        : "border-border bg-muted/30 hover:bg-muted/60",
-                    ].join(" ")}
-                  >
-                    <Icon className={["w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground"].join(" ")} />
-                    <span className={["text-sm font-medium", isSelected ? "text-primary" : "text-foreground"].join(" ")}>{sub.label}</span>
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                  </button>
-                );
-              })}
+            <div className="flex-1 overflow-y-auto px-6 pb-2">
+              <div className="flex flex-col gap-2">
+                {SUB_TYPES[businessType].map(sub => {
+                  const Icon = sub.icon;
+                  const isSelected = businessSubType === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      data-testid={`btn-subtype-${sub.id}`}
+                      onClick={() => setBusinessSubType(sub.id)}
+                      className={[
+                        "flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-left",
+                        isSelected
+                          ? "border-primary bg-primary/5 dark:bg-primary/10"
+                          : "border-border bg-muted/30 hover:bg-muted/60",
+                      ].join(" ")}
+                    >
+                      <Icon className={["w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground"].join(" ")} />
+                      <span className={["text-sm font-medium", isSelected ? "text-primary" : "text-foreground"].join(" ")}>{sub.label}</span>
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <Button
-              data-testid="btn-next-storeinfo"
-              onClick={() => setStep("store_info")}
-              disabled={!businessSubType}
-              className="w-full rounded-xl h-11 mt-4"
-            >
-              Continue <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+            <div className="px-6 py-4 flex-shrink-0 border-t border-border/20">
+              <Button
+                data-testid="btn-next-storeinfo"
+                onClick={() => setStep("store_info")}
+                disabled={!businessSubType}
+                className="w-full rounded-xl h-11"
+              >
+                Continue <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
         )}
 

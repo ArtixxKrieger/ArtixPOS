@@ -34,7 +34,7 @@ import { pool } from "./db";
 export async function setupRLS(): Promise<void> {
   const client = await pool.connect();
   try {
-    // ── 0. Grant BYPASSRLS to the connecting pool user ────────────────────────
+    // ── 0. Grant BYPASSRLS to the connecting pool user + membership in artixpos_app
     // dbSystem (server/storage.ts) runs queries as the pool owner role — it is
     // intentionally NOT routed through artixpos_app so it can bypass RLS for
     // cross-user admin operations (e.g. settings upsert, auth lookups).
@@ -42,6 +42,12 @@ export async function setupRLS(): Promise<void> {
     // so FORCE ROW LEVEL SECURITY would still block it.  Granting BYPASSRLS
     // ensures dbSystem can always read/write freely while artixpos_app (used for
     // tenant-scoped requests) remains fully subject to policies.
+    //
+    // We also GRANT artixpos_app TO current_user so that tenant-context middleware
+    // can issue SET LOCAL ROLE artixpos_app.  Without this grant, SET LOCAL ROLE
+    // fails with "permission denied to set role", which — even when caught in JS —
+    // aborts the open PostgreSQL transaction and causes every subsequent query on
+    // the same connection to fail with 25P02 ("current transaction is aborted").
     await client.query(`
       DO $$
       BEGIN
@@ -51,6 +57,18 @@ export async function setupRLS(): Promise<void> {
       EXCEPTION WHEN others THEN
         RAISE WARNING '[rls] Could not grant BYPASSRLS to %: % — dbSystem will rely on non-forced RLS instead',
           current_user, SQLERRM;
+      END
+      $$;
+
+      DO $$
+      BEGIN
+        -- Allow the pool user to switch into artixpos_app via SET LOCAL ROLE.
+        -- Required so tenant-context middleware can enforce RLS on tenant requests.
+        IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'artixpos_app') THEN
+          EXECUTE format('GRANT artixpos_app TO %I', current_user);
+        END IF;
+      EXCEPTION WHEN others THEN
+        RAISE WARNING '[rls] Could not grant artixpos_app to %: %', current_user, SQLERRM;
       END
       $$;
     `);

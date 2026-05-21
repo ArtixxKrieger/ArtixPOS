@@ -82,19 +82,23 @@ export function tenantContextMiddleware(pool: Pool) {
       // and all RLS policies are actually enforced.  Postgres superusers
       // bypass RLS unconditionally; artixpos_app has NOBYPASSRLS so it does not.
       // SET LOCAL means the role reverts automatically at COMMIT / ROLLBACK.
-      // Guard: artixpos_app may not exist on fresh databases where setupRLS
-      // hasn't run yet (e.g. Vercel cold-start before first db:push). In that
-      // case we skip the role switch and proceed without RLS enforcement so
-      // the request still succeeds — this is safe because the app-level WHERE
-      // clause on userId is always present.
+      //
+      // CRITICAL: We wrap the SET LOCAL ROLE in a SAVEPOINT because in PostgreSQL
+      // ANY error inside an open transaction — even a caught one — marks the entire
+      // transaction as ABORTED.  Without the savepoint, a "permission denied to set
+      // role" failure catches cleanly in JS but leaves the connection in the aborted
+      // state, causing every subsequent query to fail with 25P02 ("current transaction
+      // is aborted").  Rolling back to the savepoint restores a live transaction.
+      await client.query("SAVEPOINT before_role_switch");
       try {
         await client.query(`SET LOCAL ROLE artixpos_app`);
+        await client.query("RELEASE SAVEPOINT before_role_switch");
       } catch (roleErr: any) {
-        if (roleErr?.message?.includes("artixpos_app")) {
-          console.warn("[tenant-ctx] artixpos_app role not found — proceeding without RLS role switch");
-        } else {
-          throw roleErr;
-        }
+        // Roll back to savepoint so the transaction is still alive — then continue
+        // without the role switch.  Without this rollback the next query would fail
+        // with 25P02 regardless of whether the role error was "expected" or not.
+        try { await client.query("ROLLBACK TO SAVEPOINT before_role_switch"); } catch {}
+        console.warn("[tenant-ctx] SET LOCAL ROLE artixpos_app failed — proceeding without RLS role switch:", (roleErr as any)?.message);
       }
       await client.query(
         `SELECT set_config('app.current_tenant', $1, TRUE)`,

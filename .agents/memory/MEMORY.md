@@ -1,0 +1,1 @@
+- [Tenant context SET LOCAL ROLE bug](tenant-context-role-switch.md) — SET LOCAL ROLE inside an open transaction aborts it on permission failure; always use SAVEPOINT + GRANT artixpos_app to pool user.

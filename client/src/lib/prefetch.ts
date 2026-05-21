@@ -9,14 +9,24 @@ import { queryClient, getQueryFn } from "./queryClient";
  * are no-ops because TanStack Query won't re-fetch data that's already
  * in cache with staleTime: Infinity.
  */
-// Only prefetch small/fast endpoints at login. Heavy unbounded queries like
-// /api/products and /api/customers are intentionally excluded — they load on
-// demand and can fetch thousands of rows, slowing down the post-login experience.
+
+// Wave 1 — tiny/fast: fetched immediately on login.
+// These power the sidebar, notification bell, and dashboard stats.
 const BOOTSTRAP_URLS = [
   "/api/settings",
   "/api/subscription",
   "/api/dashboard/stats",
   "/api/notifications",
+];
+
+// Wave 2 — medium: fetched ~4 s after login in the background.
+// Products power the POS page (the most-used feature). Fetching them
+// early means the first POS visit renders instantly instead of showing
+// a skeleton while 100-1000 products load on demand.
+// Pending orders are small and power the badge count + Pending page.
+const SECONDARY_URLS = [
+  "/api/pending-orders",
+  "/api/products",
 ];
 
 const prefetchedUsers = new Set<string>();
@@ -27,11 +37,24 @@ export function prefetchBootstrapData(userId: string): void {
 
   const queryFn = getQueryFn({ on401: "returnNull" });
 
+  // Wave 1: fire immediately — these are required for the initial render
   for (const url of BOOTSTRAP_URLS) {
-    queryClient.prefetchQuery({
-      queryKey: [url],
-      queryFn,
-    }).catch(() => {});
+    queryClient.prefetchQuery({ queryKey: [url], queryFn }).catch(() => {});
+  }
+
+  // Wave 2: stagger after Wave 1 completes so we don't compete for bandwidth.
+  // Using requestIdleCallback when available so this doesn't block any user
+  // interaction that happens right after login.
+  const scheduleWave2 = () => {
+    for (const url of SECONDARY_URLS) {
+      queryClient.prefetchQuery({ queryKey: [url], queryFn }).catch(() => {});
+    }
+  };
+
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    setTimeout(() => (window as any).requestIdleCallback(scheduleWave2, { timeout: 8_000 }), 3_000);
+  } else {
+    setTimeout(scheduleWave2, 4_000);
   }
 }
 

@@ -447,7 +447,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ── Main area ─────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px] overflow-y-auto" style={{ overscrollBehavior: "none" }}>
+      <div id="app-scroll" className="flex-1 flex flex-col min-w-0 md:ml-[220px] overflow-y-auto" style={{ overscrollBehavior: "none" }}>
 
         {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header

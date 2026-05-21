@@ -7,7 +7,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useEffect, useState, useRef, lazy, Suspense, ComponentType } from "react";
+import { useEffect, useState, useRef, lazy, Suspense, ComponentType, ReactNode } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
@@ -367,21 +367,54 @@ function LoadingScreen({ message }: { message?: string }) {
   );
 }
 
+// ── Persistent route paths ─────────────────────────────────────────────────
+// These routes are ALWAYS kept mounted after first visit and toggled via CSS.
+// Navigation between them is a pure style change — zero JS work, zero skeleton.
+const PINNED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics"]);
+
+/**
+ * Mounts the children the first time the path is active, then keeps them
+ * mounted forever. When inactive, the wrapper is hidden with display:none so
+ * it consumes no layout budget and is invisible, but React does not unmount
+ * it — all hooks, effects, and React Query subscriptions remain alive.
+ *
+ * This is the "tab caching" pattern: switching between pinned views is a
+ * single CSS property change, not a React render cycle.
+ */
+function PersistentRoute({
+  path,
+  currentPath,
+  children,
+}: {
+  path: string;
+  currentPath: string;
+  children: ReactNode;
+}) {
+  const activated = useRef(false);
+  if (currentPath === path) activated.current = true;
+  if (!activated.current) return null;
+  const hidden = currentPath !== path;
+  return (
+    <div
+      aria-hidden={hidden || undefined}
+      style={hidden ? { display: "none" } : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ── Stable route components ────────────────────────────────────────────────
-// These are defined at module level so their references NEVER change between
-// renders. Inline `() => <Component />` arrow functions inside AppRouter
-// create a brand-new reference on every render, which makes Wouter treat the
-// route as a new component, unmount the current page, re-trigger Suspense,
-// and show the splash screen. Stable references prevent that entirely.
-const DashboardRoute        = () => <Dashboard />;
-const POSRoute              = () => <POS />;
-const PendingOrdersRoute    = () => <PendingOrders />;
-const SettingsRoute         = () => <Settings />;
+// Defined at module level so their references NEVER change between renders.
+// Inline arrow functions inside AppRouter would create new references every
+// render, causing Wouter to unmount + remount the page each time.
+//
+// Note: Dashboard, POS, Pending, Settings, Analytics are handled by
+// PersistentRoute above — no route constant needed for those.
 const HardwareSettingsRoute = () => <HardwareSettings />;
 const BillingRoute          = () => <BillingPage />;
 
 const ProductsRoute         = () => <CashierGuard component={Products} />;
-const AnalyticsRoute        = () => <CashierGuard component={Analytics} />;
 const TransactionsRoute     = () => <CashierGuard component={Transactions} />;
 const StaffRoute            = () => <CashierGuard component={StaffPage} />;
 const ExpiryRoute           = () => <CashierGuard component={ExpiryTrackerPage} />;
@@ -561,53 +594,78 @@ function AppRouter() {
     );
   }
 
+  // Scroll the main content pane to the top on every route change.
+  // Required because all persistent views share the same scroll container.
+  useEffect(() => {
+    document.getElementById("app-scroll")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [location]);
+
   return (
     <AppLayout>
-      {/* PageFallback (not LoadingScreen) so lazy-chunk loads during navigation
-          show a subtle inline spinner instead of the full app boot splash. */}
-      <Suspense fallback={<PageFallback />}>
-        <Switch>
-          <Route path="/" component={DashboardRoute} />
-          <Route path="/pos" component={POSRoute} />
-          <Route path="/pending" component={PendingOrdersRoute} />
-          <Route path="/products" component={ProductsRoute} />
-          <Route path="/analytics" component={AnalyticsRoute} />
-          <Route path="/transactions" component={TransactionsRoute} />
-          <Route path="/settings" component={SettingsRoute} />
-          <Route path="/admin" component={AdminRoute} />
-          <Route path="/admin/branches" component={AdminBranchesRoute} />
-          <Route path="/admin/users" component={AdminUsersRoute} />
-          <Route path="/admin/analytics" component={AdminAnalyticsRoute} />
-          <Route path="/admin/audit-logs" component={AdminAuditLogsRoute} />
-          <Route path="/admin/permissions" component={AdminPermissionsRoute} />
-          <Route path="/customers" component={CustomersRoute} />
-          <Route path="/expenses" component={ExpensesRoute} />
-          <Route path="/shifts" component={ShiftsRoute} />
-          <Route path="/discount-codes" component={DiscountCodesRoute} />
-          <Route path="/refunds" component={RefundsRoute} />
-          <Route path="/ai" component={AiRoute} />
-          <Route path="/tables" component={TablesRoute} />
-          <Route path="/kitchen" component={KitchenRoute} />
-          <Route path="/suppliers" component={SuppliersRoute} />
-          <Route path="/purchases" component={PurchasesRoute} />
-          <Route path="/timeclock" component={TimeClockRoute} />
-          <Route path="/appointments" component={AppointmentsRoute} />
-          <Route path="/staff" component={StaffRoute} />
-          <Route path="/rooms" component={RoomsRoute} />
-          <Route path="/memberships" component={MembershipsRoute} />
-          <Route path="/print-settings" component={PrintSettingsRoute} />
-          <Route path="/hardware-settings" component={HardwareSettingsRoute} />
-          <Route path="/loyalty" component={LoyaltyRoute} />
-          <Route path="/wifi-vouchers" component={WifiVouchersRoute} />
-          <Route path="/payroll" component={PayrollRoute} />
-          <Route path="/bir" component={BIRRoute} />
-          <Route path="/bir-audit-log" component={BIRAuditLogRoute} />
-          <Route path="/expiry" component={ExpiryRoute} />
-          <Route path="/inventory" component={InventoryRoute} />
-          <Route path="/billing" component={BillingRoute} />
-          <Route component={NotFound} />
-        </Switch>
-      </Suspense>
+      {/* ── Persistent (tab-cached) views ─────────────────────────────────────
+           Mounted ONCE on first visit, then kept alive via CSS display:none.
+           Switching between these 5 routes is a pure style toggle — no React
+           unmount/remount, no skeleton, no data re-fetch. Sub-millisecond.   */}
+      <PersistentRoute path="/" currentPath={location}>
+        <Suspense fallback={<PageFallback />}><Dashboard /></Suspense>
+      </PersistentRoute>
+      <PersistentRoute path="/pos" currentPath={location}>
+        <Suspense fallback={<PageFallback />}><POS /></Suspense>
+      </PersistentRoute>
+      <PersistentRoute path="/pending" currentPath={location}>
+        <Suspense fallback={<PageFallback />}><PendingOrders /></Suspense>
+      </PersistentRoute>
+      <PersistentRoute path="/settings" currentPath={location}>
+        <Suspense fallback={<PageFallback />}><Settings /></Suspense>
+      </PersistentRoute>
+      <PersistentRoute path="/analytics" currentPath={location}>
+        <Suspense fallback={<PageFallback />}><CashierGuard component={Analytics} /></Suspense>
+      </PersistentRoute>
+
+      {/* ── On-demand routes ───────────────────────────────────────────────────
+           Only rendered when not on a pinned path. First visit shows a brief
+           PageFallback while the JS chunk loads; subsequent visits are instant
+           because the chunk is cached by the browser / service worker.        */}
+      {!PINNED_PATHS.has(location) && (
+        <Suspense fallback={<PageFallback />}>
+          <Switch>
+            <Route path="/products" component={ProductsRoute} />
+            <Route path="/transactions" component={TransactionsRoute} />
+            <Route path="/admin" component={AdminRoute} />
+            <Route path="/admin/branches" component={AdminBranchesRoute} />
+            <Route path="/admin/users" component={AdminUsersRoute} />
+            <Route path="/admin/analytics" component={AdminAnalyticsRoute} />
+            <Route path="/admin/audit-logs" component={AdminAuditLogsRoute} />
+            <Route path="/admin/permissions" component={AdminPermissionsRoute} />
+            <Route path="/customers" component={CustomersRoute} />
+            <Route path="/expenses" component={ExpensesRoute} />
+            <Route path="/shifts" component={ShiftsRoute} />
+            <Route path="/discount-codes" component={DiscountCodesRoute} />
+            <Route path="/refunds" component={RefundsRoute} />
+            <Route path="/ai" component={AiRoute} />
+            <Route path="/tables" component={TablesRoute} />
+            <Route path="/kitchen" component={KitchenRoute} />
+            <Route path="/suppliers" component={SuppliersRoute} />
+            <Route path="/purchases" component={PurchasesRoute} />
+            <Route path="/timeclock" component={TimeClockRoute} />
+            <Route path="/appointments" component={AppointmentsRoute} />
+            <Route path="/staff" component={StaffRoute} />
+            <Route path="/rooms" component={RoomsRoute} />
+            <Route path="/memberships" component={MembershipsRoute} />
+            <Route path="/print-settings" component={PrintSettingsRoute} />
+            <Route path="/hardware-settings" component={HardwareSettingsRoute} />
+            <Route path="/loyalty" component={LoyaltyRoute} />
+            <Route path="/wifi-vouchers" component={WifiVouchersRoute} />
+            <Route path="/payroll" component={PayrollRoute} />
+            <Route path="/bir" component={BIRRoute} />
+            <Route path="/bir-audit-log" component={BIRAuditLogRoute} />
+            <Route path="/expiry" component={ExpiryRoute} />
+            <Route path="/inventory" component={InventoryRoute} />
+            <Route path="/billing" component={BillingRoute} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+      )}
     </AppLayout>
   );
 }

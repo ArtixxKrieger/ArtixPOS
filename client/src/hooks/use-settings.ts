@@ -8,8 +8,13 @@ import { nativeFetch } from "@/lib/queryClient";
 
 const SETTINGS_URL = api.settings.get.path;
 
-function isNetworkError(err: unknown): boolean {
-  return err instanceof TypeError;
+// True for network errors (no connectivity) AND for timeouts (AbortError).
+// Both should fall through to the IDB cache so the app works offline or on
+// very slow connections — the key invariant is "the server was unreachable."
+function isNetworkOrTimeoutError(err: unknown): boolean {
+  if (err instanceof TypeError) return true; // fetch network error
+  if (err instanceof DOMException && err.name === "AbortError") return true; // timeout
+  return false;
 }
 
 export function useSettings() {
@@ -18,16 +23,43 @@ export function useSettings() {
 
   const query = useQuery({
     queryKey: [SETTINGS_URL],
-    queryFn: async () => {
+    // Settings query has a 10-second hard timeout.
+    // nativeFetch() is a plain fetch() with no built-in timeout, so on a slow
+    // Vercel cold-start or a weak mobile connection the Promise can hang
+    // indefinitely, keeping settingsLoading=true forever and the splash screen
+    // stuck. The AbortController below ensures we always exit within 10 s.
+    queryFn: async ({ signal }) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(new DOMException("Settings fetch timeout", "TimeoutError")),
+        10_000,
+      );
+      // Honour the outer query abort signal (fired on component unmount / cancelQueries)
+      if (signal) {
+        if (signal.aborted) {
+          clearTimeout(timeoutId);
+          controller.abort(signal.reason);
+        } else {
+          signal.addEventListener("abort", () => {
+            clearTimeout(timeoutId);
+            controller.abort(signal.reason);
+          }, { once: true });
+        }
+      }
+
       try {
-        const res = await nativeFetch(SETTINGS_URL);
+        const res = await nativeFetch(SETTINGS_URL, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.settings.get.responses[200].parse(await res.json());
         await setCached(SETTINGS_URL, data);
         return data;
       } catch (err) {
-        if (!isNetworkError(err)) throw err;
+        clearTimeout(timeoutId);
+        if (!isNetworkOrTimeoutError(err)) throw err;
+        // Network error or timeout → serve from IDB cache so the app still
+        // works offline and doesn't stay stuck on the splash screen.
         const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
         return cached ?? null;
       }

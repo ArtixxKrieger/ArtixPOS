@@ -230,6 +230,10 @@ export default function Login() {
   // On web   → standard full-page redirect OAuth flow.
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
+    // Mark that we are entering a Google OAuth redirect so the app can detect
+    // a bfcache restore or stale-state scenario on return (sessionStorage
+    // survives same-tab redirect chains but is cleared on tab close / new tab).
+    sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }
 

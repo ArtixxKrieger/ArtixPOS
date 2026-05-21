@@ -245,15 +245,21 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
 }
 
 function LoadingScreen({ message }: { message?: string }) {
-  // If we've been spinning for 4 s and we're offline, the chunk is not cached.
-  // Show an actionable offline screen instead of an infinite spinner.
+  // After 4 s offline → show the "no cached chunk" error screen.
+  // After 12 s online  → show a "taking too long" banner with a Retry button.
+  // Without the online timer, a poor mobile connection after an OAuth redirect
+  // leaves the user staring at a spinner forever.
   const [offlineStall, setOfflineStall] = useState(false);
+  const [slowStall, setSlowStall] = useState(false);
 
   useEffect(() => {
-    const id = setTimeout(() => {
+    const offlineId = setTimeout(() => {
       if (!navigator.onLine) setOfflineStall(true);
-    }, 4000);
-    return () => clearTimeout(id);
+    }, 4_000);
+    const slowId = setTimeout(() => {
+      if (navigator.onLine) setSlowStall(true);
+    }, 12_000);
+    return () => { clearTimeout(offlineId); clearTimeout(slowId); };
   }, []);
 
   if (offlineStall) {
@@ -285,6 +291,32 @@ function LoadingScreen({ message }: { message?: string }) {
               Retry
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (slowStall) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810] px-6">
+        <div className="max-w-xs w-full text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+            <svg className="w-7 h-7 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Taking longer than expected</h2>
+          <p className="text-sm text-slate-500 dark:text-white/60">
+            The server is taking a while to respond. This can happen on slow connections or after a
+            period of inactivity.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -413,7 +445,20 @@ function AppRouter() {
   // Apply the active branch's color as the app-wide primary theme color
   useBranchTheme();
 
-  if (settingsLoading) return <LoadingScreen />;
+  // Cap how long we block on settings loading.
+  // useSettings uses nativeFetch (no built-in timeout). On Vercel cold-starts or
+  // poor mobile connections the request can hang beyond 10 s, keeping the splash
+  // screen up forever. After 4 s we render the app anyway — needsOnboarding
+  // below evaluates to false when settings is still undefined, so the user lands
+  // on the dashboard and will be redirected to onboarding once settings arrive.
+  const [settingsWaitExpired, setSettingsWaitExpired] = useState(false);
+  useEffect(() => {
+    if (!settingsLoading) { setSettingsWaitExpired(false); return; }
+    const t = setTimeout(() => setSettingsWaitExpired(true), 4_000);
+    return () => clearTimeout(t);
+  }, [settingsLoading]);
+
+  if (settingsLoading && !settingsWaitExpired) return <LoadingScreen />;
 
   // If settings failed to load, don't block the user — let them into the app.
   // Only redirect to onboarding when we have a confirmed 0 / falsy value.

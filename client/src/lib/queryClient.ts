@@ -265,3 +265,24 @@ if (typeof document !== "undefined") {
     });
   });
 }
+
+// ── Back/Forward Cache (bfcache) recovery ───────────────────────────────────
+// Android Chrome aggressively caches pages in the bfcache. When the user
+// navigates away (e.g. to a Google OAuth page) and then the OAuth flow
+// redirects back to the app domain, Chrome may RESTORE the frozen page from
+// bfcache instead of performing a fresh navigation. When that happens:
+//   • React Query state is thawed in the pre-auth state (isAuthenticated=false)
+//   • refetchOnWindowFocus is false, so no automatic re-check happens
+//   • The auth cookie WAS set by the OAuth callback, but nobody asks for it
+// The pageshow event fires on every page display — both fresh loads and
+// bfcache restores. When event.persisted=true it is a bfcache restore.
+// We invalidate auth-me so the auth state is re-validated immediately.
+if (typeof window !== "undefined") {
+  window.addEventListener("pageshow", (event) => {
+    if ((event as PageTransitionEvent).persisted) {
+      // Force a fresh auth check — the cookie may have changed since the page
+      // was frozen (e.g. OAuth just completed in another browser context).
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+    }
+  });
+}

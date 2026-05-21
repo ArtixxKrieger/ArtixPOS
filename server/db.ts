@@ -53,6 +53,13 @@ pool.connect()
 
 const _baseDb = drizzle(pool, { schema });
 
+// ── System / bypass DB ────────────────────────────────────────────────────────
+// Runs as the pool owner (postgres / superuser, BYPASSRLS) and NEVER routes
+// through the tenant-scoped proxy.  Use ONLY for operations where the
+// application-level WHERE clause is the security boundary (e.g. user_settings
+// keyed by userId) and tenant-context RLS would cause false-negative reads.
+export const dbSystem: typeof _baseDb = _baseDb;
+
 // ── RLS-aware DB proxy ────────────────────────────────────────────────────────
 // When a request is running inside tenantContextMiddleware, _tenantStore holds
 // a Drizzle instance backed by a dedicated connection that has:

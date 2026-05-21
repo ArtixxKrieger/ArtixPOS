@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, dbSystem } from "./db";
 import { dbRead } from "./db-read";
 import { createHash } from "crypto";
 import {
@@ -757,7 +757,10 @@ export class DatabaseStorage implements IStorage {
 
   async getSettings(userId: string): Promise<UserSetting | undefined> {
     try {
-      const [setting] = await dbRead.select().from(userSettings).where(eq(userSettings.userId, userId));
+      // Use dbSystem (postgres / BYPASSRLS) so FORCE ROW LEVEL SECURITY on
+      // user_settings never blocks reads.  The WHERE clause is the security
+      // boundary — a user can only ever read their own row.
+      const [setting] = await dbSystem.select().from(userSettings).where(eq(userSettings.userId, userId));
       return setting;
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -767,21 +770,22 @@ export class DatabaseStorage implements IStorage {
 
   async updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting> {
     try {
-      const existing = await this.getSettings(userId);
-      if (existing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [updated] = await db.update(userSettings)
-          .set(settings as any)
-          .where(eq(userSettings.userId, userId))
-          .returning();
-        return updated;
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [created] = await db.insert(userSettings)
-          .values({ ...settings, userId } as any)
-          .returning();
-        return created;
-      }
+      // UPSERT: atomically insert or update so there is never a race between
+      // "does the row exist?" and "write the row".  This also prevents the
+      // duplicate-key 500 that occurred when getSettings() returned undefined
+      // (due to tenant-context RLS hiding the existing row) and the code then
+      // attempted a plain INSERT.
+      // dbSystem bypasses FORCE ROW LEVEL SECURITY — userId is the boundary.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [result] = await dbSystem.insert(userSettings)
+        .values({ userId, ...settings } as any)
+        .onConflictDoUpdate({
+          target: userSettings.userId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          set: settings as any,
+        })
+        .returning();
+      return result;
     } catch (error) {
       console.error("Error updating settings:", error);
       throw error;

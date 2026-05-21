@@ -244,6 +244,21 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
   return <Component />;
 }
 
+// Lightweight fallback shown during lazy-chunk loads INSIDE the app shell.
+// Intentionally minimal — just a centered spinner — so it doesn't look like
+// the full app boot splash and doesn't disorient the user mid-session.
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center w-full h-64">
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-violet-500 dark:bg-violet-400 animate-bounce [animation-delay:0ms] [animation-duration:900ms]" />
+        <span className="w-2 h-2 rounded-full bg-violet-400/60 dark:bg-violet-400/50 animate-bounce [animation-delay:180ms] [animation-duration:900ms]" />
+        <span className="w-2 h-2 rounded-full bg-violet-400/25 dark:bg-violet-400/25 animate-bounce [animation-delay:360ms] [animation-duration:900ms]" />
+      </div>
+    </div>
+  );
+}
+
 function LoadingScreen({ message }: { message?: string }) {
   // After 4 s offline → show the "no cached chunk" error screen.
   // After 12 s online  → show a "taking too long" banner with a Retry button.
@@ -351,6 +366,56 @@ function LoadingScreen({ message }: { message?: string }) {
     </div>
   );
 }
+
+// ── Stable route components ────────────────────────────────────────────────
+// These are defined at module level so their references NEVER change between
+// renders. Inline `() => <Component />` arrow functions inside AppRouter
+// create a brand-new reference on every render, which makes Wouter treat the
+// route as a new component, unmount the current page, re-trigger Suspense,
+// and show the splash screen. Stable references prevent that entirely.
+const DashboardRoute        = () => <Dashboard />;
+const POSRoute              = () => <POS />;
+const PendingOrdersRoute    = () => <PendingOrders />;
+const SettingsRoute         = () => <Settings />;
+const HardwareSettingsRoute = () => <HardwareSettings />;
+const BillingRoute          = () => <BillingPage />;
+
+const ProductsRoute         = () => <CashierGuard component={Products} />;
+const AnalyticsRoute        = () => <CashierGuard component={Analytics} />;
+const TransactionsRoute     = () => <CashierGuard component={Transactions} />;
+const StaffRoute            = () => <CashierGuard component={StaffPage} />;
+const ExpiryRoute           = () => <CashierGuard component={ExpiryTrackerPage} />;
+const InventoryRoute        = () => <CashierGuard component={InventoryHubPage} />;
+
+const AdminRoute            = () => <AdminGuard component={AdminIndex} />;
+const AdminBranchesRoute    = () => <AdminGuard component={AdminBranches} />;
+const AdminUsersRoute       = () => <AdminGuard component={AdminUsers} />;
+const AdminAnalyticsRoute   = () => <AdminGuard component={AdminAnalytics} />;
+const AdminAuditLogsRoute   = () => <AdminGuard component={AdminAuditLogs} />;
+const AdminPermissionsRoute = () => <AdminGuard component={AdminPermissions} />;
+
+const RefundsRoute          = () => <ManagerOrAboveGuard component={Refunds} />;
+const AiRoute               = () => <OwnerGuard component={AiPage} />;
+const PrintSettingsRoute    = () => <OwnerGuard component={PrintSettings} />;
+const BIRRoute              = () => <ProAndOwnerGuard component={BIRPage} />;
+const BIRAuditLogRoute      = () => <ProAndOwnerGuard component={BIRAuditLogPage} />;
+
+const CustomersRoute        = () => <ProAndCashierGuard url="/customers" component={Customers} />;
+const ExpensesRoute         = () => <ProAndCashierGuard url="/expenses" component={Expenses} />;
+const DiscountCodesRoute    = () => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />;
+const SuppliersRoute        = () => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />;
+const PurchasesRoute        = () => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />;
+
+const ShiftsRoute           = () => <ProGuard url="/shifts" component={Shifts} />;
+const TablesRoute           = () => <ProGuard url="/tables" component={TablesPage} />;
+const KitchenRoute          = () => <ProGuard url="/kitchen" component={KitchenPage} />;
+const TimeClockRoute        = () => <ProGuard url="/timeclock" component={TimeClockPage} />;
+const AppointmentsRoute     = () => <ProGuard url="/appointments" component={AppointmentsPage} />;
+const RoomsRoute            = () => <ProGuard url="/rooms" component={RoomsPage} />;
+const MembershipsRoute      = () => <ProGuard url="/memberships" component={MembershipsPage} />;
+const LoyaltyRoute          = () => <ProGuard url="/loyalty" component={LoyaltyPage} />;
+const WifiVouchersRoute     = () => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />;
+const PayrollRoute          = () => <ProGuard url="/payroll" component={PayrollPage} />;
 
 // Eagerly warm-up every lazy route in the background so the service worker
 // can cache their JS chunks. After one successful online session, all pages
@@ -482,46 +547,48 @@ function AppRouter() {
 
   return (
     <AppLayout>
-      <Suspense fallback={<LoadingScreen />}>
+      {/* PageFallback (not LoadingScreen) so lazy-chunk loads during navigation
+          show a subtle inline spinner instead of the full app boot splash. */}
+      <Suspense fallback={<PageFallback />}>
         <Switch>
-          <Route path="/" component={() => <Dashboard />} />
-          <Route path="/pos" component={() => <POS />} />
-          <Route path="/pending" component={() => <PendingOrders />} />
-          <Route path="/products" component={() => <CashierGuard component={Products} />} />
-          <Route path="/analytics" component={() => <CashierGuard component={Analytics} />} />
-          <Route path="/transactions" component={() => <CashierGuard component={Transactions} />} />
-          <Route path="/settings" component={() => <Settings />} />
-          <Route path="/admin" component={() => <AdminGuard component={AdminIndex} />} />
-          <Route path="/admin/branches" component={() => <AdminGuard component={AdminBranches} />} />
-          <Route path="/admin/users" component={() => <AdminGuard component={AdminUsers} />} />
-          <Route path="/admin/analytics" component={() => <AdminGuard component={AdminAnalytics} />} />
-          <Route path="/admin/audit-logs" component={() => <AdminGuard component={AdminAuditLogs} />} />
-          <Route path="/admin/permissions" component={() => <AdminGuard component={AdminPermissions} />} />
-          <Route path="/customers" component={() => <ProAndCashierGuard url="/customers" component={Customers} />} />
-          <Route path="/expenses" component={() => <ProAndCashierGuard url="/expenses" component={Expenses} />} />
-          <Route path="/shifts" component={() => <ProGuard url="/shifts" component={Shifts} />} />
-          <Route path="/discount-codes" component={() => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />} />
-          <Route path="/refunds" component={() => <ManagerOrAboveGuard component={Refunds} />} />
-          <Route path="/ai" component={() => <OwnerGuard component={AiPage} />} />
-          <Route path="/tables" component={() => <ProGuard url="/tables" component={TablesPage} />} />
-          <Route path="/kitchen" component={() => <ProGuard url="/kitchen" component={KitchenPage} />} />
-          <Route path="/suppliers" component={() => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />} />
-          <Route path="/purchases" component={() => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />} />
-          <Route path="/timeclock" component={() => <ProGuard url="/timeclock" component={TimeClockPage} />} />
-          <Route path="/appointments" component={() => <ProGuard url="/appointments" component={AppointmentsPage} />} />
-          <Route path="/staff" component={() => <CashierGuard component={StaffPage} />} />
-          <Route path="/rooms" component={() => <ProGuard url="/rooms" component={RoomsPage} />} />
-          <Route path="/memberships" component={() => <ProGuard url="/memberships" component={MembershipsPage} />} />
-          <Route path="/print-settings" component={() => <OwnerGuard component={PrintSettings} />} />
-          <Route path="/hardware-settings" component={() => <HardwareSettings />} />
-          <Route path="/loyalty" component={() => <ProGuard url="/loyalty" component={LoyaltyPage} />} />
-          <Route path="/wifi-vouchers" component={() => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />} />
-          <Route path="/payroll" component={() => <ProGuard url="/payroll" component={PayrollPage} />} />
-          <Route path="/bir" component={() => <ProAndOwnerGuard component={BIRPage} />} />
-          <Route path="/bir-audit-log" component={() => <ProAndOwnerGuard component={BIRAuditLogPage} />} />
-          <Route path="/expiry" component={() => <CashierGuard component={ExpiryTrackerPage} />} />
-          <Route path="/inventory" component={() => <CashierGuard component={InventoryHubPage} />} />
-          <Route path="/billing" component={() => <BillingPage />} />
+          <Route path="/" component={DashboardRoute} />
+          <Route path="/pos" component={POSRoute} />
+          <Route path="/pending" component={PendingOrdersRoute} />
+          <Route path="/products" component={ProductsRoute} />
+          <Route path="/analytics" component={AnalyticsRoute} />
+          <Route path="/transactions" component={TransactionsRoute} />
+          <Route path="/settings" component={SettingsRoute} />
+          <Route path="/admin" component={AdminRoute} />
+          <Route path="/admin/branches" component={AdminBranchesRoute} />
+          <Route path="/admin/users" component={AdminUsersRoute} />
+          <Route path="/admin/analytics" component={AdminAnalyticsRoute} />
+          <Route path="/admin/audit-logs" component={AdminAuditLogsRoute} />
+          <Route path="/admin/permissions" component={AdminPermissionsRoute} />
+          <Route path="/customers" component={CustomersRoute} />
+          <Route path="/expenses" component={ExpensesRoute} />
+          <Route path="/shifts" component={ShiftsRoute} />
+          <Route path="/discount-codes" component={DiscountCodesRoute} />
+          <Route path="/refunds" component={RefundsRoute} />
+          <Route path="/ai" component={AiRoute} />
+          <Route path="/tables" component={TablesRoute} />
+          <Route path="/kitchen" component={KitchenRoute} />
+          <Route path="/suppliers" component={SuppliersRoute} />
+          <Route path="/purchases" component={PurchasesRoute} />
+          <Route path="/timeclock" component={TimeClockRoute} />
+          <Route path="/appointments" component={AppointmentsRoute} />
+          <Route path="/staff" component={StaffRoute} />
+          <Route path="/rooms" component={RoomsRoute} />
+          <Route path="/memberships" component={MembershipsRoute} />
+          <Route path="/print-settings" component={PrintSettingsRoute} />
+          <Route path="/hardware-settings" component={HardwareSettingsRoute} />
+          <Route path="/loyalty" component={LoyaltyRoute} />
+          <Route path="/wifi-vouchers" component={WifiVouchersRoute} />
+          <Route path="/payroll" component={PayrollRoute} />
+          <Route path="/bir" component={BIRRoute} />
+          <Route path="/bir-audit-log" component={BIRAuditLogRoute} />
+          <Route path="/expiry" component={ExpiryRoute} />
+          <Route path="/inventory" component={InventoryRoute} />
+          <Route path="/billing" component={BillingRoute} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

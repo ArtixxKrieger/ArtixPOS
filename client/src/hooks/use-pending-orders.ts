@@ -9,12 +9,17 @@ const LIST_URL = api.pendingOrders.list.path;
 export function usePendingOrders() {
   return useQuery({
     queryKey: [LIST_URL],
+    // Data stays fresh for 30 s — route changes within a session never trigger
+    // a background re-fetch.  All mutations call setQueryData directly so the
+    // cache is always current without needing a stale-triggered refetch.
+    staleTime: 30_000,
     queryFn: async () => {
       try {
         const res = await nativeFetch(LIST_URL);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.pendingOrders.list.responses[200].parse(await res.json());
-        await setCached(LIST_URL, data);
+        // Fire-and-forget IDB write — resolve immediately without waiting for IDB.
+        setCached(LIST_URL, data).catch(() => {});
         return data;
       } catch (err) {
         const cached = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);

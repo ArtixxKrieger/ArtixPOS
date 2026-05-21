@@ -1,30 +1,33 @@
 import { queryClient, getQueryFn } from "./queryClient";
+import { getCached } from "./offline-db";
 
 /**
- * Bootstrap prefetch — fires all critical API requests in parallel
- * the moment the user's identity is confirmed, so every page renders
- * with data already in the TanStack Query cache (zero loading time).
+ * Bootstrap prefetch — "IDB-first, network-second" pipeline.
  *
- * Called once per user session. Subsequent calls for the same userId
- * are no-ops because TanStack Query won't re-fetch data that's already
- * in cache with staleTime: Infinity.
+ * On every login we run two overlapping phases:
+ *
+ * Phase 1 — IDB seed (~2-5 ms per key)
+ *   Read every critical URL from IndexedDB and inject it into the React Query
+ *   cache BEFORE the network responses arrive.  On returning visits (fresh tab,
+ *   browser reload, mobile PWA reopen) this makes every page render instantly
+ *   with the last-known data, then quietly update when the network catches up.
+ *
+ * Phase 2 — Network refresh (fired in parallel, ~200-500 ms)
+ *   prefetchQuery for every URL so the cache is brought up-to-date.
+ *   Queries that already have fresh data (staleTime not elapsed) are skipped
+ *   automatically by TanStack Query — no wasted requests.
+ *
+ * NO Wave 2 delay — products, customers and pending-orders used to be fetched
+ * 3-4 s after login.  They now load in parallel with everything else so POS,
+ * Pending Orders and Customers are data-ready on first visit.
  */
 
-// Wave 1 — tiny/fast: fetched immediately on login.
-// These power the sidebar, notification bell, and dashboard stats.
-const BOOTSTRAP_URLS = [
+const ALL_PREFETCH_URLS = [
   "/api/settings",
   "/api/subscription",
   "/api/dashboard/stats",
   "/api/notifications",
-];
-
-// Wave 2 — medium: fetched ~4 s after login in the background.
-// Products power the POS page (the most-used feature). Fetching them
-// early means the first POS visit renders instantly instead of showing
-// a skeleton while 100-1000 products load on demand.
-// Pending orders are small and power the badge count + Pending page.
-const SECONDARY_URLS = [
+  // Previously Wave 2 (delayed 3-4 s) — now fetched immediately on login:
   "/api/pending-orders",
   "/api/products",
   "/api/customers",
@@ -38,24 +41,26 @@ export function prefetchBootstrapData(userId: string): void {
 
   const queryFn = getQueryFn({ on401: "returnNull" });
 
-  // Wave 1: fire immediately — these are required for the initial render
-  for (const url of BOOTSTRAP_URLS) {
-    queryClient.prefetchQuery({ queryKey: [url], queryFn }).catch(() => {});
+  // ── Phase 1: IDB seed ──────────────────────────────────────────────────────
+  // Fire all IDB reads in parallel.  Each resolves in ~2-5 ms.  When data
+  // arrives, inject it into the cache if the network hasn't beaten it there yet.
+  // This is the key to "instant" page loads on revisits — no spinner needed.
+  for (const url of ALL_PREFETCH_URLS) {
+    getCached<unknown>(url)
+      .then((cached) => {
+        if (cached != null && queryClient.getQueryData([url]) === undefined) {
+          queryClient.setQueryData([url], cached);
+        }
+      })
+      .catch(() => {});
   }
 
-  // Wave 2: stagger after Wave 1 completes so we don't compete for bandwidth.
-  // Using requestIdleCallback when available so this doesn't block any user
-  // interaction that happens right after login.
-  const scheduleWave2 = () => {
-    for (const url of SECONDARY_URLS) {
-      queryClient.prefetchQuery({ queryKey: [url], queryFn }).catch(() => {});
-    }
-  };
-
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    setTimeout(() => (window as any).requestIdleCallback(scheduleWave2, { timeout: 8_000 }), 3_000);
-  } else {
-    setTimeout(scheduleWave2, 4_000);
+  // ── Phase 2: Network refresh ───────────────────────────────────────────────
+  // Fire all requests immediately.  TanStack Query deduplicates in-flight
+  // requests, so if a useQuery / useSettings / useProducts mounts at the same
+  // time it reuses the same pending Promise instead of making a second request.
+  for (const url of ALL_PREFETCH_URLS) {
+    queryClient.prefetchQuery({ queryKey: [url], queryFn }).catch(() => {});
   }
 }
 

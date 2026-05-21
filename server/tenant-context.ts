@@ -57,23 +57,21 @@ export function tenantContextMiddleware(pool: Pool) {
         await client.query("COMMIT");
         client.release();
       } catch (commitErr) {
-        // COMMIT failed — the transaction may be in an aborted state.
-        // Attempt a ROLLBACK to clean up, then decide how to release.
-        let rollbackFailed = false;
+        // COMMIT failed — the transaction is in an aborted state.
+        // Best-effort ROLLBACK, then ALWAYS destroy the connection so it is
+        // never returned to the pool in a dirty state.  Passing an Error to
+        // release() tells node-postgres to discard this connection entirely
+        // instead of recycling it, which prevents the next pool.query() caller
+        // from receiving a connection whose transaction is still "aborted"
+        // (pg error code 25P02).
+        console.error("[tenant-ctx] COMMIT failed — rolling back and destroying connection:", commitErr);
         try {
           await client.query("ROLLBACK");
         } catch (rbErr) {
-          // Both COMMIT and ROLLBACK failed — this connection is poisoned.
-          // Passing an Error to release() tells pg to DESTROY this connection
-          // rather than return it to the pool, preventing future requests from
-          // receiving a connection whose transaction is still "aborted".
-          console.error("[tenant-ctx] ROLLBACK failed — destroying connection to prevent pool contamination:", rbErr);
-          client.release(rbErr instanceof Error ? rbErr : new Error(String(rbErr)));
-          rollbackFailed = true;
+          console.error("[tenant-ctx] ROLLBACK also failed:", rbErr);
         }
-        if (!rollbackFailed) {
-          client.release();
-        }
+        // Destroy regardless of whether ROLLBACK succeeded.
+        client.release(commitErr instanceof Error ? commitErr : new Error(String(commitErr)));
       }
     };
 

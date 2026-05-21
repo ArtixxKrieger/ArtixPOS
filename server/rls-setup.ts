@@ -34,6 +34,27 @@ import { pool } from "./db";
 export async function setupRLS(): Promise<void> {
   const client = await pool.connect();
   try {
+    // ── 0. Grant BYPASSRLS to the connecting pool user ────────────────────────
+    // dbSystem (server/storage.ts) runs queries as the pool owner role — it is
+    // intentionally NOT routed through artixpos_app so it can bypass RLS for
+    // cross-user admin operations (e.g. settings upsert, auth lookups).
+    // On Replit's managed PostgreSQL the pool owner is often NOT a superuser,
+    // so FORCE ROW LEVEL SECURITY would still block it.  Granting BYPASSRLS
+    // ensures dbSystem can always read/write freely while artixpos_app (used for
+    // tenant-scoped requests) remains fully subject to policies.
+    await client.query(`
+      DO $$
+      BEGIN
+        -- Grant BYPASSRLS to whichever role the app pool connects as.
+        -- Fails silently on managed DBs where we lack ALTER ROLE privilege.
+        EXECUTE format('ALTER ROLE %I BYPASSRLS', current_user);
+      EXCEPTION WHEN others THEN
+        RAISE WARNING '[rls] Could not grant BYPASSRLS to %: % — dbSystem will rely on non-forced RLS instead',
+          current_user, SQLERRM;
+      END
+      $$;
+    `);
+
     // ── 1. Create non-superuser app role ──────────────────────────────────────
     // `artixpos_app` has no SUPERUSER and no BYPASSRLS — so every query it
     // runs is fully subject to the RLS policies defined below.
@@ -149,7 +170,6 @@ export async function setupRLS(): Promise<void> {
       "refunds",
       "suppliers",
       "purchase_orders",
-      "user_settings",
     ];
 
     for (const t of userIdTables) {
@@ -162,6 +182,26 @@ export async function setupRLS(): Promise<void> {
           WITH CHECK (user_id IN (SELECT current_tenant_user_ids()));
       `);
     }
+
+    // ── 4b. user_settings — ENABLE but NOT FORCE ──────────────────────────────
+    // user_settings is accessed by dbSystem (the pool owner role) for upserts
+    // during onboarding and settings saves.  FORCE ROW LEVEL SECURITY would
+    // block the pool owner if it doesn't have BYPASSRLS (which we attempt to
+    // grant in step 0 but may not succeed on managed DBs).
+    //
+    // Non-forced RLS means: the pool owner (postgres / db owner) bypasses the
+    // policy freely, while artixpos_app (used for tenant-scoped requests) is
+    // still subject to the tenant_isolation policy.  All dbSystem queries use
+    // an explicit WHERE user_id = ? clause so isolation is maintained at the
+    // application level.
+    await client.query(`
+      ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE user_settings NO FORCE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS tenant_isolation ON user_settings;
+      CREATE POLICY tenant_isolation ON user_settings
+        USING  (user_id IN (SELECT current_tenant_user_ids()))
+        WITH CHECK (user_id IN (SELECT current_tenant_user_ids()));
+    `);
 
     // ── 5. Group C: child tables (no direct user_id / tenant_id) ─────────────
 

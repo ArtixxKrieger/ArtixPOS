@@ -157,9 +157,15 @@ export function registerSettingsRoutes(app: Express): void {
       try {
         settings = await storage.updateSettings(uid, input);
       } catch (settingsErr: any) {
-        console.error("[settings] updateSettings failed:", settingsErr);
+        const detail = settingsErr?.message || String(settingsErr);
+        console.error("[settings] updateSettings failed — userId:", uid, "error:", settingsErr);
+        // Surface the real DB error in development so it is visible in the toast.
+        // In production we return a generic message to avoid leaking internals.
+        const isDev = process.env.NODE_ENV !== "production";
         return res.status(500).json({
-          message: `Failed to save settings: ${settingsErr?.message || String(settingsErr)}`,
+          message: isDev
+            ? `Failed to save settings: ${detail}`
+            : "Failed to save settings. Please try again.",
         });
       }
 

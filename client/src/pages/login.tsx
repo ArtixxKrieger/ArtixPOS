@@ -131,9 +131,36 @@ export default function Login() {
     }
   }, [isLoading]);
 
-  // Native Google sign-in: once auth resolves, navigate to the app.
+  // Once auth resolves, navigate to the app — UNLESS a logout was just
+  // attempted but the server didn't clear the cookie (silent failure). In that
+  // case we retry the full logout cycle right here instead of bouncing the
+  // user back into the app, which would require a second manual logout click.
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
+
+    const logoutPending = sessionStorage.getItem("artix-logout-pending") === "1";
+    if (logoutPending) {
+      sessionStorage.removeItem("artix-logout-pending");
+      (async () => {
+        // Retry the server-side logout so the cookie is definitely cleared.
+        try {
+          await fetch("/auth/logout", {
+            method: "POST",
+            credentials: "include",
+            headers: getCsrfHeaders("POST"),
+          });
+        } catch { /* offline — proceed with client-side logout */ }
+        const { clearNativeToken } = await import("@/lib/queryClient");
+        clearNativeToken();
+        await clearAllCache();
+        queryClient.cancelQueries();
+        queryClient.clear();
+        // replace() so back-button can't restore the authenticated page
+        window.location.replace("/login");
+      })();
+      return;
+    }
+
     setLocation("/");
   }, [isAuthenticated, isLoading, setLocation]);
 

@@ -137,13 +137,20 @@ export function useAuth() {
       // the cache with the previous user's data.
       queryClient.cancelQueries();
       queryClient.clear();
-      window.location.href = "/login";
+      // Flag checked by the /login page: if the auth cookie survived (server
+      // logout failed silently), the login page retries the full logout cycle
+      // instead of immediately redirecting back into the app.
+      sessionStorage.setItem("artix-logout-pending", "1");
+      // replace() removes this entry from history so the back button can never
+      // restore the pre-logout app page from the browser's bfcache.
+      window.location.replace("/login");
     },
     onError: () => {
       clearNativeToken();
       queryClient.cancelQueries();
       queryClient.clear();
-      window.location.href = "/login";
+      sessionStorage.setItem("artix-logout-pending", "1");
+      window.location.replace("/login");
     },
   });
 

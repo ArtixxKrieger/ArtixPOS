@@ -67,6 +67,19 @@ const ChartContainer = React.forwardRef<
 })
 ChartContainer.displayName = "Chart"
 
+// Strips characters that could break out of a CSS attribute selector value
+// or close a CSS rule block, preventing CSS injection via chart config props.
+function safeCssId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "")
+}
+function safeCssVarName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "")
+}
+function safeCssValue(value: string): string {
+  // Strip characters that could close a CSS declaration or rule block
+  return value.replace(/[{};\\<>]/g, "")
+}
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([, config]) => config.theme || config.color
@@ -76,19 +89,23 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
+  const safeId = safeCssId(id)
+
   return (
     <style
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(
             ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+${prefix} [data-chart=${safeId}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    return color
+      ? `  --color-${safeCssVarName(key)}: ${safeCssValue(color)};`
+      : null
   })
   .join("\n")}
 }

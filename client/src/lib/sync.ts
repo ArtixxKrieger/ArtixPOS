@@ -229,12 +229,29 @@ interface ProcessResult {
   serverId?: string | number;
 }
 
+// FIX #3: Each sync mutation gets a hard 15s timeout so a single hung
+// network request never blocks the entire sync loop. If the server takes
+// longer than 15s the item stays queued and is retried on the next cycle.
+const SYNC_MUTATION_TIMEOUT_MS = 15_000;
+
 async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
-  const res = await nativeFetch(item.url, {
-    method: item.method,
-    headers: item.body ? { "Content-Type": "application/json" } : {},
-    body: item.body ? JSON.stringify(item.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new DOMException("Sync mutation timeout", "TimeoutError")),
+    SYNC_MUTATION_TIMEOUT_MS,
+  );
+
+  let res: Response;
+  try {
+    res = await nativeFetch(item.url, {
+      method: item.method,
+      headers: item.body ? { "Content-Type": "application/json" } : {},
+      body: item.body ? JSON.stringify(item.body) : undefined,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   // 404 on DELETE is fine — item was already gone
   if (res.status === 404 && item.method === "DELETE") return {};

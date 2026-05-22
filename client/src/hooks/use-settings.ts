@@ -8,13 +8,60 @@ import { nativeFetch } from "@/lib/queryClient";
 
 const SETTINGS_URL = api.settings.get.path;
 
-// True for network errors (no connectivity) AND for timeouts (AbortError).
-// Both should fall through to the IDB cache so the app works offline or on
-// very slow connections — the key invariant is "the server was unreachable."
+// ── IDB pre-warm ─────────────────────────────────────────────────────────────
+// FIX #1: Start reading IDB the moment this module loads so that by the time
+// any component calls useSettings(), the cached value is already in memory.
+// This reduces the "cold IDB read" from ~50-200ms to ~0ms on most calls.
+let _prewarmedSettings: unknown = undefined;
+let _prewarmDone = false;
+
+getCached(SETTINGS_URL).then((data) => {
+  _prewarmedSettings = data;
+  _prewarmDone = true;
+}).catch(() => {
+  _prewarmDone = true;
+});
+
 function isNetworkOrTimeoutError(err: unknown): boolean {
-  if (err instanceof TypeError) return true; // fetch network error
-  if (err instanceof DOMException && err.name === "AbortError") return true; // timeout
+  if (err instanceof TypeError) return true;
+  if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) return true;
   return false;
+}
+
+// ── Fetch with a hard timeout, returns null on any network/timeout failure ───
+async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
+  const controller = new AbortController();
+  // FIX #1: Reduced from 10s to 5s — form should load from IDB if server is slow
+  const timeoutId = setTimeout(
+    () => controller.abort(new DOMException("Settings fetch timeout", "TimeoutError")),
+    5_000,
+  );
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort(signal.reason);
+    } else {
+      signal.addEventListener("abort", () => {
+        clearTimeout(timeoutId);
+        controller.abort(signal.reason);
+      }, { once: true });
+    }
+  }
+
+  try {
+    const res = await nativeFetch(SETTINGS_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = api.settings.get.responses[200].parse(await res.json());
+    // Fire-and-forget — don't block returning data to React
+    setCached(SETTINGS_URL, data).catch(() => {});
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (isNetworkOrTimeoutError(err)) return undefined; // signal: use IDB
+    throw err; // non-network error — propagate
+  }
 }
 
 export function useSettings() {
@@ -23,54 +70,28 @@ export function useSettings() {
 
   const query = useQuery({
     queryKey: [SETTINGS_URL],
-    // Once loaded, never auto-refetch on route changes / window focus.
-    // Settings are kept up-to-date exclusively by useUpdateSettings (which
-    // calls setQueryData on success) and the auto-sync effect below.
-    // Without this, staleTime defaults to 0 and every page navigation triggers
-    // a background refetch → one extra render pass per navigation for every
-    // component that calls useSettings().
     staleTime: Infinity,
-    // Settings query has a 10-second hard timeout.
-    // nativeFetch() is a plain fetch() with no built-in timeout, so on a slow
-    // Vercel cold-start or a weak mobile connection the Promise can hang
-    // indefinitely, keeping settingsLoading=true forever and the splash screen
-    // stuck. The AbortController below ensures we always exit within 10 s.
+    // FIX #1: Serve IDB cache as initial data for instant form population.
+    // placeholderData is shown while the real queryFn runs in the background.
+    // If the prewarm already finished, we get the cached value synchronously.
+    placeholderData: () => (_prewarmDone ? (_prewarmedSettings ?? null) : undefined) as any,
     queryFn: async ({ signal }) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(new DOMException("Settings fetch timeout", "TimeoutError")),
-        10_000,
-      );
-      // Honour the outer query abort signal (fired on component unmount / cancelQueries)
-      if (signal) {
-        if (signal.aborted) {
-          clearTimeout(timeoutId);
-          controller.abort(signal.reason);
-        } else {
-          signal.addEventListener("abort", () => {
-            clearTimeout(timeoutId);
-            controller.abort(signal.reason);
-          }, { once: true });
-        }
-      }
-
-      try {
-        const res = await nativeFetch(SETTINGS_URL, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.status === 404) return null;
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = api.settings.get.responses[200].parse(await res.json());
-        // Fire-and-forget — don't block returning data to React
-        setCached(SETTINGS_URL, data).catch(() => {});
-        return data;
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (!isNetworkOrTimeoutError(err)) throw err;
-        // Network error or timeout → serve from IDB cache so the app still
-        // works offline and doesn't stay stuck on the splash screen.
+      // FIX #1: If definitely offline, skip network entirely and return IDB immediately.
+      if (!navigator.onLine) {
         const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
         return cached ?? null;
       }
+
+      // Try network with a 5s timeout
+      const result = await fetchSettingsFromNetwork(signal);
+
+      // undefined = network/timeout error → fall back to IDB
+      if (result === undefined) {
+        const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
+        return cached ?? null;
+      }
+
+      return result as ReturnType<typeof api.settings.get.responses[200]["parse"]> | null;
     },
   });
 
@@ -81,10 +102,6 @@ export function useSettings() {
     const settings = query.data as any;
     const locale = detectLocale();
     const needsTimezone = !settings.timezone;
-    // Auto-detect currency when not set or still at the server default "$".
-    // Detection now uses navigator.language (browser locale set by the USER),
-    // not the device timezone, so a Filipino user on a Japanese device
-    // with "Filipino (Philippines)" language gets ₱, not ¥.
     const needsCurrency = !settings.currency || settings.currency === "$";
 
     if (!needsTimezone && !needsCurrency) return;
@@ -103,9 +120,6 @@ export function useSettings() {
       .then(r => r.json())
       .then(updated => {
         setCached(SETTINGS_URL, updated);
-        // Use setQueryData instead of invalidateQueries — silently updates the
-        // cache without triggering a refetch, preventing a visible re-render
-        // (the reload flash users see right after login).
         queryClient.setQueryData([SETTINGS_URL], updated);
       })
       .catch(() => {});
@@ -116,14 +130,46 @@ export function useSettings() {
 
 export function useUpdateSettings() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (data: Partial<InsertUserSetting>) => {
+      // FIX #2: OPTIMISTIC UPDATE — apply to both React Query cache and IDB
+      // immediately, before touching the network. The UI reflects changes
+      // instantly; Save button is free as soon as this function returns.
+      const current = queryClient.getQueryData<any>([SETTINGS_URL]);
+      const optimistic = current ? { ...current, ...data } : data;
+
+      // Synchronously update React Query cache — zero latency, no render blocked
+      queryClient.setQueryData([SETTINGS_URL], optimistic);
+
+      // Update IDB (fire-and-forget — non-blocking)
+      setCached(SETTINGS_URL, optimistic).catch(() => {});
+
+      // Update prewarm cache for next mount
+      _prewarmedSettings = optimistic;
+
+      // FIX #2: If offline, queue immediately without attempting network at all
+      if (!navigator.onLine) {
+        await queueMutation("PUT", api.settings.update.path, data);
+        return optimistic as any;
+      }
+
+      // FIX #2: Try network with a SHORT 5s timeout — if slow/flaky, queue it
+      // and return the optimistic value. The UI never waits for the server.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(
+        new DOMException("Settings save timeout", "TimeoutError")
+      ), 5_000);
+
       try {
         const res = await nativeFetch(api.settings.update.path, {
           method: api.settings.update.method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
+          signal: controller.signal,
         });
+        clearTimeout(timer);
+
         if (!res.ok) {
           let body: any = {};
           let rawText = "";
@@ -131,33 +177,45 @@ export function useUpdateSettings() {
             rawText = await res.text();
             body = JSON.parse(rawText);
           } catch { body = { message: rawText || res.statusText }; }
-          console.error("[useUpdateSettings] server error:", res.status, body, "url:", api.settings.update.path);
+
+          // For permanent server errors (4xx), revert the optimistic update
+          if (res.status >= 400 && res.status < 500) {
+            if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
+            _prewarmedSettings = current;
+          } else {
+            // 5xx — queue for retry, keep optimistic value shown
+            await queueMutation("PUT", api.settings.update.path, data);
+          }
+
           const err = new Error(body?.message || body?.error || rawText || res.statusText || "Unknown error") as any;
           err.status = res.status;
           err.pgError = body?.error ?? null;
           throw err;
         }
+
         const result = api.settings.update.responses[200].parse(await res.json());
-        // Fire-and-forget IDB write — do NOT await so the mutation resolves
-        // immediately without blocking on IndexedDB I/O (~100-300 ms on mobile).
+
+        // Update with the canonical server response (may include computed fields)
+        queryClient.setQueryData([SETTINGS_URL], result);
         setCached(SETTINGS_URL, result).catch(() => {});
+        _prewarmedSettings = result;
+
         return result;
       } catch (err) {
-        if (!isNetworkOrTimeoutError(err)) throw err;
-        await queueMutation("PUT", api.settings.update.path, data);
-        const current = await getCached<any>(SETTINGS_URL);
-        const updated = { ...current, ...data };
-        // Also non-blocking in the offline path.
-        setCached(SETTINGS_URL, updated).catch(() => {});
-        return updated as any;
+        clearTimeout(timer);
+        if (isNetworkOrTimeoutError(err)) {
+          // Network/timeout — optimistic value is already shown, queue for sync
+          await queueMutation("PUT", api.settings.update.path, data);
+          return optimistic as any;
+        }
+        throw err;
       }
     },
-    // Use setQueryData instead of invalidateQueries so we:
-    //   1. Skip the redundant GET re-fetch (we already have fresh data from PUT)
-    //   2. Cause exactly one synchronous render pass instead of two
-    //      (invalidateQueries triggers stale→fetching→fresh = 2 renders)
-    //   3. Eliminate the 3-4 s UI freeze caused by the extra network round-trip
-    //      + second IDB write inside the queryFn's await setCached()
-    onSuccess: (data) => queryClient.setQueryData([SETTINGS_URL], data),
+    // onSuccess: cache is already up-to-date from mutationFn — no refetch needed.
+    // We still call setQueryData as a safety net in case the server returned
+    // extra computed fields that weren't in our optimistic payload.
+    onSuccess: (data) => {
+      queryClient.setQueryData([SETTINGS_URL], data);
+    },
   });
 }

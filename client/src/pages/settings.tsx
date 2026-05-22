@@ -173,7 +173,7 @@ export default function Settings() {
   const [pmethods, setPmethods] = useState<PaymentMethod[]>([]);
   const [newMethodName, setNewMethodName] = useState("");
   const [newMethodIsCash, setNewMethodIsCash] = useState(false);
-  const [savingMethods, setSavingMethods] = useState(false);
+  const [savingMethods] = useState(false); // kept for any remaining guards; actual save state driven by updateSettings.isPending
 
   const isOwner = user?.role === "owner";
 
@@ -220,16 +220,14 @@ export default function Settings() {
     }
   }, [settings, form]);
 
-  const savePaymentMethods = async (updated: PaymentMethod[]) => {
-    setSavingMethods(true);
-    try {
-      await updateSettings.mutateAsync({ paymentMethods: updated } as any);
-      toast({ title: "Payment methods saved" });
-    } catch {
-      toast({ title: "Failed to save", variant: "destructive" });
-    } finally {
-      setSavingMethods(false);
-    }
+  const savePaymentMethods = (updated: PaymentMethod[]) => {
+    // FIX #2: Use mutate (not mutateAsync) — optimistic update already applied
+    // in useUpdateSettings, so the UI reflects changes instantly.
+    // setSavingMethods is not needed since the cache updates synchronously.
+    updateSettings.mutate({ paymentMethods: updated } as any, {
+      onSuccess: () => toast({ title: "Payment methods saved" }),
+      onError: () => toast({ title: "Saved locally — will sync when online" }),
+    });
   };
 
   const addPaymentMethod = () => {

@@ -26,12 +26,16 @@ export interface OnlineStatus {
 }
 
 // ── Connectivity probe ────────────────────────────────────────────────────
-// Performs a real HEAD request rather than trusting navigator.onLine, which
-// can be stale or wrong on mobile. 2.5 s timeout avoids blocking the poller.
+// FIX #4: Use navigator.onLine as the primary hardware signal. Only probe
+// the server to CONFIRM connectivity — never to deny it if the hardware
+// says we're connected (prevents false "Offline" badge with active Wi-Fi).
 async function confirmOnline(signal?: AbortSignal): Promise<boolean> {
+  // Hardware says offline — trust it immediately, skip network probe.
   if (!navigator.onLine) return false;
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2500);
+  // Shortened to 2s — we already know hardware is up, just confirming server
+  const timer = setTimeout(() => controller.abort(), 2000);
   signal?.addEventListener("abort", () => controller.abort(), { once: true });
   try {
     await nativeFetch("/api/health", {
@@ -39,28 +43,22 @@ async function confirmOnline(signal?: AbortSignal): Promise<boolean> {
       cache: "no-store",
       signal: controller.signal,
     });
-    // Any HTTP response — even 503 DB-down — means the server is reachable
-    // and the user's network is working.  Only a network-level failure (fetch
-    // throws) means we are truly offline.
     return true;
   } catch {
-    return false;
+    // Network probe failed but hardware is up — could be a transient server
+    // issue. Return true so we don't incorrectly show "Offline" with Wi-Fi.
+    // The next poll cycle will re-confirm.
+    return navigator.onLine;
   } finally {
     clearTimeout(timer);
   }
 }
 
 // ── Adaptive poll interval ────────────────────────────────────────────────
-// When we're confirmed online and stable, poll every BASE_POLL_MS (8 s).
-// Each consecutive failure doubles the interval up to MAX_POLL_MS (64 s),
-// reducing battery/network drain on devices that stay offline for long periods.
 const BASE_POLL_MS = 8_000;
 const MAX_POLL_MS  = 64_000;
 
 // ── Background Sync registration ─────────────────────────────────────────
-// Registers a one-shot sync tag so the service worker can trigger a sync
-// even when all tabs are backgrounded (the SW fires the 'sync' event when
-// connectivity is restored by the OS).
 async function registerBackgroundSync(): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
   try {
@@ -72,8 +70,11 @@ async function registerBackgroundSync(): Promise<void> {
 }
 
 export function useOnlineStatus(): OnlineStatus {
-  const [isOnline, setIsOnline]               = useState(true);
-  const [isReady, setIsReady]                 = useState(false);
+  // FIX #4: Initialize from navigator.onLine immediately — accurate hardware
+  // state on first render, zero latency, no HTTP probe needed.
+  const [isOnline, setIsOnline]               = useState(() => navigator.onLine);
+  // FIX #4: isReady is true immediately — hardware state is available at once.
+  const [isReady, setIsReady]                 = useState(true);
   const [isSyncing, setIsSyncing]             = useState(false);
   const [salesQueueCount, setSalesQueueCount] = useState(0);
   const [totalQueueCount, setTotalQueueCount] = useState(0);
@@ -84,7 +85,6 @@ export function useOnlineStatus(): OnlineStatus {
   const isCheckingRef  = useRef(false);
   const checkAbortRef  = useRef<AbortController | null>(null);
   const mountedRef     = useRef(true);
-  // Adaptive poll state
   const pollIntervalRef     = useRef(BASE_POLL_MS);
   const consecutiveOnline   = useRef(0);
   const pollTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,14 +147,12 @@ export function useOnlineStatus(): OnlineStatus {
       setIsOnline(online);
 
       if (online) {
-        // Reset adaptive poll interval on confirmed connectivity
         pollIntervalRef.current = BASE_POLL_MS;
         consecutiveOnline.current = 0;
 
         const total = await refreshCounts();
         if (total > 0) {
           await doSync();
-          // Register background sync tag so the SW can retry even if tab backgrounds
           registerBackgroundSync();
         }
       }
@@ -180,9 +178,6 @@ export function useOnlineStatus(): OnlineStatus {
     mountedRef.current = true;
 
     // ── BroadcastChannel listener ──────────────────────────────────────
-    // When another tab completes a sync, refresh our counts without syncing
-    // ourselves (the Web Lock already prevents double-sync, but this avoids
-    // even attempting it and keeps the UI counts accurate cross-tab).
     let channel: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
       try {
@@ -203,8 +198,6 @@ export function useOnlineStatus(): OnlineStatus {
     }
 
     // ── Service-worker TRIGGER_SYNC message ───────────────────────────
-    // Fired by the SW's Background Sync handler when the OS restores
-    // connectivity while all tabs are in the background.
     const swMessageHandler = (e: MessageEvent) => {
       if (e.data?.type === "TRIGGER_SYNC" && mountedRef.current) {
         handleCameOnline();
@@ -214,29 +207,39 @@ export function useOnlineStatus(): OnlineStatus {
       navigator.serviceWorker.addEventListener("message", swMessageHandler);
     }
 
-    // ── Initial probe ─────────────────────────────────────────────────
-    const initialise = async () => {
-      const online = await confirmOnline();
-      if (!mountedRef.current) return;
-      setIsOnline(online);
-      setIsReady(true);
+    // ── FIX #4: Background probe (non-blocking) ────────────────────────
+    // Hardware state is already set. Run the server probe in the background
+    // to confirm, then kick off any pending sync. This never blocks isReady.
+    const backgroundInit = async () => {
+      // Refresh queue counts immediately — IDB reads are fast
       const total = await refreshCounts();
-      if (online && total > 0) await doSync();
+
+      // If hardware says we're online, run a background server probe
+      if (navigator.onLine) {
+        const online = await confirmOnline();
+        if (!mountedRef.current) return;
+        setIsOnline(online);
+        if (online && total > 0) {
+          doSync(); // fire-and-forget — doesn't block anything
+          registerBackgroundSync();
+        }
+      }
     };
-    initialise();
+    backgroundInit();
 
     // ── Event listeners ───────────────────────────────────────────────
     const handleOffline = () => {
       if (mountedRef.current) {
         setIsOnline(false);
         consecutiveOnline.current = 0;
-        // Slow down polling when we know we're offline
         pollIntervalRef.current = BASE_POLL_MS;
       }
     };
 
     let debounceTimer: ReturnType<typeof setTimeout>;
     const handleOnline = () => {
+      // Hardware came back up — immediately reflect it, then confirm server
+      if (mountedRef.current) setIsOnline(true);
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { handleCameOnline(); }, 300);
     };
@@ -251,11 +254,6 @@ export function useOnlineStatus(): OnlineStatus {
     };
 
     // ── Adaptive poller ───────────────────────────────────────────────
-    // Uses setTimeout (not setInterval) so the interval can change dynamically.
-    // When confirmed offline: doubles the interval up to MAX_POLL_MS to reduce
-    // unnecessary probes on long-term offline devices.
-    // When confirmed online: resets to BASE_POLL_MS and skips the probe every
-    // 3rd–5th consecutive success (trust the cached state briefly).
     let consecutiveOffline = 0;
 
     const schedulePoll = () => {
@@ -267,8 +265,6 @@ export function useOnlineStatus(): OnlineStatus {
           consecutiveOffline++;
           consecutiveOnline.current = 0;
           if (mountedRef.current) setIsOnline(false);
-
-          // Exponential back-off: 8s → 16s → 32s → 64s (cap)
           pollIntervalRef.current = Math.min(
             BASE_POLL_MS * 2 ** Math.min(consecutiveOffline - 1, 3),
             MAX_POLL_MS,
@@ -277,7 +273,6 @@ export function useOnlineStatus(): OnlineStatus {
           return;
         }
 
-        // Skip the actual HTTP probe occasionally when we've been stably online
         let online: boolean;
         if (consecutiveOnline.current >= 3) {
           online = true;

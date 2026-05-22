@@ -5,7 +5,7 @@ import { AiFloatButton } from "@/components/ai-float-button";
 import {
   type LucideIcon,
   Home, ShoppingCart, Clock, Package,
-  Settings, BarChart3, WifiOff, RefreshCw, ScrollText, LogOut,
+  Settings, BarChart3, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
@@ -246,7 +246,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
   const onlineStatus = useOnlineStatus();
-  const { isOnline, isSyncing, salesQueueCount } = onlineStatus;
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
@@ -310,7 +309,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-screen w-full bg-background flex overflow-hidden">
-      <OfflineSyncBanner status={onlineStatus} />
       <Toaster
         position="top-left"
         theme={isDark ? "dark" : "light"}
@@ -468,11 +466,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </p>
             </div>
 
-            {onlineStatus.isReady && (!isOnline || isSyncing) && (
-              <div className={["flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
-                {isSyncing ? <><RefreshCw className="h-2.5 w-2.5 animate-spin" /><span>{t("common.syncing")}</span></> : <><WifiOff className="h-2.5 w-2.5" /><span>{t("common.offline")}</span></>}
-              </div>
-            )}
+            <OfflineSyncBanner status={onlineStatus} />
 
             <NotificationBell />
           </div>
@@ -485,15 +479,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {businessLabels[location] ?? PAGE_TITLES[location] ?? ""}
             </p>
 
-            {onlineStatus.isReady && (!isOnline || isSyncing) && (
-              <div className={["flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-300", isSyncing ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border/50"].join(" ")}>
-                {isSyncing ? (
-                  <><RefreshCw className="h-3 w-3 animate-spin" /><span>Syncing {salesQueueCount > 0 ? `${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}` : "changes"}…</span></>
-                ) : (
-                  <><WifiOff className="h-3 w-3" /><span>Offline</span>{salesQueueCount > 0 && <span className="ml-0.5 bg-muted-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">{salesQueueCount}</span>}</>
-                )}
-              </div>
-            )}
+            <OfflineSyncBanner status={onlineStatus} />
           </div>
         </header>
 

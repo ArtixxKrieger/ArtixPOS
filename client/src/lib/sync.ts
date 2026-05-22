@@ -217,10 +217,16 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
 
 // ─── Error classification ───────────────────────────────────────────────────
 function isPermanentFailure(status: number): boolean {
-  // 400/422 — bad data that will never succeed
-  // 401/403 — auth/permission issue (user needs to re-login)
+  // 400/422 — bad request / validation error; data won't change on retry
   // 413      — payload too large; won't shrink on retry
-  return [400, 401, 403, 413, 422].includes(status);
+  // 401      — not authenticated; user must re-login
+  //
+  // NOTE: 403 is intentionally NOT permanent. A 403 from the CSRF middleware
+  // ("CSRF token missing/invalid") is recoverable: the server sets a fresh
+  // CSRF cookie on every response, so the next nativeFetch() call will pick up
+  // the new token and succeed. Treating 403 as permanent was causing queued
+  // settings saves to be stuck forever after a CSRF cookie expiry.
+  return [400, 401, 413, 422].includes(status);
 }
 
 // ─── Process a single mutation ─────────────────────────────────────────────

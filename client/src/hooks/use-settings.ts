@@ -162,12 +162,15 @@ export function useUpdateSettings() {
         return optimistic as any;
       }
 
-      // FIX #2: Try network with a SHORT 5s timeout — if slow/flaky, queue it
-      // and return the optimistic value. The UI never waits for the server.
+      // Give the server up to 30 s — matching REQUEST_TIMEOUT_MS on the server.
+      // Vercel cold-starts + a cold DB (Neon/Supabase free tier) can easily take
+      // 5-10 s for the first save; a 5 s cut-off was silently queueing valid saves
+      // as "offline" mutations. Optimistic update is already applied above, so the
+      // user never waits for this timer.
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(
         new DOMException("Settings save timeout", "TimeoutError")
-      ), 5_000);
+      ), 30_000);
 
       try {
         const res = await nativeFetch(api.settings.update.path, {

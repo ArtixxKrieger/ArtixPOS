@@ -226,15 +226,76 @@ export default function Login() {
     }
   }
 
+  // Listen for the postMessage that the OAuth popup sends on success/failure.
+  // The popup (served by popupResultPage on the server) posts to window.opener
+  // with { type: "google-auth-ok" } or { type: "google-auth-error", error }.
+  // We only accept messages from our own origin so external sites can't spoof.
+  useEffect(() => {
+    function handleOAuthMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "google-auth-ok") {
+        // Cookie was set by the popup on our origin — invalidate the auth
+        // cache so the next render picks up the new session immediately.
+        queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+        setSigningIn(false);
+      } else if (data.type === "google-auth-error") {
+        setSigningIn(false);
+        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+        setNativeError(
+          data.error === "google_not_configured"
+            ? "Google sign-in is not configured on this server."
+            : data.error
+              ? `Sign-in failed: ${data.error}`
+              : "Google sign-in failed. Please try again."
+        );
+      }
+    }
+
+    window.addEventListener("message", handleOAuthMessage);
+    return () => window.removeEventListener("message", handleOAuthMessage);
+  }, []);
+
   // On native → Capacitor Google Auth plugin.
-  // On web   → standard full-page redirect OAuth flow.
+  // On web   → popup-based OAuth flow (avoids bfcache/redirect issues).
+  //             Falls back to full-page redirect if the popup is blocked.
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
-    // Mark that we are entering a Google OAuth redirect so the app can detect
-    // a bfcache restore or stale-state scenario on return (sessionStorage
-    // survives same-tab redirect chains but is cleared on tab close / new tab).
+
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-    window.location.href = `${API_BASE}/auth/google`;
+
+    // Open a centered popup for the Google OAuth flow so the parent page is
+    // never navigated away.  This prevents bfcache restoring a stale
+    // isAuthenticated=false state after the callback redirect, which was the
+    // root cause of the "Continue with Google → redirected to login" bug.
+    const w = 500, h = 640;
+    const left = Math.round(window.screenX + (window.outerWidth  - w) / 2);
+    const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
+    const popup = window.open(
+      `${API_BASE}/auth/google?popup=1`,
+      "google-oauth",
+      `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`,
+    );
+
+    if (!popup) {
+      // Popup was blocked by the browser — fall back to the redirect flow.
+      window.location.href = `${API_BASE}/auth/google`;
+      return;
+    }
+
+    setSigningIn(true);
+
+    // Poll every 500 ms to detect if the user closed the popup without
+    // completing sign-in (no postMessage will arrive in that case).
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer);
+        setSigningIn(false);
+        sessionStorage.removeItem(OAUTH_FLOW_KEY);
+      }
+    }, 500);
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

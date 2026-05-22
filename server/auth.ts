@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { db } from "./db";
+import { db, pool } from "./db";
+import { runAsAdmin } from "./tenant-context";
 import {
   users, products, productSizes, productModifiers, sales, pendingOrders, userSettings,
   customers, serviceStaff, serviceRooms, appointments,
@@ -298,20 +299,30 @@ async function findOrCreateUser(data: {
   id: string; email: string | null; name: string | null;
   avatar: string | null; provider: string; providerId: string;
 }): Promise<import("@shared/schema").User> {
-  const [existing] = await db.select().from(users).where(eq(users.id, data.id));
-  if (existing) return existing;
+  // runAsAdmin issues SET LOCAL row_security = off inside its transaction, so
+  // RLS on the `users` table (which has USING/WITH CHECK on tenant_id) cannot
+  // block user creation or lookup at sign-in time — when there is no tenant
+  // context yet and every user's tenant_id is NULL.  Without this guard,
+  // Supabase's managed postgres (not a true PostgreSQL superuser) evaluates
+  // the policy even for non-forced RLS, causing the INSERT to fail with
+  // "new row violates row-level security policy" and subsequent SELECTs to
+  // return zero rows.
+  return runAsAdmin(pool, async (adminDb) => {
+    const [existing] = await adminDb.select().from(users).where(eq(users.id, data.id));
+    if (existing) return existing;
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.insert(users).values(data as any);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!message.toLowerCase().includes("unique")) throw err;
-  }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await adminDb.insert(users).values(data as any);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.toLowerCase().includes("unique")) throw err;
+    }
 
-  const [created] = await db.select().from(users).where(eq(users.id, data.id));
-  if (!created) throw new Error(`DB: user not found after insert — id=${data.id}`);
-  return created;
+    const [created] = await adminDb.select().from(users).where(eq(users.id, data.id));
+    if (!created) throw new Error(`DB: user not found after insert — id=${data.id}`);
+    return created;
+  });
 }
 
 const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.artixpos.app";
@@ -756,24 +767,29 @@ export function setupAuth(app: Express) {
       const normalizedEmail = email.trim().toLowerCase();
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
 
-      const [existing] = await db.select().from(users).where(eq(users.id, userId));
-      if (existing) {
+      const created = await runAsAdmin(pool, async (adminDb) => {
+        const [existing] = await adminDb.select().from(users).where(eq(users.id, userId));
+        if (existing) return null;
+
+        const passwordHash = await hashPassword(password);
+        await adminDb.insert(users).values({
+          id: userId,
+          email: normalizedEmail,
+          name: name.trim(),
+          avatar: null,
+          provider: "email",
+          providerId: normalizedEmail,
+          passwordHash,
+        } as any);
+
+        const [row] = await adminDb.select().from(users).where(eq(users.id, userId));
+        if (!row) throw new Error("User not found after insert");
+        return row;
+      });
+
+      if (!created) {
         return res.status(409).json({ message: "An account with this email already exists." });
       }
-
-      const passwordHash = await hashPassword(password);
-      await db.insert(users).values({
-        id: userId,
-        email: normalizedEmail,
-        name: name.trim(),
-        avatar: null,
-        provider: "email",
-        providerId: normalizedEmail,
-        passwordHash,
-      } as any);
-
-      const [created] = await db.select().from(users).where(eq(users.id, userId));
-      if (!created) throw new Error("User not found after insert");
 
       setAuthCookie(res, { id: created.id, name: created.name ?? null, email: created.email ?? null, avatar: created.avatar ?? null, provider: created.provider, tenantId: (created as any).tenantId ?? null, role: created.role ?? "owner", activeBranchId: (created as any).activeBranchId ?? null });
       logAuthEvent({ userId: created.id, tenantId: (created as any).tenantId ?? null, action: "register", metadata: { provider: "email" } });
@@ -809,7 +825,13 @@ export function setupAuth(app: Express) {
       const normalizedEmail = email.trim().toLowerCase();
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
 
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      // runAsAdmin bypasses RLS — at login time there is no tenant context so the
+      // users policy would otherwise filter out any row with a non-null tenant_id.
+      const user = await runAsAdmin(pool, async (adminDb) => {
+        const [row] = await adminDb.select().from(users).where(eq(users.id, userId));
+        return row ?? null;
+      });
+
       if (!user || user.provider !== "email" || !user.passwordHash) {
         recordFailedAttempt(ip);
         return res.status(401).json({ message: "Invalid email or password." });

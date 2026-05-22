@@ -321,15 +321,27 @@ export async function setupRLS(): Promise<void> {
 
     // ── 6. users — RLS enabled but NOT forced ─────────────────────────────────
     // Auth queries (login, token validation) run as postgres BEFORE any tenant
-    // context.  Postgres superuser bypasses non-forced RLS, so login can still
-    // find users by email.  Tenant-scoped requests run as artixpos_app (after
-    // SET LOCAL ROLE in the middleware), which IS subject to this policy.
+    // context.  On standard PostgreSQL the table owner (postgres) bypasses
+    // non-forced RLS automatically.  On Supabase, however, the managed postgres
+    // role is NOT a true superuser — ALTER ROLE postgres BYPASSRLS may fail
+    // silently — so the policy IS evaluated even for postgres.
+    //
+    // Design intent:
+    //   • Rows with tenant_id = NULL are brand-new accounts that have just
+    //     authenticated (Google/email) but have not yet completed onboarding.
+    //     These must be readable/writable by anyone holding a connection so
+    //     findOrCreateUser can INSERT and then re-SELECT the row.
+    //   • Once onboarding assigns a tenant_id the normal tenant-isolation check
+    //     kicks in for artixpos_app (the tenant-scoped role).
+    //   • Auth routes use runAsAdmin (SET LOCAL row_security = off) as a belt-
+    //     and-suspenders guard so even an unexpected policy tightening can never
+    //     block login/sign-up.
     await client.query(`
       ALTER TABLE users ENABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation ON users;
       CREATE POLICY tenant_isolation ON users
-        USING  (tenant_id = current_tenant_id())
-        WITH CHECK (tenant_id = current_tenant_id());
+        USING  (tenant_id IS NULL OR tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id IS NULL OR tenant_id = current_tenant_id());
     `);
 
     // ── 7. tenants — RLS enabled but NOT forced ───────────────────────────────

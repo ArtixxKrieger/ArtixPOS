@@ -34,12 +34,15 @@ async function confirmOnline(signal?: AbortSignal): Promise<boolean> {
   const timer = setTimeout(() => controller.abort(), 2500);
   signal?.addEventListener("abort", () => controller.abort(), { once: true });
   try {
-    const res = await nativeFetch("/api/health", {
+    await nativeFetch("/api/health", {
       method: "HEAD",
       cache: "no-store",
       signal: controller.signal,
     });
-    return res.status < 500;
+    // Any HTTP response — even 503 DB-down — means the server is reachable
+    // and the user's network is working.  Only a network-level failure (fetch
+    // throws) means we are truly offline.
+    return true;
   } catch {
     return false;
   } finally {

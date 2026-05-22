@@ -31,10 +31,10 @@ function isNetworkOrTimeoutError(err: unknown): boolean {
 // ── Fetch with a hard timeout, returns null on any network/timeout failure ───
 async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
   const controller = new AbortController();
-  // FIX #1: Reduced from 10s to 5s — form should load from IDB if server is slow
+  // 15s timeout — accounts for Supabase/Vercel cold starts which can take 5-10s
   const timeoutId = setTimeout(
     () => controller.abort(new DOMException("Settings fetch timeout", "TimeoutError")),
-    5_000,
+    15_000,
   );
   if (signal) {
     if (signal.aborted) {
@@ -71,24 +71,32 @@ export function useSettings() {
   const query = useQuery({
     queryKey: [SETTINGS_URL],
     staleTime: Infinity,
-    // FIX #1: Serve IDB cache as initial data for instant form population.
-    // placeholderData is shown while the real queryFn runs in the background.
-    // If the prewarm already finished, we get the cached value synchronously.
-    placeholderData: () => (_prewarmDone ? (_prewarmedSettings ?? null) : undefined) as any,
+    // Serve IDB cache as placeholder while real fetch runs in background.
+    // CRITICAL: only use a cached value as placeholder — never return null/undefined,
+    // which would be misread as "settings loaded but empty" and trigger false
+    // onboarding redirects for returning users on a cold start.
+    placeholderData: () => (_prewarmDone && _prewarmedSettings != null ? _prewarmedSettings : undefined) as any,
     queryFn: async ({ signal }) => {
-      // FIX #1: If definitely offline, skip network entirely and return IDB immediately.
+      // If definitely offline, skip network entirely and return IDB immediately.
       if (!navigator.onLine) {
         const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
-        return cached ?? null;
+        // No cache + offline → throw so React Query retries when reconnected
+        if (cached == null) throw new Error("Offline and no cached settings");
+        return cached;
       }
 
-      // Try network with a 5s timeout
+      // Try network with a 15s timeout (cold starts can be slow)
       const result = await fetchSettingsFromNetwork(signal);
 
       // undefined = network/timeout error → fall back to IDB
       if (result === undefined) {
         const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
-        return cached ?? null;
+        // IDB has a prior session's data → use it; React Query will refetch next time
+        if (cached != null) return cached;
+        // Both network failed AND IDB is empty → throw so React Query retries
+        // (returning null here would cache null forever with staleTime:Infinity,
+        // causing needsOnboarding to stay false for new users indefinitely)
+        throw new Error("Settings fetch timed out");
       }
 
       return result as ReturnType<typeof api.settings.get.responses[200]["parse"]> | null;

@@ -605,9 +605,12 @@ function AppRouter() {
     return <LoadingScreen />;
   }
 
-  // If settings failed to load, don't block the user — let them into the app.
-  // Only redirect to onboarding when we have a confirmed 0 / falsy value.
-  const needsOnboarding = !settingsError && settings !== undefined && !settings?.onboardingComplete;
+  // Only redirect to onboarding when we have a CONFIRMED falsy onboardingComplete.
+  // settings === undefined → still loading (show splash/timeout instead)
+  // settings === null     → fetch failed or IDB empty; treat as "not yet known" to
+  //                         prevent false onboarding redirects for returning users
+  //                         on cold starts where the 15s fetch hasn't resolved yet.
+  const needsOnboarding = !settingsError && settings !== undefined && settings !== null && !settings?.onboardingComplete;
 
   if (needsOnboarding && location !== "/onboarding") {
     return <Redirect to="/onboarding" />;

@@ -1,5 +1,12 @@
 # ArtixPOS — Business OS
 
+> **IMPORTANT — READ FIRST:**
+> Replit is used **only for development, coding, and editing files**.
+> **Deployment is handled entirely by Vercel.**
+> The production domain is **artixpos.com**.
+> Never suggest Replit deployment, Replit hosting, or `suggest_deploy` for this project.
+> All build/deploy concerns are Vercel-specific (`npm run vercel-build`, `vercel.json`, environment variables set in the Vercel dashboard).
+
 A full-stack Point of Sale (POS) and business management platform built with React, Express, and PostgreSQL.
 
 ## Project Overview

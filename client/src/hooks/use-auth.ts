@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY, getCsrfHeaders } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
+import { clearSettingsPrewarm } from "@/hooks/use-settings";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -125,9 +126,13 @@ export function useAuth() {
         // Offline or network error — still proceed with local-only logout.
       }
       clearNativeToken();
-      // Fire-and-forget IDB clear — don't block the redirect on it.
-      // ProtectedRouter will re-clear on next session start, so data never
-      // bleeds into the next session even if the page unloads mid-clear.
+      // Clear the settings in-memory prewarm and IDB entry synchronously
+      // (best-effort) BEFORE the page navigation.  clearAllCache() below is
+      // fire-and-forget and may not finish before window.location.replace()
+      // triggers a navigation.  If IDB still holds the previous user's settings,
+      // the next session's pre-warm shows the wrong store name on first render.
+      await clearSettingsPrewarm().catch(() => {});
+      // Fire-and-forget full IDB clear — covers all other offline caches.
       clearAllCache().catch(() => {});
     },
     onSuccess: () => {

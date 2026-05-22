@@ -239,25 +239,26 @@ export function registerSettingsRoutes(app: Express): void {
         }
       }
 
-      // Sync businessType / businessSubType to the main branch whenever they change.
-      // This keeps the nav labels in sync with what the owner sees in Settings.
+      // Sync storeName / businessType / businessSubType to the main branch.
+      // The header in the client reads activeBranch.name (from the JWT/auth endpoint),
+      // NOT user_settings.store_name directly. So whenever storeName changes we must
+      // also update the branch name, otherwise the header keeps showing the stale name.
       const tenantId = getTenantId(req);
-      if (
-        tenantId &&
-        input.onboardingComplete !== 1 &&
-        (input.businessType !== undefined || input.businessSubType !== undefined)
-      ) {
+      if (tenantId && input.onboardingComplete !== 1) {
         try {
           const branches = await getBranches(tenantId);
           const mainBranch = branches.find((b: any) => b.isMain) ?? branches[0];
           if (mainBranch) {
             const patch: Record<string, string | null> = {};
+            if (input.storeName !== undefined) patch.name = input.storeName as string;
             if (input.businessType !== undefined) patch.businessType = (input.businessType as string) ?? null;
             if (input.businessSubType !== undefined) patch.businessSubType = (input.businessSubType as string) ?? null;
-            await updateBranch(mainBranch.id, tenantId, patch);
+            if (Object.keys(patch).length > 0) {
+              await updateBranch(mainBranch.id, tenantId, patch);
+            }
           }
         } catch (branchSyncErr) {
-          console.warn("[settings] Failed to sync businessType to main branch:", branchSyncErr);
+          console.warn("[settings] Failed to sync storeName/businessType to main branch:", branchSyncErr);
         }
       }
 

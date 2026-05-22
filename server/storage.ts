@@ -1,4 +1,5 @@
-import { db, dbSystem } from "./db";
+import { db, dbSystem, pool } from "./db";
+import { runAsAdmin } from "./tenant-context";
 import { dbRead } from "./db-read";
 import { createHash } from "crypto";
 import {
@@ -757,10 +758,16 @@ export class DatabaseStorage implements IStorage {
 
   async getSettings(userId: string): Promise<UserSetting | undefined> {
     try {
-      // Use dbSystem (postgres / BYPASSRLS) so FORCE ROW LEVEL SECURITY on
-      // user_settings never blocks reads.  The WHERE clause is the security
-      // boundary — a user can only ever read their own row.
-      const [setting] = await dbSystem.select().from(userSettings).where(eq(userSettings.userId, userId));
+      // runAsAdmin issues SET LOCAL row_security = off inside an explicit
+      // transaction, guaranteeing the query bypasses RLS even on managed
+      // PostgreSQL instances (e.g. Supabase) where the pool role is subject
+      // to non-forced RLS policies.  dbSystem = _baseDb is the same pool
+      // connection and does NOT set row_security = off, so it can be blocked
+      // by user_settings RLS when app.current_tenant is not set (settings
+      // routes only use requireAuth, not tenantContextMiddleware).
+      const [setting] = await runAsAdmin(pool, (adminDb) =>
+        adminDb.select().from(userSettings).where(eq(userSettings.userId, userId))
+      );
       return setting;
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -771,20 +778,21 @@ export class DatabaseStorage implements IStorage {
   async updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting> {
     const doUpsert = async () => {
       // UPSERT: atomically insert or update so there is never a race between
-      // "does the row exist?" and "write the row".  This also prevents the
-      // duplicate-key 500 that occurred when getSettings() returned undefined
-      // (due to tenant-context RLS hiding the existing row) and the code then
-      // attempted a plain INSERT.
-      // dbSystem bypasses FORCE ROW LEVEL SECURITY — userId is the boundary.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [result] = await dbSystem.insert(userSettings)
-        .values({ userId, ...settings } as any)
-        .onConflictDoUpdate({
-          target: userSettings.userId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          set: settings as any,
-        })
-        .returning();
+      // "does the row exist?" and "write the row".
+      // runAsAdmin issues SET LOCAL row_security = off so RLS never hides the
+      // existing row, preventing a false INSERT (which would lose onboardingComplete
+      // and other preserved fields) when the conflict path should have triggered.
+      const [result] = await runAsAdmin(pool, (adminDb) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        adminDb.insert(userSettings)
+          .values({ userId, ...settings } as any)
+          .onConflictDoUpdate({
+            target: userSettings.userId,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            set: settings as any,
+          })
+          .returning()
+      );
       return result;
     };
 

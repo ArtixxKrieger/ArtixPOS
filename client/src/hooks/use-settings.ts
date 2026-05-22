@@ -22,6 +22,20 @@ getCached(SETTINGS_URL).then((data) => {
   _prewarmDone = true;
 });
 
+/**
+ * Clears the in-memory settings prewarm cache and the IDB entry.
+ * Must be called on logout to prevent cross-user data leakage:
+ * the prewarm module-level variable persists across auth state changes
+ * within the same page session, and the IDB key is not userId-scoped.
+ */
+export async function clearSettingsPrewarm(): Promise<void> {
+  _prewarmedSettings = undefined;
+  _prewarmDone = false;
+  try {
+    await setCached(SETTINGS_URL, null as any);
+  } catch { /* best-effort */ }
+}
+
 function isNetworkOrTimeoutError(err: unknown): boolean {
   if (err instanceof TypeError) return true;
   if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) return true;

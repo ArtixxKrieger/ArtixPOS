@@ -610,7 +610,27 @@ function AppRouter() {
   // settings === null     → fetch failed or IDB empty; treat as "not yet known" to
   //                         prevent false onboarding redirects for returning users
   //                         on cold starts where the 15s fetch hasn't resolved yet.
-  const needsOnboarding = !settingsError && settings !== undefined && settings !== null && !settings?.onboardingComplete;
+  //
+  // ADDITIONAL GUARD: localStorage flag per-userId prevents a false onboarding
+  // redirect if the server transiently returns onboardingComplete=0 (e.g. due to
+  // an RLS context issue on the first request after a cold start, or a race
+  // between the 4-second bail-out and the actual settings fetch).
+  // The flag is keyed by userId so it is specific to each account on the device.
+  const { user } = useAuth();
+  const onboardedKey = user?.id ? `artix-onboarded-${user.id}` : null;
+  const alreadyOnboarded = onboardedKey ? localStorage.getItem(onboardedKey) === "1" : false;
+
+  // Persist the flag the moment we confirm onboarding is complete.
+  if (onboardedKey && settings?.onboardingComplete) {
+    localStorage.setItem(onboardedKey, "1");
+  }
+
+  const needsOnboarding =
+    !settingsError &&
+    settings !== undefined &&
+    settings !== null &&
+    !settings?.onboardingComplete &&
+    !alreadyOnboarded;
 
   if (needsOnboarding && location !== "/onboarding") {
     return <Redirect to="/onboarding" />;

@@ -293,7 +293,14 @@ export default function Settings() {
       country: currentCountry?.code ?? null,
     };
     updateSettings.mutate(payload as any, {
-      onSuccess: () => toast({ title: "Settings saved" }),
+      onSuccess: () => {
+        toast({ title: "Settings saved" });
+        // Invalidate the auth query so the header immediately reflects the
+        // updated store name.  The header reads activeBranch.name (from the
+        // JWT/auth endpoint, not user_settings.store_name), and the server
+        // now syncs storeName → branch.name on every settings PUT.
+        queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      },
       onError: showErrorToast,
     });
   };

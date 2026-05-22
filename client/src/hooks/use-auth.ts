@@ -125,10 +125,10 @@ export function useAuth() {
         // Offline or network error — still proceed with local-only logout.
       }
       clearNativeToken();
-      // Await clearAllCache so the IDB is fully wiped BEFORE the page reload.
-      // Fire-and-forget left a window where the page could unload mid-clear,
-      // leaving stale data from this user that the next account could read.
-      await clearAllCache();
+      // Fire-and-forget IDB clear — don't block the redirect on it.
+      // ProtectedRouter will re-clear on next session start, so data never
+      // bleeds into the next session even if the page unloads mid-clear.
+      clearAllCache().catch(() => {});
     },
     onSuccess: () => {
       // Synchronously kill all in-flight queries and wipe the cache BEFORE
@@ -137,10 +137,6 @@ export function useAuth() {
       // the cache with the previous user's data.
       queryClient.cancelQueries();
       queryClient.clear();
-      // Flag checked by the /login page: if the auth cookie survived (server
-      // logout failed silently), the login page retries the full logout cycle
-      // instead of immediately redirecting back into the app.
-      sessionStorage.setItem("artix-logout-pending", "1");
       // replace() removes this entry from history so the back button can never
       // restore the pre-logout app page from the browser's bfcache.
       window.location.replace("/login");
@@ -149,7 +145,6 @@ export function useAuth() {
       clearNativeToken();
       queryClient.cancelQueries();
       queryClient.clear();
-      sessionStorage.setItem("artix-logout-pending", "1");
       window.location.replace("/login");
     },
   });

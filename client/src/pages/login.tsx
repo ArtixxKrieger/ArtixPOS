@@ -136,8 +136,19 @@ export default function Login() {
   // case we retry the full logout cycle right here instead of bouncing the
   // user back into the app, which would require a second manual logout click.
   useEffect(() => {
-    if (isLoading || !isAuthenticated) return;
+    if (isLoading) return;
 
+    // User is confirmed logged out — clear any stale logout-pending flag so
+    // a fresh login is never blocked by a leftover flag from a previous session.
+    if (!isAuthenticated) {
+      sessionStorage.removeItem("artix-logout-pending");
+      return;
+    }
+
+    // isAuthenticated = true: either the server cookie survived a failed logout,
+    // or the user just logged in. Only retry the logout if the flag was set
+    // during THIS page visit (i.e. the flag was present when we arrived), not
+    // from a previous session that already completed successfully.
     const logoutPending = sessionStorage.getItem("artix-logout-pending") === "1";
     if (logoutPending) {
       sessionStorage.removeItem("artix-logout-pending");

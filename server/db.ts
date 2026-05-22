@@ -27,21 +27,25 @@ export const pool = new Pool({
 
   idleTimeoutMillis: isServerless ? 10_000 : 30_000,
 
-  connectionTimeoutMillis: 5_000,
+  // 15 s — matches DB_STATEMENT_TIMEOUT_MS so a slow query never races the
+  // connection-wait timeout.  Previously 5 s, which was too tight when all
+  // pool slots were held by concurrent tenant-context requests on Vercel.
+  connectionTimeoutMillis: 15_000,
 
   allowExitOnIdle: isServerless,
 });
 
-const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_MS ?? "15000", 10);
-const LOCK_TIMEOUT_MS      = parseInt(process.env.DB_LOCK_TIMEOUT_MS      ?? "5000",  10);
+export const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_MS ?? "15000", 10);
+export const LOCK_TIMEOUT_MS      = parseInt(process.env.DB_LOCK_TIMEOUT_MS      ?? "5000",  10);
 
-pool.on("connect", (client) => {
-  client.query(
-    `SET statement_timeout = ${STATEMENT_TIMEOUT_MS}; SET lock_timeout = ${LOCK_TIMEOUT_MS};`
-  ).catch((err) => {
-    console.warn("[db] Could not set session timeouts:", err.message);
-  });
-});
+// NOTE: We intentionally do NOT set statement_timeout / lock_timeout here via
+// pool.on("connect").  On Supabase's PgBouncer transaction-mode pooler (port
+// 6543) each pool.query() may land on a different server connection, so
+// session-level SET commands set at connect time do not persist.  Instead,
+// tenantContextMiddleware sets them via SET LOCAL inside every tenant
+// transaction, where they are guaranteed to apply and automatically revert on
+// COMMIT / ROLLBACK.  For dbSystem (bypass) queries Supabase's own idle
+// timeouts provide a safety net.
 
 pool.on("error", (err) => {
   console.error("[db] Unexpected pool client error:", err.message);

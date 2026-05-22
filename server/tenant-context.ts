@@ -4,6 +4,7 @@ import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 import type { Request, Response, NextFunction } from "express";
 import type { AuthUser } from "./middleware";
+import { STATEMENT_TIMEOUT_MS, LOCK_TIMEOUT_MS } from "./db";
 
 type TenantStore = {
   tenantId: string;
@@ -103,6 +104,16 @@ export function tenantContextMiddleware(pool: Pool) {
       await client.query(
         `SELECT set_config('app.current_tenant', $1, TRUE)`,
         [user.tenantId]
+      );
+
+      // Apply query timeouts as SET LOCAL so they are scoped to this transaction
+      // and automatically revert on COMMIT / ROLLBACK.  This is the only reliable
+      // way to enforce timeouts on Supabase's PgBouncer transaction-mode pooler
+      // (port 6543): session-level SET commands set at pool.connect() time do NOT
+      // persist because each transaction may be assigned a different backend
+      // connection by PgBouncer.
+      await client.query(
+        `SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}; SET LOCAL lock_timeout = ${LOCK_TIMEOUT_MS};`
       );
 
       const tenantDb = drizzle(client, { schema });

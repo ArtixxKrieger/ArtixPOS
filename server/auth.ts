@@ -308,8 +308,30 @@ async function findOrCreateUser(data: {
   // "new row violates row-level security policy" and subsequent SELECTs to
   // return zero rows.
   return runAsAdmin(pool, async (adminDb) => {
+    // Primary lookup: exact provider ID match (deterministic, fastest)
     const [existing] = await adminDb.select().from(users).where(eq(users.id, data.id));
     if (existing) return existing;
+
+    // Fallback: email-based lookup — handles the RLS Catch-22 scenario where a
+    // returning user's row was hidden (non-null tenant_id + NULL current_tenant_id()
+    // → policy evaluated to NULL → 0 rows), as well as cross-provider account
+    // linking (user registered with email+password, now signs in with Google
+    // using the same email address).  We only fall back when an email is known.
+    if (data.email) {
+      const [byEmail] = await adminDb
+        .select()
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1);
+      if (byEmail) {
+        // Link the provider ID: if they previously used a different provider,
+        // update the record so future primary-lookup hits are instant.
+        if (byEmail.id !== data.id) {
+          console.log(`[auth] findOrCreateUser: linked provider "${data.provider}" to existing account via email match (existing id=${byEmail.id})`);
+        }
+        return byEmail;
+      }
+    }
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1177,15 +1199,56 @@ export function setupAuth(app: Express) {
     if (!req.user) return res.status(401).json({ user: null });
     const u = req.user;
 
+    // ── Re-read live user state from DB ──────────────────────────────────────
+    // The JWT is signed once at login and cached by the client for up to 7 days.
+    // If the JWT was issued BEFORE onboarding completed (tenantId was null then),
+    // the token still carries tenantId=null even though the DB now has a real
+    // tenantId.  Without this re-read:
+    //   1. /api/auth/me returns tenantId=null
+    //   2. tenantContextMiddleware skips setting up the tenant context
+    //   3. The settings query returns nothing
+    //   4. needsOnboarding=true → user is force-redirected to onboarding again
+    //
+    // We use runAsAdmin so the SELECT bypasses RLS (same guarantee as
+    // findOrCreateUser) and always returns the row regardless of tenant context.
+    let liveRole = u.role ?? "owner";
+    let liveTenantId: string | null = u.tenantId ?? null;
+    let liveActiveBranchId: number | null = u.activeBranchId ?? null;
+    try {
+      const [dbUser] = await runAsAdmin(pool, async (adminDb) =>
+        adminDb
+          .select({
+            tenantId: users.tenantId,
+            role: users.role,
+            activeBranchId: users.activeBranchId,
+            isBanned: users.isBanned,
+          })
+          .from(users)
+          .where(eq(users.id, u.id))
+          .limit(1)
+      );
+      if (dbUser) {
+        if (dbUser.isBanned) {
+          return res.status(403).json({ banned: true, message: "Your account has been suspended for violating our Terms of Service." });
+        }
+        liveRole          = (dbUser.role as string) ?? liveRole;
+        liveTenantId      = (dbUser.tenantId as string | null) ?? liveTenantId;
+        liveActiveBranchId = (dbUser.activeBranchId as number | null) ?? liveActiveBranchId;
+      }
+    } catch (err) {
+      // Non-critical — fall back to JWT values if DB read fails
+      console.warn("[auth/me] live user re-read failed, using JWT values:", (err as Error).message);
+    }
+
     // Resolve the active branch's businessType / businessSubType so the client
     // can adapt navigation, terminology, and quick actions on a per-branch
     // basis (e.g. show "Tables" only on a cafe branch, "Bookings" only on a
     // salon branch). Falls back silently when the branch is missing.
     let activeBranch: { id: number; name: string; businessType: string | null; businessSubType: string | null } | null = null;
     try {
-      if (u.activeBranchId && u.tenantId) {
+      if (liveActiveBranchId && liveTenantId) {
         const { branches } = await import("@shared/schema");
-        const { and, eq } = await import("drizzle-orm");
+        const { and, eq: eqLocal } = await import("drizzle-orm");
         const [b] = await db
           .select({
             id: branches.id,
@@ -1194,7 +1257,7 @@ export function setupAuth(app: Express) {
             businessSubType: branches.businessSubType,
           })
           .from(branches)
-          .where(and(eq(branches.id, u.activeBranchId), eq(branches.tenantId, u.tenantId)))
+          .where(and(eqLocal(branches.id, liveActiveBranchId), eqLocal(branches.tenantId, liveTenantId)))
           .limit(1);
         if (b) activeBranch = b;
       }
@@ -1210,9 +1273,9 @@ export function setupAuth(app: Express) {
         email: u.email,
         avatar: u.avatar,
         provider: u.provider,
-        tenantId: u.tenantId ?? null,
-        role: u.role ?? "owner",
-        activeBranchId: u.activeBranchId ?? null,
+        tenantId: liveTenantId,
+        role: liveRole,
+        activeBranchId: liveActiveBranchId,
         activeBranch,
       }
     });

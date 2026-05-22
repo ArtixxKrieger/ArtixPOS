@@ -1220,7 +1220,6 @@ export function setupAuth(app: Express) {
           .select({
             tenantId: users.tenantId,
             role: users.role,
-            activeBranchId: users.activeBranchId,
             isBanned: users.isBanned,
           })
           .from(users)
@@ -1231,9 +1230,8 @@ export function setupAuth(app: Express) {
         if (dbUser.isBanned) {
           return res.status(403).json({ banned: true, message: "Your account has been suspended for violating our Terms of Service." });
         }
-        liveRole          = (dbUser.role as string) ?? liveRole;
-        liveTenantId      = (dbUser.tenantId as string | null) ?? liveTenantId;
-        liveActiveBranchId = (dbUser.activeBranchId as number | null) ?? liveActiveBranchId;
+        liveRole     = (dbUser.role as string) ?? liveRole;
+        liveTenantId = (dbUser.tenantId as string | null) ?? liveTenantId;
       }
     } catch (err) {
       // Non-critical — fall back to JWT values if DB read fails

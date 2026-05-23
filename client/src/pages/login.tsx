@@ -113,6 +113,13 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
+  // Ref holding the OAuth popup-closed poll timer so we can clear it if the
+  // Login component unmounts before the user closes the popup.
+  const oauthPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => {
+    if (oauthPollTimerRef.current !== null) clearInterval(oauthPollTimerRef.current);
+  }, []);
+
   useEffect(() => {
     if (isLoading) return;
     const params = new URLSearchParams(window.location.search);
@@ -347,10 +354,12 @@ export default function Login() {
     setSigningIn(true);
 
     // Poll every 500 ms to detect popup closure without completing sign-in
-    // (user clicked ✕ before picking an account).
-    const timer = setInterval(() => {
+    // (user clicked ✕ before picking an account).  Store the timer ID in a ref
+    // so the useEffect cleanup above can clear it if the component unmounts.
+    oauthPollTimerRef.current = setInterval(() => {
       if (popup.closed) {
-        clearInterval(timer);
+        if (oauthPollTimerRef.current !== null) clearInterval(oauthPollTimerRef.current);
+        oauthPollTimerRef.current = null;
         setSigningIn(false);
         sessionStorage.removeItem(OAUTH_FLOW_KEY);
       }

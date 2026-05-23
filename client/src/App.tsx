@@ -743,7 +743,9 @@ function ProtectedRouter() {
     }
     prevUserIdRef.current = user.id;
 
-    initUserSession(user.id).then(() => prefetchBootstrapData(user.id));
+    initUserSession(user.id)
+      .then(() => prefetchBootstrapData(user.id))
+      .catch(() => {});
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {

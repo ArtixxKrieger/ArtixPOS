@@ -1251,12 +1251,22 @@ export class DatabaseStorage implements IStorage {
 
   async createRefund(userId: string, refund: InsertRefund): Promise<Refund> {
     try {
-      const [created] = await db.insert(refunds).values({ ...refund, userId } as any).returning();
-      // Mark the sale as refunded
-      await (db.update(sales) as any)
-        .set({ refundedAt: new Date().toISOString(), refundedBy: userId })
+      // Verify the sale belongs to the caller's tenant before refunding it.
+      const userIds = await this.getTenantUserIds(userId);
+      const [existingSale] = await db.select({ userId: sales.userId }).from(sales)
         .where(eq(sales.id, refund.saleId));
-      return created;
+      if (!existingSale || !userIds.includes(existingSale.userId)) {
+        throw new Error("Sale not found or access denied");
+      }
+      // Wrap insert + update in a transaction so we never have a refund row
+      // without the corresponding sale status update (or vice versa).
+      return await db.transaction(async (tx) => {
+        const [created] = await tx.insert(refunds).values({ ...refund, userId } as any).returning();
+        await (tx.update(sales) as any)
+          .set({ refundedAt: new Date().toISOString(), refundedBy: userId })
+          .where(eq(sales.id, refund.saleId));
+        return created;
+      });
     } catch (error) {
       console.error("Error creating refund:", error);
       throw error;
@@ -1390,8 +1400,14 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Supplier Products ────────────────────────────────────────────────────
 
-  async getSupplierProducts(supplierId: number, _userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
+  async getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
     try {
+      // Verify the supplier belongs to the caller's tenant before returning its products.
+      const userIds = await this.getTenantUserIds(userId);
+      const [supplier] = await db.select({ id: suppliers.id }).from(suppliers)
+        .where(and(eq(suppliers.id, supplierId), inArray(suppliers.userId, userIds)));
+      if (!supplier) return [];
+
       const rows = await db.select({
         id: supplierProducts.id,
         supplierId: supplierProducts.supplierId,
@@ -1428,7 +1444,15 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async deleteSupplierProduct(id: number, _userId: string): Promise<void> {
+  async deleteSupplierProduct(id: number, userId: string): Promise<void> {
+    // Verify the supplier product's parent supplier belongs to the caller's tenant.
+    const userIds = await this.getTenantUserIds(userId);
+    const [row] = await db.select({ supplierId: supplierProducts.supplierId })
+      .from(supplierProducts).where(eq(supplierProducts.id, id));
+    if (!row) return;
+    const [supplier] = await db.select({ id: suppliers.id }).from(suppliers)
+      .where(and(eq(suppliers.id, row.supplierId), inArray(suppliers.userId, userIds)));
+    if (!supplier) return;
     await db.delete(supplierProducts).where(eq(supplierProducts.id, id));
   }
 
@@ -1460,23 +1484,24 @@ export class DatabaseStorage implements IStorage {
   async createPurchaseOrder(userId: string, po: InsertPurchaseOrder): Promise<PurchaseOrder & { items: PurchaseOrderItem[] }> {
     try {
       const { items = [], ...poData } = po;
-      // Calculate total
       const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.totalCost || "0"), 0).toFixed(2);
-      const [created] = await db.insert(purchaseOrders).values({
-        ...poData,
-        userId,
-        totalAmount,
-      } as any).returning();
-      // Insert items
-      const createdItems: PurchaseOrderItem[] = [];
-      for (const item of items) {
-        const [createdItem] = await db.insert(purchaseOrderItems).values({
-          ...item,
-          purchaseOrderId: created.id,
+      // Wrap PO creation + item inserts in a transaction so we never leave a
+      // "headless" purchase order if the item inserts fail.
+      return await db.transaction(async (tx) => {
+        const [created] = await tx.insert(purchaseOrders).values({
+          ...poData,
+          userId,
+          totalAmount,
         } as any).returning();
-        createdItems.push(createdItem);
-      }
-      return { ...created, items: createdItems };
+        // Batch-insert all items in a single statement (no N+1).
+        const createdItems: PurchaseOrderItem[] =
+          items.length > 0
+            ? await tx.insert(purchaseOrderItems)
+                .values(items.map((item) => ({ ...item, purchaseOrderId: created.id }) as any))
+                .returning()
+            : [];
+        return { ...created, items: createdItems };
+      });
     } catch (error) {
       console.error("Error creating purchase order:", error);
       throw error;
@@ -2121,13 +2146,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async checkInMember(userId: string, data: InsertMembershipCheckIn): Promise<MembershipCheckIn> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [checkIn] = await db.insert(membershipCheckIns).values({ ...data, userId } as any).returning();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.update(memberships).set({
-      checkInsUsed: sql`check_ins_used + 1`,
-    } as any).where(eq(memberships.id, data.membershipId));
-    return checkIn;
+    // Verify the membership belongs to the caller's tenant.
+    const userIds = await this.getTenantUserIds(userId);
+    const [existingMembership] = await db.select({ userId: memberships.userId }).from(memberships)
+      .where(eq(memberships.id, data.membershipId));
+    if (!existingMembership || !userIds.includes(existingMembership.userId)) {
+      throw new Error("Membership not found or access denied");
+    }
+    // Wrap insert + counter increment in a transaction so check-in count is
+    // never incremented without a corresponding check-in log row (or vice versa).
+    return await db.transaction(async (tx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [checkIn] = await tx.insert(membershipCheckIns).values({ ...data, userId } as any).returning();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await tx.update(memberships).set({
+        checkInsUsed: sql`check_ins_used + 1`,
+      } as any).where(eq(memberships.id, data.membershipId));
+      return checkIn;
+    });
   }
 
   async getCheckIns(membershipId: number, userId: string): Promise<MembershipCheckIn[]> {

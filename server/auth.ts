@@ -63,7 +63,7 @@ async function _pruneRevokedTokens(): Promise<void> {
   } catch { /* non-critical */ }
 }
 
-export async function revokeToken(jti: string, userId: string, expiresAt: string): Promise<void> {
+async function revokeToken(jti: string, userId: string, expiresAt: string): Promise<void> {
   _revokedJtis.add(jti);
   try {
     await db.insert(revokedTokens).values({ jti, userId, expiresAt }).onConflictDoNothing();
@@ -72,7 +72,7 @@ export async function revokeToken(jti: string, userId: string, expiresAt: string
   }
 }
 
-export function isTokenRevoked(jti: string): boolean {
+function isTokenRevoked(jti: string): boolean {
   return _revokedJtis.has(jti);
 }
 

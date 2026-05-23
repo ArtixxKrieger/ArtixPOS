@@ -25,6 +25,3 @@ export const logger = pino({
       }),
 });
 
-export function createRequestLogger(source = "express") {
-  return logger.child({ source });
-}

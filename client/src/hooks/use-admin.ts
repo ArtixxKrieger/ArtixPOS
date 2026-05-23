@@ -98,7 +98,7 @@ export function useTenant() {
   });
 }
 
-export function useUpdateTenant() {
+function useUpdateTenant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (name: string) =>
@@ -264,7 +264,7 @@ export function useTenantUsers() {
   });
 }
 
-export function useCreateUser() {
+function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; email: string; role: "manager" | "admin" | "cashier"; password: string; branchIds?: number[] }) =>
@@ -445,7 +445,7 @@ export function useCreateInvite() {
   });
 }
 
-export function useRedeemInvite() {
+function useRedeemInvite() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (token: string) =>

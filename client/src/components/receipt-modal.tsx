@@ -54,7 +54,7 @@ interface ReceiptModalProps {
   receipt: ReceiptData | null;
 }
 
-export function buildReceiptHtml(
+function buildReceiptHtml(
   printableId: string,
   settings: Partial<UserSetting> | null | undefined,
 ): string | null {

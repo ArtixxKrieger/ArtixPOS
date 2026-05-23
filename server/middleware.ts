@@ -23,18 +23,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export function requireRole(...roles: UserRole[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const user = req.user as AuthUser;
-    if (!roles.includes(user.role)) {
-      return res.status(403).json({ message: "Forbidden: insufficient role" });
-    }
-    next();
-  };
-}
 
 export function requireTenant(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ message: "Unauthorized" });

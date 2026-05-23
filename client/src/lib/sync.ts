@@ -403,7 +403,7 @@ export async function retryFailedMutations(): Promise<SyncResult> {
 }
 
 /** Invalidate all tracked queries (use when coming back online without a pending queue). */
-export async function refreshAllData(): Promise<void> {
+async function refreshAllData(): Promise<void> {
   const keys = [
     ...ALWAYS_INVALIDATE,
     ["/api/products"],

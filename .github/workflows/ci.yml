@@ -84,6 +84,9 @@ jobs:
       - name: Lint (errors fail CI; warnings are tracked tech debt)
         run: npx eslint server/ client/src/ shared/
 
+      - name: Dead code analysis (report only — won't fail CI)
+        run: npx knip --reporter compact || true
+
       - name: Run test suite with coverage
         run: npx vitest run --reporter=verbose --coverage
 

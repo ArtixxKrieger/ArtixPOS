@@ -18,18 +18,6 @@ type TenantStore = {
 export const _tenantStore = new AsyncLocalStorage<TenantStore | "admin">();
 
 /**
- * Returns the tenant-scoped Drizzle instance if we are inside a tenant
- * request context, otherwise returns the provided fallback (global pool).
- */
-export function getTenantDb(
-  fallback: NodePgDatabase<typeof schema>
-): NodePgDatabase<typeof schema> {
-  const store = _tenantStore.getStore();
-  if (store && store !== "admin") return store.db;
-  return fallback;
-}
-
-/**
  * Express middleware — must be placed after jwtAuthMiddleware.
  *
  * For every authenticated request that has a tenantId:

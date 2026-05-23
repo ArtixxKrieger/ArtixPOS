@@ -1,4 +1,4 @@
-export type BusinessAccessContext = {
+type BusinessAccessContext = {
   businessType?: string | null;
   businessSubType?: string | null;
 };

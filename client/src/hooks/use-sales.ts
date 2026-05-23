@@ -157,7 +157,7 @@ export function useDeleteSale() {
   });
 }
 
-export function useDeletedSales() {
+function useDeletedSales() {
   return useQuery({
     queryKey: ["/api/sales/deleted"],
     queryFn: async () => {

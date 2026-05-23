@@ -90,7 +90,7 @@ export function deleteSession(id: string) {
   save(load().filter(s => s.id !== id));
 }
 
-export function clearAllSessions() {
+function clearAllSessions() {
   save([]);
 }
 
@@ -146,7 +146,7 @@ export function setFloatPosition(pos: FloatPosition) {
   localStorage.setItem(FLOAT_POSITION_KEY, JSON.stringify(pos));
 }
 
-export function clearFloatPosition() {
+function clearFloatPosition() {
   localStorage.removeItem(FLOAT_POSITION_KEY);
 }
 

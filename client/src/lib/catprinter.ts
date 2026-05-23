@@ -163,7 +163,7 @@ export function buildCatPrinterPackets(
 }
 
 /** Test print – no receipt data needed */
-export function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58mm"): number[][] {
+function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58mm"): number[][] {
   const width = receiptWidth === "58mm" ? 32 : 42;
   const dash  = "-".repeat(width);
   const center = (s: string) => {

@@ -72,9 +72,6 @@ async function revokeToken(jti: string, userId: string, expiresAt: string): Prom
   }
 }
 
-function isTokenRevoked(jti: string): boolean {
-  return _revokedJtis.has(jti);
-}
 
 // Load revoked tokens on startup and prune stale entries every hour
 _loadRevokedTokens();

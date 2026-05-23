@@ -1,8 +1,3 @@
-type BusinessAccessContext = {
-  businessType?: string | null;
-  businessSubType?: string | null;
-};
-
 const FOOD_RESTAURANT_FREE = new Set(["/kitchen", "/tables"]);
 const FOOD_BAR_FREE = new Set(["/tables"]);
 const SERVICE_BASE_FREE = new Set(["/appointments", "/staff"]);

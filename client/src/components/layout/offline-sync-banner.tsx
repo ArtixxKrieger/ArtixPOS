@@ -71,7 +71,8 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
     if (pillState !== "sync-done") {
       setPillState("hidden");
     }
-  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]); // pillState intentionally omitted — read-only peek to avoid reset loop
 
   // Animate in/out
   useEffect(() => {

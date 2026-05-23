@@ -414,7 +414,6 @@ function PersistentRoute({
 const HardwareSettingsRoute = () => <HardwareSettings />;
 const BillingRoute          = () => <BillingPage />;
 
-const ProductsRoute         = () => <CashierGuard component={Products} />;
 const TransactionsRoute     = () => <CashierGuard component={Transactions} />;
 const StaffRoute            = () => <CashierGuard component={StaffPage} />;
 const ExpiryRoute           = () => <CashierGuard component={ExpiryTrackerPage} />;

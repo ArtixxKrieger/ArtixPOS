@@ -99,12 +99,12 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
         rafRef.current = requestAnimationFrame(scan);
       };
       rafRef.current = requestAnimationFrame(scan);
-    } catch (err: any) {
+    } catch (err: unknown) {
       stopCamera();
-      if (err?.name === "NotAllowedError") {
+      if ((err as { name?: string })?.name === "NotAllowedError") {
         setCameraState("denied");
       } else {
-        setCameraError(err?.name === "NotFoundError" ? "No camera found on this device." : "Could not start the camera.");
+        setCameraError((err as { name?: string })?.name === "NotFoundError" ? "No camera found on this device." : "Could not start the camera.");
         setCameraState("error");
       }
     }

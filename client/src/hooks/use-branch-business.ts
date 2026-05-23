@@ -25,9 +25,11 @@ export function useBranchBusiness(): {
     return { businessType: branchType, businessSubType: branchSub };
   }
 
+  type SettingsShape = { businessType?: string | null; businessSubType?: string | null };
+  const s = settings as SettingsShape | null | undefined;
   return {
-    businessType: (settings as any)?.businessType ?? null,
-    businessSubType: (settings as any)?.businessSubType ?? null,
+    businessType: s?.businessType ?? null,
+    businessSubType: s?.businessSubType ?? null,
   };
 }
 

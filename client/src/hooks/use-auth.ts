@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { resolveUrl, clearNativeToken, nativeFetch, NATIVE_TOKEN_KEY, getCsrfHeaders } from "@/lib/queryClient";
+import { resolveUrl, clearNativeToken, NATIVE_TOKEN_KEY, getCsrfHeaders } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { clearSettingsPrewarm } from "@/hooks/use-settings";

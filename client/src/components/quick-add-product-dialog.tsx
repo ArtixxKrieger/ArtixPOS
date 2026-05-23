@@ -51,21 +51,18 @@ export function QuickAddProductDialog({
     if (open) {
       form.reset({ name: "", price: "", category: "General" });
     }
-  }, [open, barcode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, barcode]); // form is intentionally omitted — react-hook-form's form object is stable
 
   async function onSubmit(values: FormValues) {
     try {
-      const product = await createProduct.mutateAsync({
-        name: values.name.trim(),
-        price: parseFloat(values.price).toFixed(2),
-        category: values.category || "General",
-        barcode: barcode || undefined,
-        isActive: 1,
-      } as any);
+      const payload = { name: values.name.trim(), price: parseFloat(values.price).toFixed(2), category: values.category || "General", barcode: barcode || undefined, isActive: 1 };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const product = await createProduct.mutateAsync(payload as any);
       onCreated(product as Product);
       onClose();
-    } catch (err: any) {
-      form.setError("root", { message: err?.message || "Could not save product. Try again." });
+    } catch (err: unknown) {
+      form.setError("root", { message: (err as Error)?.message || "Could not save product. Try again." });
     }
   }
 

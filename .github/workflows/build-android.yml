@@ -84,6 +84,57 @@ jobs:
             echo "⚠️  GOOGLE_SERVICES_JSON secret not set — Google Sign-In WILL fail on device"
           fi
 
+      - name: Patch google-services.json — ensure correct package name
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, sys
+
+          path = "android/app/google-services.json"
+
+          if not os.path.exists(path):
+              print("⚠️  google-services.json not found — creating minimal placeholder")
+              minimal = {
+                  "project_info": {
+                      "project_number": "000000000000",
+                      "project_id": "artixpos-app",
+                      "storage_bucket": "artixpos-app.appspot.com"
+                  },
+                  "client": [
+                      {
+                          "client_info": {
+                              "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                              "android_client_info": {"package_name": "com.artixpos.app"}
+                          },
+                          "oauth_client": [],
+                          "api_key": [{"current_key": "placeholder"}],
+                          "services": {"appinvite_service": {"other_platform_oauth_client": []}}
+                      }
+                  ],
+                  "configuration_version": "1"
+              }
+              with open(path, "w") as f:
+                  json.dump(minimal, f, indent=2)
+              print("✅ Minimal google-services.json created with com.artixpos.app")
+          else:
+              with open(path) as f:
+                  data = json.load(f)
+
+              changed = False
+              for client in data.get("client", []):
+                  pkg = client.get("client_info", {}).get("android_client_info", {}).get("package_name", "")
+                  if pkg and pkg != "com.artixpos.app":
+                      print(f"⚠️  Patching package_name: {pkg} → com.artixpos.app")
+                      client["client_info"]["android_client_info"]["package_name"] = "com.artixpos.app"
+                      changed = True
+
+              if changed:
+                  with open(path, "w") as f:
+                      json.dump(data, f, indent=2)
+                  print("✅ google-services.json package_name patched to com.artixpos.app")
+              else:
+                  print("✅ google-services.json already has correct package_name")
+          PYEOF
+
       - name: Patch android/build.gradle — force Kotlin 1.8.22
         run: |
           # If kotlin_version already exists, replace it; otherwise insert after 'buildscript {'
@@ -212,10 +263,10 @@ jobs:
                       <action android:name="android.intent.action.VIEW" />
                       <category android:name="android.intent.category.DEFAULT" />
                       <category android:name="android.intent.category.BROWSABLE" />
-                      <data android:scheme="com.cafebara.app" />
+                      <data android:scheme="com.artixpos.app" />
                   </intent-filter>'''
 
-          if 'android:scheme="com.cafebara.app"' not in content:
+          if 'android:scheme="com.artixpos.app"' not in content:
               content = content.replace('</activity>', deep_link_filter + '\n        </activity>', 1)
               with open(path, 'w') as f:
                   f.write(content)

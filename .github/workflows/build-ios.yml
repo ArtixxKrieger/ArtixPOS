@@ -57,14 +57,40 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
+      - name: Verify Podfile exists (create if missing)
+        run: |
+          if [ -f "ios/App/Podfile" ]; then
+            echo "✅ Podfile found at ios/App/Podfile"
+          else
+            echo "⚠️  Podfile not found — creating minimal Podfile for Capacitor"
+            cat > ios/App/Podfile << 'PODEOF'
+          platform :ios, '15.0'
+          use_frameworks!
+
+          install! 'cocoapods', :disable_input_output_paths => true
+
+          def capacitor_pods
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+
+          target 'App' do
+            capacitor_pods
+          end
+          PODEOF
+            echo "✅ Podfile created"
+          fi
+          echo "--- Podfile contents ---"
+          cat ios/App/Podfile
+
       - name: Patch Info.plist — register deep link URL scheme
         run: |
           PLIST="ios/App/App/Info.plist"
-          if ! /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" 2>/dev/null | grep -q "com.cafebara.app"; then
+          if ! /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" 2>/dev/null | grep -q "com.artixpos.app"; then
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string com.cafebara.app" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string com.artixpos.app" "$PLIST"
             echo "Info.plist patched with URL scheme"
           else
             echo "URL scheme already present — skipping"

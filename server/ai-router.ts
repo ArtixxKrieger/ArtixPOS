@@ -159,6 +159,7 @@ function nextModel(cfg: ProviderConfig, preferSmart: boolean): string {
 
 // ─── Ollama local service ─────────────────────────────────────────────────────
 const OLLAMA_MODEL = "llama3.2:3b";
+// http:// is intentional — Ollama runs locally on loopback; HTTPS is not applicable.
 const OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 let ollamaProcess: ChildProcess | null = null;
 let ollamaReady = false;

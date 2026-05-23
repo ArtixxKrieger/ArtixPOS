@@ -10,6 +10,17 @@ import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useToast } from "@/hooks/use-toast";
 import { type UserSetting } from "@shared/schema";
 
+/** Escape user-supplied strings before interpolating into raw HTML print templates. */
+function escHtml(str: string | undefined | null): string {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 interface ReceiptItem {
   product: { name: string; price?: string | number };
   quantity: number;
@@ -228,12 +239,12 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         const lineTotal = unitPrice * item.quantity;
         return `
           <div class="row">
-            <span class="item-name">${item.product.name}${item.size ? ` (${item.size.name})` : ""} x${item.quantity}</span>
+            <span class="item-name">${escHtml(item.product.name)}${item.size ? ` (${escHtml(item.size.name)})` : ""} x${item.quantity}</span>
             <span class="price">${fmt(lineTotal)}</span>
           </div>
           ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
-          ${item.modifiers && item.modifiers.length > 0 ? `<div class="muted" style="padding-left:12px">+ ${item.modifiers.map(m => m.name).join(", ")}</div>` : ""}
-          ${item.note ? `<div class="muted" style="padding-left:12px;font-style:italic">Note: ${item.note}</div>` : ""}
+          ${item.modifiers && item.modifiers.length > 0 ? `<div class="muted" style="padding-left:12px">+ ${item.modifiers.map(m => escHtml(m.name)).join(", ")}</div>` : ""}
+          ${item.note ? `<div class="muted" style="padding-left:12px;font-style:italic">Note: ${escHtml(item.note)}</div>` : ""}
         `;
       }).join("");
 
@@ -282,29 +293,29 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   </head>
   <body>
     <div class="center">
-      ${receipt.storeName ? `<p class="bold" style="font-size:${fs + 2}px">${receipt.storeName}</p>` : ""}
-      ${receiptHeaderText ? `<p class="muted">${receiptHeaderText}</p>` : ""}
-      ${receiptTitle ? `<p style="font-size:${fs - 1}px;font-weight:700">${receiptTitle}</p>` : ""}
+      ${receipt.storeName ? `<p class="bold" style="font-size:${fs + 2}px">${escHtml(receipt.storeName)}</p>` : ""}
+      ${receiptHeaderText ? `<p class="muted">${escHtml(receiptHeaderText)}</p>` : ""}
+      ${receiptTitle ? `<p style="font-size:${fs - 1}px;font-weight:700">${escHtml(receiptTitle)}</p>` : ""}
       <p class="muted">${dateStr}</p>
-      ${showAddress && storeAddress ? `<p class="muted">${storeAddress}</p>` : ""}
-      ${showPhone && storePhone ? `<p class="muted">Tel: ${storePhone}</p>` : ""}
-      ${showEmail && storeEmail ? `<p class="muted">${storeEmail}</p>` : ""}
-      ${storeTin ? `<p class="muted" style="font-size:${fs - 3}px">VAT Reg. TIN: ${storeTin}</p>` : ""}
-      ${ptuNumber ? `<p class="muted" style="font-size:${fs - 3}px">PTU No.: ${ptuNumber}</p>` : ""}
-      ${accreditationNumber ? `<p class="muted" style="font-size:${fs - 3}px">Accreditation No.: ${accreditationNumber}</p>` : ""}
-      ${machineSerialNumber ? `<p class="muted" style="font-size:${fs - 3}px">Machine S/N: ${machineSerialNumber}</p>` : ""}
-      ${receipt.customerName ? `<p class="muted">Customer: ${receipt.customerName}</p>` : ""}
+      ${showAddress && storeAddress ? `<p class="muted">${escHtml(storeAddress)}</p>` : ""}
+      ${showPhone && storePhone ? `<p class="muted">Tel: ${escHtml(storePhone)}</p>` : ""}
+      ${showEmail && storeEmail ? `<p class="muted">${escHtml(storeEmail)}</p>` : ""}
+      ${storeTin ? `<p class="muted" style="font-size:${fs - 3}px">VAT Reg. TIN: ${escHtml(storeTin)}</p>` : ""}
+      ${ptuNumber ? `<p class="muted" style="font-size:${fs - 3}px">PTU No.: ${escHtml(ptuNumber)}</p>` : ""}
+      ${accreditationNumber ? `<p class="muted" style="font-size:${fs - 3}px">Accreditation No.: ${escHtml(accreditationNumber)}</p>` : ""}
+      ${machineSerialNumber ? `<p class="muted" style="font-size:${fs - 3}px">Machine S/N: ${escHtml(machineSerialNumber)}</p>` : ""}
+      ${receipt.customerName ? `<p class="muted">Customer: ${escHtml(receipt.customerName)}</p>` : ""}
     </div>
-    ${receipt.orNumber ? `<div class="row muted" style="margin-bottom:2px;font-size:${fs - 2}px"><span>O.R. No.</span><span>${receipt.orNumber}</span></div>` : ""}
+    ${receipt.orNumber ? `<div class="row muted" style="margin-bottom:2px;font-size:${fs - 2}px"><span>O.R. No.</span><span>${escHtml(receipt.orNumber)}</span></div>` : ""}
     ${showOrderNumber && receipt.orderNumber ? `<div class="row muted" style="margin-bottom:4px"><span>Order #</span><span>${receipt.orderNumber}</span></div>` : ""}
-    ${showCashier && receipt.cashierName ? `<div class="row muted" style="margin-bottom:4px"><span>Cashier</span><span>${receipt.cashierName}</span></div>` : ""}
+    ${showCashier && receipt.cashierName ? `<div class="row muted" style="margin-bottom:4px"><span>Cashier</span><span>${escHtml(receipt.cashierName)}</span></div>` : ""}
     <div class="line"></div>
     ${itemsHtml}
     <div class="line"></div>
     ${isScPwd ? `<p class="bold" style="text-align:center;font-size:${fs - 1}px;letter-spacing:0.5px">** SC/PWD DISCOUNT APPLIED **</p>` : ""}
     <div class="row muted"><span>Subtotal</span><span class="price">${fmt(receipt.subtotal)}</span></div>
     ${hasDiscount && isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} Discount (20%)</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
-    ${hasDiscount && !isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
+    ${hasDiscount && !isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${escHtml(receipt.discountCode)})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasTip ? `<div class="row muted"><span>Tip</span><span class="price">${fmt(receipt.tip ?? 0)}</span></div>` : ""}
     <div class="line"></div>
     ${vatRegistered ? `
@@ -316,17 +327,17 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     ` : ""}
     ${isScPwd || !vatRegistered ? `<p class="muted" style="text-align:center;font-size:${fs - 4}px;margin-bottom:2px">THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX</p>` : ""}
     <div class="row total-row"><span>TOTAL DUE</span><span class="price">${fmt(receipt.total)}</span></div>
-    <div class="row muted"><span>Payment (${receipt.paymentMethod.toUpperCase()})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
+    <div class="row muted"><span>Payment (${escHtml(receipt.paymentMethod.toUpperCase())})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
-    ${isScPwd && receipt.scPwdId ? `<div class="row muted" style="font-size:${fs - 2}px;margin-top:4px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} ID No.</span><span>${receipt.scPwdId}</span></div>` : ""}
+    ${isScPwd && receipt.scPwdId ? `<div class="row muted" style="font-size:${fs - 2}px;margin-top:4px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} ID No.</span><span>${escHtml(receipt.scPwdId)}</span></div>` : ""}
     ${receipt.wifiVoucher ? `<div class="line"></div>
       <p class="center bold">FREE WIFI VOUCHER</p>
-      ${receipt.wifiVoucher.ssid ? `<div class="row muted"><span>Network</span><span>${receipt.wifiVoucher.ssid}</span></div>` : ""}
-      ${receipt.wifiVoucher.password ? `<div class="row muted"><span>Password</span><span>${receipt.wifiVoucher.password}</span></div>` : ""}
-      <div class="row"><span>Code</span><span class="bold">${receipt.wifiVoucher.code}</span></div>
+      ${receipt.wifiVoucher.ssid ? `<div class="row muted"><span>Network</span><span>${escHtml(receipt.wifiVoucher.ssid)}</span></div>` : ""}
+      ${receipt.wifiVoucher.password ? `<div class="row muted"><span>Password</span><span>${escHtml(receipt.wifiVoucher.password)}</span></div>` : ""}
+      <div class="row"><span>Code</span><span class="bold">${escHtml(receipt.wifiVoucher.code)}</span></div>
       <p class="center muted">Valid for ${receipt.wifiVoucher.durationMinutes} min after first use</p>
     ` : ""}
-    ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${receipt.receiptFooter}</p>` : ""}
+    ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${escHtml(receipt.receiptFooter)}</p>` : ""}
     <p class="center" style="color:#000;margin-top:6px">Thank you!</p>
     <p class="center" style="color:#000;font-size:${fs - 3}px;margin-top:2px">Powered by ArtixPOS</p>
     <script>window.onload = function() { window.print(); window.close(); }<\/script>

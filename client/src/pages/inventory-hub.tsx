@@ -434,7 +434,7 @@ function ReorderTab({ suggestions, isLoading, currency }: {
 
   const allSelected = suggestions.length > 0 && selected.size === suggestions.length;
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(suggestions.map(s => s.productId)));
-  const toggle = (id: number) => setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const toggle = (id: number) => setSelected(prev => { const next = new Set(prev); if (next.has(id)) { next.delete(id); } else { next.add(id); } return next; });
 
   const generatePoMutation = useMutation({
     mutationFn: (items: typeof suggestions) => {

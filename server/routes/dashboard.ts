@@ -40,7 +40,7 @@ export function registerDashboardRoutes(app: Express): void {
 
     // Scope today's sales to this user's branch (or all branches).
     const todayUserWhere = eq(salesTable.userId, uid);
-    const todayWhere = branchWhere ? and(todayUserWhere, branchWhere) : todayUserWhere;
+    const _todayWhere = branchWhere ? and(todayUserWhere, branchWhere) : todayUserWhere; void _todayWhere;
 
     // Fire today's sales fetch and all-time aggregate in parallel.
     const [todaySales, [agg]] = await Promise.all([

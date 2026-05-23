@@ -52,6 +52,51 @@ jobs:
             echo "⚠️  GOOGLE_SERVICES_JSON secret not set — Google Sign-In will fail on device"
           fi
 
+      # ── 6b. Patch google-services.json package name ───────────────────────
+      - name: Patch google-services.json package name
+        run: |
+          python3 - <<'PYEOF'
+          import json, os
+
+          path = "android/app/google-services.json"
+
+          if not os.path.exists(path):
+              print("google-services.json not found — creating placeholder")
+              data = {
+                  "project_info": {
+                      "project_number": "000000000000",
+                      "project_id": "artixpos-app",
+                      "storage_bucket": "artixpos-app.appspot.com"
+                  },
+                  "client": [{
+                      "client_info": {
+                          "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                          "android_client_info": {"package_name": "com.artixpos.app"}
+                      },
+                      "oauth_client": [],
+                      "api_key": [{"current_key": "placeholder"}],
+                      "services": {"appinvite_service": {"other_platform_oauth_client": []}}
+                  }],
+                  "configuration_version": "1"
+              }
+          else:
+              with open(path) as f:
+                  data = json.load(f)
+              changed = False
+              for client in data.get("client", []):
+                  pkg = client.get("client_info", {}).get("android_client_info", {}).get("package_name", "")
+                  if pkg != "com.artixpos.app":
+                      print(f"Patching package_name: {pkg} → com.artixpos.app")
+                      client["client_info"]["android_client_info"]["package_name"] = "com.artixpos.app"
+                      changed = True
+              if not changed:
+                  print("✅ package_name already correct")
+
+          with open(path, "w") as f:
+              json.dump(data, f, indent=2)
+          print("✅ google-services.json ready")
+          PYEOF
+
       # ── 7. Patch deep-link intent filter in AndroidManifest.xml ──────────
       - name: Patch OAuth deep-link
         run: node script/setup-deeplink.js

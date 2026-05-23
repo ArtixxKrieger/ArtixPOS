@@ -560,6 +560,7 @@ function useRoutePreloader() {
 
 function AppRouter() {
   const { data: settings, isLoading: settingsLoading, isError: settingsError } = useSettings();
+  const { user } = useAuth();
   const [location] = useLocation();
   // Warm-up all lazy route chunks in the background so they're offline-ready
   useRoutePreloader();
@@ -616,7 +617,6 @@ function AppRouter() {
   // an RLS context issue on the first request after a cold start, or a race
   // between the 4-second bail-out and the actual settings fetch).
   // The flag is keyed by userId so it is specific to each account on the device.
-  const { user } = useAuth();
   const onboardedKey = user?.id ? `artix-onboarded-${user.id}` : null;
   const alreadyOnboarded = onboardedKey ? localStorage.getItem(onboardedKey) === "1" : false;
 

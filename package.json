@@ -141,7 +141,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.6",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.18.1",
+    "drizzle-kit": "^0.31.10",
     "esbuild": "^0.25.0",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",

@@ -104,12 +104,20 @@ jobs:
 
       - name: Build iOS (simulator, no signing)
         run: |
+          # Pick the best available iPhone 16 simulator; fall back to any available iPhone
+          SIM_NAME=$(xcrun simctl list devices available | grep -E "iPhone 1[6-9]|iPhone 1[5-9]" | head -1 | sed 's/ (.*//' | xargs)
+          if [ -z "$SIM_NAME" ]; then
+            SIM_NAME=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed 's/ (.*//' | xargs)
+          fi
+          echo "Using simulator: $SIM_NAME"
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination "platform=iOS Simulator,name=${SIM_NAME},OS=latest" \
             -derivedDataPath ios/build \
+            -allowProvisioningUpdates \
+            -skipPackagePluginValidation \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -118,6 +126,6 @@ jobs:
       - name: Upload iOS build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cafe-bara-ios-build
+          name: artixpos-ios-build
           path: ios/build/Build/Products/Debug-iphonesimulator/App.app
           retention-days: 30

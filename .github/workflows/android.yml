@@ -53,11 +53,11 @@ jobs:
           FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
         run: npx cap sync android
 
-      # ── 8. Java 17 (required by Android Gradle plugin) ───────────────────
-      - name: Set up Java 17
+      # ── 8. Java 21 (required by Capacitor 8 / Android Gradle plugin) ────
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       # ── 9. Install required Android SDK components ─────────────────────────

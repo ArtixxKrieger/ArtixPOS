@@ -17,10 +17,10 @@ if (READ_URL) {
   const readPool = new Pool({
     connectionString: READ_URL,
     ssl: { rejectUnauthorized: false },
-    max: isServerless ? 5 : parseInt(process.env.DB_READ_POOL_MAX ?? "10", 10),
-    idleTimeoutMillis:     isServerless ? 10_000 : 30_000,
-    connectionTimeoutMillis: 5_000,
-    allowExitOnIdle: isServerless,
+    max: isServerless ? 15 : parseInt(process.env.DB_READ_POOL_MAX ?? "10", 10),
+    idleTimeoutMillis:       isServerless ? 55_000 : 30_000,
+    connectionTimeoutMillis: isServerless ?  4_000 :  5_000,
+    allowExitOnIdle: false,
   });
 
   readPool.on("error", (err) => {

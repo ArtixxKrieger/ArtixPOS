@@ -159,7 +159,7 @@ export default function Dashboard() {
     <div className="space-y-4 page-enter">
 
       {/* Hero Card */}
-      <div className="glass-card rounded-3xl p-5 md:p-8 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent border-blue-500/20 dark:border-blue-500/10 relative overflow-hidden">
+      <div data-tour="tour-dashboard-hero" className="glass-card rounded-3xl p-5 md:p-8 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent border-blue-500/20 dark:border-blue-500/10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -z-10" />
         <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl -z-10" />
 
@@ -198,7 +198,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Strip */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 stagger-children">
+      <div data-tour="tour-dashboard-kpi" className="grid gap-3 grid-cols-2 lg:grid-cols-4 stagger-children">
         {[
           { label: t("dashboard.totalSales"), display: todaySales.length.toString(), icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10", glow: "from-emerald-500/8" },
           { label: t("dashboard.netRevenue"), display: totalRevenue > 0 ? `${currency}${totalRevenue.toFixed(0)}` : `${currency}0`, icon: CurrencyIcon, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10", glow: "from-blue-500/8" },

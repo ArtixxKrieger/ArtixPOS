@@ -947,7 +947,10 @@ export default function Settings() {
 
         <button
           onClick={() => {
-            window.dispatchEvent(new Event("artix:replay-tour"));
+            setLocation("/");
+            setTimeout(() => {
+              window.dispatchEvent(new Event("artix:replay-tour"));
+            }, 850);
           }}
           data-testid="button-replay-tour"
           className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"

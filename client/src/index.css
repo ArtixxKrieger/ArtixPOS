@@ -640,6 +640,47 @@ textarea:focus {
   background: hsl(240, 8%, 10%);
 }
 
+/* ─── Sale success flash ──────────────────────────────────────────────────── */
+@keyframes sale-flash {
+  0%   { opacity: 0; transform: scale(0.85) translateY(8px); }
+  15%  { opacity: 1; transform: scale(1.04) translateY(0); }
+  70%  { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.96) translateY(-6px); }
+}
+.sale-flash {
+  animation: sale-flash 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Milestone banner ────────────────────────────────────────────────────── */
+@keyframes milestone-in {
+  0%   { opacity: 0; transform: translateY(-20px) scale(0.9); }
+  20%  { opacity: 1; transform: translateY(0)     scale(1.05); }
+  35%  { transform: scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.95); }
+}
+.milestone-banner {
+  animation: milestone-in 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Cart item entry ─────────────────────────────────────────────────────── */
+@keyframes item-enter {
+  from { opacity: 0; transform: translateX(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+.item-enter {
+  animation: item-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Undo chip ───────────────────────────────────────────────────────────── */
+@keyframes undo-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
+}
+.undo-chip {
+  animation: undo-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* ─── Sidebar nav section label ──────────────────────────────────────────── */
 .nav-section-label {
   font-size: 9.5px;

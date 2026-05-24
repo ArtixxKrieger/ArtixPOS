@@ -4,7 +4,7 @@
  * Extracted from pos.tsx so the component stays focused on rendering.
  * Depends on useToast for stock-guard feedback.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { nanoid } from "nanoid";
 import type { Product } from "@shared/schema";
 
@@ -21,6 +21,10 @@ type ToastFn = (opts: { title: string; description?: string; variant?: "default"
 
 export function useCart(toast: ToastFn) {
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // ── Undo-remove support ──────────────────────────────────────────────────
+  const [lastRemoved, setLastRemoved] = useState<{ item: CartItem; index: number } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Add a product to the cart, respecting stock limits. */
   const addToCart = useCallback(
@@ -121,10 +125,31 @@ export function useCart(toast: ToastFn) {
     [cart, toast],
   );
 
-  /** Remove a cart item entirely. */
+  /** Remove a cart item — stores it for 5-second undo window. */
   const removeFromCart = useCallback((cartId: string) => {
-    setCart((prev) => prev.filter((item) => item.cartId !== cartId));
+    setCart((prev) => {
+      const index = prev.findIndex((i) => i.cartId === cartId);
+      if (index !== -1) {
+        const item = prev[index];
+        setLastRemoved({ item, index });
+        if (undoTimer.current) clearTimeout(undoTimer.current);
+        undoTimer.current = setTimeout(() => setLastRemoved(null), 5000);
+      }
+      return prev.filter((i) => i.cartId !== cartId);
+    });
   }, []);
+
+  /** Restore the last removed item within the undo window. */
+  const undoLastRemove = useCallback(() => {
+    if (!lastRemoved) return;
+    setCart((prev) => {
+      const next = [...prev];
+      next.splice(lastRemoved.index, 0, lastRemoved.item);
+      return next;
+    });
+    setLastRemoved(null);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+  }, [lastRemoved]);
 
   /** Update the per-item kitchen note. */
   const updateNote = useCallback((cartId: string, note: string) => {
@@ -151,6 +176,8 @@ export function useCart(toast: ToastFn) {
     addToCart,
     updateQuantity,
     removeFromCart,
+    undoLastRemove,
+    lastRemoved,
     updateNote,
     replaceCart,
     clearCart,

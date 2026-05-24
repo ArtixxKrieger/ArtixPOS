@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback, memo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, memo, createPortal } from "react";
 import { nanoid } from "nanoid";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "react-i18next";
@@ -32,6 +32,12 @@ import { useCartTotals } from "@/hooks/use-cart-totals";
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { DEFAULT_PAYMENT_METHODS, CAFE_STYLE_BUSINESS_SUBTYPES } from "@/constants/pos";
 import { useVirtualizer } from "@tanstack/react-virtual";
+
+// ── Satisfaction / delight layer ──────────────────────────────────────────
+import { playCheckout, playAddItem, playMilestone, playError } from "@/lib/sounds";
+import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
+import { ConfettiBurst } from "@/components/confetti";
+import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 
 // ── Responsive column count for the POS product grid ─────────────────────────
 // Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
@@ -154,10 +160,32 @@ export default function POS() {
     addToCart,
     updateQuantity,
     removeFromCart,
+    undoLastRemove,
+    lastRemoved,
     updateNote,
     replaceCart,
     clearCart,
   } = useCart(toast);
+
+  // ── Delight / satisfaction state ───────────────────────────────────────────
+  const [showConfetti, setShowConfetti]           = useState(false);
+  const [milestone, setMilestone]                 = useState<{ label: string; emoji: string } | null>(null);
+  const [saleFlash, setSaleFlash]                 = useState<{ amount: string; key: number } | null>(null);
+  const sessionFrequency                          = useRef<Map<number, number>>(new Map());
+  const [freqVersion, setFreqVersion]             = useState(0);
+
+  const { check: checkMilestone } = useMilestones(
+    useCallback((label: string, emoji: string) => {
+      setMilestone({ label, emoji });
+      setShowConfetti(true);
+      playMilestone();
+      hapticMilestone();
+      setTimeout(() => setMilestone(null), 3600);
+    }, []),
+  );
+
+  // ── Show undo chip whenever an item is removed ─────────────────────────────
+  // lastRemoved is already managed inside useCart with a 5-second auto-clear
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -248,12 +276,21 @@ export default function POS() {
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    const list = products.filter(p => {
       const matchSearch = p.name.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchCat = category === "all" || p.category === category;
       return matchSearch && matchCat;
     });
-  }, [products, debouncedSearch, category]);
+    // Smart sort: when not actively searching, float frequently-added items to top
+    if (!debouncedSearch && sessionFrequency.current.size > 0) {
+      return [...list].sort((a, b) =>
+        (sessionFrequency.current.get(b.id) ?? 0) - (sessionFrequency.current.get(a.id) ?? 0),
+      );
+    }
+    return list;
+  // freqVersion triggers re-sort after each cart add
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, debouncedSearch, category, freqVersion]);
 
   // ── Virtual grid setup ─────────────────────────────────────────────────────
   // Virtualizes the product list so only visible rows are in the DOM.
@@ -281,7 +318,15 @@ export default function POS() {
       setTempSize(product.sizes[0] || null);
     } else {
       addToCart(product);
-      // Dialog state is always null here; clearing is a no-op but kept for clarity
+      // Sound + haptic feedback on add
+      playAddItem();
+      hapticLight();
+      // Track frequency for smart sort
+      sessionFrequency.current.set(
+        product.id,
+        (sessionFrequency.current.get(product.id) ?? 0) + 1,
+      );
+      setFreqVersion(v => v + 1);
       setSelectedProduct(null);
       setTempSize(null);
       setTempNote("");
@@ -503,6 +548,11 @@ export default function POS() {
     setReceiptData(optimisticReceipt);
     setShowReceipt(true);
 
+    // Sounds + haptics — fire before state wipe so AudioContext starts fresh
+    playCheckout();
+    hapticSuccess();
+    setSaleFlash({ amount: formatCurrency(Math.max(0, total), currency), key: Date.now() });
+
     // Wipe POS state immediately — gives cashier instant feedback
     clearCart();
     setDiscount(0);
@@ -532,6 +582,10 @@ export default function POS() {
 
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
         queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+
+        // Milestone tracking — accumulate daily total locally, check thresholds
+        const newDailyTotal = addToTodayTotal(total);
+        checkMilestone(newDailyTotal);
 
         if (snapshotCustomer) {
           const netDelta = pointsEarned - snapshotLoyaltyPointsToRedeem;
@@ -608,6 +662,7 @@ export default function POS() {
     isScPwd, scPwdType, scPwdId, discountedSubtotal, globalTaxRate, changeAmount,
     paymentMethod, selectedCustomer, receiptName, issueWifi, discount, isFoodBeverage,
     orderType, clearCart, replaceCart, createPending, toast, loyaltyRedemptionRate,
+    checkMilestone,
   ]);
 
   const filteredCustomers = customers.filter(c =>
@@ -682,7 +737,7 @@ export default function POS() {
                     </div>
                     <button
                       className="h-6 w-6 flex items-center justify-center text-destructive/50 hover:text-destructive active:scale-90 transition-all"
-                      onClick={() => removeFromCart(item.cartId)}
+                      onClick={() => { removeFromCart(item.cartId); hapticLight(); }}
                       aria-label={`Remove ${item.product.name} from cart`}
                       data-testid={`button-remove-${item.cartId}`}
                     >
@@ -1155,6 +1210,57 @@ export default function POS() {
       className="flex gap-5 page-enter"
       style={{ height: isMobile ? "calc(100dvh - 196px)" : "calc(100dvh - 132px)" }}
     >
+      {/* ── Delight layer ──────────────────────────────────────────────────── */}
+
+      {/* Confetti burst on milestone */}
+      {showConfetti && (
+        <ConfettiBurst onDone={() => setShowConfetti(false)} />
+      )}
+
+      {/* Milestone banner */}
+      {milestone && createPortal(
+        <div
+          key={milestone.label}
+          className="milestone-banner fixed top-20 left-1/2 -translate-x-1/2 z-[9998]
+                     bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
+                     px-6 py-3 rounded-2xl shadow-xl shadow-violet-500/30
+                     flex items-center gap-3 pointer-events-none select-none"
+        >
+          <span className="text-2xl leading-none">{milestone.emoji}</span>
+          <span className="font-bold text-sm tracking-wide">{milestone.label}</span>
+        </div>,
+        document.body,
+      )}
+
+      {/* Sale amount flash — bottom-center, appears on successful checkout */}
+      {saleFlash && createPortal(
+        <div
+          key={saleFlash.key}
+          className="sale-flash fixed bottom-24 left-1/2 -translate-x-1/2 z-[9997]
+                     pointer-events-none select-none flex flex-col items-center gap-1"
+        >
+          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">Sale</span>
+          <span className="text-4xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums drop-shadow-sm">
+            {saleFlash.amount}
+          </span>
+        </div>,
+        document.body,
+      )}
+
+      {/* Undo chip — appears at bottom of cart panel after item removal */}
+      {lastRemoved && createPortal(
+        <button
+          onClick={undoLastRemove}
+          className="undo-chip fixed bottom-24 left-1/2 z-[9996]
+                     bg-foreground text-background text-xs font-bold
+                     px-4 py-2 rounded-full shadow-lg
+                     flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all"
+        >
+          <span>↩</span>
+          <span>Undo remove — {lastRemoved.item.product.name}</span>
+        </button>,
+        document.body,
+      )}
 
       {/* Left: Product grid */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -1412,7 +1518,13 @@ export default function POS() {
               onClick={() => {
                 if (selectedProduct) {
                   addToCart(selectedProduct, tempSize || undefined, tempNote || undefined);
-                  // Always close dialog after adding (or stock-guard rejection)
+                  playAddItem();
+                  hapticLight();
+                  sessionFrequency.current.set(
+                    selectedProduct.id,
+                    (sessionFrequency.current.get(selectedProduct.id) ?? 0) + 1,
+                  );
+                  setFreqVersion(v => v + 1);
                   setSelectedProduct(null);
                   setTempSize(null);
                   setTempNote("");

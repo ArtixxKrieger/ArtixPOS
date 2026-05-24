@@ -16,10 +16,11 @@ class ValidationError extends Error {
 export function useProducts() {
   return useQuery({
     queryKey: [LIST_URL],
-    // Data stays fresh for 30 s — route changes within a session never trigger
-    // a background re-fetch.  All mutations call setQueryData directly so the
-    // cache is always up-to-date without needing a stale-triggered refetch.
-    staleTime: 30_000,
+    // Data stays fresh for 2 min — matches the server-side cache TTL (120 s).
+    // All mutations call setQueryData directly so the cache is always up-to-date
+    // without needing a stale-triggered refetch; the longer staleTime just
+    // prevents needless background re-fetches on route changes.
+    staleTime: 120_000,
     queryFn: async () => {
       try {
         const res = await nativeFetch(LIST_URL);

@@ -60,7 +60,7 @@ export default function Dashboard() {
       return res.json();
     },
     staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   const { data: settings } = useSettings();

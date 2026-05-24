@@ -44,6 +44,18 @@ export default defineConfig({
         // and only downloaded once. Page-level code is already split via
         // React.lazy() so the lazy routes stay in their own small chunks.
         manualChunks(id) {
+          // Heavy, page-specific libraries — split into their own cached chunks
+          // so they are only downloaded when the relevant page is first visited.
+          // These libraries are standalone (no shared createContext TDZ issues).
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/victory-")) {
+            return "chunk-recharts";
+          }
+          if (id.includes("node_modules/jspdf") || id.includes("node_modules/jspdf-autotable")) {
+            return "chunk-pdf";
+          }
+          if (id.includes("node_modules/exceljs")) {
+            return "chunk-excel";
+          }
           if (id.includes("node_modules/")) {
             return "vendor";
           }

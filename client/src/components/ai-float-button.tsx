@@ -43,7 +43,7 @@ export function AiFloatButton() {
 
     sync();
     window.addEventListener("storage", sync);
-    const interval = setInterval(sync, 500);
+    const interval = setInterval(sync, 2000);
     return () => {
       window.removeEventListener("storage", sync);
       clearInterval(interval);

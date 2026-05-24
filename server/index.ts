@@ -119,13 +119,13 @@ app.use((_req, res, next) => {
 // ── Permissions-Policy ────────────────────────────────────────────────────
 // Restrict browser APIs this app does not use. identity-credentials-get
 // is explicitly allowed because Google One Tap / FedCM needs it.
-// Camera/microphone are kept accessible for potential future barcode
-// scanning; geolocation and payment APIs are disabled.
+// camera/microphone/geolocation and payment APIs are all disabled.
 app.use((_req, res, next) => {
   res.setHeader(
     "Permissions-Policy",
     [
       "identity-credentials-get=*",
+      "camera=()",
       "geolocation=()",
       "microphone=()",
       "payment=()",
@@ -141,7 +141,7 @@ app.use((_req, res, next) => {
 // ── Health check ──────────────────────────────────────────────────────────────
 // Mounted before rate limiters so uptime monitors are never throttled.
 // Returns per-service status so external panels can monitor each dependency.
-app.get("/api/health", async (_req, res) => {
+app.get("/api/health", async (req, res) => {
   const t = () => Date.now();
 
   // ── Supabase (PostgreSQL) ──────────────────────────────────────────────────
@@ -178,14 +178,27 @@ app.get("/api/health", async (_req, res) => {
   const redisOk = redis.status === "ok" || redis.status === "not_configured";
   const overall = !dbOk ? "down" : !redisOk ? "degraded" : "ok";
 
-  const payload = {
-    status: overall,
-    uptime: Math.floor(process.uptime()),
-    ts: new Date().toISOString(),
-    services: { supabase, redis },
-  };
+  // ── Authenticated callers get full detail; public callers get status only ──
+  // This prevents leaking service names, latency data, and error messages to
+  // unauthenticated scanners / attackers while still serving uptime monitors.
+  const metricsToken = process.env.METRICS_TOKEN;
+  const authHeader   = req.headers.authorization ?? "";
+  const isAuthed     = metricsToken
+    ? authHeader === `Bearer ${metricsToken}`
+    : false;
 
-  res.status(dbOk ? 200 : 503).json(payload);
+  res.setHeader("Cache-Control", "no-store");
+
+  if (isAuthed) {
+    res.status(dbOk ? 200 : 503).json({
+      status: overall,
+      uptime: Math.floor(process.uptime()),
+      ts: new Date().toISOString(),
+      services: { supabase, redis },
+    });
+  } else {
+    res.status(dbOk ? 200 : 503).json({ status: overall });
+  }
 });
 
 // ── Geo detection ─────────────────────────────────────────────────────────────
@@ -206,16 +219,19 @@ app.get("/api/geo", (req, res) => {
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
 // Exposes request counts, latency percentiles, and cache hit rate.
-// Optional token auth: set METRICS_TOKEN env var to require Bearer <token>.
+// Always requires Bearer token auth via METRICS_TOKEN env var.
+// If METRICS_TOKEN is not set the endpoint is disabled entirely (403).
 // Mounted before rate limiters so monitoring polls are never throttled.
 app.get("/api/metrics", (req, res) => {
   const token = process.env.METRICS_TOKEN;
-  if (token) {
-    const auth = req.headers.authorization ?? "";
-    if (auth !== `Bearer ${token}`) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+  if (!token) {
+    return res.status(403).json({ message: "Metrics endpoint is disabled. Set METRICS_TOKEN to enable." });
   }
+  const auth = req.headers.authorization ?? "";
+  if (auth !== `Bearer ${token}`) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  res.setHeader("Cache-Control", "no-store");
   res.json({
     ...getMetricsSnapshot(),
     circuitBreakers: getAllBreakerStates(),

@@ -183,7 +183,14 @@ function useTargetRect(selector: string | null, visible: boolean): SpotlightRect
 
   const measure = useCallback(() => {
     if (!selector) { setRect(null); return; }
-    const el = document.querySelector(selector);
+    // Find the first element matching the selector that is actually visible
+    // (non-zero size). This skips desktop sidebar items hidden on mobile.
+    const candidates = document.querySelectorAll(selector);
+    let el: Element | null = null;
+    for (const candidate of candidates) {
+      const r = candidate.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) { el = candidate; break; }
+    }
     if (!el) { setRect(null); return; }
     const r = el.getBoundingClientRect();
     setRect({

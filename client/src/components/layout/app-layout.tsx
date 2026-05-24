@@ -450,7 +450,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header
-          className="md:hidden sticky top-0 z-40 glass-header"
+          className="md:hidden sticky top-0 z-[1000] glass-header"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <div className="px-4 flex items-center gap-3" style={{ height: "52px" }}>

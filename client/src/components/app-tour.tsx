@@ -290,26 +290,22 @@ function TourCard({
   const isLast = stepIndex === totalSteps - 1;
   const hasPrev = stepIndex > 0;
 
-  // Floating pill strip: full width with side margins
-  const stripH = 52; // px — single-row pill height
+  // Floating toast — compact rounded rectangle, not a card
+  const toastH = 96; // px — enough for title + 2-line body
   const sidePad = 16;
   const GAP = 12;
-  // Minimum top to never overlap the sticky mobile header (~52px + some room)
   const HEADER_CLEARANCE = 62;
 
   let top: number;
 
   if (!targetRect) {
-    // No spotlight — center vertically
-    top = vh / 2 - stripH / 2;
+    top = vh / 2 - toastH / 2;
   } else {
     const elMidY = targetRect.y + targetRect.h / 2;
     if (elMidY > vh / 2) {
-      // Element in bottom half → strip above it, clamped below header
-      top = Math.max(HEADER_CLEARANCE, targetRect.y - stripH - GAP);
+      top = Math.max(HEADER_CLEARANCE, targetRect.y - toastH - GAP);
     } else {
-      // Element in top half → strip below it
-      top = Math.min(vh - stripH - GAP, targetRect.y + targetRect.h + GAP);
+      top = Math.min(vh - toastH - GAP, targetRect.y + targetRect.h + GAP);
     }
   }
 
@@ -325,90 +321,157 @@ function TourCard({
         animation: entering ? "tour-card-in 280ms cubic-bezier(0.22,1,0.36,1) both" : undefined,
       }}
     >
-      {/* Floating pill strip */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          height: stripH,
-          padding: "0 10px 0 12px",
-          borderRadius: 999,
+          borderRadius: 20,
           background: "rgba(13,13,22,0.93)",
           backdropFilter: "blur(28px)",
           WebkitBackdropFilter: "blur(28px)",
           border: "1px solid rgba(255,255,255,0.09)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(139,92,246,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
+          boxShadow: "0 4px 28px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
           overflow: "hidden",
           position: "relative",
         }}
       >
-        {/* Left progress accent line */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            height: 2,
-            width: `${((stepIndex + 1) / totalSteps) * 100}%`,
-            background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
-            borderRadius: "0 2px 2px 0",
-            transition: "width 0.3s ease",
-          }}
-        />
-
-        {/* Back / Skip */}
-        {hasPrev ? (
-          <button
-            onClick={onPrev}
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90"
-            style={{ color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)" }}
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-          </button>
-        ) : (
-          <button
-            onClick={onSkip}
-            className="shrink-0 text-[11px] font-medium transition-colors px-1"
-            style={{ color: "rgba(255,255,255,0.22)" }}
-          >
-            Skip
-          </button>
-        )}
-
-        {/* Title + step count — takes remaining space */}
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-[13px] font-semibold truncate leading-tight"
-            style={{ color: "rgba(255,255,255,0.9)" }}
-          >
-            {step.title}
-          </p>
-          <p
-            className="text-[10px] leading-tight mt-[1px]"
-            style={{ color: "rgba(167,139,250,0.65)" }}
-          >
-            {stepIndex + 1} of {totalSteps}
-          </p>
+        {/* Progress bar — top edge */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.05)" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${((stepIndex + 1) / totalSteps) * 100}%`,
+              background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
+              transition: "width 0.3s ease",
+            }}
+          />
         </div>
 
-        {/* Next / Finish — compact pill button */}
-        <button
-          onClick={onNext}
-          className="shrink-0 flex items-center gap-1 text-[12px] font-semibold text-white transition-all active:scale-95 rounded-full px-4 h-8"
-          style={{ background: "linear-gradient(135deg, #7c3aed, #6d28d9)" }}
-        >
-          {isLast ? "Done" : (<>Next <ArrowRight className="w-3 h-3" /></>)}
-        </button>
+        <div style={{ padding: "12px 12px 10px 14px" }}>
+          {/* Row 1: title + next + close */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+            {/* Title fills space */}
+            <p
+              style={{
+                flex: 1,
+                fontSize: 13,
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.92)",
+                lineHeight: 1.3,
+                margin: 0,
+              }}
+            >
+              {step.title}
+            </p>
 
-        {/* Close */}
-        <button
-          onClick={onSkip}
-          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full transition-colors"
-          style={{ color: "rgba(255,255,255,0.2)" }}
-        >
-          <X className="w-3 h-3" />
-        </button>
+            {/* Next button — compact */}
+            <button
+              onClick={onNext}
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: "white",
+                background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
+                border: "none",
+                borderRadius: 99,
+                padding: "4px 12px",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isLast ? "Done" : (<>Next <ArrowRight style={{ width: 11, height: 11 }} /></>)}
+            </button>
+
+            {/* Close */}
+            <button
+              onClick={onSkip}
+              style={{
+                flexShrink: 0,
+                width: 22,
+                height: 22,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                background: "none",
+                border: "none",
+                color: "rgba(255,255,255,0.22)",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              <X style={{ width: 11, height: 11 }} />
+            </button>
+          </div>
+
+          {/* Row 2: body text */}
+          <p
+            style={{
+              fontSize: 11.5,
+              color: "rgba(255,255,255,0.45)",
+              lineHeight: 1.45,
+              margin: 0,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {step.body}
+          </p>
+
+          {/* Row 3: back + step count */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            {hasPrev ? (
+              <button
+                onClick={onPrev}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.28)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <ArrowLeft style={{ width: 10, height: 10 }} /> Back
+              </button>
+            ) : (
+              <button
+                onClick={onSkip}
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.2)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                Skip tour
+              </button>
+            )}
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "rgba(167,139,250,0.6)",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              {stepIndex + 1} / {totalSteps}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

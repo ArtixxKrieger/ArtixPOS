@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef, useEffect, useCallback, memo, createPortal } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, memo } from "react";
+import { createPortal } from "react-dom";
 import { nanoid } from "nanoid";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "react-i18next";

@@ -287,31 +287,31 @@ function TourCard({
   onSkip: () => void;
   entering: boolean;
 }) {
-  const isFirst = stepIndex === 0;
   const isLast = stepIndex === totalSteps - 1;
   const hasPrev = stepIndex > 0;
-  const cardW = Math.min(vw - 32, 340);
+  const cardW = Math.min(vw - 32, 320);
 
-  // Position card: above/below the spotlight, or centered
+  // Compact card — no body text, so height is much smaller
+  const CARD_H_EST = 120;
+  const GAP = 14;
+  // Extra top offset on mobile to clear the sticky header (≈52px + safe area)
+  const HEADER_CLEARANCE = 64;
+
   let top: number;
   let left: number;
-  const CARD_H_EST = 250; // estimated card height (generous for longer text)
-  const GAP = 16;
 
   if (!targetRect) {
-    // Centered
     top = vh / 2 - CARD_H_EST / 2;
     left = (vw - cardW) / 2;
   } else {
     const elMidY = targetRect.y + targetRect.h / 2;
     if (elMidY > vh / 2) {
-      // Element in bottom half → card above
-      top = Math.max(8, targetRect.y - CARD_H_EST - GAP);
+      // Element in bottom half → card above, but never behind the header
+      top = Math.max(HEADER_CLEARANCE, targetRect.y - CARD_H_EST - GAP);
     } else {
       // Element in top half → card below
       top = targetRect.y + targetRect.h + GAP;
     }
-    // Horizontally center under/over the element, clamped to screen
     const elCenterX = targetRect.x + targetRect.w / 2;
     left = Math.max(16, Math.min(vw - cardW - 16, elCenterX - cardW / 2));
   }
@@ -328,73 +328,102 @@ function TourCard({
         animation: entering ? "tour-card-in 280ms cubic-bezier(0.22,1,0.36,1) both" : undefined,
       }}
     >
-      <div className="bg-white dark:bg-[#18181f] rounded-2xl shadow-2xl border border-border overflow-hidden">
-        {/* Progress bar */}
-        <div className="h-0.5 bg-border/50 w-full">
+      {/* Glass card — always dark so it reads clearly over the dimmed overlay */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: "rgba(13,13,22,0.92)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
+        }}
+      >
+        {/* Thin progress bar */}
+        <div className="h-[2px] w-full" style={{ background: "rgba(255,255,255,0.06)" }}>
           <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+            className="h-full transition-all duration-300"
+            style={{
+              width: `${((stepIndex + 1) / totalSteps) * 100}%`,
+              background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
+            }}
           />
         </div>
 
-        <div className="p-4">
-          {/* Step count + close */}
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
-              {stepIndex + 1} / {totalSteps}
+        <div className="px-4 pt-3 pb-3.5">
+          {/* Step indicator + close */}
+          <div className="flex items-center justify-between mb-2">
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ color: "rgba(167,139,250,0.8)" }}
+            >
+              {stepIndex + 1} <span style={{ color: "rgba(255,255,255,0.2)" }}>/</span> {totalSteps}
             </span>
             <button
               onClick={onSkip}
-              className="w-6 h-6 flex items-center justify-center rounded-full text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/60 transition-colors"
+              className="w-5 h-5 flex items-center justify-center rounded-full transition-colors"
+              style={{ color: "rgba(255,255,255,0.25)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           </div>
 
-          {/* Icon for non-targeted steps */}
-          {!targetRect && (
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-              <Zap className="w-4.5 h-4.5 text-primary" />
-            </div>
-          )}
-
-          <h3 className="font-bold text-foreground text-[15px] leading-snug mb-1.5">
+          {/* Title */}
+          <h3
+            className="font-bold text-[15px] leading-snug mb-3"
+            style={{ color: "rgba(255,255,255,0.92)" }}
+          >
             {step.title}
           </h3>
-          <p className="text-muted-foreground text-[13px] leading-relaxed">
-            {step.body}
-          </p>
-        </div>
 
-        {/* Actions */}
-        <div className="px-4 pb-4 flex items-center gap-2">
-          {hasPrev ? (
-            <button
-              onClick={onPrev}
-              className="w-9 h-9 flex items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={onSkip}
-              className="text-[12px] text-muted-foreground/50 hover:text-muted-foreground transition-colors font-medium px-1"
-            >
-              Skip tour
-            </button>
-          )}
-
-          <button
-            onClick={onNext}
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-primary text-white text-[13px] font-semibold transition-all active:scale-95"
-          >
-            {isLast ? "Let's go!" : (
-              <>
-                Next
-                <ArrowRight className="w-3.5 h-3.5" />
-              </>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {hasPrev ? (
+              <button
+                onClick={onPrev}
+                className="w-8 h-8 flex items-center justify-center rounded-xl shrink-0 transition-all active:scale-90"
+                style={{
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "rgba(255,255,255,0.4)",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.75)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.22)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)";
+                }}
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                onClick={onSkip}
+                className="text-[11px] font-medium shrink-0 px-1 transition-colors"
+                style={{ color: "rgba(255,255,255,0.2)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
+              >
+                Skip
+              </button>
             )}
-          </button>
+
+            <button
+              onClick={onNext}
+              className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-[12.5px] font-semibold text-white transition-all active:scale-95"
+              style={{ background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)" }}
+            >
+              {isLast ? "Let's go!" : (
+                <>
+                  Next
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -402,7 +431,7 @@ function TourCard({
       {targetRect && (() => {
         const elMidY = targetRect.y + targetRect.h / 2;
         const isAbove = elMidY > vh / 2;
-        if (!isAbove) return null; // arrow only when card is above element
+        if (!isAbove) return null;
         const arrowLeft = Math.max(16, Math.min(
           cardW - 32,
           (targetRect.x + targetRect.w / 2) - left - 8
@@ -411,16 +440,23 @@ function TourCard({
           <div
             className="absolute"
             style={{
-              bottom: -6,
+              bottom: -7,
               left: arrowLeft,
-              width: 12,
-              height: 6,
+              width: 14,
+              height: 7,
               overflow: "hidden",
             }}
           >
             <div
-              className="w-3 h-3 bg-white dark:bg-[#18181f] border border-border rotate-45 absolute"
-              style={{ bottom: 3, left: 0 }}
+              className="absolute rotate-45"
+              style={{
+                width: 10,
+                height: 10,
+                top: -5,
+                left: 2,
+                background: "rgba(13,13,22,0.92)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
             />
           </div>
         );

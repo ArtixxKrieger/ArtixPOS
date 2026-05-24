@@ -327,6 +327,16 @@ export default function Onboarding() {
     }
   }, []);
 
+  // Checks whether the user typed actual digits beyond the auto-filled country
+  // prefix. Strips all non-digit characters before comparing lengths so that
+  // mobile browser auto-formatting (dashes, spaces, parentheses, non-breaking
+  // spaces) never causes a false "empty" result.
+  function hasPhoneDigitsBeyondPrefix(phone: string, prefix: string): boolean {
+    const phoneDigits = phone.replace(/\D/g, "");
+    const prefixDigits = prefix.replace(/\D/g, "");
+    return phoneDigits.length > prefixDigits.length;
+  }
+
   function extractToken(input: string): string {
     const trimmed = input.trim();
     try {
@@ -371,7 +381,7 @@ export default function Onboarding() {
       toast({ title: "Please enter your store address", variant: "destructive" });
       return;
     }
-    if (!storePhone.trim() || storePhone.trim() === (storeCountry?.phonePrefix ?? "")) {
+    if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
       toast({ title: "Please enter your phone number", variant: "destructive" });
       return;
     }
@@ -715,7 +725,7 @@ export default function Onboarding() {
                   toast({ title: "Please enter your store address", variant: "destructive" });
                   return;
                 }
-                if (!storePhone.trim() || storePhone.trim() === (storeCountry?.phonePrefix ?? "")) {
+                if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
                   toast({ title: "Please enter your phone number", variant: "destructive" });
                   return;
                 }
@@ -734,8 +744,7 @@ export default function Onboarding() {
                 !storeCountry ||
                 !storeName.trim() ||
                 !storeAddress.trim() ||
-                !storePhone.trim() ||
-                storePhone.trim() === (storeCountry?.phonePrefix ?? "") ||
+                !hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "") ||
                 !storeEmail.trim() ||
                 isSubmitting
               }

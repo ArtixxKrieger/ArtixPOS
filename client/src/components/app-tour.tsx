@@ -34,7 +34,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
     target: null,
     title: `Welcome to ${name} 👋`,
     body: cat === 'food'
-      ? 'Here's where you'll run everything. Orders, kitchen display, inventory, staff, and your daily revenue are all in one place. Let me show you around. Tap Next to continue.'
+      ? "Here's where you'll run everything. Orders, kitchen display, inventory, staff, and your daily revenue are all in one place. Let me show you around. Tap Next to continue."
       : cat === 'retail'
       ? 'Everything your store needs is right here. Scan products, track inventory, manage suppliers, run reports. Let me show you around. Tap Next.'
       : cat === 'salon'
@@ -42,9 +42,9 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       : cat === 'wellness'
       ? 'Your whole spa runs from here. Bookings, therapist schedules, treatment packages, payments. Let me walk you through it. Tap Next.'
       : cat === 'clinic'
-      ? 'Your clinic's front desk and billing all live here. Appointments, patient records, doctor schedules, invoices. Let me show you around. Tap Next.'
+      ? "Your clinic's front desk and billing all live here. Appointments, patient records, doctor schedules, invoices. Let me show you around. Tap Next."
       : cat === 'gym'
-      ? 'Memberships, class schedules, trainer assignments, daily revenue. It's all here. Let me show you around. Tap Next.'
+      ? "Memberships, class schedules, trainer assignments, daily revenue. It's all here. Let me show you around. Tap Next."
       : cat === 'queue_service'
       ? 'Every job that comes in gets tracked here from start to finish. Intake, queue, staff, payments. Let me walk you through it. Tap Next.'
       : cat === 'appointment_service'
@@ -56,7 +56,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
 
   const dashboardHero: TourStep = {
     target: '[data-tour="tour-dashboard-hero"]',
-    title: 'Today's Revenue',
+    title: "Today's Revenue",
     body: cat === 'food'
       ? 'This is where your day starts. Total revenue, how many orders went out, and your average order value. Updates automatically with every sale.'
       : cat === 'retail'
@@ -66,9 +66,9 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       : cat === 'wellness'
       ? 'A live look at today. Total earnings from treatments and packages, sessions done, and average spend per client. Updates after every checkout.'
       : cat === 'clinic'
-      ? 'Your clinic's numbers for the day. Total billing, patient visits, and average fee per visit. Updates throughout the day as you see patients.'
+      ? "Your clinic's numbers for the day. Total billing, patient visits, and average fee per visit. Updates throughout the day as you see patients."
       : cat === 'gym'
-      ? 'Today's numbers. Revenue collected, sessions done, average transaction. All updates in real time.'
+      ? "Today's numbers. Revenue collected, sessions done, average transaction. All updates in real time."
       : 'Your day at a glance. Total revenue, completed transactions, and average sale value. Updates every time a sale goes through.',
   };
 
@@ -76,7 +76,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
     target: '[data-tour="tour-dashboard-kpi"]',
     title: 'Key Numbers',
     body: cat === 'food'
-      ? 'These cards break down your total orders, net revenue, average order size, and tax for today. Scroll down and you'll see your top dishes, payment method breakdown, and hourly order flow.'
+      ? "These cards break down your total orders, net revenue, average order size, and tax for today. Scroll down and you'll see your top dishes, payment method breakdown, and hourly order flow."
       : cat === 'retail'
       ? 'Total transactions, net revenue, average basket, and tax collected today. Scroll down to see which products are selling, how customers are paying, and your busiest hours.'
       : cat === 'salon' || cat === 'wellness'
@@ -94,9 +94,9 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
   if (subtype === 'restaurant') {
     posBody = 'This is where orders get taken. Pick the table, add the dishes, and send it to the kitchen. Collect payment at the end of the meal with whatever method they prefer. Split bills are supported too. Works offline.';
   } else if (subtype === 'bar') {
-    posBody = 'Ring up drinks and food here. Add items to a tab, apply promos, then close it out when they're ready to pay. Any payment method you have set up. Fast and works offline.';
+    posBody = "Ring up drinks and food here. Add items to a tab, apply promos, then close it out when they're ready to pay. Any payment method you have set up. Fast and works offline.";
   } else if (subtype === 'cafe') {
-    posBody = 'Take orders here. Tap a drink or pastry, pick the size or milk type, then collect payment. The order goes straight to your barista's queue. Receipts print instantly. Works without Wi-Fi.';
+    posBody = "Take orders here. Tap a drink or pastry, pick the size or milk type, then collect payment. The order goes straight to your barista's queue. Receipts print instantly. Works without Wi-Fi.";
   } else if (subtype === 'bakery') {
     posBody = 'Ring up your pastries, breads, and cakes here. Tap an item, set the quantity, add a discount if needed, then collect payment. Receipts print right away and stock adjusts on its own.';
   } else if (subtype === 'food_truck') {
@@ -104,33 +104,33 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
   } else if (subtype === 'clothing' || subtype === 'retail') {
     posBody = 'Scan the barcode or tap a product to add it to the cart. Apply a discount, process returns if needed, then collect payment. Stock levels update on their own after every sale.';
   } else if (subtype === 'electronics') {
-    posBody = 'Scan or search for the item, add any warranty or bundle, then collect payment. Stock adjusts automatically and you'll get a low-stock alert before you run out.';
+    posBody = "Scan or search for the item, add any warranty or bundle, then collect payment. Stock adjusts automatically and you'll get a low-stock alert before you run out.";
   } else if (subtype === 'grocery' || subtype === 'perishable_goods' || subtype === 'drugstore' || subtype === 'pharmacy') {
     posBody = 'Scan items at checkout, apply any promos or discounts, then collect payment. Fast and works offline so a full queue is never a problem.';
   } else if (subtype === 'bookstore') {
-    posBody = 'Scan the ISBN or search by title, apply student or member discounts, then collect payment. Inventory updates after every sale so you always know what's left on the shelf.';
+    posBody = "Scan the ISBN or search by title, apply student or member discounts, then collect payment. Inventory updates after every sale so you always know what's left on the shelf.";
   } else if (subtype === 'salon' || subtype === 'barbershop' || subtype === 'nail_salon') {
     posBody = 'When a service is done, open the POS to collect payment. Pick the service, add any retail products the client wants to take home, apply a discount if needed, and close out. Prints a receipt right away.';
   } else if (subtype === 'spa' || subtype === 'massage') {
     posBody = 'When a session wraps up, collect payment here. Pick the treatment or package, apply a membership discount or promo, then process payment. Prints a receipt instantly. No internet required.';
   } else if (subtype === 'gym') {
-    posBody = 'Sell memberships, day passes, and PT sessions here. Pick the plan, apply any discount, and collect payment. The membership links straight to the client's profile.';
+    posBody = "Sell memberships, day passes, and PT sessions here. Pick the plan, apply any discount, and collect payment. The membership links straight to the client's profile.";
   } else if (subtype === 'clinic' || subtype === 'dental') {
-    posBody = 'Bill patients after each visit. Pick the services done, apply any applicable discounts, then issue a receipt. Every transaction is saved to the patient's record.';
+    posBody = "Bill patients after each visit. Pick the services done, apply any applicable discounts, then issue a receipt. Every transaction is saved to the patient's record.";
   } else if (subtype === 'pet_grooming') {
-    posBody = 'When grooming's done, collect payment here. Pick the package, add any products, apply a discount if needed, then print a receipt. It all links back to the pet owner's profile.';
+    posBody = "When grooming's done, collect payment here. Pick the package, add any products, apply a discount if needed, then print a receipt. It all links back to the pet owner's profile.";
   } else if (subtype === 'laundry') {
     posBody = 'Log each job here to get it into the queue. Pick the service type, enter the weight or items, collect payment or a deposit, and print a claim stub. Done.';
   } else if (subtype === 'car_wash') {
-    posBody = 'Log each vehicle here. Pick the wash package, collect payment, and it goes straight into your team's queue. Receipt prints right away.';
+    posBody = "Log each vehicle here. Pick the wash package, collect payment, and it goes straight into your team's queue. Receipt prints right away.";
   } else if (subtype === 'repair' || subtype === 'auto_repair') {
     posBody = 'Log each job here. Pick the service, add any parts, collect a deposit, and it enters the queue. When the work is done, collect the balance and close it out.';
   } else if (subtype === 'photography') {
-    posBody = 'Collect session fees and package payments here. Pick the package, apply a discount if needed, and issue a receipt. Everything links to the client's profile.';
+    posBody = "Collect session fees and package payments here. Pick the package, apply a discount if needed, and issue a receipt. Everything links to the client's profile.";
   } else if (subtype === 'cleaning') {
-    posBody = 'Log each job and collect payment here. Pick the service package, apply any promo, and close out. Links to the client's profile for easy repeat booking.';
+    posBody = "Log each job and collect payment here. Pick the service package, apply any promo, and close out. Links to the client's profile for easy repeat booking.";
   } else if (subtype === 'tutoring') {
-    posBody = 'Collect session fees here. Pick the subject, session type, or package, apply a discount if needed, and issue a receipt. Payment history links to the student's profile.';
+    posBody = "Collect session fees here. Pick the subject, session type, or package, apply a discount if needed, and issue a receipt. Payment history links to the student's profile.";
   } else {
     posBody = 'This is where sales happen. Tap an item or service to add it to the cart, apply a discount, then collect payment however your customer prefers. Receipts print automatically. Works without internet.';
   }
@@ -185,11 +185,11 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       : cat === 'clinic'
       ? 'Go to Products inside More to list your services and procedures. Consultations, lab tests, vaccines. Set the fees, assign to the right doctor, and group by type. These show up at the POS when you bill a patient.'
       : cat === 'gym'
-      ? 'Go to Products inside More to create your membership plans. Monthly, quarterly, annual, day passes, PT packages. Set prices, duration, and access levels. Each member's active plan gets tracked in their Customers profile.'
+      ? "Go to Products inside More to create your membership plans. Monthly, quarterly, annual, day passes, PT packages. Set prices, duration, and access levels. Each member's active plan gets tracked in their Customers profile."
       : cat === 'queue_service'
       ? 'Go to Products inside More to add your service types. Basic wash, wax and polish, repair jobs. Set the standard price for each. These show up at the POS when you log a new job and fill in the queue automatically.'
       : cat === 'appointment_service'
-      ? 'Go to Products inside More to add your services and packages with pricing and duration. They link to your Appointments calendar and show up at the POS when it's time to collect payment.'
+      ? "Go to Products inside More to add your services and packages with pricing and duration. They link to your Appointments calendar and show up at the POS when it's time to collect payment."
       : 'Go to Products inside More to add everything you sell. Items, services, or packages. Set prices, upload photos, group by category, and set stock levels. Your POS pulls straight from here.',
   };
 
@@ -203,13 +203,13 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
     body: cat === 'salon'
       ? 'Add your clients under Customers inside More. Save their name, contact, and service history. When a regular comes in, pull up their profile, see what they usually get, and book them with their preferred stylist in seconds.'
       : cat === 'wellness'
-      ? 'Add your clients under Customers inside More. Save their name, contact, membership status, and visit history. You'll know exactly how many sessions they've used, when they last came in, and which treatments they prefer.'
+      ? "Add your clients under Customers inside More. Save their name, contact, membership status, and visit history. You'll know exactly how many sessions they've used, when they last came in, and which treatments they prefer."
       : cat === 'clinic'
       ? 'Add your patients under Customers inside More. Save their contact details, medical notes, and visit history. Every billing transaction links back to their profile so you have a full record of every visit.'
       : cat === 'gym'
-      ? 'Add your members under Customers inside More. Track their membership plan, start date, and visit history. You can see who's active, whose membership is about to expire, and follow up before they lapse.'
+      ? "Add your members under Customers inside More. Track their membership plan, start date, and visit history. You can see who's active, whose membership is about to expire, and follow up before they lapse."
       : subtype === 'pet_grooming'
-      ? 'Add your clients under Customers inside More. Save the owner's contact info and the pet's details, breed, and grooming notes. Every visit goes on their record so your groomers always know what to expect.'
+      ? "Add your clients under Customers inside More. Save the owner's contact info and the pet's details, breed, and grooming notes. Every visit goes on their record so your groomers always know what to expect."
       : subtype === 'tutoring'
       ? 'Add your students under Customers inside More. Save their contact details, subject preferences, and session history. Every payment and booking links to their profile so nothing gets lost.'
       : 'Add your clients under Customers inside More. Save their contact details and booking history. Every appointment and payment links back to their profile so returning clients get faster, more personal service.',
@@ -263,7 +263,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       : cat === 'retail'
       ? 'Go to Settings under More then Tools. Set your store name, VAT rate, currency, and payment methods. Set up receipt printing and control what each team member can access.'
       : cat === 'salon' || cat === 'wellness'
-      ? 'Go to Settings under More then Tools. Update your business name, tax rate, booking rules, and payment methods. Assign roles to your receptionist, stylists, and manager so everyone sees only what's relevant to them.'
+      ? "Go to Settings under More then Tools. Update your business name, tax rate, booking rules, and payment methods. Assign roles to your receptionist, stylists, and manager so everyone sees only what's relevant to them."
       : cat === 'clinic'
       ? 'Go to Settings under More then Tools. Set your clinic name, tax settings, payment methods, and team roles. You can give doctors, nurses, and front desk staff different levels of access.'
       : cat === 'gym'
@@ -287,7 +287,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-kitchen"]',
         title: 'Kitchen Display System',
-        body: 'Put a tablet in the kitchen and pull this up. Orders appear on screen the moment they're placed at the POS. Kitchen staff mark each one done and floor staff get notified. No paper, no confusion.',
+        body: "Put a tablet in the kitchen and pull this up. Orders appear on screen the moment they're placed at the POS. Kitchen staff mark each one done and floor staff get notified. No paper, no confusion.",
       },
     ];
     outroBody = 'Build your menu in Products, open a Shift, take your first table order at the POS, then watch it appear on the Kitchen Display.';
@@ -296,12 +296,12 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-pending"]',
         title: 'Live Tab Queue',
-        body: 'Every open tab shows up here. Your bar staff can see what's being served, mark rounds done, and track which tables still have open tabs.',
+        body: "Every open tab shows up here. Your bar staff can see what's being served, mark rounds done, and track which tables still have open tabs.",
       },
       {
         target: '[data-tour="tour-nav-kitchen"]',
         title: 'Kitchen and Bar Display',
-        body: 'Put a tablet behind the bar or in the kitchen. Orders appear as they're placed and staff mark them done. Simple.',
+        body: "Put a tablet behind the bar or in the kitchen. Orders appear as they're placed and staff mark them done. Simple.",
       },
     ];
     outroBody = 'Add your drinks and food in Products, open a Shift, open a tab at the POS, then watch orders appear on the Bar Display.';
@@ -310,7 +310,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-pending"]',
         title: 'Order Queue',
-        body: 'Orders show up here the moment they're placed. Your baristas see exactly what to make next, size, milk type, and all. No paper slips, no missed names.',
+        body: "Orders show up here the moment they're placed. Your baristas see exactly what to make next, size, milk type, and all. No paper slips, no missed names.",
       },
     ];
     outroBody = 'Build your menu in Products, open a Shift, ring up your first order at the POS, then watch it appear in the Order Queue.';
@@ -328,7 +328,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-pending"]',
         title: 'Order Queue',
-        body: 'Every order queues here as it comes in. Your cook sees what's next in line. Great for keeping up during the rush.',
+        body: "Every order queues here as it comes in. Your cook sees what's next in line. Great for keeping up during the rush.",
       },
     ];
     outroBody = 'Add your menu in Products, open a Shift, take your first order at the POS, then track it in the Queue.';
@@ -338,12 +338,12 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-appointments"]',
         title: 'Appointments Calendar',
-        body: 'Book clients by date, time, and stylist. It won't let you double-book. Set how long each service takes, add walk-ins on the fly, and see your whole team's day at a glance.',
+        body: "Book clients by date, time, and stylist. It won't let you double-book. Set how long each service takes, add walk-ins on the fly, and see your whole team's day at a glance.",
       },
       {
         target: '[data-tour="tour-nav-pending"]',
         title: 'Active Clients Queue',
-        body: 'Walk-ins and active appointments show up here. Your team marks each service done so the front desk always knows who's in the chair, who's waiting, and what's coming next.',
+        body: "Walk-ins and active appointments show up here. Your team marks each service done so the front desk always knows who's in the chair, who's waiting, and what's coming next.",
       },
     ];
     outroBody = 'Add your services, add a client in Customers, book your first appointment, mark it done in the Queue, then collect payment at the POS.';
@@ -358,7 +358,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-pending"]',
         title: 'Active Sessions Queue',
-        body: 'In-progress sessions show up here. Your front desk can see which rooms are busy, which sessions are almost done, and who's waiting. Therapists mark sessions done when they finish.',
+        body: "In-progress sessions show up here. Your front desk can see which rooms are busy, which sessions are almost done, and who's waiting. Therapists mark sessions done when they finish.",
       },
     ];
     outroBody = 'Add your treatments, add a client in Customers, book your first session, track it in the Active Queue, then collect payment at the POS.';
@@ -368,7 +368,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-appointments"]',
         title: 'Patient Appointments',
-        body: 'Schedule consultations, procedures, and follow-ups by date, time, and doctor. Overbooking is prevented automatically. Each patient's visit history is kept in Customers so nothing gets lost.',
+        body: "Schedule consultations, procedures, and follow-ups by date, time, and doctor. Overbooking is prevented automatically. Each patient's visit history is kept in Customers so nothing gets lost.",
       },
     ];
     outroBody = 'Add your services, register patients in Customers, schedule an appointment, then bill the patient at the POS.';
@@ -378,7 +378,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-appointments"]',
         title: 'Class and Session Bookings',
-        body: 'Book PT sessions and group classes here. Assign to a specific trainer, set capacity, and keep your floor organized. Each member's bookings and attendance are tracked in their Customers profile.',
+        body: "Book PT sessions and group classes here. Assign to a specific trainer, set capacity, and keep your floor organized. Each member's bookings and attendance are tracked in their Customers profile.",
       },
     ];
     outroBody = 'Create membership plans in Products, register members in Customers, book sessions in Appointments, then collect payment at the POS.';
@@ -387,10 +387,10 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       : subtype === 'car_wash' ? 'Vehicle Job Queue'
       : 'Repair Job Queue';
     const qBody = subtype === 'laundry'
-      ? 'Every laundry job logged at the POS shows up here. Your team marks jobs in progress or ready for pickup so the front desk always knows what's done and what's still being washed. Fewer 'is it ready yet?' calls.'
+      ? "Every laundry job logged at the POS shows up here. Your team marks jobs in progress or ready for pickup so the front desk always knows what's done and what's still being washed. Fewer 'is it ready yet?' calls."
       : subtype === 'car_wash'
       ? 'Every vehicle logged at the POS goes into this queue. Your team moves jobs from In Progress to Done so the front desk always knows which cars are ready. Customers get their car back faster.'
-      : 'Every repair job logged at the POS shows up here. Your techs update status as they work so the front desk knows what's being fixed, what's ready, and what's still waiting on parts.';
+      : "Every repair job logged at the POS shows up here. Your techs update status as they work so the front desk knows what's being fixed, what's ready, and what's still waiting on parts.";
     midSteps = [
       {
         target: '[data-tour="tour-nav-pending"]',
@@ -411,7 +411,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       : subtype === 'tutoring' ? 'Tutoring Sessions'
       : 'Appointments';
     const aBody = subtype === 'pet_grooming'
-      ? 'Book grooming by date, time, and groomer. No double-bookings. Each pet's grooming history and special notes are saved in their profile so returning clients get faster, more consistent service.'
+      ? "Book grooming by date, time, and groomer. No double-bookings. Each pet's grooming history and special notes are saved in their profile so returning clients get faster, more consistent service."
       : subtype === 'photography'
       ? 'Schedule shoots and studio sessions by date, time, and photographer. Full schedule view, no conflicts. Client briefs and session history are saved in Customers.'
       : subtype === 'cleaning'
@@ -428,13 +428,13 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       {
         target: '[data-tour="tour-nav-pending"]',
         title: 'Active Jobs Queue',
-        body: 'Jobs in progress show up here. Your team marks each one done so the front desk always knows who's being served, who's next, and what's finished.',
+        body: "Jobs in progress show up here. Your team marks each one done so the front desk always knows who's being served, who's next, and what's finished.",
       },
     ];
     outroBody = 'Add your services, add a client in Customers, book an appointment, then collect payment at the POS.';
   } else if (cat === 'retail') {
     const invBody = subtype === 'electronics'
-      ? 'Track every unit by barcode, supplier, and reorder point. When stock drops below your threshold you'll get an alert automatically. Use Purchase Orders to restock straight from your suppliers inside the app.'
+      ? "Track every unit by barcode, supplier, and reorder point. When stock drops below your threshold you'll get an alert automatically. Use Purchase Orders to restock straight from your suppliers inside the app."
       : subtype === 'bookstore'
       ? 'Track every title by ISBN, author, and stock count. Set reorder points so your bestsellers never run out. Restock from your distributors using Purchase Orders, all inside the app.'
       : subtype === 'pharmacy' || subtype === 'perishable_goods'
@@ -474,7 +474,7 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
 
   const outro: TourStep = {
     target: null,
-    title: 'You're all set!',
+    title: "You're all set!",
     body: outroBody,
   };
 

@@ -609,16 +609,32 @@ export function AppTour() {
     }
   }, [visible]);
 
-  // Auto-scroll to target using instant scroll so getBoundingClientRect is
-  // accurate immediately after — avoids the highlight landing at the wrong
-  // position when the element is off-screen.
+  // Auto-scroll to target: position the element so the popup fits above it
+  // without overlap. Uses a manual scroll calculation so the element top lands
+  // at exactly HEADER + estimated-popup-height + gap — not centered, which
+  // would scroll context above the element out of view.
   useEffect(() => {
     if (!visible || !step?.target) return;
     const el = document.querySelector(step.target) as HTMLElement | null;
     if (!el) return;
-    const pos = window.getComputedStyle(el).position;
-    if (pos !== "fixed" && pos !== "sticky") {
-      el.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center", inline: "nearest" });
+    const computed = window.getComputedStyle(el);
+    // Fixed/sticky elements (e.g. bottom nav) don't scroll
+    if (computed.position === "fixed" || computed.position === "sticky") return;
+
+    const POPUP_H_EST = 280; // conservative — covers longest step body
+    const HEADER_CLEAR = 66;
+    const GAP = 14;
+    // Where we want the element's top to land inside the viewport
+    const desiredTop = HEADER_CLEAR + POPUP_H_EST + GAP; // ≈ 360px
+
+    const elRect = el.getBoundingClientRect();
+    const currentScrollY = window.scrollY;
+
+    // Only scroll if the element isn't already comfortably visible below the popup
+    const alreadyOk = elRect.top >= desiredTop - 20 && elRect.bottom <= window.innerHeight - 20;
+    if (!alreadyOk) {
+      const targetScrollY = currentScrollY + elRect.top - desiredTop;
+      window.scrollTo({ top: Math.max(0, targetScrollY), behavior: "instant" as ScrollBehavior });
     }
   }, [visible, step?.target]);
 

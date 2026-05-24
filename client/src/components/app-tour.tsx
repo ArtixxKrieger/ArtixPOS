@@ -196,13 +196,17 @@ function useTargetRect(selector: string | null, visible: boolean): SpotlightRect
 
   useEffect(() => {
     if (!visible) return;
-    measure();
-    // Re-measure after a short delay to catch any layout shifts
-    const t = setTimeout(measure, 150);
+    setRect(null);
+    // Stagger retries: scroll animation from previous step may still be running
+    const t1 = setTimeout(measure, 80);
+    const t2 = setTimeout(measure, 300);
+    const t3 = setTimeout(measure, 600);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {
-      clearTimeout(t);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
@@ -249,37 +253,6 @@ function Spotlight({ rect, vw, vh }: { rect: SpotlightRect; vw: number; vh: numb
         fill="rgba(0,0,0,0.72)"
         mask={`url(#${id})`}
       />
-      {/* Glowing border around cutout */}
-      <rect
-        x={rect.x}
-        y={rect.y}
-        width={rect.w}
-        height={rect.h}
-        rx={r}
-        ry={r}
-        fill="none"
-        stroke="rgba(139,92,246,1)"
-        strokeWidth={3}
-        filter="url(#tour-glow)"
-      />
-      {/* Outer softer ring */}
-      <rect
-        x={rect.x - 4}
-        y={rect.y - 4}
-        width={rect.w + 8}
-        height={rect.h + 8}
-        rx={r + 4}
-        ry={r + 4}
-        fill="none"
-        stroke="rgba(139,92,246,0.3)"
-        strokeWidth={8}
-      />
-      <defs>
-        <filter id="tour-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-      </defs>
     </svg>
   );
 }
@@ -536,24 +509,15 @@ export function AppTour() {
     }
   }, [visible, step, stepIndex, steps.length]);
 
-  // Auto-scroll to target + add CSS pulse ring directly on the element
+  // Auto-scroll to target for non-fixed elements (dashboard cards etc.)
   useEffect(() => {
     if (!visible || !step?.target) return;
     const el = document.querySelector(step.target) as HTMLElement | null;
     if (!el) return;
-
-    // Add pulsing ring class so it's unmistakably visible on every device
-    el.classList.add("tour-ring-active");
-
-    // Scroll into view only for non-fixed elements (dashboard cards etc.)
     const pos = window.getComputedStyle(el).position;
     if (pos !== "fixed" && pos !== "sticky") {
       el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     }
-
-    return () => {
-      el.classList.remove("tour-ring-active");
-    };
   }, [visible, step?.target]);
 
   if (!visible || !step) return null;
@@ -572,17 +536,9 @@ export function AppTour() {
           to   { opacity: 1; }
         }
         @keyframes tour-ring-pulse {
-          0%   { box-shadow: 0 0 0 0px rgba(139,92,246,0.9), 0 0 0 3px rgba(139,92,246,1); }
-          60%  { box-shadow: 0 0 0 10px rgba(139,92,246,0), 0 0 0 3px rgba(139,92,246,1); }
-          100% { box-shadow: 0 0 0 0px rgba(139,92,246,0), 0 0 0 3px rgba(139,92,246,1); }
-        }
-        .tour-ring-active {
-          position: relative;
-          z-index: 1000 !important;
-          border-radius: 18px;
-          outline: 3px solid rgba(139,92,246,1);
-          outline-offset: 4px;
-          animation: tour-ring-pulse 1.4s ease-out infinite;
+          0%   { box-shadow: 0 0 0 0px rgba(139,92,246,0.7); }
+          70%  { box-shadow: 0 0 0 10px rgba(139,92,246,0); }
+          100% { box-shadow: 0 0 0 0px rgba(139,92,246,0); }
         }
       `}</style>
 
@@ -604,6 +560,25 @@ export function AppTour() {
       {/* Spotlight for targeted steps */}
       {hasTarget && targetRect && (
         <Spotlight rect={targetRect} vw={vw} vh={vh} />
+      )}
+
+      {/* Single pulsing ring — rendered in root stacking context so it works
+          for fixed elements (bottom nav) and regular elements alike */}
+      {hasTarget && targetRect && (
+        <div
+          style={{
+            position: "fixed",
+            top: targetRect.y,
+            left: targetRect.x,
+            width: targetRect.w,
+            height: targetRect.h,
+            zIndex: 999,
+            borderRadius: 24,
+            border: "2.5px solid rgba(139,92,246,0.95)",
+            pointerEvents: "none",
+            animation: "tour-ring-pulse 1.5s ease-out infinite",
+          }}
+        />
       )}
 
       {/* Block clicks on everything except the highlighted element */}

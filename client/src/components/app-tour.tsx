@@ -335,60 +335,26 @@ function TourCard({
       <div
         style={{
           borderRadius: 18,
-          // Rich layered background: deep violet-navy base + subtle inner light
-          background: "linear-gradient(145deg, rgba(18,10,42,0.97) 0%, rgba(12,8,28,0.98) 100%)",
+          background: "rgba(14,12,20,0.96)",
           backdropFilter: "blur(32px)",
           WebkitBackdropFilter: "blur(32px)",
-          // Multi-layer border: outer purple glow ring + inner glass edge
-          border: "1px solid rgba(139,92,246,0.25)",
-          boxShadow: [
-            "0 0 0 1px rgba(255,255,255,0.04) inset",        // inner glass edge
-            "0 2px 0 rgba(255,255,255,0.06) inset",          // top highlight
-            "0 8px 32px rgba(0,0,0,0.6)",                     // main shadow
-            "0 0 48px rgba(109,40,217,0.18)",                 // purple ambient
-            "0 0 1px rgba(139,92,246,0.4)",                   // crisp outer ring
-          ].join(", "),
+          border: "1px solid rgba(255,255,255,0.07)",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)",
           overflow: "hidden",
           position: "relative",
         }}
       >
-        {/* Radial inner glow — subtle purple light source top-right */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(ellipse 60% 55% at 85% 0%, rgba(139,92,246,0.14) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Progress bar — top edge */}
+        {/* Progress bar — top edge, very subtle */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.04)" }}>
           <div
             style={{
               height: "100%",
               width: `${progressPct}%`,
-              background: "linear-gradient(90deg, #6d28d9, #8b5cf6, #a78bfa)",
-              boxShadow: "0 0 8px rgba(139,92,246,0.7)",
+              background: "rgba(139,92,246,0.7)",
               transition: "width 0.4s cubic-bezier(0.4,0,0.2,1)",
-              borderRadius: "0 2px 2px 0",
             }}
           />
         </div>
-
-        {/* Left accent bar */}
-        <div
-          style={{
-            position: "absolute",
-            top: 16,
-            bottom: 16,
-            left: 0,
-            width: 3,
-            borderRadius: "0 3px 3px 0",
-            background: "linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%)",
-            boxShadow: "0 0 10px rgba(139,92,246,0.5)",
-          }}
-        />
 
         {/* Animated content — keyed so it re-mounts (and re-animates) on every step */}
         <div
@@ -399,36 +365,36 @@ function TourCard({
           }}
         >
           {/* Row 1: step label + close */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <span
               style={{
                 fontSize: 10,
-                fontWeight: 800,
-                letterSpacing: "0.12em",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "rgba(139,92,246,0.75)",
+                color: "rgba(255,255,255,0.28)",
               }}
             >
-              Step {stepIndex + 1} of {totalSteps}
+              {stepIndex + 1} / {totalSteps}
             </span>
             <button
               onClick={onSkip}
               style={{
-                width: 24,
-                height: 24,
+                width: 22,
+                height: 22,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: "50%",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                color: "rgba(255,255,255,0.3)",
+                background: "none",
+                border: "none",
+                color: "rgba(255,255,255,0.2)",
                 cursor: "pointer",
                 padding: 0,
                 flexShrink: 0,
               }}
             >
-              <X style={{ width: 11, height: 11 }} />
+              <X style={{ width: 12, height: 12 }} />
             </button>
           </div>
 
@@ -437,27 +403,27 @@ function TourCard({
             style={{
               fontSize: 15,
               fontWeight: 700,
-              color: "rgba(255,255,255,0.95)",
+              color: "rgba(255,255,255,0.92)",
               lineHeight: 1.3,
-              margin: "0 0 7px 0",
+              margin: "0 0 8px 0",
             }}
           >
             {step.title}
           </p>
 
-          {/* Body — full text, no clamp */}
+          {/* Body — full text */}
           <p
             style={{
               fontSize: 12.5,
-              color: "rgba(255,255,255,0.52)",
-              lineHeight: 1.55,
-              margin: "0 0 14px 0",
+              color: "rgba(255,255,255,0.45)",
+              lineHeight: 1.6,
+              margin: "0 0 16px 0",
             }}
           >
             {step.body}
           </p>
 
-          {/* Footer: back/skip  ·  dot progress  ·  Next */}
+          {/* Footer: back/skip · dots · Next */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Back or Skip */}
             {hasPrev ? (
@@ -469,9 +435,9 @@ function TourCard({
                   alignItems: "center",
                   gap: 4,
                   fontSize: 11,
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.3)",
-                  background: "rgba(255,255,255,0.05)",
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.28)",
+                  background: "none",
                   border: "1px solid rgba(255,255,255,0.08)",
                   borderRadius: 99,
                   padding: "4px 10px",
@@ -487,40 +453,40 @@ function TourCard({
                 style={{
                   flexShrink: 0,
                   fontSize: 11,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   color: "rgba(255,255,255,0.2)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  padding: "4px 2px",
+                  padding: "4px 0",
                 }}
               >
                 Skip
               </button>
             )}
 
-            {/* Dot progress — center */}
+            {/* Dot progress — center, monochrome */}
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
               {Array.from({ length: totalSteps }).map((_, i) => (
                 <div
                   key={i}
                   style={{
-                    width: i === stepIndex ? 16 : 5,
-                    height: 5,
+                    width: i === stepIndex ? 14 : 4,
+                    height: 4,
                     borderRadius: 99,
                     background: i === stepIndex
-                      ? "linear-gradient(90deg, #8b5cf6, #a78bfa)"
+                      ? "rgba(255,255,255,0.7)"
                       : i < stepIndex
-                        ? "rgba(139,92,246,0.45)"
-                        : "rgba(255,255,255,0.12)",
-                    transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
+                        ? "rgba(255,255,255,0.2)"
+                        : "rgba(255,255,255,0.08)",
+                    transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
                     flexShrink: 0,
                   }}
                 />
               ))}
             </div>
 
-            {/* Next / Done */}
+            {/* Next / Done — only coloured element */}
             <button
               onClick={onNext}
               style={{
@@ -529,18 +495,17 @@ function TourCard({
                 alignItems: "center",
                 gap: 4,
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 600,
                 color: "white",
-                background: "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
+                background: "#7c3aed",
                 border: "none",
                 borderRadius: 99,
                 padding: "6px 14px",
                 cursor: "pointer",
-                boxShadow: "0 2px 12px rgba(109,40,217,0.45), 0 0 0 1px rgba(139,92,246,0.3)",
                 whiteSpace: "nowrap",
               }}
             >
-              {isLast ? "Done ✓" : (<>Next <ArrowRight style={{ width: 12, height: 12 }} /></>)}
+              {isLast ? "Done" : (<>Next <ArrowRight style={{ width: 11, height: 11 }} /></>)}
             </button>
           </div>
         </div>
@@ -632,14 +597,24 @@ export function AppTour() {
     }
   }, [visible, step, stepIndex, steps.length]);
 
-  // Auto-scroll to target for non-fixed elements (dashboard cards etc.)
+  // Scroll to top when tour starts so step-1 spotlight always lands correctly
+  useEffect(() => {
+    if (!visible) return;
+    if (stepIndex === 0) {
+      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    }
+  }, [visible]);
+
+  // Auto-scroll to target using instant scroll so getBoundingClientRect is
+  // accurate immediately after — avoids the highlight landing at the wrong
+  // position when the element is off-screen.
   useEffect(() => {
     if (!visible || !step?.target) return;
     const el = document.querySelector(step.target) as HTMLElement | null;
     if (!el) return;
     const pos = window.getComputedStyle(el).position;
     if (pos !== "fixed" && pos !== "sticky") {
-      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      el.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center", inline: "nearest" });
     }
   }, [visible, step?.target]);
 

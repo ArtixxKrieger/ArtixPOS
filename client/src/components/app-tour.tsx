@@ -275,6 +275,7 @@ function TourCard({
   onPrev,
   onSkip,
   entering,
+  direction,
 }: {
   step: TourStep;
   stepIndex: number;
@@ -286,6 +287,7 @@ function TourCard({
   onPrev: () => void;
   onSkip: () => void;
   entering: boolean;
+  direction: "forward" | "backward";
 }) {
   const isLast = stepIndex === totalSteps - 1;
   const hasPrev = stepIndex > 0;
@@ -388,7 +390,14 @@ function TourCard({
           }}
         />
 
-        <div style={{ padding: "14px 14px 14px 18px" }}>
+        {/* Animated content — keyed so it re-mounts (and re-animates) on every step */}
+        <div
+          key={stepIndex}
+          style={{
+            padding: "14px 14px 14px 18px",
+            animation: `tour-step-${direction} 280ms cubic-bezier(0.22,1,0.36,1) both`,
+          }}
+        >
           {/* Row 1: step label + close */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span
@@ -504,7 +513,7 @@ function TourCard({
                       : i < stepIndex
                         ? "rgba(139,92,246,0.45)"
                         : "rgba(255,255,255,0.12)",
-                    transition: "all 0.3s ease",
+                    transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
                     flexShrink: 0,
                   }}
                 />
@@ -549,6 +558,7 @@ export function AppTour() {
   const [stepIndex, setStepIndex] = useState(0);
   const [entering, setEntering] = useState(true);
   const [exiting, setExiting] = useState(false);
+  const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [vw, setVw] = useState(() => window.innerWidth);
   const [vh, setVh] = useState(() => window.innerHeight);
 
@@ -599,20 +609,15 @@ export function AppTour() {
     if (stepIndex >= steps.length - 1) {
       dismiss();
     } else {
-      setEntering(true);
+      setDirection("forward");
       setStepIndex(i => i + 1);
-      // Reset entering flag so animation can re-trigger
-      requestAnimationFrame(() => setEntering(false));
-      setTimeout(() => setEntering(true), 20);
     }
   }, [stepIndex, steps.length, dismiss]);
 
   const prev = useCallback(() => {
     if (stepIndex > 0) {
-      setEntering(true);
+      setDirection("backward");
       setStepIndex(i => i - 1);
-      requestAnimationFrame(() => setEntering(false));
-      setTimeout(() => setEntering(true), 20);
     }
   }, [stepIndex]);
 
@@ -646,7 +651,7 @@ export function AppTour() {
     <>
       <style>{`
         @keyframes tour-card-in {
-          from { opacity: 0; transform: translateY(8px) scale(0.97); }
+          from { opacity: 0; transform: translateY(10px) scale(0.96); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes tour-overlay-in {
@@ -657,6 +662,14 @@ export function AppTour() {
           0%   { box-shadow: 0 0 0 0px rgba(139,92,246,0.7); }
           70%  { box-shadow: 0 0 0 10px rgba(139,92,246,0); }
           100% { box-shadow: 0 0 0 0px rgba(139,92,246,0); }
+        }
+        @keyframes tour-step-forward {
+          from { opacity: 0; transform: translateX(22px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes tour-step-backward {
+          from { opacity: 0; transform: translateX(-22px); }
+          to   { opacity: 1; transform: translateX(0); }
         }
       `}</style>
 
@@ -725,6 +738,7 @@ export function AppTour() {
         onPrev={prev}
         onSkip={dismiss}
         entering={entering}
+        direction={direction}
       />
     </>
   );

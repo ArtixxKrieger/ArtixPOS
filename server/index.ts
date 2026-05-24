@@ -520,6 +520,7 @@ async function _doInit() {
         msg.includes("too many clients") ||
         msg.includes("Connection terminated") ||
         msg.includes("connection timeout") ||
+        msg.includes("timeout exceeded") ||
         msg.includes("Client was closed") ||
         msg.includes("pool is draining")
       ) {

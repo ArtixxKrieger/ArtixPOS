@@ -56,6 +56,12 @@ function useProduct(id: number) {
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
+    retry: (failureCount, error) => {
+      if (failureCount >= 1) return false;
+      if (error instanceof ValidationError) return false;
+      return true;
+    },
+    retryDelay: 1200,
     mutationFn: async (data: InsertProduct) => {
       let res: Response;
       try {

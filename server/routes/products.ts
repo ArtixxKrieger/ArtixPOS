@@ -40,12 +40,19 @@ export function registerProductRoutes(app: Express): void {
   // ── Create product ─────────────────────────────────────────────────────────
   app.post(api.products.create.path, requireAuth, async (req, res) => {
     try {
+      const uid = getUserId(req);
       const tid = getTenantId(req);
       if (tid) {
         const sub = await getSubscription(tid);
         if (!isProSubscription(sub)) {
-          const existing = await storage.getProducts(getUserId(req));
-          if (existing.length >= 50) {
+          // Use L1 cache when warm (O(1), no DB round-trip).
+          // Falls back to a full fetch only on a cold cache — rare after first page load.
+          const cacheKey = productsCacheKey(uid);
+          const cached = cache.get<any[]>(cacheKey);
+          const productCount = cached !== undefined
+            ? cached.length
+            : (await storage.getProducts(uid)).length;
+          if (productCount >= 50) {
             return res.status(403).json({
               message: "The Free plan includes 50 products. Upgrade to Pro when you need a larger catalog.",
               code: "PRODUCT_LIMIT_REACHED",
@@ -60,7 +67,6 @@ export function registerProductRoutes(app: Express): void {
       // SECURITY: Always force the new product into the user's active branch.
       // Ignore any client-supplied branchId to prevent cross-branch leaks.
       const branchId = await resolveBranchId(req);
-      const uid = getUserId(req);
       const product = await storage.createProduct(uid, { ...input, branchId });
       cache.del(productsCacheKey(uid));
       if (branchId != null) cache.del(productsCacheKey(uid) + `:b${branchId}`);

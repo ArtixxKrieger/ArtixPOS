@@ -289,31 +289,28 @@ function TourCard({
 }) {
   const isLast = stepIndex === totalSteps - 1;
   const hasPrev = stepIndex > 0;
-  const cardW = Math.min(vw - 32, 320);
 
-  // Compact card — no body text, so height is much smaller
-  const CARD_H_EST = 120;
-  const GAP = 14;
-  // Extra top offset on mobile to clear the sticky header (≈52px + safe area)
-  const HEADER_CLEARANCE = 64;
+  // Floating pill strip: full width with side margins
+  const stripH = 52; // px — single-row pill height
+  const sidePad = 16;
+  const GAP = 12;
+  // Minimum top to never overlap the sticky mobile header (~52px + some room)
+  const HEADER_CLEARANCE = 62;
 
   let top: number;
-  let left: number;
 
   if (!targetRect) {
-    top = vh / 2 - CARD_H_EST / 2;
-    left = (vw - cardW) / 2;
+    // No spotlight — center vertically
+    top = vh / 2 - stripH / 2;
   } else {
     const elMidY = targetRect.y + targetRect.h / 2;
     if (elMidY > vh / 2) {
-      // Element in bottom half → card above, but never behind the header
-      top = Math.max(HEADER_CLEARANCE, targetRect.y - CARD_H_EST - GAP);
+      // Element in bottom half → strip above it, clamped below header
+      top = Math.max(HEADER_CLEARANCE, targetRect.y - stripH - GAP);
     } else {
-      // Element in top half → card below
-      top = targetRect.y + targetRect.h + GAP;
+      // Element in top half → strip below it
+      top = Math.min(vh - stripH - GAP, targetRect.y + targetRect.h + GAP);
     }
-    const elCenterX = targetRect.x + targetRect.w / 2;
-    left = Math.max(16, Math.min(vw - cardW - 16, elCenterX - cardW / 2));
   }
 
   return (
@@ -321,146 +318,98 @@ function TourCard({
       style={{
         position: "fixed",
         top,
-        left,
-        width: cardW,
+        left: sidePad,
+        right: sidePad,
         zIndex: 999,
-        transition: "top 0.3s cubic-bezier(0.4,0,0.2,1), left 0.3s cubic-bezier(0.4,0,0.2,1)",
+        transition: "top 0.3s cubic-bezier(0.4,0,0.2,1)",
         animation: entering ? "tour-card-in 280ms cubic-bezier(0.22,1,0.36,1) both" : undefined,
       }}
     >
-      {/* Glass card — always dark so it reads clearly over the dimmed overlay */}
+      {/* Floating pill strip */}
       <div
-        className="rounded-2xl overflow-hidden"
         style={{
-          background: "rgba(13,13,22,0.92)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          height: stripH,
+          padding: "0 10px 0 12px",
+          borderRadius: 999,
+          background: "rgba(13,13,22,0.93)",
+          backdropFilter: "blur(28px)",
+          WebkitBackdropFilter: "blur(28px)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(139,92,246,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
+          overflow: "hidden",
+          position: "relative",
         }}
       >
-        {/* Thin progress bar */}
-        <div className="h-[2px] w-full" style={{ background: "rgba(255,255,255,0.06)" }}>
-          <div
-            className="h-full transition-all duration-300"
-            style={{
-              width: `${((stepIndex + 1) / totalSteps) * 100}%`,
-              background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
-            }}
-          />
-        </div>
+        {/* Left progress accent line */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            height: 2,
+            width: `${((stepIndex + 1) / totalSteps) * 100}%`,
+            background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
+            borderRadius: "0 2px 2px 0",
+            transition: "width 0.3s ease",
+          }}
+        />
 
-        <div className="px-4 pt-3 pb-3.5">
-          {/* Step indicator + close */}
-          <div className="flex items-center justify-between mb-2">
-            <span
-              className="text-[10px] font-bold uppercase tracking-[0.12em]"
-              style={{ color: "rgba(167,139,250,0.8)" }}
-            >
-              {stepIndex + 1} <span style={{ color: "rgba(255,255,255,0.2)" }}>/</span> {totalSteps}
-            </span>
-            <button
-              onClick={onSkip}
-              className="w-5 h-5 flex items-center justify-center rounded-full transition-colors"
-              style={{ color: "rgba(255,255,255,0.25)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
+        {/* Back / Skip */}
+        {hasPrev ? (
+          <button
+            onClick={onPrev}
+            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90"
+            style={{ color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)" }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <button
+            onClick={onSkip}
+            className="shrink-0 text-[11px] font-medium transition-colors px-1"
+            style={{ color: "rgba(255,255,255,0.22)" }}
+          >
+            Skip
+          </button>
+        )}
 
-          {/* Title */}
-          <h3
-            className="font-bold text-[15px] leading-snug mb-3"
-            style={{ color: "rgba(255,255,255,0.92)" }}
+        {/* Title + step count — takes remaining space */}
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-[13px] font-semibold truncate leading-tight"
+            style={{ color: "rgba(255,255,255,0.9)" }}
           >
             {step.title}
-          </h3>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {hasPrev ? (
-              <button
-                onClick={onPrev}
-                className="w-8 h-8 flex items-center justify-center rounded-xl shrink-0 transition-all active:scale-90"
-                style={{
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "rgba(255,255,255,0.4)",
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.75)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.22)";
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)";
-                }}
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                onClick={onSkip}
-                className="text-[11px] font-medium shrink-0 px-1 transition-colors"
-                style={{ color: "rgba(255,255,255,0.2)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
-              >
-                Skip
-              </button>
-            )}
-
-            <button
-              onClick={onNext}
-              className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-[12.5px] font-semibold text-white transition-all active:scale-95"
-              style={{ background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)" }}
-            >
-              {isLast ? "Let's go!" : (
-                <>
-                  Next
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Arrow pointer toward highlighted element */}
-      {targetRect && (() => {
-        const elMidY = targetRect.y + targetRect.h / 2;
-        const isAbove = elMidY > vh / 2;
-        if (!isAbove) return null;
-        const arrowLeft = Math.max(16, Math.min(
-          cardW - 32,
-          (targetRect.x + targetRect.w / 2) - left - 8
-        ));
-        return (
-          <div
-            className="absolute"
-            style={{
-              bottom: -7,
-              left: arrowLeft,
-              width: 14,
-              height: 7,
-              overflow: "hidden",
-            }}
+          </p>
+          <p
+            className="text-[10px] leading-tight mt-[1px]"
+            style={{ color: "rgba(167,139,250,0.65)" }}
           >
-            <div
-              className="absolute rotate-45"
-              style={{
-                width: 10,
-                height: 10,
-                top: -5,
-                left: 2,
-                background: "rgba(13,13,22,0.92)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            />
-          </div>
-        );
-      })()}
+            {stepIndex + 1} of {totalSteps}
+          </p>
+        </div>
+
+        {/* Next / Finish — compact pill button */}
+        <button
+          onClick={onNext}
+          className="shrink-0 flex items-center gap-1 text-[12px] font-semibold text-white transition-all active:scale-95 rounded-full px-4 h-8"
+          style={{ background: "linear-gradient(135deg, #7c3aed, #6d28d9)" }}
+        >
+          {isLast ? "Done" : (<>Next <ArrowRight className="w-3 h-3" /></>)}
+        </button>
+
+        {/* Close */}
+        <button
+          onClick={onSkip}
+          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full transition-colors"
+          style={{ color: "rgba(255,255,255,0.2)" }}
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
     </div>
   );
 }

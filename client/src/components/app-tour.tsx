@@ -345,8 +345,17 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
         title: 'Active Clients Queue',
         body: "Walk-ins and active appointments show up here. Your team marks each service done so the front desk always knows who's in the chair, who's waiting, and what's coming next.",
       },
+      {
+        target: '[data-tour="tour-nav-rooms"]',
+        title: subtype === 'barbershop' ? 'Barber Chairs and Stations' : subtype === 'nail_salon' ? 'Nail Stations' : 'Styling Chairs and Stations',
+        body: subtype === 'barbershop'
+          ? "Set up each barber chair or station here. Assign them to specific barbers and mark a chair as occupied, available, or under maintenance. Appointments link directly to a chair so no two bookings ever share the same seat."
+          : subtype === 'nail_salon'
+          ? "Add each nail station here. Assign to technicians, mark availability, and track which station is active. Appointments link to a specific station so scheduling stays clean and your floor stays organized."
+          : "Add each styling chair or station here. Assign them to stylists, mark availability, and see at a glance what's in use. Appointments book against specific stations so double-booking is impossible.",
+      },
     ];
-    outroBody = 'Add your services, add a client in Customers, book your first appointment, mark it done in the Queue, then collect payment at the POS.';
+    outroBody = 'Add your services, set up your stations in Rooms, add a client in Customers, book your first appointment, mark it done in the Queue, then collect payment at the POS.';
   } else if (cat === 'wellness') {
     includeCustomers = true;
     midSteps = [
@@ -360,8 +369,15 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
         title: 'Active Sessions Queue',
         body: "In-progress sessions show up here. Your front desk can see which rooms are busy, which sessions are almost done, and who's waiting. Therapists mark sessions done when they finish.",
       },
+      {
+        target: '[data-tour="tour-nav-rooms"]',
+        title: 'Treatment Rooms',
+        body: subtype === 'massage'
+          ? "Set up each massage room here. Name them, set capacity, and mark each one as available, occupied, or under maintenance. When a therapist books a session, it locks to a specific room so two clients are never put in the same space."
+          : "Set up each treatment room here. Name them, set their type, and track availability in real time. When a booking is made, it ties to a specific room so conflicts are prevented automatically. Your front desk always knows exactly which rooms are free.",
+      },
     ];
-    outroBody = 'Add your treatments, add a client in Customers, book your first session, track it in the Active Queue, then collect payment at the POS.';
+    outroBody = 'Add your treatments, set up your rooms, add a client in Customers, book your first session, track it in the Active Queue, then collect payment at the POS.';
   } else if (cat === 'clinic') {
     includeCustomers = true;
     midSteps = [
@@ -370,8 +386,15 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
         title: 'Patient Appointments',
         body: "Schedule consultations, procedures, and follow-ups by date, time, and doctor. Overbooking is prevented automatically. Each patient's visit history is kept in Customers so nothing gets lost.",
       },
+      {
+        target: '[data-tour="tour-nav-rooms"]',
+        title: subtype === 'dental' ? 'Dental Chairs and Rooms' : 'Exam Rooms and Procedure Rooms',
+        body: subtype === 'dental'
+          ? "Add each dental chair or procedure room here. Assign to specific dentists, track availability, and mark rooms under maintenance when needed. Appointments link to a room so two patients are never scheduled in the same chair."
+          : "Set up each exam room or procedure room here. Assign to doctors or departments and track real-time availability. Patient appointments tie to a specific room so scheduling is clean and your front desk always knows what's occupied.",
+      },
     ];
-    outroBody = 'Add your services, register patients in Customers, schedule an appointment, then bill the patient at the POS.';
+    outroBody = 'Add your services, set up your rooms, register patients in Customers, schedule an appointment, then bill the patient at the POS.';
   } else if (cat === 'gym') {
     includeCustomers = true;
     midSteps = [
@@ -380,8 +403,13 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
         title: 'Class and Session Bookings',
         body: "Book PT sessions and group classes here. Assign to a specific trainer, set capacity, and keep your floor organized. Each member's bookings and attendance are tracked in their Customers profile.",
       },
+      {
+        target: '[data-tour="tour-nav-rooms"]',
+        title: 'Courts, Studios, and Spaces',
+        body: "Add each space here — courts, studios, training areas, or lanes. Set capacity, assign to trainers or classes, and track availability. Bookings link to a specific space so you never overbook a court or studio.",
+      },
     ];
-    outroBody = 'Create membership plans in Products, register members in Customers, book sessions in Appointments, then collect payment at the POS.';
+    outroBody = 'Create membership plans in Products, set up your spaces in Rooms, register members in Customers, book sessions in Appointments, then collect payment at the POS.';
   } else if (cat === 'queue_service') {
     const qTitle = subtype === 'laundry' ? 'Laundry Job Queue'
       : subtype === 'car_wash' ? 'Vehicle Job Queue'

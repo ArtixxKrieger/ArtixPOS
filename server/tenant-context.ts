@@ -65,7 +65,19 @@ export function tenantContextMiddleware(pool: Pool) {
     };
 
     try {
-      client = await pool.connect();
+      // Retry once on connection timeout — page-load bursts can briefly exhaust
+      // the pool; a short wait lets a concurrent request release its connection.
+      try {
+        client = await pool.connect();
+      } catch (firstErr: any) {
+        const msg: string = firstErr?.message ?? "";
+        if (msg.includes("timeout exceeded") || msg.includes("connection timeout")) {
+          await new Promise<void>((r) => setTimeout(r, 500));
+          client = await pool.connect();
+        } else {
+          throw firstErr;
+        }
+      }
       await client.query("BEGIN");
       // Switch to the non-superuser app role so that FORCE ROW LEVEL SECURITY
       // and all RLS policies are actually enforced.  Postgres superusers

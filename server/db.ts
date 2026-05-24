@@ -6,7 +6,14 @@ import { _tenantStore } from "./tenant-context";
 
 const isServerless = !!process.env.VERCEL;
 
-const TOTAL_POOL     = isServerless ? 5 : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
+// On Vercel, page-load fires many concurrent requests (auth, products, settings,
+// pending-orders, notifications, dashboard…).  Each one holds a dedicated pool
+// connection for its entire lifecycle via tenantContextMiddleware.  A pool of 5
+// was exhausted by the first page-load burst, causing "timeout exceeded" errors
+// for subsequent requests (e.g. creating a product).  Raise to 15 so the burst
+// is absorbed without queuing.  The DB connection limit on Supabase free tier is
+// 60; 15 per Vercel instance leaves plenty of headroom for multiple warm instances.
+const TOTAL_POOL     = isServerless ? 15 : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
 const CLUSTER_WORKERS_ENV = parseInt(process.env.CLUSTER_WORKERS ?? "0", 10);
 const EFFECTIVE_WORKERS   = CLUSTER_WORKERS_ENV > 0 ? CLUSTER_WORKERS_ENV
   : (process.env.NODE_ENV === "production" ? os.cpus().length : 1);
@@ -25,14 +32,17 @@ export const pool = new Pool({
 
   max: POOL_MAX,
 
-  idleTimeoutMillis: isServerless ? 10_000 : 30_000,
+  // Keep connections alive for 55 s on Vercel so warm function instances
+  // reuse existing connections between requests instead of re-establishing
+  // each time. allowExitOnIdle:false lets the pool hold connections open;
+  // Vercel manages the function lifecycle independently.
+  idleTimeoutMillis: isServerless ? 55_000 : 30_000,
+  allowExitOnIdle: false,
 
-  // 15 s — matches DB_STATEMENT_TIMEOUT_MS so a slow query never races the
-  // connection-wait timeout.  Previously 5 s, which was too tight when all
-  // pool slots were held by concurrent tenant-context requests on Vercel.
-  connectionTimeoutMillis: 15_000,
-
-  allowExitOnIdle: isServerless,
+  // 4 s on Vercel — fail fast so the server-side retry (below, in
+  // tenant-context.ts) kicks in quickly rather than making the user wait
+  // 15 s before the client-side retry fires.
+  connectionTimeoutMillis: isServerless ? 4_000 : 15_000,
 });
 
 export const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_MS ?? "15000", 10);

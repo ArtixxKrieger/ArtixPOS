@@ -258,9 +258,28 @@ function Spotlight({ rect, vw, vh }: { rect: SpotlightRect; vw: number; vh: numb
         rx={r}
         ry={r}
         fill="none"
-        stroke="rgba(139,92,246,0.8)"
-        strokeWidth={2}
+        stroke="rgba(139,92,246,1)"
+        strokeWidth={3}
+        filter="url(#tour-glow)"
       />
+      {/* Outer softer ring */}
+      <rect
+        x={rect.x - 4}
+        y={rect.y - 4}
+        width={rect.w + 8}
+        height={rect.h + 8}
+        rx={r + 4}
+        ry={r + 4}
+        fill="none"
+        stroke="rgba(139,92,246,0.3)"
+        strokeWidth={8}
+      />
+      <defs>
+        <filter id="tour-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
     </svg>
   );
 }
@@ -296,7 +315,7 @@ function TourCard({
   // Position card: above/below the spotlight, or centered
   let top: number;
   let left: number;
-  const CARD_H_EST = 180; // estimated card height
+  const CARD_H_EST = 250; // estimated card height (generous for longer text)
   const GAP = 16;
 
   if (!targetRect) {
@@ -517,6 +536,26 @@ export function AppTour() {
     }
   }, [visible, step, stepIndex, steps.length]);
 
+  // Auto-scroll to target + add CSS pulse ring directly on the element
+  useEffect(() => {
+    if (!visible || !step?.target) return;
+    const el = document.querySelector(step.target) as HTMLElement | null;
+    if (!el) return;
+
+    // Add pulsing ring class so it's unmistakably visible on every device
+    el.classList.add("tour-ring-active");
+
+    // Scroll into view only for non-fixed elements (dashboard cards etc.)
+    const pos = window.getComputedStyle(el).position;
+    if (pos !== "fixed" && pos !== "sticky") {
+      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    }
+
+    return () => {
+      el.classList.remove("tour-ring-active");
+    };
+  }, [visible, step?.target]);
+
   if (!visible || !step) return null;
 
   const hasTarget = targetRect !== null;
@@ -531,6 +570,19 @@ export function AppTour() {
         @keyframes tour-overlay-in {
           from { opacity: 0; }
           to   { opacity: 1; }
+        }
+        @keyframes tour-ring-pulse {
+          0%   { box-shadow: 0 0 0 0px rgba(139,92,246,0.9), 0 0 0 3px rgba(139,92,246,1); }
+          60%  { box-shadow: 0 0 0 10px rgba(139,92,246,0), 0 0 0 3px rgba(139,92,246,1); }
+          100% { box-shadow: 0 0 0 0px rgba(139,92,246,0), 0 0 0 3px rgba(139,92,246,1); }
+        }
+        .tour-ring-active {
+          position: relative;
+          z-index: 1000 !important;
+          border-radius: 18px;
+          outline: 3px solid rgba(139,92,246,1);
+          outline-offset: 4px;
+          animation: tour-ring-pulse 1.4s ease-out infinite;
         }
       `}</style>
 

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import {
   Package, ShoppingCart, BarChart2, DollarSign, ChefHat, CalendarDays,
   Users, Tag, Boxes, Scissors, Dumbbell, CreditCard, ClipboardList,
   Clock, Star, TrendingUp, Wallet, Truck, Coffee, UtensilsCrossed,
-  ArrowRight, Check, X, Sparkles, Store,
+  ArrowRight, ArrowLeft, Check, X, Sparkles, Store, Lightbulb,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -37,7 +37,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Close up and count your cash", description: "At the end of the day, go to Shifts and close your shift. Enter your physical cash count — ArtixPOS will tell you if it matches and show your full earnings summary.", tip: "Your Analytics page shows top-selling dishes and busiest hours so you can plan better.", nav: "Analytics" },
     ],
   },
-
   cafe: {
     businessLabel: "Cafe / Coffee Shop",
     tagline: "First coffee's on us — let's get you set up.",
@@ -50,7 +49,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: TrendingUp, title: "See today's performance", description: "Analytics shows your sales total, number of transactions, peak hours, and your best-selling items — updated in real time throughout the day.", tip: "Check your busiest hour to know when to schedule extra staff.", nav: "Analytics" },
     ],
   },
-
   bakery: {
     businessLabel: "Bakery",
     tagline: "Fresh start — let's bake your first sale.",
@@ -63,7 +61,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Track what sells", description: "Your Analytics page shows which items sold most today, your revenue trend, and your busiest selling windows — so you know exactly how much to bake tomorrow.", tip: "Low stock alerts in Products help you prep the right amount before opening each day.", nav: "Analytics" },
     ],
   },
-
   bar: {
     businessLabel: "Bar / Pub",
     tagline: "Let's get your bar running smoothly.",
@@ -76,7 +73,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Count your till at close", description: "At the end of service, close your shift in Shifts. Count your physical cash — ArtixPOS compares it to expected and shows your full night's revenue breakdown.", tip: "Analytics shows your top-selling drinks and your peak night hours.", nav: "Analytics" },
     ],
   },
-
   food_truck: {
     businessLabel: "Food Truck",
     tagline: "Mobile, fast, and ready to roll.",
@@ -89,7 +85,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: TrendingUp, title: "Track your spot's performance", description: "Analytics shows your daily revenue, top items, and transaction count. Compare locations and days to find your best spots and times.", tip: "Use your sales data to decide which menu items to drop and which to feature more.", nav: "Analytics" },
     ],
   },
-
   clothing: {
     businessLabel: "Clothing / Fashion",
     tagline: "Style meets smart business — let's set up shop.",
@@ -102,7 +97,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: Boxes, title: "Keep your stock accurate", description: "Every sale automatically reduces your stock count. Analytics shows your top sellers and low-stock items so you always know what to reorder.", tip: "Set stock alerts on your fast-moving sizes — you'll be notified before you sell out.", nav: "Analytics" },
     ],
   },
-
   electronics: {
     businessLabel: "Electronics",
     tagline: "Tech-powered sales management starts here.",
@@ -115,7 +109,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: Boxes, title: "Monitor your inventory", description: "Stock levels update automatically with every sale. Analytics shows your best-selling products and flags items running low so you can reorder before they run out.", tip: "High-value items should have stock alerts set so you're never caught understocked.", nav: "Analytics" },
     ],
   },
-
   grocery: {
     businessLabel: "Grocery / Supermarket",
     tagline: "Stocked, fast, and always accurate.",
@@ -128,7 +121,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Daily cash reconciliation", description: "Close your shift at end of day, count your cash, and compare it to ArtixPOS's expected total. The difference is flagged immediately so discrepancies never go unnoticed.", tip: "Analytics shows your daily revenue, top products, and peak shopping hours.", nav: "Shifts" },
     ],
   },
-
   pharmacy: {
     businessLabel: "Pharmacy / Drugstore",
     tagline: "Precision and speed at the counter.",
@@ -141,7 +133,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: Boxes, title: "Track expiry & stock", description: "Monitor your stock levels in Products so fast-moving items are always in stock. Analytics shows your top sellers so you can manage your ordering better.", tip: "Check the Expiry Tracker to flag medicines approaching their expiry date.", nav: "Products" },
     ],
   },
-
   bookstore: {
     businessLabel: "Bookstore",
     tagline: "Every great story starts with a sale.",
@@ -154,7 +145,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "See what's selling", description: "Analytics shows your top-selling titles, daily revenue, and transaction counts. Know which genres and authors to stock more of.", tip: "Check your slowest-moving stock in Products and consider a clearance sale to free up shelf space.", nav: "Analytics" },
     ],
   },
-
   salon: {
     businessLabel: "Salon / Barbershop",
     tagline: "Let's get your chairs filled and cash flowing.",
@@ -167,7 +157,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: TrendingUp, title: "Track your stylists' performance", description: "Analytics shows daily revenue, top services sold, and transaction counts. Use it to spot your busiest days and plan staffing accordingly.", tip: "The Staff module lets you track hours worked via the time clock feature.", nav: "Analytics" },
     ],
   },
-
   gym: {
     businessLabel: "Gym / Fitness Center",
     tagline: "Stronger members, stronger revenue.",
@@ -180,7 +169,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Monitor your revenue", description: "Analytics shows your daily, weekly, and monthly revenue. See how many memberships were sold vs renewals, and track your busiest sign-up periods.", tip: "January is every gym's biggest month — use Analytics to plan your staffing and promotions.", nav: "Analytics" },
     ],
   },
-
   spa: {
     businessLabel: "Spa / Wellness",
     tagline: "Create calm experiences with seamless operations.",
@@ -193,7 +181,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: TrendingUp, title: "Measure your performance", description: "Analytics shows your top treatments, daily revenue, and booking trends. Know your busiest days and most popular services so you plan rosters and promotions smartly.", tip: "Friday afternoons and weekends are peak for most spas — check your data to confirm and staff up.", nav: "Analytics" },
     ],
   },
-
   clinic: {
     businessLabel: "Clinic / Healthcare",
     tagline: "Organised care starts with organised billing.",
@@ -206,7 +193,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Track your revenue", description: "Analytics shows daily collections, top services, and transaction counts. Understand your busiest days and most profitable services to plan your schedule.", tip: "Use Expense tracking for clinic supplies and overhead so you see true net income.", nav: "Analytics" },
     ],
   },
-
   laundry: {
     businessLabel: "Laundry / Dry Cleaning",
     tagline: "Clean business starts with clear records.",
@@ -219,7 +205,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: TrendingUp, title: "Count your earnings", description: "Close your shift at end of day and verify your cash. Analytics shows daily revenue, peak days of the week, and your most popular services.", tip: "Mondays and after weekends are usually your busiest — check your data to plan staffing.", nav: "Analytics" },
     ],
   },
-
   car_wash: {
     businessLabel: "Car Wash / Auto Detailing",
     tagline: "Streamlined service from drive-in to drive-out.",
@@ -232,7 +217,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: BarChart2, title: "Measure your daily output", description: "Analytics shows how many cars you serviced, total revenue, and your busiest times. Use this to plan your team's schedule and spot your peak hours.", tip: "Weekends before 10am are peak for most car washes — use data to confirm your best windows.", nav: "Analytics" },
     ],
   },
-
   pet_grooming: {
     businessLabel: "Pet Grooming",
     tagline: "Happy pets, happy owners, smooth business.",
@@ -245,7 +229,6 @@ const GUIDES: Record<string, GuideContent> = {
       { icon: TrendingUp, title: "Track your performance", description: "Analytics shows your daily revenue, top services, and transaction count. See which services are most popular and which groomers are generating the most bookings.", tip: "Use your busiest days to plan ahead — Saturdays and school holidays see the most grooming demand.", nav: "Analytics" },
     ],
   },
-
   default: {
     businessLabel: "Your Business",
     tagline: "Everything you need to run your business smarter.",
@@ -260,45 +243,23 @@ const GUIDES: Record<string, GuideContent> = {
   },
 };
 
-const CATEGORY_STYLE = {
-  food: {
-    gradient: "from-orange-500 via-amber-400 to-yellow-300",
-    ring: "ring-orange-200 dark:ring-orange-800",
-    badge: "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300",
-    dot: "bg-orange-500",
-    btn: "bg-orange-500 hover:bg-orange-600 text-white",
-    icon: "text-orange-500 dark:text-orange-400",
-    step: "bg-orange-50 dark:bg-orange-950/30 border-orange-100 dark:border-orange-900/50",
-  },
-  retail: {
-    gradient: "from-blue-600 via-blue-400 to-cyan-300",
-    ring: "ring-blue-200 dark:ring-blue-800",
-    badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
-    dot: "bg-blue-500",
-    btn: "bg-blue-600 hover:bg-blue-700 text-white",
-    icon: "text-blue-500 dark:text-blue-400",
-    step: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/50",
-  },
-  services: {
-    gradient: "from-violet-600 via-purple-500 to-fuchsia-400",
-    ring: "ring-violet-200 dark:ring-violet-800",
-    badge: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300",
-    dot: "bg-violet-500",
-    btn: "bg-violet-600 hover:bg-violet-700 text-white",
-    icon: "text-violet-500 dark:text-violet-400",
-    step: "bg-violet-50 dark:bg-violet-950/30 border-violet-100 dark:border-violet-900/50",
-  },
-};
-
 function getGuide(subtype: string | null | undefined): GuideContent {
   if (subtype && GUIDES[subtype]) return GUIDES[subtype];
   return GUIDES.default;
 }
 
+const ACCENT: Record<"food" | "retail" | "services", { text: string; bg: string; dot: string; ring: string; pill: string }> = {
+  food:     { text: "text-amber-600 dark:text-amber-400",  bg: "bg-amber-500",  dot: "bg-amber-500",  ring: "ring-amber-200 dark:ring-amber-800",  pill: "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300" },
+  retail:   { text: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-500",   dot: "bg-blue-500",   ring: "ring-blue-200 dark:ring-blue-800",    pill: "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" },
+  services: { text: "text-violet-600 dark:text-violet-400",bg: "bg-violet-500", dot: "bg-violet-500", ring: "ring-violet-200 dark:ring-violet-800", pill: "bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300" },
+};
+
 export function BusinessGuide() {
   const { user } = useAuth();
   const { data: settings } = useSettings();
   const [step, setStep] = useState(0);
+  const [dir, setDir] = useState<"next" | "prev">("next");
+  const [animKey, setAnimKey] = useState(0);
   const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
 
@@ -306,6 +267,8 @@ export function BusinessGuide() {
     (user?.activeBranch as any)?.businessType ??
     (settings as any)?.businessType ??
     undefined;
+
+  const storeName: string = (settings as any)?.storeName || "";
 
   const storageKey = user?.id ? `artix-guide-v1-${user.id}` : null;
 
@@ -320,122 +283,141 @@ export function BusinessGuide() {
   const dismiss = () => {
     if (storageKey) localStorage.setItem(storageKey, "1");
     setExiting(true);
-    setTimeout(() => setVisible(false), 250);
+    setTimeout(() => setVisible(false), 300);
+  };
+
+  const go = (nextStep: number, direction: "next" | "prev") => {
+    setDir(direction);
+    setAnimKey(k => k + 1);
+    setStep(nextStep);
   };
 
   const next = () => {
     if (step < guide.steps.length - 1) {
-      setStep((s) => s + 1);
+      go(step + 1, "next");
     } else {
       dismiss();
     }
   };
 
+  const prev = () => {
+    if (step > 0) go(step - 1, "prev");
+  };
+
   if (!visible) return null;
 
   const guide = getGuide(subtype);
-  const style = CATEGORY_STYLE[guide.categoryKey];
+  const accent = ACCENT[guide.categoryKey];
   const current = guide.steps[step];
   const isLast = step === guide.steps.length - 1;
   const Icon = current.icon;
+  const displayName = storeName || guide.businessLabel;
 
   return (
     <div
-      className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-250 ${exiting ? "opacity-0" : "opacity-100"}`}
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+      className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 transition-opacity duration-300 ${exiting ? "opacity-0" : "opacity-100"}`}
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
     >
       <div
-        className={`w-full sm:max-w-md bg-white dark:bg-slate-900 sm:rounded-2xl rounded-t-3xl shadow-2xl overflow-hidden transition-all duration-250 ${exiting ? "translate-y-8 scale-95 opacity-0" : "translate-y-0 scale-100 opacity-100"}`}
+        className={`w-full sm:max-w-sm bg-white dark:bg-[#111118] sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden transition-all duration-300 ${exiting ? "translate-y-6 opacity-0" : "translate-y-0 opacity-100"}`}
       >
-        {/* ── Hero header ──────────────────────────────────────────────────── */}
-        <div className={`relative bg-gradient-to-br ${style.gradient} px-5 pt-5 pb-8 overflow-hidden`}>
-          {/* Decorative circles */}
-          <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10" />
-          <div className="absolute -right-4 top-8 w-20 h-20 rounded-full bg-white/8" />
-
-          <div className="relative flex items-start justify-between mb-4">
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-semibold tracking-wide`}>
-              <Store className="w-3 h-3" />
-              {guide.businessLabel}
-            </div>
-            <button
-              onClick={dismiss}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
-              aria-label="Close guide"
-            >
-              <X className="w-4 h-4" />
-            </button>
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-0">
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${accent.pill}`}>
+            <Store className="w-3 h-3" />
+            {displayName}
           </div>
-
-          <div className="relative">
-            <p className="text-white/75 text-xs font-medium uppercase tracking-widest mb-1">Quick-start guide</p>
-            <h2 className="text-white text-xl font-bold leading-tight">{guide.tagline}</h2>
-          </div>
+          <button
+            onClick={dismiss}
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close guide"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* ── Step indicator tabs ───────────────────────────────────────────── */}
-        <div className="flex gap-1 px-5 -mt-3 relative z-10">
+        {/* ── Step progress dots ── */}
+        <div className="flex items-center gap-1.5 px-5 mt-4">
           {guide.steps.map((_, i) => (
             <button
               key={i}
-              onClick={() => setStep(i)}
-              className={`h-1.5 rounded-full flex-1 transition-all duration-200 ${
-                i === step ? `${style.dot} flex-[2]` : i < step ? `${style.dot} opacity-60` : "bg-slate-200 dark:bg-slate-700"
+              onClick={() => go(i, i > step ? "next" : "prev")}
+              className={`h-1 rounded-full transition-all duration-300 ${
+                i === step
+                  ? `flex-[3] ${accent.dot}`
+                  : i < step
+                  ? `flex-1 ${accent.dot} opacity-40`
+                  : "flex-1 bg-border"
               }`}
             />
           ))}
         </div>
 
-        {/* ── Step content ──────────────────────────────────────────────────── */}
-        <div className="px-5 pt-4 pb-2">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-              Step {step + 1} of {guide.steps.length}
-            </span>
+        {/* ── Step label ── */}
+        <div className="px-5 mt-4">
+          <p className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
+            Step {step + 1} of {guide.steps.length}
+          </p>
+        </div>
+
+        {/* ── Animated step content ── */}
+        <div
+          key={animKey}
+          className="px-5 mt-3"
+          style={{
+            animation: `guide-slide-${dir} 260ms cubic-bezier(0.22,1,0.36,1) both`,
+          }}
+        >
+          {/* Icon + title */}
+          <div className="flex items-start gap-3 mb-3">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-muted ring-1 ${accent.ring}`}>
+              <Icon className={`w-5 h-5 ${accent.text}`} />
+            </div>
+            <h3 className="font-bold text-foreground text-[17px] leading-snug pt-1.5">
+              {current.title}
+            </h3>
           </div>
 
-          <div className={`rounded-xl border p-4 ${style.step} mb-4`}>
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-white dark:bg-slate-800 shadow-sm ring-1 ${style.ring}`}>
-                <Icon className={`w-5 h-5 ${style.icon}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug mb-1.5">
-                  {current.title}
-                </h3>
-                <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                  {current.description}
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Description */}
+          <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+            {current.description}
+          </p>
 
           {/* Pro tip */}
-          <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl px-3.5 py-3 mb-5">
-            <Star className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/25 border border-amber-100 dark:border-amber-900/40 rounded-2xl px-3.5 py-3 mb-5">
+            <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-amber-800 dark:text-amber-300 text-xs leading-relaxed">
-              <span className="font-semibold">Pro tip: </span>{current.tip}
+              <span className="font-semibold">Tip: </span>{current.tip}
             </p>
           </div>
         </div>
 
-        {/* ── Navigation ───────────────────────────────────────────────────── */}
-        <div className="px-5 pb-6 flex items-center gap-3">
-          <button
-            onClick={dismiss}
-            className="text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors font-medium px-2 py-2"
-          >
-            Skip guide
-          </button>
+        {/* ── Navigation ── */}
+        <div className="px-5 pb-6 flex items-center gap-2">
+          {step > 0 ? (
+            <button
+              onClick={prev}
+              className="w-10 h-11 flex items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={dismiss}
+              className="text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors font-medium px-1 py-2 shrink-0"
+            >
+              Skip
+            </button>
+          )}
 
           <button
             onClick={next}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95 ${style.btn}`}
+            className={`flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 ${accent.bg}`}
           >
             {isLast ? (
               <>
                 <Check className="w-4 h-4" />
-                Start using ArtixPOS
+                Done
               </>
             ) : (
               <>
@@ -446,9 +428,19 @@ export function BusinessGuide() {
           </button>
         </div>
 
-        {/* Safe area spacer for mobile */}
         <div className="sm:hidden pb-safe" />
       </div>
+
+      <style>{`
+        @keyframes guide-slide-next {
+          from { opacity: 0; transform: translateX(18px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes guide-slide-prev {
+          from { opacity: 0; transform: translateX(-18px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -359,12 +359,28 @@ export default function Onboarding() {
   }
 
   async function handleOwnerComplete() {
+    if (!storeCountry) {
+      toast({ title: "Please select your country", variant: "destructive" });
+      return;
+    }
     if (!storeName.trim()) {
       toast({ title: "Please enter your store name", variant: "destructive" });
       return;
     }
-    if (storeEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-      toast({ title: "Invalid email address", description: "Please enter a valid email or leave it blank.", variant: "destructive" });
+    if (!storeAddress.trim()) {
+      toast({ title: "Please enter your store address", variant: "destructive" });
+      return;
+    }
+    if (!storePhone.trim() || storePhone.trim() === (storeCountry?.phonePrefix ?? "")) {
+      toast({ title: "Please enter your phone number", variant: "destructive" });
+      return;
+    }
+    if (!storeEmail.trim()) {
+      toast({ title: "Please enter your email address", variant: "destructive" });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
+      toast({ title: "Invalid email address", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
@@ -623,7 +639,7 @@ export default function Onboarding() {
             <div className="space-y-3">
               {/* Country */}
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Country</Label>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Country *</Label>
                 <CountryPicker value={storeCountry} onChange={handleCountryChange} />
                 {storeCountry && (
                   <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
@@ -643,7 +659,7 @@ export default function Onboarding() {
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Address</Label>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Address *</Label>
                 <Input
                   data-testid="input-store-address"
                   value={storeAddress}
@@ -654,7 +670,7 @@ export default function Onboarding() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Phone</Label>
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Phone *</Label>
                   <Input
                     data-testid="input-store-phone"
                     value={storePhone}
@@ -665,7 +681,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</Label>
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email *</Label>
                   <Input
                     data-testid="input-store-email"
                     value={storeEmail}
@@ -686,18 +702,42 @@ export default function Onboarding() {
             <Button
               data-testid="btn-finish-setup"
               onClick={() => {
+                if (!storeCountry) {
+                  toast({ title: "Please select your country", variant: "destructive" });
+                  return;
+                }
                 if (!storeName.trim()) {
                   toast({ title: "Please enter your store name", variant: "destructive" });
                   return;
                 }
-                if (storeEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-                  toast({ title: "Invalid email address", description: "Please enter a valid email or leave it blank.", variant: "destructive" });
+                if (!storeAddress.trim()) {
+                  toast({ title: "Please enter your store address", variant: "destructive" });
+                  return;
+                }
+                if (!storePhone.trim() || storePhone.trim() === (storeCountry?.phonePrefix ?? "")) {
+                  toast({ title: "Please enter your phone number", variant: "destructive" });
+                  return;
+                }
+                if (!storeEmail.trim()) {
+                  toast({ title: "Please enter your email address", variant: "destructive" });
+                  return;
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
+                  toast({ title: "Invalid email address", description: "Please enter a valid email address.", variant: "destructive" });
                   return;
                 }
                 setSubmitError(null);
                 setShowConfirm(true);
               }}
-              disabled={!storeName.trim() || isSubmitting}
+              disabled={
+                !storeCountry ||
+                !storeName.trim() ||
+                !storeAddress.trim() ||
+                !storePhone.trim() ||
+                storePhone.trim() === (storeCountry?.phonePrefix ?? "") ||
+                !storeEmail.trim() ||
+                isSubmitting
+              }
               className="w-full rounded-xl h-11 mt-3"
             >
               {isSubmitting ? "Saving…" : "Review & Confirm"}

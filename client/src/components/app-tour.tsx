@@ -10,140 +10,406 @@ interface TourStep {
   body: string;
 }
 
+// Returns which broad category a subtype belongs to
+function getCategory(subtype: string | null | undefined): "food" | "retail" | "salon" | "wellness" | "clinic" | "gym" | "queue_service" | "appointment_service" | "other" {
+  if (!subtype) return "other";
+  if (["cafe", "restaurant", "bakery", "bar", "food_truck"].includes(subtype)) return "food";
+  if (["clothing", "electronics", "grocery", "bookstore", "pharmacy", "perishable_goods", "drugstore"].includes(subtype)) return "retail";
+  if (["salon", "barbershop", "nail_salon"].includes(subtype)) return "salon";
+  if (["spa", "massage"].includes(subtype)) return "wellness";
+  if (["clinic", "dental"].includes(subtype)) return "clinic";
+  if (subtype === "gym") return "gym";
+  if (["laundry", "car_wash", "repair", "auto_repair"].includes(subtype)) return "queue_service";
+  if (["pet_grooming", "photography", "cleaning", "tutoring"].includes(subtype)) return "appointment_service";
+  return "other";
+}
+
 function getSteps(subtype: string | null | undefined, storeName: string): TourStep[] {
   const name = storeName || "your store";
+  const cat = getCategory(subtype);
 
-  // ── Universal steps ────────────────────────────────────────────────────────
+  // ── Intro — always first ───────────────────────────────────────────────────
 
   const intro: TourStep = {
     target: null,
     title: `Welcome to ${name} 👋`,
-    body: "ArtixPOS is your all-in-one business OS — sales, inventory, staff, and analytics in one place. I'll walk you through each section. Tap Next to start.",
+    body: cat === "food"
+      ? "ArtixPOS is your all-in-one restaurant OS — orders, kitchen display, inventory, staff, and revenue all in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "retail"
+      ? "ArtixPOS is your all-in-one retail OS — sales, inventory, barcodes, suppliers, and analytics all in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "salon"
+      ? "ArtixPOS is your all-in-one salon management system — appointments, stylist schedules, client history, and payments in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "wellness"
+      ? "ArtixPOS is your all-in-one wellness studio OS — bookings, therapist schedules, treatment packages, memberships, and payments in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "clinic"
+      ? "ArtixPOS is your all-in-one clinic management system — patient appointments, doctor schedules, billing, and records all in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "gym"
+      ? "ArtixPOS is your all-in-one gym management system — memberships, class bookings, trainer schedules, and revenue all in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "queue_service"
+      ? "ArtixPOS is your all-in-one service OS — job intake, queue tracking, staff management, and payments all in one place. Let me walk you through each section. Tap Next to start."
+      : cat === "appointment_service"
+      ? "ArtixPOS is your all-in-one booking OS — appointments, staff schedules, client profiles, and payments all in one place. Let me walk you through each section. Tap Next to start."
+      : "ArtixPOS is your all-in-one business OS — sales, inventory, staff, and analytics in one place. Let me walk you through each section. Tap Next to start.",
   };
+
+  // ── Dashboard steps — language tuned per category ─────────────────────────
 
   const dashboardHero: TourStep = {
     target: '[data-tour="tour-dashboard-hero"]',
     title: "Today's Revenue",
-    body: "This is your command center. At a glance you see today's total revenue, how many orders were completed, and your average order value. It updates in real time every time a sale is made.",
+    body: cat === "food"
+      ? "Your command center for the day. See total revenue, number of orders completed, and average order value — all updating live with every sale and table payment."
+      : cat === "retail"
+      ? "Your daily command center. See total revenue, transactions completed, and average basket size — updating in real time with every sale at the counter."
+      : cat === "salon"
+      ? "Your daily command center. See total revenue from all services today, how many appointments were completed, and average ticket value — live as each client checks out."
+      : cat === "wellness"
+      ? "Your daily revenue snapshot. See total earnings from treatments and packages today, sessions completed, and average treatment value — updating live after each checkout."
+      : cat === "clinic"
+      ? "Your daily overview. See total revenue from consultations and procedures, patient visits completed, and average billing amount — live throughout the day."
+      : cat === "gym"
+      ? "Your daily overview. See membership revenue collected, sessions completed, and average transaction value — all updating in real time."
+      : "This is your command center. At a glance you see today's total revenue, completed orders, and average transaction value. It updates in real time every time a sale is made.",
   };
 
   const dashboardKpi: TourStep = {
     target: '[data-tour="tour-dashboard-kpi"]',
     title: "Key Numbers",
-    body: "These four cards show your total transactions, net revenue, average order size, and tax collected — all for today. Scroll down to see your best-selling products, payment method breakdown, and end-of-day summary.",
+    body: cat === "food"
+      ? "These cards show total orders, net revenue, average order size, and tax collected today. Scroll down to see your top-selling dishes, payment method split, and hourly order volume."
+      : cat === "retail"
+      ? "These cards show total transactions, net revenue, average basket size, and tax collected today. Scroll down to see top-selling items, payment methods, and busiest hours."
+      : cat === "salon" || cat === "wellness"
+      ? "These cards show total appointments completed, net revenue, average service value, and tax collected today. Scroll down to see your most popular services and busiest time slots."
+      : cat === "clinic"
+      ? "These cards show patient visits, net revenue billed, average consultation fee, and tax collected today. Scroll down to see most-billed services and peak appointment hours."
+      : cat === "gym"
+      ? "These cards show active members checked in, revenue collected, average transaction value, and tax for today. Scroll down to see peak hours and top revenue sources."
+      : "These four cards show your total transactions, net revenue, average order size, and tax collected — all for today. Scroll down to see your best sellers, payment breakdown, and end-of-day summary.",
   };
+
+  // ── POS step — fully customised per subtype ────────────────────────────────
+
+  let posBody: string;
+  if (subtype === "restaurant") {
+    posBody = "This is where table orders are taken. Select the table, tap dishes to add them to the order, apply discounts or modifiers, then send to the kitchen. Payment is collected here at the end — cash, card, GCash, Maya, or split bill. Works offline too.";
+  } else if (subtype === "bar") {
+    posBody = "Ring up drinks and food orders here. Tap items to add them to the tab, apply happy-hour discounts, then close out the tab with any payment method — cash, card, GCash, or Maya. Fast, offline-ready.";
+  } else if (subtype === "cafe") {
+    posBody = "Take orders here — tap a drink or pastry to add it to the order, customise with modifiers like size or milk type, then collect payment. Receipts print instantly. The order queues up for your barista automatically. Works even without Wi-Fi.";
+  } else if (subtype === "bakery") {
+    posBody = "Ring up breads, pastries, and cakes here. Tap an item, set the quantity, apply any discount, then collect payment — cash, card, GCash, or Maya. Receipts print instantly and inventory adjusts automatically.";
+  } else if (subtype === "food_truck") {
+    posBody = "Fast and offline-ready POS for your truck. Tap items to build the order, collect payment, and print or send a digital receipt — even without internet. Orders queue up automatically so nothing gets missed.";
+  } else if (subtype === "clothing" || subtype === "retail") {
+    posBody = "Ring up items here — scan a barcode or tap a product to add it to the cart. Apply discounts, process returns, and collect payment via cash, card, GCash, or Maya. Inventory adjusts automatically with every sale.";
+  } else if (subtype === "electronics") {
+    posBody = "Scan or search for items to add them to the sale. Apply warranty add-ons or bundle discounts, then collect payment. Inventory levels update automatically and low-stock alerts trigger when you're running low.";
+  } else if (subtype === "grocery" || subtype === "perishable_goods" || subtype === "drugstore" || subtype === "pharmacy") {
+    posBody = "Fast barcode-scanning checkout. Scan or search for items, apply promos or senior/PWD discounts, then collect payment. Works offline so long lines never mean a broken system.";
+  } else if (subtype === "bookstore") {
+    posBody = "Search or scan ISBN barcodes to add books to the cart. Apply student or member discounts, then collect payment. Inventory updates after every sale so you always know what's on the shelf.";
+  } else if (subtype === "salon" || subtype === "barbershop" || subtype === "nail_salon") {
+    posBody = "After a service is done, open the POS to collect payment. Select the service (haircut, color, nails), add retail products if they bought any, apply discounts, and close out — cash, card, GCash, or Maya. Receipts print instantly.";
+  } else if (subtype === "spa" || subtype === "massage") {
+    posBody = "After a treatment session, collect payment here. Select the treatment or package the client received, apply member discounts or promotions, then process payment — cash, card, GCash, or Maya. Receipts print instantly. No internet needed.";
+  } else if (subtype === "gym") {
+    posBody = "Sell memberships, daily passes, and PT sessions here. Select the plan or package, apply member discounts, and collect payment. Memberships link automatically to the client's profile in Customers.";
+  } else if (subtype === "clinic" || subtype === "dental") {
+    posBody = "Bill patients here after consultations or procedures. Select the services rendered, apply HMO, PhilHealth, or senior discounts, and issue an official receipt — cash, card, or GCash. Full billing history is saved per patient.";
+  } else if (subtype === "pet_grooming") {
+    posBody = "After grooming is done, collect payment here. Select the service package for the pet, add any retail products, apply discounts, and issue a receipt — cash, card, or GCash. Each transaction links to the pet owner's profile.";
+  } else if (subtype === "laundry") {
+    posBody = "Log each laundry job here to kick it into the queue. Select service type (wash, dry, press), enter the weight or items, collect a deposit or full payment, and print a claim stub. The job appears in your queue automatically.";
+  } else if (subtype === "car_wash") {
+    posBody = "Log each vehicle here to start the job. Select the wash package, apply any promo, collect payment, and the job queues up for your team. Receipts print instantly and the queue updates live.";
+  } else if (subtype === "repair" || subtype === "auto_repair") {
+    posBody = "Log each repair job here. Select the service, add parts if needed, collect a deposit, and the job enters your queue. When the work is done, collect the balance and close it out with a receipt.";
+  } else if (subtype === "photography") {
+    posBody = "Collect session fees and package payments here. Select the photography package, apply any discount, and issue a receipt — cash, card, or GCash. Payment history links to the client's profile automatically.";
+  } else if (subtype === "cleaning") {
+    posBody = "Log each cleaning job and collect payment here. Select the service package, apply any promo, and close out with a receipt. Each job links to the client's profile for repeat-booking history.";
+  } else if (subtype === "tutoring") {
+    posBody = "Collect session fees and package payments here. Select the subject, session type, or package the student enrolled in, apply any discount, and issue a receipt. Payment history links to the student's profile automatically.";
+  } else {
+    posBody = "This is where every sale happens. Tap an item or service to add it to the cart, apply discounts or modifiers, then collect payment — cash, card, GCash, Maya, or any method you've set up. Receipts print automatically. Works without internet.";
+  }
 
   const posStep: TourStep = {
     target: '[data-tour="tour-nav-pos"]',
-    title: "Point of Sale",
-    body: "This is where every sale happens. Tap a product to add it to the cart, apply discounts or modifiers, then collect payment — cash, card, GCash, Maya, or any method you've set up. Receipts print automatically. It works even without internet.",
+    title: cat === "clinic" ? "Billing & Payment"
+      : cat === "queue_service" ? "Job Intake & Payment"
+      : "Point of Sale",
+    body: posBody,
   };
+
+  // ── More step ──────────────────────────────────────────────────────────────
 
   const moreStep: TourStep = {
     target: '[data-tour="tour-nav-more"]',
     title: "More — Your Full Toolkit",
-    body: "Tap here to access everything else: Products, Inventory, Customers, Transactions, Analytics, Expenses, Shifts, Staff, Discounts, Loyalty, and Settings. It's organized into sections — Service, Operations, Management, Finance, and Tools.",
+    body: cat === "food"
+      ? "Tap here to access Products (your menu), Inventory, Customers, Transactions, Analytics, Expenses, Shifts, Staff, Discounts, Loyalty, and Settings — all organised by section."
+      : cat === "retail"
+      ? "Tap here to access Products, Inventory, Suppliers, Purchase Orders, Customers, Transactions, Analytics, Expenses, Shifts, Staff, Discounts, Loyalty, and Settings."
+      : cat === "salon" || cat === "wellness" || cat === "appointment_service"
+      ? "Tap here to access your Services (Products), Customers, Appointments, Transactions, Analytics, Expenses, Staff, Payroll, Discounts, Loyalty, and Settings."
+      : cat === "clinic"
+      ? "Tap here to access Services (Products), Patients (Customers), Appointments, Transactions, Analytics, Expenses, Staff, and Settings — everything to run your clinic."
+      : cat === "gym"
+      ? "Tap here to access Membership Plans (Products), Members (Customers), Class Bookings, Transactions, Analytics, Expenses, Staff, and Settings."
+      : cat === "queue_service"
+      ? "Tap here to access your Services (Products), Customers, Job Queue, Transactions, Analytics, Expenses, Staff, and Settings."
+      : "Tap here to access everything else: Products, Inventory, Customers, Transactions, Analytics, Expenses, Shifts, Staff, Discounts, Loyalty, and Settings.",
   };
+
+  // ── Products step ─────────────────────────────────────────────────────────
 
   const productsStep: TourStep = {
     target: null,
-    title: "Products & Menu",
-    body: "In Products (inside More), add everything you sell — items, services, or packages. Set prices, upload photos, group by category, add modifiers like size or add-ons, and set stock levels. Your POS pulls directly from this list.",
+    title: cat === "food" ? "Menu Builder"
+      : cat === "clinic" ? "Services & Procedures"
+      : cat === "gym" ? "Membership Plans & Classes"
+      : cat === "salon" || cat === "wellness" ? "Services & Packages"
+      : cat === "appointment_service" ? "Services & Packages"
+      : cat === "queue_service" ? "Services & Job Types"
+      : "Products & Inventory",
+    body: cat === "food"
+      ? "In Products (inside More), build your full menu. Add dishes, drinks, and combos — group by category like Mains, Beverages, or Desserts. Set prices, upload photos, and add modifiers like size or add-ons. Your POS and Kitchen Display pull directly from this menu."
+      : cat === "retail"
+      ? "In Products (inside More), add everything you carry — with barcode/SKU, price, category, and stock count. Set low-stock alerts so you're notified before you run out. Your POS pulls directly from this list and inventory deducts automatically on every sale."
+      : cat === "salon"
+      ? "In Products (inside More), add all your services — haircut, colour, rebond, nails — with pricing and duration. You can also add retail products like shampoo or treatments. These link directly to your Appointments calendar and POS checkout."
+      : cat === "wellness"
+      ? "In Products (inside More), add all your treatments and packages — Swedish massage, deep tissue, aromatherapy, facials. Set pricing, duration, and room assignment. You can also add membership packages here. These link to your booking calendar and POS."
+      : cat === "clinic"
+      ? "In Products (inside More), list all your services and procedures — consultations, lab tests, procedures, vaccines. Set fees, link to the appropriate doctor, and categorise by service type. These appear at the POS when billing a patient."
+      : cat === "gym"
+      ? "In Products (inside More), create your membership tiers — monthly, quarterly, annual — plus day passes and PT session packages. Set prices, duration, and access levels. Members' active plans are tracked in their profile under Customers."
+      : cat === "queue_service"
+      ? "In Products (inside More), add your service types — wash & dry, basic wash, wax and polish, or repair jobs. Set standard prices for each. These appear at the POS when logging a new job and auto-populate the queue."
+      : cat === "appointment_service"
+      ? "In Products (inside More), add all your services and packages with pricing and duration. These link to your Appointments calendar and appear at the POS when collecting payment after a session."
+      : "In Products (inside More), add everything you sell — items, services, or packages. Set prices, upload photos, group by category, and set stock levels. Your POS pulls directly from this list.",
   };
+
+  // ── Analytics step ────────────────────────────────────────────────────────
 
   const analyticsStep: TourStep = {
     target: null,
     title: "Analytics & Reports",
-    body: "Analytics (inside More) shows your sales trends, best sellers, payment method breakdown, and hourly traffic. Use it to decide what to restock, which items to promote, and when you're busiest.",
+    body: cat === "food"
+      ? "Analytics (inside More) shows your top-selling dishes, peak ordering hours, payment method split, and revenue trends. Use it to spot slow-moving items, plan your next promo, and see when your kitchen is busiest."
+      : cat === "retail"
+      ? "Analytics (inside More) shows your best-selling products, revenue trends, payment method breakdown, and busiest hours. Use it to decide what to reorder, which items to promote, and when to schedule more staff."
+      : cat === "salon" || cat === "wellness"
+      ? "Analytics (inside More) shows your most popular treatments, revenue per service, busiest booking slots, and top-spending clients. Use it to plan promos, adjust pricing, and see which services drive the most revenue."
+      : cat === "clinic"
+      ? "Analytics (inside More) shows most-billed procedures, revenue per doctor, busiest appointment days, and payment method trends. Use it to spot high-demand services and optimise your doctor schedules."
+      : cat === "gym"
+      ? "Analytics (inside More) shows membership revenue, peak check-in hours, most-booked classes, and retention trends. Use it to plan your schedule, run promotions, and identify members at risk of churning."
+      : cat === "queue_service"
+      ? "Analytics (inside More) shows your most popular services, revenue trends, busiest days, and average job turnaround. Use it to plan staffing, spot peak periods, and see which services bring the most revenue."
+      : "Analytics (inside More) shows your sales trends, best sellers, payment method breakdown, and hourly traffic. Use it to decide what to restock, which items to promote, and when you're busiest.",
   };
+
+  // ── Shifts step ───────────────────────────────────────────────────────────
 
   const shiftsStep: TourStep = {
     target: null,
     title: "Shifts & Cash Management",
-    body: "Open a Shift before your staff starts selling. It tracks starting cash, all sales during the shift, and produces a cash-out report at the end. This keeps your cash drawer accountable and gives you a clean end-of-day summary.",
+    body: cat === "food"
+      ? "Open a Shift before service starts. It logs your starting cash, tracks every order and payment during the shift, and produces a cash-out report when service ends. Your manager always knows exactly how much cash should be in the drawer."
+      : cat === "retail"
+      ? "Open a Shift before the store opens. It records starting cash, tracks every sale, refund, and drawer movement, and generates a close-of-day report. Keeps your cash accountable and your end-of-day reconciliation fast."
+      : cat === "salon" || cat === "wellness" || cat === "appointment_service"
+      ? "Open a Shift at the start of the day. It logs starting cash, every service payment, product sale, and tip collected — and gives you a clean close-of-day cash report so reconciliation takes minutes, not an hour."
+      : cat === "clinic"
+      ? "Open a Shift at the start of clinic hours. It tracks all billing collected during the shift and produces a detailed end-of-day report — total collections, payment methods, and outstanding payments."
+      : cat === "gym"
+      ? "Open a Shift at the start of each operating day. It logs all membership payments, walk-in fees, and retail sales — and produces a close-of-day cash report for your front desk."
+      : "Open a Shift before your staff starts. It tracks starting cash, all sales during the shift, and produces a cash-out report at the end. Keeps your cash drawer accountable and gives you a clean end-of-day summary.",
   };
+
+  // ── Settings step — always generic ────────────────────────────────────────
 
   const settingsStep: TourStep = {
     target: null,
     title: "Settings",
-    body: "In Settings (inside More → Tools), update your store name, tax rate, currency, and payment methods. You can also manage your team's roles and access, connect a receipt printer, and upgrade to Pro for advanced features.",
+    body: cat === "food"
+      ? "In Settings (More → Tools), set your store name, tax rate, service charge, currency, and payment methods. Manage team roles so your cashier, manager, and kitchen staff each see only what they need."
+      : cat === "retail"
+      ? "In Settings (More → Tools), configure your store name, VAT rate, currency, and accepted payment methods. Set up receipt printing and manage your team's access roles."
+      : cat === "salon" || cat === "wellness"
+      ? "In Settings (More → Tools), update your salon name, tax rate, booking rules, and payment methods. Manage staff roles so your receptionist, stylists, and manager each have the right access level."
+      : cat === "clinic"
+      ? "In Settings (More → Tools), configure your clinic name, VAT/tax settings, accepted payment methods, and team roles. Assign doctor vs front-desk access so staff only see what's relevant to them."
+      : cat === "gym"
+      ? "In Settings (More → Tools), configure your gym name, tax settings, payment methods, and membership rules. Manage staff roles so trainers, front desk, and managers have the right permissions."
+      : "In Settings (inside More → Tools), update your store name, tax rate, currency, and payment methods. Manage team roles and access, connect a receipt printer, and configure any integrations.",
   };
 
-  // ── Business-type specific steps ──────────────────────────────────────────
+  // ── Business-type specific mid-steps (Appointments / Queue) ───────────────
 
   let midSteps: TourStep[] = [];
   let outroBody = "Start here: Add your products → Open a Shift → Make your first sale at the POS.";
 
-  if (subtype === "restaurant" || subtype === "bar") {
+  if (subtype === "restaurant") {
     midSteps = [
       {
         target: '[data-tour="tour-nav-pending"]',
         title: "Live Order Queue",
-        body: "Every order placed at the POS appears here the instant it's submitted. Your floor staff can monitor status and mark orders ready for pickup. No more shouting across the floor or lost tickets.",
+        body: "Every table order placed at the POS appears here the instant it's submitted. Your floor staff can monitor status and mark orders ready. No more shouting across the floor or lost paper tickets.",
       },
       {
         target: '[data-tour="tour-nav-kitchen"]',
         title: "Kitchen Display System",
-        body: "Mount a tablet in your kitchen and open this screen. Orders stream in live as they're placed — your kitchen crew marks each one done. When it's ready, the floor staff is notified. Zero paper tickets, zero miscommunication.",
+        body: "Mount a tablet in your kitchen and open this screen. Orders stream in live as they're placed at the POS — your kitchen crew marks each one done. When ready, floor staff are notified. Zero paper tickets.",
       },
     ];
-    outroBody = "Add your menu in Products → Open a Shift → Take your first table order at the POS → Watch it appear in the Kitchen Display.";
-  } else if (subtype === "cafe" || subtype === "bakery" || subtype === "food_truck") {
+    outroBody = "Build your menu in Products → Open a Shift → Take your first table order at the POS → Watch it appear on the Kitchen Display.";
+  } else if (subtype === "bar") {
+    midSteps = [
+      {
+        target: '[data-tour="tour-nav-pending"]',
+        title: "Live Tab Queue",
+        body: "Every tab opened at the POS shows up here. Your bar staff can monitor what's being served, mark rounds complete, and keep track of which tables still have open tabs.",
+      },
+      {
+        target: '[data-tour="tour-nav-kitchen"]',
+        title: "Kitchen / Bar Display",
+        body: "Mount a tablet behind the bar or in the kitchen. Food and drink orders appear here in real time as they're placed — staff mark each one done. No tickets, no miscommunication.",
+      },
+    ];
+    outroBody = "Add your drinks and food in Products → Open a Shift → Open a tab at the POS → Watch orders appear on the Bar Display.";
+  } else if (subtype === "cafe") {
     midSteps = [
       {
         target: '[data-tour="tour-nav-pending"]',
         title: "Order Queue",
-        body: "Every order lines up here the moment it's placed. Your baristas or kitchen crew can see exactly what to make next — in order, with all the modifiers. No paper slips, no 'I forgot to call their name'.",
+        body: "Every order queues up here the moment it's placed. Your baristas see exactly what to make next — drink type, size, milk preference — in order. No paper slips, no missed names.",
       },
     ];
-    outroBody = "Add your menu in Products → Open a Shift → Ring up your first order at the POS → Track it in the Order Queue.";
-  } else if (subtype === "salon" || subtype === "barbershop" || subtype === "nail_salon" || subtype === "spa" || subtype === "massage" || subtype === "pet_grooming" || subtype === "photography" || subtype === "cleaning" || subtype === "tutoring") {
+    outroBody = "Build your menu in Products → Open a Shift → Ring up your first order at the POS → Watch it appear in the Order Queue.";
+  } else if (subtype === "bakery") {
+    midSteps = [
+      {
+        target: '[data-tour="tour-nav-pending"]',
+        title: "Order Queue",
+        body: "Pre-orders and custom cake orders queue here. Your team sees what needs to be prepared and by when. Walk-in orders flow in from the POS automatically.",
+      },
+    ];
+    outroBody = "Add your baked goods in Products → Open a Shift → Ring up your first sale at the POS → Track orders in the Queue.";
+  } else if (subtype === "food_truck") {
+    midSteps = [
+      {
+        target: '[data-tour="tour-nav-pending"]',
+        title: "Order Queue",
+        body: "Every order queues here the moment it's placed. Your cook sees exactly what's next — no paper slips, no shouting. Great for managing the rush during peak hours.",
+      },
+    ];
+    outroBody = "Add your menu in Products → Open a Shift → Take your first order at the POS → Track it in the Queue.";
+  } else if (cat === "salon") {
     midSteps = [
       {
         target: '[data-tour="tour-nav-appointments"]',
         title: "Appointments Calendar",
-        body: "Book clients by date, time, and specific staff member. The calendar prevents double-bookings automatically. You can set service durations, add walk-ins on the fly, and see your team's full schedule at a glance. Clients can be tracked in Customers for repeat bookings.",
+        body: "Book clients by date, time, and specific stylist. The calendar prevents double-bookings automatically. Set service durations, add walk-ins on the fly, and see your team's full day at a glance. Repeat clients are tracked in Customers.",
       },
       {
         target: '[data-tour="tour-nav-pending"]',
-        title: "Active Jobs",
-        body: "Walk-ins and in-progress appointments queue here. Your team marks jobs complete when done — so the front desk always knows who's being served, who's waiting, and what's next. Nothing slips through.",
+        title: "Active Clients Queue",
+        body: "Walk-ins and in-progress appointments appear here. Your team marks each service done — so the front desk always knows who's in the chair, who's waiting, and what's next. Nothing gets missed.",
       },
     ];
-    outroBody = "Add your services in Products → Add your first client in Customers → Book an Appointment → Collect payment at the POS.";
-  } else if (subtype === "clinic" || subtype === "dental") {
+    outroBody = "Add your services in Products → Book your first appointment → Mark it done in the Queue → Collect payment at the POS.";
+  } else if (cat === "wellness") {
+    midSteps = [
+      {
+        target: '[data-tour="tour-nav-appointments"]',
+        title: "Booking Calendar",
+        body: "Schedule treatments by date, time, room, and therapist. The calendar prevents double-bookings and overbooking treatment rooms. Walk-ins can be added on the spot. Returning clients are tracked in Customers with their full visit history.",
+      },
+      {
+        target: '[data-tour="tour-nav-pending"]',
+        title: "Active Sessions Queue",
+        body: "All in-progress treatments queue here. Your front desk can see which rooms are occupied, which sessions are almost done, and who's waiting — all at a glance. Therapists mark sessions complete when done.",
+      },
+    ];
+    outroBody = "Add your treatments in Products → Book your first session → Track it in the Active Queue → Collect payment at the POS.";
+  } else if (cat === "clinic") {
     midSteps = [
       {
         target: '[data-tour="tour-nav-appointments"]',
         title: "Patient Appointments",
-        body: "Schedule consultations, procedures, and follow-ups by date, time, and doctor. The system prevents overbooking and lets you track each patient's visit history in Customers. Perfect for coordinating front desk with clinical staff.",
+        body: "Schedule consultations, procedures, and follow-ups by date, time, and doctor. The system prevents overbooking and tracks each patient's full visit history in Customers. Perfect for coordinating front desk and clinical staff.",
       },
     ];
-    outroBody = "Add your services in Products → Register patients in Customers → Schedule Appointments → Bill at the POS.";
-  } else if (subtype === "gym") {
+    outroBody = "Add your services in Products → Register patients in Customers → Schedule an Appointment → Bill the patient at the POS.";
+  } else if (cat === "gym") {
     midSteps = [
       {
         target: '[data-tour="tour-nav-appointments"]',
         title: "Class & Session Bookings",
-        body: "Book PT sessions and group classes here. Assign to specific trainers, block time slots, and keep your floor organized. Members can be tracked in Customers with their membership plan and attendance history.",
+        body: "Book PT sessions and group fitness classes here. Assign to specific trainers, set capacity limits, and keep your floor organised. Members are tracked in Customers with their membership plan and attendance history.",
       },
     ];
     outroBody = "Create membership plans in Products → Register members in Customers → Book sessions in Appointments → Collect payment at the POS.";
-  } else if (subtype === "laundry" || subtype === "car_wash" || subtype === "repair" || subtype === "auto_repair") {
+  } else if (cat === "queue_service") {
+    const qTitle = subtype === "laundry" ? "Laundry Job Queue"
+      : subtype === "car_wash" ? "Vehicle Job Queue"
+      : "Repair Job Queue";
+    const qBody = subtype === "laundry"
+      ? "Every laundry job logged at the POS appears here with its status. Your team marks jobs in-progress or ready for pickup — so the front desk knows exactly what's done and what's still being processed. Fewer 'is it ready yet?' calls."
+      : subtype === "car_wash"
+      ? "Every vehicle job logged at the POS queues here. Your team moves jobs through In Progress → Done so the front desk always knows which cars are ready. Customers get their car back faster."
+      : "Every repair job logged at the POS appears here. Your technicians update job status as they work — so the front desk knows exactly what's being fixed, what's ready for pickup, and what still needs parts.";
     midSteps = [
       {
         target: '[data-tour="tour-nav-pending"]',
-        title: "Job Queue",
-        body: "Every active job shows up here after it's logged at the POS. Your team marks jobs in-progress or complete — so the front desk knows exactly what's ready for pickup. Customers get their item back faster, you get fewer 'is it done yet?' calls.",
+        title: qTitle,
+        body: qBody,
       },
     ];
-    outroBody = "Add your services in Products → Log a new job at the POS → Track its progress in the Job Queue → Collect payment when done.";
+    outroBody = subtype === "laundry"
+      ? "Add your services in Products → Log a laundry job at the POS → Track it in the Queue → Collect payment on pickup."
+      : subtype === "car_wash"
+      ? "Add your packages in Products → Log a vehicle at the POS → Track it in the Queue → Collect payment when done."
+      : "Add your services in Products → Log a repair job at the POS → Track progress in the Queue → Collect the balance on completion.";
+  } else if (cat === "appointment_service") {
+    const aTitle = subtype === "pet_grooming" ? "Grooming Appointments"
+      : subtype === "photography" ? "Session Bookings"
+      : subtype === "cleaning" ? "Cleaning Schedule"
+      : subtype === "tutoring" ? "Tutoring Sessions"
+      : "Appointments";
+    const aBody = subtype === "pet_grooming"
+      ? "Book grooming appointments by date, time, and groomer. The calendar prevents double-bookings automatically. Each pet's profile and grooming history is saved in Customers — so returning clients get faster, personalised service."
+      : subtype === "photography"
+      ? "Schedule photoshoots and studio sessions by date, time, and photographer. The calendar shows your team's full schedule and prevents booking conflicts. Client briefs and session history are saved in Customers."
+      : subtype === "cleaning"
+      ? "Schedule cleaning jobs by date, time, and team. The calendar shows your crews' full schedule and prevents double-booking. Client addresses and preferences are saved in Customers for repeat visits."
+      : subtype === "tutoring"
+      ? "Schedule tutoring sessions by date, time, and tutor. The calendar prevents double-bookings and shows each tutor's full week. Student records and progress notes are saved in Customers."
+      : "Book appointments by date, time, and staff member. The calendar prevents double-bookings and shows your team's full schedule. Client history is saved in Customers for personalised repeat service.";
+    midSteps = [
+      {
+        target: '[data-tour="tour-nav-appointments"]',
+        title: aTitle,
+        body: aBody,
+      },
+      {
+        target: '[data-tour="tour-nav-pending"]',
+        title: "Active Jobs Queue",
+        body: "In-progress jobs and walk-ins queue here. Your team marks each one done — so front desk always knows who's being served, who's next, and what's completed. Nothing slips through.",
+      },
+    ];
+    outroBody = "Add your services in Products → Add a client in Customers → Book an Appointment → Collect payment at the POS.";
   } else {
     midSteps = [
       {
         target: '[data-tour="tour-nav-pending"]',
         title: "Active Orders",
-        body: "All live orders queue here after they're placed. Your team marks them complete when done — so nothing gets lost, forgotten, or mixed up. Great for any business that has a gap between placing an order and fulfilling it.",
+        body: "All live orders queue here after they're placed. Your team marks them complete when done — nothing gets lost or forgotten.",
       },
     ];
   }

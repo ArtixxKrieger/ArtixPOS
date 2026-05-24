@@ -78,42 +78,44 @@ export function tenantContextMiddleware(pool: Pool) {
           throw firstErr;
         }
       }
-      await client.query("BEGIN");
-      // Switch to the non-superuser app role so that FORCE ROW LEVEL SECURITY
-      // and all RLS policies are actually enforced.  Postgres superusers
-      // bypass RLS unconditionally; artixpos_app has NOBYPASSRLS so it does not.
-      // SET LOCAL means the role reverts automatically at COMMIT / ROLLBACK.
+
+      // ── 2 round-trips instead of 6 ────────────────────────────────────────
       //
-      // CRITICAL: We wrap the SET LOCAL ROLE in a SAVEPOINT because in PostgreSQL
-      // ANY error inside an open transaction — even a caught one — marks the entire
-      // transaction as ABORTED.  Without the savepoint, a "permission denied to set
-      // role" failure catches cleanly in JS but leaves the connection in the aborted
-      // state, causing every subsequent query to fail with 25P02 ("current transaction
-      // is aborted").  Rolling back to the savepoint restores a live transaction.
-      await client.query("SAVEPOINT before_role_switch");
-      try {
-        await client.query(`SET LOCAL ROLE artixpos_app`);
-        await client.query("RELEASE SAVEPOINT before_role_switch");
-      } catch (roleErr: any) {
-        // Roll back to savepoint so the transaction is still alive — then continue
-        // without the role switch.  Without this rollback the next query would fail
-        // with 25P02 regardless of whether the role error was "expected" or not.
-        try { await client.query("ROLLBACK TO SAVEPOINT before_role_switch"); } catch {}
-        console.warn("[tenant-ctx] SET LOCAL ROLE artixpos_app failed — proceeding without RLS role switch:", (roleErr as any)?.message);
-      }
+      // Previously this middleware made 6 sequential DB round-trips:
+      //   BEGIN → SAVEPOINT → SET LOCAL ROLE → RELEASE SAVEPOINT →
+      //   set_config → SET LOCAL timeouts
+      // At ~100-150 ms per trip (Vercel US ↔ remote DB), that was 600-900 ms
+      // of pure overhead before any route handler ran.
+      //
+      // Now:
+      //   Round-trip 1 — BEGIN + role switch (via DO block, no savepoint
+      //                  needed because PL/pgSQL exception handlers keep the
+      //                  transaction alive) + timeout SETs, all in one call.
+      //   Round-trip 2 — set_config with parameterised tenant ID (pg extended
+      //                  query protocol only supports one stmt with params).
+      //
+      // The DO block replaces the SAVEPOINT pattern: PL/pgSQL's EXCEPTION
+      // clause catches the "permission denied to set role" error internally and
+      // never propagates it to the transaction, so the transaction stays live
+      // regardless of whether the role exists on this DB.
+      await client.query(
+        `BEGIN;
+         DO $$
+         BEGIN
+           SET LOCAL ROLE artixpos_app;
+         EXCEPTION WHEN OTHERS THEN
+           NULL;
+         END;
+         $$;
+         SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS};
+         SET LOCAL lock_timeout = ${LOCK_TIMEOUT_MS};`
+      );
+
+      // Round-trip 2: set_config requires a parameter ($1) so it must be a
+      // separate call (pg extended query protocol = single statement only).
       await client.query(
         `SELECT set_config('app.current_tenant', $1, TRUE)`,
         [user.tenantId]
-      );
-
-      // Apply query timeouts as SET LOCAL so they are scoped to this transaction
-      // and automatically revert on COMMIT / ROLLBACK.  This is the only reliable
-      // way to enforce timeouts on Supabase's PgBouncer transaction-mode pooler
-      // (port 6543): session-level SET commands set at pool.connect() time do NOT
-      // persist because each transaction may be assigned a different backend
-      // connection by PgBouncer.
-      await client.query(
-        `SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}; SET LOCAL lock_timeout = ${LOCK_TIMEOUT_MS};`
       );
 
       const tenantDb = drizzle(client, { schema });

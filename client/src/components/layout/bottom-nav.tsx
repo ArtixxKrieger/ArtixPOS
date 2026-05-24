@@ -138,14 +138,6 @@ const MORE_NAV_FULL: MoreNavItem[] = [
   { url: "/settings",         category: "tools",      cashierHidden: false },
 ];
 
-const CATEGORY_LABELS: Record<MoreCategory, string> = {
-  service:    "Service",
-  operations: "Operations",
-  management: "Management",
-  finance:    "Finance & Analytics",
-  tools:      "Tools",
-};
-
 const CATEGORY_ORDER: MoreCategory[] = ["service", "operations", "management", "finance", "tools"];
 
 const ADMIN_NAV = [
@@ -157,6 +149,13 @@ const ADMIN_NAV = [
 
 export function BottomNav() {
   const { t } = useTranslation();
+  const CATEGORY_LABELS: Record<MoreCategory, string> = {
+    service:    t("nav.sections.service"),
+    operations: t("nav.sections.operations"),
+    management: t("nav.sections.management"),
+    finance:    t("nav.sections.financeAnalytics"),
+    tools:      t("nav.sections.tools"),
+  };
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingOrders = [] } = usePendingOrders();

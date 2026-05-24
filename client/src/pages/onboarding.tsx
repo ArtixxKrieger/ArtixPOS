@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import {
   Coffee, UtensilsCrossed, Cake, Wine, Truck, ChevronRight,
   ChevronLeft, ShoppingBag, Cpu, ShoppingCart, BookOpen,
@@ -139,6 +140,7 @@ function CountryPicker({
   value: CountryData | null;
   onChange: (c: CountryData) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -162,7 +164,7 @@ function CountryPicker({
             <span className="text-xs text-muted-foreground shrink-0">{value.currency}</span>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground flex-1">Select your country…</span>
+          <span className="text-sm text-muted-foreground flex-1">{t("onboarding.countryPicker.selectPrompt")}</span>
         )}
       </button>
 
@@ -170,7 +172,7 @@ function CountryPicker({
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
             <div className="px-4 pt-4 pb-3 border-b border-border/30">
-              <p className="text-sm font-bold text-foreground mb-2">Select Country</p>
+              <p className="text-sm font-bold text-foreground mb-2">{t("onboarding.countryPicker.title")}</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none" />
                 <input
@@ -178,7 +180,7 @@ function CountryPicker({
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Search country…"
+                  placeholder={t("onboarding.countryPicker.searchPlaceholder")}
                   className="w-full h-9 pl-8 pr-3 rounded-xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 transition-all"
                 />
               </div>
@@ -210,6 +212,7 @@ function CountryPicker({
 }
 
 export default function Onboarding() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<Step>("role");
   const [role, setRole] = useState<Role | null>(null);
@@ -354,19 +357,19 @@ export default function Onboarding() {
   async function handleEmployeeJoin() {
     const token = extractToken(inviteInput);
     if (!token) {
-      toast({ title: "Please enter your invite link", variant: "destructive" });
+      toast({ title: t("onboarding.employee.errorNoToken"), variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
     try {
       const res = await apiRequest("POST", "/api/admin/invite/redeem", { token });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Invalid invite");
+      if (!res.ok) throw new Error(data.message || t("onboarding.employee.errorInvalid"));
       await updateSettings.mutateAsync({ onboardingComplete: 1 });
       await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       setStep("language");
     } catch (err: any) {
-      toast({ title: err.message || "Could not join — check the invite link", variant: "destructive" });
+      toast({ title: err.message || t("onboarding.employee.errorInvalid"), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -374,27 +377,27 @@ export default function Onboarding() {
 
   async function handleOwnerComplete() {
     if (!storeCountry) {
-      toast({ title: "Please select your country", variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" });
       return;
     }
     if (!storeName.trim()) {
-      toast({ title: "Please enter your store name", variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" });
       return;
     }
     if (!storeAddress.trim()) {
-      toast({ title: "Please enter your store address", variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" });
       return;
     }
     if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
-      toast({ title: "Please enter your phone number", variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" });
       return;
     }
     if (!storeEmail.trim()) {
-      toast({ title: "Please enter your email address", variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" });
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-      toast({ title: "Invalid email address", description: "Please enter a valid email address.", variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
@@ -416,9 +419,9 @@ export default function Onboarding() {
       setStep("language");
     } catch (err: any) {
       console.error("[onboarding] handleOwnerComplete failed:", err);
-      const message = err?.message || "Something went wrong. Please try again.";
+      const message = err?.message || t("onboarding.storeInfo.errorSomethingWrong");
       setSubmitError(message);
-      toast({ title: "Setup failed", description: message, variant: "destructive" });
+      toast({ title: t("onboarding.storeInfo.errorSetupFailed"), description: message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -455,8 +458,8 @@ export default function Onboarding() {
         {step === "role" && (
           <div className="p-6">
             <div className="mb-6 text-center">
-              <h1 className="text-2xl font-bold text-foreground mb-1">Welcome!</h1>
-              <p className="text-sm text-muted-foreground">Let's get you set up. Are you setting up your own store or joining a team?</p>
+              <h1 className="text-2xl font-bold text-foreground mb-1">{t("onboarding.role.title")}</h1>
+              <p className="text-sm text-muted-foreground">{t("onboarding.role.subtitle")}</p>
             </div>
             <div className="flex flex-col gap-3">
               <button
@@ -468,8 +471,8 @@ export default function Onboarding() {
                   <Building2 className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground">I'm an Owner</p>
-                  <p className="text-xs text-muted-foreground">Set up my store from scratch</p>
+                  <p className="font-semibold text-foreground">{t("onboarding.role.ownerTitle")}</p>
+                  <p className="text-xs text-muted-foreground">{t("onboarding.role.ownerDesc")}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
@@ -483,8 +486,8 @@ export default function Onboarding() {
                   <Users className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground">I'm an Employee</p>
-                  <p className="text-xs text-muted-foreground">Join my employer's store</p>
+                  <p className="font-semibold text-foreground">{t("onboarding.role.employeeTitle")}</p>
+                  <p className="text-xs text-muted-foreground">{t("onboarding.role.employeeDesc")}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
@@ -496,24 +499,24 @@ export default function Onboarding() {
         {step === "employee_invite" && (
           <div className="p-6">
             <button onClick={() => setStep("role")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> Back
+              <ChevronLeft className="w-3 h-3" /> {t("common.back")}
             </button>
             <div className="mb-6 text-center">
               <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-950/50 flex items-center justify-center mx-auto mb-3">
                 <Link className="w-6 h-6 text-primary" />
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-1">Join Your Team</h2>
-              <p className="text-sm text-muted-foreground">Paste the invite link your employer shared with you.</p>
-              <p className="text-xs text-muted-foreground/70">Don't have an invite? Ask your employer to send you an invite link from their Admin panel.</p>
+              <h2 className="text-xl font-bold text-foreground mb-1">{t("onboarding.employee.title")}</h2>
+              <p className="text-sm text-muted-foreground">{t("onboarding.employee.subtitle")}</p>
+              <p className="text-xs text-muted-foreground/70">{t("onboarding.employee.noInviteHint")}</p>
             </div>
             <div className="space-y-4">
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Invite Link or Code</Label>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.employee.inviteLabel")}</Label>
                 <Input
                   data-testid="input-invite-link"
                   value={inviteInput}
                   onChange={e => setInviteInput(e.target.value)}
-                  placeholder="https://… or paste your invite code"
+                  placeholder={t("onboarding.employee.placeholder")}
                   className="rounded-xl"
                 />
               </div>
@@ -523,7 +526,7 @@ export default function Onboarding() {
                 disabled={!inviteInput.trim() || isSubmitting}
                 className="w-full rounded-xl h-11"
               >
-                {isSubmitting ? "Joining…" : "Join Now"}
+                {isSubmitting ? t("onboarding.employee.joining") : t("onboarding.employee.joinButton")}
               </Button>
             </div>
           </div>
@@ -533,21 +536,21 @@ export default function Onboarding() {
         {step === "business_type" && (
           <div className="p-6">
             <button onClick={() => setStep("role")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> Back
+              <ChevronLeft className="w-3 h-3" /> {t("common.back")}
             </button>
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-foreground">What's your business?</h2>
+                <h2 className="text-xl font-bold text-foreground">{t("onboarding.businessType.title")}</h2>
                 <StepDots current={1} total={4} />
               </div>
-              <p className="text-sm text-muted-foreground">We'll tailor ArtixPOS to fit your needs.</p>
+              <p className="text-sm text-muted-foreground">{t("onboarding.businessType.subtitle")}</p>
             </div>
 
             {/* Warning banner */}
             <div className="flex gap-2.5 p-3 mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                <span className="font-bold">Choose carefully.</span> Your business type determines which features and modules are available in your POS — like Kitchen Display, Booking Calendar, or Barcode Scanning.
+                <span className="font-bold">{t("onboarding.businessType.warningTitle")}</span> {t("onboarding.businessType.warningBody")}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -580,7 +583,7 @@ export default function Onboarding() {
               disabled={!businessType}
               className="w-full rounded-xl h-11 mt-4"
             >
-              Continue <ChevronRight className="w-4 h-4 ml-1" />
+              {t("onboarding.businessType.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
         )}
@@ -590,14 +593,14 @@ export default function Onboarding() {
           <div className="flex flex-col" style={{ maxHeight: "calc(100vh - 180px)" }}>
             <div className="px-6 pt-6 pb-0 flex-shrink-0">
               <button onClick={() => setStep("business_type")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-                <ChevronLeft className="w-3 h-3" /> Back
+                <ChevronLeft className="w-3 h-3" /> {t("common.back")}
               </button>
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-xl font-bold text-foreground">Be more specific</h2>
+                  <h2 className="text-xl font-bold text-foreground">{t("onboarding.businessSubtype.title")}</h2>
                   <StepDots current={2} total={4} />
                 </div>
-                <p className="text-sm text-muted-foreground">What best describes your business?</p>
+                <p className="text-sm text-muted-foreground">{t("onboarding.businessSubtype.subtitle")}</p>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-6 pb-2">
@@ -632,7 +635,7 @@ export default function Onboarding() {
                 disabled={!businessSubType}
                 className="w-full rounded-xl h-11"
               >
-                Continue <ChevronRight className="w-4 h-4 ml-1" />
+                {t("onboarding.businessSubtype.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </div>
@@ -642,29 +645,29 @@ export default function Onboarding() {
         {step === "store_info" && (
           <div className="p-6">
             <button onClick={() => setStep("business_subtype")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> Back
+              <ChevronLeft className="w-3 h-3" /> {t("common.back")}
             </button>
             <div className="mb-5">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-foreground">Your store details</h2>
+                <h2 className="text-xl font-bold text-foreground">{t("onboarding.storeInfo.title")}</h2>
                 <StepDots current={3} total={4} />
               </div>
-              <p className="text-sm text-muted-foreground">This will be set as your main branch. You can edit it anytime in Settings.</p>
+              <p className="text-sm text-muted-foreground">{t("onboarding.storeInfo.subtitle")}</p>
             </div>
             <div className="space-y-3">
               {/* Country */}
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Country *</Label>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.countryLabel")} *</Label>
                 <CountryPicker value={storeCountry} onChange={handleCountryChange} />
                 {storeCountry && (
                   <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                    <span className="font-medium text-foreground">{storeCountry.currency}</span> currency ·
+                    <span className="font-medium text-foreground">{storeCountry.currency}</span> {t("onboarding.countryPicker.currency")} ·
                     <span className="font-medium text-foreground">{storeCountry.timezone}</span>
                   </p>
                 )}
               </div>
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store Name *</Label>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.storeNameLabel")} *</Label>
                 <Input
                   data-testid="input-store-name"
                   value={storeName}
@@ -674,18 +677,18 @@ export default function Onboarding() {
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Address *</Label>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.addressLabel")} *</Label>
                 <Input
                   data-testid="input-store-address"
                   value={storeAddress}
                   onChange={e => setStoreAddress(e.target.value)}
-                  placeholder="123 Main St, City"
+                  placeholder={t("onboarding.storeInfo.addressPlaceholder")}
                   className="rounded-xl"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Phone *</Label>
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.phoneLabel")} *</Label>
                   <Input
                     data-testid="input-store-phone"
                     value={storePhone}
@@ -696,12 +699,12 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email *</Label>
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.emailLabel")} *</Label>
                   <Input
                     data-testid="input-store-email"
                     value={storeEmail}
                     onChange={e => setStoreEmail(e.target.value)}
-                    placeholder="store@email.com"
+                    placeholder={t("onboarding.storeInfo.emailPlaceholder")}
                     className="rounded-xl"
                     type="email"
                   />
@@ -718,27 +721,27 @@ export default function Onboarding() {
               data-testid="btn-finish-setup"
               onClick={() => {
                 if (!storeCountry) {
-                  toast({ title: "Please select your country", variant: "destructive" });
+                  toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" });
                   return;
                 }
                 if (!storeName.trim()) {
-                  toast({ title: "Please enter your store name", variant: "destructive" });
+                  toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" });
                   return;
                 }
                 if (!storeAddress.trim()) {
-                  toast({ title: "Please enter your store address", variant: "destructive" });
+                  toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" });
                   return;
                 }
                 if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
-                  toast({ title: "Please enter your phone number", variant: "destructive" });
+                  toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" });
                   return;
                 }
                 if (!storeEmail.trim()) {
-                  toast({ title: "Please enter your email address", variant: "destructive" });
+                  toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" });
                   return;
                 }
                 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-                  toast({ title: "Invalid email address", description: "Please enter a valid email address.", variant: "destructive" });
+                  toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" });
                   return;
                 }
                 setSubmitError(null);
@@ -754,7 +757,7 @@ export default function Onboarding() {
               }
               className="w-full rounded-xl h-11 mt-3"
             >
-              {isSubmitting ? "Saving…" : "Review & Confirm"}
+              {isSubmitting ? t("onboarding.storeInfo.saving") : t("onboarding.storeInfo.reviewButton")}
             </Button>
           </div>
         )}
@@ -763,17 +766,17 @@ export default function Onboarding() {
         <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
           <AlertDialogContent className="rounded-2xl max-w-sm">
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-lg">Everything look right?</AlertDialogTitle>
+              <AlertDialogTitle className="text-lg">{t("onboarding.confirmDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-3 text-left">
                   <div className="space-y-1.5 p-3 rounded-xl bg-muted/50 border border-border/40">
                     <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Store</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.storeLabel")}</p>
                       <p className="text-sm font-bold text-foreground">{storeName}</p>
                     </div>
                     {storeCountry && (
                       <div>
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Country</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.countryLabel")}</p>
                         <p className="text-sm font-semibold text-foreground">
                           {storeCountry.flag} {storeCountry.name}
                           <span className="text-muted-foreground font-normal"> · {storeCountry.currency}</span>
@@ -781,7 +784,7 @@ export default function Onboarding() {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Business Type</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.businessTypeLabel")}</p>
                       <p className="text-sm font-semibold text-foreground">
                         {businessSubType && businessSubType !== "other"
                           ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
@@ -794,7 +797,7 @@ export default function Onboarding() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Features you'll get</p>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("onboarding.confirmDialog.featuresLabel")}</p>
                     <div className="space-y-1">
                       {getFeaturePreview(businessType, businessSubType).map(f => (
                         <div key={f} className="flex items-center gap-2">
@@ -806,13 +809,13 @@ export default function Onboarding() {
                   </div>
 
                   <p className="text-[11px] text-muted-foreground pt-1">
-                    Your business type affects which features are shown. You can contact support to change it later if needed.
+                    {t("onboarding.confirmDialog.changeNote")}
                   </p>
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl" disabled={isSubmitting}>Go Back</AlertDialogCancel>
+              <AlertDialogCancel className="rounded-xl" disabled={isSubmitting}>{t("onboarding.confirmDialog.goBack")}</AlertDialogCancel>
               <AlertDialogAction
                 data-testid="btn-confirm-setup"
                 onClick={(e) => {
@@ -822,7 +825,7 @@ export default function Onboarding() {
                 disabled={isSubmitting}
                 className="rounded-xl"
               >
-                {isSubmitting ? "Saving…" : "Yes, let's go!"}
+                {isSubmitting ? t("onboarding.confirmDialog.saving") : t("onboarding.confirmDialog.confirmButton")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -835,9 +838,9 @@ export default function Onboarding() {
               <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mx-auto mb-4">
                 <Globe className="w-6 h-6 text-primary" />
               </div>
-              <h2 className="text-xl font-bold text-foreground text-center mb-1">App Language</h2>
+              <h2 className="text-xl font-bold text-foreground text-center mb-1">{t("onboarding.language.title")}</h2>
               <p className="text-sm text-muted-foreground text-center">
-                English is set by default. Pick another language if you prefer. You can always change this in Settings.
+                {t("onboarding.language.subtitle")}
               </p>
             </div>
             <div className="overflow-y-auto px-6 pb-2 flex-1">
@@ -878,7 +881,7 @@ export default function Onboarding() {
                 onClick={() => setStep("done")}
                 className="w-full rounded-xl h-11"
               >
-                Continue <ChevronRight className="w-4 h-4 ml-1" />
+                {t("onboarding.language.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </div>
@@ -891,19 +894,21 @@ export default function Onboarding() {
               <CheckCircle2 className="w-9 h-9 text-green-600 dark:text-green-400" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              {role === "employee" ? "You're in!" : "You're all set!"}
+              {role === "employee" ? t("onboarding.done.employeeTitle") : t("onboarding.done.ownerTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mb-6">
               {role === "employee"
-                ? "You've joined the team. Start taking orders right away."
-                : `${storeName || "Your store"} is ready to go. Your first branch has been set as the main branch.`}
+                ? t("onboarding.done.employeeSubtitle")
+                : storeName
+                  ? `${storeName} ${t("onboarding.done.ownerSubtitle")}`
+                  : t("onboarding.done.ownerSubtitleFallback")}
             </p>
             <Button
               data-testid="btn-go-to-dashboard"
               onClick={handleDone}
               className="w-full rounded-xl h-11"
             >
-              Go to Dashboard
+              {t("onboarding.done.dashboardButton")}
             </Button>
           </div>
         )}
@@ -912,7 +917,7 @@ export default function Onboarding() {
       {/* Footer note */}
       {step === "role" && (
         <p className="mt-6 text-xs text-muted-foreground text-center opacity-60">
-          You can always change these settings later.
+          {t("onboarding.role.footerNote")}
         </p>
       )}
     </div>

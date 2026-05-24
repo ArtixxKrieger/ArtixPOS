@@ -92,9 +92,9 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
 
   let posBody: string;
   if (subtype === 'restaurant') {
-    posBody = 'This is where orders get taken. Pick the table, add the dishes, and send it to the kitchen. Collect payment at the end of the meal in cash, card, GCash, Maya, or split bill. Works offline too.';
+    posBody = 'This is where orders get taken. Pick the table, add the dishes, and send it to the kitchen. Collect payment at the end of the meal with whatever method they prefer. Split bills are supported too. Works offline.';
   } else if (subtype === 'bar') {
-    posBody = 'Ring up drinks and food here. Add items to a tab, apply promos, then close it out when they're ready to pay. Cash, card, GCash, or Maya. Fast and works offline.';
+    posBody = 'Ring up drinks and food here. Add items to a tab, apply promos, then close it out when they're ready to pay. Any payment method you have set up. Fast and works offline.';
   } else if (subtype === 'cafe') {
     posBody = 'Take orders here. Tap a drink or pastry, pick the size or milk type, then collect payment. The order goes straight to your barista's queue. Receipts print instantly. Works without Wi-Fi.';
   } else if (subtype === 'bakery') {
@@ -106,19 +106,19 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
   } else if (subtype === 'electronics') {
     posBody = 'Scan or search for the item, add any warranty or bundle, then collect payment. Stock adjusts automatically and you'll get a low-stock alert before you run out.';
   } else if (subtype === 'grocery' || subtype === 'perishable_goods' || subtype === 'drugstore' || subtype === 'pharmacy') {
-    posBody = 'Scan items at checkout, apply promos or senior/PWD discounts, then collect payment. Fast and works offline so a full queue is never a problem.';
+    posBody = 'Scan items at checkout, apply any promos or discounts, then collect payment. Fast and works offline so a full queue is never a problem.';
   } else if (subtype === 'bookstore') {
     posBody = 'Scan the ISBN or search by title, apply student or member discounts, then collect payment. Inventory updates after every sale so you always know what's left on the shelf.';
   } else if (subtype === 'salon' || subtype === 'barbershop' || subtype === 'nail_salon') {
-    posBody = 'When a service is done, open the POS to collect payment. Pick the service, add any retail products the client wants to take home, apply a discount if needed, and close out. Cash, card, GCash, or Maya. Prints a receipt right away.';
+    posBody = 'When a service is done, open the POS to collect payment. Pick the service, add any retail products the client wants to take home, apply a discount if needed, and close out. Prints a receipt right away.';
   } else if (subtype === 'spa' || subtype === 'massage') {
-    posBody = 'When a session wraps up, collect payment here. Pick the treatment or package, apply a membership discount or promo, then process payment. Prints a receipt instantly. No internet needed.';
+    posBody = 'When a session wraps up, collect payment here. Pick the treatment or package, apply a membership discount or promo, then process payment. Prints a receipt instantly. No internet required.';
   } else if (subtype === 'gym') {
     posBody = 'Sell memberships, day passes, and PT sessions here. Pick the plan, apply any discount, and collect payment. The membership links straight to the client's profile.';
   } else if (subtype === 'clinic' || subtype === 'dental') {
-    posBody = 'Bill patients after each visit. Pick the services done, apply HMO, PhilHealth, or senior discounts, then issue a receipt. Cash, card, or GCash. Every transaction is saved to the patient's record.';
+    posBody = 'Bill patients after each visit. Pick the services done, apply any applicable discounts, then issue a receipt. Every transaction is saved to the patient's record.';
   } else if (subtype === 'pet_grooming') {
-    posBody = 'When grooming's done, collect payment here. Pick the package, add any products, apply a discount, then print a receipt. It all links back to the pet owner's profile.';
+    posBody = 'When grooming's done, collect payment here. Pick the package, add any products, apply a discount if needed, then print a receipt. It all links back to the pet owner's profile.';
   } else if (subtype === 'laundry') {
     posBody = 'Log each job here to get it into the queue. Pick the service type, enter the weight or items, collect payment or a deposit, and print a claim stub. Done.';
   } else if (subtype === 'car_wash') {
@@ -126,13 +126,13 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
   } else if (subtype === 'repair' || subtype === 'auto_repair') {
     posBody = 'Log each job here. Pick the service, add any parts, collect a deposit, and it enters the queue. When the work is done, collect the balance and close it out.';
   } else if (subtype === 'photography') {
-    posBody = 'Collect session fees and package payments here. Pick the package, apply a discount, and issue a receipt. Everything links to the client's profile.';
+    posBody = 'Collect session fees and package payments here. Pick the package, apply a discount if needed, and issue a receipt. Everything links to the client's profile.';
   } else if (subtype === 'cleaning') {
     posBody = 'Log each job and collect payment here. Pick the service package, apply any promo, and close out. Links to the client's profile for easy repeat booking.';
   } else if (subtype === 'tutoring') {
     posBody = 'Collect session fees here. Pick the subject, session type, or package, apply a discount if needed, and issue a receipt. Payment history links to the student's profile.';
   } else {
-    posBody = 'This is where sales happen. Tap an item or service to add it to the cart, apply a discount, then collect payment in cash, card, GCash, or Maya. Receipts print automatically. Works without internet.';
+    posBody = 'This is where sales happen. Tap an item or service to add it to the cart, apply a discount, then collect payment however your customer prefers. Receipts print automatically. Works without internet.';
   }
 
   const posStep: TourStep = {

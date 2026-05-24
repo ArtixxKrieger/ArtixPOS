@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useUpdateSettings } from "@/hooks/use-settings";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -398,6 +398,7 @@ export default function Onboarding() {
         country: storeCountry?.code ?? null,
         onboardingComplete: 1,
       } as any);
+      setShowConfirm(false);
       setStep("done");
     } catch (err: any) {
       console.error("[onboarding] handleOwnerComplete failed:", err);
@@ -799,14 +800,17 @@ export default function Onboarding() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel className="rounded-xl" disabled={isSubmitting}>Go Back</AlertDialogCancel>
-              <Button
+              <AlertDialogAction
                 data-testid="btn-confirm-setup"
-                onClick={() => { setShowConfirm(false); handleOwnerComplete(); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleOwnerComplete();
+                }}
                 disabled={isSubmitting}
                 className="rounded-xl"
               >
                 {isSubmitting ? "Saving…" : "Yes, let's go!"}
-              </Button>
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

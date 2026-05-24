@@ -294,23 +294,27 @@ function TourCard({
 
   const GAP = 14;
   const HEADER_CLEARANCE = 66;
-  // Side padding scales with viewport — min 12px, comfortable on any width
   const sidePad = Math.max(12, Math.min(20, vw * 0.04));
 
-  // Height is auto (content-driven), but we estimate for positioning
-  const EST_H = 160;
+  // Measure actual rendered height so positioning is always accurate
+  const [measuredH, setMeasuredH] = useState(240);
+  const cardRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) setMeasuredH(node.offsetHeight);
+  }, [stepIndex]);
+
+  const cardH = measuredH;
 
   let top: number;
   if (!targetRect) {
-    top = vh / 2 - EST_H / 2;
+    top = Math.max(HEADER_CLEARANCE, vh / 2 - cardH / 2);
   } else {
     const elMidY = targetRect.y + targetRect.h / 2;
     if (elMidY > vh / 2) {
-      // element in bottom half → popup above it
-      top = Math.max(HEADER_CLEARANCE, targetRect.y - EST_H - GAP);
+      // element in bottom half → popup above it, with real height
+      top = Math.max(HEADER_CLEARANCE, targetRect.y - cardH - GAP);
     } else {
-      // element in top half → popup below it
-      top = Math.min(vh - EST_H - GAP, targetRect.y + targetRect.h + GAP);
+      // element in top half → popup below it, clamped so it doesn't go off screen
+      top = Math.min(vh - cardH - GAP, targetRect.y + targetRect.h + GAP);
     }
   }
 
@@ -318,6 +322,7 @@ function TourCard({
 
   return (
     <div
+      ref={cardRef}
       style={{
         position: "fixed",
         top,
@@ -326,7 +331,6 @@ function TourCard({
         zIndex: 999,
         transition: "top 0.35s cubic-bezier(0.4,0,0.2,1)",
         animation: entering ? "tour-card-in 300ms cubic-bezier(0.22,1,0.36,1) both" : undefined,
-        // max-width so it never gets too wide on tablets/desktop
         maxWidth: 420,
         marginLeft: "auto",
         marginRight: "auto",

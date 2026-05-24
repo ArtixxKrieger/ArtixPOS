@@ -16,7 +16,7 @@ import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Loader2, Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
-  Sparkles, BadgeCheck, Star, Bell, BellOff, Search,
+  Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle,
 } from "lucide-react";
 import { COUNTRY_LIST, getCountryByCode, type CountryData } from "@/lib/locale-detect";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -944,6 +944,22 @@ export default function Settings() {
             </span>
           </div>
         )}
+
+        <button
+          onClick={() => {
+            window.dispatchEvent(new Event("artix:replay-tour"));
+          }}
+          data-testid="button-replay-tour"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"
+        >
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <PlayCircle className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="text-left flex-1">
+            <p className="text-sm font-medium">Replay App Tour</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Walk through the features again</p>
+          </div>
+        </button>
 
         <button
           onClick={() => { if (!isLoggingOut) logout(); }}

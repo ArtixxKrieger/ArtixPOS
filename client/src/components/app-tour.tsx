@@ -405,6 +405,19 @@ export function AppTour() {
     return () => clearTimeout(t);
   }, [storageKey, settings?.onboardingComplete]);
 
+  // Listen for manual replay trigger from Settings
+  useEffect(() => {
+    const handler = () => {
+      if (storageKey) localStorage.removeItem(storageKey);
+      setStepIndex(0);
+      setExiting(false);
+      setEntering(true);
+      setVisible(true);
+    };
+    window.addEventListener("artix:replay-tour", handler);
+    return () => window.removeEventListener("artix:replay-tour", handler);
+  }, [storageKey]);
+
   // Track viewport size
   useEffect(() => {
     const handler = () => { setVw(window.innerWidth); setVh(window.innerHeight); };

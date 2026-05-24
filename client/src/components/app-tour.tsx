@@ -478,11 +478,17 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
     body: outroBody,
   };
 
+  // POS step is only shown for transaction-first businesses (food, retail,
+  // queue services). Service businesses with appointment workflows (wellness,
+  // salon, clinic, gym, appointment services) handle checkout as part of their
+  // natural flow and don't need a dedicated POS tour step.
+  const showPosStep = cat === 'food' || cat === 'retail' || cat === 'queue_service' || cat === 'other';
+
   return [
     intro,
     dashboardHero,
     dashboardKpi,
-    posStep,
+    ...(showPosStep ? [posStep] : []),
     ...midSteps,
     moreStep,
     productsStep,

@@ -208,6 +208,7 @@ const NavItem = memo(function NavItem({
     <button
       onClick={() => startTransition(() => onNavigate(url))}
       data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      data-tour={`tour-nav-${url === "/" ? "home" : url.slice(1)}`}
       aria-current={isActive ? "page" : undefined}
       className={[
         "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",

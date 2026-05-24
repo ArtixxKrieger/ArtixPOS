@@ -275,6 +275,7 @@ export function BottomNav() {
                 key={item.url}
                 onClick={() => startTransition(() => setLocation(item.url))}
                 data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                data-tour={`tour-nav-${item.url === "/" ? "home" : item.url.slice(1)}`}
                 aria-current={isActive ? "page" : undefined}
                 className={[
                   "relative flex flex-col items-center justify-center gap-[2px] rounded-[18px] flex-1 z-10",
@@ -307,6 +308,7 @@ export function BottomNav() {
           {hasMore && (
             <button
               onClick={() => setMoreOpen(true)}
+              data-tour="tour-nav-more"
               className={[
                 "relative flex flex-col items-center justify-center gap-[2px] rounded-[18px] flex-1 z-10",
                 "transition-[color,transform] duration-200 active:scale-90 select-none cursor-pointer py-2",

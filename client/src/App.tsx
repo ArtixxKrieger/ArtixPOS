@@ -17,7 +17,7 @@ import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
-import { BusinessGuide } from "@/components/business-guide";
+import { AppTour } from "@/components/app-tour";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -650,7 +650,7 @@ function AppRouter() {
 
   return (
     <AppLayout>
-      <BusinessGuide />
+      <AppTour />
       {/* ── Persistent (tab-cached) views ─────────────────────────────────────
            Mounted ONCE on first visit, then kept alive via CSS display:none.
            Switching between these 5 routes is a pure style toggle — no React

@@ -404,14 +404,45 @@ function getSteps(subtype: string | null | undefined, storeName: string): TourSt
       },
     ];
     outroBody = "Add your services in Products → Add a client in Customers → Book an Appointment → Collect payment at the POS.";
-  } else {
+  } else if (cat === "retail") {
+    const invBody = subtype === "electronics"
+      ? "Track every unit in stock — with barcode/SKU, supplier, and reorder point. When stock drops below your threshold you'll get a low-stock alert automatically. Use Purchase Orders to restock directly from suppliers inside the app."
+      : subtype === "bookstore"
+      ? "Track every title by ISBN, author, category, and stock count. Set reorder points so you never run out of bestsellers. Purchase Orders let you restock directly from your distributors inside the app."
+      : subtype === "pharmacy" || subtype === "perishable_goods"
+      ? "Track expiry dates, batch numbers, and stock levels for every item. Low-stock alerts fire automatically before you run out. Use Purchase Orders to replenish from suppliers without leaving the app."
+      : "Track stock levels for every SKU — set reorder points and get low-stock alerts automatically. Use Purchase Orders to restock from suppliers, and Inventory to run stock counts and adjustments.";
+
     midSteps = [
       {
-        target: '[data-tour="tour-nav-pending"]',
-        title: "Active Orders",
-        body: "All live orders queue here after they're placed. Your team marks them complete when done — nothing gets lost or forgotten.",
+        target: null,
+        title: "Inventory & Stock Control",
+        body: invBody,
+      },
+      {
+        target: null,
+        title: "Suppliers & Purchase Orders",
+        body: subtype === "grocery" || subtype === "perishable_goods"
+          ? "Add your suppliers under More → Suppliers, then raise a Purchase Order when you need to restock. When the delivery arrives, receive it in the app and your inventory updates automatically — no manual counting needed."
+          : subtype === "pharmacy"
+          ? "Add your drug distributors under Suppliers, then raise Purchase Orders for restocking. When deliveries arrive, receive them in the app and stock levels update instantly — with expiry batch tracking included."
+          : "Add your suppliers under More → Suppliers, then raise Purchase Orders when you need to restock. Receive deliveries in the app and inventory updates automatically — no spreadsheet juggling.",
       },
     ];
+    outroBody = subtype === "clothing"
+      ? "Add your products with sizes and variants → Set stock levels → Open a Shift → Make your first sale at the POS."
+      : subtype === "electronics"
+      ? "Add your products with barcodes → Set reorder points → Add your suppliers → Open a Shift → Make your first sale."
+      : subtype === "grocery" || subtype === "perishable_goods"
+      ? "Add your products with barcodes → Set stock and reorder levels → Add your suppliers → Open a Shift → Start scanning at the POS."
+      : subtype === "pharmacy"
+      ? "Add your medicines and products → Set expiry alerts and reorder points → Add your distributors → Open a Shift → Start billing at the POS."
+      : subtype === "bookstore"
+      ? "Add your books with ISBN and stock count → Add your distributors → Open a Shift → Start selling at the POS."
+      : "Add your products → Set stock levels → Add suppliers → Open a Shift → Make your first sale at the POS.";
+  } else {
+    midSteps = [];
+    outroBody = "Add your products or services → Open a Shift → Make your first sale at the POS.";
   }
 
   const outro: TourStep = {

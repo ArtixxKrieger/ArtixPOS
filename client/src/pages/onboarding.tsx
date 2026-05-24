@@ -5,8 +5,9 @@ import {
   ChevronLeft, ShoppingBag, Cpu, ShoppingCart, BookOpen,
   Scissors, Dumbbell, Sparkles, Store, Users, CheckCircle2,
   Building2, Link, Shirt, Car, Stethoscope,
-  PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle, Search,
+  PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle, Search, Globe,
 } from "lucide-react";
+import i18n, { SUPPORTED_LANGUAGES, loadLocale } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,7 @@ import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from 
 
 type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services";
-type Step = "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "done";
+type Step = "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "language" | "done";
 
 const STORE_NAME_PLACEHOLDER: Record<string, string> = {
   cafe: "e.g. Maria's Cafe",
@@ -223,6 +224,9 @@ export default function Onboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
+    try { return localStorage.getItem("artixpos_language") || "en"; } catch { return "en"; }
+  });
 
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
@@ -360,7 +364,7 @@ export default function Onboarding() {
       if (!res.ok) throw new Error(data.message || "Invalid invite");
       await updateSettings.mutateAsync({ onboardingComplete: 1 });
       await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setStep("done");
+      setStep("language");
     } catch (err: any) {
       toast({ title: err.message || "Could not join — check the invite link", variant: "destructive" });
     } finally {
@@ -409,7 +413,7 @@ export default function Onboarding() {
         onboardingComplete: 1,
       } as any);
       setShowConfirm(false);
-      setStep("done");
+      setStep("language");
     } catch (err: any) {
       console.error("[onboarding] handleOwnerComplete failed:", err);
       const message = err?.message || "Something went wrong. Please try again.";
@@ -823,6 +827,62 @@ export default function Onboarding() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* ── Step: Language ── */}
+        {step === "language" && (
+          <div className="flex flex-col max-h-[80vh]">
+            <div className="px-6 pt-6 pb-4 flex-shrink-0">
+              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mx-auto mb-4">
+                <Globe className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground text-center mb-1">App Language</h2>
+              <p className="text-sm text-muted-foreground text-center">
+                English is set by default. Pick another language if you prefer. You can always change this in Settings.
+              </p>
+            </div>
+            <div className="overflow-y-auto px-6 pb-2 flex-1">
+              <div className="grid grid-cols-2 gap-2">
+                {SUPPORTED_LANGUAGES.map(lang => {
+                  const isSelected = selectedLanguage === lang.code;
+                  return (
+                    <button
+                      key={lang.code}
+                      data-testid={`btn-lang-${lang.code}`}
+                      onClick={async () => {
+                        setSelectedLanguage(lang.code);
+                        await loadLocale(lang.code);
+                        i18n.changeLanguage(lang.code);
+                      }}
+                      className={[
+                        "flex flex-col items-start px-3 py-2.5 rounded-xl border-2 transition-all duration-200 text-left",
+                        isSelected
+                          ? "border-primary bg-primary/5 dark:bg-primary/10"
+                          : "border-border bg-muted/30 hover:bg-muted/60",
+                      ].join(" ")}
+                    >
+                      <span className={["text-sm font-semibold leading-tight", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
+                        {lang.nativeName}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">{lang.name}</span>
+                      {isSelected && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-1" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="px-6 py-4 flex-shrink-0 border-t border-border/20 mt-2">
+              <Button
+                data-testid="btn-lang-continue"
+                onClick={() => setStep("done")}
+                className="w-full rounded-xl h-11"
+              >
+                Continue <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ── Step: Done ── */}
         {step === "done" && (

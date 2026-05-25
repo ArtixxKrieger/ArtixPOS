@@ -165,6 +165,7 @@ export default function TimeClockPage() {
   const isLoading = activeLoading || logsLoading;
 
   return (
+    <PhantomLoader loading={activeLoading || logsLoading}>
     <div className="space-y-5 max-w-2xl mx-auto pb-8">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -610,6 +611,7 @@ export default function TimeClockPage() {
               <LogOut className="h-4 w-4 mr-2" /> Confirm Clock Out
             </Button>
           </div>
+    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>

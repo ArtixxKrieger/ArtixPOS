@@ -161,6 +161,7 @@ export default function PendingOrders() {
   }
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter pb-4">
 
       {/* Header */}
@@ -357,5 +358,6 @@ export default function PendingOrders() {
       )}
 
     </div>
+    </PhantomLoader>
   );
 }

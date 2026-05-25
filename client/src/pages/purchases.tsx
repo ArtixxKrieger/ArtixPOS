@@ -255,6 +255,7 @@ export default function PurchasesPage() {
   const hasFilters = filterSupplier !== "all" || filterStatus !== "all" || filterPayment !== "all" || search.trim();
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -604,5 +605,6 @@ export default function PurchasesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

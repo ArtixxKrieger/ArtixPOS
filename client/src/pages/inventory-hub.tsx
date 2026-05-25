@@ -91,6 +91,7 @@ export default function InventoryHub() {
   ];
 
   return (
+    <PhantomLoader loading={wasteLoading || transferLoading || reorderLoading}>
     <div className="min-h-screen bg-background pb-24 md:pb-8">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
@@ -229,6 +230,7 @@ export default function InventoryHub() {
           />
         )}
       </div>
+    </PhantomLoader>
 
       {/* Waste Log Form Dialog */}
       {showWasteForm && (

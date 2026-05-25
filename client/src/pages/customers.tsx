@@ -19,6 +19,7 @@ import {
   TrendingUp, TrendingDown, Gift, History, Crown, Medal, Sparkles, Calendar,
   Award, Check, ChevronRight, UserCircle2, Stamp,
 } from "lucide-react";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 // ─── Tier config ──────────────────────────────────────────────────────────────
 
@@ -422,6 +423,7 @@ export default function Customers() {
   const totalRevenue = customers.reduce((s, c) => s + parseNumeric(c.totalSpent), 0);
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter">
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
@@ -529,5 +531,6 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

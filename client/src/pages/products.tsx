@@ -353,6 +353,7 @@ export default function Products() {
   };
 
   return (
+    <PhantomLoader loading={stockLogsLoading}>
     <div className="space-y-4 page-enter">
 
       {/* Header */}
@@ -1119,5 +1120,6 @@ export default function Products() {
         onScan={handleCatalogScan}
       />
     </div>
+    </PhantomLoader>
   );
 }

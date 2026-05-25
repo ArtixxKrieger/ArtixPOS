@@ -530,6 +530,7 @@ export default function SuppliersPage() {
   }
 
   return (
+    <PhantomLoader loading={statsLoading || spLoading || isLoading}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -713,6 +714,7 @@ export default function SuppliersPage() {
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any notes..." rows={2} data-testid="input-supplier-notes" />
             </div>
           </div>
+    </PhantomLoader>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-supplier">

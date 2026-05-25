@@ -14,6 +14,7 @@ import { insertDiscountCodeSchema, type DiscountCode } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Tag, Plus, Trash2, Edit, Copy, ToggleLeft, ToggleRight, Percent, DollarSign } from "lucide-react";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const formSchema = insertDiscountCodeSchema.extend({
   code: z.string().min(1, "Code is required"),
@@ -176,6 +177,7 @@ export default function DiscountCodes() {
   const totalUsed = codes.reduce((acc, c) => acc + (c.usedCount ?? 0), 0);
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter">
 
       {/* Summary */}
@@ -310,5 +312,6 @@ export default function DiscountCodes() {
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

@@ -853,6 +853,7 @@ export default function AppointmentsPage() {
   const currency       = settings?.currency ?? "₱";
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -1082,6 +1083,7 @@ export default function AppointmentsPage() {
               {deleteMutation.isPending ? "Deleting…" : "Delete"}
             </Button>
           </div>
+    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>

@@ -68,6 +68,7 @@ export default function TablesPage() {
   for (const t of tables) counts[(t.status as TableStatus) ?? "available"]++;
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -209,6 +210,7 @@ export default function TablesPage() {
               </Select>
             </div>
           </div>
+    </PhantomLoader>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancel</Button>
             <Button

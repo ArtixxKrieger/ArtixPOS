@@ -10,6 +10,7 @@ import {
 import { useState, useMemo } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 type DateFilter = "all" | "today" | "week" | "month" | "custom";
 type PaymentFilter = "all" | "cash" | "card" | "gcash" | "maya" | "online";
@@ -197,6 +198,7 @@ export default function Transactions() {
   };
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter">
 
       {/* Summary bar */}
@@ -554,6 +556,7 @@ export default function Transactions() {
           <p className="text-foreground font-semibold">No transactions found</p>
           <p className="text-sm text-muted-foreground/70">Try adjusting your filters or search query</p>
         </div>
+    </PhantomLoader>
       )}
 
       <SaleDetailModal

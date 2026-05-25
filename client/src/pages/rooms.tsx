@@ -215,6 +215,7 @@ export default function RoomsPage() {
   const maintenance = (rooms as ServiceRoom[]).filter((r) => r.status === "maintenance");
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -301,5 +302,6 @@ export default function RoomsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

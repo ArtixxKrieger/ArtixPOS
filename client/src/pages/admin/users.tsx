@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const inviteSchema = z.object({
   role: z.enum(["manager", "admin", "cashier"]),
@@ -332,6 +333,7 @@ export default function UsersPage() {
   }
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter pb-6">
 
       {/* Header */}
@@ -543,6 +545,7 @@ export default function UsersPage() {
             );
           })}
         </div>
+    </PhantomLoader>
       )}
 
       <InviteLinkDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />

@@ -19,6 +19,7 @@ import { insertExpenseSchema, type Expense } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Wallet, Plus, Trash2, TrendingDown, Calendar, ChevronDown } from "lucide-react";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const EXPENSE_CATEGORIES = ["General", "Supplies", "Utilities", "Rent", "Salaries", "Marketing", "Maintenance", "Food & Drinks", "Transportation", "Other"];
 
@@ -137,6 +138,7 @@ export default function Expenses() {
   }, [expenses]);
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter">
 
       {/* Summary Cards */}
@@ -247,6 +249,7 @@ export default function Expenses() {
             ))}
           </div>
         </div>
+    </PhantomLoader>
       )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>

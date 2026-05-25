@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 import { cn } from "@/lib/utils";
 import type { PendingOrder } from "@shared/schema";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const KITCHEN_STATUSES = ["pending", "preparing", "ready"] as const;
 type KitchenStatus = typeof KITCHEN_STATUSES[number];
@@ -108,6 +109,7 @@ export default function KitchenPage() {
   }
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -276,5 +278,6 @@ export default function KitchenPage() {
         </div>
       )}
     </div>
+    </PhantomLoader>
   );
 }

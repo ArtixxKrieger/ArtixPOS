@@ -185,6 +185,7 @@ export default function ExpiryTracker() {
   const hasAny = totalTracked > 0;
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter">
       <div>
         <h2 className="text-xl font-black tracking-tight">Expiry Tracker</h2>
@@ -244,5 +245,6 @@ export default function ExpiryTracker() {
         </div>
       )}
     </div>
+    </PhantomLoader>
   );
 }

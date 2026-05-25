@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import type { Sale, UserSetting } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -726,6 +727,7 @@ export default function Analytics() {
   const ttFmt = (v: number) => metric === "revenue" ? formatCurrency(v, currency) : String(v);
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter pb-24 md:pb-8">
 
       {/* ── Header ── */}
@@ -1230,6 +1232,7 @@ export default function Analytics() {
             ))}
           </div>
         </div>
+    </PhantomLoader>
       )}
 
     </div>

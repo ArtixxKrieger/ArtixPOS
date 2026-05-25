@@ -463,6 +463,7 @@ export default function WifiVouchersPage() {
   }
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="max-w-lg mx-auto px-4 pt-4 pb-24 md:pb-8 space-y-3">
 
       {/* Header */}
@@ -827,5 +828,6 @@ export default function WifiVouchersPage() {
         </>
       )}
     </div>
+    </PhantomLoader>
   );
 }

@@ -539,6 +539,7 @@ export default function BIRPage() {
   }
 
   return (
+    <PhantomLoader loading={zReportLoading || orGapLoading || xLoading || monthlyLoading}>
     <div className="space-y-5 page-enter pb-8">
 
       {/* Page header */}
@@ -1357,6 +1358,7 @@ export default function BIRPage() {
             </div>
           </div>
         </div>
+    </PhantomLoader>
       )}
 
     </div>

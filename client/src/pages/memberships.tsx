@@ -457,6 +457,7 @@ export default function MembershipsPage() {
   const activeCount = (members as MemberWithCustomer[]).filter((m) => m.status === "active").length;
 
   return (
+    <PhantomLoader loading={plansLoading || membersLoading}>
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -591,6 +592,7 @@ export default function MembershipsPage() {
               Delete
             </Button>
           </div>
+    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>

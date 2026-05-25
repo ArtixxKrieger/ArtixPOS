@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Check, Crown, Zap, X, Loader2, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface SubscriptionPayment {
   id: number;
@@ -157,6 +158,7 @@ export default function BillingPage() {
   const nativePrice = rc.monthlyPackage?.product?.priceString ?? null;
 
   return (
+    <PhantomLoader loading={isLoading || paymentsLoading}>
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       {/* Pro Required Banner */}
       {showProRequiredBanner && (
@@ -571,5 +573,6 @@ export default function BillingPage() {
         </AlertDialog>
       )}
     </div>
+    </PhantomLoader>
   );
 }

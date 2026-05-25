@@ -214,6 +214,7 @@ export default function StaffPage() {
   const inactive = filtered.filter((s) => !s.isActive);
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -315,6 +316,7 @@ export default function StaffPage() {
               {deleteMutation.isPending ? "Removing…" : "Remove"}
             </Button>
           </div>
+    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>

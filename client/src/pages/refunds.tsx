@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { RefundWithDetails } from "@shared/schema";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 type DateFilter = "all" | "today" | "week" | "month";
 
@@ -155,6 +156,7 @@ export default function Refunds() {
   };
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter">
 
       {/* Summary bar */}
@@ -347,6 +349,7 @@ export default function Refunds() {
             {search ? "Try adjusting your search or filters" : "Refunds will appear here once processed"}
           </p>
         </div>
+    </PhantomLoader>
       )}
     </div>
   );

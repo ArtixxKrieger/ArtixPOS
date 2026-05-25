@@ -442,6 +442,7 @@ export default function Shifts() {
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter pb-6">
 
       {/* ── Active shift card ── */}
@@ -1230,6 +1231,7 @@ export default function Shifts() {
               );
             })()}
           </div>
+    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>

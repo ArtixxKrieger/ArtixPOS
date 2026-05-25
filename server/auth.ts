@@ -789,17 +789,16 @@ export function setupAuth(app: Express) {
         return res.redirect("/login?error=google_no_user");
       }
       try {
+        // Google sign-in is always an explicit active choice — always persist for 30 days
+        // across all platforms: native deep-link, popup, and redirect flows.
         if (isNative) {
-          const token = signToken(user);
+          const token = signToken(user, true);
           return res.redirect(`${NATIVE_APP_SCHEME}://auth?token=${encodeURIComponent(token)}`);
         }
-        // Popup flow: set cookie (same origin, so cookie carries over to parent)
-        // then serve a tiny page that postMessages success to the opener and closes.
         if (isPopup) {
-          setAuthCookie(res, user);
+          setAuthCookie(res, user, true);
           return res.send(popupResultPage({ ok: true }));
         }
-        // Google sign-in is an explicit active choice — always persist for 30 days.
         setAuthCookie(res, user, true);
         return res.redirect("/");
       } catch (cookieErr: any) {

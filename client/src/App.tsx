@@ -247,24 +247,20 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
   return <Component />;
 }
 
-// Lightweight fallback shown during lazy-chunk loads INSIDE the app shell.
-// Uses skeleton blocks so it looks consistent with all other loading states.
-function PageFallback() {
-  return (
-    <div className="flex flex-col gap-4 p-5 w-full">
-      <PhantomLoader loading count={3} countGap={12}>
-        <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-          <div className="w-10 h-10 rounded-lg bg-muted flex-shrink-0" />
-          <div className="flex flex-col gap-2 flex-1">
-            <div className="h-3 w-3/5 rounded bg-muted" />
-            <div className="h-2.5 w-2/5 rounded bg-muted" />
-          </div>
-          <div className="h-4 w-14 rounded bg-muted" />
+const pageFallback = (
+  <div className="flex flex-col gap-4 p-5 w-full">
+    <PhantomLoader loading count={3} countGap={12}>
+      <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+        <div className="w-10 h-10 rounded-lg bg-muted flex-shrink-0" />
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="h-3 w-3/5 rounded bg-muted" />
+          <div className="h-2.5 w-2/5 rounded bg-muted" />
         </div>
-      </PhantomLoader>
-    </div>
-  );
-}
+        <div className="h-4 w-14 rounded bg-muted" />
+      </div>
+    </PhantomLoader>
+  </div>
+);
 
 function LoadingScreen({ message }: { message?: string }) {
   // After 4 s offline → show the "no cached chunk" error screen.
@@ -739,7 +735,7 @@ function AppRouter() {
 
   if (location === "/onboarding") {
     return (
-      <Suspense fallback={<PageFallback />}>
+      <Suspense fallback={pageFallback}>
         <Onboarding />
       </Suspense>
     );
@@ -753,22 +749,22 @@ function AppRouter() {
            Switching between these 5 routes is a pure style toggle — no React
            unmount/remount, no skeleton, no data re-fetch. Sub-millisecond.   */}
       <PersistentRoute path="/" currentPath={location}>
-        <Suspense fallback={<PageFallback />}><Dashboard /></Suspense>
+        <Suspense fallback={pageFallback}><Dashboard /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/pos" currentPath={location}>
-        <Suspense fallback={<PageFallback />}><POS /></Suspense>
+        <Suspense fallback={pageFallback}><POS /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/pending" currentPath={location}>
-        <Suspense fallback={<PageFallback />}><PendingOrders /></Suspense>
+        <Suspense fallback={pageFallback}><PendingOrders /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/settings" currentPath={location}>
-        <Suspense fallback={<PageFallback />}><Settings /></Suspense>
+        <Suspense fallback={pageFallback}><Settings /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/analytics" currentPath={location}>
-        <Suspense fallback={<PageFallback />}><CashierGuard component={Analytics} /></Suspense>
+        <Suspense fallback={pageFallback}><CashierGuard component={Analytics} /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/products" currentPath={location}>
-        <Suspense fallback={<PageFallback />}><Products /></Suspense>
+        <Suspense fallback={pageFallback}><Products /></Suspense>
       </PersistentRoute>
 
       {/* ── On-demand routes ───────────────────────────────────────────────────
@@ -776,7 +772,7 @@ function AppRouter() {
            PageFallback while the JS chunk loads; subsequent visits are instant
            because the chunk is cached by the browser / service worker.        */}
       {!PINNED_PATHS.has(location) && (
-        <Suspense fallback={<PageFallback />}>
+        <Suspense fallback={pageFallback}>
           <Switch>
             <Route path="/transactions" component={TransactionsRoute} />
             <Route path="/admin" component={AdminRoute} />
@@ -908,7 +904,7 @@ function ProtectedRouter() {
 
   if (location === "/kitchen-display") {
     return (
-      <Suspense fallback={<PageFallback />}>
+      <Suspense fallback={pageFallback}>
         <KitchenDisplayPage />
       </Suspense>
     );

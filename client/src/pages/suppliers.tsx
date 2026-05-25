@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Truck, Phone, Mail, MapPin, Pencil, Trash2, User, Loader2, Plus, Package,
+  Truck, Phone, Mail, MapPin, Pencil, Trash2, User, Plus, Package,
   ShoppingBag, TrendingUp, Clock, AlertTriangle, ChevronRight, X,
   Calendar, BoxSelect, ExternalLink,
 } from "lucide-react";
@@ -269,7 +269,7 @@ function SupplierDetailSheet({
                         className="text-muted-foreground hover:text-destructive transition-colors p-1 shrink-0"
                         data-testid={`button-remove-sp-${row.id}`}
                       >
-                        {removeProductMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   );
@@ -319,8 +319,7 @@ function SupplierDetailSheet({
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setAddProductOpen(false)}>{t("common.cancel")}</Button>
                   <Button onClick={handleAddProduct} disabled={addProductMutation.isPending} data-testid="button-save-sp">
-                    {addProductMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                    {t("suppliers.linkProduct")}
+                    {addProductMutation.isPending ? t("suppliers.linkProduct") + "…" : t("suppliers.linkProduct")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -686,7 +685,6 @@ export default function SuppliersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-supplier">
-              {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
               {editing ? t("suppliers.saveChanges") : t("suppliers.createSupplier")}
             </Button>
           </DialogFooter>
@@ -712,7 +710,7 @@ export default function SuppliersPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete-supplier"
             >
-              {deleteMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />...</> : t("common.delete")}
+              {deleteMutation.isPending ? t("common.delete") + "…" : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

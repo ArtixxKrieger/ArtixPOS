@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, Crown, Zap, X, Loader2, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
+import { Check, Crown, Zap, X, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
 
 interface SubscriptionPayment {
   id: number;
@@ -144,13 +144,7 @@ export default function BillingPage() {
 
   const isOwner = user?.role === "owner";
 
-  if (isLoading || verifying) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
-      </div>
-    );
-  }
+  if (isLoading || verifying) return null;
 
   const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
 
@@ -355,11 +349,7 @@ export default function BillingPage() {
                 </CardTitle>
                 <CardDescription>
                   {native ? (
-                    rc.isLoadingOfferings ? (
-                      <span className="flex items-center gap-2 text-slate-400">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Loading price…
-                      </span>
-                    ) : nativePrice ? (
+                    rc.isLoadingOfferings ? null : nativePrice ? (
                       <>
                         <span className="text-3xl font-black text-slate-900 dark:text-white">{nativePrice}</span>
                         <span className="text-slate-400 ml-1">/ month</span>
@@ -411,11 +401,7 @@ export default function BillingPage() {
                           disabled={rc.isPurchasing || rc.isLoadingOfferings || !rc.monthlyPackage}
                           data-testid="button-native-upgrade-pro"
                         >
-                          {rc.isPurchasing ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…</>
-                          ) : rc.isLoadingOfferings ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading…</>
-                          ) : (
+                          {rc.isPurchasing ? "Processing…" : rc.isLoadingOfferings ? "Loading…" : (
                             <>
                               <Crown className="w-4 h-4 mr-2" />
                               Subscribe{nativePrice ? ` — ${nativePrice}/mo` : " to Pro"}
@@ -431,11 +417,7 @@ export default function BillingPage() {
                         disabled={rc.isRestoring}
                         data-testid="button-native-restore"
                       >
-                        {rc.isRestoring ? (
-                          <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Restoring…</>
-                        ) : (
-                          <><RefreshCw className="w-3 h-3 mr-1" /> Restore previous purchase</>
-                        )}
+                        {rc.isRestoring ? "Restoring…" : <><RefreshCw className="w-3 h-3 mr-1" /> Restore previous purchase</>}
                       </Button>
                       <p className="text-xs text-center text-slate-400 mt-1">
                         Billed via the App Store / Play Store
@@ -451,11 +433,7 @@ export default function BillingPage() {
                           disabled={checkoutMutation.isPending}
                           data-testid="button-renew-pro"
                         >
-                          {checkoutMutation.isPending ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
-                          ) : (
-                            `Renew / Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`
-                          )}
+                          {checkoutMutation.isPending ? "Redirecting…" : `Renew / Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
                         </Button>
                       ) : (
                         <Button
@@ -464,9 +442,7 @@ export default function BillingPage() {
                           disabled={checkoutMutation.isPending}
                           data-testid="button-upgrade-pro"
                         >
-                          {checkoutMutation.isPending ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
-                          ) : (
+                          {checkoutMutation.isPending ? "Redirecting…" : (
                             <>
                               <Crown className="w-4 h-4 mr-2" />
                               Upgrade to Pro — {billingCycle === "monthly" ? "₱30/mo" : "₱4,999/yr"}
@@ -498,11 +474,7 @@ export default function BillingPage() {
       {!native && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payment History</h2>
-          {paymentsLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
-            </div>
-          ) : payments.length === 0 ? (
+          {payments.length === 0 ? (
             <div
               className="text-center py-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 text-sm flex flex-col items-center gap-2"
               data-testid="empty-payment-history"

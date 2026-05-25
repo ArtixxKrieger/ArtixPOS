@@ -177,7 +177,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
       className="gap-2 w-full"
     >
       {photoState === "scanning"
-        ? <><RefreshCw className="h-4 w-4 animate-spin" /> Scanning photo…</>
+        ? <>Scanning photo…</>
         : <><ImageIcon className="h-4 w-4" /> {label}</>
       }
     </Button>
@@ -275,7 +275,6 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
           {/* Starting */}
           {cameraState === "starting" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               <p className="text-xs text-white/60">Starting camera…</p>
             </div>
           )}

@@ -381,13 +381,7 @@ export default function Login() {
     setForgotError(null); setForgotEmail("");
   }
 
-  if (isLoading || signingIn) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-[#06060f]" : "bg-[#f4f3f9]"}`}>
-        <div className={`w-7 h-7 border-2 rounded-full animate-spin ${isDark ? "border-violet-500 border-t-transparent" : "border-violet-600 border-t-transparent"}`} />
-      </div>
-    );
-  }
+  if (isLoading || signingIn) return null;
 
   const inputStyle: React.CSSProperties = {
     width: "100%",

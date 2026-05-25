@@ -95,13 +95,7 @@ export default function AdminIndex() {
     }
   }, [user?.tenantId]);
 
-  if (!user?.tenantId && ensureTenant.isPending) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (!user?.tenantId && ensureTenant.isPending) return null;
 
   const QUICK_LINKS = [
     {

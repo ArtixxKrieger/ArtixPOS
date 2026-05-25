@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
-  Loader2, Globe, Check, Sun, Moon, Monitor, Store,
+  Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
   Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle, Lock, KeyRound,
 } from "lucide-react";
@@ -727,10 +727,7 @@ export default function Settings() {
               disabled={updateSettings.isPending}
               data-testid="button-save-settings"
             >
-              {updateSettings.isPending
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
-                : <><Save className="mr-2 h-4 w-4" /> Save Changes</>
-              }
+              {updateSettings.isPending ? "Saving…" : <><Save className="mr-2 h-4 w-4" /> Save Changes</>}
             </Button>
           </form>
         </Form>
@@ -790,7 +787,7 @@ export default function Settings() {
                   className="h-9 rounded-xl px-4"
                   data-testid="button-redeem-voucher"
                 >
-                  {redeemingVoucher ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                  {redeemingVoucher ? "Applying…" : "Apply"}
                 </Button>
               </div>
             </div>

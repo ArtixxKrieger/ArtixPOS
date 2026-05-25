@@ -234,9 +234,7 @@ export function NotificationBell() {
                       className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40"
                       data-testid={`button-restock-save-${n.id}`}
                     >
-                      {restockMutation.isPending
-                        ? <div className="h-3 w-3 border-[1.5px] border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                        : <Check className="h-3 w-3" />}
+                      <Check className="h-3 w-3" />
                     </button>
                     <button
                       onClick={cancelRestock}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Sparkles, Loader2, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check, Search } from "lucide-react";
+import { Sparkles, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check, Search } from "lucide-react";
 import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -613,7 +613,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={handleClose} disabled={seedBranch.isPending} data-testid="button-skip-seed">Skip for now</Button>
               <Button type="button" onClick={handleSeed} disabled={seedBranch.isPending} data-testid="button-confirm-seed">
-                {seedBranch.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding...</> : <><Sparkles className="h-4 w-4 mr-2" />Add catalog</>}
+                {seedBranch.isPending ? "Adding…" : <><Sparkles className="h-4 w-4 mr-2" />Add catalog</>}
               </Button>
             </DialogFooter>
           </div>
@@ -916,7 +916,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                   disabled={createBranch.isPending || updateBranch.isPending || loadingTemplate}
                 >
                   {createBranch.isPending || loadingTemplate ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{loadingTemplate ? "Loading…" : "Creating…"}</>
+                    loadingTemplate ? "Loading…" : "Creating…"
                   ) : (
                     isEditing ? "Update" : "Create"
                   )}
@@ -1021,7 +1021,7 @@ function BranchDetailDrawer({
                   <div className="flex items-center gap-2 shrink-0">
                     {user?.role === "owner" && branch.id !== user?.activeBranchId && (
                       <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleSwitch} disabled={switchBranch.isPending} data-testid="button-switch-branch-drawer">
-                        {switchBranch.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Switch"}
+                        {switchBranch.isPending ? "Switching…" : "Switch"}
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onEdit} data-testid="button-edit-branch-drawer">
@@ -1228,9 +1228,7 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader><DialogTitle>Set up catalog</DialogTitle></DialogHeader>
-        {loading ? (
-          <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-        ) : !template?.available ? (
+        {!template?.available ? (
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">No starter template available for this business type.</p>
             <DialogFooter><Button onClick={onClose} variant="ghost">Close</Button></DialogFooter>
@@ -1253,7 +1251,7 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={onClose} disabled={seedBranch.isPending}>Cancel</Button>
               <Button type="button" onClick={handleSeed} disabled={seedBranch.isPending} data-testid="button-confirm-seed-existing">
-                {seedBranch.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding…</> : <><SparklesIcon className="h-4 w-4 mr-2" />Add catalog</>}
+                {seedBranch.isPending ? "Adding…" : <><SparklesIcon className="h-4 w-4 mr-2" />Add catalog</>}
               </Button>
             </DialogFooter>
           </div>
@@ -1341,7 +1339,7 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose} disabled={resetBranch.isPending}>Cancel</Button>
           <Button type="button" onClick={handleReset} disabled={!canReset || resetBranch.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-reset">
-            {resetBranch.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resetting…</> : <><RotateCcw className="h-4 w-4 mr-2" />Reset branch</>}
+            {resetBranch.isPending ? "Resetting…" : <><RotateCcw className="h-4 w-4 mr-2" />Reset branch</>}
           </Button>
         </DialogFooter>
       </DialogContent>

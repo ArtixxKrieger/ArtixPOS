@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Cpu, Usb, ScanBarcode, CheckCircle2, Circle, Zap, Loader2, Info, Printer, AlertCircle } from "lucide-react";
+import { Cpu, Usb, ScanBarcode, CheckCircle2, Circle, Zap, Info, Printer, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { buildTestPrintEscPos } from "@/lib/escpos";
@@ -470,10 +470,7 @@ function UsbPrinterSection() {
                     onClick={() => testPrint(printer)}
                     data-testid={`button-test-print-${printer.name}`}
                   >
-                    {testing === printer.name
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <><Zap className="w-3 h-3 mr-1" />Test Print</>
-                    }
+                    {testing === printer.name ? "Printing…" : <><Zap className="w-3 h-3 mr-1" />Test Print</>}
                   </Button>
                   <Button
                     size="sm"
@@ -499,10 +496,7 @@ function UsbPrinterSection() {
             disabled={scanning}
             data-testid="button-add-usb-printer"
           >
-            {scanning
-              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Waiting for selection…</>
-              : <><Usb className="w-4 h-4 mr-2" />Add USB Printer</>
-            }
+            {scanning ? "Waiting for selection…" : <><Usb className="w-4 h-4 mr-2" />Add USB Printer</>}
           </Button>
         )}
 

@@ -91,13 +91,7 @@ export default function BranchPublicPage() {
     enabled: !isNaN(id) && id > 0,
   });
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (isLoading) return null;
 
   if (isError || !branch) {
     return (

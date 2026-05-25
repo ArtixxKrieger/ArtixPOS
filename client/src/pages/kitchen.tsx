@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Clock, CheckCircle2, RefreshCw, Loader2, Monitor } from "lucide-react";
+import { ChefHat, Clock, CheckCircle2, RefreshCw, Monitor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 import { cn } from "@/lib/utils";
@@ -143,19 +143,13 @@ export default function KitchenPage() {
             aria-label="Refresh kitchen orders"
             className="gap-1.5 text-xs"
           >
-            {isFetching
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : <RefreshCw className="h-3.5 w-3.5" />}
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </Button>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : kitchenOrders.length === 0 ? (
+      {kitchenOrders.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
           <p className="font-semibold text-lg">All clear!</p>
@@ -263,9 +257,7 @@ export default function KitchenPage() {
                         disabled={updateMutation.isPending && updateMutation.variables?.id === order.id}
                         data-testid={`button-kitchen-advance-${order.id}`}
                       >
-                        {updateMutation.isPending && updateMutation.variables?.id === order.id
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : STATUS_CONFIG[status].nextLabel}
+                        {STATUS_CONFIG[status].nextLabel}
                       </Button>
                     </div>
                   );

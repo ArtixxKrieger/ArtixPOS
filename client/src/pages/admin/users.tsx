@@ -160,10 +160,7 @@ function InviteLinkDialog({ open, onClose }: { open: boolean; onClose: () => voi
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
                 <Button data-testid="button-generate-invite" type="submit" disabled={createInvite.isPending}>
-                  {createInvite.isPending
-                    ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
-                    : <><Link2 className="h-4 w-4 mr-2" /> Generate Link</>
-                  }
+                  {createInvite.isPending ? "Generating…" : <><Link2 className="h-4 w-4 mr-2" /> Generate Link</>}
                 </Button>
               </DialogFooter>
             </form>

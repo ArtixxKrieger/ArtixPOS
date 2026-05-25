@@ -3,7 +3,7 @@ import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, WifiOff, Loader2, Info } from "lucide-react";
+import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, WifiOff, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
@@ -519,7 +519,7 @@ export default function PrintSettings() {
                     disabled={testingBle}
                     data-testid="button-test-print-ble"
                   >
-                    {testingBle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    <Zap className="h-3 w-3" />
                     {testingBle ? "Printing…" : "Test"}
                   </Button>
                 )}
@@ -567,7 +567,7 @@ export default function PrintSettings() {
                         className="h-6 px-2 rounded-lg bg-primary/10 text-primary text-[10px] font-bold hover:bg-primary/20 transition-all disabled:opacity-40 shrink-0"
                         data-testid={`button-reconnect-${device.id}`}
                       >
-                        {isConnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Connect"}
+                        {isConnecting ? "Connecting…" : "Connect"}
                       </button>
                     )}
                   </div>
@@ -586,9 +586,7 @@ export default function PrintSettings() {
               disabled={bleScanning || scanningUsb}
               data-testid="button-scan-bluetooth"
             >
-              {bleScanning
-                ? <RefreshCw className="h-4 w-4 animate-spin" />
-                : <Bluetooth className="h-4 w-4" />}
+              <Bluetooth className="h-4 w-4" />
               {bleScanning ? "Scanning…" : blePrinter.name ? "Change Printer" : "Scan for Printer"}
             </Button>
             {pairedDevices.length === 0 && (
@@ -600,7 +598,7 @@ export default function PrintSettings() {
                 title="Refresh paired devices list"
                 data-testid="button-refresh-paired"
               >
-                {loadingPaired ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                <RefreshCw className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -644,7 +642,7 @@ export default function PrintSettings() {
                     disabled={testingUsb === printer.name}
                     data-testid={`button-test-print-usb-${printer.name.replace(/\s+/g, "-").toLowerCase()}`}
                   >
-                    {testingUsb === printer.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    <Zap className="h-3 w-3" />
                     {testingUsb === printer.name ? "Printing…" : "Test"}
                   </Button>
                 </div>
@@ -661,7 +659,7 @@ export default function PrintSettings() {
             disabled={bleScanning || scanningUsb}
             data-testid="button-scan-usb"
           >
-            {scanningUsb ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Usb className="h-4 w-4" />}
+            <Usb className="h-4 w-4" />
             {scanningUsb ? "Scanning…" : "Scan for USB Printer"}
           </Button>
         </div>

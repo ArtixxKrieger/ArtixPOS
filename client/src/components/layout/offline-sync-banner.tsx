@@ -105,7 +105,7 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
         aria-live="polite"
         className={`${baseClass} px-2.5 py-1 bg-primary/10 text-primary border-primary/25`}
       >
-        <RefreshCw className="h-2.5 w-2.5 animate-spin shrink-0" />
+        <RefreshCw className="h-2.5 w-2.5 shrink-0" />
         <span className="hidden sm:inline">
           {salesQueueCount > 0
             ? `Syncing ${salesQueueCount} sale${salesQueueCount !== 1 ? "s" : ""}…`

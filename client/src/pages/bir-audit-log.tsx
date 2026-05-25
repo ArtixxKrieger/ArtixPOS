@@ -170,7 +170,7 @@ export default function BirAuditLogPage() {
             data-testid="button-refresh-void-trail"
             className="gap-1.5 text-xs"
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </Button>
           <Button
@@ -326,12 +326,7 @@ export default function BirAuditLogPage() {
               ))}
             </div>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-16 text-muted-foreground/50 gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span className="text-xs font-medium">Verifying hashes…</span>
-              </div>
-            ) : filtered.length === 0 ? (
+            {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/40 gap-2">
                 <Trash2 className="h-8 w-8" strokeWidth={1.2} />
                 <p className="text-xs font-medium">

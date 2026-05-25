@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { APP_PAGES } from "@shared/nav-config";
 import { useLocation } from "wouter";
 import {
-  Send, Paperclip, Loader2, Sparkles, Trash2, FileText,
+  Send, Paperclip, Sparkles, Trash2, FileText,
   Plus, MessageSquare, ChevronLeft, Settings, Check, X, WifiOff,
   RotateCcw, RefreshCw, ShoppingCart,
 } from "lucide-react";
@@ -683,11 +683,7 @@ function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPay
         </p>
         <span className="text-[10px] text-muted-foreground">{filteredStaff.length} member{filteredStaff.length !== 1 ? "s" : ""}</span>
       </div>
-      {loading ? (
-        <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" /> Loading staff…
-        </div>
-      ) : filteredStaff.length === 0 ? (
+      {filteredStaff.length === 0 ? (
         <p className="text-xs text-muted-foreground py-2">No staff found{branch && branch !== "all" ? ` for "${branch}"` : ""}.</p>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -754,7 +750,7 @@ function CustomerOrdersCard({ name, currency, onReorder }: { name: string; curre
     return (
       <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 w-full">
         <div className="flex items-center gap-2 py-1 text-xs text-teal-700 dark:text-teal-400">
-          <Loader2 className="h-3 w-3 animate-spin" /> Looking up "{name}"…
+          Looking up "{name}"…
         </div>
       </div>
     );
@@ -918,11 +914,7 @@ function UndoChip({
       data-testid={testId ?? `button-undo-${variant}`}
       className={`group inline-flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full border text-xs font-semibold transition-all active:scale-95 disabled:opacity-60 shadow-sm ${colorClasses}`}
     >
-      {busy ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <RotateCcw className="h-3.5 w-3.5" />
-      )}
+      <RotateCcw className="h-3.5 w-3.5" />
       <span>{busy ? "Undoing…" : `Undo ${label}`}</span>
       <span className="ml-0.5 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-white/70 dark:bg-black/30 text-[10px] font-bold tabular-nums">
         {remainingSec}s
@@ -3116,7 +3108,7 @@ export default function AiPage() {
               className="h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
               title="Upload PDF or Excel"
             >
-              {uploadingFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+              <Paperclip className="h-4 w-4" />
             </button>
             <textarea
               ref={textareaRef}
@@ -3144,7 +3136,7 @@ export default function AiPage() {
                   : "bg-primary text-white shadow-sm hover:bg-primary/90 active:scale-95",
               ].join(" ")}
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              <Send className="h-3.5 w-3.5" />
             </button>
           </div>
           <p className="text-[10px] text-center text-muted-foreground/30 mt-1.5">

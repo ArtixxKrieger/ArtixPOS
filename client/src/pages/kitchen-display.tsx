@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { ChefHat, Clock, Maximize2, Minimize2, Volume2, VolumeX, Loader2, CheckCircle2, Wifi, WifiOff } from "lucide-react";
+import { ChefHat, Clock, Maximize2, Minimize2, Volume2, VolumeX, CheckCircle2, Wifi, WifiOff } from "lucide-react";
 import type { PendingOrder } from "@shared/schema";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 
@@ -207,11 +207,7 @@ export default function KitchenDisplayPage() {
 
       {/* Body */}
       <div className="flex-1 overflow-auto p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full py-24">
-            <Loader2 className="h-10 w-10 animate-spin text-white/30" />
-          </div>
-        ) : kitchenOrders.length === 0 ? (
+        {kitchenOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-24 text-white/20">
             <CheckCircle2 className="h-16 w-16 mb-4" strokeWidth={1} />
             <p className="text-2xl font-black">All clear!</p>
@@ -349,9 +345,7 @@ export default function KitchenDisplayPage() {
                                 cfg.btnClass
                               )}
                             >
-                              {updateMutation.isPending && updateMutation.variables?.id === order.id
-                                ? <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                : cfg.nextLabel}
+                              {cfg.nextLabel}
                             </button>
                           </div>
                         );

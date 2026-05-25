@@ -1288,7 +1288,7 @@ export default function POS() {
                   data-testid="input-barcode-scan"
                 />
                 {scanFlash && (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary animate-pulse pointer-events-none">
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary pointer-events-none">
                     {t("pos.scanning")}
                   </span>
                 )}

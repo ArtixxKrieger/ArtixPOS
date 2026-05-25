@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, ShoppingBag, Trash2, ChevronDown, ChevronUp, CheckCircle, XCircle,
   Package, TrendingUp, AlertTriangle, Clock, Calendar,
-  CreditCard, Loader2, Search, BarChart3,
+  CreditCard, Search, BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
@@ -447,7 +447,6 @@ export default function PurchasesPage() {
                               {PAYMENT_CONFIG[ps].label}
                             </button>
                           ))}
-                          {paymentMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                         </div>
                       </div>
                     )}
@@ -583,8 +582,7 @@ export default function PurchasesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-po">
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              <Package className="h-4 w-4 mr-1" /> {t("purchases.createOrder")}
+              <Package className="h-4 w-4 mr-1" /> {createMutation.isPending ? t("purchases.createOrder") + "…" : t("purchases.createOrder")}
             </Button>
           </DialogFooter>
         </DialogContent>

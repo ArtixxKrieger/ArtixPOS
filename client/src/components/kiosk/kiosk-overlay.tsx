@@ -228,21 +228,6 @@ export function KioskOverlay() {
         </div>
       )}
 
-      {/* ── Floating "kiosk active" badge (when enabled but unlocked) ───────── */}
-      {!isLocked && (
-        <div
-          className="fixed bottom-20 right-4 z-[9000] md:bottom-5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold text-white/80 pointer-events-none select-none"
-          style={{
-            background: "rgba(124,58,237,0.25)",
-            border: "1px solid rgba(124,58,237,0.4)",
-            backdropFilter: "blur(8px)",
-          }}
-          data-testid="kiosk-active-badge"
-        >
-          <div className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
-          Kiosk Active
-        </div>
-      )}
 
       <style>{`
         @keyframes kiosk-wiggle {

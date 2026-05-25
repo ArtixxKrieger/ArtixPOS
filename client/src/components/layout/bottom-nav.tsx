@@ -163,7 +163,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const { data: _settings } = useSettings();
   const { isFree } = useSubscription();
-  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
+  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, lock: lockKiosk, toggleFullscreen } = useKioskMode();
 
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
@@ -375,8 +375,9 @@ export function BottomNav() {
                 <button
                   onClick={() => {
                     setMoreOpen(false);
-                    setTimeout(() => enterKioskMode(), 300);
+                    setTimeout(() => isKioskEnabled ? lockKiosk() : enterKioskMode(), 300);
                   }}
+                  disabled={isKioskLocked}
                   data-testid="btn-kiosk-mode-mobile"
                   className={[
                     "flex-1 flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all duration-200 active:scale-95",

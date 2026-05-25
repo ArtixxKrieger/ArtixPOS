@@ -269,7 +269,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
-  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
+  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, lock: lockKiosk, toggleFullscreen } = useKioskMode();
 
   function toggleSidebar() {
     setSidebarCollapsed(prev => {
@@ -477,10 +477,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </button>
                 {isManagerOrAbove && (
                   <button
-                    onClick={enterKioskMode}
-                    aria-label="Enable Kiosk Mode"
+                    onClick={() => isKioskEnabled ? lockKiosk() : enterKioskMode()}
+                    disabled={isKioskLocked}
+                    aria-label={isKioskLocked ? "Locked" : isKioskEnabled ? "Lock screen" : "Enable Kiosk Mode"}
                     data-testid="btn-kiosk-mode-collapsed"
-                    title={isKioskLocked ? "Kiosk Locked" : isKioskEnabled ? "Kiosk Active" : "Enable Kiosk Mode"}
+                    title={isKioskLocked ? "Locked — use PIN on screen to unlock" : isKioskEnabled ? "Lock screen now" : "Enable Kiosk Mode"}
                     className={[
                       "w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200",
                       isKioskLocked
@@ -518,9 +519,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </button>
                   {isManagerOrAbove && (
                     <button
-                      onClick={enterKioskMode}
+                      onClick={() => isKioskEnabled ? lockKiosk() : enterKioskMode()}
+                      disabled={isKioskLocked}
                       data-testid="btn-kiosk-mode"
-                      title={isKioskLocked ? "Kiosk Locked" : isKioskEnabled ? "Kiosk Active" : "Enable Kiosk Mode"}
+                      title={isKioskLocked ? "Locked — use PIN on screen to unlock" : isKioskEnabled ? "Lock screen now" : "Enable Kiosk Mode"}
                       className={[
                         "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium border transition-all duration-200",
                         isKioskLocked
@@ -610,15 +612,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             {isManagerOrAbove && (
               <button
-                onClick={enterKioskMode}
+                onClick={() => isKioskEnabled ? lockKiosk() : enterKioskMode()}
+                disabled={isKioskLocked}
                 data-testid="btn-kiosk-mode-header"
-                title={isKioskLocked ? "Kiosk Locked" : isKioskEnabled ? "Kiosk Active" : "Enable Kiosk Mode"}
+                title={isKioskLocked ? "Locked — enter PIN on screen to unlock" : isKioskEnabled ? "Lock screen now" : "Enable Kiosk Mode"}
                 className={[
                   "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border transition-all duration-200",
                   isKioskLocked
-                    ? "text-violet-400 bg-violet-500/20 border-violet-500/40"
+                    ? "text-violet-400 bg-violet-500/20 border-violet-500/40 cursor-default"
                     : isKioskEnabled
-                    ? "text-violet-300 bg-violet-500/10 border-violet-500/25"
+                    ? "text-violet-300 bg-violet-500/10 border-violet-500/25 hover:bg-violet-500/20"
                     : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
                 ].join(" ")}
               >

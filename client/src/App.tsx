@@ -248,15 +248,63 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
 }
 
 const pageFallback = (
-  <div className="flex flex-col gap-4 p-5 w-full">
-    <PhantomLoader loading count={3} countGap={12}>
-      <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-        <div className="w-10 h-10 rounded-lg bg-muted flex-shrink-0" />
-        <div className="flex flex-col gap-2 flex-1">
-          <div className="h-3 w-3/5 rounded bg-muted" />
-          <div className="h-2.5 w-2/5 rounded bg-muted" />
+  <div className="p-4 w-full">
+    <PhantomLoader loading>
+      <div className="space-y-4">
+        {/* Hero card */}
+        <div className="rounded-3xl border border-border bg-card p-5 space-y-4">
+          <div className="space-y-2">
+            <div className="h-2.5 w-24 rounded bg-muted" />
+            <div className="h-9 w-36 rounded bg-muted" />
+            <div className="h-2.5 w-44 rounded bg-muted" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-border bg-muted/30 p-3.5 space-y-2">
+              <div className="h-2 w-14 rounded bg-muted" />
+              <div className="h-5 w-16 rounded bg-muted" />
+            </div>
+            <div className="rounded-2xl border border-border bg-muted/30 p-3.5 space-y-2">
+              <div className="h-2 w-14 rounded bg-muted" />
+              <div className="h-5 w-16 rounded bg-muted" />
+            </div>
+          </div>
         </div>
-        <div className="h-4 w-14 rounded bg-muted" />
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 gap-3">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="rounded-2xl border border-border bg-card p-4 space-y-2.5">
+              <div className="h-8 w-8 rounded-xl bg-muted" />
+              <div className="h-2.5 w-16 rounded bg-muted" />
+              <div className="h-5 w-12 rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        {/* Day-end summary */}
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-muted" />
+            <div className="h-3 w-28 rounded bg-muted" />
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {[0,1,2,3].map(i => (
+              <div key={i} className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5">
+                <div className="h-2 w-16 rounded bg-muted" />
+                <div className="h-3.5 w-20 rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Transaction rows */}
+        {[0,1,2].map(i => (
+          <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
+            <div className="h-8 w-8 rounded-lg bg-muted flex-shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 w-3/4 rounded bg-muted" />
+              <div className="h-2.5 w-1/2 rounded bg-muted" />
+            </div>
+            <div className="h-4 w-14 rounded bg-muted flex-shrink-0" />
+          </div>
+        ))}
       </div>
     </PhantomLoader>
   </div>
@@ -341,122 +389,17 @@ function LoadingScreen({ message }: { message?: string }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-[#f2f2f7] dark:bg-[#09090f]">
-      {/* Sidebar skeleton — desktop only */}
-      <div className="hidden md:flex flex-col w-[240px] min-w-[240px] h-full bg-white dark:bg-[#0f0f1a] border-r border-border px-4 py-5 gap-6">
-        {/* Logo row */}
-        <div className="flex items-center gap-2.5 pb-1">
-          <div className="w-9 h-9 rounded-[10px] bg-violet-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-sm font-black">A</span>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-2 w-14" />
-          </div>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#f2f2f7] dark:bg-[#09090f] overflow-y-auto">
+      {/* Minimal header — mirrors the real app header so the transition is seamless */}
+      <div className="flex items-center h-[52px] min-h-[52px] bg-white dark:bg-[#0f0f1a] border-b border-border px-4 gap-3 sticky top-0 z-10">
+        <div className="w-8 h-8 rounded-[10px] bg-violet-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-white text-xs font-black select-none">A</span>
         </div>
-        {/* Nav items */}
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-2 w-12 mb-1.5" />
-          {[70, 40, 58, 64].map((w, i) => (
-            <div key={i} className="flex items-center gap-2.5 h-9 px-2.5 rounded-[10px]">
-              <Skeleton className="w-[18px] h-[18px] rounded-md flex-shrink-0" />
-              <Skeleton className="h-2.5 rounded" style={{ width: w }} />
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-2 w-16 mb-1.5" />
-          {[52, 76, 60].map((w, i) => (
-            <div key={i} className="flex items-center gap-2.5 h-9 px-2.5 rounded-[10px]">
-              <Skeleton className="w-[18px] h-[18px] rounded-md flex-shrink-0" />
-              <Skeleton className="h-2.5 rounded" style={{ width: w }} />
-            </div>
-          ))}
-        </div>
-        {/* Bottom */}
-        <div className="mt-auto flex flex-col gap-2">
-          <Skeleton className="h-9 w-full rounded-[10px]" />
-          <div className="flex items-center gap-2 px-1.5 py-1.5">
-            <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
-            <div className="flex flex-col gap-1.5 flex-1">
-              <Skeleton className="h-2.5 w-20" />
-              <Skeleton className="h-2 w-14" />
-            </div>
-          </div>
-        </div>
+        <Skeleton className="h-3 w-20" />
+        <div className="flex-1" />
+        <Skeleton className="w-8 h-8 rounded-full" />
       </div>
-
-      {/* Main area */}
-      <div className="flex flex-col flex-1 h-full overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center h-[60px] min-h-[60px] bg-white dark:bg-[#0f0f1a] border-b border-border px-5 gap-3">
-          {/* Mobile: logo */}
-          <div className="flex items-center gap-2 md:hidden">
-            <div className="w-9 h-9 rounded-[10px] bg-violet-600 flex items-center justify-center">
-              <span className="text-white text-sm font-black">A</span>
-            </div>
-            <Skeleton className="h-3 w-18" />
-          </div>
-          {/* Desktop: page title */}
-          <Skeleton className="h-3.5 w-28 hidden md:block" />
-          <div className="flex-1" />
-          <Skeleton className="w-8 h-8 rounded-[9px]" />
-          <Skeleton className="w-8 h-8 rounded-[9px]" />
-          <Skeleton className="w-8 h-8 rounded-full" />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden p-5 flex flex-col gap-4">
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white dark:bg-[#13131f] border border-border rounded-[14px] p-4 flex flex-col gap-2.5">
-                <Skeleton className="h-2.5 w-[70%]" />
-                <Skeleton className="h-5 w-[55%]" />
-                <Skeleton className="h-2 w-[80%]" />
-              </div>
-            ))}
-          </div>
-
-          {/* Chart row */}
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 flex-1 min-h-0">
-            <div className="bg-white dark:bg-[#13131f] border border-border rounded-[14px] p-4 flex flex-col gap-3">
-              <div className="flex justify-between items-center">
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="h-5 w-14 rounded-full" />
-              </div>
-              <div className="flex-1 flex items-end gap-1.5 pt-2 min-h-[100px]">
-                {[45,72,58,88,62,79,95,70,83,55,91,67].map((h, i) => (
-                  <Skeleton key={i} className="flex-1 rounded-t-md rounded-b-none" style={{ height: `${h}%` }} />
-                ))}
-              </div>
-            </div>
-            <div className="bg-white dark:bg-[#13131f] border border-border rounded-[14px] p-4 flex flex-col gap-3">
-              <Skeleton className="h-3 w-24" />
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex items-center gap-2.5 py-2 border-b border-border last:border-0">
-                  <Skeleton className="w-8 h-8 rounded-[10px] flex-shrink-0" />
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <Skeleton className="h-2.5 w-[65%]" />
-                    <Skeleton className="h-2 w-[40%]" />
-                  </div>
-                  <Skeleton className="h-3 w-12" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom nav — mobile only */}
-        <div className="flex md:hidden bg-white dark:bg-[#0f0f1a] border-t border-border px-2 py-2 gap-1">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-1.5">
-              <Skeleton className="w-5 h-5 rounded-md" />
-              <Skeleton className="h-2 w-7" />
-            </div>
-          ))}
-        </div>
-      </div>
+      {pageFallback}
     </div>
   );
 }

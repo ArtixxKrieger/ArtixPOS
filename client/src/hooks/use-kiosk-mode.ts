@@ -26,12 +26,6 @@ export function useKioskMode() {
   }, []);
 
   useEffect(() => {
-    if (isActive && !document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
-  }, [isActive, isFullscreen]);
-
-  useEffect(() => {
     if (!isActive) return;
 
     function blockKeys(e: KeyboardEvent) {
@@ -85,18 +79,22 @@ export function useKioskMode() {
   const enterKioskMode = useCallback(() => {
     try { localStorage.setItem(KIOSK_ACTIVE_KEY, "1"); } catch {}
     setIsActive(true);
-    document.documentElement.requestFullscreen().catch(() => {});
   }, []);
 
   const exitKioskMode = useCallback((pin: string): boolean => {
     if (pin !== getPin()) return false;
     try { localStorage.removeItem(KIOSK_ACTIVE_KEY); } catch {}
     setIsActive(false);
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
     return true;
   }, [getPin]);
 
-  return { isActive, isFullscreen, enterKioskMode, exitKioskMode, getPin, setPin };
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  return { isActive, isFullscreen, enterKioskMode, exitKioskMode, toggleFullscreen, getPin, setPin };
 }

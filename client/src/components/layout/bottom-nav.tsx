@@ -6,7 +6,7 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi, Lock,
+  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi, Lock, Maximize, Minimize,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -163,7 +163,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const { data: _settings } = useSettings();
   const { isFree } = useSubscription();
-  const { isActive: isKioskActive, enterKioskMode } = useKioskMode();
+  const { isActive: isKioskActive, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
 
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
@@ -350,9 +350,28 @@ export function BottomNav() {
 
           <div className="overflow-y-auto" style={{ maxHeight: "calc(72dvh - env(safe-area-inset-bottom, 0px))" }}>
 
-            {/* Kiosk Mode button — managers/owners only */}
-            {isManagerOrAbove && (
-              <div className="px-4 pt-3 pb-1">
+            {/* Fullscreen + Lock buttons */}
+            <div className="px-4 pt-3 pb-1 flex gap-2">
+              {/* Fullscreen — always visible */}
+              <button
+                onClick={() => {
+                  setMoreOpen(false);
+                  setTimeout(() => toggleFullscreen(), 300);
+                }}
+                data-testid="btn-fullscreen-mobile"
+                className="flex-1 flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl border bg-muted/60 border-border text-foreground hover:bg-muted active:scale-95 transition-all duration-200"
+              >
+                {isFullscreen
+                  ? <Minimize className="h-5 w-5 text-muted-foreground" />
+                  : <Maximize className="h-5 w-5 text-muted-foreground" />
+                }
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  {isFullscreen ? "Exit Full" : "Fullscreen"}
+                </span>
+              </button>
+
+              {/* Lock / Kiosk — managers/owners only */}
+              {isManagerOrAbove && (
                 <button
                   onClick={() => {
                     setMoreOpen(false);
@@ -360,32 +379,22 @@ export function BottomNav() {
                   }}
                   data-testid="btn-kiosk-mode-mobile"
                   className={[
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-200 active:scale-[0.98]",
+                    "flex-1 flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all duration-200 active:scale-95",
                     isKioskActive
-                      ? "bg-violet-500/15 border-violet-500/30 text-violet-500"
-                      : "bg-muted/60 border-border text-foreground hover:bg-muted",
+                      ? "bg-violet-500/15 border-violet-500/30"
+                      : "bg-muted/60 border-border hover:bg-muted",
                   ].join(" ")}
                 >
-                  <div className={[
-                    "h-9 w-9 rounded-xl flex items-center justify-center shrink-0",
-                    isKioskActive ? "bg-violet-500/20" : "bg-violet-500/10",
+                  <Lock className={isKioskActive ? "h-5 w-5 text-violet-500" : "h-5 w-5 text-muted-foreground"} />
+                  <span className={[
+                    "text-[11px] font-semibold",
+                    isKioskActive ? "text-violet-500" : "text-muted-foreground",
                   ].join(" ")}>
-                    <Lock className="h-4 w-4 text-violet-500" />
-                  </div>
-                  <div className="text-left flex-1">
-                    <p className="text-sm font-semibold">Kiosk Mode</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Lock screen fullscreen · PIN to exit
-                    </p>
-                  </div>
-                  {isKioskActive && (
-                    <span className="text-[10px] font-bold bg-violet-500/15 text-violet-500 px-2 py-0.5 rounded-full border border-violet-500/20 shrink-0">
-                      ACTIVE
-                    </span>
-                  )}
+                    {isKioskActive ? "Locked" : "Lock"}
+                  </span>
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Categorised nav sections */}
             {grouped.map((group) => (

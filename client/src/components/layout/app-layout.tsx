@@ -9,7 +9,7 @@ import {
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
-  PanelLeftClose, PanelLeftOpen, Lock,
+  PanelLeftClose, PanelLeftOpen, Lock, Maximize, Minimize,
 } from "lucide-react";
 import { useKioskMode } from "@/hooks/use-kiosk-mode";
 import { KioskOverlay } from "@/components/kiosk/kiosk-overlay";
@@ -269,7 +269,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
-  const { isActive: isKioskActive, enterKioskMode } = useKioskMode();
+  const { isActive: isKioskActive, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
 
   function toggleSidebar() {
     setSidebarCollapsed(prev => {
@@ -466,12 +466,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </div>
                 )}
                 <NotificationBell />
+                <button
+                  onClick={toggleFullscreen}
+                  aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                  data-testid="btn-fullscreen-collapsed"
+                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center border border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+                >
+                  {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
+                </button>
                 {isManagerOrAbove && (
                   <button
                     onClick={enterKioskMode}
                     aria-label="Enable Kiosk Mode"
                     data-testid="btn-kiosk-mode-collapsed"
-                    title="Enable Kiosk Mode"
+                    title="Lock — Kiosk Mode"
                     className={[
                       "w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200",
                       isKioskActive
@@ -495,21 +504,33 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                {isManagerOrAbove && (
+                <div className="flex gap-1.5">
                   <button
-                    onClick={enterKioskMode}
-                    data-testid="btn-kiosk-mode"
-                    className={[
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-medium border transition-all duration-200",
-                      isKioskActive
-                        ? "text-violet-400 bg-violet-500/10 border-violet-500/25"
-                        : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
-                    ].join(" ")}
+                    onClick={toggleFullscreen}
+                    data-testid="btn-fullscreen"
+                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium border border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
                   >
-                    <Lock className="h-3.5 w-3.5 shrink-0" />
-                    <span>Kiosk Mode</span>
+                    {isFullscreen ? <Minimize className="h-3.5 w-3.5 shrink-0" /> : <Maximize className="h-3.5 w-3.5 shrink-0" />}
+                    <span>{isFullscreen ? "Exit Full" : "Fullscreen"}</span>
                   </button>
-                )}
+                  {isManagerOrAbove && (
+                    <button
+                      onClick={enterKioskMode}
+                      data-testid="btn-kiosk-mode"
+                      title="Lock — Kiosk Mode"
+                      className={[
+                        "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium border transition-all duration-200",
+                        isKioskActive
+                          ? "text-violet-400 bg-violet-500/10 border-violet-500/25"
+                          : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
+                      ].join(" ")}
+                    >
+                      <Lock className="h-3.5 w-3.5 shrink-0" />
+                      <span>Lock</span>
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
                   {user.avatar ? (
                     <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
@@ -574,11 +595,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             <OfflineSyncBanner status={onlineStatus} />
 
+            <button
+              onClick={toggleFullscreen}
+              data-testid="btn-fullscreen-header"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+            >
+              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            </button>
+
             {isManagerOrAbove && (
               <button
                 onClick={enterKioskMode}
                 data-testid="btn-kiosk-mode-header"
-                title="Enable Kiosk Mode"
+                title="Lock — Kiosk Mode"
                 className={[
                   "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border transition-all duration-200",
                   isKioskActive

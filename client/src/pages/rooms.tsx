@@ -15,6 +15,7 @@ import { insertServiceRoomSchema, type ServiceRoom } from "@shared/schema";
 import { DoorOpen, Plus, Edit, Trash2, CheckCircle2, XCircle, Wrench } from "lucide-react";
 import { PhantomLoader } from "@/components/ui/phantom-loader";
 import { useSettings } from "@/hooks/use-settings";
+import { useGridSkeletonCount } from "@/hooks/use-skeleton-count";
 
 const ROOM_TYPES: Record<string, { label: string; emoji: string }> = {
   room: { label: "Room", emoji: "🚪" },
@@ -185,6 +186,8 @@ export default function RoomsPage() {
   const pageDesc = subType === "salon" ? "Manage styling chairs and workstations" : subType === "gym" ? "Manage courts, lanes, and equipment areas" : "Manage treatment rooms and service stations";
 
   const { data: rooms = [], isLoading } = useQuery<ServiceRoom[]>({ queryKey: ["/api/service-rooms"] });
+  // Rooms grid: 1 col on mobile, 2 cols on sm; h-28 cards + gap-3 = ~128px/row
+  const roomSkeletonCount = useGridSkeletonCount({ 0: 1, 640: 2 }, 128, 220);
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
@@ -244,7 +247,7 @@ export default function RoomsPage() {
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[1,2,3,4].map((i) => (
+          {[...Array(roomSkeletonCount)].map((_, i) => (
             <PhantomLoader key={i}>
               <div className="h-28 rounded-2xl border border-border bg-card flex flex-col justify-between p-4">
                 <div className="font-semibold">Room Name</div>

@@ -179,14 +179,12 @@ function SupplierDetailSheet({
         {/* Stats row */}
         <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
           {statsLoading ? (
-            [...Array(3)].map((_, i) => (
-              <PhantomLoader key={i}>
+            <PhantomLoader count={3} countGap={0}>
                 <div className="h-16 flex flex-col items-center justify-center gap-1 p-4">
                   <div className="text-xl font-bold">000</div>
                   <div className="text-xs text-muted-foreground">Stat label</div>
                 </div>
-              </PhantomLoader>
-            ))
+            </PhantomLoader>
           ) : (
             <>
               <div className="p-4 text-center">

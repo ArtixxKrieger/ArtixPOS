@@ -1,31 +1,43 @@
 import { useMemo } from "react";
 
+/**
+ * Reads the shimmer palette from CSS custom properties already defined in
+ * index.css (--shimmer-base / --shimmer-hi). Falls back to computing from
+ * --primary only when those vars are absent.
+ *
+ * Previous approach multiplied lightness by 0.16 in dark mode, collapsing
+ * both base and highlight to ≈10 % L — visually indistinguishable from the
+ * page background (pure black blocks with no visible shimmer).
+ */
 function derivePhantomColors(): { shimmerColor: string; bgColor: string } {
   if (typeof window === "undefined") return { shimmerColor: "", bgColor: "" };
 
-  const root = document.documentElement;
-  const raw = getComputedStyle(root).getPropertyValue("--primary").trim();
-  if (!raw) return { shimmerColor: "", bgColor: "" };
+  const styles = getComputedStyle(document.documentElement);
 
+  // Prefer the explicit CSS vars — they're always correctly contrasted for
+  // both light and dark mode and need no extra math.
+  const base = styles.getPropertyValue("--shimmer-base").trim();
+  const hi   = styles.getPropertyValue("--shimmer-hi").trim();
+  if (base && hi) return { bgColor: base, shimmerColor: hi };
+
+  // Fallback: derive from the brand primary hue with safe fixed lightness.
+  const raw = styles.getPropertyValue("--primary").trim();
   const parts = raw.split(/\s+/);
   if (parts.length < 3) return { shimmerColor: "", bgColor: "" };
-
   const h = Number(parts[0]);
   const s = parseFloat(parts[1]);
-  const l = parseFloat(parts[2]);
-  if (isNaN(h) || isNaN(s) || isNaN(l)) return { shimmerColor: "", bgColor: "" };
+  if (isNaN(h) || isNaN(s)) return { shimmerColor: "", bgColor: "" };
 
-  const isDark = root.classList.contains("dark");
-
+  const isDark = document.documentElement.classList.contains("dark");
   if (isDark) {
     return {
-      bgColor: `hsl(${h} ${Math.round(s * 0.3)}% ${Math.round(l * 0.16)}%)`,
-      shimmerColor: `hsl(${h} ${Math.round(s * 0.55)}% ${Math.round(l * 0.38)}%)`,
+      bgColor:      `hsl(${h} ${Math.round(s * 0.08)}% 13%)`,
+      shimmerColor: `hsl(${h} ${Math.round(s * 0.12)}% 19%)`,
     };
   }
   return {
-    bgColor: `hsl(${h} ${Math.round(s * 0.12)}% 93%)`,
-    shimmerColor: `hsl(${h} ${Math.round(s * 0.3)}% 80%)`,
+    bgColor:      `hsl(${h} ${Math.round(s * 0.08)}% 91%)`,
+    shimmerColor: `hsl(${h} ${Math.round(s * 0.12)}% 96%)`,
   };
 }
 

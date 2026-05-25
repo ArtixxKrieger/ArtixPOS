@@ -8,25 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, Utensils, ShoppingBag, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { PhantomLoader } from "@/components/ui/phantom-loader";
+import { useViewportSkeletonCount } from "@/hooks/use-skeleton-count";
 
-// Dynamically compute how many dummy order cards fill the viewport.
-// Each order card is approximately 220px tall + 16px gap.
-function useOrderSkeletonCount(): number {
-  const calc = () => {
-    const cardH = 236; // approx order card height + gap
-    const availH = window.innerHeight - 180;
-    return Math.max(2, Math.ceil(availH / cardH));
-  };
-  const [count, setCount] = useState(calc);
-  useEffect(() => {
-    const handler = () => setCount(calc());
-    window.addEventListener("resize", handler, { passive: true });
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  return count;
-}
 
 interface OrderItem {
   quantity: number;
@@ -79,7 +64,8 @@ function makeDummyOrders(count: number): PendingOrder[] {
 
 export default function PendingOrders() {
   const { data: orders = [], isLoading } = usePendingOrders();
-  const orderSkeletonCount = useOrderSkeletonCount();
+  // Each order card is ~220px tall + 16px gap
+  const orderSkeletonCount = useViewportSkeletonCount(236, 180);
   const displayOrders = isLoading ? makeDummyOrders(orderSkeletonCount) : orders as PendingOrder[];
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();

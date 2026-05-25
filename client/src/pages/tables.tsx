@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -11,26 +11,8 @@ import { Plus, LayoutGrid, Pencil, Trash2, Users, Check, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import type { Table } from "@shared/schema";
 import { PhantomLoader } from "@/components/ui/phantom-loader";
+import { useGridSkeletonCount } from "@/hooks/use-skeleton-count";
 
-// Dynamically compute how many table skeleton cards fill the viewport.
-// grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 + h-36 cards + gap-4
-function useTableSkeletonCount(): number {
-  const calc = () => {
-    const w = window.innerWidth;
-    const cols = w >= 1280 ? 5 : w >= 768 ? 4 : w >= 640 ? 3 : 2;
-    const rowH = 160; // h-36 (144px) + gap-4 (16px)
-    const availH = window.innerHeight - 250;
-    const rows = Math.max(2, Math.ceil(availH / rowH));
-    return cols * rows;
-  };
-  const [count, setCount] = useState(calc);
-  useEffect(() => {
-    const handler = () => setCount(calc());
-    window.addEventListener("resize", handler, { passive: true });
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  return count;
-}
 
 const STATUS_CONFIG = {
   available: { label: "Available", class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
@@ -51,7 +33,8 @@ export default function TablesPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: tables = [], isLoading } = useQuery<Table[]>({ queryKey: ["/api/tables"] });
-  const tableSkeletonCount = useTableSkeletonCount();
+  // Tables grid: sm=640→3, md=768→4, lg=1280→5; h-36 cards + gap-4 = ~160px/row
+  const tableSkeletonCount = useGridSkeletonCount({ 0: 2, 640: 3, 768: 4, 1280: 5 }, 160, 250);
 
   const createMutation = useMutation({
     mutationFn: (data: TableForm) => apiRequest("POST", "/api/tables", data),

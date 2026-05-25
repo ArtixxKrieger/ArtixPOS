@@ -40,6 +40,7 @@ import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { ConfettiBurst } from "@/components/confetti";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 import { PhantomLoader } from "@/components/ui/phantom-loader";
+import { useGridSkeletonCount } from "@/hooks/use-skeleton-count";
 
 // ── Responsive column count for the POS product grid ─────────────────────────
 // Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
@@ -57,26 +58,6 @@ function useGridCols(): 2 | 3 | 4 {
   return cols;
 }
 
-// ── Dynamic skeleton count ────────────────────────────────────────────────────
-// Calculates how many product skeleton cards are needed to fill the visible
-// product grid area. Matches the virtualizer's estimateSize (260px/row) and
-// subtracts the approximate header area so the skeleton tiles the viewport.
-function useProductSkeletonCount(cols: 2 | 3 | 4): number {
-  const calc = (c: number) => {
-    const rowH = 260;
-    const availH = window.innerHeight - 200;
-    const rows = Math.max(2, Math.ceil(availH / rowH));
-    return c * rows;
-  };
-  const [count, setCount] = useState(() => calc(cols));
-  useEffect(() => {
-    setCount(calc(cols));
-    const handler = () => setCount(calc(cols));
-    window.addEventListener("resize", handler, { passive: true });
-    return () => window.removeEventListener("resize", handler);
-  }, [cols]);
-  return count;
-}
 
 // ── Memoized product card — stable reference prevents unnecessary re-renders ──
 type ProductCardProps = {
@@ -320,7 +301,8 @@ export default function POS() {
   // With 1 000 products @ 4 cols = 250 rows; we render ≈ 9-12 at a time.
   const productScrollRef = useRef<HTMLDivElement>(null);
   const cols = useGridCols();
-  const skeletonCount = useProductSkeletonCount(cols);
+  // POS grid: sm=640→3cols, lg=1024→4cols; row height matches virtualizer estimateSize
+  const skeletonCount = useGridSkeletonCount({ 0: 2, 640: 3, 1024: 4 }, 260, 200);
   const rowCount = Math.ceil(filteredProducts.length / cols);
   const rowVirtualizer = useVirtualizer({
     count: rowCount,

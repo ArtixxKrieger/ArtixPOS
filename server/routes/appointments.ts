@@ -64,27 +64,25 @@ export function registerAppointmentRoutes(app: Express): void {
       const appt = await storage.createAppointment(uid, input);
       await auditLog(req, "create", "appointment", String(appt.id), { title: appt.title, customerId: appt.customerId });
 
-      // Push notification — fire-and-forget so it never delays the response
-      setImmediate(async () => {
-        try {
-          const { sendPushToUsers } = await import("../push");
-          const { db: _db } = await import("../db");
-          const { users } = await import("@shared/schema");
-          const { eq } = await import("drizzle-orm");
-          const [owner] = await _db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, uid));
-          if (!owner?.tenantId) return;
-          const tenantUsers = await _db.select({ id: users.id }).from(users).where(eq(users.tenantId, owner.tenantId));
-          const timeStr = appt.startTime
-            ? new Date(appt.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "";
-          await sendPushToUsers(tenantUsers.map(u => u.id), {
-            title: `📅 New Appointment: ${appt.title ?? "Untitled"}`,
-            body:  timeStr ? `Scheduled for ${timeStr}` : "A new appointment has been booked.",
-            tag:   `appt-${appt.id}`,
-            url:   "/appointments",
-          });
-        } catch {}
-      });
+      // Push notification — fire-and-forget so it never delays the response.
+      // tenantId comes directly from the JWT on req.user — no extra DB round-trip needed.
+      const tenantId = (req.user as any)?.tenantId as string | null;
+      if (tenantId) {
+        setImmediate(async () => {
+          try {
+            const { sendPushToTenant } = await import("../push");
+            const timeStr = appt.startTime
+              ? new Date(appt.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "";
+            await sendPushToTenant(tenantId, {
+              title: `📅 New Appointment: ${appt.title ?? "Untitled"}`,
+              body:  timeStr ? `Scheduled for ${timeStr}` : "A new appointment has been booked.",
+              tag:   `appt-${appt.id}`,
+              url:   "/appointments",
+            });
+          } catch {}
+        });
+      }
 
       res.status(201).json(appt);
     } catch (err) {

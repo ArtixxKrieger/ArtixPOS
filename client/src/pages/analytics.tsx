@@ -480,7 +480,7 @@ function FreeAnalyticsView({
 
 /* ── Main Component ──────────────────────────────── */
 export default function Analytics() {
-  const { data: sales = [] } = useSales() as { data: Sale[] | undefined };
+  const { data: sales = [], isLoading } = useSales() as { data: Sale[] | undefined; isLoading: boolean };
   const { data: settings } = useSettings() as { data: UserSetting | null | undefined };
   const { isFree } = useSubscription();
   const currency = settings?.currency || "₱";

@@ -17,6 +17,8 @@ import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useDeleteSale } from "@/hooks/use-sales";
 import { type UserSetting } from "@shared/schema";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 type SaleItem = {
   cartId?: string;
@@ -83,11 +85,11 @@ const PAYMENT_COLORS: Record<string, string> = {
 };
 
 export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
-  const { data: settings } = useSettings();
+  const { data: settings, isLoading: settingsLoading } = useSettings();
   const currency = settings?.currency || "₱";
   const { toast } = useToast();
   const { isManagerOrAbove } = useAuth();
-  const { data: perms } = useMyPermissions();
+  const { data: perms, isLoading: permsLoading } = useMyPermissions();
   const { printer: blePrinter, print: blePrint } = useBlePrinter();
   const [showRefund, setShowRefund] = useState(false);
   const [refundReason, setRefundReason] = useState("");
@@ -406,6 +408,19 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
                 Order Items · {items.length} {items.length === 1 ? "item" : "items"}
               </p>
+              {settingsLoading ? (
+                <div className="space-y-2">
+                  <PhantomLoader count={items.length || 2} countGap={8}>
+                    <div className="glass-card rounded-xl p-3 h-16 flex items-start justify-between gap-2">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="font-semibold text-sm">Product name</div>
+                        <div className="text-xs text-muted-foreground">Modifier · Note</div>
+                      </div>
+                      <div className="text-sm font-bold text-primary shrink-0">₱0.00</div>
+                    </div>
+                  </PhantomLoader>
+                </div>
+              ) : (
               <div className="space-y-2">
                 {items.map((item, i) => {
                   const itemPrice = parseNumeric(item.size?.price ?? item.product?.price ?? 0);
@@ -454,10 +469,11 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
                   );
                 })}
               </div>
+              )}
             </div>
 
             {/* Notes */}
-            {sale.notes && (
+            {!settingsLoading && sale.notes && (
               <div className="glass-card rounded-xl p-3">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Order Note</p>
                 <p className="text-sm text-foreground/80">{sale.notes}</p>
@@ -465,51 +481,69 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             )}
 
             {/* Payment breakdown */}
-            <div className="glass-card rounded-xl p-3 space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Payment Summary</p>
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span className="tabular-nums font-medium">{formatCurrency(subtotal, currency)}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-rose-600 dark:text-rose-400">
-                    <span className="flex items-center gap-1">
-                      Discount {sale.discountCode && (
-                        <code className="text-[9px] bg-rose-500/10 px-1.5 py-0.5 rounded font-mono">
-                          {sale.discountCode}
-                        </code>
-                      )}
-                    </span>
-                    <span className="tabular-nums font-medium">-{formatCurrency(discount, currency)}</span>
-                  </div>
-                )}
-                {tax > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>{settings?.taxRate ? `VAT (${settings.taxRate}%)` : "VAT"}</span>
-                    <span className="tabular-nums font-medium">{formatCurrency(tax, currency)}</span>
-                  </div>
-                )}
-                <div className="pt-1.5 border-t border-border flex justify-between font-bold text-base">
-                  <span>Total</span>
-                  <span className="tabular-nums text-primary">{formatCurrency(total, currency)}</span>
-                </div>
-                {paymentAmount > 0 && (
-                  <>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Amount Paid</span>
-                      <span className="tabular-nums font-medium">{formatCurrency(paymentAmount, currency)}</span>
+            {settingsLoading ? (
+              <div className="glass-card rounded-xl p-3 space-y-2">
+                <Skeleton className="h-3 w-28" />
+                <div className="space-y-2 pt-1">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex justify-between items-center">
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-3 w-16" />
                     </div>
-                    {changeAmount > 0 && (
-                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                        <span>Change</span>
-                        <span className="tabular-nums font-medium">{formatCurrency(changeAmount, currency)}</span>
-                      </div>
-                    )}
-                  </>
-                )}
+                  ))}
+                  <div className="pt-2 border-t border-border flex justify-between items-center">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="glass-card rounded-xl p-3 space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Payment Summary</p>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span className="tabular-nums font-medium">{formatCurrency(subtotal, currency)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-rose-600 dark:text-rose-400">
+                      <span className="flex items-center gap-1">
+                        Discount {sale.discountCode && (
+                          <code className="text-[9px] bg-rose-500/10 px-1.5 py-0.5 rounded font-mono">
+                            {sale.discountCode}
+                          </code>
+                        )}
+                      </span>
+                      <span className="tabular-nums font-medium">-{formatCurrency(discount, currency)}</span>
+                    </div>
+                  )}
+                  {tax > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>{settings?.taxRate ? `VAT (${settings.taxRate}%)` : "VAT"}</span>
+                      <span className="tabular-nums font-medium">{formatCurrency(tax, currency)}</span>
+                    </div>
+                  )}
+                  <div className="pt-1.5 border-t border-border flex justify-between font-bold text-base">
+                    <span>Total</span>
+                    <span className="tabular-nums text-primary">{formatCurrency(total, currency)}</span>
+                  </div>
+                  {paymentAmount > 0 && (
+                    <>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Amount Paid</span>
+                        <span className="tabular-nums font-medium">{formatCurrency(paymentAmount, currency)}</span>
+                      </div>
+                      {changeAmount > 0 && (
+                        <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                          <span>Change</span>
+                          <span className="tabular-nums font-medium">{formatCurrency(changeAmount, currency)}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}
@@ -526,8 +560,15 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             </div>
           )}
 
+          {/* Skeleton for permission-gated actions while perms load */}
+          {permsLoading && !isVoided && (
+            <div className="px-5 pb-5 space-y-2">
+              <Skeleton className="w-full h-10 rounded-xl" />
+            </div>
+          )}
+
           {/* Refund footer — only for manager/owner with canRefund permission */}
-          {canRefund && !isVoided && (
+          {!permsLoading && canRefund && !isVoided && (
             <div className="px-5 pb-2">
               {isAlreadyRefunded ? (
                 <div className="w-full h-10 rounded-xl flex items-center justify-center gap-2 bg-rose-500/8 border border-rose-500/15 text-rose-500 text-sm font-medium">
@@ -548,7 +589,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
           )}
 
           {/* Void footer — only for managers/owners on non-voided sales */}
-          {canVoid && !isVoided && !isAlreadyRefunded && (
+          {!permsLoading && canVoid && !isVoided && !isAlreadyRefunded && (
             <div className="px-5 pb-5">
               <Button
                 variant="outline"

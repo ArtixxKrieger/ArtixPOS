@@ -149,7 +149,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
   const [manualDelta, setManualDelta] = useState("");
   const [manualNote, setManualNote] = useState("");
 
-  const { data: pointsLog = [] } = useQuery<LoyaltyPointsLog[]>({
+  const { data: pointsLog = [], isLoading: pointsLoading } = useQuery<LoyaltyPointsLog[]>({
     queryKey: ["/api/customers", customer.id, "loyalty-log"],
     queryFn: async () => {
       const r = await fetch(`/api/customers/${customer.id}/loyalty-log`, { credentials: "include" });
@@ -157,9 +157,9 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
     },
   });
 
-  const { data: rewards = [] } = useQuery<LoyaltyReward[]>({ queryKey: ["/api/loyalty/rewards"] });
+  const { data: rewards = [], isLoading: rewardsLoading } = useQuery<LoyaltyReward[]>({ queryKey: ["/api/loyalty/rewards"] });
 
-  const { data: sales = [] } = useQuery<any[]>({
+  const { data: sales = [], isLoading: salesLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customer.id, "sales"],
     queryFn: async () => {
       const r = await fetch(`/api/customers/${customer.id}/sales`, { credentials: "include" });
@@ -270,7 +270,19 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
             {/* Purchase history */}
             <div className="bg-card rounded-2xl border border-border/30 overflow-hidden">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1.5">Recent Purchases</p>
-              {sales.length === 0 ? (
+              {salesLoading ? (
+                <div className="px-3 pb-3 space-y-2 pt-1">
+                  <PhantomLoader count={3} countGap={8}>
+                    <div className="flex items-center justify-between py-2.5 border-t border-border/20 first:border-0">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold">Jan 1, 2024</div>
+                        <div className="text-[10px] text-muted-foreground">3 items</div>
+                      </div>
+                      <div className="font-bold text-primary text-sm">₱0.00</div>
+                    </div>
+                  </PhantomLoader>
+                </div>
+              ) : sales.length === 0 ? (
                 <div className="py-6 text-center text-muted-foreground text-xs">No purchases yet</div>
               ) : sales.slice(0, 5).map((s: any) => (
                 <div key={s.id} className="flex items-center justify-between px-3 py-2.5 border-t border-border/20">
@@ -310,7 +322,23 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
 
         {tab === "history" && (
           <>
-            {pointsLog.length === 0 ? (
+            {pointsLoading ? (
+              <div className="space-y-2">
+                <PhantomLoader count={4} countGap={8}>
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-card border border-border/20">
+                    <div className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center shrink-0" />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold">+0 pts</span>
+                        <span className="text-[10px] bg-muted/50 rounded-md px-1.5 py-0.5">bal: 0</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60">Purchase</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/40 shrink-0">Jan 1, 12:00 PM</p>
+                  </div>
+                </PhantomLoader>
+              </div>
+            ) : pointsLog.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <History className="h-8 w-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm font-medium">No points history yet</p>
@@ -348,7 +376,22 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
               </div>
             </div>
 
-            {activeRewards.length === 0 ? (
+            {rewardsLoading ? (
+              <div className="space-y-2">
+                <PhantomLoader count={3} countGap={8}>
+                  <div className="bg-card rounded-2xl p-3 flex items-center gap-3 border border-border/20">
+                    <div className="h-10 w-10 rounded-xl bg-muted shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="font-bold text-sm">Reward name</div>
+                      <div className="text-[11px] text-muted-foreground">10% off</div>
+                    </div>
+                    <div className="shrink-0 text-right space-y-1">
+                      <div className="text-xs font-black text-primary">100 pts</div>
+                    </div>
+                  </div>
+                </PhantomLoader>
+              </div>
+            ) : activeRewards.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Gift className="h-8 w-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm">No rewards catalog yet</p>

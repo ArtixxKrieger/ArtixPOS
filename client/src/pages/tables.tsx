@@ -95,7 +95,13 @@ export default function TablesPage() {
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-36 rounded-2xl bg-muted animate-pulse" />
+            <phantom-ui key={i} loading>
+              <div className="h-36 rounded-2xl border border-border bg-card flex flex-col items-center justify-center gap-2 p-3">
+                <div className="h-5 w-5 rounded bg-muted/30" />
+                <span className="text-sm font-semibold">Table Name</span>
+                <span className="text-xs text-muted-foreground">0 seats</span>
+              </div>
+            </phantom-ui>
           ))}
         </div>
       ) : tables.length === 0 ? (

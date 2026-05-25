@@ -480,7 +480,16 @@ export default function MembershipsPage() {
           </div>
 
           {membersLoading ? (
-            <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-24 bg-muted/40 rounded-2xl animate-pulse" />)}</div>
+            <phantom-ui loading count={3} count-gap={12}>
+              <div className="h-24 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
+                <div className="h-10 w-10 rounded-full bg-muted/30 shrink-0" />
+                <div className="flex-1">
+                  <div className="font-semibold">Member Name</div>
+                  <div className="text-sm text-muted-foreground">Gold Plan · Expires Jan 1</div>
+                </div>
+                <div className="text-xs font-bold">Active</div>
+              </div>
+            </phantom-ui>
           ) : filteredMembers.length === 0 ? (
             <div className="text-center py-14">
               <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">

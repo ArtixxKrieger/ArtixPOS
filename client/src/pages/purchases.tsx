@@ -330,7 +330,18 @@ export default function PurchasesPage() {
 
       {/* List */}
       {isLoading ? (
-        <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />)}</div>
+        <phantom-ui loading count={3} count-gap={12}>
+          <div className="h-20 rounded-2xl border border-border bg-card flex items-center gap-4 px-4">
+            <div className="flex-1">
+              <div className="font-semibold">Supplier Name — PO #000</div>
+              <div className="text-sm text-muted-foreground">Jan 1, 2024 · 5 items</div>
+            </div>
+            <div className="text-right">
+              <div className="font-bold">$000.00</div>
+              <div className="text-xs text-muted-foreground">Pending</div>
+            </div>
+          </div>
+        </phantom-ui>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingBag className="h-10 w-10 mx-auto mb-3 opacity-30" />

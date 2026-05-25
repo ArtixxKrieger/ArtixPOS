@@ -1199,7 +1199,12 @@ export default function POS() {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[...Array(8)].map((_, i) => (
-          <div key={i} className="aspect-[3/4] bg-muted rounded-3xl animate-pulse" />
+          <phantom-ui key={i} loading>
+            <div className="aspect-[3/4] rounded-3xl border border-border bg-card flex flex-col justify-end p-3 gap-1">
+              <div className="font-semibold text-sm">Product Name</div>
+              <div className="text-xs text-muted-foreground">$0.00</div>
+            </div>
+          </phantom-ui>
         ))}
       </div>
     );

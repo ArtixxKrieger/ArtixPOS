@@ -3,6 +3,7 @@ import App from "./App";
 import "./index.css";
 import "sileo/styles.css";
 import "./i18n";
+import "@aejkatappaja/phantom-ui";
 
 // ── Splash screen dismissal ───────────────────────────────────────────────
 // The #app-splash div is rendered in raw HTML and shows instantly before any

@@ -236,9 +236,15 @@ export default function StaffPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[1,2,3].map((i) => <div key={i} className="h-20 bg-muted/40 rounded-2xl animate-pulse" />)}
-        </div>
+        <phantom-ui loading count={3} count-gap={12}>
+          <div className="h-20 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
+            <div className="h-10 w-10 rounded-full bg-muted/30 shrink-0" />
+            <div className="flex-1">
+              <div className="font-semibold">Staff Member Name</div>
+              <div className="text-sm text-muted-foreground">Role · Branch</div>
+            </div>
+          </div>
+        </phantom-ui>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">

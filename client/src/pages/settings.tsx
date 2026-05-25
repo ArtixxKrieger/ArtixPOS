@@ -361,8 +361,23 @@ export default function Settings() {
   if (isLoading) {
     return (
       <div className="max-w-lg space-y-3 py-2">
-        <div className="h-24 bg-muted rounded-2xl animate-pulse" />
-        {[1, 2, 3].map(i => <div key={i} className="h-32 bg-muted rounded-2xl animate-pulse" />)}
+        <phantom-ui loading>
+          <div className="h-24 rounded-2xl border border-border bg-card flex items-center gap-4 px-5">
+            <div className="h-12 w-12 rounded-2xl bg-muted/30 shrink-0" />
+            <div className="flex-1">
+              <div className="font-bold text-lg">Business Name</div>
+              <div className="text-sm text-muted-foreground">Restaurant · Main Branch</div>
+            </div>
+          </div>
+        </phantom-ui>
+        {[1, 2, 3].map(i => (
+          <phantom-ui key={i} loading>
+            <div className="h-32 rounded-2xl border border-border bg-card flex flex-col justify-between p-5">
+              <div className="font-semibold">Setting Section Title</div>
+              <div className="text-sm text-muted-foreground">Configure your preference here</div>
+            </div>
+          </phantom-ui>
+        ))}
       </div>
     );
   }

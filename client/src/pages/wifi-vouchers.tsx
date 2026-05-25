@@ -447,7 +447,16 @@ export default function WifiVouchersPage() {
   if (isLoading) {
     return (
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-3">
-        {[1, 2, 3].map(i => <div key={i} className="h-28 bg-muted rounded-2xl animate-pulse" />)}
+        <phantom-ui loading count={3} count-gap={12}>
+          <div className="h-28 rounded-2xl border border-border bg-card flex items-center gap-4 px-4">
+            <div className="flex-1">
+              <div className="font-semibold">Network Name (SSID)</div>
+              <div className="text-sm text-muted-foreground">Password: ••••••••</div>
+              <div className="text-xs text-muted-foreground mt-1">Expires in 24 hours</div>
+            </div>
+            <div className="h-16 w-16 rounded-lg bg-muted/30" />
+          </div>
+        </phantom-ui>
       </div>
     );
   }

@@ -178,7 +178,14 @@ function SupplierDetailSheet({
         {/* Stats row */}
         <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
           {statsLoading ? (
-            [...Array(3)].map((_, i) => <div key={i} className="h-16 bg-muted/30 animate-pulse" />)
+            [...Array(3)].map((_, i) => (
+              <phantom-ui key={i} loading>
+                <div className="h-16 flex flex-col items-center justify-center gap-1 p-4">
+                  <div className="text-xl font-bold">000</div>
+                  <div className="text-xs text-muted-foreground">Stat label</div>
+                </div>
+              </phantom-ui>
+            ))
           ) : (
             <>
               <div className="p-4 text-center">
@@ -239,7 +246,15 @@ function SupplierDetailSheet({
             </div>
 
             {spLoading ? (
-              <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded-xl bg-muted animate-pulse" />)}</div>
+              <phantom-ui loading count={3} count-gap={8}>
+                <div className="h-14 rounded-xl border border-border bg-card flex items-center gap-3 px-3">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">Product Name</div>
+                    <div className="text-xs text-muted-foreground">SKU-000 · 10 in stock</div>
+                  </div>
+                  <div className="text-xs font-bold">$0.00</div>
+                </div>
+              </phantom-ui>
             ) : spRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />

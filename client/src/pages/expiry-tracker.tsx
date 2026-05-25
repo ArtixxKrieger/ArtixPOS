@@ -193,9 +193,15 @@ export default function ExpiryTracker() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="h-16 bg-muted rounded-2xl animate-pulse" />)}
-        </div>
+        <phantom-ui loading count={3} count-gap={12}>
+          <div className="h-16 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
+            <div className="flex-1">
+              <div className="font-semibold">Product Name</div>
+              <div className="text-sm text-muted-foreground">Expires Jan 1, 2025 · 10 units</div>
+            </div>
+            <div className="text-xs font-bold text-amber-500">7 days</div>
+          </div>
+        </phantom-ui>
       ) : !hasAny ? (
         <div className="glass-card rounded-3xl py-16 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">

@@ -143,11 +143,19 @@ export default function PendingOrders() {
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-48 bg-muted rounded-3xl animate-pulse" />
-        ))}
-      </div>
+      <phantom-ui loading count={3} count-gap={12}>
+        <div className="rounded-3xl border border-border bg-card p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="font-bold">Order #0000 · Table 1</div>
+            <div className="text-xs text-muted-foreground">0 min ago</div>
+          </div>
+          <div className="text-sm text-muted-foreground">2× Burger · 1× Fries · 1× Drink</div>
+          <div className="flex items-center justify-between pt-1">
+            <div className="font-bold text-lg">$00.00</div>
+            <div className="text-xs font-semibold text-amber-500">Pending</div>
+          </div>
+        </div>
+      </phantom-ui>
     );
   }
 

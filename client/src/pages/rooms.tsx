@@ -242,7 +242,14 @@ export default function RoomsPage() {
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[1,2,3,4].map((i) => <div key={i} className="h-28 bg-muted/40 rounded-2xl animate-pulse" />)}
+          {[1,2,3,4].map((i) => (
+            <phantom-ui key={i} loading>
+              <div className="h-28 rounded-2xl border border-border bg-card flex flex-col justify-between p-4">
+                <div className="font-semibold">Room Name</div>
+                <div className="text-sm text-muted-foreground">0 chairs · Available</div>
+              </div>
+            </phantom-ui>
+          ))}
         </div>
       ) : (rooms as ServiceRoom[]).length === 0 ? (
         <div className="text-center py-16">

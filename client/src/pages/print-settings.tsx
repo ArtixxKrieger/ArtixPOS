@@ -445,22 +445,6 @@ export default function PrintSettings() {
     toast({ title: "Print settings saved" });
   };
 
-  if (isLoading) {
-    return (
-      <div className="max-w-5xl space-y-2">
-        <PhantomLoader count={3} countGap={8}>
-          <div className="h-16 rounded-xl border border-border bg-card flex items-center gap-4 px-4">
-            <div className="flex-1">
-              <div className="font-semibold">Printer Name</div>
-              <div className="text-sm text-muted-foreground">USB · 80mm · Auto-cut</div>
-            </div>
-            <div className="text-xs font-semibold text-muted-foreground">Default</div>
-          </div>
-        </PhantomLoader>
-      </div>
-    );
-  }
-
   if (!isOwner) {
     return (
       <div className="max-w-lg">
@@ -474,6 +458,7 @@ export default function PrintSettings() {
   }
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="max-w-5xl page-enter pb-24 md:pb-8">
       <div className="flex items-center gap-3 mb-4">
         <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -881,5 +866,6 @@ export default function PrintSettings() {
         </div>
       </div>
     </div>
+    </PhantomLoader>
   );
 }

@@ -19,7 +19,6 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
 import { AppTour } from "@/components/app-tour";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -248,65 +247,15 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
 }
 
 const pageFallback = (
-  <div className="p-4 w-full">
-    <PhantomLoader loading>
-      <div className="space-y-4">
-        {/* Hero card */}
-        <div className="rounded-3xl border border-border bg-card p-5 space-y-4">
-          <div className="space-y-2">
-            <div className="h-2.5 w-24 rounded bg-muted" />
-            <div className="h-9 w-36 rounded bg-muted" />
-            <div className="h-2.5 w-44 rounded bg-muted" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-border bg-muted/30 p-3.5 space-y-2">
-              <div className="h-2 w-14 rounded bg-muted" />
-              <div className="h-5 w-16 rounded bg-muted" />
-            </div>
-            <div className="rounded-2xl border border-border bg-muted/30 p-3.5 space-y-2">
-              <div className="h-2 w-14 rounded bg-muted" />
-              <div className="h-5 w-16 rounded bg-muted" />
-            </div>
-          </div>
-        </div>
-        {/* KPI strip */}
-        <div className="grid grid-cols-2 gap-3">
-          {[0,1,2,3].map(i => (
-            <div key={i} className="rounded-2xl border border-border bg-card p-4 space-y-2.5">
-              <div className="h-8 w-8 rounded-xl bg-muted" />
-              <div className="h-2.5 w-16 rounded bg-muted" />
-              <div className="h-5 w-12 rounded bg-muted" />
-            </div>
-          ))}
-        </div>
-        {/* Day-end summary */}
-        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-muted" />
-            <div className="h-3 w-28 rounded bg-muted" />
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {[0,1,2,3].map(i => (
-              <div key={i} className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5">
-                <div className="h-2 w-16 rounded bg-muted" />
-                <div className="h-3.5 w-20 rounded bg-muted" />
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Transaction rows */}
-        {[0,1,2].map(i => (
-          <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
-            <div className="h-8 w-8 rounded-lg bg-muted flex-shrink-0" />
-            <div className="flex-1 space-y-1.5">
-              <div className="h-3 w-3/4 rounded bg-muted" />
-              <div className="h-2.5 w-1/2 rounded bg-muted" />
-            </div>
-            <div className="h-4 w-14 rounded bg-muted flex-shrink-0" />
-          </div>
-        ))}
-      </div>
-    </PhantomLoader>
+  <div className="p-4 w-full space-y-3 animate-pulse">
+    <div className="h-28 rounded-3xl bg-muted/60" />
+    <div className="grid grid-cols-2 gap-3">
+      <div className="h-20 rounded-2xl bg-muted/60" />
+      <div className="h-20 rounded-2xl bg-muted/60" />
+    </div>
+    <div className="h-20 rounded-2xl bg-muted/60" />
+    <div className="h-16 rounded-2xl bg-muted/60" />
+    <div className="h-16 rounded-2xl bg-muted/60" />
   </div>
 );
 

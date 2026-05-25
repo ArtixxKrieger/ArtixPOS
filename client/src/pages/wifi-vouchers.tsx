@@ -445,23 +445,6 @@ export default function WifiVouchersPage() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="max-w-lg mx-auto px-4 pt-6 space-y-3">
-        <PhantomLoader count={3} countGap={12}>
-          <div className="h-28 rounded-2xl border border-border bg-card flex items-center gap-4 px-4">
-            <div className="flex-1">
-              <div className="font-semibold">Network Name (SSID)</div>
-              <div className="text-sm text-muted-foreground">Password: ••••••••</div>
-              <div className="text-xs text-muted-foreground mt-1">Expires in 24 hours</div>
-            </div>
-            <div className="h-16 w-16 rounded-lg bg-muted/30" />
-          </div>
-        </PhantomLoader>
-      </div>
-    );
-  }
-
   return (
     <PhantomLoader loading={isLoading}>
     <div className="max-w-lg mx-auto px-4 pt-4 pb-24 md:pb-8 space-y-3">

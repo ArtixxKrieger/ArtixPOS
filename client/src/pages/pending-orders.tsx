@@ -44,8 +44,23 @@ function elapsedMin(createdAt: string | null | undefined) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
+const DUMMY_ORDERS: PendingOrder[] = [...Array(3)].map((_, i) => ({
+  id: i,
+  items: [
+    { quantity: 2, product: { name: "Burger" } },
+    { quantity: 1, product: { name: "Fries" } },
+  ],
+  subtotal: "0", tax: "0", discount: "0", discountCode: null,
+  loyaltyDiscount: null, total: "0", paymentMethod: "cash",
+  paymentAmount: "0", changeAmount: "0", status: "pending",
+  notes: null, orderType: null,
+  createdAt: new Date().toISOString(),
+  customerId: null, tableId: null,
+}));
+
 export default function PendingOrders() {
   const { data: orders = [], isLoading } = usePendingOrders();
+  const displayOrders = isLoading ? DUMMY_ORDERS : orders as PendingOrder[];
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
   const deleteOrder = useDeletePendingOrder();
@@ -142,24 +157,6 @@ export default function PendingOrders() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <PhantomLoader count={3} countGap={12}>
-        <div className="rounded-3xl border border-border bg-card p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="font-bold">Order #0000 · Table 1</div>
-            <div className="text-xs text-muted-foreground">0 min ago</div>
-          </div>
-          <div className="text-sm text-muted-foreground">2× Burger · 1× Fries · 1× Drink</div>
-          <div className="flex items-center justify-between pt-1">
-            <div className="font-bold text-lg">$00.00</div>
-            <div className="text-xs font-semibold text-amber-500">Pending</div>
-          </div>
-        </div>
-      </PhantomLoader>
-    );
-  }
-
   return (
     <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter pb-4">
@@ -192,7 +189,7 @@ export default function PendingOrders() {
         </div>
       )}
 
-      {orders.length === 0 ? (
+      {displayOrders.length === 0 ? (
         <div className="glass-card rounded-3xl py-20 text-center flex flex-col items-center gap-3" data-testid="empty-pending-orders">
           <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
             <CheckCircle2 className="h-8 w-8 text-emerald-500/70" strokeWidth={2} />
@@ -202,7 +199,7 @@ export default function PendingOrders() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 stagger-children">
-          {orders.map((order) => {
+          {displayOrders.map((order) => {
             const items = (order.items as OrderItem[]) || [];
             const itemCount = items.reduce((acc, i) => acc + (i.quantity || 0), 0);
             const total = parseNumeric(order.total || "0");

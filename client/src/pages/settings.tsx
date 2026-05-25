@@ -359,30 +359,6 @@ export default function Settings() {
     localStorage.setItem("artixpos_language", code);
   };
 
-  if (isLoading) {
-    return (
-      <div className="max-w-lg space-y-3 py-2">
-        <PhantomLoader>
-          <div className="h-24 rounded-2xl border border-border bg-card flex items-center gap-4 px-5">
-            <div className="h-12 w-12 rounded-2xl bg-muted/30 shrink-0" />
-            <div className="flex-1">
-              <div className="font-bold text-lg">Business Name</div>
-              <div className="text-sm text-muted-foreground">Restaurant · Main Branch</div>
-            </div>
-          </div>
-        </PhantomLoader>
-        {[1, 2, 3].map(i => (
-          <PhantomLoader key={i}>
-            <div className="h-32 rounded-2xl border border-border bg-card flex flex-col justify-between p-5">
-              <div className="font-semibold">Setting Section Title</div>
-              <div className="text-sm text-muted-foreground">Configure your preference here</div>
-            </div>
-          </PhantomLoader>
-        ))}
-      </div>
-    );
-  }
-
   const businessSubType = user?.activeBranch?.businessSubType ?? (settings as any)?.businessSubType;
   const businessType = user?.activeBranch?.businessType ?? (settings as any)?.businessType;
   const businessLabel = businessSubType && businessSubType !== "other"
@@ -390,6 +366,7 @@ export default function Settings() {
     : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
 
   return (
+    <PhantomLoader loading={isLoading}>
     <div className="max-w-lg page-enter space-y-0.5">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
@@ -1173,5 +1150,6 @@ export default function Settings() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PhantomLoader>
   );
 }

@@ -1195,22 +1195,6 @@ export default function POS() {
     </div>
   );
 
-  // ── Loading skeleton ───────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {[...Array(8)].map((_, i) => (
-          <PhantomLoader key={i}>
-            <div className="aspect-[3/4] rounded-3xl border border-border bg-card flex flex-col justify-end p-3 gap-1">
-              <div className="font-semibold text-sm">Product Name</div>
-              <div className="text-xs text-muted-foreground">$0.00</div>
-            </div>
-          </PhantomLoader>
-        ))}
-      </div>
-    );
-  }
-
   // ── Main layout ────────────────────────────────────────────────────────────
   return (
     <div
@@ -1342,12 +1326,23 @@ export default function POS() {
           ))}
         </div>
 
-        {/* Products — virtual grid: only visible rows are in the DOM */}
+        {/* Products — skeleton while loading, virtual grid once ready */}
         <div
           ref={productScrollRef}
           className={`flex-1 overflow-y-auto scrollbar-hide ${cart.length > 0 ? "pb-[88px] md:pb-4" : "pb-4"}`}
         >
-          {filteredProducts.length === 0 ? (
+          {isLoading ? (
+            <PhantomLoader loading>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="aspect-[3/4] rounded-3xl border border-border bg-card flex flex-col justify-end p-3 gap-1">
+                    <div className="font-semibold text-sm">Product Name</div>
+                    <div className="text-xs text-muted-foreground">$0.00</div>
+                  </div>
+                ))}
+              </div>
+            </PhantomLoader>
+          ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3 py-16">
               <Package className="h-14 w-14" strokeWidth={1.2} />
               <p className="font-medium">{t("pos.noProducts")}</p>

@@ -312,18 +312,18 @@
 }
 
 
-/* ─── Shimmer skeleton ───────────────────────────────────────────────────── */
-/* Light: base=85%L hi=96%L — visible gray on white cards (100%L bg)         */
-/* Dark:  base=22%L hi=34%L — clearly visible on 7%L cards in this very-dark */
-/*        palette. Old values (13%/18%) were only 6-11%L above the card and  */
-/*        appeared as black blocks.                                            */
+/* ─── Phantom-UI skeleton colors ─────────────────────────────────────────── */
+/* These are forwarded into phantom-ui as var() references so the component   */
+/* picks up the correct value for the active theme with zero JS.              */
+/* Light: base=85%L hi=96%L  — gray on white cards                           */
+/* Dark:  base=22%L hi=34%L  — clearly above the 7%L card in this palette    */
 :root {
-  --shimmer-base: hsl(240, 6%, 85%);
-  --shimmer-hi:   hsl(240, 6%, 96%);
+  --phantom-ui-bg: hsl(240, 6%, 85%);
+  --phantom-ui-hi: hsl(240, 6%, 96%);
 }
 .dark {
-  --shimmer-base: hsl(248, 15%, 22%);
-  --shimmer-hi:   hsl(248, 15%, 34%);
+  --phantom-ui-bg: hsl(248, 15%, 22%);
+  --phantom-ui-hi: hsl(248, 15%, 34%);
 }
 @keyframes shimmer {
   0%   { background-position: -200% 0; }

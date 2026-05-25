@@ -269,7 +269,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
-  const { isActive: isKioskActive, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
+  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
 
   function toggleSidebar() {
     setSidebarCollapsed(prev => {
@@ -480,11 +480,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     onClick={enterKioskMode}
                     aria-label="Enable Kiosk Mode"
                     data-testid="btn-kiosk-mode-collapsed"
-                    title="Lock — Kiosk Mode"
+                    title={isKioskLocked ? "Kiosk Locked" : isKioskEnabled ? "Kiosk Active" : "Enable Kiosk Mode"}
                     className={[
                       "w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200",
-                      isKioskActive
-                        ? "text-violet-400 bg-violet-500/15 border-violet-500/30"
+                      isKioskLocked
+                        ? "text-violet-400 bg-violet-500/20 border-violet-500/40"
+                        : isKioskEnabled
+                        ? "text-violet-300 bg-violet-500/10 border-violet-500/25"
                         : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
                     ].join(" ")}
                   >
@@ -518,16 +520,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <button
                       onClick={enterKioskMode}
                       data-testid="btn-kiosk-mode"
-                      title="Lock — Kiosk Mode"
+                      title={isKioskLocked ? "Kiosk Locked" : isKioskEnabled ? "Kiosk Active" : "Enable Kiosk Mode"}
                       className={[
                         "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium border transition-all duration-200",
-                        isKioskActive
-                          ? "text-violet-400 bg-violet-500/10 border-violet-500/25"
+                        isKioskLocked
+                          ? "text-violet-400 bg-violet-500/15 border-violet-500/35"
+                          : isKioskEnabled
+                          ? "text-violet-300 bg-violet-500/8 border-violet-500/20"
                           : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
                       ].join(" ")}
                     >
                       <Lock className="h-3.5 w-3.5 shrink-0" />
-                      <span>Lock</span>
+                      <span>{isKioskLocked ? "Locked" : isKioskEnabled ? "Kiosk On" : "Lock"}</span>
                     </button>
                   )}
                 </div>
@@ -608,11 +612,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <button
                 onClick={enterKioskMode}
                 data-testid="btn-kiosk-mode-header"
-                title="Lock — Kiosk Mode"
+                title={isKioskLocked ? "Kiosk Locked" : isKioskEnabled ? "Kiosk Active" : "Enable Kiosk Mode"}
                 className={[
                   "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border transition-all duration-200",
-                  isKioskActive
-                    ? "text-violet-400 bg-violet-500/15 border-violet-500/30"
+                  isKioskLocked
+                    ? "text-violet-400 bg-violet-500/20 border-violet-500/40"
+                    : isKioskEnabled
+                    ? "text-violet-300 bg-violet-500/10 border-violet-500/25"
                     : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
                 ].join(" ")}
               >

@@ -163,7 +163,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const { data: _settings } = useSettings();
   const { isFree } = useSubscription();
-  const { isActive: isKioskActive, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
+  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, toggleFullscreen } = useKioskMode();
 
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
@@ -380,17 +380,19 @@ export function BottomNav() {
                   data-testid="btn-kiosk-mode-mobile"
                   className={[
                     "flex-1 flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all duration-200 active:scale-95",
-                    isKioskActive
-                      ? "bg-violet-500/15 border-violet-500/30"
+                    isKioskLocked
+                      ? "bg-violet-500/20 border-violet-500/40"
+                      : isKioskEnabled
+                      ? "bg-violet-500/10 border-violet-500/25"
                       : "bg-muted/60 border-border hover:bg-muted",
                   ].join(" ")}
                 >
-                  <Lock className={isKioskActive ? "h-5 w-5 text-violet-500" : "h-5 w-5 text-muted-foreground"} />
+                  <Lock className={isKioskLocked || isKioskEnabled ? "h-5 w-5 text-violet-400" : "h-5 w-5 text-muted-foreground"} />
                   <span className={[
                     "text-[11px] font-semibold",
-                    isKioskActive ? "text-violet-500" : "text-muted-foreground",
+                    isKioskLocked || isKioskEnabled ? "text-violet-400" : "text-muted-foreground",
                   ].join(" ")}>
-                    {isKioskActive ? "Locked" : "Lock"}
+                    {isKioskLocked ? "Locked" : isKioskEnabled ? "Kiosk On" : "Lock"}
                   </span>
                 </button>
               )}

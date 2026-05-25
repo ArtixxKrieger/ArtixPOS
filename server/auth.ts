@@ -658,6 +658,13 @@ ${ok ? `
   if (sent) {
     // Desktop popup: close after a short delay so the parent can process the message.
     setTimeout(function(){ try { window.close(); } catch(e) {} }, 500);
+    // Fallback: if the browser blocks window.close() (Chrome sometimes does),
+    // redirect this tab to the app so the user is never left stuck here.
+    setTimeout(function(){
+      try {
+        if (!window.closed) { window.location.replace("/"); }
+      } catch(e) { window.location.replace("/"); }
+    }, 2000);
   } else {
     // Mobile / opener unavailable: the cookie is already set on our origin.
     // Redirect the current tab (the "popup") straight to the app.

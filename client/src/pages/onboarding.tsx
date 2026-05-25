@@ -747,14 +747,7 @@ export default function Onboarding() {
                 setSubmitError(null);
                 setShowConfirm(true);
               }}
-              disabled={
-                !storeCountry ||
-                !storeName.trim() ||
-                !storeAddress.trim() ||
-                !storePhone.trim() ||
-                !storeEmail.trim() ||
-                isSubmitting
-              }
+              disabled={isSubmitting}
               className="w-full rounded-xl h-11 mt-3"
             >
               {isSubmitting ? t("onboarding.storeInfo.saving") : t("onboarding.storeInfo.reviewButton")}

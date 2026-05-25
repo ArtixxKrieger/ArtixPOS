@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { insertServiceStaffSchema, type ServiceStaff } from "@shared/schema";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 import {
   Users, Plus, Phone, Mail, Edit, Trash2, Search, Palette,
   CheckCircle2, XCircle, User
@@ -236,7 +237,7 @@ export default function StaffPage() {
       </div>
 
       {isLoading ? (
-        <phantom-ui loading count={3} count-gap={12}>
+        <PhantomLoader count={3} countGap={12}>
           <div className="h-20 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
             <div className="h-10 w-10 rounded-full bg-muted/30 shrink-0" />
             <div className="flex-1">
@@ -244,7 +245,7 @@ export default function StaffPage() {
               <div className="text-sm text-muted-foreground">Role · Branch</div>
             </div>
           </div>
-        </phantom-ui>
+        </PhantomLoader>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">

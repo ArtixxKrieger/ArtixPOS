@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 type WasteEntry = {
   id: number; itemName: string; quantity: string; unit: string | null;
@@ -300,7 +301,17 @@ function WasteTab({ logs, isLoading, products, ingredients, currency, onAdd }: {
       </div>
 
       <div className="space-y-2">
-        {isLoading && <p className="text-sm text-muted-foreground text-center py-8">Loading...</p>}
+        {isLoading && (
+          <PhantomLoader count={3} countGap={8}>
+            <div className="h-14 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+              <div className="flex-1">
+                <div className="font-medium text-sm">Product Name · 2 units</div>
+                <div className="text-xs text-muted-foreground">Expired · $0.00 impact</div>
+              </div>
+              <div className="text-xs font-semibold text-rose-500">Waste</div>
+            </div>
+          </PhantomLoader>
+        )}
         {!isLoading && logs.length === 0 && (
           <div className="glass-card rounded-2xl p-8 text-center">
             <Trash2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
@@ -359,7 +370,17 @@ function TransfersTab({ transfers, isLoading, onAdd }: {
       </div>
 
       <div className="space-y-3">
-        {isLoading && <p className="text-sm text-muted-foreground text-center py-8">Loading...</p>}
+        {isLoading && (
+          <PhantomLoader count={3} countGap={8}>
+            <div className="h-14 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+              <div className="flex-1">
+                <div className="font-medium text-sm">Branch A → Branch B</div>
+                <div className="text-xs text-muted-foreground">10 units · Jan 1, 2024</div>
+              </div>
+              <div className="text-xs font-semibold text-primary">Completed</div>
+            </div>
+          </PhantomLoader>
+        )}
         {!isLoading && transfers.length === 0 && (
           <div className="glass-card rounded-2xl p-8 text-center">
             <ArrowRightLeft className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
@@ -507,7 +528,17 @@ function ReorderTab({ suggestions, isLoading, currency }: {
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground text-center py-8">Analyzing sales velocity...</p>}
+      {isLoading && (
+        <PhantomLoader count={4} countGap={8}>
+          <div className="h-14 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+            <div className="flex-1">
+              <div className="font-medium text-sm">Product Name</div>
+              <div className="text-xs text-muted-foreground">Stock: 0 · Reorder at: 10</div>
+            </div>
+            <div className="text-xs font-semibold text-amber-500">Low Stock</div>
+          </div>
+        </PhantomLoader>
+      )}
       {!isLoading && suggestions.length === 0 && (
         <div className="glass-card rounded-2xl p-8 text-center">
           <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />

@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildTestPrintEscPos } from "@/lib/escpos";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -447,7 +448,15 @@ export default function PrintSettings() {
   if (isLoading) {
     return (
       <div className="max-w-5xl space-y-2">
-        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />)}
+        <PhantomLoader count={3} countGap={8}>
+          <div className="h-16 rounded-xl border border-border bg-card flex items-center gap-4 px-4">
+            <div className="flex-1">
+              <div className="font-semibold">Printer Name</div>
+              <div className="text-sm text-muted-foreground">USB · 80mm · Auto-cut</div>
+            </div>
+            <div className="text-xs font-semibold text-muted-foreground">Default</div>
+          </div>
+        </PhantomLoader>
       </div>
     );
   }

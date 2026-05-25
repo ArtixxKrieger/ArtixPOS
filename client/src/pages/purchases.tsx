@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 type POStatus = "pending" | "received" | "cancelled";
 type PaymentStatus = "unpaid" | "partial" | "paid";
@@ -330,7 +331,7 @@ export default function PurchasesPage() {
 
       {/* List */}
       {isLoading ? (
-        <phantom-ui loading count={3} count-gap={12}>
+        <PhantomLoader count={3} countGap={12}>
           <div className="h-20 rounded-2xl border border-border bg-card flex items-center gap-4 px-4">
             <div className="flex-1">
               <div className="font-semibold">Supplier Name — PO #000</div>
@@ -341,7 +342,7 @@ export default function PurchasesPage() {
               <div className="text-xs text-muted-foreground">Pending</div>
             </div>
           </div>
-        </phantom-ui>
+        </PhantomLoader>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingBag className="h-10 w-10 mx-auto mb-3 opacity-30" />

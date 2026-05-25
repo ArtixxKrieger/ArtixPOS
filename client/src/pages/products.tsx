@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CameraScannerModal } from "@/components/camera-scanner-modal";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface SizeItem { name: string; price: string; }
 
@@ -1034,9 +1035,15 @@ export default function Products() {
           <div className="space-y-1 max-h-96 overflow-y-auto -mx-1 px-1">
             {stockLogsLoading ? (
               <div className="space-y-2 py-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-14 skeleton-shimmer rounded-xl" />
-                ))}
+                <PhantomLoader count={4} countGap={8}>
+                  <div className="h-14 rounded-xl border border-border bg-card flex items-center gap-3 px-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Stock adjustment</div>
+                      <div className="text-xs text-muted-foreground">Jan 1, 2024 · +10 units</div>
+                    </div>
+                    <div className="text-xs font-semibold text-primary">+10</div>
+                  </div>
+                </PhantomLoader>
               </div>
             ) : stockLogs.length === 0 ? (
               <div className="py-10 text-center text-muted-foreground">

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Shift } from "@shared/schema";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface XReportData {
   shift: any | null;
@@ -633,9 +634,11 @@ export default function BIRPage() {
         </div>
 
         {xLoading && (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-10 skeleton-shimmer rounded-xl" />)}
-          </div>
+          <PhantomLoader count={3} countGap={8}>
+            <div className="h-10 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+              <div className="flex-1 text-sm font-medium">Loading X-Report…</div>
+            </div>
+          </PhantomLoader>
         )}
 
         {!xLoading && (!xReport || !xReport.shift) && (
@@ -752,9 +755,11 @@ export default function BIRPage() {
         </div>
 
         {monthlyLoading && (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-12 skeleton-shimmer rounded-xl" />)}
-          </div>
+          <PhantomLoader count={3} countGap={8}>
+            <div className="h-12 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+              <div className="flex-1 text-sm font-medium">Loading monthly summary…</div>
+            </div>
+          </PhantomLoader>
         )}
 
         {!monthlyLoading && monthlySummary && (
@@ -947,7 +952,11 @@ export default function BIRPage() {
               </div>
               <div className="p-5 space-y-4">
                 {zReportLoading && (
-                  <div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-12 skeleton-shimmer rounded-xl"/>)}</div>
+                  <PhantomLoader count={3} countGap={8}>
+                    <div className="h-12 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+                      <div className="flex-1 text-sm font-medium">Loading Z-Report…</div>
+                    </div>
+                  </PhantomLoader>
                 )}
                 {!zReportLoading && zReport && !(zReport as any).shift && (
                   <div className="text-center py-6 text-muted-foreground/60">
@@ -1068,7 +1077,11 @@ export default function BIRPage() {
         {orGapExpanded && (
           <div className="mt-3 space-y-3">
             {orGapLoading && (
-              <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-10 skeleton-shimmer rounded-xl"/>)}</div>
+              <PhantomLoader count={2} countGap={8}>
+                <div className="h-10 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
+                  <div className="flex-1 text-sm font-medium">Loading OR gap data…</div>
+                </div>
+              </PhantomLoader>
             )}
             {!orGapLoading && orGapData && (
               <>

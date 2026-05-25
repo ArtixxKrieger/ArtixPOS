@@ -9,6 +9,7 @@ import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, U
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface OrderItem {
   quantity: number;
@@ -143,7 +144,7 @@ export default function PendingOrders() {
 
   if (isLoading) {
     return (
-      <phantom-ui loading count={3} count-gap={12}>
+      <PhantomLoader count={3} countGap={12}>
         <div className="rounded-3xl border border-border bg-card p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="font-bold">Order #0000 · Table 1</div>
@@ -155,7 +156,7 @@ export default function PendingOrders() {
             <div className="text-xs font-semibold text-amber-500">Pending</div>
           </div>
         </div>
-      </phantom-ui>
+      </PhantomLoader>
     );
   }
 

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 import {
   Wifi, Save, Eye, EyeOff, Clock, Receipt, Sparkles, ChevronRight,
   Info, CheckCircle2, WifiOff, Plus, Trash2, Lock, Unlock,
@@ -447,7 +448,7 @@ export default function WifiVouchersPage() {
   if (isLoading) {
     return (
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-3">
-        <phantom-ui loading count={3} count-gap={12}>
+        <PhantomLoader count={3} countGap={12}>
           <div className="h-28 rounded-2xl border border-border bg-card flex items-center gap-4 px-4">
             <div className="flex-1">
               <div className="font-semibold">Network Name (SSID)</div>
@@ -456,7 +457,7 @@ export default function WifiVouchersPage() {
             </div>
             <div className="h-16 w-16 rounded-lg bg-muted/30" />
           </div>
-        </phantom-ui>
+        </PhantomLoader>
       </div>
     );
   }

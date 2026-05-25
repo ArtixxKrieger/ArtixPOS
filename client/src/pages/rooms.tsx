@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { insertServiceRoomSchema, type ServiceRoom } from "@shared/schema";
 import { DoorOpen, Plus, Edit, Trash2, CheckCircle2, XCircle, Wrench } from "lucide-react";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 import { useSettings } from "@/hooks/use-settings";
 
 const ROOM_TYPES: Record<string, { label: string; emoji: string }> = {
@@ -243,12 +244,12 @@ export default function RoomsPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[1,2,3,4].map((i) => (
-            <phantom-ui key={i} loading>
+            <PhantomLoader key={i}>
               <div className="h-28 rounded-2xl border border-border bg-card flex flex-col justify-between p-4">
                 <div className="font-semibold">Room Name</div>
                 <div className="text-sm text-muted-foreground">0 chairs · Available</div>
               </div>
-            </phantom-ui>
+            </PhantomLoader>
           ))}
         </div>
       ) : (rooms as ServiceRoom[]).length === 0 ? (

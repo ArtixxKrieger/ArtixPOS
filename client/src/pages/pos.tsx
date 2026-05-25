@@ -39,6 +39,7 @@ import { playCheckout, playAddItem, playMilestone, playError } from "@/lib/sound
 import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { ConfettiBurst } from "@/components/confetti";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 // ── Responsive column count for the POS product grid ─────────────────────────
 // Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
@@ -1199,12 +1200,12 @@ export default function POS() {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[...Array(8)].map((_, i) => (
-          <phantom-ui key={i} loading>
+          <PhantomLoader key={i}>
             <div className="aspect-[3/4] rounded-3xl border border-border bg-card flex flex-col justify-end p-3 gap-1">
               <div className="font-semibold text-sm">Product Name</div>
               <div className="text-xs text-muted-foreground">$0.00</div>
             </div>
-          </phantom-ui>
+          </PhantomLoader>
         ))}
       </div>
     );

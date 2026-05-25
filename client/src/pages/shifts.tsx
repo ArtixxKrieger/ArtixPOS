@@ -19,6 +19,7 @@ import {
   Plus, Minus, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 // ─── Denomination config ──────────────────────────────────────────────────────
 const BILLS = [1000, 500, 200, 100, 50, 20];
@@ -979,9 +980,15 @@ export default function Shifts() {
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
             {zReportLoading && (
-              <div className="space-y-3">
-                {[1, 2, 3, 4].map(i => <div key={i} className="h-16 skeleton-shimmer rounded-xl" />)}
-              </div>
+              <PhantomLoader count={4} countGap={12}>
+                <div className="h-16 rounded-xl border border-border bg-card flex items-center gap-4 px-4">
+                  <div className="flex-1">
+                    <div className="font-semibold text-sm">Report Section</div>
+                    <div className="text-xs text-muted-foreground">Loading shift summary…</div>
+                  </div>
+                  <div className="text-sm font-bold">$0.00</div>
+                </div>
+              </PhantomLoader>
             )}
 
             {zReport && !zReportLoading && (() => {

@@ -29,6 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest, clearNativeToken } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
+import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   food_beverage: "Food & Beverage",
@@ -361,7 +362,7 @@ export default function Settings() {
   if (isLoading) {
     return (
       <div className="max-w-lg space-y-3 py-2">
-        <phantom-ui loading>
+        <PhantomLoader>
           <div className="h-24 rounded-2xl border border-border bg-card flex items-center gap-4 px-5">
             <div className="h-12 w-12 rounded-2xl bg-muted/30 shrink-0" />
             <div className="flex-1">
@@ -369,14 +370,14 @@ export default function Settings() {
               <div className="text-sm text-muted-foreground">Restaurant · Main Branch</div>
             </div>
           </div>
-        </phantom-ui>
+        </PhantomLoader>
         {[1, 2, 3].map(i => (
-          <phantom-ui key={i} loading>
+          <PhantomLoader key={i}>
             <div className="h-32 rounded-2xl border border-border bg-card flex flex-col justify-between p-5">
               <div className="font-semibold">Setting Section Title</div>
               <div className="text-sm text-muted-foreground">Configure your preference here</div>
             </div>
-          </phantom-ui>
+          </PhantomLoader>
         ))}
       </div>
     );

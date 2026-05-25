@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
+import { Phantom } from "@/components/phantom";
 
 interface SupplierForm {
   name: string; contactPerson: string; phone: string; email: string; address: string; notes: string;
@@ -543,7 +544,30 @@ export default function SuppliersPage() {
       />
 
       {/* List */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <Phantom loading={true}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-2xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 rounded-lg bg-muted/60 w-3/4" />
+                    <div className="h-3 rounded-md bg-muted/60 w-1/2" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-3 rounded-md bg-muted/60 w-2/3" />
+                  <div className="h-3 rounded-md bg-muted/60 w-1/2" />
+                </div>
+                <div className="flex items-center gap-3 pt-1 border-t border-border">
+                  <div className="h-3 rounded-md bg-muted/60 w-20" />
+                  <div className="h-3 rounded-md bg-muted/60 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Phantom>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">{search ? t("suppliers.noMatchSearch") : t("suppliers.noSuppliersYet")}</p>

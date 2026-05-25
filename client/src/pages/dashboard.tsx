@@ -13,6 +13,7 @@ import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch } from "@/lib/queryClient";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
+import { Phantom } from "@/components/phantom";
 
 type DashboardStats = {
   todaySales: any[];
@@ -157,6 +158,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 page-enter">
+      <Phantom loading={isLoading}>
 
       {/* Hero Card */}
       <div data-tour="tour-dashboard-hero" className="glass-card rounded-3xl p-5 md:p-8 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent border-blue-500/20 dark:border-blue-500/10 relative overflow-hidden">
@@ -437,6 +439,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      </Phantom>
       <SaleDetailModal
         sale={selectedSale}
         open={!!selectedSale}

@@ -9,8 +9,10 @@ import {
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Lock,
 } from "lucide-react";
+import { useKioskMode } from "@/hooks/use-kiosk-mode";
+import { KioskOverlay } from "@/components/kiosk/kiosk-overlay";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { OfflineSyncBanner } from "./offline-sync-banner";
@@ -267,6 +269,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
+  const { isActive: isKioskActive, enterKioskMode } = useKioskMode();
 
   function toggleSidebar() {
     setSidebarCollapsed(prev => {
@@ -463,6 +466,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </div>
                 )}
                 <NotificationBell />
+                {isManagerOrAbove && (
+                  <button
+                    onClick={enterKioskMode}
+                    aria-label="Enable Kiosk Mode"
+                    data-testid="btn-kiosk-mode-collapsed"
+                    title="Enable Kiosk Mode"
+                    className={[
+                      "w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200",
+                      isKioskActive
+                        ? "text-violet-400 bg-violet-500/15 border-violet-500/30"
+                        : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
+                    ].join(" ")}
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={() => { if (!isLoggingOut) logout(); }}
                   disabled={isLoggingOut}
@@ -475,31 +494,48 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
-                {user.avatar ? (
-                  <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
-                ) : (
-                  <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                    {(user.name ?? "?")[0].toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11.5px] font-semibold truncate text-foreground leading-tight">{user.name ?? "User"}</p>
-                  <p className="text-[10px] text-muted-foreground truncate leading-tight">{user.email ?? user.provider}</p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <NotificationBell />
+              <div className="flex flex-col gap-2">
+                {isManagerOrAbove && (
                   <button
-                    onClick={() => { if (!isLoggingOut) logout(); }}
-                    disabled={isLoggingOut}
-                    aria-label="Logout"
-                    data-testid="button-logout"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                    onClick={enterKioskMode}
+                    data-testid="btn-kiosk-mode"
+                    className={[
+                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-medium border transition-all duration-200",
+                      isKioskActive
+                        ? "text-violet-400 bg-violet-500/10 border-violet-500/25"
+                        : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
+                    ].join(" ")}
                   >
-                    <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                    <Lock className="h-3.5 w-3.5 shrink-0" />
+                    <span>Kiosk Mode</span>
                   </button>
+                )}
+                <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                      style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                      {(user.name ?? "?")[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11.5px] font-semibold truncate text-foreground leading-tight">{user.name ?? "User"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate leading-tight">{user.email ?? user.provider}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <NotificationBell />
+                    <button
+                      onClick={() => { if (!isLoggingOut) logout(); }}
+                      disabled={isLoggingOut}
+                      aria-label="Logout"
+                      data-testid="button-logout"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                    >
+                      <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                    </button>
+                  </div>
                 </div>
               </div>
             )
@@ -573,6 +609,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <BottomNav />
       {isOwner && <AiFloatButton />}
+      <KioskOverlay />
     </div>
   );
 }

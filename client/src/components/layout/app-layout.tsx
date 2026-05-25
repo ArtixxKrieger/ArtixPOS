@@ -9,6 +9,7 @@ import {
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -193,6 +194,7 @@ interface NavItemProps {
   displayLabel: string;
   badge: number | null;
   onNavigate: (url: string) => void;
+  collapsed?: boolean;
 }
 
 const NavItem = memo(function NavItem({
@@ -203,6 +205,7 @@ const NavItem = memo(function NavItem({
   displayLabel,
   badge,
   onNavigate,
+  collapsed,
 }: NavItemProps) {
   return (
     <button
@@ -210,8 +213,10 @@ const NavItem = memo(function NavItem({
       data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
       data-tour={`tour-nav-${url === "/" ? "home" : url.slice(1)}`}
       aria-current={isActive ? "page" : undefined}
+      title={collapsed ? displayLabel : undefined}
       className={[
-        "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
+        "w-full flex items-center rounded-xl text-[12.5px] font-medium transition-all duration-150 group relative",
+        collapsed ? "justify-center px-0 py-[9px]" : "gap-2.5 px-3 py-[7px]",
         isActive
           ? "nav-item-active"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent",
@@ -219,15 +224,22 @@ const NavItem = memo(function NavItem({
     >
       <Icon
         className={[
-          "h-[14px] w-[14px] shrink-0 transition-all duration-150",
+          "h-[15px] w-[15px] shrink-0 transition-all duration-150",
           isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100",
         ].join(" ")}
       />
-      <span className="flex-1 text-left truncate">{displayLabel}</span>
-      {badge ? (
-        <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
-          {badge > 9 ? "9+" : badge}
-        </span>
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-left truncate">{displayLabel}</span>
+          {badge ? (
+            <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
+              {badge > 9 ? "9+" : badge}
+            </span>
+          ) : null}
+        </>
+      )}
+      {collapsed && badge ? (
+        <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-rose-500" />
       ) : null}
     </button>
   );
@@ -241,15 +253,28 @@ function getInitialDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+function getInitialSidebarCollapsed(): boolean {
+  try { return localStorage.getItem("artixpos_sidebar_collapsed") === "1"; } catch { return false; }
+}
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const { data: settings } = useSettings();
   const { data: pendingOrders = [] } = usePendingOrders();
   const [isDark, setIsDark] = useState(getInitialDark);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
   const onlineStatus = useOnlineStatus();
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
+
+  function toggleSidebar() {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem("artixpos_sidebar_collapsed", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
   const isOwner = role === "owner";
@@ -319,12 +344,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       {/* ── Desktop Sidebar ──────────────────────────────────── */}
       <aside
-        className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 w-[220px] z-40 glass-sidebar"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 glass-sidebar overflow-hidden transition-[width] duration-200 ease-in-out"
+        style={{
+          width: sidebarCollapsed ? "56px" : "220px",
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}
       >
         {/* Brand */}
-        <div className="px-4 pt-5 pb-3 border-b border-border/50">
-          <div className="flex items-center gap-2.5">
+        <div className={["border-b border-border/50 flex-shrink-0", sidebarCollapsed ? "px-2 pt-4 pb-3" : "px-4 pt-5 pb-3"].join(" ")}>
+          <div className={["flex items-center", sidebarCollapsed ? "justify-center" : "gap-2.5"].join(" ")}>
             <div
               className="h-8 w-8 shrink-0 rounded-xl flex items-center justify-center"
               style={{
@@ -334,12 +362,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
             >
               <span className="text-white text-sm font-black">{storeInitial}</span>
             </div>
-            <div className="min-w-0">
-              <p className="font-bold text-[13px] text-foreground truncate leading-tight">{storeName}</p>
-              <p className="text-[9.5px] text-muted-foreground tracking-widest uppercase mt-0.5 font-semibold">{t("common.posSystem")}</p>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <p className="font-bold text-[13px] text-foreground truncate leading-tight">{storeName}</p>
+                <p className="text-[9.5px] text-muted-foreground tracking-widest uppercase mt-0.5 font-semibold">{t("common.posSystem")}</p>
+              </div>
+            )}
           </div>
-          {isOwner && (
+          {isOwner && !sidebarCollapsed && (
             <div className="mt-3">
               <BranchSwitcher />
             </div>
@@ -347,7 +377,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2.5 py-2 overflow-y-auto space-y-0 scrollbar-hide">
+        <nav className={["flex-1 py-2 overflow-y-auto space-y-0 scrollbar-hide", sidebarCollapsed ? "px-1.5" : "px-2.5"].join(" ")}>
           {NAV_SECTIONS.map((section) => {
             const visibleItems = section.items.filter(item => shouldShowNavItem(item));
             if (visibleItems.length === 0) return null;
@@ -355,8 +385,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             const sectionLabel = sectionI18nKey ? t(sectionI18nKey) : section.label;
             return (
               <div key={section.id}>
-                {section.label && (
+                {section.label && !sidebarCollapsed && (
                   <p className="nav-section-label">{sectionLabel}</p>
+                )}
+                {section.label && sidebarCollapsed && (
+                  <div className="h-px bg-border/40 my-1.5 mx-1" />
                 )}
                 <div className="space-y-0.5">
                   {visibleItems.map((item) => {
@@ -372,6 +405,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                         displayLabel={businessLabels[item.url] ?? translatedLabel}
                         badge={item.url === "/pending" && pendingCount > 0 ? pendingCount : null}
                         onNavigate={setLocation}
+                        collapsed={sidebarCollapsed}
                       />
                     );
                   })}
@@ -382,7 +416,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
           {isAdminOrAbove && (
             <div>
-              <p className="nav-section-label">{t("nav.sections.admin")}</p>
+              {!sidebarCollapsed && <p className="nav-section-label">{t("nav.sections.admin")}</p>}
+              {sidebarCollapsed && <div className="h-px bg-border/40 my-1.5 mx-1" />}
               <div className="space-y-0.5">
                 {ADMIN_NAV_ITEMS.map((item) => {
                   if ('ownerOnly' in item && item.ownerOnly && !isOwner) return null;
@@ -393,16 +428,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       key={item.url}
                       data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                       aria-current={isActive ? "page" : undefined}
+                      title={sidebarCollapsed ? t(item.i18nKey) : undefined}
                       onClick={() => startTransition(() => setLocation(item.url))}
                       className={[
-                        "w-full flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
+                        "w-full flex items-center rounded-xl text-[12.5px] font-medium transition-all duration-150 group",
+                        sidebarCollapsed ? "justify-center px-0 py-[9px]" : "gap-2.5 px-3 py-[7px]",
                         isActive
                           ? "nav-item-active"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent",
                       ].join(" ")}
                     >
-                      <Icon className={["h-[14px] w-[14px] shrink-0", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
-                      <span className="flex-1 text-left truncate">{t(item.i18nKey)}</span>
+                      <Icon className={["h-[15px] w-[15px] shrink-0", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
+                      {!sidebarCollapsed && <span className="flex-1 text-left truncate">{t(item.i18nKey)}</span>}
                     </button>
                   );
                 })}
@@ -411,42 +448,74 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </nav>
 
-        {/* User profile footer — theme toggle lives HERE only */}
-        <div className="px-2.5 pb-4 pt-2 border-t border-border/50">
+        {/* User profile footer */}
+        <div className={["pb-4 pt-2 border-t border-border/50 flex-shrink-0", sidebarCollapsed ? "px-1.5" : "px-2.5"].join(" ")}>
           {user && (
-            <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
-              {user.avatar ? (
-                <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
-              ) : (
-                <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                  style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                  {(user.name ?? "?")[0].toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[11.5px] font-semibold truncate text-foreground leading-tight">{user.name ?? "User"}</p>
-                <p className="text-[10px] text-muted-foreground truncate leading-tight">{user.email ?? user.provider}</p>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
+            sidebarCollapsed ? (
+              <div className="flex flex-col items-center gap-2">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name ?? ""} title={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
+                ) : (
+                  <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                    title={user.name ?? ""}
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                    {(user.name ?? "?")[0].toUpperCase()}
+                  </div>
+                )}
                 <NotificationBell />
                 <button
                   onClick={() => { if (!isLoggingOut) logout(); }}
                   disabled={isLoggingOut}
                   aria-label="Logout"
                   data-testid="button-logout"
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
                 </button>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
+                ) : (
+                  <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                    {(user.name ?? "?")[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11.5px] font-semibold truncate text-foreground leading-tight">{user.name ?? "User"}</p>
+                  <p className="text-[10px] text-muted-foreground truncate leading-tight">{user.email ?? user.provider}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <NotificationBell />
+                  <button
+                    onClick={() => { if (!isLoggingOut) logout(); }}
+                    disabled={isLoggingOut}
+                    aria-label="Logout"
+                    data-testid="button-logout"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                  >
+                    <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </div>
       </aside>
 
       {/* ── Main area ─────────────────────────────────────────── */}
-      <div id="app-scroll" className="flex-1 flex flex-col min-w-0 md:ml-[220px] overflow-y-auto" style={{ overscrollBehavior: "none" }}>
+      <div
+        id="app-scroll"
+        className={[
+          "flex-1 flex flex-col min-w-0 overflow-y-auto transition-[margin-left] duration-200 ease-in-out",
+          sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[220px]",
+        ].join(" ")}
+        style={{ overscrollBehavior: "none" }}
+      >
 
         {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header
@@ -475,11 +544,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         {/* Desktop top bar — NO theme toggle here (it's in sidebar) */}
         <header className="hidden md:flex sticky top-0 z-30 glass-header">
-          <div className="w-full px-6 flex items-center gap-4" style={{ height: "52px" }}>
-            <p className="text-[13px] font-semibold text-foreground">
+          <div className="w-full px-4 flex items-center gap-3" style={{ height: "52px" }}>
+            <button
+              onClick={toggleSidebar}
+              data-testid="btn-toggle-sidebar"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent hover:border-border/40 transition-all duration-150 shrink-0"
+            >
+              {sidebarCollapsed
+                ? <PanelLeftOpen className="h-4 w-4" />
+                : <PanelLeftClose className="h-4 w-4" />
+              }
+            </button>
+            <p className="text-[13px] font-semibold text-foreground flex-1 truncate">
               {businessLabels[location] ?? PAGE_TITLES[location] ?? ""}
             </p>
-
             <OfflineSyncBanner status={onlineStatus} />
           </div>
         </header>

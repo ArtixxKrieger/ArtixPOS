@@ -57,6 +57,27 @@ function useGridCols(): 2 | 3 | 4 {
   return cols;
 }
 
+// ── Dynamic skeleton count ────────────────────────────────────────────────────
+// Calculates how many product skeleton cards are needed to fill the visible
+// product grid area. Matches the virtualizer's estimateSize (260px/row) and
+// subtracts the approximate header area so the skeleton tiles the viewport.
+function useProductSkeletonCount(cols: 2 | 3 | 4): number {
+  const calc = (c: number) => {
+    const rowH = 260;
+    const availH = window.innerHeight - 200;
+    const rows = Math.max(2, Math.ceil(availH / rowH));
+    return c * rows;
+  };
+  const [count, setCount] = useState(() => calc(cols));
+  useEffect(() => {
+    setCount(calc(cols));
+    const handler = () => setCount(calc(cols));
+    window.addEventListener("resize", handler, { passive: true });
+    return () => window.removeEventListener("resize", handler);
+  }, [cols]);
+  return count;
+}
+
 // ── Memoized product card — stable reference prevents unnecessary re-renders ──
 type ProductCardProps = {
   product: Product;
@@ -299,6 +320,7 @@ export default function POS() {
   // With 1 000 products @ 4 cols = 250 rows; we render ≈ 9-12 at a time.
   const productScrollRef = useRef<HTMLDivElement>(null);
   const cols = useGridCols();
+  const skeletonCount = useProductSkeletonCount(cols);
   const rowCount = Math.ceil(filteredProducts.length / cols);
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
@@ -1334,7 +1356,7 @@ export default function POS() {
           {isLoading ? (
             <PhantomLoader loading>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[...Array(8)].map((_, i) => (
+                {[...Array(skeletonCount)].map((_, i) => (
                   <div key={i} className="aspect-[3/4] rounded-3xl border border-border bg-card flex flex-col justify-end p-3 gap-1">
                     <div className="font-semibold text-sm">Product Name</div>
                     <div className="text-xs text-muted-foreground">$0.00</div>

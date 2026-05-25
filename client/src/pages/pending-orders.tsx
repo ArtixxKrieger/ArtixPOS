@@ -8,8 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, Utensils, ShoppingBag, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { PhantomLoader } from "@/components/ui/phantom-loader";
+
+// Dynamically compute how many dummy order cards fill the viewport.
+// Each order card is approximately 220px tall + 16px gap.
+function useOrderSkeletonCount(): number {
+  const calc = () => {
+    const cardH = 236; // approx order card height + gap
+    const availH = window.innerHeight - 180;
+    return Math.max(2, Math.ceil(availH / cardH));
+  };
+  const [count, setCount] = useState(calc);
+  useEffect(() => {
+    const handler = () => setCount(calc());
+    window.addEventListener("resize", handler, { passive: true });
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return count;
+}
 
 interface OrderItem {
   quantity: number;
@@ -44,23 +61,26 @@ function elapsedMin(createdAt: string | null | undefined) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
-const DUMMY_ORDERS: PendingOrder[] = [...Array(3)].map((_, i) => ({
-  id: i,
-  items: [
-    { quantity: 2, product: { name: "Burger" } },
-    { quantity: 1, product: { name: "Fries" } },
-  ],
-  subtotal: "0", tax: "0", discount: "0", discountCode: null,
-  loyaltyDiscount: null, total: "0", paymentMethod: "cash",
-  paymentAmount: "0", changeAmount: "0", status: "pending",
-  notes: null, orderType: null,
-  createdAt: new Date().toISOString(),
-  customerId: null, tableId: null,
-}));
+function makeDummyOrders(count: number): PendingOrder[] {
+  return [...Array(count)].map((_, i) => ({
+    id: i,
+    items: [
+      { quantity: 2, product: { name: "Burger" } },
+      { quantity: 1, product: { name: "Fries" } },
+    ],
+    subtotal: "0", tax: "0", discount: "0", discountCode: null,
+    loyaltyDiscount: null, total: "0", paymentMethod: "cash",
+    paymentAmount: "0", changeAmount: "0", status: "pending",
+    notes: null, orderType: null,
+    createdAt: new Date().toISOString(),
+    customerId: null, tableId: null,
+  }));
+}
 
 export default function PendingOrders() {
   const { data: orders = [], isLoading } = usePendingOrders();
-  const displayOrders = isLoading ? DUMMY_ORDERS : orders as PendingOrder[];
+  const orderSkeletonCount = useOrderSkeletonCount();
+  const displayOrders = isLoading ? makeDummyOrders(orderSkeletonCount) : orders as PendingOrder[];
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
   const deleteOrder = useDeletePendingOrder();

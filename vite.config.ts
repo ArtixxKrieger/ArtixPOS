@@ -14,6 +14,7 @@ export default defineConfig({
       "@": path.resolve(process.cwd(), "client", "src"),
       "@shared": path.resolve(process.cwd(), "shared"),
       "@assets": path.resolve(process.cwd(), "attached_assets"),
+      "@artixpos/skeleton-ui": path.resolve(process.cwd(), "client", "src", "vendor", "artixpos-skeleton-ui", "skeleton-ui.js"),
     },
   },
   root: path.resolve(process.cwd(), "client"),

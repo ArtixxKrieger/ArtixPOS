@@ -32,260 +32,167 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
     <style>
-      /* ── Reset / base ── */
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      html,body{height:100%;overflow:hidden;background:var(--sp-bg)}
+      html,body{height:100%;overflow:hidden}
       body{font-family:'Plus Jakarta Sans','Inter',-apple-system,BlinkMacSystemFont,sans-serif}
 
-      /* ── Theme tokens — mirroring Tailwind CSS vars ── */
       :root{
         --sp-bg:#f2f2f7;
-        --sp-sidebar:#ffffff;
+        --sp-accent:#7c3aed;
+        --sp-muted:#9ca3af;
         --sp-card:#ffffff;
         --sp-border:#e5e5ea;
-        --sp-sk-base:#e5e5ea;
-        --sp-sk-high:#f2f2f7;
-        --sp-logo-bg:#7c3aed;
-        --sp-logo-text:#ffffff;
-        --sp-accent:#7c3aed;
-        --sp-text-muted:#9ca3af;
       }
       .dark{
         --sp-bg:#09090f;
-        --sp-sidebar:#0f0f1a;
+        --sp-accent:#8b5cf6;
+        --sp-muted:#4b4b6b;
         --sp-card:#13131f;
         --sp-border:#1f1f33;
-        --sp-sk-base:#1a1a2e;
-        --sp-sk-high:#252540;
-        --sp-logo-bg:#7c3aed;
-        --sp-logo-text:#ffffff;
-        --sp-accent:#8b5cf6;
-        --sp-text-muted:#4b4b6b;
       }
 
-      /* ── Shimmer keyframe ── */
-      @keyframes sp-shimmer{
-        0%{background-position:200% center}
-        100%{background-position:-200% center}
-      }
-      @keyframes sp-fade-in{
-        from{opacity:0;transform:translateY(4px)}
-        to{opacity:1;transform:translateY(0)}
-      }
-      @keyframes sp-splash-out{
-        0%{opacity:1}
-        100%{opacity:0;pointer-events:none}
-      }
-
-      /* ── Skeleton pulse mixin ── */
-      .sp-sk{
-        background:linear-gradient(90deg,var(--sp-sk-base) 25%,var(--sp-sk-high) 50%,var(--sp-sk-base) 75%);
-        background-size:400% 100%;
-        animation:sp-shimmer 1.6s ease-in-out infinite;
-        border-radius:8px;
-      }
-
-      /* ── Splash overlay ── */
+      /* ── Splash container ── */
       #app-splash{
-        position:fixed;
-        inset:0;
-        z-index:9999;
+        position:fixed;inset:0;z-index:9999;
         background:var(--sp-bg);
-        display:flex;
-        transition:opacity 0.25s ease;
-        will-change:opacity;
-        /* CSS-only safety net: auto-hide after 10s even if JS fails or hangs */
-        animation:sp-splash-out 0.5s ease 10s forwards;
+        display:flex;align-items:center;justify-content:center;
+        overflow:hidden;
+        transition:opacity 0.35s ease;
       }
       #app-splash.sp-hiding{
-        /* JS-triggered dismissal overrides the CSS auto-hide */
-        animation:sp-splash-out 0.28s ease forwards;
+        animation:sp-out 0.35s ease forwards;
+      }
+      @keyframes sp-out{to{opacity:0;transform:scale(1.015)}}
+
+      /* ── Canvas (behind everything) ── */
+      #sp-canvas{
+        position:absolute;inset:0;width:100%;height:100%;
+        pointer-events:none;
       }
 
-      /* ── Sidebar skeleton (desktop only) ── */
-      .sp-sidebar{
-        display:none;
-        width:240px;
-        min-width:240px;
-        height:100%;
-        background:var(--sp-sidebar);
-        border-right:1px solid var(--sp-border);
-        flex-direction:column;
-        padding:20px 16px;
-        gap:24px;
-        animation:sp-fade-in 0.3s ease both;
+      /* ── Centre stack ── */
+      .sp-center{
+        position:relative;z-index:2;
+        display:flex;flex-direction:column;align-items:center;
+        gap:28px;
+        animation:sp-rise 0.7s cubic-bezier(0.22,1,0.36,1) both;
       }
-      @media(min-width:768px){
-        .sp-sidebar{display:flex}
-      }
-      .sp-logo-row{
-        display:flex;
-        align-items:center;
-        gap:10px;
-        padding-bottom:4px;
-      }
-      .sp-logo-icon{
-        width:36px;height:36px;border-radius:10px;
-        background:var(--sp-logo-bg);
-        display:flex;align-items:center;justify-content:center;
-        color:var(--sp-logo-text);
-        font-size:14px;font-weight:800;letter-spacing:-0.5px;
-        flex-shrink:0;
-      }
-      .sp-logo-text-wrap{display:flex;flex-direction:column;gap:2px}
-      .sp-logo-name{height:13px;width:80px;border-radius:4px}.sp-sk
-      .sp-logo-sub{height:9px;width:56px;border-radius:3px}
-
-      /* Nav items */
-      .sp-nav-group{display:flex;flex-direction:column;gap:4px}
-      .sp-nav-label{height:9px;width:60px;border-radius:3px;margin-bottom:4px}
-      .sp-nav-item{
-        display:flex;align-items:center;gap:10px;
-        height:36px;border-radius:10px;padding:0 10px;
-      }
-      .sp-nav-icon{width:18px;height:18px;border-radius:6px;flex-shrink:0}
-      .sp-nav-txt{height:10px;border-radius:4px}
-
-      /* ── Main content area ── */
-      .sp-main{
-        flex:1;
-        display:flex;
-        flex-direction:column;
-        height:100%;
-        overflow:hidden;
-        animation:sp-fade-in 0.35s ease 0.05s both;
+      @keyframes sp-rise{
+        from{opacity:0;transform:translateY(24px)}
+        to{opacity:1;transform:translateY(0)}
       }
 
-      /* Header bar */
-      .sp-header{
-        height:60px;
-        min-height:60px;
-        background:var(--sp-sidebar);
-        border-bottom:1px solid var(--sp-border);
-        display:flex;
-        align-items:center;
-        padding:0 20px;
-        gap:12px;
-      }
-      .sp-header-title{height:14px;width:120px;border-radius:5px}
-      .sp-header-spacer{flex:1}
-      .sp-header-btn{width:32px;height:32px;border-radius:9px}
-
-      /* Mobile logo in header */
-      .sp-mobile-logo{
-        display:flex;
-        align-items:center;
-        gap:8px;
-      }
-      @media(min-width:768px){
-        .sp-mobile-logo{display:none}
-        .sp-header-title{display:block}
-      }
-
-      /* Content grid */
-      .sp-content{
-        flex:1;
-        overflow:hidden;
-        padding:20px;
-        display:flex;
-        flex-direction:column;
-        gap:16px;
-      }
-
-      /* Stats row */
-      .sp-stats{
-        display:grid;
-        grid-template-columns:repeat(2,1fr);
-        gap:12px;
-      }
-      @media(min-width:640px){
-        .sp-stats{grid-template-columns:repeat(4,1fr)}
-      }
-      .sp-stat-card{
-        background:var(--sp-card);
-        border:1px solid var(--sp-border);
-        border-radius:14px;
-        padding:16px;
-        display:flex;
-        flex-direction:column;
-        gap:10px;
-      }
-      .sp-stat-label{height:10px;width:70%;border-radius:4px}
-      .sp-stat-value{height:22px;width:55%;border-radius:6px}
-      .sp-stat-sub{height:8px;width:80%;border-radius:3px}
-
-      /* Chart area */
-      .sp-chart-row{
-        display:grid;
-        grid-template-columns:1fr;
-        gap:12px;
-        flex:1;
-      }
-      @media(min-width:768px){
-        .sp-chart-row{grid-template-columns:2fr 1fr}
-      }
-      .sp-chart-card{
-        background:var(--sp-card);
-        border:1px solid var(--sp-border);
-        border-radius:14px;
-        padding:16px;
-        display:flex;
-        flex-direction:column;
-        gap:12px;
-      }
-      .sp-chart-header{display:flex;justify-content:space-between;align-items:center}
-      .sp-chart-title{height:13px;width:110px;border-radius:4px}
-      .sp-chart-badge{height:22px;width:60px;border-radius:20px}
-      .sp-chart-body{
-        flex:1;
-        min-height:120px;
-        border-radius:10px;
-        overflow:hidden;
+      /* ── Logo ── */
+      .sp-logo-wrap{
         position:relative;
+        width:96px;height:96px;
+        display:flex;align-items:center;justify-content:center;
       }
-      .sp-chart-bars{
-        display:flex;
-        align-items:flex-end;
-        gap:6px;
-        height:100%;
-        padding:8px 4px 0;
+      .sp-ring{
+        position:absolute;border-radius:50%;
+        border:1.5px solid var(--sp-accent);
+        animation:sp-ring-pulse 3s ease-in-out infinite;
       }
-      .sp-bar{
-        flex:1;border-radius:6px 6px 0 0;
-        background:linear-gradient(180deg,var(--sp-sk-high) 0%,var(--sp-sk-base) 100%);
-        animation:sp-shimmer 1.8s ease-in-out infinite;
-        background-size:400% 100%;
+      .sp-ring:nth-child(1){width:124px;height:124px;opacity:0.4;animation-delay:0s}
+      .sp-ring:nth-child(2){width:158px;height:158px;opacity:0.22;animation-delay:0.6s}
+      .sp-ring:nth-child(3){width:196px;height:196px;opacity:0.1;animation-delay:1.2s}
+      @keyframes sp-ring-pulse{
+        0%,100%{transform:scale(0.94);opacity:0.35}
+        50%{transform:scale(1.04);opacity:0.08}
       }
 
-      /* List card */
-      .sp-list-item{
-        display:flex;align-items:center;gap:10px;padding:8px 0;
-        border-bottom:1px solid var(--sp-border);
+      .sp-logo-box{
+        position:relative;z-index:1;
+        width:84px;height:84px;border-radius:24px;
+        background:linear-gradient(145deg,#7c3aed 0%,#a855f7 60%,#c084fc 100%);
+        display:flex;align-items:center;justify-content:center;
+        animation:sp-logo-glow 2.4s ease-in-out infinite;
+        cursor:default;
+        user-select:none;
       }
-      .sp-list-item:last-child{border-bottom:none}
-      .sp-list-avatar{width:34px;height:34px;border-radius:10px;flex-shrink:0}
-      .sp-list-lines{flex:1;display:flex;flex-direction:column;gap:5px}
-      .sp-list-line1{height:11px;width:65%;border-radius:4px}
-      .sp-list-line2{height:9px;width:40%;border-radius:3px}
-      .sp-list-val{height:14px;width:48px;border-radius:4px}
+      @keyframes sp-logo-glow{
+        0%,100%{
+          box-shadow:
+            0 0 0 0 rgba(124,58,237,0),
+            0 0 30px 6px rgba(124,58,237,0.3),
+            0 0 70px 16px rgba(124,58,237,0.1);
+        }
+        50%{
+          box-shadow:
+            0 0 0 8px rgba(124,58,237,0.06),
+            0 0 45px 12px rgba(168,85,247,0.5),
+            0 0 110px 30px rgba(168,85,247,0.18);
+        }
+      }
+      .sp-logo-a{
+        font-size:36px;font-weight:800;color:#fff;
+        letter-spacing:-1.5px;line-height:1;
+        text-shadow:0 2px 16px rgba(0,0,0,0.25);
+        font-family:'Plus Jakarta Sans',sans-serif;
+        transition:transform 0.15s ease;
+      }
 
-      /* Bottom nav (mobile only) */
-      .sp-bottom-nav{
-        display:flex;
-        background:var(--sp-sidebar);
-        border-top:1px solid var(--sp-border);
-        padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));
-        gap:4px;
+      /* ── Brand ── */
+      .sp-brand-block{
+        display:flex;flex-direction:column;align-items:center;gap:8px;
       }
-      @media(min-width:768px){
-        .sp-bottom-nav{display:none}
+      .sp-letters{
+        display:flex;gap:1px;
+        overflow:hidden;
       }
-      .sp-bn-item{
-        flex:1;display:flex;flex-direction:column;
-        align-items:center;gap:5px;padding:6px 0;
+      .sp-letters span{
+        display:inline-block;
+        font-size:14px;font-weight:700;letter-spacing:4px;
+        color:var(--sp-accent);
+        font-family:'Plus Jakarta Sans',sans-serif;
+        animation:sp-letter-in 0.5s cubic-bezier(0.22,1,0.36,1) both;
       }
-      .sp-bn-icon{width:22px;height:22px;border-radius:7px}
-      .sp-bn-lbl{height:8px;width:28px;border-radius:3px}
+      .sp-letters span:nth-child(1){animation-delay:0.18s}
+      .sp-letters span:nth-child(2){animation-delay:0.22s}
+      .sp-letters span:nth-child(3){animation-delay:0.26s}
+      .sp-letters span:nth-child(4){animation-delay:0.30s}
+      .sp-letters span:nth-child(5){animation-delay:0.34s}
+      .sp-letters span:nth-child(6){animation-delay:0.38s}
+      .sp-letters span:nth-child(7){animation-delay:0.42s}
+      .sp-letters span:nth-child(8){animation-delay:0.46s}
+      @keyframes sp-letter-in{
+        from{opacity:0;transform:translateY(12px) scaleY(0.6)}
+        to{opacity:1;transform:translateY(0) scaleY(1)}
+      }
+      .sp-tagline{
+        font-size:11px;letter-spacing:2.5px;text-transform:uppercase;
+        color:var(--sp-muted);
+        font-family:'Plus Jakarta Sans',sans-serif;
+        animation:sp-fade 0.6s ease 0.65s both;
+      }
+      @keyframes sp-fade{from{opacity:0}to{opacity:1}}
+
+      /* ── Progress bar ── */
+      .sp-bar-wrap{
+        width:160px;height:2px;
+        background:rgba(124,58,237,0.12);
+        border-radius:99px;overflow:hidden;
+        animation:sp-fade 0.6s ease 0.75s both;
+      }
+      .sp-bar-fill{
+        height:100%;width:0%;
+        border-radius:99px;
+        background:linear-gradient(90deg,#7c3aed,#a855f7,#c084fc,#7c3aed);
+        background-size:300% 100%;
+        animation:sp-shimmer 1.8s linear infinite;
+        transition:width 0.5s cubic-bezier(0.4,0,0.2,1);
+      }
+      @keyframes sp-shimmer{
+        0%{background-position:100% 0}
+        100%{background-position:-100% 0}
+      }
+
+      /* ── Crash / error UI (keep working) ── */
+      #sp-crash{
+        position:fixed;inset:0;display:flex;align-items:center;
+        justify-content:center;background:#0a0a12;
+        font-family:monospace;padding:24px;z-index:99999;
+      }
     </style>
 
     <script>
@@ -295,9 +202,6 @@
           var stored = localStorage.getItem('theme');
           var mq = window.matchMedia('(prefers-color-scheme: dark)');
           var isDark = stored === 'dark' || (!stored && mq.matches);
-          /* Set background directly via inline style — this fires before the
-             first paint on every load including Android tab-discard reloads,
-             so there is never a white frame even on slow/cold restarts. */
           document.documentElement.style.background = isDark ? '#09090f' : '#f2f2f7';
           if (isDark) document.documentElement.classList.add('dark');
           mq.addEventListener('change', function(e) {
@@ -325,19 +229,7 @@
         console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
         console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');
 
-        /* ── Stale-SW auto-recovery ─────────────────────────────────────────
-         * When a new deployment ships, content-hashed JS/CSS filenames change.
-         * If the user's service worker is serving old cached HTML (that still
-         * references the OLD filenames), every JS chunk load returns 404 and
-         * React cannot boot — resulting in a permanent white screen.
-         *
-         * Detection: ChunkLoadError / "Failed to fetch dynamically imported
-         * module" — these patterns only occur when a script 404s in production.
-         *
-         * Recovery: unregister the SW, wipe all caches, hard-reload.
-         * Loop guard: sessionStorage counter — max 3 auto-recoveries per session
-         * before we fall back to the manual crash UI.
-         */
+        /* ── Stale-SW auto-recovery ── */
         (function() {
           var STALE_KEY = '_artix_stale_reload';
           var CRASH_KEY = '_artix_crash';
@@ -357,7 +249,7 @@
           function nukeCacheAndReload() {
             try {
               var attempts = parseInt(sessionStorage.getItem(STALE_KEY) || '0', 10);
-              if (attempts >= 3) return false; // give up — show crash UI instead
+              if (attempts >= 3) return false;
               sessionStorage.setItem(STALE_KEY, String(attempts + 1));
               var doReload = function() { window.location.reload(); };
               if (navigator.serviceWorker) {
@@ -374,9 +266,7 @@
                         })
                         .catch(function(){})
                         .finally(doReload);
-                    } else {
-                      doReload();
-                    }
+                    } else { doReload(); }
                   });
               } else if (window.caches) {
                 caches.keys()
@@ -385,33 +275,21 @@
                   })
                   .catch(function(){})
                   .finally(doReload);
-              } else {
-                doReload();
-              }
-              return true; // recovery triggered
-            } catch(e) {
-              return false;
-            }
+              } else { doReload(); }
+              return true;
+            } catch(e) { return false; }
           }
 
-          /* ── Visible crash UI (shown after recovery exhausted) ── */
           var _shown = false;
           function _showCrash(msg) {
             if (_shown) return;
-            // Remove the splash so the crash UI is visible
             var splash = document.getElementById('app-splash');
             if (splash) { try { splash.remove(); } catch(e) {} }
             var root = document.getElementById('root');
             if (root) {
               _shown = true;
-              // Full HTML entity encoding — prevents XSS if msg ever contains
-              // attacker-controlled content (e.g. read back from sessionStorage).
               function _escHtml(s) {
-                return String(s)
-                  .replace(/&/g, '&amp;')
-                  .replace(/</g, '&lt;')
-                  .replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;');
+                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
               }
               root.innerHTML =
                 '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a12;font-family:monospace;padding:24px;z-index:99999">'
@@ -437,37 +315,25 @@
 
           window.onerror = function(msg, src, line) {
             var full = String(msg) + '\n' + (src||'') + ':' + (line||'');
-            if (isChunkError(full)) {
-              if (nukeCacheAndReload()) return; // auto-recovering
-            }
+            if (isChunkError(full)) { if (nukeCacheAndReload()) return; }
             _showCrash(full);
           };
 
           window.addEventListener('unhandledrejection', function(e) {
             var r = e.reason;
             var msg = r && r.message ? r.message + '\n' + (r.stack||'') : String(r);
-            if (isChunkError(msg)) {
-              if (nukeCacheAndReload()) return; // auto-recovering
-            }
+            if (isChunkError(msg)) { if (nukeCacheAndReload()) return; }
             _showCrash('Unhandled rejection: ' + msg);
           });
         })();
 
-        /* ── Auth-loop watchdog ──────────────────────────────────────────────
-         * Detects the infinite loading loop caused by queryClient.clear()
-         * wiping the auth-me cache, which triggers endless /api/auth/me calls.
-         * Patches window.fetch BEFORE React loads so it catches every request,
-         * even from old cached JS bundles served by a stale service worker.
-         *
-         * Trigger: /api/auth/me called 5+ times in 10 seconds → /clear.html
-         * Guard:   sessionStorage flag prevents redirect loops.
-         */
+        /* ── Auth-loop watchdog ── */
         (function() {
           var LOOP_KEY = '_artix_loop_redirect';
           try {
             if (sessionStorage.getItem(LOOP_KEY)) {
               sessionStorage.removeItem(LOOP_KEY);
-              return; // already redirected once — don't loop the redirect itself
+              return;
             }
           } catch(e) {}
 
@@ -481,16 +347,13 @@
             var url = (typeof input === 'string') ? input : (input && input.url) ? input.url : '';
             if (url.indexOf('/api/auth/me') !== -1) {
               var now = Date.now();
-              if (now - windowStart > WINDOW_MS) {
-                authMeCount = 0;
-                windowStart = now;
-              }
+              if (now - windowStart > WINDOW_MS) { authMeCount = 0; windowStart = now; }
               authMeCount++;
               if (authMeCount >= THRESHOLD) {
                 authMeCount = 0;
                 try { sessionStorage.setItem(LOOP_KEY, '1'); } catch(e) {}
                 window.location.replace('/clear.html');
-                return new Promise(function() {}); // hang the original request
+                return new Promise(function() {});
               }
             }
             return _origFetch.apply(this, arguments);
@@ -500,230 +363,189 @@
     </script>
   </head>
   <body>
-    <!-- ═══════════════════════════════════════════════════════════════════
-         INSTANT SPLASH — renders before any JS is downloaded or parsed.
-         Mirrors the real app layout so users see a meaningful skeleton,
-         not a blank white screen. Removed by main.tsx after React renders.
-    ═══════════════════════════════════════════════════════════════════ -->
     <div id="app-splash" role="presentation" aria-hidden="true">
+      <canvas id="sp-canvas"></canvas>
 
-      <!-- Desktop sidebar skeleton -->
-      <div class="sp-sidebar">
-        <div class="sp-logo-row">
-          <div class="sp-logo-icon">A</div>
-          <div class="sp-logo-text-wrap">
-            <div class="sp-sk" style="height:13px;width:80px;border-radius:4px"></div>
-            <div class="sp-sk" style="height:9px;width:56px;border-radius:3px;margin-top:4px"></div>
+      <div class="sp-center">
+        <!-- Logo with pulsing rings -->
+        <div class="sp-logo-wrap">
+          <div class="sp-ring"></div>
+          <div class="sp-ring"></div>
+          <div class="sp-ring"></div>
+          <div class="sp-logo-box" id="sp-logo-box">
+            <span class="sp-logo-a">A</span>
           </div>
         </div>
 
-        <!-- Nav group 1 -->
-        <div class="sp-nav-group">
-          <div class="sp-sk" style="height:9px;width:48px;border-radius:3px;margin-bottom:6px"></div>
-          <div class="sp-nav-item">
-            <div class="sp-sk sp-nav-icon"></div>
-            <div class="sp-sk sp-nav-txt" style="width:70px"></div>
+        <!-- Brand name + tagline -->
+        <div class="sp-brand-block">
+          <div class="sp-letters">
+            <span>A</span><span>R</span><span>T</span><span>I</span><span>X</span><span>P</span><span>O</span><span>S</span>
           </div>
-          <div class="sp-nav-item" style="background:rgba(124,58,237,0.08)">
-            <div class="sp-sk sp-nav-icon" style="opacity:0.7"></div>
-            <div class="sp-sk sp-nav-txt" style="width:40px;opacity:0.7"></div>
-          </div>
-          <div class="sp-nav-item">
-            <div class="sp-sk sp-nav-icon"></div>
-            <div class="sp-sk sp-nav-txt" style="width:58px"></div>
-          </div>
-          <div class="sp-nav-item">
-            <div class="sp-sk sp-nav-icon"></div>
-            <div class="sp-sk sp-nav-txt" style="width:64px"></div>
-          </div>
+          <div class="sp-tagline">Business OS</div>
         </div>
 
-        <!-- Nav group 2 -->
-        <div class="sp-nav-group">
-          <div class="sp-sk" style="height:9px;width:72px;border-radius:3px;margin-bottom:6px"></div>
-          <div class="sp-nav-item">
-            <div class="sp-sk sp-nav-icon"></div>
-            <div class="sp-sk sp-nav-txt" style="width:52px"></div>
-          </div>
-          <div class="sp-nav-item">
-            <div class="sp-sk sp-nav-icon"></div>
-            <div class="sp-sk sp-nav-txt" style="width:76px"></div>
-          </div>
-          <div class="sp-nav-item">
-            <div class="sp-sk sp-nav-icon"></div>
-            <div class="sp-sk sp-nav-txt" style="width:60px"></div>
-          </div>
-        </div>
-
-        <!-- Bottom of sidebar -->
-        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
-          <div class="sp-sk" style="height:36px;border-radius:10px;width:100%"></div>
-          <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
-            <div class="sp-sk" style="width:32px;height:32px;border-radius:50%"></div>
-            <div style="flex:1">
-              <div class="sp-sk" style="height:10px;width:80px;border-radius:4px"></div>
-              <div class="sp-sk" style="height:8px;width:60px;border-radius:3px;margin-top:5px"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Main area -->
-      <div class="sp-main">
-        <!-- Header -->
-        <div class="sp-header">
-          <!-- Mobile: show logo -->
-          <div class="sp-mobile-logo">
-            <div class="sp-logo-icon">A</div>
-            <div class="sp-sk" style="height:13px;width:72px;border-radius:4px;display:block"></div>
-          </div>
-          <!-- Desktop: show page title -->
-          <div class="sp-sk sp-header-title" style="display:none"></div>
-          <div class="sp-header-spacer"></div>
-          <div class="sp-sk sp-header-btn"></div>
-          <div class="sp-sk sp-header-btn"></div>
-          <div class="sp-sk" style="width:32px;height:32px;border-radius:50%"></div>
-        </div>
-
-        <!-- Page content -->
-        <div class="sp-content">
-          <!-- Stats grid -->
-          <div class="sp-stats">
-            <div class="sp-stat-card">
-              <div class="sp-sk sp-stat-label"></div>
-              <div class="sp-sk sp-stat-value"></div>
-              <div class="sp-sk sp-stat-sub"></div>
-            </div>
-            <div class="sp-stat-card">
-              <div class="sp-sk sp-stat-label"></div>
-              <div class="sp-sk sp-stat-value"></div>
-              <div class="sp-sk sp-stat-sub"></div>
-            </div>
-            <div class="sp-stat-card" style="display:none" id="sp-stat3">
-              <div class="sp-sk sp-stat-label"></div>
-              <div class="sp-sk sp-stat-value"></div>
-              <div class="sp-sk sp-stat-sub"></div>
-            </div>
-            <div class="sp-stat-card" style="display:none" id="sp-stat4">
-              <div class="sp-sk sp-stat-label"></div>
-              <div class="sp-sk sp-stat-value"></div>
-              <div class="sp-sk sp-stat-sub"></div>
-            </div>
-          </div>
-
-          <!-- Chart row -->
-          <div class="sp-chart-row" style="flex:1;min-height:0">
-            <!-- Main chart -->
-            <div class="sp-chart-card">
-              <div class="sp-chart-header">
-                <div class="sp-sk sp-chart-title"></div>
-                <div class="sp-sk sp-chart-badge"></div>
-              </div>
-              <div class="sp-chart-body">
-                <div class="sp-chart-bars">
-                  <div class="sp-bar" style="height:45%"></div>
-                  <div class="sp-bar" style="height:72%"></div>
-                  <div class="sp-bar" style="height:58%"></div>
-                  <div class="sp-bar" style="height:88%"></div>
-                  <div class="sp-bar" style="height:62%"></div>
-                  <div class="sp-bar" style="height:79%"></div>
-                  <div class="sp-bar" style="height:95%"></div>
-                  <div class="sp-bar" style="height:70%"></div>
-                  <div class="sp-bar" style="height:83%"></div>
-                  <div class="sp-bar" style="height:55%"></div>
-                  <div class="sp-bar" style="height:91%"></div>
-                  <div class="sp-bar" style="height:67%"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Recent transactions list -->
-            <div class="sp-chart-card" id="sp-side-card">
-              <div class="sp-chart-header">
-                <div class="sp-sk sp-chart-title"></div>
-              </div>
-              <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">
-                <div class="sp-list-item">
-                  <div class="sp-sk sp-list-avatar"></div>
-                  <div class="sp-list-lines">
-                    <div class="sp-sk sp-list-line1"></div>
-                    <div class="sp-sk sp-list-line2"></div>
-                  </div>
-                  <div class="sp-sk sp-list-val"></div>
-                </div>
-                <div class="sp-list-item">
-                  <div class="sp-sk sp-list-avatar"></div>
-                  <div class="sp-list-lines">
-                    <div class="sp-sk sp-list-line1"></div>
-                    <div class="sp-sk sp-list-line2"></div>
-                  </div>
-                  <div class="sp-sk sp-list-val"></div>
-                </div>
-                <div class="sp-list-item">
-                  <div class="sp-sk sp-list-avatar"></div>
-                  <div class="sp-list-lines">
-                    <div class="sp-sk sp-list-line1"></div>
-                    <div class="sp-sk sp-list-line2"></div>
-                  </div>
-                  <div class="sp-sk sp-list-val"></div>
-                </div>
-                <div class="sp-list-item">
-                  <div class="sp-sk sp-list-avatar"></div>
-                  <div class="sp-list-lines">
-                    <div class="sp-sk sp-list-line1"></div>
-                    <div class="sp-sk sp-list-line2"></div>
-                  </div>
-                  <div class="sp-sk sp-list-val"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mobile bottom nav -->
-        <div class="sp-bottom-nav">
-          <div class="sp-bn-item">
-            <div class="sp-sk sp-bn-icon"></div>
-            <div class="sp-sk sp-bn-lbl"></div>
-          </div>
-          <div class="sp-bn-item">
-            <div class="sp-sk sp-bn-icon"></div>
-            <div class="sp-sk sp-bn-lbl"></div>
-          </div>
-          <div class="sp-bn-item">
-            <div class="sp-sk sp-bn-icon"></div>
-            <div class="sp-sk sp-bn-lbl"></div>
-          </div>
-          <div class="sp-bn-item">
-            <div class="sp-sk sp-bn-icon"></div>
-            <div class="sp-sk sp-bn-lbl"></div>
-          </div>
-          <div class="sp-bn-item">
-            <div class="sp-sk sp-bn-icon"></div>
-            <div class="sp-sk sp-bn-lbl"></div>
-          </div>
+        <!-- Thin progress bar -->
+        <div class="sp-bar-wrap">
+          <div class="sp-bar-fill" id="sp-progress"></div>
         </div>
       </div>
     </div>
 
-    <!-- React root — renders on top of (and then replaces) splash -->
+    <!-- React root -->
     <div id="root"></div>
 
     <script>
-      /* Show extra stat cards on wider screens immediately */
+      /* ── Interactive particle canvas loader ── */
       (function(){
-        try{
-          if(window.innerWidth>=640){
-            var s3=document.getElementById('sp-stat3');
-            var s4=document.getElementById('sp-stat4');
-            if(s3)s3.style.display='flex';
-            if(s4)s4.style.display='flex';
+        var canvas = document.getElementById('sp-canvas');
+        if (!canvas || !canvas.getContext) return;
+        var ctx = canvas.getContext('2d');
+        var W = 0, H = 0;
+        var mouse = { x: -9999, y: -9999 };
+        var particles = [];
+        var raf, pInterval;
+        var alive = true;
+
+        function resize() {
+          W = canvas.width = window.innerWidth;
+          H = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize, { passive: true });
+
+        /* Mouse / touch tracking */
+        window.addEventListener('mousemove', function(e) {
+          mouse.x = e.clientX; mouse.y = e.clientY;
+        }, { passive: true });
+        window.addEventListener('touchmove', function(e) {
+          var t = e.touches[0];
+          mouse.x = t.clientX; mouse.y = t.clientY;
+        }, { passive: true });
+        window.addEventListener('touchend', function() {
+          mouse.x = -9999; mouse.y = -9999;
+        }, { passive: true });
+
+        /* Logo click bounce */
+        var logoBox = document.getElementById('sp-logo-box');
+        if (logoBox) {
+          logoBox.addEventListener('click', function() {
+            /* Burst particles outward from center */
+            for (var i = 0; i < particles.length; i++) {
+              var p = particles[i];
+              var dx = p.ox - W/2, dy = p.oy - H/2;
+              var dist = Math.sqrt(dx*dx+dy*dy) || 1;
+              p.ox += (dx/dist) * (60 + Math.random()*80);
+              p.oy += (dy/dist) * (60 + Math.random()*80);
+              setTimeout((function(pp, ox, oy) {
+                return function() { pp.ox = ox; pp.oy = oy; };
+              })(p, p.ox - (dx/dist)*(60+Math.random()*80), p.oy - (dy/dist)*(60+Math.random()*80)), 600);
+            }
+          });
+        }
+
+        /* Build particles — distributed across screen with bias toward edges */
+        var DARK_COLORS  = ['139,92,246', '167,139,250', '196,181,253', '124,58,237', '216,180,254'];
+        var LIGHT_COLORS = ['124,58,237',  '109,40,217',  '139,92,246',  '91,33,182',  '167,139,250'];
+
+        for (var i = 0; i < 75; i++) {
+          var angle = Math.random() * Math.PI * 2;
+          var spread = window.innerWidth > 768 ? 0.55 : 0.45;
+          var r = (Math.random() * 0.35 + spread) * Math.max(window.innerWidth, window.innerHeight);
+          var ox = W/2 + Math.cos(angle) * r;
+          var oy = H/2 + Math.sin(angle) * r;
+          particles.push({
+            x: ox, y: oy,
+            ox: ox, oy: oy,
+            size: Math.random() * 2.2 + 0.4,
+            alpha: Math.random() * 0.45 + 0.1,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.003 + Math.random() * 0.007,
+            drift: 25 + Math.random() * 55,
+            colorIdx: Math.floor(Math.random() * 5),
+          });
+        }
+
+        /* Progress simulation */
+        var progress = 0;
+        var progressEl = document.getElementById('sp-progress');
+        pInterval = setInterval(function() {
+          progress = Math.min(progress + Math.random() * 12 + 4, 88);
+          if (progressEl) progressEl.style.width = progress + '%';
+        }, 280);
+
+        /* Draw loop */
+        function draw() {
+          if (!alive) return;
+          ctx.clearRect(0, 0, W, H);
+
+          var dark = document.documentElement.classList.contains('dark');
+          var colors = dark ? DARK_COLORS : LIGHT_COLORS;
+
+          for (var i = 0; i < particles.length; i++) {
+            var p = particles[i];
+            p.phase += p.speed;
+
+            /* Sinusoidal drift around origin */
+            var tx = p.ox + Math.sin(p.phase) * p.drift;
+            var ty = p.oy + Math.cos(p.phase * 0.71) * p.drift * 0.65;
+
+            /* Mouse repulsion */
+            var dx = tx - mouse.x;
+            var dy = ty - mouse.y;
+            var d2 = dx*dx + dy*dy;
+            if (d2 < 14400) { /* 120px radius */
+              var d = Math.sqrt(d2);
+              var force = (1 - d/120) * 90;
+              tx += (dx/d) * force;
+              ty += (dy/d) * force;
+            }
+
+            /* Ease toward target */
+            p.x += (tx - p.x) * 0.055;
+            p.y += (ty - p.y) * 0.055;
+
+            var a = p.alpha * (0.65 + 0.35 * Math.sin(p.phase * 1.7));
+            var rgb = colors[p.colorIdx];
+
+            /* Core dot */
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, 6.2832);
+            ctx.fillStyle = 'rgba(' + rgb + ',' + a.toFixed(2) + ')';
+            ctx.fill();
+
+            /* Soft halo for larger particles */
+            if (p.size > 1.6) {
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.size * 3.5, 0, 6.2832);
+              ctx.fillStyle = 'rgba(' + rgb + ',' + (a * 0.12).toFixed(3) + ')';
+              ctx.fill();
+            }
           }
-          var hdr=document.querySelector('.sp-header-title');
-          if(hdr && window.innerWidth>=768) hdr.style.display='block';
-        }catch(e){}
+
+          raf = requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        /* Cleanup when splash is removed by React */
+        var mo = new MutationObserver(function(muts) {
+          muts.forEach(function(m) {
+            m.removedNodes.forEach(function(n) {
+              if (n.id === 'app-splash') {
+                alive = false;
+                cancelAnimationFrame(raf);
+                clearInterval(pInterval);
+                window.removeEventListener('resize', resize);
+                mo.disconnect();
+              }
+            });
+          });
+        });
+        mo.observe(document.body, { childList: true });
       })();
     </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -16,8 +16,9 @@ import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Loader2, Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
-  Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle,
+  Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle, Lock, KeyRound,
 } from "lucide-react";
+import { useKioskMode, DEFAULT_KIOSK_PIN } from "@/hooks/use-kiosk-mode";
 import { COUNTRY_LIST, getCountryByCode, type CountryData } from "@/lib/locale-detect";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -130,6 +131,27 @@ export default function Settings() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
+
+  const { getPin, setPin } = useKioskMode();
+  const [showPinChange, setShowPinChange] = useState(false);
+  const [pinCurrent, setPinCurrent] = useState("");
+  const [pinNew, setPinNew] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinSaved, setPinSaved] = useState(false);
+
+  const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
+
+  function handleChangePIN() {
+    setPinError("");
+    if (pinCurrent !== getPin()) { setPinError("Current PIN is incorrect."); return; }
+    if (!/^\d{4}$/.test(pinNew)) { setPinError("New PIN must be exactly 4 digits."); return; }
+    if (pinNew !== pinConfirm) { setPinError("PINs don't match."); return; }
+    setPin(pinNew);
+    setPinCurrent(""); setPinNew(""); setPinConfirm("");
+    setPinSaved(true);
+    setTimeout(() => setPinSaved(false), 3000);
+  }
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -922,6 +944,104 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      {/* ── Security (Kiosk PIN) ─────────────────────────────────── */}
+      {isManagerOrAbove && (
+        <>
+          <SectionLabel icon={Lock}>Security</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+            <button
+              onClick={() => { setShowPinChange(v => !v); setPinError(""); setPinSaved(false); }}
+              data-testid="button-open-kiosk-pin"
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-7 w-7 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <KeyRound className="h-3.5 w-3.5 text-violet-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium">Kiosk Mode PIN</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Change the 4-digit PIN to exit kiosk mode
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className={["h-4 w-4 text-muted-foreground/40 transition-transform duration-200", showPinChange ? "rotate-90" : ""].join(" ")} />
+            </button>
+
+            {showPinChange && (
+              <div className="border-t border-border/20 px-4 py-4 space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  Default PIN is <span className="font-mono font-bold text-foreground">{DEFAULT_KIOSK_PIN}</span>. Enter your current PIN, then choose a new one.
+                </p>
+
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Current PIN</label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={pinCurrent}
+                      onChange={e => { setPinCurrent(e.target.value.replace(/\D/g, "").slice(0, 4)); setPinError(""); }}
+                      placeholder="••••"
+                      data-testid="input-kiosk-current-pin"
+                      className="h-9 text-sm rounded-xl bg-secondary/60 border-none font-mono tracking-[0.4em] text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">New PIN</label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={pinNew}
+                      onChange={e => { setPinNew(e.target.value.replace(/\D/g, "").slice(0, 4)); setPinError(""); }}
+                      placeholder="••••"
+                      data-testid="input-kiosk-new-pin"
+                      className="h-9 text-sm rounded-xl bg-secondary/60 border-none font-mono tracking-[0.4em] text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Confirm New PIN</label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={pinConfirm}
+                      onChange={e => { setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4)); setPinError(""); }}
+                      placeholder="••••"
+                      onKeyDown={e => e.key === "Enter" && handleChangePIN()}
+                      data-testid="input-kiosk-confirm-pin"
+                      className="h-9 text-sm rounded-xl bg-secondary/60 border-none font-mono tracking-[0.4em] text-center"
+                    />
+                  </div>
+                </div>
+
+                {pinError && (
+                  <p className="text-[11px] text-destructive font-medium">{pinError}</p>
+                )}
+                {pinSaved && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                    <Check className="h-3 w-3" /> PIN updated successfully
+                  </p>
+                )}
+
+                <Button
+                  onClick={handleChangePIN}
+                  disabled={!pinCurrent || !pinNew || !pinConfirm}
+                  size="sm"
+                  data-testid="button-save-kiosk-pin"
+                  className="w-full h-9 rounded-xl font-semibold"
+                >
+                  <Lock className="h-3.5 w-3.5 mr-2" />
+                  Update PIN
+                </Button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── Account ─────────────────────────────────────────────── */}
       <SectionLabel icon={Shield}>Account</SectionLabel>

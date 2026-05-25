@@ -22,7 +22,6 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"],
-      "@artixpos/skeleton-ui": ["./client/src/vendor/artixpos-skeleton-ui/skeleton-ui.d.ts"]
     }
   },
   "include": ["client/src/**/*", "shared/**/*", "server/**/*", "api/**/*"],

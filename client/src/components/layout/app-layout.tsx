@@ -574,6 +574,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             <OfflineSyncBanner status={onlineStatus} />
 
+            {isManagerOrAbove && (
+              <button
+                onClick={enterKioskMode}
+                data-testid="btn-kiosk-mode-header"
+                title="Enable Kiosk Mode"
+                className={[
+                  "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border transition-all duration-200",
+                  isKioskActive
+                    ? "text-violet-400 bg-violet-500/15 border-violet-500/30"
+                    : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
+                ].join(" ")}
+              >
+                <Lock className="h-4 w-4" />
+              </button>
+            )}
+
             <NotificationBell />
           </div>
         </header>

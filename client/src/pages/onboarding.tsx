@@ -751,7 +751,7 @@ export default function Onboarding() {
                 !storeCountry ||
                 !storeName.trim() ||
                 !storeAddress.trim() ||
-                !hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "") ||
+                !storePhone.trim() ||
                 !storeEmail.trim() ||
                 isSubmitting
               }

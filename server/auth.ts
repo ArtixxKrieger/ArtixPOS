@@ -183,7 +183,7 @@ export function verifyToken(token: string): Express.User {
   };
 }
 
-export function signToken(user: TokenUser): string {
+export function signToken(user: TokenUser, rememberMe = false): string {
   return jwt.sign(
     {
       jti: crypto.randomUUID(),
@@ -197,7 +197,7 @@ export function signToken(user: TokenUser): string {
       activeBranchId: user.activeBranchId ?? null,
     },
     getJwtSecret(),
-    { expiresIn: "7d" }
+    { expiresIn: rememberMe ? "30d" : "7d" }
   );
 }
 
@@ -212,7 +212,9 @@ export const AUTH_COOKIE_OPTIONS = {
 };
 
 export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false) {
-  const token = signToken(user);
+  // Pass rememberMe so the JWT itself also expires in 30d instead of 7d —
+  // otherwise the cookie would outlive the token and silently log the user out.
+  const token = signToken(user, rememberMe);
   // rememberMe = false → session ends when browser closes (1 day max)
   // rememberMe = true  → cookie persists for 30 days
   const maxAge = rememberMe
@@ -797,7 +799,8 @@ export function setupAuth(app: Express) {
           setAuthCookie(res, user);
           return res.send(popupResultPage({ ok: true }));
         }
-        setAuthCookie(res, user);
+        // Google sign-in is an explicit active choice — always persist for 30 days.
+        setAuthCookie(res, user, true);
         return res.redirect("/");
       } catch (cookieErr: any) {
         console.error("[auth] Cookie error:", cookieErr?.message ?? cookieErr);
@@ -835,7 +838,8 @@ export function setupAuth(app: Express) {
         provider: "google",
         providerId: payload.sub,
       });
-      const token = signToken({ id: user.id, name: user.name, email: user.email, avatar: user.avatar, provider: user.provider, tenantId: user.tenantId, role: user.role ?? "owner", activeBranchId: (user as any).activeBranchId ?? null });
+      // Google sign-in is an explicit active choice — always persist for 30 days on native.
+      const token = signToken({ id: user.id, name: user.name, email: user.email, avatar: user.avatar, provider: user.provider, tenantId: user.tenantId, role: user.role ?? "owner", activeBranchId: (user as any).activeBranchId ?? null }, true);
       res.json({ token });
     } catch (err) {
       next(err);

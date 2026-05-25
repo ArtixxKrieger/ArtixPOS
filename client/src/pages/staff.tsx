@@ -316,9 +316,9 @@ export default function StaffPage() {
               {deleteMutation.isPending ? "Removing…" : "Remove"}
             </Button>
           </div>
-    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

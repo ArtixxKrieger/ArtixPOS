@@ -349,8 +349,8 @@ export default function Refunds() {
             {search ? "Try adjusting your search or filters" : "Refunds will appear here once processed"}
           </p>
         </div>
-    </PhantomLoader>
       )}
     </div>
+    </PhantomLoader>
   );
 }

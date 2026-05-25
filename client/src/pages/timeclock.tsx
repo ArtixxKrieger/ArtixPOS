@@ -611,9 +611,9 @@ export default function TimeClockPage() {
               <LogOut className="h-4 w-4 mr-2" /> Confirm Clock Out
             </Button>
           </div>
-    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

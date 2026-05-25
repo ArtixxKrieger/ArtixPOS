@@ -210,7 +210,6 @@ export default function TablesPage() {
               </Select>
             </div>
           </div>
-    </PhantomLoader>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancel</Button>
             <Button
@@ -224,5 +223,6 @@ export default function TablesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

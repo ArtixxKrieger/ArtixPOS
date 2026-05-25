@@ -1083,9 +1083,9 @@ export default function AppointmentsPage() {
               {deleteMutation.isPending ? "Deleting…" : "Delete"}
             </Button>
           </div>
-    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

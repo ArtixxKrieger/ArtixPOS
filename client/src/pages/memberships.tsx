@@ -592,9 +592,9 @@ export default function MembershipsPage() {
               Delete
             </Button>
           </div>
-    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

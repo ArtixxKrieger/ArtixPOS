@@ -714,7 +714,6 @@ export default function SuppliersPage() {
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any notes..." rows={2} data-testid="input-supplier-notes" />
             </div>
           </div>
-    </PhantomLoader>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-supplier">
@@ -750,5 +749,6 @@ export default function SuppliersPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PhantomLoader>
   );
 }

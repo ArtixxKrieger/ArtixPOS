@@ -556,7 +556,6 @@ export default function Transactions() {
           <p className="text-foreground font-semibold">No transactions found</p>
           <p className="text-sm text-muted-foreground/70">Try adjusting your filters or search query</p>
         </div>
-    </PhantomLoader>
       )}
 
       <SaleDetailModal
@@ -565,5 +564,6 @@ export default function Transactions() {
         onClose={() => setSelectedSale(null)}
       />
     </div>
+    </PhantomLoader>
   );
 }

@@ -1231,9 +1231,9 @@ export default function Shifts() {
               );
             })()}
           </div>
-    </PhantomLoader>
         </DialogContent>
       </Dialog>
     </div>
+    </PhantomLoader>
   );
 }

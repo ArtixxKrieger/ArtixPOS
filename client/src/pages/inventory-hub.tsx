@@ -230,8 +230,6 @@ export default function InventoryHub() {
           />
         )}
       </div>
-    </PhantomLoader>
-
       {/* Waste Log Form Dialog */}
       {showWasteForm && (
         <WasteLogForm
@@ -263,6 +261,7 @@ export default function InventoryHub() {
         />
       )}
     </div>
+    </PhantomLoader>
   );
 }
 

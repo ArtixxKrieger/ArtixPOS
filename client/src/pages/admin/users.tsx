@@ -545,7 +545,6 @@ export default function UsersPage() {
             );
           })}
         </div>
-    </PhantomLoader>
       )}
 
       <InviteLinkDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
@@ -611,5 +610,6 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PhantomLoader>
   );
 }

@@ -249,7 +249,6 @@ export default function Expenses() {
             ))}
           </div>
         </div>
-    </PhantomLoader>
       )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
@@ -286,5 +285,6 @@ export default function Expenses() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PhantomLoader>
   );
 }

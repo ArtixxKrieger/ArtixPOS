@@ -1232,9 +1232,9 @@ export default function Analytics() {
             ))}
           </div>
         </div>
-    </PhantomLoader>
       )}
 
     </div>
+    </PhantomLoader>
   );
 }

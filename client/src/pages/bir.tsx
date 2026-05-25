@@ -1358,9 +1358,9 @@ export default function BIRPage() {
             </div>
           </div>
         </div>
-    </PhantomLoader>
       )}
 
     </div>
+    </PhantomLoader>
   );
 }

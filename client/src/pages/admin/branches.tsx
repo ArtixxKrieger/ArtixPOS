@@ -31,7 +31,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1082,19 +1081,7 @@ function BranchDetailDrawer({
               )}
 
               {/* Stats */}
-              {statsLoading ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {[1, 2, 3, 4].map(i => (
-                    <PhantomLoader key={i}>
-                      <div className="glass-card rounded-2xl p-3 space-y-1">
-                        <div className="text-[11px] text-muted-foreground font-medium">Revenue</div>
-                        <div className="text-xl font-black">$0,000</div>
-                        <div className="text-[11px] text-muted-foreground">0 orders</div>
-                      </div>
-                    </PhantomLoader>
-                  ))}
-                </div>
-              ) : stats ? (
+              {stats ? (
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-card rounded-2xl p-3 space-y-1">

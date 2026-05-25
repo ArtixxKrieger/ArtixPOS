@@ -9,8 +9,6 @@ import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, U
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
-import { useViewportSkeletonCount } from "@/hooks/use-skeleton-count";
 
 
 interface OrderItem {
@@ -65,8 +63,7 @@ function makeDummyOrders(count: number): PendingOrder[] {
 export default function PendingOrders() {
   const { data: orders = [], isLoading } = usePendingOrders();
   // Each order card is ~220px tall + 16px gap
-  const orderSkeletonCount = useViewportSkeletonCount(236, 180);
-  const displayOrders = isLoading ? makeDummyOrders(orderSkeletonCount) : orders as PendingOrder[];
+  const displayOrders = orders as PendingOrder[];
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
   const deleteOrder = useDeletePendingOrder();
@@ -164,7 +161,6 @@ export default function PendingOrders() {
   };
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter pb-4">
 
       {/* Header */}
@@ -361,6 +357,5 @@ export default function PendingOrders() {
       )}
 
     </div>
-    </PhantomLoader>
   );
 }

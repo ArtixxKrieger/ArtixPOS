@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { TimeLog } from "@shared/schema";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const OT_THRESHOLD_MINS = 480;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -165,7 +164,6 @@ export default function TimeClockPage() {
   const isLoading = activeLoading || logsLoading;
 
   return (
-    <PhantomLoader loading={activeLoading || logsLoading}>
     <div className="space-y-5 max-w-2xl mx-auto pb-8">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -215,13 +213,7 @@ export default function TimeClockPage() {
             </div>
 
             {/* Status badge */}
-            {isLoading ? (
-              <PhantomLoader>
-                <div className="h-8 w-36 rounded-full border border-border bg-card flex items-center justify-center">
-                  <span className="text-sm font-medium">Checking status…</span>
-                </div>
-              </PhantomLoader>
-            ) : isOnBreak ? (
+            {isOnBreak ? (
               <div className="flex flex-col items-center gap-1.5">
                 <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20 border text-sm px-4 py-1.5">
                   <Coffee className="h-3.5 w-3.5 mr-1.5" />
@@ -376,17 +368,7 @@ export default function TimeClockPage() {
           {/* History */}
           <div className="space-y-4">
             <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">History</h2>
-            {logsLoading ? (
-              <PhantomLoader count={3} countGap={8}>
-                <div className="h-16 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
-                  <div className="flex-1">
-                    <div className="font-semibold text-sm">Mon, Jan 1</div>
-                    <div className="text-xs text-muted-foreground">Clock in 09:00 — Clock out 17:00</div>
-                  </div>
-                  <div className="text-sm font-bold">8h 00m</div>
-                </div>
-              </PhantomLoader>
-            ) : groups.length === 0 ? (
+            {groups.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Clock className="h-9 w-9 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No time logs yet</p>
@@ -465,18 +447,7 @@ export default function TimeClockPage() {
       {/* ─── TEAM TAB ─── */}
       {tab === "team" && canSeeTeam && (
         <div className="space-y-3">
-          {teamLoading ? (
-            <PhantomLoader count={4} countGap={12}>
-              <div className="h-20 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
-                <div className="h-9 w-9 rounded-full bg-muted/30 shrink-0" />
-                <div className="flex-1">
-                  <div className="font-semibold">Team Member</div>
-                  <div className="text-sm text-muted-foreground">Clocked in 09:00 · 4h 30m</div>
-                </div>
-                <div className="text-xs font-bold text-emerald-500">Active</div>
-              </div>
-            </PhantomLoader>
-          ) : teamByUser.length === 0 ? (
+          {teamByUser.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-9 w-9 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No team activity yet</p>
@@ -614,6 +585,5 @@ export default function TimeClockPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </PhantomLoader>
   );
 }

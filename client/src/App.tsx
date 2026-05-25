@@ -18,7 +18,6 @@ import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
 import { AppTour } from "@/components/app-tour";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -246,18 +245,7 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
   return <Component />;
 }
 
-const pageFallback = (
-  <div className="p-4 w-full space-y-3 animate-pulse">
-    <div className="h-28 rounded-3xl bg-muted/60" />
-    <div className="grid grid-cols-2 gap-3">
-      <div className="h-20 rounded-2xl bg-muted/60" />
-      <div className="h-20 rounded-2xl bg-muted/60" />
-    </div>
-    <div className="h-20 rounded-2xl bg-muted/60" />
-    <div className="h-16 rounded-2xl bg-muted/60" />
-    <div className="h-16 rounded-2xl bg-muted/60" />
-  </div>
-);
+const pageFallback = null;
 
 function LoadingScreen({ message }: { message?: string }) {
   // After 4 s offline → show the "no cached chunk" error screen.
@@ -337,20 +325,7 @@ function LoadingScreen({ message }: { message?: string }) {
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#f2f2f7] dark:bg-[#09090f] overflow-y-auto">
-      {/* Minimal header — mirrors the real app header so the transition is seamless */}
-      <div className="flex items-center h-[52px] min-h-[52px] bg-white dark:bg-[#0f0f1a] border-b border-border px-4 gap-3 sticky top-0 z-10">
-        <div className="w-8 h-8 rounded-[10px] bg-violet-600 flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-xs font-black select-none">A</span>
-        </div>
-        <Skeleton className="h-3 w-20" />
-        <div className="flex-1" />
-        <Skeleton className="w-8 h-8 rounded-full" />
-      </div>
-      {pageFallback}
-    </div>
-  );
+  return null;
 }
 
 // ── Persistent route paths ─────────────────────────────────────────────────

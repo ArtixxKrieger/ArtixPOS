@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 import { useSettings } from "@/hooks/use-settings";
 import { useProducts } from "@/hooks/use-products";
 import { getBusinessFeatures } from "@/lib/business-features";
@@ -157,7 +156,6 @@ export default function Dashboard() {
   );
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-4 page-enter">
 
       {/* Hero Card */}
@@ -445,6 +443,5 @@ export default function Dashboard() {
         onClose={() => setSelectedSale(null)}
       />
     </div>
-    </PhantomLoader>
   );
 }

@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 import {
   insertMembershipPlanSchema, insertMembershipSchema,
   type MembershipPlan, type Membership, type Customer, type MembershipCheckIn
@@ -457,7 +456,6 @@ export default function MembershipsPage() {
   const activeCount = (members as MemberWithCustomer[]).filter((m) => m.status === "active").length;
 
   return (
-    <PhantomLoader loading={plansLoading || membersLoading}>
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -481,18 +479,7 @@ export default function MembershipsPage() {
             <Input data-testid="input-search-members" className="pl-9" placeholder="Search by name or plan…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
 
-          {membersLoading ? (
-            <PhantomLoader count={3} countGap={12}>
-              <div className="h-24 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
-                <div className="h-10 w-10 rounded-full bg-muted/30 shrink-0" />
-                <div className="flex-1">
-                  <div className="font-semibold">Member Name</div>
-                  <div className="text-sm text-muted-foreground">Gold Plan · Expires Jan 1</div>
-                </div>
-                <div className="text-xs font-bold">Active</div>
-              </div>
-            </PhantomLoader>
-          ) : filteredMembers.length === 0 ? (
+          {filteredMembers.length === 0 ? (
             <div className="text-center py-14">
               <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                 <Users className="h-7 w-7 text-muted-foreground" />
@@ -521,14 +508,7 @@ export default function MembershipsPage() {
               <Plus className="h-4 w-4 mr-1.5" /> Add Plan
             </Button>
           </div>
-          {plansLoading ? (
-            <PhantomLoader count={2} countGap={12}>
-              <div className="h-28 rounded-2xl border border-border bg-card flex flex-col justify-between p-4">
-                <div className="font-semibold">Plan Name</div>
-                <div className="text-sm text-muted-foreground">$0.00 / month · Unlimited visits</div>
-              </div>
-            </PhantomLoader>
-          ) : (plans as MembershipPlan[]).length === 0 ? (
+          {(plans as MembershipPlan[]).length === 0 ? (
             <div className="text-center py-14">
               <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                 <CreditCard className="h-7 w-7 text-muted-foreground" />
@@ -595,6 +575,5 @@ export default function MembershipsPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </PhantomLoader>
   );
 }

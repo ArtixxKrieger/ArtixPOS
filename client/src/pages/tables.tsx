@@ -10,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, LayoutGrid, Pencil, Trash2, Users, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Table } from "@shared/schema";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
-import { useGridSkeletonCount } from "@/hooks/use-skeleton-count";
 
 
 const STATUS_CONFIG = {
@@ -33,8 +31,6 @@ export default function TablesPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: tables = [], isLoading } = useQuery<Table[]>({ queryKey: ["/api/tables"] });
-  // Tables grid: sm=640→3, md=768→4, lg=1280→5; h-36 cards + gap-4 = ~160px/row
-  const tableSkeletonCount = useGridSkeletonCount({ 0: 2, 640: 3, 768: 4, 1280: 5 }, 160, 250);
 
   const createMutation = useMutation({
     mutationFn: (data: TableForm) => apiRequest("POST", "/api/tables", data),
@@ -72,7 +68,6 @@ export default function TablesPage() {
   for (const t of tables) counts[(t.status as TableStatus) ?? "available"]++;
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -98,19 +93,7 @@ export default function TablesPage() {
       </div>
 
       {/* Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {[...Array(tableSkeletonCount)].map((_, i) => (
-            <PhantomLoader key={i}>
-              <div className="h-36 rounded-2xl border border-border bg-card flex flex-col items-center justify-center gap-2 p-3">
-                <div className="h-5 w-5 rounded bg-muted/30" />
-                <span className="text-sm font-semibold">Table Name</span>
-                <span className="text-xs text-muted-foreground">0 seats</span>
-              </div>
-            </PhantomLoader>
-          ))}
-        </div>
-      ) : tables.length === 0 ? (
+      {tables.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <LayoutGrid className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No tables yet</p>
@@ -227,6 +210,5 @@ export default function TablesPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </PhantomLoader>
   );
 }

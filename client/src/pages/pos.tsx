@@ -39,8 +39,6 @@ import { playCheckout, playAddItem, playMilestone, playError } from "@/lib/sound
 import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { ConfettiBurst } from "@/components/confetti";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
-import { useGridSkeletonCount } from "@/hooks/use-skeleton-count";
 
 // ── Responsive column count for the POS product grid ─────────────────────────
 // Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
@@ -301,8 +299,6 @@ export default function POS() {
   // With 1 000 products @ 4 cols = 250 rows; we render ≈ 9-12 at a time.
   const productScrollRef = useRef<HTMLDivElement>(null);
   const cols = useGridCols();
-  // POS grid: sm=640→3cols, lg=1024→4cols; row height matches virtualizer estimateSize
-  const skeletonCount = useGridSkeletonCount({ 0: 2, 640: 3, 1024: 4 }, 260, 200);
   const rowCount = Math.ceil(filteredProducts.length / cols);
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
@@ -1335,18 +1331,7 @@ export default function POS() {
           ref={productScrollRef}
           className={`flex-1 overflow-y-auto scrollbar-hide ${cart.length > 0 ? "pb-[88px] md:pb-4" : "pb-4"}`}
         >
-          {isLoading ? (
-            <PhantomLoader loading>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[...Array(skeletonCount)].map((_, i) => (
-                  <div key={i} className="aspect-[3/4] rounded-3xl border border-border bg-card flex flex-col justify-end p-3 gap-1">
-                    <div className="font-semibold text-sm">Product Name</div>
-                    <div className="text-xs text-muted-foreground">$0.00</div>
-                  </div>
-                ))}
-              </div>
-            </PhantomLoader>
-          ) : filteredProducts.length === 0 ? (
+          {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3 py-16">
               <Package className="h-14 w-14" strokeWidth={1.2} />
               <p className="font-medium">{t("pos.noProducts")}</p>

@@ -4,7 +4,6 @@ import { useSettings } from "@/hooks/use-settings";
 import { differenceInDays, parseISO, isValid, format } from "date-fns";
 import { CalendarClock, AlertTriangle, CheckCircle2, Clock, Package, FlaskConical } from "lucide-react";
 import { Link } from "wouter";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface ExpiryProduct {
   id: number;
@@ -185,7 +184,6 @@ export default function ExpiryTracker() {
   const hasAny = totalTracked > 0;
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-5 page-enter">
       <div>
         <h2 className="text-xl font-black tracking-tight">Expiry Tracker</h2>
@@ -194,17 +192,7 @@ export default function ExpiryTracker() {
         </p>
       </div>
 
-      {isLoading ? (
-        <PhantomLoader count={3} countGap={12}>
-          <div className="h-16 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
-            <div className="flex-1">
-              <div className="font-semibold">Product Name</div>
-              <div className="text-sm text-muted-foreground">Expires Jan 1, 2025 · 10 units</div>
-            </div>
-            <div className="text-xs font-bold text-amber-500">7 days</div>
-          </div>
-        </PhantomLoader>
-      ) : !hasAny ? (
+      {!hasAny ? (
         <div className="glass-card rounded-3xl py-16 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
             <CalendarClock className="h-8 w-8 opacity-25" strokeWidth={1.5} />
@@ -245,6 +233,5 @@ export default function ExpiryTracker() {
         </div>
       )}
     </div>
-    </PhantomLoader>
   );
 }

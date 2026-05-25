@@ -17,7 +17,6 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { insertAppointmentSchema, type Appointment, type ServiceStaff, type Customer, type ServiceRoom } from "@shared/schema";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronRight, Clock, User,
   Edit, Trash2, CheckCircle2, Tag, CreditCard,
@@ -853,7 +852,6 @@ export default function AppointmentsPage() {
   const currency       = settings?.currency ?? "₱";
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -943,18 +941,7 @@ export default function AppointmentsPage() {
       )}
 
       {/* Content */}
-      {isLoading ? (
-        <PhantomLoader count={3} countGap={12}>
-          <div className="h-24 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
-            <div className="w-1 h-14 rounded-full bg-muted/30 shrink-0" />
-            <div className="flex-1">
-              <div className="font-semibold">Client Name</div>
-              <div className="text-sm text-muted-foreground">10:00 AM · Haircut · Staff Name</div>
-            </div>
-            <div className="text-xs font-semibold text-primary">Confirmed</div>
-          </div>
-        </PhantomLoader>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
             <CalendarDays className="h-7 w-7 text-muted-foreground" />
@@ -1086,6 +1073,5 @@ export default function AppointmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </PhantomLoader>
   );
 }

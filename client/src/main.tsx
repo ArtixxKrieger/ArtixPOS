@@ -3,8 +3,6 @@ import App from "./App";
 import "./index.css";
 import "sileo/styles.css";
 import "./i18n";
-import "@artixpos/skeleton-ui";
-
 // ── Splash screen dismissal ───────────────────────────────────────────────
 // The #app-splash div is rendered in raw HTML and shows instantly before any
 // JS downloads. Once React has painted its first frame we fade it out and

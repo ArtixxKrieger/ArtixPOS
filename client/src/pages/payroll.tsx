@@ -21,7 +21,6 @@ import {
   CheckCircle2, CircleDot, Circle, Trash2, Plus, AlertCircle,
   Receipt, CreditCard, ArrowRight, Sparkles, Info,
 } from "lucide-react";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -199,7 +198,6 @@ export default function PayrollPage() {
   // ── render ─────────────────────────────────────────────────────────────────
 
   return (
-    <PhantomLoader loading={staffFetching || payrollFetching || periodsFetching}>
     <div className="space-y-4 page-enter">
 
       {/* ── MINIMAL HEADER ──────────────────────────────────────────────────── */}
@@ -665,6 +663,5 @@ export default function PayrollPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    </PhantomLoader>
   );
 }

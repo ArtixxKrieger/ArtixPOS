@@ -17,8 +17,6 @@ import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useDeleteSale } from "@/hooks/use-sales";
 import { type UserSetting } from "@shared/schema";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 type SaleItem = {
   cartId?: string;
@@ -408,19 +406,6 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
                 Order Items · {items.length} {items.length === 1 ? "item" : "items"}
               </p>
-              {settingsLoading ? (
-                <div className="space-y-2">
-                  <PhantomLoader count={items.length || 2} countGap={8}>
-                    <div className="glass-card rounded-xl p-3 h-16 flex items-start justify-between gap-2">
-                      <div className="flex-1 space-y-1.5">
-                        <div className="font-semibold text-sm">Product name</div>
-                        <div className="text-xs text-muted-foreground">Modifier · Note</div>
-                      </div>
-                      <div className="text-sm font-bold text-primary shrink-0">₱0.00</div>
-                    </div>
-                  </PhantomLoader>
-                </div>
-              ) : (
               <div className="space-y-2">
                 {items.map((item, i) => {
                   const itemPrice = parseNumeric(item.size?.price ?? item.product?.price ?? 0);
@@ -469,11 +454,10 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
                   );
                 })}
               </div>
-              )}
             </div>
 
             {/* Notes */}
-            {!settingsLoading && sale.notes && (
+            {sale.notes && (
               <div className="glass-card rounded-xl p-3">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Order Note</p>
                 <p className="text-sm text-foreground/80">{sale.notes}</p>
@@ -481,23 +465,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             )}
 
             {/* Payment breakdown */}
-            {settingsLoading ? (
-              <div className="glass-card rounded-xl p-3 space-y-2">
-                <Skeleton className="h-3 w-28" />
-                <div className="space-y-2 pt-1">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="flex justify-between items-center">
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-3 w-16" />
-                    </div>
-                  ))}
-                  <div className="pt-2 border-t border-border flex justify-between items-center">
-                    <Skeleton className="h-4 w-12" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                </div>
-              </div>
-            ) : (
+            {(
               <div className="glass-card rounded-xl p-3 space-y-2">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Payment Summary</p>
                 <div className="space-y-1.5 text-sm">
@@ -557,13 +525,6 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               >
                 <Printer className="h-3.5 w-3.5 mr-2" /> Print Receipt
               </Button>
-            </div>
-          )}
-
-          {/* Skeleton for permission-gated actions while perms load */}
-          {permsLoading && !isVoided && (
-            <div className="px-5 pb-5 space-y-2">
-              <Skeleton className="w-full h-10 rounded-xl" />
             </div>
           )}
 

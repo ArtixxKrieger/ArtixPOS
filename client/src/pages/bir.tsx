@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Shift } from "@shared/schema";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface XReportData {
   shift: any | null;
@@ -539,7 +538,6 @@ export default function BIRPage() {
   }
 
   return (
-    <PhantomLoader loading={zReportLoading || orGapLoading || xLoading || monthlyLoading}>
     <div className="space-y-5 page-enter pb-8">
 
       {/* Page header */}
@@ -634,15 +632,7 @@ export default function BIRPage() {
           </button>
         </div>
 
-        {xLoading && (
-          <PhantomLoader count={3} countGap={8}>
-            <div className="h-10 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
-              <div className="flex-1 text-sm font-medium">Loading X-Report…</div>
-            </div>
-          </PhantomLoader>
-        )}
-
-        {!xLoading && (!xReport || !xReport.shift) && (
+        {(!xReport || !xReport.shift) && (
           <div className="text-center py-6 text-muted-foreground/60">
             <Clock className="h-8 w-8 mx-auto mb-2" strokeWidth={1.2} />
             <p className="text-sm font-medium">No active shift</p>
@@ -755,15 +745,7 @@ export default function BIRPage() {
           </select>
         </div>
 
-        {monthlyLoading && (
-          <PhantomLoader count={3} countGap={8}>
-            <div className="h-12 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
-              <div className="flex-1 text-sm font-medium">Loading monthly summary…</div>
-            </div>
-          </PhantomLoader>
-        )}
-
-        {!monthlyLoading && monthlySummary && (
+        {monthlySummary && (
           <>
             {/* OR Range */}
             {monthlySummary.orFrom && (
@@ -952,14 +934,7 @@ export default function BIRPage() {
                 </button>
               </div>
               <div className="p-5 space-y-4">
-                {zReportLoading && (
-                  <PhantomLoader count={3} countGap={8}>
-                    <div className="h-12 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
-                      <div className="flex-1 text-sm font-medium">Loading Z-Report…</div>
-                    </div>
-                  </PhantomLoader>
-                )}
-                {!zReportLoading && zReport && !(zReport as any).shift && (
+                {zReport && !(zReport as any).shift && (
                   <div className="text-center py-6 text-muted-foreground/60">
                     <AlertTriangle className="h-7 w-7 mx-auto mb-2 text-amber-500" />
                     <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Could not load Z-Report</p>
@@ -1077,14 +1052,7 @@ export default function BIRPage() {
 
         {orGapExpanded && (
           <div className="mt-3 space-y-3">
-            {orGapLoading && (
-              <PhantomLoader count={2} countGap={8}>
-                <div className="h-10 rounded-xl border border-border bg-card flex items-center gap-3 px-4">
-                  <div className="flex-1 text-sm font-medium">Loading OR gap data…</div>
-                </div>
-              </PhantomLoader>
-            )}
-            {!orGapLoading && orGapData && (
+            {orGapData && (
               <>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-secondary/40 rounded-xl px-3 py-2 text-center">
@@ -1361,6 +1329,5 @@ export default function BIRPage() {
       )}
 
     </div>
-    </PhantomLoader>
   );
 }

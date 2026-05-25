@@ -24,7 +24,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 interface SupplierForm {
   name: string; contactPerson: string; phone: string; email: string; address: string; notes: string;
@@ -178,14 +177,7 @@ function SupplierDetailSheet({
 
         {/* Stats row */}
         <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
-          {statsLoading ? (
-            <PhantomLoader count={3} countGap={0}>
-                <div className="h-16 flex flex-col items-center justify-center gap-1 p-4">
-                  <div className="text-xl font-bold">000</div>
-                  <div className="text-xs text-muted-foreground">Stat label</div>
-                </div>
-            </PhantomLoader>
-          ) : (
+          {(
             <>
               <div className="p-4 text-center">
                 <p className="text-xl font-bold">{stats?.totalOrders ?? 0}</p>
@@ -244,17 +236,7 @@ function SupplierDetailSheet({
               </Button>
             </div>
 
-            {spLoading ? (
-              <PhantomLoader count={3} countGap={8}>
-                <div className="h-14 rounded-xl border border-border bg-card flex items-center gap-3 px-3">
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">Product Name</div>
-                    <div className="text-xs text-muted-foreground">SKU-000 · 10 in stock</div>
-                  </div>
-                  <div className="text-xs font-bold">$0.00</div>
-                </div>
-              </PhantomLoader>
-            ) : spRows.length === 0 ? (
+            {spRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">{t("suppliers.noProductsLinked")}</p>
@@ -528,7 +510,6 @@ export default function SuppliersPage() {
   }
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -563,17 +544,7 @@ export default function SuppliersPage() {
       />
 
       {/* List */}
-      {isLoading ? (
-        <PhantomLoader count={4} countGap={12}>
-          <div className="h-28 rounded-2xl border border-border bg-card flex items-center gap-4 px-4">
-            <div className="h-10 w-10 rounded-xl bg-muted/30 shrink-0" />
-            <div className="flex-1">
-              <div className="font-semibold">Supplier Name</div>
-              <div className="text-sm text-muted-foreground">contact@supplier.com · +000 000 0000</div>
-            </div>
-          </div>
-        </PhantomLoader>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">{search ? t("suppliers.noMatchSearch") : t("suppliers.noSuppliersYet")}</p>
@@ -747,6 +718,5 @@ export default function SuppliersPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    </PhantomLoader>
   );
 }

@@ -29,7 +29,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest, clearNativeToken } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   food_beverage: "Food & Beverage",
@@ -366,7 +365,6 @@ export default function Settings() {
     : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="max-w-lg page-enter space-y-0.5">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
@@ -1150,6 +1148,5 @@ export default function Settings() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    </PhantomLoader>
   );
 }

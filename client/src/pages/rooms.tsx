@@ -13,9 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { insertServiceRoomSchema, type ServiceRoom } from "@shared/schema";
 import { DoorOpen, Plus, Edit, Trash2, CheckCircle2, XCircle, Wrench } from "lucide-react";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
+
 import { useSettings } from "@/hooks/use-settings";
-import { useGridSkeletonCount } from "@/hooks/use-skeleton-count";
 
 const ROOM_TYPES: Record<string, { label: string; emoji: string }> = {
   room: { label: "Room", emoji: "🚪" },
@@ -186,8 +185,6 @@ export default function RoomsPage() {
   const pageDesc = subType === "salon" ? "Manage styling chairs and workstations" : subType === "gym" ? "Manage courts, lanes, and equipment areas" : "Manage treatment rooms and service stations";
 
   const { data: rooms = [], isLoading } = useQuery<ServiceRoom[]>({ queryKey: ["/api/service-rooms"] });
-  // Rooms grid: 1 col on mobile, 2 cols on sm; h-28 cards + gap-3 = ~128px/row
-  const roomSkeletonCount = useGridSkeletonCount({ 0: 1, 640: 2 }, 128, 220);
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
@@ -218,7 +215,6 @@ export default function RoomsPage() {
   const maintenance = (rooms as ServiceRoom[]).filter((r) => r.status === "maintenance");
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -245,18 +241,7 @@ export default function RoomsPage() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[...Array(roomSkeletonCount)].map((_, i) => (
-            <PhantomLoader key={i}>
-              <div className="h-28 rounded-2xl border border-border bg-card flex flex-col justify-between p-4">
-                <div className="font-semibold">Room Name</div>
-                <div className="text-sm text-muted-foreground">0 chairs · Available</div>
-              </div>
-            </PhantomLoader>
-          ))}
-        </div>
-      ) : (rooms as ServiceRoom[]).length === 0 ? (
+      {(rooms as ServiceRoom[]).length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
             <DoorOpen className="h-7 w-7 text-muted-foreground" />
@@ -305,6 +290,5 @@ export default function RoomsPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </PhantomLoader>
   );
 }

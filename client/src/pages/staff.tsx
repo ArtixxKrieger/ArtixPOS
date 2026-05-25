@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { insertServiceStaffSchema, type ServiceStaff } from "@shared/schema";
-import { PhantomLoader } from "@/components/ui/phantom-loader";
 import {
   Users, Plus, Phone, Mail, Edit, Trash2, Search, Palette,
   CheckCircle2, XCircle, User
@@ -214,7 +213,6 @@ export default function StaffPage() {
   const inactive = filtered.filter((s) => !s.isActive);
 
   return (
-    <PhantomLoader loading={isLoading}>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -237,17 +235,7 @@ export default function StaffPage() {
         />
       </div>
 
-      {isLoading ? (
-        <PhantomLoader count={3} countGap={12}>
-          <div className="h-20 rounded-2xl border border-border bg-card flex items-center gap-3 px-4">
-            <div className="h-10 w-10 rounded-full bg-muted/30 shrink-0" />
-            <div className="flex-1">
-              <div className="font-semibold">Staff Member Name</div>
-              <div className="text-sm text-muted-foreground">Role · Branch</div>
-            </div>
-          </div>
-        </PhantomLoader>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
             <Users className="h-7 w-7 text-muted-foreground" />
@@ -319,6 +307,5 @@ export default function StaffPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </PhantomLoader>
   );
 }

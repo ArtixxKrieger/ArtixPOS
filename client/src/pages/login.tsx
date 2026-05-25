@@ -304,66 +304,16 @@ export default function Login() {
   }, []);
 
   // On native → Capacitor Google Auth plugin.
-  // On web   → popup flow on desktop, redirect flow on mobile.
-  //
-  // Mobile browsers (Android Chrome, Safari on iOS) open window.open() as a
-  // new tab.  After navigating through Google OAuth the new tab loses its
-  // window.opener reference, so postMessage never reaches the login page and
-  // window.close() is blocked by the browser.  The user ends up stuck on the
-  // "Signing you in…" intermediary page.
-  //
-  // The redirect flow avoids all of that: the current tab navigates through
+  // On web   → always use redirect flow (same tab). The popup approach causes
+  // the OAuth callback to open in a small window and get stuck on "Signing you in…"
+  // because window.opener / postMessage is blocked by the browser after navigating
+  // through Google's domain. The redirect flow navigates the current tab through
   // the OAuth chain and lands back on "/" with the auth cookie already set.
-  // The bfcache pageshow handler in queryClient.ts re-validates the session
-  // if the browser restores a frozen page instead of doing a fresh load.
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
 
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-
-    // Detect mobile: touch-capable + narrow viewport  OR  known mobile UA.
-    // iPads intentionally fall through to the popup path (they support it).
-    const isMobile =
-      /Android|iPhone|iPod/i.test(navigator.userAgent) ||
-      (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
-
-    if (isMobile) {
-      // Redirect flow — same tab, no popup issues.
-      window.location.href = `${API_BASE}/auth/google`;
-      return;
-    }
-
-    // Desktop: open a centered popup so the login page is never navigated
-    // away.  The server's popupResultPage will postMessage success back and
-    // this window's message listener (above) will invalidate auth-me.
-    const w = 500, h = 640;
-    const left = Math.round(window.screenX + (window.outerWidth  - w) / 2);
-    const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
-    const popup = window.open(
-      `${API_BASE}/auth/google?popup=1`,
-      "google-oauth",
-      `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`,
-    );
-
-    if (!popup) {
-      // Popup was blocked — fall back to the redirect flow.
-      window.location.href = `${API_BASE}/auth/google`;
-      return;
-    }
-
-    setSigningIn(true);
-
-    // Poll every 500 ms to detect popup closure without completing sign-in
-    // (user clicked ✕ before picking an account).  Store the timer ID in a ref
-    // so the useEffect cleanup above can clear it if the component unmounts.
-    oauthPollTimerRef.current = setInterval(() => {
-      if (popup.closed) {
-        if (oauthPollTimerRef.current !== null) clearInterval(oauthPollTimerRef.current);
-        oauthPollTimerRef.current = null;
-        setSigningIn(false);
-        sessionStorage.removeItem(OAUTH_FLOW_KEY);
-      }
-    }, 500);
+    window.location.href = `${API_BASE}/auth/google`;
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {

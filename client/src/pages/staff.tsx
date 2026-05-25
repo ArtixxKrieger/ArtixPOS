@@ -17,7 +17,6 @@ import {
   Users, Plus, Phone, Mail, Edit, Trash2, Search, Palette,
   CheckCircle2, XCircle, User
 } from "lucide-react";
-import { Phantom } from "@/components/phantom";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316",
@@ -236,28 +235,7 @@ export default function StaffPage() {
         />
       </div>
 
-      {isLoading ? (
-        <Phantom loading={true}>
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-muted/60 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 rounded-lg bg-muted/60 w-32" />
-                    <div className="h-4 rounded-full bg-muted/60 w-14" />
-                  </div>
-                  <div className="h-3 rounded-md bg-muted/60 w-24" />
-                </div>
-                <div className="flex gap-1.5 shrink-0">
-                  <div className="h-8 w-8 rounded-lg bg-muted/60" />
-                  <div className="h-8 w-8 rounded-lg bg-muted/60" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Phantom>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
             <Users className="h-7 w-7 text-muted-foreground" />

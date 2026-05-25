@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CameraScannerModal } from "@/components/camera-scanner-modal";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
-import { Phantom } from "@/components/phantom";
 
 interface SizeItem { name: string; price: string; }
 
@@ -731,22 +730,7 @@ export default function Products() {
       </div>
 
       {/* Product List */}
-      {isLoading ? (
-        <Phantom loading={true}>
-          <div className="space-y-2.5">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div key={i} className="bg-card rounded-2xl border border-border/30 px-4 py-3.5 flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl bg-muted/60 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 rounded-lg bg-muted/60 w-3/4" />
-                  <div className="h-3 rounded-md bg-muted/60 w-1/2" />
-                </div>
-                <div className="h-4 rounded-lg bg-muted/60 w-20 shrink-0" />
-              </div>
-            ))}
-          </div>
-        </Phantom>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="glass-card rounded-3xl py-16 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
             <Package className="h-8 w-8 opacity-25" strokeWidth={1.5} />

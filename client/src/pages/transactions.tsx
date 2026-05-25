@@ -10,7 +10,6 @@ import {
 import { useState, useMemo } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
-import { Phantom } from "@/components/phantom";
 
 type DateFilter = "all" | "today" | "week" | "month" | "custom";
 type PaymentFilter = "all" | "cash" | "card" | "gcash" | "maya" | "online";
@@ -345,26 +344,7 @@ export default function Transactions() {
       </div>
 
       {/* Mobile card list — shown on small screens */}
-      {isLoading ? (
-        <Phantom loading={true}>
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="glass-card rounded-2xl px-4 py-3 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-muted/60 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 rounded-md bg-muted/60 w-1/4" />
-                  <div className="h-4 rounded-lg bg-muted/60 w-2/3" />
-                  <div className="h-3 rounded-md bg-muted/60 w-1/2" />
-                </div>
-                <div className="shrink-0 space-y-1.5 text-right">
-                  <div className="h-5 rounded-lg bg-muted/60 w-20" />
-                  <div className="h-3 rounded-md bg-muted/60 w-14 ml-auto" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Phantom>
-      ) : filtered.length > 0 ? (
+      {filtered.length > 0 ? (
         <>
           {/* Mobile cards (sm and below) */}
           <div className="md:hidden space-y-2">

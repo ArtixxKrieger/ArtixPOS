@@ -17,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
-import { Phantom } from "@/components/phantom";
 
 type POStatus = "pending" | "received" | "cancelled";
 type PaymentStatus = "unpaid" | "partial" | "paid";
@@ -330,28 +329,7 @@ export default function PurchasesPage() {
       </div>
 
       {/* List */}
-      {isLoading ? (
-        <Phantom loading={true}>
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3 flex-wrap">
-                <div className="h-5 w-5 rounded bg-muted/60 shrink-0" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 rounded-lg bg-muted/60 w-24" />
-                    <div className="h-4 rounded-full bg-muted/60 w-16" />
-                  </div>
-                  <div className="h-3 rounded-md bg-muted/60 w-1/3" />
-                </div>
-                <div className="shrink-0 space-y-1.5 text-right">
-                  <div className="h-5 rounded-lg bg-muted/60 w-24" />
-                  <div className="h-3 rounded-md bg-muted/60 w-16 ml-auto" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Phantom>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingBag className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">{hasFilters ? t("purchases.noMatchFilters") : t("purchases.noOrders")}</p>

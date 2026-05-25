@@ -19,7 +19,6 @@ import { insertExpenseSchema, type Expense } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Wallet, Plus, Trash2, TrendingDown, Calendar, ChevronDown } from "lucide-react";
-import { Phantom } from "@/components/phantom";
 
 const EXPENSE_CATEGORIES = ["General", "Supplies", "Utilities", "Rent", "Salaries", "Marketing", "Maintenance", "Food & Drinks", "Transportation", "Other"];
 
@@ -141,7 +140,6 @@ export default function Expenses() {
     <div className="space-y-4 page-enter">
 
       {/* Summary Cards */}
-      <Phantom loading={isLoading}>
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-rose-500/8 to-transparent">
           <div className="flex items-center gap-2 mb-2">
@@ -162,7 +160,6 @@ export default function Expenses() {
           <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums">{formatCurrency(totalFiltered, currency)}</p>
         </div>
       </div>
-      </Phantom>
 
       {/* Filters + Add */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -202,27 +199,7 @@ export default function Expenses() {
       </div>
 
       {/* List */}
-      {isLoading ? (
-        <Phantom loading={true}>
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="divide-y divide-border/40">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="h-9 w-9 rounded-xl bg-muted/60 shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 rounded-lg bg-muted/60 w-1/2" />
-                    <div className="flex gap-2">
-                      <div className="h-3 rounded-full bg-muted/60 w-16" />
-                      <div className="h-3 rounded-md bg-muted/60 w-24" />
-                    </div>
-                  </div>
-                  <div className="h-5 rounded-lg bg-muted/60 w-20 shrink-0" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </Phantom>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="glass-card rounded-2xl py-20 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2">
             <Wallet className="h-8 w-8 text-muted-foreground/30" />

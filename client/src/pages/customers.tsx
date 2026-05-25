@@ -19,7 +19,6 @@ import {
   TrendingUp, TrendingDown, Gift, History, Crown, Medal, Sparkles, Calendar,
   Award, Check, ChevronRight, UserCircle2, Stamp,
 } from "lucide-react";
-import { Phantom } from "@/components/phantom";
 
 // ─── Tier config ──────────────────────────────────────────────────────────────
 
@@ -425,7 +424,6 @@ export default function Customers() {
   return (
     <div className="space-y-4 page-enter">
       {/* Summary */}
-      <Phantom loading={isLoading}>
       <div className="grid grid-cols-3 gap-3">
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-primary/8 to-transparent">
           <div className="flex items-center gap-1.5 mb-2"><Users className="h-3.5 w-3.5 text-primary" /><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Members</p></div>
@@ -440,7 +438,6 @@ export default function Customers() {
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(totalRevenue, currency)}</p>
         </div>
       </div>
-      </Phantom>
 
       {/* Search & Add */}
       <div className="flex gap-2">
@@ -456,27 +453,7 @@ export default function Customers() {
       </div>
 
       {/* List */}
-      {isLoading ? (
-        <Phantom loading={true}>
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="divide-y divide-border/30">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-muted/60 shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 rounded-lg bg-muted/60 w-2/5" />
-                    <div className="h-3 rounded-md bg-muted/60 w-1/3" />
-                  </div>
-                  <div className="shrink-0 text-right space-y-1.5">
-                    <div className="h-4 rounded-lg bg-muted/60 w-16" />
-                    <div className="h-3 rounded-md bg-muted/60 w-10 ml-auto" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Phantom>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="glass-card rounded-2xl py-20 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2"><Users className="h-8 w-8 text-muted-foreground/30" /></div>
           <p className="font-semibold">{search ? "No customers found" : "No customers yet"}</p>

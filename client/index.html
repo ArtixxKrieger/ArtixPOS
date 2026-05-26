@@ -54,56 +54,87 @@
       /* ── Splash container ── */
       #app-splash{
         position:fixed;inset:0;z-index:9999;
-        background:#03030e;
+        background:#08080f;
         display:flex;align-items:center;justify-content:center;
         overflow:hidden;
       }
       #app-splash.sp-hiding{
-        animation:sp-out 0.6s ease forwards;
+        animation:sp-out 0.5s ease forwards;
       }
-      @keyframes sp-out{
-        0%{opacity:1}
-        100%{opacity:0}
-      }
+      @keyframes sp-out{to{opacity:0}}
 
-      /* ── Canvas fills entire splash ── */
-      #sp-canvas{
-        position:absolute;inset:0;width:100%;height:100%;
-        pointer-events:none;
-      }
-
-      /* ── Centre wordmark ── */
+      /* ── Centre stack ── */
       .sp-center{
         position:relative;z-index:2;
         display:flex;flex-direction:column;align-items:center;
+        gap:32px;
       }
-      .sp-wordmark{
-        font-size:clamp(26px,4.5vw,48px);
+
+      /* ── Letters row ── */
+      .sp-letters{
+        display:flex;
+        gap:0.04em;
+      }
+      .sp-letters span{
+        display:inline-block;
+        font-size:clamp(30px,5.5vw,56px);
         font-weight:800;
-        letter-spacing:0.22em;
-        color:rgba(255,255,255,0.95);
         font-family:'Plus Jakarta Sans',sans-serif;
         user-select:none;
-        animation:sp-word-in 1.2s cubic-bezier(0.22,1,0.36,1) 0.2s both,
-                  sp-glow 3s ease-in-out 1.4s infinite;
+        /* shimmer gradient fills each letter */
+        background:linear-gradient(
+          135deg,
+          #a78bfa 0%,
+          #ffffff 35%,
+          #c4b5fd 50%,
+          #ffffff 65%,
+          #8b5cf6 100%
+        );
+        background-size:300% 300%;
+        -webkit-background-clip:text;
+        background-clip:text;
+        -webkit-text-fill-color:transparent;
+        /* entrance: drop in from above, staggered */
+        animation:
+          sp-drop 0.55s cubic-bezier(0.34,1.56,0.64,1) both,
+          sp-shine 3.5s ease-in-out 1s infinite;
+        letter-spacing:0.14em;
       }
-      @keyframes sp-word-in{
-        from{opacity:0;letter-spacing:0.5em}
-        to{opacity:1;letter-spacing:0.22em}
+      /* stagger each letter's entrance by 40 ms */
+      .sp-letters span:nth-child(1){animation-delay:0.05s, 1s}
+      .sp-letters span:nth-child(2){animation-delay:0.09s, 1.08s}
+      .sp-letters span:nth-child(3){animation-delay:0.13s, 1.16s}
+      .sp-letters span:nth-child(4){animation-delay:0.17s, 1.24s}
+      .sp-letters span:nth-child(5){animation-delay:0.21s, 1.32s}
+      .sp-letters span:nth-child(6){animation-delay:0.25s, 1.40s}
+      .sp-letters span:nth-child(7){animation-delay:0.29s, 1.48s}
+      .sp-letters span:nth-child(8){animation-delay:0.33s, 1.56s}
+      @keyframes sp-drop{
+        from{opacity:0;transform:translateY(-22px) scale(0.85)}
+        to{opacity:1;transform:translateY(0)   scale(1)}
       }
-      @keyframes sp-glow{
-        0%,100%{
-          text-shadow:
-            0 0 18px rgba(139,92,246,0.7),
-            0 0 50px rgba(139,92,246,0.3),
-            0 0 90px rgba(139,92,246,0.12);
-        }
-        50%{
-          text-shadow:
-            0 0 28px rgba(192,132,252,1),
-            0 0 70px rgba(168,85,247,0.6),
-            0 0 130px rgba(139,92,246,0.25);
-        }
+      @keyframes sp-shine{
+        0%,100%{background-position:0% 50%}
+        50%    {background-position:100% 50%}
+      }
+
+      /* ── Three dots (cute loading indicator) ── */
+      .sp-dots{
+        display:flex;gap:8px;
+      }
+      .sp-dots span{
+        width:5px;height:5px;border-radius:50%;
+        background:#7c3aed;
+        animation:sp-dot-bounce 1.2s ease-in-out infinite;
+        opacity:0;
+        animation-delay: 0.8s; /* wait until letters finish */
+      }
+      .sp-dots span:nth-child(1){animation-delay:0.8s}
+      .sp-dots span:nth-child(2){animation-delay:1.0s}
+      .sp-dots span:nth-child(3){animation-delay:1.2s}
+      @keyframes sp-dot-bounce{
+        0%,60%,100%{transform:translateY(0);  opacity:0.25}
+        30%         {transform:translateY(-7px);opacity:1}
       }
 
       /* ── Crash / error UI (keep working) ── */
@@ -284,286 +315,19 @@
   </head>
   <body>
     <div id="app-splash" role="presentation" aria-hidden="true">
-      <canvas id="sp-canvas"></canvas>
-
       <div class="sp-center">
-        <div class="sp-wordmark">ARTIXPOS</div>
+        <div class="sp-letters">
+          <span>A</span><span>R</span><span>T</span><span>I</span><span>X</span><span>P</span><span>O</span><span>S</span>
+        </div>
+        <div class="sp-dots">
+          <span></span><span></span><span></span>
+        </div>
       </div>
     </div>
 
     <!-- React root -->
     <div id="root"></div>
 
-    <script>
-      /* ── Deep-space galaxy loader ── */
-      (function(){
-        var canvas = document.getElementById('sp-canvas');
-        if (!canvas || !canvas.getContext) return;
-        var ctx = canvas.getContext('2d');
-        var W, H, raf, alive = true, tick = 0;
-
-        /* ── resize ── */
-        function resize() {
-          W = canvas.width  = window.innerWidth;
-          H = canvas.height = window.innerHeight;
-        }
-        resize();
-        window.addEventListener('resize', resize, { passive: true });
-
-        /* ════════════════════════════════════════
-           STARS  (320 twinkling dots)
-        ════════════════════════════════════════ */
-        var stars = [];
-        var STAR_COLORS = [
-          '255,255,255', '200,210,255', '180,180,255',
-          '255,230,200', '200,255,255', '210,180,255'
-        ];
-        for (var i = 0; i < 320; i++) {
-          stars.push({
-            x: Math.random() * 3000,   /* seeded wide, mapped via ratio */
-            y: Math.random() * 3000,
-            r: Math.pow(Math.random(), 2.5) * 1.8 + 0.2,
-            baseA: Math.random() * 0.6 + 0.25,
-            phase: Math.random() * Math.PI * 2,
-            speed: 0.004 + Math.random() * 0.018,
-            col: Math.floor(Math.random() * STAR_COLORS.length),
-            layer: Math.random(),     /* 0=far/still  1=near/parallax */
-          });
-        }
-
-        /* ════════════════════════════════════════
-           NEBULA BLOBS  (6 soft radial gradients)
-        ════════════════════════════════════════ */
-        var nebulae = [
-          { rx:0.15, ry:0.18, rad:0.38, r:80,  g:20,  b:160, a:0.07, drift:0.00012 },
-          { rx:0.78, ry:0.25, rad:0.30, r:20,  g:10,  b:120, a:0.06, drift:0.00009 },
-          { rx:0.50, ry:0.72, rad:0.42, r:100, g:0,   b:180, a:0.05, drift:0.00014 },
-          { rx:0.88, ry:0.70, rad:0.28, r:0,   g:80,  b:160, a:0.05, drift:0.00010 },
-          { rx:0.22, ry:0.80, rad:0.32, r:140, g:0,   b:100, a:0.06, drift:0.00008 },
-          { rx:0.60, ry:0.10, rad:0.35, r:60,  g:0,   b:200, a:0.04, drift:0.00011 },
-        ];
-        nebulae.forEach(function(n){ n.phase = Math.random() * Math.PI * 2; });
-
-        /* ════════════════════════════════════════
-           AURORA BANDS  (3 slow sine waves)
-        ════════════════════════════════════════ */
-        var auroras = [
-          { y:0.82, amp:0.07, freq:1.4, speed:0.0008, phase:0,    r:80,  g:0,  b:220, a:0.045 },
-          { y:0.88, amp:0.05, freq:2.1, speed:0.0012, phase:2.1,  r:120, g:0,  b:180, a:0.035 },
-          { y:0.15, amp:0.06, freq:1.7, speed:0.0010, phase:1.0,  r:40,  g:20, b:200, a:0.030 },
-        ];
-
-        /* ════════════════════════════════════════
-           SHOOTING STARS  (pool of 6)
-        ════════════════════════════════════════ */
-        var shoots = [];
-        function spawnShoot() {
-          /* pick a random top or left edge start */
-          var fromTop = Math.random() > 0.4;
-          var sx = fromTop ? Math.random() * W : 0;
-          var sy = fromTop ? 0 : Math.random() * H * 0.5;
-          var angle = (Math.random() * 0.35 + 0.1) * Math.PI * 0.5; /* diagonal down-right */
-          var spd = 6 + Math.random() * 10;
-          shoots.push({
-            x: sx, y: sy,
-            vx: Math.cos(angle) * spd,
-            vy: Math.sin(angle) * spd,
-            len: 80 + Math.random() * 160,
-            alpha: 1,
-            r: Math.random() * 0.6 + 0.5,
-            fade: 0.012 + Math.random() * 0.01,
-          });
-        }
-
-        /* ════════════════════════════════════════
-           DEEP-SPACE DUST PARTICLES  (200)
-        ════════════════════════════════════════ */
-        var dust = [];
-        for (var j = 0; j < 200; j++) {
-          dust.push({
-            x: Math.random(),
-            y: Math.random(),
-            r: Math.random() * 1.0 + 0.2,
-            a: Math.random() * 0.25 + 0.05,
-            phase: Math.random() * Math.PI * 2,
-            speed: 0.002 + Math.random() * 0.006,
-            col: Math.floor(Math.random() * 4),
-          });
-        }
-        var DUST_COLS = ['139,92,246','100,60,200','167,139,250','80,40,180'];
-
-        /* ════════════════════════════════════════
-           SCHEDULE FIRST SHOOT
-        ════════════════════════════════════════ */
-        var nextShoot = 600 + Math.random() * 1200;
-
-        /* ════════════════════════════════════════
-           DRAW
-        ════════════════════════════════════════ */
-        function draw() {
-          if (!alive) return;
-          tick++;
-
-          /* --- deep space gradient background --- */
-          var bg = ctx.createRadialGradient(W*0.5, H*0.45, 0, W*0.5, H*0.5, Math.max(W,H)*0.75);
-          bg.addColorStop(0,   '#0d0820');
-          bg.addColorStop(0.4, '#07041a');
-          bg.addColorStop(1,   '#03030e');
-          ctx.fillStyle = bg;
-          ctx.fillRect(0, 0, W, H);
-
-          /* --- nebula blobs --- */
-          for (var n = 0; n < nebulae.length; n++) {
-            var nb = nebulae[n];
-            nb.phase += nb.drift;
-            var nx = (nb.rx + Math.sin(nb.phase) * 0.04) * W;
-            var ny = (nb.ry + Math.cos(nb.phase * 0.7) * 0.03) * H;
-            var nr = nb.rad * Math.max(W, H);
-            var grad = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
-            grad.addColorStop(0,   'rgba('+nb.r+','+nb.g+','+nb.b+','+nb.a+')');
-            grad.addColorStop(0.5, 'rgba('+nb.r+','+nb.g+','+nb.b+','+(nb.a*0.4)+')');
-            grad.addColorStop(1,   'rgba('+nb.r+','+nb.g+','+nb.b+',0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, W, H);
-          }
-
-          /* --- aurora waves at edges --- */
-          for (var a = 0; a < auroras.length; a++) {
-            var au = auroras[a];
-            au.phase += au.speed;
-            ctx.save();
-            ctx.globalAlpha = au.a;
-            ctx.beginPath();
-            var baseY = au.y * H;
-            ctx.moveTo(0, baseY);
-            for (var xi = 0; xi <= W; xi += 4) {
-              var wave = Math.sin(xi * au.freq / W * Math.PI * 2 + au.phase) * au.amp * H;
-              ctx.lineTo(xi, baseY + wave);
-            }
-            ctx.lineTo(W, H * (au.y > 0.5 ? 1 : 0));
-            ctx.lineTo(0, H * (au.y > 0.5 ? 1 : 0));
-            ctx.closePath();
-            var aGrad = ctx.createLinearGradient(0, baseY - au.amp*H, 0, baseY + au.amp*H*2);
-            aGrad.addColorStop(0,   'rgba('+au.r+','+au.g+','+au.b+',0)');
-            aGrad.addColorStop(0.4, 'rgba('+au.r+','+au.g+','+au.b+',0.6)');
-            aGrad.addColorStop(1,   'rgba('+au.r+','+au.g+','+au.b+',0)');
-            ctx.fillStyle = aGrad;
-            ctx.fill();
-            ctx.restore();
-          }
-
-          /* --- dust particles (tiny drifting specks) --- */
-          for (var d = 0; d < dust.length; d++) {
-            var dt = dust[d];
-            dt.phase += dt.speed;
-            var da = dt.a * (0.5 + 0.5 * Math.sin(dt.phase));
-            var dx2 = (dt.x + Math.sin(dt.phase * 0.6) * 0.008) * W;
-            var dy2 = (dt.y + Math.cos(dt.phase * 0.4) * 0.006) * H;
-            ctx.beginPath();
-            ctx.arc(dx2, dy2, dt.r, 0, 6.2832);
-            ctx.fillStyle = 'rgba('+DUST_COLS[dt.col]+','+da.toFixed(2)+')';
-            ctx.fill();
-          }
-
-          /* --- twinkling stars --- */
-          for (var s = 0; s < stars.length; s++) {
-            var st = stars[s];
-            st.phase += st.speed;
-            var sa = st.baseA * (0.55 + 0.45 * Math.sin(st.phase));
-            var sx2 = (st.x / 3000) * W;
-            var sy2 = (st.y / 3000) * H;
-
-            /* core */
-            ctx.beginPath();
-            ctx.arc(sx2, sy2, st.r, 0, 6.2832);
-            ctx.fillStyle = 'rgba('+STAR_COLORS[st.col]+','+sa.toFixed(2)+')';
-            ctx.fill();
-
-            /* cross-spike for brighter stars */
-            if (st.r > 1.2 && sa > 0.55) {
-              var spike = st.r * 6 * sa;
-              ctx.save();
-              ctx.globalAlpha = sa * 0.35;
-              ctx.strokeStyle = 'rgba('+STAR_COLORS[st.col]+',1)';
-              ctx.lineWidth = 0.6;
-              ctx.beginPath();
-              ctx.moveTo(sx2 - spike, sy2); ctx.lineTo(sx2 + spike, sy2);
-              ctx.moveTo(sx2, sy2 - spike*0.7); ctx.lineTo(sx2, sy2 + spike*0.7);
-              ctx.stroke();
-              ctx.restore();
-
-              /* soft halo */
-              var halo = ctx.createRadialGradient(sx2, sy2, 0, sx2, sy2, st.r * 5);
-              halo.addColorStop(0,   'rgba('+STAR_COLORS[st.col]+','+(sa*0.3).toFixed(2)+')');
-              halo.addColorStop(1,   'rgba('+STAR_COLORS[st.col]+',0)');
-              ctx.fillStyle = halo;
-              ctx.beginPath();
-              ctx.arc(sx2, sy2, st.r * 5, 0, 6.2832);
-              ctx.fill();
-            }
-          }
-
-          /* --- shooting stars --- */
-          nextShoot -= 16.67;
-          if (nextShoot <= 0) {
-            spawnShoot();
-            nextShoot = 800 + Math.random() * 1800;
-          }
-          for (var m = shoots.length - 1; m >= 0; m--) {
-            var sh = shoots[m];
-            sh.alpha -= sh.fade;
-            if (sh.alpha <= 0) { shoots.splice(m, 1); continue; }
-            sh.x += sh.vx;
-            sh.y += sh.vy;
-
-            var tx2 = sh.x - sh.vx * (sh.len / Math.sqrt(sh.vx*sh.vx+sh.vy*sh.vy));
-            var ty2 = sh.y - sh.vy * (sh.len / Math.sqrt(sh.vx*sh.vx+sh.vy*sh.vy));
-
-            var mGrad = ctx.createLinearGradient(tx2, ty2, sh.x, sh.y);
-            mGrad.addColorStop(0,   'rgba(255,255,255,0)');
-            mGrad.addColorStop(0.6, 'rgba(200,180,255,'+( sh.alpha*0.4).toFixed(2)+')');
-            mGrad.addColorStop(1,   'rgba(255,255,255,'+(sh.alpha).toFixed(2)+')');
-            ctx.save();
-            ctx.lineWidth = sh.r * 1.5;
-            ctx.strokeStyle = mGrad;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(tx2, ty2);
-            ctx.lineTo(sh.x, sh.y);
-            ctx.stroke();
-
-            /* bright head glow */
-            var hg = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, sh.r * 8);
-            hg.addColorStop(0, 'rgba(255,255,255,'+(sh.alpha * 0.9).toFixed(2)+')');
-            hg.addColorStop(1, 'rgba(180,160,255,0)');
-            ctx.fillStyle = hg;
-            ctx.beginPath();
-            ctx.arc(sh.x, sh.y, sh.r * 8, 0, 6.2832);
-            ctx.fill();
-            ctx.restore();
-          }
-
-          raf = requestAnimationFrame(draw);
-        }
-
-        draw();
-
-        /* cleanup when React removes the splash */
-        var mo = new MutationObserver(function(muts) {
-          muts.forEach(function(m) {
-            m.removedNodes.forEach(function(n) {
-              if (n.id === 'app-splash') {
-                alive = false;
-                cancelAnimationFrame(raf);
-                window.removeEventListener('resize', resize);
-                mo.disconnect();
-              }
-            });
-          });
-        });
-        mo.observe(document.body, { childList: true });
-      })();
-    </script>
 
     <script type="module" src="/src/main.tsx"></script>
   </body>

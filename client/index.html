@@ -54,47 +54,56 @@
       /* ── Splash container ── */
       #app-splash{
         position:fixed;inset:0;z-index:9999;
-        background:var(--sp-bg);
+        background:#03030e;
         display:flex;align-items:center;justify-content:center;
         overflow:hidden;
-        transition:opacity 0.35s ease;
       }
       #app-splash.sp-hiding{
-        animation:sp-out 0.35s ease forwards;
+        animation:sp-out 0.6s ease forwards;
       }
-      @keyframes sp-out{to{opacity:0;transform:scale(1.015)}}
+      @keyframes sp-out{
+        0%{opacity:1}
+        100%{opacity:0}
+      }
 
-      /* ── Canvas (behind everything) ── */
+      /* ── Canvas fills entire splash ── */
       #sp-canvas{
         position:absolute;inset:0;width:100%;height:100%;
         pointer-events:none;
       }
 
-      /* ── Centre stack ── */
+      /* ── Centre wordmark ── */
       .sp-center{
         position:relative;z-index:2;
         display:flex;flex-direction:column;align-items:center;
-        gap:28px;
-        animation:sp-rise 0.7s cubic-bezier(0.22,1,0.36,1) both;
       }
-      @keyframes sp-rise{
-        from{opacity:0;transform:translateY(24px)}
-        to{opacity:1;transform:translateY(0)}
-      }
-
-      /* ── Wordmark ── */
       .sp-wordmark{
-        font-size:clamp(28px,5vw,42px);
+        font-size:clamp(26px,4.5vw,48px);
         font-weight:800;
-        letter-spacing:0.18em;
-        color:var(--sp-accent);
+        letter-spacing:0.22em;
+        color:rgba(255,255,255,0.95);
         font-family:'Plus Jakarta Sans',sans-serif;
         user-select:none;
-        animation:sp-word-in 0.9s cubic-bezier(0.22,1,0.36,1) both;
+        animation:sp-word-in 1.2s cubic-bezier(0.22,1,0.36,1) 0.2s both,
+                  sp-glow 3s ease-in-out 1.4s infinite;
       }
       @keyframes sp-word-in{
-        from{opacity:0;transform:translateY(6px)}
-        to{opacity:1;transform:translateY(0)}
+        from{opacity:0;letter-spacing:0.5em}
+        to{opacity:1;letter-spacing:0.22em}
+      }
+      @keyframes sp-glow{
+        0%,100%{
+          text-shadow:
+            0 0 18px rgba(139,92,246,0.7),
+            0 0 50px rgba(139,92,246,0.3),
+            0 0 90px rgba(139,92,246,0.12);
+        }
+        50%{
+          text-shadow:
+            0 0 28px rgba(192,132,252,1),
+            0 0 70px rgba(168,85,247,0.6),
+            0 0 130px rgba(139,92,246,0.25);
+        }
       }
 
       /* ── Crash / error UI (keep working) ── */
@@ -286,107 +295,252 @@
     <div id="root"></div>
 
     <script>
-      /* ── Interactive particle canvas loader ── */
+      /* ── Deep-space galaxy loader ── */
       (function(){
         var canvas = document.getElementById('sp-canvas');
         if (!canvas || !canvas.getContext) return;
         var ctx = canvas.getContext('2d');
-        var W = 0, H = 0;
-        var mouse = { x: -9999, y: -9999 };
-        var particles = [];
-        var raf;
-        var alive = true;
+        var W, H, raf, alive = true, tick = 0;
 
+        /* ── resize ── */
         function resize() {
-          W = canvas.width = window.innerWidth;
+          W = canvas.width  = window.innerWidth;
           H = canvas.height = window.innerHeight;
         }
         resize();
         window.addEventListener('resize', resize, { passive: true });
 
-        /* Mouse / touch tracking */
-        window.addEventListener('mousemove', function(e) {
-          mouse.x = e.clientX; mouse.y = e.clientY;
-        }, { passive: true });
-        window.addEventListener('touchmove', function(e) {
-          var t = e.touches[0];
-          mouse.x = t.clientX; mouse.y = t.clientY;
-        }, { passive: true });
-        window.addEventListener('touchend', function() {
-          mouse.x = -9999; mouse.y = -9999;
-        }, { passive: true });
-
-
-        /* Build particles — distributed across screen with bias toward edges */
-        var DARK_COLORS  = ['139,92,246', '167,139,250', '196,181,253', '124,58,237', '216,180,254'];
-        var LIGHT_COLORS = ['124,58,237',  '109,40,217',  '139,92,246',  '91,33,182',  '167,139,250'];
-
-        for (var i = 0; i < 75; i++) {
-          var angle = Math.random() * Math.PI * 2;
-          var spread = window.innerWidth > 768 ? 0.55 : 0.45;
-          var r = (Math.random() * 0.35 + spread) * Math.max(window.innerWidth, window.innerHeight);
-          var ox = W/2 + Math.cos(angle) * r;
-          var oy = H/2 + Math.sin(angle) * r;
-          particles.push({
-            x: ox, y: oy,
-            ox: ox, oy: oy,
-            size: Math.random() * 2.2 + 0.4,
-            alpha: Math.random() * 0.45 + 0.1,
+        /* ════════════════════════════════════════
+           STARS  (320 twinkling dots)
+        ════════════════════════════════════════ */
+        var stars = [];
+        var STAR_COLORS = [
+          '255,255,255', '200,210,255', '180,180,255',
+          '255,230,200', '200,255,255', '210,180,255'
+        ];
+        for (var i = 0; i < 320; i++) {
+          stars.push({
+            x: Math.random() * 3000,   /* seeded wide, mapped via ratio */
+            y: Math.random() * 3000,
+            r: Math.pow(Math.random(), 2.5) * 1.8 + 0.2,
+            baseA: Math.random() * 0.6 + 0.25,
             phase: Math.random() * Math.PI * 2,
-            speed: 0.003 + Math.random() * 0.007,
-            drift: 25 + Math.random() * 55,
-            colorIdx: Math.floor(Math.random() * 5),
+            speed: 0.004 + Math.random() * 0.018,
+            col: Math.floor(Math.random() * STAR_COLORS.length),
+            layer: Math.random(),     /* 0=far/still  1=near/parallax */
           });
         }
 
+        /* ════════════════════════════════════════
+           NEBULA BLOBS  (6 soft radial gradients)
+        ════════════════════════════════════════ */
+        var nebulae = [
+          { rx:0.15, ry:0.18, rad:0.38, r:80,  g:20,  b:160, a:0.07, drift:0.00012 },
+          { rx:0.78, ry:0.25, rad:0.30, r:20,  g:10,  b:120, a:0.06, drift:0.00009 },
+          { rx:0.50, ry:0.72, rad:0.42, r:100, g:0,   b:180, a:0.05, drift:0.00014 },
+          { rx:0.88, ry:0.70, rad:0.28, r:0,   g:80,  b:160, a:0.05, drift:0.00010 },
+          { rx:0.22, ry:0.80, rad:0.32, r:140, g:0,   b:100, a:0.06, drift:0.00008 },
+          { rx:0.60, ry:0.10, rad:0.35, r:60,  g:0,   b:200, a:0.04, drift:0.00011 },
+        ];
+        nebulae.forEach(function(n){ n.phase = Math.random() * Math.PI * 2; });
 
-        /* Draw loop */
+        /* ════════════════════════════════════════
+           AURORA BANDS  (3 slow sine waves)
+        ════════════════════════════════════════ */
+        var auroras = [
+          { y:0.82, amp:0.07, freq:1.4, speed:0.0008, phase:0,    r:80,  g:0,  b:220, a:0.045 },
+          { y:0.88, amp:0.05, freq:2.1, speed:0.0012, phase:2.1,  r:120, g:0,  b:180, a:0.035 },
+          { y:0.15, amp:0.06, freq:1.7, speed:0.0010, phase:1.0,  r:40,  g:20, b:200, a:0.030 },
+        ];
+
+        /* ════════════════════════════════════════
+           SHOOTING STARS  (pool of 6)
+        ════════════════════════════════════════ */
+        var shoots = [];
+        function spawnShoot() {
+          /* pick a random top or left edge start */
+          var fromTop = Math.random() > 0.4;
+          var sx = fromTop ? Math.random() * W : 0;
+          var sy = fromTop ? 0 : Math.random() * H * 0.5;
+          var angle = (Math.random() * 0.35 + 0.1) * Math.PI * 0.5; /* diagonal down-right */
+          var spd = 6 + Math.random() * 10;
+          shoots.push({
+            x: sx, y: sy,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            len: 80 + Math.random() * 160,
+            alpha: 1,
+            r: Math.random() * 0.6 + 0.5,
+            fade: 0.012 + Math.random() * 0.01,
+          });
+        }
+
+        /* ════════════════════════════════════════
+           DEEP-SPACE DUST PARTICLES  (200)
+        ════════════════════════════════════════ */
+        var dust = [];
+        for (var j = 0; j < 200; j++) {
+          dust.push({
+            x: Math.random(),
+            y: Math.random(),
+            r: Math.random() * 1.0 + 0.2,
+            a: Math.random() * 0.25 + 0.05,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.002 + Math.random() * 0.006,
+            col: Math.floor(Math.random() * 4),
+          });
+        }
+        var DUST_COLS = ['139,92,246','100,60,200','167,139,250','80,40,180'];
+
+        /* ════════════════════════════════════════
+           SCHEDULE FIRST SHOOT
+        ════════════════════════════════════════ */
+        var nextShoot = 600 + Math.random() * 1200;
+
+        /* ════════════════════════════════════════
+           DRAW
+        ════════════════════════════════════════ */
         function draw() {
           if (!alive) return;
-          ctx.clearRect(0, 0, W, H);
+          tick++;
 
-          var dark = document.documentElement.classList.contains('dark');
-          var colors = dark ? DARK_COLORS : LIGHT_COLORS;
+          /* --- deep space gradient background --- */
+          var bg = ctx.createRadialGradient(W*0.5, H*0.45, 0, W*0.5, H*0.5, Math.max(W,H)*0.75);
+          bg.addColorStop(0,   '#0d0820');
+          bg.addColorStop(0.4, '#07041a');
+          bg.addColorStop(1,   '#03030e');
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, W, H);
 
-          for (var i = 0; i < particles.length; i++) {
-            var p = particles[i];
-            p.phase += p.speed;
+          /* --- nebula blobs --- */
+          for (var n = 0; n < nebulae.length; n++) {
+            var nb = nebulae[n];
+            nb.phase += nb.drift;
+            var nx = (nb.rx + Math.sin(nb.phase) * 0.04) * W;
+            var ny = (nb.ry + Math.cos(nb.phase * 0.7) * 0.03) * H;
+            var nr = nb.rad * Math.max(W, H);
+            var grad = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+            grad.addColorStop(0,   'rgba('+nb.r+','+nb.g+','+nb.b+','+nb.a+')');
+            grad.addColorStop(0.5, 'rgba('+nb.r+','+nb.g+','+nb.b+','+(nb.a*0.4)+')');
+            grad.addColorStop(1,   'rgba('+nb.r+','+nb.g+','+nb.b+',0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+          }
 
-            /* Sinusoidal drift around origin */
-            var tx = p.ox + Math.sin(p.phase) * p.drift;
-            var ty = p.oy + Math.cos(p.phase * 0.71) * p.drift * 0.65;
-
-            /* Mouse repulsion */
-            var dx = tx - mouse.x;
-            var dy = ty - mouse.y;
-            var d2 = dx*dx + dy*dy;
-            if (d2 < 14400) { /* 120px radius */
-              var d = Math.sqrt(d2);
-              var force = (1 - d/120) * 90;
-              tx += (dx/d) * force;
-              ty += (dy/d) * force;
-            }
-
-            /* Ease toward target */
-            p.x += (tx - p.x) * 0.055;
-            p.y += (ty - p.y) * 0.055;
-
-            var a = p.alpha * (0.65 + 0.35 * Math.sin(p.phase * 1.7));
-            var rgb = colors[p.colorIdx];
-
-            /* Core dot */
+          /* --- aurora waves at edges --- */
+          for (var a = 0; a < auroras.length; a++) {
+            var au = auroras[a];
+            au.phase += au.speed;
+            ctx.save();
+            ctx.globalAlpha = au.a;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, 6.2832);
-            ctx.fillStyle = 'rgba(' + rgb + ',' + a.toFixed(2) + ')';
+            var baseY = au.y * H;
+            ctx.moveTo(0, baseY);
+            for (var xi = 0; xi <= W; xi += 4) {
+              var wave = Math.sin(xi * au.freq / W * Math.PI * 2 + au.phase) * au.amp * H;
+              ctx.lineTo(xi, baseY + wave);
+            }
+            ctx.lineTo(W, H * (au.y > 0.5 ? 1 : 0));
+            ctx.lineTo(0, H * (au.y > 0.5 ? 1 : 0));
+            ctx.closePath();
+            var aGrad = ctx.createLinearGradient(0, baseY - au.amp*H, 0, baseY + au.amp*H*2);
+            aGrad.addColorStop(0,   'rgba('+au.r+','+au.g+','+au.b+',0)');
+            aGrad.addColorStop(0.4, 'rgba('+au.r+','+au.g+','+au.b+',0.6)');
+            aGrad.addColorStop(1,   'rgba('+au.r+','+au.g+','+au.b+',0)');
+            ctx.fillStyle = aGrad;
+            ctx.fill();
+            ctx.restore();
+          }
+
+          /* --- dust particles (tiny drifting specks) --- */
+          for (var d = 0; d < dust.length; d++) {
+            var dt = dust[d];
+            dt.phase += dt.speed;
+            var da = dt.a * (0.5 + 0.5 * Math.sin(dt.phase));
+            var dx2 = (dt.x + Math.sin(dt.phase * 0.6) * 0.008) * W;
+            var dy2 = (dt.y + Math.cos(dt.phase * 0.4) * 0.006) * H;
+            ctx.beginPath();
+            ctx.arc(dx2, dy2, dt.r, 0, 6.2832);
+            ctx.fillStyle = 'rgba('+DUST_COLS[dt.col]+','+da.toFixed(2)+')';
+            ctx.fill();
+          }
+
+          /* --- twinkling stars --- */
+          for (var s = 0; s < stars.length; s++) {
+            var st = stars[s];
+            st.phase += st.speed;
+            var sa = st.baseA * (0.55 + 0.45 * Math.sin(st.phase));
+            var sx2 = (st.x / 3000) * W;
+            var sy2 = (st.y / 3000) * H;
+
+            /* core */
+            ctx.beginPath();
+            ctx.arc(sx2, sy2, st.r, 0, 6.2832);
+            ctx.fillStyle = 'rgba('+STAR_COLORS[st.col]+','+sa.toFixed(2)+')';
             ctx.fill();
 
-            /* Soft halo for larger particles */
-            if (p.size > 1.6) {
+            /* cross-spike for brighter stars */
+            if (st.r > 1.2 && sa > 0.55) {
+              var spike = st.r * 6 * sa;
+              ctx.save();
+              ctx.globalAlpha = sa * 0.35;
+              ctx.strokeStyle = 'rgba('+STAR_COLORS[st.col]+',1)';
+              ctx.lineWidth = 0.6;
               ctx.beginPath();
-              ctx.arc(p.x, p.y, p.size * 3.5, 0, 6.2832);
-              ctx.fillStyle = 'rgba(' + rgb + ',' + (a * 0.12).toFixed(3) + ')';
+              ctx.moveTo(sx2 - spike, sy2); ctx.lineTo(sx2 + spike, sy2);
+              ctx.moveTo(sx2, sy2 - spike*0.7); ctx.lineTo(sx2, sy2 + spike*0.7);
+              ctx.stroke();
+              ctx.restore();
+
+              /* soft halo */
+              var halo = ctx.createRadialGradient(sx2, sy2, 0, sx2, sy2, st.r * 5);
+              halo.addColorStop(0,   'rgba('+STAR_COLORS[st.col]+','+(sa*0.3).toFixed(2)+')');
+              halo.addColorStop(1,   'rgba('+STAR_COLORS[st.col]+',0)');
+              ctx.fillStyle = halo;
+              ctx.beginPath();
+              ctx.arc(sx2, sy2, st.r * 5, 0, 6.2832);
               ctx.fill();
             }
+          }
+
+          /* --- shooting stars --- */
+          nextShoot -= 16.67;
+          if (nextShoot <= 0) {
+            spawnShoot();
+            nextShoot = 800 + Math.random() * 1800;
+          }
+          for (var m = shoots.length - 1; m >= 0; m--) {
+            var sh = shoots[m];
+            sh.alpha -= sh.fade;
+            if (sh.alpha <= 0) { shoots.splice(m, 1); continue; }
+            sh.x += sh.vx;
+            sh.y += sh.vy;
+
+            var tx2 = sh.x - sh.vx * (sh.len / Math.sqrt(sh.vx*sh.vx+sh.vy*sh.vy));
+            var ty2 = sh.y - sh.vy * (sh.len / Math.sqrt(sh.vx*sh.vx+sh.vy*sh.vy));
+
+            var mGrad = ctx.createLinearGradient(tx2, ty2, sh.x, sh.y);
+            mGrad.addColorStop(0,   'rgba(255,255,255,0)');
+            mGrad.addColorStop(0.6, 'rgba(200,180,255,'+( sh.alpha*0.4).toFixed(2)+')');
+            mGrad.addColorStop(1,   'rgba(255,255,255,'+(sh.alpha).toFixed(2)+')');
+            ctx.save();
+            ctx.lineWidth = sh.r * 1.5;
+            ctx.strokeStyle = mGrad;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(tx2, ty2);
+            ctx.lineTo(sh.x, sh.y);
+            ctx.stroke();
+
+            /* bright head glow */
+            var hg = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, sh.r * 8);
+            hg.addColorStop(0, 'rgba(255,255,255,'+(sh.alpha * 0.9).toFixed(2)+')');
+            hg.addColorStop(1, 'rgba(180,160,255,0)');
+            ctx.fillStyle = hg;
+            ctx.beginPath();
+            ctx.arc(sh.x, sh.y, sh.r * 8, 0, 6.2832);
+            ctx.fill();
+            ctx.restore();
           }
 
           raf = requestAnimationFrame(draw);
@@ -394,7 +548,7 @@
 
         draw();
 
-        /* Cleanup when splash is removed by React */
+        /* cleanup when React removes the splash */
         var mo = new MutationObserver(function(muts) {
           muts.forEach(function(m) {
             m.removedNodes.forEach(function(n) {

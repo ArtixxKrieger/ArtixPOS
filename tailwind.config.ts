@@ -103,8 +103,8 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
       },
       boxShadow: {
-        "glow-primary": "0 0 20px rgba(250, 204, 21, 0.3)",
-        "glow-sm": "0 0 10px rgba(250, 204, 21, 0.2)",
+        "glow-primary": "0 0 20px rgba(14, 165, 233, 0.3)",
+        "glow-sm": "0 0 10px rgba(14, 165, 233, 0.2)",
         "card": "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
         "card-hover": "0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08)",
       },

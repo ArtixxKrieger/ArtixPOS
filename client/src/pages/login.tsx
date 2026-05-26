@@ -125,23 +125,40 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Features marquee — continuous rAF scroll, pauses on hover/touch
-  const featTrackRef = useRef<HTMLDivElement>(null);
-  const featPausedRef = useRef(false);
-  const featPosRef = useRef(0);
-  const featTouchStartXRef = useRef(0);
-  const featTouchStartPosRef = useRef(0);
+  // Features marquee — momentum physics: velocity decays toward BASE_SPEED,
+  // touch/mouse drag sets velocity directly, hold to stop, fling for inertia
+  const featTrackRef    = useRef<HTMLDivElement>(null);
+  const featHoveredRef  = useRef(false);   // mouse hover pauses auto-speed
+  const featDraggingRef = useRef(false);   // currently touch/mouse dragging
+  const featPosRef      = useRef(0);       // current scroll position (px)
+  const featVelRef      = useRef(0.55);    // current velocity (px/frame)
+  const featLastXRef    = useRef(0);       // last pointer x for delta calc
 
   useEffect(() => {
     const el = featTrackRef.current;
     if (!el) return;
-    const SPEED = 0.55;
+    const BASE = 0.55;   // auto-scroll speed
+    const FRICTION = 0.88;  // velocity decay per frame after fling
+    const EASE = 0.055;     // how fast velocity eases back to BASE
     let raf: number;
+
     const tick = () => {
-      if (!featPausedRef.current) {
+      if (!featDraggingRef.current) {
+        const target = featHoveredRef.current ? 0 : BASE;
+        // Apply friction first (for fling decay), then ease toward target
+        const diff = target - featVelRef.current;
+        // If velocity is far from target, use friction-based decay
+        if (Math.abs(featVelRef.current) > Math.abs(target) + 0.1) {
+          featVelRef.current *= FRICTION;
+          // If overshooting toward zero, snap to target direction
+          if (target > 0 && featVelRef.current < 0) featVelRef.current = 0;
+        } else {
+          // Ease toward target
+          featVelRef.current += diff * EASE;
+        }
         const halfW = el.scrollWidth / 2;
         if (halfW > 0) {
-          featPosRef.current = (featPosRef.current + SPEED) % halfW;
+          featPosRef.current = ((featPosRef.current + featVelRef.current) % halfW + halfW) % halfW;
           el.style.transform = `translateX(${-featPosRef.current}px)`;
         }
       }
@@ -787,10 +804,7 @@ export default function Login() {
             <a href="#security" className="nav-link">Security</a>
             <a href="#pricing" className="nav-link">Pricing</a>
           </nav>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => openPanel("signin")} className="hdr-login" data-testid="button-header-login">Log in</button>
-            <button onClick={() => openPanel("register")} className="hdr-cta" data-testid="button-header-register">Get started free</button>
-          </div>
+          <button onClick={() => openPanel("signin")} className="hdr-cta" data-testid="button-header-login" style={{ marginLeft: "auto" }}>Log in</button>
         </div>
       </header>
 
@@ -859,25 +873,53 @@ export default function Login() {
         {/* Continuous marquee track — duplicated for seamless loop, swipe to pause/scrub */}
         <div
           style={{ overflow: "hidden", position: "relative", cursor: "grab", userSelect: "none" }}
-          onMouseEnter={() => { featPausedRef.current = true; }}
-          onMouseLeave={() => { featPausedRef.current = false; }}
-          onTouchStart={e => {
-            featPausedRef.current = true;
-            featTouchStartXRef.current = e.touches[0].clientX;
-            featTouchStartPosRef.current = featPosRef.current;
+          onMouseEnter={() => { featHoveredRef.current = true; }}
+          onMouseLeave={() => {
+            featHoveredRef.current = false;
+            featDraggingRef.current = false;
           }}
-          onTouchMove={e => {
-            const delta = featTouchStartXRef.current - e.touches[0].clientX;
+          onMouseDown={e => {
+            featDraggingRef.current = true;
+            featLastXRef.current = e.clientX;
+            featVelRef.current = 0;
+            (e.currentTarget as HTMLElement).style.cursor = "grabbing";
+          }}
+          onMouseMove={e => {
+            if (!featDraggingRef.current) return;
+            const delta = featLastXRef.current - e.clientX;
+            featLastXRef.current = e.clientX;
+            featVelRef.current = delta;
             const el = featTrackRef.current;
             if (!el) return;
             const halfW = el.scrollWidth / 2;
-            let newPos = (featTouchStartPosRef.current + delta) % halfW;
-            if (newPos < 0) newPos += halfW;
-            featPosRef.current = newPos;
-            el.style.transform = `translateX(${-newPos}px)`;
+            featPosRef.current = ((featPosRef.current + delta) % halfW + halfW) % halfW;
+            el.style.transform = `translateX(${-featPosRef.current}px)`;
+          }}
+          onMouseUp={e => {
+            featDraggingRef.current = false;
+            (e.currentTarget as HTMLElement).style.cursor = "grab";
+          }}
+          onTouchStart={e => {
+            featDraggingRef.current = true;
+            featLastXRef.current = e.touches[0].clientX;
+            featVelRef.current = 0; // hold instantly stops
+          }}
+          onTouchMove={e => {
+            const el = featTrackRef.current;
+            if (!el) return;
+            const currentX = e.touches[0].clientX;
+            const delta = featLastXRef.current - currentX;
+            featLastXRef.current = currentX;
+            // velocity = delta this frame (used for fling on release)
+            featVelRef.current = delta;
+            const halfW = el.scrollWidth / 2;
+            featPosRef.current = ((featPosRef.current + delta) % halfW + halfW) % halfW;
+            el.style.transform = `translateX(${-featPosRef.current}px)`;
           }}
           onTouchEnd={() => {
-            setTimeout(() => { featPausedRef.current = false; }, 1200);
+            featDraggingRef.current = false;
+            // featVelRef.current already holds the last-frame delta as fling velocity
+            // rAF loop will decay it back toward BASE smoothly
           }}
         >
           {/* Fade edges */}

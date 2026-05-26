@@ -61,16 +61,29 @@ const CARD  = "rgba(15,30,48,0.92)";
 // ── Scroll-reveal hook ───────────────────────────────────────────────────────
 function useScrollReveal() {
   useEffect(() => {
-    const io = new IntersectionObserver((entries) => {
+    // Two observers: one fires when element enters (with margin), one when fully gone
+    const enter = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          entry.target.classList.add("sr-visible");
+          const el = entry.target as HTMLElement;
+          el.classList.remove("sr-visible");
+          void el.offsetWidth; // force reflow so animation restarts
+          el.classList.add("sr-visible");
         }
       });
-    }, { threshold: 0.10, rootMargin: "0px 0px -40px 0px" });
+    }, { threshold: 0.09, rootMargin: "0px 0px -30px 0px" });
+
+    const exit = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) {
+          entry.target.classList.remove("sr-visible");
+        }
+      });
+    }, { threshold: 0 });
+
     const targets = document.querySelectorAll(".sr");
-    targets.forEach(el => io.observe(el));
-    return () => io.disconnect();
+    targets.forEach(el => { enter.observe(el); exit.observe(el); });
+    return () => { enter.disconnect(); exit.disconnect(); };
   });
 }
 
@@ -89,6 +102,52 @@ function useCountUp(target: number, visible: boolean, duration = 1200) {
     requestAnimationFrame(tick);
   }, [visible]);
   return val;
+}
+
+// ── Card 3-D tilt + spotlight hook ──────────────────────────────────────────
+function useCardTilt() {
+  useEffect(() => {
+    const SELECTOR = "[data-tilt]";
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(SELECTOR));
+
+    const onMove = (e: MouseEvent) => {
+      const card = (e.currentTarget as HTMLElement);
+      const rect  = card.getBoundingClientRect();
+      const x     = e.clientX - rect.left;
+      const y     = e.clientY - rect.top;
+      const cx    = rect.width  / 2;
+      const cy    = rect.height / 2;
+      const rx    = ((y - cy) / cy) * -9;
+      const ry    = ((x - cx) / cx) *  9;
+      const px    = (x / rect.width)  * 100;
+      const py    = (y / rect.height) * 100;
+      card.style.transition = "transform 0.08s ease";
+      card.style.transform  = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.025)`;
+      // spotlight
+      const spot = card.querySelector<HTMLElement>(".lp-spot");
+      if (spot) {
+        spot.style.opacity  = "1";
+        spot.style.background = `radial-gradient(220px circle at ${px}% ${py}%, rgba(20,184,232,0.13) 0%, transparent 70%)`;
+      }
+    };
+
+    const onLeave = (e: MouseEvent) => {
+      const card = (e.currentTarget as HTMLElement);
+      card.style.transition = "transform 0.5s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease, border-color 0.3s ease";
+      card.style.transform  = "";
+      const spot = card.querySelector<HTMLElement>(".lp-spot");
+      if (spot) spot.style.opacity = "0";
+    };
+
+    cards.forEach(c => {
+      c.addEventListener("mousemove", onMove);
+      c.addEventListener("mouseleave", onLeave);
+    });
+    return () => cards.forEach(c => {
+      c.removeEventListener("mousemove", onMove);
+      c.removeEventListener("mouseleave", onLeave);
+    });
+  });
 }
 
 export default function Login() {
@@ -162,8 +221,9 @@ export default function Login() {
     }
   }, [showLoginPanel]);
 
-  // Scroll reveal
+  // Scroll reveal + card tilt
   useScrollReveal();
+  useCardTilt();
 
   // Stats visibility observer
   useEffect(() => {
@@ -370,19 +430,33 @@ export default function Login() {
         .d1{ animation-delay:0.03s } .d2{ animation-delay:0.10s } .d3{ animation-delay:0.17s } .d4{ animation-delay:0.24s }
 
         /* ── Scroll-reveal ── */
+        /* Hidden base state — everything starts here */
         .sr {
-          opacity:0; transform:translateY(44px);
-          transition:opacity 0.80s cubic-bezier(0.16,1,0.3,1), transform 0.80s cubic-bezier(0.16,1,0.3,1), filter 0.80s ease;
-          filter:blur(4px); will-change:opacity,transform,filter;
+          opacity:0;
+          transform:perspective(700px) translateY(70px) scale(0.90) rotateX(14deg);
+          filter:blur(10px);
+          transition:
+            opacity   0.90s cubic-bezier(0.16,1,0.3,1),
+            transform 0.90s cubic-bezier(0.16,1,0.3,1),
+            filter    0.70s ease;
+          will-change:opacity,transform,filter;
+          transform-style:preserve-3d;
         }
-        .sr.sr-left  { transform:translateX(-44px) }
-        .sr.sr-right { transform:translateX(44px) }
-        .sr.sr-scale { transform:scale(0.88); filter:blur(7px) }
-        .sr.sr-visible { opacity:1!important; transform:none!important; filter:blur(0)!important; }
-        .sr-d1 { transition-delay:0.06s } .sr-d2 { transition-delay:0.14s } .sr-d3 { transition-delay:0.22s }
-        .sr-d4 { transition-delay:0.30s } .sr-d5 { transition-delay:0.38s } .sr-d6 { transition-delay:0.46s }
-        .sr-d7 { transition-delay:0.54s } .sr-d8 { transition-delay:0.62s } .sr-d9 { transition-delay:0.70s }
-        .sr-d10{ transition-delay:0.78s } .sr-d11{ transition-delay:0.86s } .sr-d12{ transition-delay:0.94s }
+        /* Directional overrides — must come after .sr */
+        .sr.sr-left  { transform:perspective(700px) translateX(-90px) skewX(6deg) scale(0.88) rotateY(12deg); }
+        .sr.sr-right { transform:perspective(700px) translateX(90px) skewX(-6deg) scale(0.88) rotateY(-12deg); }
+        .sr.sr-scale { transform:perspective(700px) scale(0.55) rotate(-12deg) rotateX(18deg); filter:blur(16px); }
+        /* Revealed state — !important beats directional overrides */
+        .sr.sr-visible {
+          opacity:1!important;
+          transform:perspective(700px) translateY(0) scale(1) rotateX(0) rotateY(0) skewX(0)!important;
+          filter:blur(0)!important;
+        }
+        /* Delays — set on the element (not on .sr-visible) so no specificity conflict */
+        .sr-d1  { transition-delay:0.06s } .sr-d2  { transition-delay:0.13s } .sr-d3  { transition-delay:0.20s }
+        .sr-d4  { transition-delay:0.27s } .sr-d5  { transition-delay:0.34s } .sr-d6  { transition-delay:0.41s }
+        .sr-d7  { transition-delay:0.48s } .sr-d8  { transition-delay:0.55s } .sr-d9  { transition-delay:0.62s }
+        .sr-d10 { transition-delay:0.69s } .sr-d11 { transition-delay:0.76s } .sr-d12 { transition-delay:0.83s }
 
         /* ── Form elements ── */
         .btn-blue {
@@ -800,7 +874,8 @@ export default function Login() {
             { icon: "📶", title: "WiFi Voucher Management", desc: "Generate and sell timed internet vouchers directly from the POS. Built for cafes, hotels, and restaurants that offer paid WiFi to guests." },
             { icon: "🖨️", title: "Receipt & Kitchen Printing", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time — no paper tickets needed." },
           ].map((f, i) => (
-            <div key={i} className={`fcard sr sr-d${(i % 6) + 1}`} style={{ padding: "24px", borderRadius: 16, background: CARD, border: "1px solid rgba(20,184,232,0.11)" }}>
+            <div key={i} data-tilt className={`fcard sr sr-d${(i % 6) + 1}`} style={{ padding: "24px", borderRadius: 16, background: CARD, border: "1px solid rgba(20,184,232,0.11)", position: "relative", overflow: "hidden" }}>
+              <div className="lp-spot" style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none", transition: "opacity 0.3s ease", borderRadius: 16 }} />
               <div className="fcard-icon" style={{ fontSize: 28, marginBottom: 13, display: "inline-block" }}>{f.icon}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{f.title}</div>
               <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.40)", lineHeight: 1.72 }}>{f.desc}</div>
@@ -917,7 +992,8 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
             {/* Card 1 — Permanent audit trail */}
-            <div className="sr sr-left sr-d1 sec-card-pink">
+            <div data-tilt className="sr sr-left sr-d1 sec-card-pink" style={{ position: "relative" }}>
+              <div className="lp-spot" style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none", transition: "opacity 0.3s ease", borderRadius: 22, zIndex: 1 }} />
               <div style={{ height: 3, background: "linear-gradient(90deg, #f472b6, #e879f9)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
                 <div style={{ fontSize: 40, marginBottom: 20 }}>📋</div>
@@ -937,7 +1013,8 @@ export default function Login() {
             </div>
 
             {/* Card 2 — Instant access revocation */}
-            <div className="sr sr-right sr-d1 sec-card-blue">
+            <div data-tilt className="sr sr-right sr-d1 sec-card-blue" style={{ position: "relative" }}>
+              <div className="lp-spot" style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none", transition: "opacity 0.3s ease", borderRadius: 22, zIndex: 1 }} />
               <div style={{ height: 3, background: "linear-gradient(90deg, #0ea5e9, #38bdf8)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
                 <div style={{ fontSize: 40, marginBottom: 20 }}>🔒</div>
@@ -969,7 +1046,8 @@ export default function Login() {
             The core POS is free — sales, products, inventory, and analytics. Advanced features unlock on Pro.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, maxWidth: 720, margin: "0 auto" }}>
-            <div className="price-card sr sr-left sr-d2" style={{ padding: "34px 30px", borderRadius: 20, background: CARD, border: "1px solid rgba(20,184,232,0.15)", textAlign: "left" }}>
+            <div data-tilt className="price-card sr sr-left sr-d2" style={{ padding: "34px 30px", borderRadius: 20, background: CARD, border: "1px solid rgba(20,184,232,0.15)", textAlign: "left", position: "relative", overflow: "hidden" }}>
+              <div className="lp-spot" style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none", transition: "opacity 0.3s ease", borderRadius: 20 }} />
               <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.48)", marginBottom: 7 }}>FREE</div>
               <div style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginBottom: 5 }}>₱0 <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>/mo</span></div>
               <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)", marginBottom: 26 }}>No credit card. No expiry.</div>
@@ -985,7 +1063,8 @@ export default function Login() {
                 Get started free
               </button>
             </div>
-            <div className="price-card sr sr-right sr-d2" style={{ padding: "34px 30px", borderRadius: 20, background: "rgba(20,184,232,0.06)", border: `1.5px solid rgba(20,184,232,0.38)`, textAlign: "left", position: "relative", overflow: "hidden" }}>
+            <div data-tilt className="price-card sr sr-right sr-d2" style={{ padding: "34px 30px", borderRadius: 20, background: "rgba(20,184,232,0.06)", border: `1.5px solid rgba(20,184,232,0.38)`, textAlign: "left", position: "relative", overflow: "hidden" }}>
+              <div className="lp-spot" style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none", transition: "opacity 0.3s ease", borderRadius: 20 }} />
               <div style={{ position: "absolute", top: 16, right: 16, padding: "3px 11px", borderRadius: 20, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, fontSize: 10, fontWeight: 700, color: "#fff" }}>POPULAR</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: NEON, marginBottom: 7 }}>PRO</div>
               <div style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginBottom: 5 }}>Contact <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>for pricing</span></div>

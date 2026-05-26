@@ -5,7 +5,7 @@ import {
   Coffee, UtensilsCrossed, Cake, Wine, Truck, ChevronRight,
   ChevronLeft, ShoppingBag, Cpu, ShoppingCart, BookOpen,
   Scissors, Dumbbell, Sparkles, Store, Users, CheckCircle2,
-  Building2, Link, Shirt, Car, Stethoscope,
+  Shirt, Car, Stethoscope,
   PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle,
   Search, Globe, PartyPopper, Zap, BarChart2, Shield,
   Package, WifiOff, UserCheck, Receipt, Smartphone, Check,
@@ -26,9 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 
-type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services";
-type Step = "welcome" | "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "done";
+type Step = "welcome" | "business_type" | "business_subtype" | "store_info" | "done";
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -113,7 +112,7 @@ const FREE_FEATURES: { icon: React.ElementType; label: string; desc: string }[] 
 ];
 
 // Owner flow steps for progress tracking
-const OWNER_STEPS: Step[] = ["role", "business_type", "business_subtype", "store_info"];
+const OWNER_STEPS: Step[] = ["business_type", "business_subtype", "store_info"];
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
@@ -232,7 +231,6 @@ export default function Onboarding() {
   const [, setLocation] = useLocation();
 
   const [step, setStep] = useState<Step>("welcome");
-  const [role, setRole] = useState<Role | null>(null);
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
   const [businessSubType, setBusinessSubType] = useState<string | null>(null);
   const [storeName, setStoreName] = useState("");
@@ -240,7 +238,6 @@ export default function Onboarding() {
   const [storePhone, setStorePhone] = useState("");
   const [storeEmail, setStoreEmail] = useState("");
   const [storeCountry, setStoreCountry] = useState<CountryData | null>(null);
-  const [inviteInput, setInviteInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -274,12 +271,6 @@ export default function Onboarding() {
     }).catch(() => {});
   }, []);
 
-  // ── Invite error from ProtectedRouter ───────────────────────────────────────
-  useEffect(() => {
-    const err = sessionStorage.getItem("invite_error");
-    if (err) { sessionStorage.removeItem("invite_error"); toast({ title: err, variant: "destructive" }); }
-  }, []);
-
   function handleCountryChange(country: CountryData) {
     userPickedCountry.current = true;
     setStoreCountry(country);
@@ -292,14 +283,6 @@ export default function Onboarding() {
 
   function hasPhoneDigitsBeyondPrefix(phone: string, prefix: string) {
     return phone.replace(/\D/g, "").length > prefix.replace(/\D/g, "").length;
-  }
-
-  function extractToken(input: string) {
-    const trimmed = input.trim();
-    try {
-      const url = new URL(trimmed);
-      return url.searchParams.get("invite") ?? url.searchParams.get("token") ?? trimmed;
-    } catch { return trimmed; }
   }
 
   // ── Label lookups ────────────────────────────────────────────────────────────
@@ -351,22 +334,6 @@ export default function Onboarding() {
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────────
-  async function handleEmployeeJoin() {
-    const token = extractToken(inviteInput);
-    if (!token) { toast({ title: t("onboarding.employee.errorNoToken"), variant: "destructive" }); return; }
-    setIsSubmitting(true);
-    try {
-      const res = await apiRequest("POST", "/api/admin/invite/redeem", { token });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || t("onboarding.employee.errorInvalid"));
-      await updateSettings.mutateAsync({ onboardingComplete: 1 });
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setStep("done");
-    } catch (err: any) {
-      toast({ title: err.message || t("onboarding.employee.errorInvalid"), variant: "destructive" });
-    } finally { setIsSubmitting(false); }
-  }
-
   async function handleOwnerComplete() {
     if (!storeCountry)            { toast({ title: t("onboarding.storeInfo.errorCountry"),       variant: "destructive" }); return; }
     if (!storeName.trim())        { toast({ title: t("onboarding.storeInfo.errorName"),           variant: "destructive" }); return; }
@@ -496,100 +463,13 @@ export default function Onboarding() {
             <div className="flex flex-col items-center gap-3">
               <Button
                 data-testid="btn-welcome-start"
-                onClick={() => setStep("role")}
+                onClick={() => setStep("business_type")}
                 size="lg"
                 className="w-full sm:w-auto sm:px-12 h-12 sm:h-13 text-base font-bold rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all"
               >
                 Start Setup <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
               <p className="text-xs text-muted-foreground/60 text-center">{t("onboarding.role.footerNote")}</p>
-            </div>
-          </div>
-        )}
-
-        {/* ══ ROLE ══ */}
-        {step === "role" && (
-          <div className="w-full max-w-lg animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-8 sm:mb-10">
-              <SectionBadge label="Your Role" />
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground mb-2 sm:mb-3">
-                {t("onboarding.role.title")}
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.role.subtitle")}</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              {[
-                { id: "owner" as Role, icon: Building2, title: t("onboarding.role.ownerTitle"), desc: t("onboarding.role.ownerDesc"), testId: "btn-role-owner" },
-                { id: "employee" as Role, icon: Users,    title: t("onboarding.role.employeeTitle"), desc: t("onboarding.role.employeeDesc"), testId: "btn-role-employee" },
-              ].map(r => {
-                const Icon = r.icon;
-                const isSelected = role === r.id;
-                return (
-                  <button
-                    key={r.id}
-                    data-testid={r.testId}
-                    onClick={() => { setRole(r.id); setStep(r.id === "owner" ? "business_type" : "employee_invite"); }}
-                    className={[
-                      "group relative flex flex-col items-center text-center p-6 sm:p-8 rounded-2xl sm:rounded-[28px] border-2 transition-all duration-300 bg-white dark:bg-white/5",
-                      isSelected
-                        ? "border-primary shadow-xl shadow-primary/15 -translate-y-1"
-                        : "border-border/60 hover:border-primary/40 hover:shadow-md shadow-sm",
-                    ].join(" ")}
-                  >
-                    <div className={[
-                      "w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 transition-colors",
-                      isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary",
-                    ].join(" ")}>
-                      <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">{r.title}</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{r.desc}</p>
-                    {isSelected && (
-                      <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ══ EMPLOYEE INVITE ══ */}
-        {step === "employee_invite" && (
-          <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 mb-5">
-                <Link className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-2">
-                {t("onboarding.employee.title")}
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.employee.subtitle")}</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">{t("onboarding.employee.noInviteHint")}</p>
-            </div>
-
-            <div className="bg-white dark:bg-white/5 rounded-2xl sm:rounded-3xl border border-border/50 shadow-sm p-5 sm:p-6 space-y-4">
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.employee.inviteLabel")}</Label>
-                <Input
-                  data-testid="input-invite-link"
-                  value={inviteInput}
-                  onChange={e => setInviteInput(e.target.value)}
-                  placeholder={t("onboarding.employee.placeholder")}
-                  className="rounded-xl h-11"
-                />
-              </div>
-              <Button
-                data-testid="btn-join-team"
-                onClick={handleEmployeeJoin}
-                disabled={!inviteInput.trim() || isSubmitting}
-                className="w-full rounded-xl h-11 font-bold"
-              >
-                {isSubmitting ? t("onboarding.employee.joining") : t("onboarding.employee.joinButton")}
-              </Button>
             </div>
           </div>
         )}
@@ -815,14 +695,12 @@ export default function Onboarding() {
                 <PartyPopper className="w-8 h-8 sm:w-10 sm:h-10 text-primary-foreground" />
               </div>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-2">
-                {role === "employee" ? t("onboarding.done.employeeTitle") : t("onboarding.done.ownerTitle")}
+                {t("onboarding.done.ownerTitle")}
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground">
-                {role === "employee"
-                  ? t("onboarding.done.employeeSubtitle")
-                  : storeName
-                    ? `${storeName} ${t("onboarding.done.ownerSubtitle")}`
-                    : t("onboarding.done.ownerSubtitleFallback")}
+                {storeName
+                  ? `${storeName} ${t("onboarding.done.ownerSubtitle")}`
+                  : t("onboarding.done.ownerSubtitleFallback")}
               </p>
             </div>
 
@@ -887,14 +765,12 @@ export default function Onboarding() {
       </main>
 
       {/* ── Back button footer ── */}
-      {["role", "employee_invite", "business_type", "business_subtype", "store_info"].includes(step) && (
+      {["business_type", "business_subtype", "store_info"].includes(step) && (
         <footer className="relative z-10 w-full px-5 sm:px-8 pb-5 sm:pb-6 pt-1">
           <div className="max-w-xl mx-auto">
             <button
               onClick={() => {
-                if (step === "role")             setStep("welcome");
-                else if (step === "employee_invite")  setStep("role");
-                else if (step === "business_type")    setStep("role");
+                if (step === "business_type")         setStep("welcome");
                 else if (step === "business_subtype") setStep("business_type");
                 else if (step === "store_info")       setStep("business_subtype");
               }}

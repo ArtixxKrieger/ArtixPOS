@@ -867,19 +867,18 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── SECURITY — only what genuinely stands out ── */}
+      {/* ── SECURITY ── */}
       <section id="security" className="scroll-section" style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(20,184,232,0.07)", borderBottom: "1px solid rgba(20,184,232,0.07)" }}>
-        {/* faint green ambient */}
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(52,211,153,0.04) 0%, transparent 65%)", pointerEvents: "none" }} />
         <div style={{ position: "relative", zIndex: 1, maxWidth: 1100, margin: "0 auto", padding: "96px 32px" }}>
           <div className="sr" style={{ textAlign: "center", marginBottom: 64 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Security</div>
             <h2 style={{ fontSize: 42, fontWeight: 900, letterSpacing: "-0.04em", margin: "0 0 14px", lineHeight: 1.06 }}>
-              Two things we do that<br />
-              <span style={{ background: "linear-gradient(90deg,#34d399,#38d9f5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>most systems don't.</span>
+              Built for businesses that<br />
+              <span style={{ background: "linear-gradient(90deg,#34d399,#38d9f5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>handle real money.</span>
             </h2>
-            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.40)", maxWidth: 460, margin: "0 auto", lineHeight: 1.72 }}>
-              Basic login protection and HTTPS are table stakes — we don't count those. Here's what actually sets ArtixPOS apart.
+            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.40)", maxWidth: 500, margin: "0 auto", lineHeight: 1.72 }}>
+              Basic login and HTTPS are a given. These are the things we did on top of that, and why we bothered.
             </p>
           </div>
 
@@ -889,22 +888,21 @@ export default function Login() {
             <div className="sr sr-left sr-d1" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(52,211,153,0.22)", background: "rgba(52,211,153,0.04)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
               onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(52,211,153,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(52,211,153,0.10)"; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(52,211,153,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
-              {/* accent bar */}
               <div style={{ height: 3, background: "linear-gradient(90deg, #34d399, #10b981)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
                 <div style={{ fontSize: 40, marginBottom: 20 }}>🏛️</div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                  Your data is structurally sealed — not just filtered.
+                  Your data is sealed at the database level, not the app level.
                 </div>
-                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, marginBottom: 24, margin: "0 0 24px" }}>
-                  Most multi-tenant software separates businesses by adding a filter to every database query. That works — until a developer forgets the filter, or a bug slips through.
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, margin: "0 0 24px" }}>
+                  Most multi-tenant software separates businesses by adding a WHERE clause to every query. That works until a developer forgets it, or a bug skips it.
                 </p>
                 <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
-                  ArtixPOS enforces isolation at the database engine level. Each business's data lives in its own sealed partition. Even if the application code had a critical bug, the database itself would reject any cross-business query. One business cannot see another's transactions, customers, or staff — period.
+                  ArtixPOS enforces isolation at the database engine itself using Row-Level Security with indexed tenant policies. Even with a bug in the application code, the database rejects any cross-tenant query before it runs. No filter to forget. No curtain to slip through.
                 </p>
                 <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.20)" }}>
-                  <div style={{ fontSize: 12.5, color: "#34d399", fontWeight: 700, marginBottom: 4 }}>Why this matters</div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>If you share a POS platform with other businesses — as every SaaS does — you want the wall between you and them to be a vault, not a curtain.</div>
+                  <div style={{ fontSize: 12.5, color: "#34d399", fontWeight: 700, marginBottom: 4 }}>What makes this harder than it sounds</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>Getting RLS right with connection pooling, prepared statements, and cross-tenant reporting took real work. Most systems skip it because it's hard to do correctly.</div>
                 </div>
               </div>
             </div>
@@ -917,17 +915,63 @@ export default function Login() {
               <div style={{ padding: "36px 36px 40px" }}>
                 <div style={{ fontSize: 40, marginBottom: 20 }}>📋</div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                  Nothing can be quietly undone. Every action leaves a permanent record.
+                  Every action leaves a permanent record. Nobody can delete it.
                 </div>
-                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, marginBottom: 24, margin: "0 0 24px" }}>
-                  A manager voids a transaction. A cashier applies a discount that wasn't authorized. A staff account gets promoted. In most POS systems, these things happen and disappear.
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, margin: "0 0 24px" }}>
+                  A manager voids a transaction. A cashier applies a discount that wasn't authorized. A staff account gets quietly promoted. In most POS systems, these things happen and disappear.
                 </p>
                 <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
-                  In ArtixPOS, every void, refund, discount, permission change, and login event is permanently logged with a timestamp and exactly who did it. Records cannot be deleted — not by staff, not by managers, and not by us. The audit trail is append-only by design.
+                  In ArtixPOS, every void, refund, discount, permission change, and login event is logged with a timestamp and exactly who did it. Records are append-only by design. Staff can't delete them. Managers can't delete them. We can't delete them either.
                 </p>
                 <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(244,114,182,0.07)", border: "1px solid rgba(244,114,182,0.20)" }}>
-                  <div style={{ fontSize: 12.5, color: "#f472b6", fontWeight: 700, marginBottom: 4 }}>Why this matters</div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>When you have staff handling cash and transactions, accountability is everything. This gives you a complete, unalterable history of your business — not just today, but forever.</div>
+                  <div style={{ fontSize: 12.5, color: "#f472b6", fontWeight: 700, marginBottom: 4 }}>Why this matters for cash businesses</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>When staff handle cash daily, you need a record that can't be cleaned up after the fact. The audit trail is the one thing everyone knows they can't touch.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3 — JWT revocation */}
+            <div className="sr sr-left sr-d2" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(14,165,233,0.22)", background: "rgba(14,165,233,0.03)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(14,165,233,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(14,165,233,0.08)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(14,165,233,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
+              <div style={{ height: 3, background: "linear-gradient(90deg, #0ea5e9, #38bdf8)" }} />
+              <div style={{ padding: "36px 36px 40px" }}>
+                <div style={{ fontSize: 40, marginBottom: 20 }}>🔑</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                  Logging out actually kills your session. Immediately.
+                </div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, margin: "0 0 24px" }}>
+                  Most apps that use JWT tokens have a quiet problem: when you log out, the token still technically works until it expires. That can be hours or days. If someone grabbed it, they're still in.
+                </p>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
+                  ArtixPOS invalidates every session token the moment you log out, using an in-memory revocation list that's checked before any request touches the database. Revoked tokens are also persisted so they survive server restarts. The session is dead the instant you close it.
+                </p>
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.18)" }}>
+                  <div style={{ fontSize: 12.5, color: "#38bdf8", fontWeight: 700, marginBottom: 4 }}>Why most apps skip this</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>True JWT revocation requires a shared store checked on every request. Most teams just set a short expiry and call it good enough. We didn't.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4 — Brute force protection */}
+            <div className="sr sr-right sr-d2" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(168,85,247,0.22)", background: "rgba(168,85,247,0.03)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(168,85,247,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(168,85,247,0.08)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(168,85,247,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
+              <div style={{ height: 3, background: "linear-gradient(90deg, #a855f7, #c084fc)" }} />
+              <div style={{ padding: "36px 36px 40px" }}>
+                <div style={{ fontSize: 40, marginBottom: 20 }}>🛡️</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                  Password guessing gets blocked across every server, not just one.
+                </div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, margin: "0 0 24px" }}>
+                  Most per-server rate limits have a hole: attackers can spread requests across different servers to stay under each limit. If your app runs on multiple machines, per-machine blocking is basically no blocking.
+                </p>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
+                  ArtixPOS tracks login attempts in shared Redis, so blocks apply globally across every server instance. 5 failures in 15 minutes locks the IP for 15 minutes. 20 failures locks it for an hour. 50 failures locks it for 24 hours. The counter resets cleanly on a successful login.
+                </p>
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.18)" }}>
+                  <div style={{ fontSize: 12.5, color: "#c084fc", fontWeight: 700, marginBottom: 4 }}>Credential stuffing protection built in</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>Automated credential stuffing attacks hit hundreds of IPs fast. Progressive blocks escalate automatically so the harder the attack, the longer the lockout.</div>
                 </div>
               </div>
             </div>
@@ -1083,9 +1127,11 @@ export default function Login() {
   // MOBILE CARD
   // ─────────────────────────────────────────────────────────────────────────
   const mobileCard = (
-    <div className="md:hidden" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", background: isDark ? DARK : "#eef7fb" }}>
-      <div style={{ width: "100%", maxWidth: 420, padding: "32px 26px", borderRadius: 22, background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.90)", border: `1px solid ${isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 0 0 1px rgba(20,184,232,0.05), 0 32px 80px rgba(0,0,0,0.65)" : "0 8px 48px rgba(0,0,0,0.09)" }}>
-        {loginForm}
+    <div className="md:hidden">
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", background: isDark ? DARK : "#eef7fb" }}>
+        <div style={{ width: "100%", maxWidth: 420, padding: "32px 26px", borderRadius: 22, background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.90)", border: `1px solid ${isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 0 0 1px rgba(20,184,232,0.05), 0 32px 80px rgba(0,0,0,0.65)" : "0 8px 48px rgba(0,0,0,0.09)" }}>
+          {loginForm}
+        </div>
       </div>
     </div>
   );

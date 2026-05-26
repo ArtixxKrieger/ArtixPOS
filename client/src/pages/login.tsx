@@ -125,6 +125,17 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
+  // Features carousel
+  const [featSlide, setFeatSlide] = useState(0);
+  const featPausedRef = useRef(false);
+  const FEAT_PAGES = 4; // 12 features / 3 per page
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (!featPausedRef.current) setFeatSlide(s => (s + 1) % FEAT_PAGES);
+    }, 3800);
+    return () => clearInterval(t);
+  }, []);
+
   // Stats counter visibility
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
@@ -818,38 +829,92 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── FEATURES ── */}
-      <section id="features" className="scroll-section lp-section-lazy" style={{ position: "relative", zIndex: 1, maxWidth: 1160, margin: "0 auto", padding: "80px 32px" }}>
-        <div className="sr" style={{ textAlign: "center", marginBottom: 52 }}>
+      {/* ── FEATURES CAROUSEL ── */}
+      <section id="features" className="scroll-section lp-section-lazy" style={{ position: "relative", zIndex: 1, padding: "88px 0" }}>
+        <div className="sr" style={{ textAlign: "center", marginBottom: 52, padding: "0 32px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>What's included</div>
-          <h2 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 10px", lineHeight: 1.1 }}>
+          <h2 style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 10px", lineHeight: 1.1 }}>
             Everything your business needs.
           </h2>
-          <p style={{ fontSize: 14.5, color: "rgba(255,255,255,0.38)", maxWidth: 420, margin: "0 auto", lineHeight: 1.65 }}>
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", maxWidth: 420, margin: "0 auto", lineHeight: 1.65 }}>
             Actual features, not a roadmap.
           </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
-          {[
-            { icon: "🛒", title: "Point of Sale",            desc: "Full POS with barcode scanning, cash/card/split payment, receipt printing, and pending orders. Keeps working without internet — sales sync when you're back online." },
-            { icon: "📊", title: "Real-time Analytics",      desc: "Live dashboard with today's revenue, top products, staff performance, and hourly trends. Export to Excel or PDF. Data updates the instant a sale is made." },
-            { icon: "🧠", title: "AI Business Assistant",    desc: "Ask the built-in AI about your own data — \"What sold most this week?\" or \"Which branch is underperforming?\" Powered by fast AI with automatic fallback." },
-            { icon: "🏢", title: "Multi-branch Management",  desc: "Run multiple locations under one account. Assign staff to branches, move stock between them, and see combined or per-branch reports in one view." },
-            { icon: "📦", title: "Inventory & Expiry",       desc: "Track stock levels with automatic low-stock alerts. Expiry tracker flags items before they go bad. Full purchase order flow from supplier to shelf." },
-            { icon: "👥", title: "Staff & Payroll",          desc: "Time clock, shift scheduling, payroll periods, and payroll entries. Staff clock in from any device. Owners see labor cost vs. revenue in one place." },
-            { icon: "📅", title: "Appointments & Rooms",     desc: "Book service appointments, assign to staff and rooms, and check out directly from an appointment. Works for salons, clinics, spas, and more." },
-            { icon: "🎁", title: "Loyalty & Memberships",    desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins. Customers track their balance and redeem at checkout." },
-            { icon: "🧾", title: "Tax Compliance & Audit",   desc: "Built-in compliance reports with OR number tracking, VAT computation, and a full void/refund audit trail. Every transaction is logged and tamper-evident." },
-            { icon: "💸", title: "Expenses & Suppliers",     desc: "Log business expenses by category, attach notes, and track against revenue. Manage suppliers and purchase orders from the same screen." },
-            { icon: "📶", title: "WiFi Voucher Management",  desc: "Generate and sell timed internet vouchers directly from the POS. Built for cafes, hotels, and restaurants that offer paid WiFi to guests." },
-            { icon: "🖨️", title: "Receipt & Kitchen Print", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time — no paper tickets needed." },
-          ].map((f, i) => (
-            <div key={i} className={`fcard sr sr-d${(i % 4) + 1}`} style={{ padding: "22px 24px", borderRadius: 16, background: CARD, border: "1px solid rgba(20,184,232,0.10)" }}>
-              <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{f.title}</div>
-              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.40)", lineHeight: 1.70 }}>{f.desc}</div>
-            </div>
-          ))}
+
+        {/* Carousel track */}
+        <div
+          style={{ overflow: "hidden", position: "relative" }}
+          onMouseEnter={() => { featPausedRef.current = true; }}
+          onMouseLeave={() => { featPausedRef.current = false; }}
+        >
+          <div style={{
+            display: "flex",
+            transform: `translateX(${-featSlide * 100}%)`,
+            transition: "transform 0.6s cubic-bezier(0.16,1,0.3,1)",
+            willChange: "transform",
+          }}>
+            {[
+              [
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>, title: "Point of Sale", desc: "Full POS with barcode scanning, cash/card/split payments, and receipt printing. Keeps working offline — syncs automatically when you're back online.", color: BLUE },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, title: "Real-time Analytics", desc: "Live dashboard with today's revenue, top products, staff performance, and hourly trends. Export to Excel or PDF the moment a sale is made.", color: "#34d399" },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M22 2 16 8"/><path d="M17 2h5v5"/></svg>, title: "AI Business Assistant", desc: "Ask the built-in AI about your own data — \"What sold most this week?\" or \"Which branch is underperforming?\" Powered by multiple AI providers with automatic fallback.", color: "#a78bfa" },
+              ],
+              [
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, title: "Multi-branch Management", desc: "Run multiple locations under one account. Assign staff to branches, transfer stock between them, and view combined or per-branch reports.", color: BLUE },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>, title: "Inventory & Expiry", desc: "Track stock levels with automatic low-stock alerts. An expiry tracker flags items before they go bad. Full purchase order flow from supplier to shelf.", color: "#34d399" },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, title: "Staff & Payroll", desc: "Time clock, shift scheduling, payroll periods, and payroll entries. Staff clock in from any device. See labor cost versus revenue in one place.", color: "#f59e0b" },
+              ],
+              [
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>, title: "Appointments & Rooms", desc: "Book service appointments, assign to staff and rooms, and check out directly from the appointment screen. Works for salons, clinics, spas, and more.", color: "#a78bfa" },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>, title: "Loyalty & Memberships", desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins. Customers track their balance and redeem rewards at checkout.", color: "#f472b6" },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, title: "Tax Compliance & Audit", desc: "Built-in compliance reports with OR number tracking, VAT computation, and a full void/refund audit trail. Every transaction is logged and tamper-evident.", color: "#34d399" },
+              ],
+              [
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, title: "Expenses & Suppliers", desc: "Log business expenses by category, attach notes, and track against revenue. Manage suppliers and purchase orders from the same screen.", color: "#f59e0b" },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>, title: "WiFi Voucher Management", desc: "Generate and sell timed internet vouchers directly from the POS. Built for cafes, hotels, and restaurants that offer paid WiFi to guests.", color: BLUE },
+                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>, title: "Receipt & Kitchen Print", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time — no paper tickets needed.", color: "#a78bfa" },
+              ],
+            ].map((page, pageIdx) => (
+              <div key={pageIdx} style={{ minWidth: "100%", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, padding: "4px 48px 8px" }}>
+                {page.map(({ Icon, title, desc, color }, i) => (
+                  <div key={i} className="fcard" style={{ padding: "28px 26px 30px", borderRadius: 18, background: CARD, border: "1px solid rgba(20,184,232,0.10)", display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ width: 46, height: 46, borderRadius: 13, background: `${color}14`, border: `1px solid ${color}28`, display: "flex", alignItems: "center", justifyContent: "center", color, flexShrink: 0 }}>
+                      <Icon />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{title}</div>
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.44)", lineHeight: 1.72 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pagination dots + prev/next */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 36 }}>
+          <button
+            onClick={() => setFeatSlide(s => (s - 1 + FEAT_PAGES) % FEAT_PAGES)}
+            style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(20,184,232,0.06)", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.2s, background 0.2s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.5)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.12)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.22)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.06)"; }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {Array.from({ length: FEAT_PAGES }).map((_, i) => (
+              <button key={i} onClick={() => setFeatSlide(i)} style={{ width: i === featSlide ? 24 : 8, height: 8, borderRadius: 4, border: "none", cursor: "pointer", background: i === featSlide ? BLUE : "rgba(255,255,255,0.16)", transition: "width 0.3s ease, background 0.3s ease", padding: 0 }} />
+            ))}
+          </div>
+          <button
+            onClick={() => setFeatSlide(s => (s + 1) % FEAT_PAGES)}
+            style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(20,184,232,0.06)", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.2s, background 0.2s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.5)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.12)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.22)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.06)"; }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
       </section>
 

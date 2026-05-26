@@ -125,29 +125,40 @@ export default function Login() {
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
 
-  // ── Unlock body scroll for the landing page (body has overflow:hidden globally) ──
+  // ── Unlock body scroll — index.html sets html,body{overflow:hidden} globally ──
+  // We override inline so it wins regardless of screen width or desktop-mode emulation.
   useEffect(() => {
-    const isDesktop = window.innerWidth >= 768;
-    if (!isDesktop) return;
-    const prev = { htmlOverflow: document.documentElement.style.overflow, htmlHeight: document.documentElement.style.height, bodyOverflow: document.body.style.overflow, bodyHeight: document.body.style.height };
-    document.documentElement.style.overflow = "auto";
-    document.documentElement.style.height = "auto";
-    document.body.style.overflow = "auto";
-    document.body.style.height = "auto";
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow, htmlHeight: html.style.height,
+      bodyOverflow: body.style.overflow, bodyHeight: body.style.height,
+    };
+    const unlock = () => {
+      html.style.setProperty("overflow", "auto", "important");
+      html.style.setProperty("height",   "auto", "important");
+      body.style.setProperty("overflow", "auto", "important");
+      body.style.setProperty("height",   "auto", "important");
+    };
+    unlock();
+    // Also re-apply after any potential framework paint that might reset it
+    const raf = requestAnimationFrame(unlock);
     return () => {
-      document.documentElement.style.overflow = prev.htmlOverflow;
-      document.documentElement.style.height = prev.htmlHeight;
-      document.body.style.overflow = prev.bodyOverflow;
-      document.body.style.height = prev.bodyHeight;
+      cancelAnimationFrame(raf);
+      html.style.overflow = prev.htmlOverflow;
+      html.style.height   = prev.htmlHeight;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.height   = prev.bodyHeight;
     };
   }, []);
 
-  // Also handle when panel opens/closes (need to lock scroll while panel is open)
+  // Lock body scroll while login panel is open, restore when closed
   useEffect(() => {
+    const body = document.body;
     if (showLoginPanel) {
-      document.body.style.overflow = "hidden";
+      body.style.setProperty("overflow", "hidden", "important");
     } else {
-      document.body.style.overflow = window.innerWidth >= 768 ? "auto" : "";
+      body.style.setProperty("overflow", "auto", "important");
     }
   }, [showLoginPanel]);
 
@@ -856,39 +867,71 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── SECURITY (client-friendly, no implementation details) ── */}
-      <section id="security" className="scroll-section" style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "88px 32px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "start" }}>
-          <div>
-            <div className="sr sr-left" style={{ fontSize: 12, fontWeight: 700, color: "#34d399", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Security</div>
-            <h2 className="sr sr-left sr-d1" style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 18px", lineHeight: 1.1 }}>
-              Your business data is<br />yours alone.
+      {/* ── SECURITY — only what genuinely stands out ── */}
+      <section id="security" className="scroll-section" style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(20,184,232,0.07)", borderBottom: "1px solid rgba(20,184,232,0.07)" }}>
+        {/* faint green ambient */}
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(52,211,153,0.04) 0%, transparent 65%)", pointerEvents: "none" }} />
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1100, margin: "0 auto", padding: "96px 32px" }}>
+          <div className="sr" style={{ textAlign: "center", marginBottom: 64 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Security</div>
+            <h2 style={{ fontSize: 42, fontWeight: 900, letterSpacing: "-0.04em", margin: "0 0 14px", lineHeight: 1.06 }}>
+              Two things we do that<br />
+              <span style={{ background: "linear-gradient(90deg,#34d399,#38d9f5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>most systems don't.</span>
             </h2>
-            <p className="sr sr-left sr-d2" style={{ fontSize: 15, color: "rgba(255,255,255,0.44)", lineHeight: 1.78, maxWidth: 380 }}>
-              We built ArtixPOS so that no one — not even us — can accidentally see another business's data. Here's what that means for you, in plain terms.
+            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.40)", maxWidth: 460, margin: "0 auto", lineHeight: 1.72 }}>
+              Basic login protection and HTTPS are table stakes — we don't count those. Here's what actually sets ArtixPOS apart.
             </p>
-            <div className="sr sr-left sr-d3" style={{ marginTop: 28, padding: "18px 20px", borderRadius: 14, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.18)" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", marginBottom: 6 }}>✓ Your data is completely isolated</div>
-              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>Even if there were a bug, one business's data cannot bleed into another's. This is enforced at the database level — not just in code.</div>
-            </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {[
-              { icon: "🔐", title: "Every login is verified and protected", desc: "Your session is secured against unauthorized requests. Signing in from an unknown location requires re-verification.", c: NEON },
-              { icon: "🏛️", title: "Your data never mixes with another business", desc: "Each business account is sealed off from every other. You only ever see your own transactions, staff, and customers.", c: "#34d399" },
-              { icon: "🔒", title: "Wrong passwords lock your account automatically", desc: "Too many failed login attempts and the system temporarily blocks access — protecting you even if someone knows your email.", c: "#a78bfa" },
-              { icon: "🚪", title: "Logging out works instantly and completely", desc: "When you log out, your session ends everywhere right away — not just in your browser. Old links stop working immediately.", c: "#f59e0b" },
-              { icon: "📋", title: "Every action is recorded", desc: "Voids, refunds, permission changes — everything is logged with who did it and when. Nothing happens silently.", c: "#f472b6" },
-              { icon: "🛡️", title: "Your connection is always private", desc: "Login and payment data are encrypted end-to-end. Even on a public WiFi, no one can intercept your information.", c: "#38bdf8" },
-            ].map((s, i) => (
-              <div key={i} className={`sec-item sr sr-right sr-d${i + 1}`} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.10)" }}>
-                <div style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{s.icon}</div>
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 5 }}>{s.title}</div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", lineHeight: 1.68 }}>{s.desc}</div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+
+            {/* Card 1 — Structural data isolation */}
+            <div className="sr sr-left sr-d1" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(52,211,153,0.22)", background: "rgba(52,211,153,0.04)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(52,211,153,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(52,211,153,0.10)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(52,211,153,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
+              {/* accent bar */}
+              <div style={{ height: 3, background: "linear-gradient(90deg, #34d399, #10b981)" }} />
+              <div style={{ padding: "36px 36px 40px" }}>
+                <div style={{ fontSize: 40, marginBottom: 20 }}>🏛️</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                  Your data is structurally sealed — not just filtered.
+                </div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, marginBottom: 24, margin: "0 0 24px" }}>
+                  Most multi-tenant software separates businesses by adding a filter to every database query. That works — until a developer forgets the filter, or a bug slips through.
+                </p>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
+                  ArtixPOS enforces isolation at the database engine level. Each business's data lives in its own sealed partition. Even if the application code had a critical bug, the database itself would reject any cross-business query. One business cannot see another's transactions, customers, or staff — period.
+                </p>
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.20)" }}>
+                  <div style={{ fontSize: 12.5, color: "#34d399", fontWeight: 700, marginBottom: 4 }}>Why this matters</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>If you share a POS platform with other businesses — as every SaaS does — you want the wall between you and them to be a vault, not a curtain.</div>
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Card 2 — Permanent audit trail */}
+            <div className="sr sr-right sr-d1" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(244,114,182,0.22)", background: "rgba(244,114,182,0.03)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(244,114,182,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(244,114,182,0.08)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(244,114,182,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
+              <div style={{ height: 3, background: "linear-gradient(90deg, #f472b6, #e879f9)" }} />
+              <div style={{ padding: "36px 36px 40px" }}>
+                <div style={{ fontSize: 40, marginBottom: 20 }}>📋</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                  Nothing can be quietly undone. Every action leaves a permanent record.
+                </div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, marginBottom: 24, margin: "0 0 24px" }}>
+                  A manager voids a transaction. A cashier applies a discount that wasn't authorized. A staff account gets promoted. In most POS systems, these things happen and disappear.
+                </p>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
+                  In ArtixPOS, every void, refund, discount, permission change, and login event is permanently logged with a timestamp and exactly who did it. Records cannot be deleted — not by staff, not by managers, and not by us. The audit trail is append-only by design.
+                </p>
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(244,114,182,0.07)", border: "1px solid rgba(244,114,182,0.20)" }}>
+                  <div style={{ fontSize: 12.5, color: "#f472b6", fontWeight: 700, marginBottom: 4 }}>Why this matters</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>When you have staff handling cash and transactions, accountability is everything. This gives you a complete, unalterable history of your business — not just today, but forever.</div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>

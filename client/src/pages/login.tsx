@@ -11,7 +11,6 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 function isNativePlatform(): boolean {
   try { return (window as any).Capacitor?.isNativePlatform?.() === true; } catch { return false; }
 }
-
 function diagnoseNativeError(raw: string): string {
   const msg = raw.toLowerCase();
   if (msg.includes("10:") || msg.includes("developer_error") || msg.includes("something went wrong"))
@@ -22,7 +21,6 @@ function diagnoseNativeError(raw: string): string {
     return "Google sign-in returned no ID token. Ensure GOOGLE_CLIENT_ID is set.";
   return raw;
 }
-
 async function nativeGoogleSignIn(): Promise<string> {
   const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
   const { Capacitor } = await import("@capacitor/core");
@@ -44,7 +42,6 @@ async function nativeGoogleSignIn(): Promise<string> {
   if (!data.token) throw new Error("Server did not return a session token");
   return data.token;
 }
-
 function getIsDark(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -54,41 +51,44 @@ const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 type AuthMode = "signin" | "register";
 
-// ── Color tokens (sky-blue system theme) ────────────────────────────────────
-const BLUE = "#14b8e8";
+const BLUE  = "#14b8e8";
 const BLUE2 = "#0284c7";
 const NEON  = "#38d9f5";
 const DARK  = "#0C1420";
 const DARK2 = "#0a1220";
-const CARD  = "rgba(15,30,48,0.9)";
+const CARD  = "rgba(15,30,48,0.92)";
 
-// ── Small reusable bits ──────────────────────────────────────────────────────
-function Check({ color = NEON }: { color?: string }) {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-      <path d="M2 6.5l3 3 6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+// ── Scroll-reveal hook ───────────────────────────────────────────────────────
+function useScrollReveal() {
+  useEffect(() => {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("sr-visible");
+        }
+      });
+    }, { threshold: 0.10, rootMargin: "0px 0px -40px 0px" });
+    const targets = document.querySelectorAll(".sr");
+    targets.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  });
 }
 
-function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <div style={{
-      padding: "22px 22px",
-      borderRadius: 14,
-      background: CARD,
-      border: "1px solid rgba(20,184,232,0.12)",
-      backdropFilter: "blur(10px)",
-      transition: "border-color 0.2s, transform 0.2s",
-    }}
-    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.35)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
-    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.12)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
-    >
-      <div style={{ fontSize: 26, marginBottom: 12 }}>{icon}</div>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.42)", lineHeight: 1.65 }}>{desc}</div>
-    </div>
-  );
+// ── Counter animation hook ───────────────────────────────────────────────────
+function useCountUp(target: number, visible: boolean, duration = 1200) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!visible) return;
+    let start = 0;
+    const step = target / (duration / 16);
+    const tick = () => {
+      start = Math.min(start + step, target);
+      setVal(Math.round(start));
+      if (start < target) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [visible]);
+  return val;
 }
 
 export default function Login() {
@@ -101,15 +101,11 @@ export default function Login() {
   const [showDebug, setShowDebug] = useState(false);
   const [debugEntries, setDebugEntries] = useState<DebugEntry[]>(() => getDebugLogs());
   const refreshDebug = () => setDebugEntries(getDebugLogs());
-
   const [googleClientId, setGoogleClientId] = useState<string | null>(
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null
   );
 
-  // Landing page state — desktop shows landing page first; login panel slides in
   const [showLoginPanel, setShowLoginPanel] = useState(false);
-  const [panelMode, setPanelMode] = useState<AuthMode>("signin");
-
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
@@ -124,6 +120,47 @@ export default function Login() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
+
+  // Stats counter visibility
+  const statsRef = useRef<HTMLDivElement>(null);
+  const [statsVisible, setStatsVisible] = useState(false);
+
+  // ── Unlock body scroll for the landing page (body has overflow:hidden globally) ──
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 768;
+    if (!isDesktop) return;
+    const prev = { htmlOverflow: document.documentElement.style.overflow, htmlHeight: document.documentElement.style.height, bodyOverflow: document.body.style.overflow, bodyHeight: document.body.style.height };
+    document.documentElement.style.overflow = "auto";
+    document.documentElement.style.height = "auto";
+    document.body.style.overflow = "auto";
+    document.body.style.height = "auto";
+    return () => {
+      document.documentElement.style.overflow = prev.htmlOverflow;
+      document.documentElement.style.height = prev.htmlHeight;
+      document.body.style.overflow = prev.bodyOverflow;
+      document.body.style.height = prev.bodyHeight;
+    };
+  }, []);
+
+  // Also handle when panel opens/closes (need to lock scroll while panel is open)
+  useEffect(() => {
+    if (showLoginPanel) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = window.innerWidth >= 768 ? "auto" : "";
+    }
+  }, [showLoginPanel]);
+
+  // Scroll reveal
+  useScrollReveal();
+
+  // Stats visibility observer
+  useEffect(() => {
+    if (!statsRef.current) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStatsVisible(true); }, { threshold: 0.4 });
+    io.observe(statsRef.current);
+    return () => io.disconnect();
+  }, []);
 
   const oauthPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (oauthPollTimerRef.current !== null) clearInterval(oauthPollTimerRef.current); }, []);
@@ -167,20 +204,17 @@ export default function Login() {
   }, [isAuthenticated, isLoading, setLocation]);
 
   useEffect(() => { document.documentElement.classList.toggle("dark", isDark); }, [isDark]);
-
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
-
   useEffect(() => {
     const handler = () => setDebugEntries(getDebugLogs());
     window.addEventListener("artixpos-debug-update", handler);
     return () => window.removeEventListener("artixpos-debug-update", handler);
   }, []);
-
   useEffect(() => {
     if (googleClientId) return;
     fetch("/api/auth/config").then(r => r.json()).then((cfg: { googleClientId?: string | null }) => {
@@ -290,54 +324,193 @@ export default function Login() {
 
   function openForgot() { setShowForgot(true); setForgotEmail(formEmail); setForgotSuccess(false); setForgotError(null); }
   function closeForgot() { setShowForgot(false); setForgotSuccess(false); setForgotError(null); setForgotEmail(""); }
-
-  function openPanel(m: AuthMode = "signin") {
-    setMode(m); setFormError(null); setPanelMode(m);
-    setShowLoginPanel(true);
-  }
+  function openPanel(m: AuthMode = "signin") { setMode(m); setFormError(null); setShowLoginPanel(true); }
 
   if (isLoading || signingIn) return null;
 
   const inputBase: React.CSSProperties = {
     width: "100%", padding: "11px 14px", borderRadius: 10, fontSize: 14, outline: "none",
-    transition: "border-color 0.15s, box-shadow 0.15s",
+    transition: "border-color 0.2s, box-shadow 0.2s",
     background: isDark ? "rgba(255,255,255,0.05)" : "#ffffff",
     border: `1.5px solid ${isDark ? "rgba(20,184,232,0.15)" : "rgba(0,0,0,0.10)"}`,
     color: isDark ? "rgba(255,255,255,0.92)" : "#1a1a1a",
     boxSizing: "border-box", fontFamily: "inherit",
   };
 
-  // ── LOGIN FORM (shared by panel + mobile card) ───────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // LOGIN FORM
+  // ─────────────────────────────────────────────────────────────────────────
   const loginForm = (
     <div style={{ width: "100%", maxWidth: 400 }}>
       <style>{`
-        @keyframes rise { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes rise  { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spin  { to{transform:rotate(360deg)} }
         @keyframes slide-in-right { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-        .rise{animation:rise 0.5s cubic-bezier(0.16,1,0.3,1) both}
-        .d1{animation-delay:0.03s} .d2{animation-delay:0.10s} .d3{animation-delay:0.17s} .d4{animation-delay:0.24s}
-        .btn-blue{
+        @keyframes sr-in { from{opacity:0;transform:translateY(36px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes sr-in-left { from{opacity:0;transform:translateX(-36px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes sr-in-right { from{opacity:0;transform:translateX(36px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes sr-scale { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
+        @keyframes glow-pulse { 0%,100%{box-shadow:0 0 20px rgba(20,184,232,0.25)} 50%{box-shadow:0 0 40px rgba(20,184,232,0.5)} }
+        @keyframes float-slow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+        @keyframes count-bar  { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+        @keyframes pulse-dot  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
+        @keyframes shimmer    { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes border-glow { 0%,100%{border-color:rgba(20,184,232,0.15)} 50%{border-color:rgba(56,217,245,0.4)} }
+
+        .rise  { animation:rise 0.45s cubic-bezier(0.16,1,0.3,1) both }
+        .d1{ animation-delay:0.03s } .d2{ animation-delay:0.10s } .d3{ animation-delay:0.17s } .d4{ animation-delay:0.24s }
+
+        /* Scroll-reveal base state */
+        .sr { opacity:0; transform:translateY(36px); transition:opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1); }
+        .sr.sr-left  { transform:translateX(-36px) }
+        .sr.sr-right { transform:translateX(36px) }
+        .sr.sr-scale { transform:scale(0.93) }
+        .sr.sr-visible { opacity:1!important; transform:none!important; }
+        .sr-d1 { transition-delay:0.05s } .sr-d2 { transition-delay:0.12s } .sr-d3 { transition-delay:0.19s }
+        .sr-d4 { transition-delay:0.26s } .sr-d5 { transition-delay:0.33s } .sr-d6 { transition-delay:0.40s }
+        .sr-d7 { transition-delay:0.47s } .sr-d8 { transition-delay:0.54s } .sr-d9 { transition-delay:0.61s }
+        .sr-d10{ transition-delay:0.68s } .sr-d11{ transition-delay:0.75s } .sr-d12{ transition-delay:0.82s }
+
+        .btn-blue {
           width:100%;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;
           cursor:pointer;border:none;font-family:inherit;
           background:linear-gradient(135deg,#14b8e8 0%,#0284c7 100%);
           color:#fff;box-shadow:0 4px 18px rgba(20,184,232,0.35);
-          transition:transform 0.18s,opacity 0.18s,box-shadow 0.18s;
+          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),opacity 0.15s,box-shadow 0.2s;
         }
-        .btn-blue:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 24px rgba(20,184,232,0.45)}
-        .btn-blue:active:not(:disabled){transform:translateY(0) scale(0.98)}
-        .btn-blue:disabled{opacity:0.55;cursor:not-allowed}
-        .btn-social{
+        .btn-blue:hover:not(:disabled) { transform:translateY(-2px) scale(1.01); box-shadow:0 8px 28px rgba(20,184,232,0.5) }
+        .btn-blue:active:not(:disabled){ transform:translateY(0) scale(0.98) }
+        .btn-blue:disabled { opacity:0.55;cursor:not-allowed }
+
+        .btn-social {
           display:flex;align-items:center;gap:12px;width:100%;padding:12px 18px;border-radius:12px;
           font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;font-family:inherit;
-          transition:transform 0.18s,box-shadow 0.18s;-webkit-tap-highlight-color:transparent;
+          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+          -webkit-tap-highlight-color:transparent;
         }
-        .btn-social:hover{transform:translateY(-1px)}
-        .btn-social:active{transform:scale(0.98)}
-        .btn-social:disabled{opacity:0.6;cursor:not-allowed;transform:none}
-        .finput:focus{
+        .btn-social:hover  { transform:translateY(-2px) }
+        .btn-social:active { transform:scale(0.97) }
+        .btn-social:disabled { opacity:0.6;cursor:not-allowed;transform:none }
+
+        .finput:focus {
           border-color:rgba(20,184,232,0.55)!important;
-          box-shadow:0 0 0 3px rgba(20,184,232,0.12)!important;
+          box-shadow:0 0 0 3px rgba(20,184,232,0.13)!important;
         }
+
+        /* Landing page nav link */
+        .nav-link {
+          color:rgba(255,255,255,0.52);font-size:13.5px;font-weight:500;
+          text-decoration:none;transition:color 0.18s;cursor:pointer;
+          background:none;border:none;font-family:inherit;padding:0;position:relative;
+        }
+        .nav-link::after {
+          content:'';position:absolute;bottom:-3px;left:0;right:0;height:1.5px;
+          background:linear-gradient(90deg,#14b8e8,#38d9f5);
+          transform:scaleX(0);transform-origin:left;transition:transform 0.25s cubic-bezier(0.16,1,0.3,1);
+        }
+        .nav-link:hover { color:rgba(255,255,255,0.95) }
+        .nav-link:hover::after { transform:scaleX(1) }
+
+        /* Feature cards */
+        .fcard {
+          transition:border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+          cursor:default;
+        }
+        .fcard:hover {
+          border-color:rgba(20,184,232,0.40)!important;
+          transform:translateY(-5px) scale(1.01)!important;
+          box-shadow:0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(20,184,232,0.15)!important;
+        }
+        .fcard .fcard-icon {
+          transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .fcard:hover .fcard-icon { transform:scale(1.2) rotate(-5deg) }
+
+        /* Header login btn */
+        .hdr-login {
+          padding:8px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
+          background:transparent;border:1px solid rgba(20,184,232,0.28);color:#38d9f5;
+          cursor:pointer;font-family:inherit;
+          transition:background 0.18s, border-color 0.18s, transform 0.18s;
+        }
+        .hdr-login:hover { background:rgba(20,184,232,0.10);border-color:rgba(56,217,245,0.5);transform:translateY(-1px) }
+
+        .hdr-cta {
+          padding:8px 20px;border-radius:10px;font-size:13.5px;font-weight:700;
+          background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
+          cursor:pointer;font-family:inherit;
+          box-shadow:0 3px 14px rgba(20,184,232,0.35);
+          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+        }
+        .hdr-cta:hover { transform:translateY(-2px) scale(1.03); box-shadow:0 6px 22px rgba(20,184,232,0.50) }
+        .hdr-cta:active { transform:scale(0.97) }
+
+        /* Hero CTA buttons */
+        .hero-primary {
+          padding:14px 32px;border-radius:13px;font-size:15.5px;font-weight:800;
+          background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
+          cursor:pointer;font-family:inherit;
+          box-shadow:0 5px 24px rgba(20,184,232,0.40);
+          transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+          animation:glow-pulse 3s ease-in-out infinite;
+        }
+        .hero-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 10px 36px rgba(20,184,232,0.55); animation:none }
+        .hero-primary:active { transform:scale(0.97); animation:none }
+
+        .hero-secondary {
+          padding:14px 26px;border-radius:13px;font-size:15.5px;font-weight:600;
+          background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.85);
+          cursor:pointer;font-family:inherit;
+          transition:background 0.18s, transform 0.18s, border-color 0.18s;
+        }
+        .hero-secondary:hover { background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.25);transform:translateY(-2px) }
+
+        /* Section CTA */
+        .cta-primary {
+          padding:15px 40px;border-radius:14px;font-size:16px;font-weight:800;
+          background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
+          cursor:pointer;font-family:inherit;
+          box-shadow:0 6px 28px rgba(20,184,232,0.40);
+          transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+        }
+        .cta-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 12px 40px rgba(20,184,232,0.55) }
+
+        /* Security item hover */
+        .sec-item {
+          transition:background 0.2s, border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+          cursor:default;
+        }
+        .sec-item:hover {
+          background:rgba(20,184,232,0.06)!important;
+          border-color:rgba(20,184,232,0.28)!important;
+          transform:translateX(4px);
+        }
+
+        /* Pricing card hover */
+        .price-card {
+          transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+        }
+        .price-card:hover { transform:translateY(-6px); box-shadow:0 24px 64px rgba(0,0,0,0.6) }
+
+        /* Float animation for mockup */
+        .float-mockup { animation:float-slow 7s ease-in-out infinite }
+
+        /* Gradient text shimmer for stat numbers */
+        .stat-num {
+          background:linear-gradient(90deg,#38d9f5,#14b8e8,#38d9f5);
+          background-size:200% auto;
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        }
+        .stat-num.visible { animation:shimmer 3s linear infinite }
+
+        /* Scroll-section anchor offset */
+        .scroll-section { scroll-margin-top:72px }
+
+        /* Pulse dot */
+        .pdot { animation:pulse-dot 2.2s ease-in-out infinite }
+
+        /* Bar chart bars on hover */
+        .dash-bar { transition:height 0.3s, opacity 0.3s }
       `}</style>
 
       {/* Logo */}
@@ -346,7 +519,7 @@ export default function Login() {
           <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, boxShadow: `0 4px 14px rgba(20,184,232,0.35)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <span style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>A</span>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: isDark ? "rgba(56,217,245,0.8)" : "rgba(2,132,199,0.8)" }}>ArtixPOS</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.10em", textTransform: "uppercase", color: isDark ? "rgba(56,217,245,0.8)" : "rgba(2,132,199,0.8)" }}>ArtixPOS</span>
         </div>
         <h2 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.025em", color: isDark ? "#fff" : "#0c1a26", margin: "0 0 6px" }}>
           {mode === "register" ? t("login.createAccount") : t("login.welcomeBack")}
@@ -360,10 +533,10 @@ export default function Login() {
       <div className="rise d1" style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, marginBottom: 20, background: isDark ? "rgba(20,184,232,0.07)" : "rgba(0,0,0,0.05)" }}>
         {(["signin", "register"] as AuthMode[]).map(m => (
           <button key={m} onClick={() => switchMode(m)} data-testid={`tab-${m}`} style={{
-            flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 13, fontWeight: 600,
-            border: "none", cursor: "pointer", fontFamily: "inherit",
-            transition: "background 0.18s,color 0.18s,box-shadow 0.18s",
-            background: mode === m ? (isDark ? "rgba(20,184,232,0.2)" : "#ffffff") : "transparent",
+            flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 13, fontWeight: 600, border: "none",
+            cursor: "pointer", fontFamily: "inherit",
+            transition: "background 0.2s,color 0.2s,box-shadow 0.2s",
+            background: mode === m ? (isDark ? "rgba(20,184,232,0.2)" : "#fff") : "transparent",
             color: mode === m ? (isDark ? NEON : BLUE2) : (isDark ? "rgba(255,255,255,0.42)" : "rgba(0,0,0,0.42)"),
             boxShadow: mode === m ? (isDark ? "0 1px 4px rgba(0,0,0,0.4)" : "0 1px 4px rgba(0,0,0,0.08)") : "none",
           }}>
@@ -431,7 +604,7 @@ export default function Login() {
           <div style={{ position: "relative" }}>
             <input type={showPassword ? "text" : "password"} placeholder={mode === "register" ? "Create a password" : "Password"} value={formPassword} onChange={e => setFormPassword(e.target.value)} required minLength={mode === "register" ? 8 : undefined} data-testid="input-password" className="finput" style={{ ...inputBase, paddingRight: 44 }} autoComplete={mode === "register" ? "new-password" : "current-password"} />
             <button type="button" onClick={() => setShowPassword(v => !v)} data-testid="button-toggle-password"
-              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.30)", display: "flex", alignItems: "center" }}>
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.30)", display: "flex", alignItems: "center", transition: "color 0.15s" }}>
               {showPassword
                 ? <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 : <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
@@ -441,21 +614,19 @@ export default function Login() {
         {mode === "signin" && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -3 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
             <div onClick={() => setRememberMe(v => !v)} data-testid="checkbox-remember-me"
-              style={{ width: 15, height: 15, borderRadius: 4, flexShrink: 0, cursor: "pointer", border: `1.5px solid ${rememberMe ? BLUE : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}`, background: rememberMe ? BLUE : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s,border-color 0.15s" }}>
+              style={{ width: 15, height: 15, borderRadius: 4, flexShrink: 0, cursor: "pointer", border: `1.5px solid ${rememberMe ? BLUE : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}`, background: rememberMe ? BLUE : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.2s,border-color 0.2s" }}>
               {rememberMe && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </div>
             <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.50)" : "rgba(0,0,0,0.46)" }}>{t("login.rememberDevice")}</span>
           </label>
           <button type="button" onClick={openForgot} data-testid="button-forgot-password"
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(56,217,245,0.8)" : BLUE2, padding: 0 }}>
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(56,217,245,0.8)" : BLUE2, padding: 0, transition: "color 0.15s" }}>
             {t("login.forgotPassword")}
           </button>
         </div>}
         {formError && <div style={{ padding: "10px 13px", borderRadius: 10, fontSize: 12.5, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }} data-testid="text-form-error">{formError}</div>}
         <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-blue" style={{ marginTop: 3 }}>
-          {formLoading
-            ? (mode === "register" ? t("login.creatingAccount") : t("login.signingIn"))
-            : (mode === "register" ? t("login.createAccount") : t("login.signIn"))}
+          {formLoading ? (mode === "register" ? t("login.creatingAccount") : t("login.signingIn")) : (mode === "register" ? t("login.createAccount") : t("login.signIn"))}
         </button>
       </form>
 
@@ -474,37 +645,39 @@ export default function Login() {
     </div>
   );
 
-  // ── MINI DASHBOARD MOCKUP ──────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // MINI DASHBOARD MOCKUP
+  // ─────────────────────────────────────────────────────────────────────────
+  const bars = [40,65,50,80,55,92,68,78,50,100,72,88];
   const dashMockup = (
-    <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(20,184,232,0.20)", background: "rgba(12,22,36,0.95)", boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(20,184,232,0.06)" }}>
-      {/* chrome */}
-      <div style={{ padding: "9px 14px", background: "rgba(20,184,232,0.07)", borderBottom: "1px solid rgba(20,184,232,0.10)", display: "flex", alignItems: "center", gap: 6 }}>
+    <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(10,18,32,0.96)", boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(20,184,232,0.07)", backdropFilter: "blur(20px)" }}>
+      <div style={{ padding: "10px 16px", background: "rgba(20,184,232,0.06)", borderBottom: "1px solid rgba(20,184,232,0.10)", display: "flex", alignItems: "center", gap: 6 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(239,68,68,0.55)" }} />
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(251,191,36,0.55)" }} />
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(34,197,94,0.45)" }} />
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>Dashboard · ArtixPOS</span>
       </div>
-      <div style={{ padding: "14px 16px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
+      <div style={{ padding: "16px 18px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
           {[{ l: "Today's Sales", v: "₱ 24,850", d: "+12%", c: NEON }, { l: "Orders", v: "137", d: "+8%", c: "#34d399" }, { l: "Active Staff", v: "9 / 12", d: "3 available", c: "#a78bfa" }].map((s, i) => (
-            <div key={i} style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.l}</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 2 }}>{s.v}</div>
-              <div style={{ fontSize: 9, color: s.c, fontWeight: 600 }}>{s.d}</div>
+            <div key={i} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", transition: "background 0.2s" }}>
+              <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.l}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 3 }}>{s.v}</div>
+              <div style={{ fontSize: 9, color: s.c, fontWeight: 700 }}>{s.d}</div>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 32, marginBottom: 10 }}>
-          {[40,65,50,80,55,92,68,78,50,100,72,88].map((h, i) => (
-            <div key={i} style={{ flex: 1, borderRadius: 3, height: `${h}%`, background: `rgba(20,184,232,${0.15 + (h / 100) * 0.5})` }} />
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 34, marginBottom: 12 }}>
+          {bars.map((h, i) => (
+            <div key={i} className="dash-bar" style={{ flex: 1, borderRadius: 3, height: `${h}%`, background: `rgba(20,184,232,${0.15 + (h / 100) * 0.55})` }} />
           ))}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {[{ l: "POS", v: "Live", c: NEON }, { l: "Offline", v: "Ready", c: "#34d399" }, { l: "AI", v: "Active", c: "#a78bfa" }, { l: "2 Branches", v: "Synced", c: "#f59e0b" }].map((p, i) => (
-            <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 16, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: p.c, boxShadow: `0 0 5px ${p.c}` }} />
-              <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>{p.l}</span>
+            <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", transition: "background 0.2s" }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: p.c, boxShadow: `0 0 6px ${p.c}` }} />
+              <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>{p.l}</span>
               <span style={{ fontSize: 9.5, color: "#fff", fontWeight: 700 }}>{p.v}</span>
             </div>
           ))}
@@ -513,239 +686,206 @@ export default function Login() {
     </div>
   );
 
-  // ── FULL DESKTOP LANDING PAGE ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // FULL LANDING PAGE
+  // ─────────────────────────────────────────────────────────────────────────
   const landingPage = (
     <div style={{ minHeight: "100vh", background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)", overflowX: "hidden" }}>
-      <style>{`
-        @keyframes glow-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
-        @keyframes float-slow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
-        @keyframes fade-up { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
-        .lp-in-1{animation:fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.05s both}
-        .lp-in-2{animation:fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s both}
-        .lp-in-3{animation:fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.25s both}
-        .lp-in-4{animation:fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.35s both}
-        .lp-in-5{animation:fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.45s both}
-        .float-mockup{animation:float-slow 7s ease-in-out infinite}
-        .pdot{animation:pulse-dot 2.2s ease-in-out infinite}
-        .nav-link{color:rgba(255,255,255,0.55);font-size:13.5px;font-weight:500;text-decoration:none;transition:color 0.15s;cursor:pointer;background:none;border:none;font-family:inherit;padding:0}
-        .nav-link:hover{color:rgba(255,255,255,0.9)}
-        .fcard{transition:border-color 0.2s,transform 0.2s}
-        .fcard:hover{border-color:rgba(20,184,232,0.35)!important;transform:translateY(-3px)}
-        .scroll-section{scroll-margin-top:72px}
-      `}</style>
 
-      {/* ── Background ambiance ── */}
+      {/* Background */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
-        <div style={{ position: "absolute", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,232,0.09) 0%, transparent 60%)", top: "-300px", left: "-200px" }} />
-        <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,217,245,0.06) 0%, transparent 60%)", bottom: "-100px", right: "-100px" }} />
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(20,184,232,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,232,0.035) 1px,transparent 1px)", backgroundSize: "48px 48px" }} />
+        <div style={{ position: "absolute", width: 1100, height: 1100, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,232,0.08) 0%, transparent 58%)", top: -400, left: -300 }} />
+        <div style={{ position: "absolute", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,217,245,0.05) 0%, transparent 60%)", bottom: -100, right: -150 }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(20,184,232,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,232,0.03) 1px,transparent 1px)", backgroundSize: "52px 52px" }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,${BLUE},transparent)` }} />
       </div>
 
       {/* ── STICKY HEADER ── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid rgba(20,184,232,0.10)", backdropFilter: "blur(20px)", background: "rgba(12,20,32,0.85)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", height: 64, display: "flex", alignItems: "center", gap: 0 }}>
-          {/* Logo */}
+      <header style={{ position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid rgba(20,184,232,0.09)", backdropFilter: "blur(24px)", background: "rgba(12,20,32,0.82)", WebkitBackdropFilter: "blur(24px)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", height: 64, display: "flex", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginRight: 48 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, boxShadow: "0 0 20px rgba(20,184,232,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, boxShadow: `0 0 20px rgba(20,184,232,0.45)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>A</span>
             </div>
             <span style={{ color: "#fff", fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>ArtixPOS</span>
           </div>
-
-          {/* Nav links */}
           <nav style={{ display: "flex", alignItems: "center", gap: 32, flex: 1 }}>
             <a href="#features" className="nav-link">Features</a>
             <a href="#devices" className="nav-link">Devices</a>
             <a href="#security" className="nav-link">Security</a>
             <a href="#pricing" className="nav-link">Pricing</a>
           </nav>
-
-          {/* Auth buttons */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => openPanel("signin")} data-testid="button-header-login"
-              style={{ padding: "8px 18px", borderRadius: 10, fontSize: 13.5, fontWeight: 600, background: "transparent", border: "1px solid rgba(20,184,232,0.3)", color: NEON, cursor: "pointer", fontFamily: "inherit", transition: "border-color 0.15s,background 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.08)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              Log in
-            </button>
-            <button onClick={() => openPanel("register")} data-testid="button-header-register"
-              style={{ padding: "8px 20px", borderRadius: 10, fontSize: 13.5, fontWeight: 700, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 3px 14px rgba(20,184,232,0.35)", transition: "transform 0.15s,box-shadow 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 5px 20px rgba(20,184,232,0.45)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 3px 14px rgba(20,184,232,0.35)"; }}>
-              Get started free
-            </button>
+            <button onClick={() => openPanel("signin")} className="hdr-login" data-testid="button-header-login">Log in</button>
+            <button onClick={() => openPanel("register")} className="hdr-cta" data-testid="button-header-register">Get started free</button>
           </div>
         </div>
       </header>
 
       {/* ── HERO ── */}
-      <section style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "96px 32px 80px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+      <section style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "100px 32px 88px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
         <div>
-          <div className="lp-in-1" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 12px", borderRadius: 20, background: "rgba(20,184,232,0.10)", border: "1px solid rgba(20,184,232,0.22)", marginBottom: 24 }}>
+          <div className="sr sr-left" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 13px", borderRadius: 20, background: "rgba(20,184,232,0.10)", border: "1px solid rgba(20,184,232,0.22)", marginBottom: 26 }}>
             <div className="pdot" style={{ width: 6, height: 6, borderRadius: "50%", background: NEON, boxShadow: `0 0 8px ${NEON}` }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: NEON, letterSpacing: "0.04em" }}>Full-stack POS · No internet? Still works.</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: NEON, letterSpacing: "0.04em" }}>Full-stack POS · Works offline too</span>
           </div>
-          <h1 className="lp-in-2" style={{ fontSize: 52, fontWeight: 900, lineHeight: 1.04, letterSpacing: "-0.04em", margin: "0 0 20px" }}>
+          <h1 className="sr sr-left sr-d1" style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.02, letterSpacing: "-0.045em", margin: "0 0 22px" }}>
             Run your entire<br />
-            <span style={{ background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 40%,#38bdf8 80%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-              business
-            </span>
-            {" "}from<br />one screen.
+            <span style={{ background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 35%,#38bdf8 70%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>business</span>{" "}from<br />one screen.
           </h1>
-          <p className="lp-in-3" style={{ fontSize: 16, lineHeight: 1.75, color: "rgba(255,255,255,0.50)", marginBottom: 36, maxWidth: 440 }}>
-            ArtixPOS is a complete business management system — point of sale, inventory, staff, payroll, analytics, and an AI assistant. It works on any device, including offline. No bloat, no guesswork.
+          <p className="sr sr-left sr-d2" style={{ fontSize: 16.5, lineHeight: 1.75, color: "rgba(255,255,255,0.48)", marginBottom: 38, maxWidth: 440 }}>
+            ArtixPOS is a complete business platform — point of sale, inventory, staff, payroll, analytics, and a built-in AI assistant. Works on any device. Even without internet.
           </p>
-          <div className="lp-in-4" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button onClick={() => openPanel("register")}
-              style={{ padding: "13px 28px", borderRadius: 12, fontSize: 15, fontWeight: 700, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 20px rgba(20,184,232,0.4)", transition: "transform 0.15s,box-shadow 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}>
-              Start for free →
-            </button>
-            <button onClick={() => openPanel("signin")}
-              style={{ padding: "13px 24px", borderRadius: 12, fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}>
-              Log in
-            </button>
+          <div className="sr sr-left sr-d3" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <button onClick={() => openPanel("register")} className="hero-primary">Start for free →</button>
+            <button onClick={() => openPanel("signin")} className="hero-secondary">Log in</button>
           </div>
-          <div className="lp-in-5" style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 28 }}>
-            {["No credit card required", "Free to start", "Works offline"].map((t, i) => (
+          <div className="sr sr-left sr-d4" style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 30 }}>
+            {["No credit card required", "Free to start", "Works offline"].map((txt, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Check color="#34d399" />
-                <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.48)", fontWeight: 500 }}>{t}</span>
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}><path d="M2 6.5l3 3 6-6" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>{txt}</span>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Mockup */}
-        <div className="float-mockup" style={{ position: "relative" }}>
-          <div style={{ position: "absolute", inset: -40, background: "radial-gradient(ellipse at center, rgba(20,184,232,0.12) 0%, transparent 65%)", pointerEvents: "none" }} />
+        <div className="sr sr-right sr-d1 float-mockup" style={{ position: "relative" }}>
+          <div style={{ position: "absolute", inset: -60, background: "radial-gradient(ellipse at center, rgba(20,184,232,0.13) 0%, transparent 65%)", pointerEvents: "none" }} />
           {dashMockup}
         </div>
       </section>
 
       {/* ── STATS STRIP ── */}
-      <section style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(20,184,232,0.08)", borderBottom: "1px solid rgba(20,184,232,0.08)", background: "rgba(255,255,255,0.02)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 32px", display: "flex", justifyContent: "space-around", flexWrap: "wrap", gap: 24 }}>
+      <section ref={statsRef} style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(20,184,232,0.07)", borderBottom: "1px solid rgba(20,184,232,0.07)", background: "rgba(255,255,255,0.015)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 32px", display: "flex", justifyContent: "space-around", flexWrap: "wrap", gap: 24 }}>
           {[
-            { n: "10+", l: "Modules built-in" },
-            { n: "Any device", l: "Phone · Tablet · Laptop" },
-            { n: "Offline", l: "Works without internet" },
-            { n: "Real-time", l: "Live sales & analytics" },
-            { n: "Multi-branch", l: "One account, all locations" },
+            { n: "10+",        label: "Built-in modules" },
+            { n: "Any device", label: "Phone · Tablet · Laptop" },
+            { n: "100%",       label: "Works without internet" },
+            { n: "Live",       label: "Real-time analytics" },
+            { n: "Multi",      label: "Branch & team support" },
           ].map((s, i) => (
-            <div key={i} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: NEON, letterSpacing: "-0.02em" }}>{s.n}</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", fontWeight: 500, marginTop: 3 }}>{s.l}</div>
+            <div key={i} className="sr sr-d1" style={{ textAlign: "center" }}>
+              <div className={`stat-num${statsVisible ? " visible" : ""}`} style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em" }}>{s.n}</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", fontWeight: 500, marginTop: 4 }}>{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── FEATURES ── */}
-      <section id="features" className="scroll-section" style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "88px 32px" }}>
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>What's inside</div>
-          <h2 style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 14px" }}>Everything your business needs.<br /><span style={{ color: "rgba(255,255,255,0.38)", fontWeight: 600, fontSize: 28 }}>Nothing it doesn't.</span></h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
-            These are the actual features in the system — not a roadmap.
+      <section id="features" className="scroll-section" style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "96px 32px" }}>
+        <div className="sr" style={{ textAlign: "center", marginBottom: 60 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>What's included</div>
+          <h2 style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-0.035em", margin: "0 0 14px", lineHeight: 1.1 }}>
+            Everything your business needs.<br />
+            <span style={{ color: "rgba(255,255,255,0.32)", fontWeight: 600, fontSize: 28 }}>Nothing it doesn't.</span>
+          </h2>
+          <p style={{ fontSize: 15.5, color: "rgba(255,255,255,0.40)", maxWidth: 500, margin: "0 auto", lineHeight: 1.7 }}>
+            These are the actual features in the system — not a roadmap, not a marketing checklist.
           </p>
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 }}>
           {[
-            { icon: "🛒", title: "Point of Sale", desc: "Full POS with barcode scanning, cash/card/split payment, receipt printing, pending orders, and a kiosk mode. Keeps working without internet — sales sync when you're back online." },
-            { icon: "📊", title: "Real-time Analytics", desc: "Live dashboard showing today's revenue, top products, staff performance, and hourly trends. Export to Excel or PDF. No waiting — data updates the instant a sale lands." },
-            { icon: "🧠", title: "AI Business Assistant", desc: "Ask the AI questions about your own data — \"What sold most this week?\" or \"Which branch is underperforming?\" Runs on Groq and Cerebras with local fallback." },
-            { icon: "🏢", title: "Multi-branch Management", desc: "Manage multiple locations under one account. Assign staff to branches, transfer stock between them, and see combined or per-branch reports." },
+            { icon: "🛒", title: "Point of Sale", desc: "Full POS with barcode scanning, cash/card/split payment, receipt printing, and pending orders. Keeps working without internet — sales sync when you're back online." },
+            { icon: "📊", title: "Real-time Analytics", desc: "Live dashboard with today's revenue, top products, staff performance, and hourly trends. Export to Excel or PDF. Data updates the instant a sale is made." },
+            { icon: "🧠", title: "AI Business Assistant", desc: "Ask the built-in AI about your own data — \"What sold most this week?\" or \"Which branch is underperforming?\" Powered by fast AI with automatic fallback." },
+            { icon: "🏢", title: "Multi-branch Management", desc: "Run multiple locations under one account. Assign staff to branches, move stock between them, and see combined or per-branch reports in one view." },
             { icon: "📦", title: "Inventory & Expiry Tracking", desc: "Track stock levels with automatic low-stock alerts. Expiry tracker flags items before they go bad. Full purchase order flow from supplier to shelf." },
-            { icon: "👥", title: "Staff & Payroll", desc: "Time clock, shift scheduling, payroll periods, and payroll entries. Staff can clock in from any device. Owners see labor cost vs. revenue in one view." },
-            { icon: "📅", title: "Appointments & Rooms", desc: "Book appointments for services (salon, clinic, spa), assign to staff and rooms, and send reminders. Works alongside the POS — check out directly from an appointment." },
-            { icon: "🎁", title: "Loyalty & Memberships", desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins. Customers can track their balance and redeem at checkout." },
+            { icon: "👥", title: "Staff & Payroll", desc: "Time clock, shift scheduling, payroll periods, and payroll entries. Staff clock in from any device. Owners see labor cost vs. revenue in one place." },
+            { icon: "📅", title: "Appointments & Rooms", desc: "Book service appointments, assign to staff and rooms, and check out directly from an appointment. Works for salons, clinics, spas, and more." },
+            { icon: "🎁", title: "Loyalty & Memberships", desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins. Customers track their balance and redeem at checkout." },
             { icon: "🧾", title: "Tax Compliance & Audit Log", desc: "Built-in compliance reports with OR number tracking, VAT computation, and a full void/refund audit trail. Every transaction is logged and tamper-evident." },
-            { icon: "💸", title: "Expenses & Suppliers", desc: "Log business expenses by category, attach notes, and track against revenue. Manage supplier contacts and purchase orders from the same screen." },
-            { icon: "📶", title: "WiFi Voucher Management", desc: "Generate and sell timed internet vouchers directly from the POS. Useful for cafes, restaurants, and hospitality businesses with paid WiFi." },
-            { icon: "🖨️", title: "Receipt & Kitchen Printing", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time without paper tickets." },
+            { icon: "💸", title: "Expenses & Suppliers", desc: "Log business expenses by category, attach notes, and track against revenue. Manage suppliers and purchase orders from the same screen." },
+            { icon: "📶", title: "WiFi Voucher Management", desc: "Generate and sell timed internet vouchers directly from the POS. Built for cafes, hotels, and restaurants that offer paid WiFi to guests." },
+            { icon: "🖨️", title: "Receipt & Kitchen Printing", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time — no paper tickets needed." },
           ].map((f, i) => (
-            <div key={i} className="fcard" style={{ padding: "22px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.11)", backdropFilter: "blur(10px)" }}>
-              <div style={{ fontSize: 26, marginBottom: 11 }}>{f.icon}</div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 7 }}>{f.title}</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", lineHeight: 1.7 }}>{f.desc}</div>
+            <div key={i} className={`fcard sr sr-d${(i % 6) + 1}`} style={{ padding: "24px", borderRadius: 16, background: CARD, border: "1px solid rgba(20,184,232,0.11)" }}>
+              <div className="fcard-icon" style={{ fontSize: 28, marginBottom: 13, display: "inline-block" }}>{f.icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{f.title}</div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.40)", lineHeight: 1.72 }}>{f.desc}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── DEVICES ── */}
-      <section id="devices" className="scroll-section" style={{ position: "relative", zIndex: 1, background: "rgba(255,255,255,0.018)", borderTop: "1px solid rgba(20,184,232,0.08)", borderBottom: "1px solid rgba(20,184,232,0.08)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 32px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+      <section id="devices" className="scroll-section" style={{ position: "relative", zIndex: 1, background: "rgba(255,255,255,0.018)", borderTop: "1px solid rgba(20,184,232,0.07)", borderBottom: "1px solid rgba(20,184,232,0.07)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "88px 32px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Works everywhere</div>
-            <h2 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 16px", lineHeight: 1.1 }}>Your team uses it<br />on whatever they have.</h2>
-            <p style={{ fontSize: 14.5, color: "rgba(255,255,255,0.44)", lineHeight: 1.75, marginBottom: 30, maxWidth: 420 }}>
-              ArtixPOS runs in any modern browser. Cashiers use a tablet at the counter, managers check analytics on a laptop, and owners monitor sales on their phone. All synced, all real-time.
+            <div className="sr sr-left" style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Works everywhere</div>
+            <h2 className="sr sr-left sr-d1" style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 16px", lineHeight: 1.1 }}>
+              Your team uses it on<br />whatever they have.
+            </h2>
+            <p className="sr sr-left sr-d2" style={{ fontSize: 15, color: "rgba(255,255,255,0.44)", lineHeight: 1.75, marginBottom: 32, maxWidth: 400 }}>
+              Cashiers use a tablet at the counter. Managers check analytics on a laptop. Owners monitor sales on their phone. All synced, all real-time.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {[
-                { icon: "📱", d: "Phone", sub: "Full POS, approval flows, notifications" },
-                { icon: "📟", d: "Tablet", sub: "Ideal cashier screen — fast, touch-optimized" },
-                { icon: "💻", d: "Laptop", sub: "Analytics, management, and back-office tasks" },
+                { icon: "📱", d: "Phone", sub: "Full POS, approvals, and push notifications" },
+                { icon: "📟", d: "Tablet", sub: "Best cashier screen — fast, touch-optimized" },
+                { icon: "💻", d: "Laptop", sub: "Analytics, management, and back-office" },
                 { icon: "🖥️", d: "Desktop", sub: "Kitchen display, kiosk mode, multi-window" },
               ].map((dev, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 11, background: "rgba(20,184,232,0.10)", border: "1px solid rgba(20,184,232,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{dev.icon}</div>
+                <div key={i} className={`sr sr-left sr-d${i + 2}`} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 13, background: "rgba(20,184,232,0.09)", border: "1px solid rgba(20,184,232,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, transition: "background 0.2s, transform 0.2s" }}>{dev.icon}</div>
                   <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff" }}>{dev.d}</div>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", marginTop: 2 }}>{dev.sub}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{dev.d}</div>
+                    <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.38)", marginTop: 2 }}>{dev.sub}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {[
-              { label: "Offline POS", desc: "Sells even with no internet. Syncs when connection restores.", color: NEON },
-              { label: "PWA Install", desc: "Add to home screen like a native app — no app store needed.", color: "#34d399" },
-              { label: "Bluetooth Print", desc: "Print receipts to BLE or network thermal printers from any device.", color: "#a78bfa" },
-              { label: "QR Payments", desc: "Show QR codes for GCash, Maya, and bank transfers at checkout.", color: "#f59e0b" },
+              { label: "Offline POS", desc: "Sells even with no connection. Auto-syncs when you're back online.", color: NEON },
+              { label: "Install as App", desc: "Add to home screen — behaves like a native app, no app store.", color: "#34d399" },
+              { label: "Wireless Printing", desc: "Print to Bluetooth or network thermal printers from any device.", color: "#a78bfa" },
+              { label: "QR Payments", desc: "Show payment QR codes at checkout for bank transfer and e-wallets.", color: "#f59e0b" },
             ].map((c, i) => (
-              <div key={i} style={{ padding: "18px", borderRadius: 13, background: CARD, border: "1px solid rgba(20,184,232,0.12)" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.color, boxShadow: `0 0 8px ${c.color}`, marginBottom: 10 }} />
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{c.label}</div>
-                <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>{c.desc}</div>
+              <div key={i} className={`sr sr-right sr-d${i + 1}`} style={{ padding: "20px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.11)", transition: "border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.35)"; (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.11)"; (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}>
+                <div style={{ width: 9, height: 9, borderRadius: "50%", background: c.color, boxShadow: `0 0 10px ${c.color}`, marginBottom: 11 }} />
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 7 }}>{c.label}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", lineHeight: 1.65 }}>{c.desc}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── SECURITY ── */}
-      <section id="security" className="scroll-section" style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "80px 32px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start" }}>
+      {/* ── SECURITY (client-friendly, no implementation details) ── */}
+      <section id="security" className="scroll-section" style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "88px 32px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "start" }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Security</div>
-            <h2 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 16px", lineHeight: 1.1 }}>Business data that stays<br />yours, and only yours.</h2>
-            <p style={{ fontSize: 14.5, color: "rgba(255,255,255,0.44)", lineHeight: 1.75, maxWidth: 420 }}>
-              Security isn't an afterthought here. Your data is isolated at the database level — not just in application code. Even if there were a bug, one tenant's data cannot bleed into another's.
+            <div className="sr sr-left" style={{ fontSize: 12, fontWeight: 700, color: "#34d399", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Security</div>
+            <h2 className="sr sr-left sr-d1" style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 18px", lineHeight: 1.1 }}>
+              Your business data is<br />yours alone.
+            </h2>
+            <p className="sr sr-left sr-d2" style={{ fontSize: 15, color: "rgba(255,255,255,0.44)", lineHeight: 1.78, maxWidth: 380 }}>
+              We built ArtixPOS so that no one — not even us — can accidentally see another business's data. Here's what that means for you, in plain terms.
             </p>
+            <div className="sr sr-left sr-d3" style={{ marginTop: 28, padding: "18px 20px", borderRadius: 14, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.18)" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", marginBottom: 6 }}>✓ Your data is completely isolated</div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>Even if there were a bug, one business's data cannot bleed into another's. This is enforced at the database level — not just in code.</div>
+            </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[
-              { title: "JWT authentication with CSRF protection", desc: "Every session is signed with a 64-byte secret. Cross-site request forgery protection runs on every state-changing request.", c: NEON },
-              { title: "Row-Level Security (RLS) at database level", desc: "PostgreSQL enforces data isolation per tenant at the query level. The app never retrieves data it doesn't own — full stop.", c: "#34d399" },
-              { title: "Brute-force lockout", desc: "Login attempts are rate-limited and tracked. After repeated failures, the account is temporarily locked to prevent credential stuffing.", c: "#a78bfa" },
-              { title: "Token revocation on logout", desc: "When you log out, your session is invalidated server-side immediately — not just cleared from the browser.", c: "#f59e0b" },
-              { title: "Full audit trail", desc: "Every void, refund, permission change, and admin action is logged with a timestamp and user ID. Nothing is silently deleted.", c: "#f472b6" },
-              { title: "HTTPS-only with secure cookies", desc: "Auth tokens are stored in httpOnly, Secure, SameSite cookies — not localStorage. XSS attacks cannot steal them.", c: "#38bdf8" },
+              { icon: "🔐", title: "Every login is verified and protected", desc: "Your session is secured against unauthorized requests. Signing in from an unknown location requires re-verification.", c: NEON },
+              { icon: "🏛️", title: "Your data never mixes with another business", desc: "Each business account is sealed off from every other. You only ever see your own transactions, staff, and customers.", c: "#34d399" },
+              { icon: "🔒", title: "Wrong passwords lock your account automatically", desc: "Too many failed login attempts and the system temporarily blocks access — protecting you even if someone knows your email.", c: "#a78bfa" },
+              { icon: "🚪", title: "Logging out works instantly and completely", desc: "When you log out, your session ends everywhere right away — not just in your browser. Old links stop working immediately.", c: "#f59e0b" },
+              { icon: "📋", title: "Every action is recorded", desc: "Voids, refunds, permission changes — everything is logged with who did it and when. Nothing happens silently.", c: "#f472b6" },
+              { icon: "🛡️", title: "Your connection is always private", desc: "Login and payment data are encrypted end-to-end. Even on a public WiFi, no one can intercept your information.", c: "#38bdf8" },
             ].map((s, i) => (
-              <div key={i} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 13, background: CARD, border: "1px solid rgba(20,184,232,0.10)" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.c, boxShadow: `0 0 8px ${s.c}`, flexShrink: 0, marginTop: 5 }} />
+              <div key={i} className={`sec-item sr sr-right sr-d${i + 1}`} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.10)" }}>
+                <div style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{s.icon}</div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{s.title}</div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", lineHeight: 1.65 }}>{s.desc}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 5 }}>{s.title}</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", lineHeight: 1.68 }}>{s.desc}</div>
                 </div>
               </div>
             ))}
@@ -754,38 +894,44 @@ export default function Login() {
       </section>
 
       {/* ── PRICING ── */}
-      <section id="pricing" className="scroll-section" style={{ position: "relative", zIndex: 1, background: "rgba(255,255,255,0.018)", borderTop: "1px solid rgba(20,184,232,0.08)" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "80px 32px", textAlign: "center" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Simple pricing</div>
-          <h2 style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 14px" }}>Start free. Grow when ready.</h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", marginBottom: 48, maxWidth: 420, margin: "0 auto 48px" }}>
-            The core POS — sales, products, inventory, transactions, analytics — is free. Advanced features unlock on Pro.
+      <section id="pricing" className="scroll-section" style={{ position: "relative", zIndex: 1, background: "rgba(255,255,255,0.018)", borderTop: "1px solid rgba(20,184,232,0.07)" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "88px 32px", textAlign: "center" }}>
+          <div className="sr" style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Simple pricing</div>
+          <h2 className="sr sr-d1" style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-0.035em", margin: "0 0 14px" }}>Start free. Grow when ready.</h2>
+          <p className="sr sr-d2" style={{ fontSize: 15.5, color: "rgba(255,255,255,0.40)", maxWidth: 420, margin: "0 auto 52px", lineHeight: 1.7 }}>
+            The core POS is free — sales, products, inventory, and analytics. Advanced features unlock on Pro.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, maxWidth: 700, margin: "0 auto" }}>
-            <div style={{ padding: "32px 28px", borderRadius: 18, background: CARD, border: "1px solid rgba(20,184,232,0.15)", textAlign: "left" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>FREE</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 4 }}>₱0 <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.4)" }}>/mo</span></div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 24 }}>No credit card. No expiry.</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, maxWidth: 720, margin: "0 auto" }}>
+            <div className="price-card sr sr-left sr-d2" style={{ padding: "34px 30px", borderRadius: 20, background: CARD, border: "1px solid rgba(20,184,232,0.15)", textAlign: "left" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.48)", marginBottom: 7 }}>FREE</div>
+              <div style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginBottom: 5 }}>₱0 <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>/mo</span></div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)", marginBottom: 26 }}>No credit card. No expiry.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {["Full POS", "Products & inventory", "Basic analytics", "Single branch", "Transaction history"].map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 9 }}><Check color="#34d399" /><span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.60)" }}>{f}</span></div>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3 3 6-6" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.58)" }}>{f}</span>
+                  </div>
                 ))}
               </div>
-              <button onClick={() => openPanel("register")} style={{ marginTop: 24, width: "100%", padding: "11px 0", borderRadius: 11, fontSize: 13.5, fontWeight: 700, background: "rgba(20,184,232,0.12)", border: "1px solid rgba(20,184,232,0.25)", color: NEON, cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => openPanel("register")} style={{ marginTop: 26, width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13.5, fontWeight: 700, background: "rgba(20,184,232,0.12)", border: "1px solid rgba(20,184,232,0.28)", color: NEON, cursor: "pointer", fontFamily: "inherit", transition: "background 0.18s" }}>
                 Get started free
               </button>
             </div>
-            <div style={{ padding: "32px 28px", borderRadius: 18, background: "rgba(20,184,232,0.07)", border: `1px solid rgba(20,184,232,0.35)`, textAlign: "left", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: 14, right: 14, padding: "3px 10px", borderRadius: 20, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, fontSize: 10, fontWeight: 700, color: "#fff" }}>POPULAR</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: NEON, marginBottom: 6 }}>PRO</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 4 }}>Contact <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.4)" }}>for pricing</span></div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 24 }}>Per branch, per month.</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <div className="price-card sr sr-right sr-d2" style={{ padding: "34px 30px", borderRadius: 20, background: "rgba(20,184,232,0.06)", border: `1.5px solid rgba(20,184,232,0.38)`, textAlign: "left", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 16, right: 16, padding: "3px 11px", borderRadius: 20, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, fontSize: 10, fontWeight: 700, color: "#fff" }}>POPULAR</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: NEON, marginBottom: 7 }}>PRO</div>
+              <div style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginBottom: 5 }}>Contact <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>for pricing</span></div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)", marginBottom: 26 }}>Per branch · billed monthly.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {["Everything in Free", "Multi-branch", "Staff & payroll", "AI assistant", "Appointments & rooms", "Loyalty & memberships", "WiFi vouchers", "Advanced analytics", "Priority support"].map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 9 }}><Check color={NEON} /><span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.65)" }}>{f}</span></div>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3 3 6-6" stroke={NEON} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.62)" }}>{f}</span>
+                  </div>
                 ))}
               </div>
-              <button onClick={() => openPanel("register")} style={{ marginTop: 24, width: "100%", padding: "11px 0", borderRadius: 11, fontSize: 13.5, fontWeight: 700, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 16px rgba(20,184,232,0.35)" }}>
+              <button onClick={() => openPanel("register")} style={{ marginTop: 26, width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13.5, fontWeight: 700, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 18px rgba(20,184,232,0.35)", transition: "transform 0.18s, box-shadow 0.18s" }}>
                 Start free, upgrade anytime
               </button>
             </div>
@@ -794,44 +940,29 @@ export default function Login() {
       </section>
 
       {/* ── CTA FOOTER ── */}
-      <section style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "80px 32px", borderTop: "1px solid rgba(20,184,232,0.08)" }}>
-        <h2 style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-0.035em", margin: "0 0 14px" }}>Ready to start?</h2>
-        <p style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", marginBottom: 32 }}>Takes less than 2 minutes to set up. Your first sale is free.</p>
-        <button onClick={() => openPanel("register")}
-          style={{ padding: "14px 36px", borderRadius: 14, fontSize: 16, fontWeight: 700, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 28px rgba(20,184,232,0.4)", transition: "transform 0.15s,box-shadow 0.15s" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 36px rgba(20,184,232,0.5)"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 28px rgba(20,184,232,0.4)"; }}>
-          Create your free account →
-        </button>
-        <div style={{ marginTop: 48, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <div style={{ width: 22, height: 22, borderRadius: 7, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "#fff", fontSize: 10, fontWeight: 800 }}>A</span>
+      <section style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "88px 32px", borderTop: "1px solid rgba(20,184,232,0.07)" }}>
+        <h2 className="sr" style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-0.04em", margin: "0 0 14px" }}>Ready to start?</h2>
+        <p className="sr sr-d1" style={{ fontSize: 16, color: "rgba(255,255,255,0.40)", marginBottom: 36 }}>Takes less than 2 minutes. Your first sale is free.</p>
+        <button onClick={() => openPanel("register")} className="cta-primary sr sr-scale sr-d2">Create your free account →</button>
+        <div className="sr sr-d3" style={{ marginTop: 56, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <div style={{ width: 24, height: 24, borderRadius: 8, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>A</span>
           </div>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", fontWeight: 500 }}>© 2025 ArtixPOS · Business Platform</span>
+          <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>© 2025 ArtixPOS · Business Platform</span>
         </div>
       </section>
 
       {/* ── LOGIN PANEL (slide-over) ── */}
       {showLoginPanel && (
         <>
-          {/* Backdrop */}
-          <div onClick={() => setShowLoginPanel(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", cursor: "pointer" }} />
-          {/* Drawer */}
-          <div style={{
-            position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 201,
-            width: "100%", maxWidth: 460, overflowY: "auto",
-            background: DARK2, borderLeft: "1px solid rgba(20,184,232,0.15)",
-            boxShadow: "-24px 0 80px rgba(0,0,0,0.7)",
-            animation: "slide-in-right 0.35s cubic-bezier(0.16,1,0.3,1) both",
-            display: "flex", flexDirection: "column",
-          }}>
-            {/* Close btn */}
-            <button onClick={() => setShowLoginPanel(false)}
-              style={{ position: "absolute", top: 18, right: 18, width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          <div onClick={() => setShowLoginPanel(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.70)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", cursor: "pointer" }} />
+          <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 201, width: "100%", maxWidth: 460, overflowY: "auto", background: DARK2, borderLeft: "1px solid rgba(20,184,232,0.15)", boxShadow: "-32px 0 100px rgba(0,0,0,0.75)", animation: "slide-in-right 0.35s cubic-bezier(0.16,1,0.3,1) both", display: "flex", flexDirection: "column" }}>
+            <button onClick={() => setShowLoginPanel(false)} style={{ position: "absolute", top: 18, right: 18, width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1, transition: "background 0.15s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 44px" }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "52px 44px" }}>
               {loginForm}
             </div>
           </div>
@@ -840,34 +971,35 @@ export default function Login() {
     </div>
   );
 
-  // ── FORGOT PASSWORD MODAL ────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // FORGOT PASSWORD MODAL
+  // ─────────────────────────────────────────────────────────────────────────
   const forgotModal = showForgot ? (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", padding: "0 20px" }}>
-      <div style={{ width: "100%", maxWidth: 420, borderRadius: 22, padding: "34px 30px", background: DARK2, border: "1px solid rgba(20,184,232,0.15)", boxShadow: "0 32px 100px rgba(0,0,0,0.8)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.78)", backdropFilter: "blur(5px)", padding: "0 20px" }}>
+      <div style={{ width: "100%", maxWidth: 420, borderRadius: 22, padding: "34px 30px", background: DARK2, border: "1px solid rgba(20,184,232,0.15)", boxShadow: "0 40px 120px rgba(0,0,0,0.9)" }}>
         {forgotSuccess ? (
           <div style={{ textAlign: "center" }}>
-            <div style={{ width: 50, height: 50, borderRadius: "50%", margin: "0 auto 14px", background: "rgba(20,184,232,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="22" height="22" fill="none" stroke={NEON} strokeWidth="2.2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 5.29 5.29l1-.79a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 15.5"/></svg>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px", background: "rgba(20,184,232,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="24" height="24" fill="none" stroke={NEON} strokeWidth="2.2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 5.29 5.29l1-.79a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 15.5"/></svg>
             </div>
             <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px", color: "#fff" }}>Check your email</h2>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.52)", margin: "0 0 22px" }}>If an account exists for <strong>{forgotEmail}</strong>, a reset link has been sent.</p>
-            <button onClick={closeForgot} data-testid="button-back-to-signin" style={{ width: "100%", padding: "11px 0", borderRadius: 11, fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit", background: `linear-gradient(135deg,${BLUE},${BLUE2})`, color: "#fff" }}>Back to sign in</button>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.52)", margin: "0 0 24px" }}>If an account exists for <strong>{forgotEmail}</strong>, a reset link has been sent.</p>
+            <button onClick={closeForgot} data-testid="button-back-to-signin" style={{ width: "100%", padding: "12px 0", borderRadius: 11, fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit", background: `linear-gradient(135deg,${BLUE},${BLUE2})`, color: "#fff" }}>Back to sign in</button>
           </div>
         ) : (
           <>
-            <button onClick={closeForgot} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "rgba(255,255,255,0.38)", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "inherit", marginBottom: 18 }}>
+            <button onClick={closeForgot} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "rgba(255,255,255,0.38)", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "inherit", marginBottom: 20 }}>
               <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Back
             </button>
-            <h2 style={{ fontSize: 21, fontWeight: 800, margin: "0 0 6px", color: "#fff" }}>Reset password</h2>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.48)", margin: "0 0 20px" }}>Enter your email and we'll send a reset link.</p>
-            <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            <h2 style={{ fontSize: 21, fontWeight: 800, margin: "0 0 7px", color: "#fff" }}>Reset password</h2>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.48)", margin: "0 0 22px" }}>Enter your email and we'll send a reset link.</p>
+            <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 5, color: "rgba(255,255,255,0.48)" }}>Email address</label>
                 <input type="email" placeholder="you@example.com" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required data-testid="input-forgot-email" className="finput" style={inputBase} autoComplete="email" />
               </div>
               {forgotError && <div style={{ padding: "10px 13px", borderRadius: 10, fontSize: 13, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>{forgotError}</div>}
-              <button type="submit" disabled={forgotLoading} data-testid="button-send-reset"
-                style={{ padding: "12px 0", borderRadius: 11, fontSize: 14, fontWeight: 700, border: "none", cursor: forgotLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: forgotLoading ? 0.7 : 1, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, color: "#fff", boxShadow: "0 4px 16px rgba(20,184,232,0.3)" }}>
+              <button type="submit" disabled={forgotLoading} data-testid="button-send-reset" style={{ padding: "12px 0", borderRadius: 11, fontSize: 14, fontWeight: 700, border: "none", cursor: forgotLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: forgotLoading ? 0.7 : 1, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, color: "#fff", boxShadow: "0 4px 18px rgba(20,184,232,0.30)" }}>
                 {forgotLoading ? "Sending…" : "Send reset link"}
               </button>
             </form>
@@ -877,7 +1009,9 @@ export default function Login() {
     </div>
   ) : null;
 
-  // ── DEBUG PANEL ──────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // DEBUG PANEL
+  // ─────────────────────────────────────────────────────────────────────────
   const debugPanel = (isNativePlatform() && showDebug) ? (
     <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxHeight: "65vh", display: "flex", flexDirection: "column", background: "#060f18", borderTop: "1px solid rgba(20,184,232,0.2)", zIndex: 9999, fontFamily: "monospace", fontSize: 11 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
@@ -902,11 +1036,12 @@ export default function Login() {
     </div>
   ) : null;
 
-  // ── MOBILE CARD ──────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // MOBILE CARD
+  // ─────────────────────────────────────────────────────────────────────────
   const mobileCard = (
-    <div className="md:hidden flex-1 flex items-center justify-center px-5 py-10 relative z-10 min-h-screen"
-      style={{ background: isDark ? DARK : "#eef7fb" }}>
-      <div style={{ width: "100%", maxWidth: 420, padding: "30px 24px", borderRadius: 22, background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.88)", border: `1px solid ${isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 0 0 1px rgba(20,184,232,0.06), 0 28px 70px rgba(0,0,0,0.6)" : "0 8px 48px rgba(0,0,0,0.08)" }}>
+    <div className="md:hidden" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", background: isDark ? DARK : "#eef7fb" }}>
+      <div style={{ width: "100%", maxWidth: 420, padding: "32px 26px", borderRadius: 22, background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.90)", border: `1px solid ${isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 0 0 1px rgba(20,184,232,0.05), 0 32px 80px rgba(0,0,0,0.65)" : "0 8px 48px rgba(0,0,0,0.09)" }}>
         {loginForm}
       </div>
     </div>
@@ -914,15 +1049,8 @@ export default function Login() {
 
   return (
     <>
-      {/* Desktop: landing page */}
-      <div className="hidden md:block">
-        {landingPage}
-      </div>
-
-      {/* Mobile: just the login card */}
+      <div className="hidden md:block">{landingPage}</div>
       {mobileCard}
-
-      {/* Shared overlays */}
       {forgotModal}
       {debugPanel}
     </>

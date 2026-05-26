@@ -144,8 +144,19 @@ if (import.meta.env.DEV) {
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
 
-// Dismiss the splash on the frame after React paints.
-// Double-rAF ensures the browser has composited at least one real frame.
+// Dismiss the splash after React paints AND a minimum display window.
+// This ensures the particle animation is actually visible before the app
+// takes over — without blocking any real data fetching.
+const SPLASH_MIN_MS = 2000;
+const splashStart = (window as any).__splashStart ?? Date.now();
 requestAnimationFrame(() => {
-  requestAnimationFrame(dismissSplash);
+  requestAnimationFrame(() => {
+    const elapsed = Date.now() - splashStart;
+    const remaining = Math.max(0, SPLASH_MIN_MS - elapsed);
+    if (remaining > 0) {
+      setTimeout(dismissSplash, remaining);
+    } else {
+      dismissSplash();
+    }
+  });
 });

@@ -701,7 +701,7 @@ export default function Login() {
   // FULL LANDING PAGE
   // ─────────────────────────────────────────────────────────────────────────
   const landingPage = (
-    <div style={{ minHeight: "100vh", background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)", overflowX: "clip" }}>
+    <div style={{ position: "fixed", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" as any, background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
 
       {/* Background */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
@@ -749,7 +749,6 @@ export default function Login() {
           </p>
           <div className="sr sr-left sr-d3" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <button onClick={() => openPanel("register")} className="hero-primary">Start for free →</button>
-            <button onClick={() => openPanel("signin")} className="hero-secondary">Log in</button>
           </div>
           <div className="sr sr-left sr-d4" style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 30 }}>
             {["No credit card required", "Free to start", "Works offline"].map((txt, i) => (

@@ -6,14 +6,20 @@ import {
   ChevronLeft, ShoppingBag, Cpu, ShoppingCart, BookOpen,
   Scissors, Dumbbell, Sparkles, Store, Users, CheckCircle2,
   Building2, Link, Shirt, Car, Stethoscope,
-  PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle, Search, Globe,
-  PartyPopper, Zap, BarChart2, Shield,
+  PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle,
+  Search, Globe, PartyPopper, Zap, BarChart2, Shield,
+  Package, WifiOff, UserCheck, Receipt, Smartphone, Check,
+  Languages,
 } from "lucide-react";
 import i18n, { SUPPORTED_LANGUAGES, loadLocale } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useUpdateSettings } from "@/hooks/use-settings";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +28,9 @@ import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from 
 
 type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services";
-type Step = "welcome" | "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "language" | "done";
+type Step = "welcome" | "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "done";
+
+// ─── Static data ──────────────────────────────────────────────────────────────
 
 const STORE_NAME_PLACEHOLDER: Record<string, string> = {
   cafe: "e.g. Maria's Cafe",
@@ -56,74 +64,72 @@ const STORE_NAME_PLACEHOLDER: Record<string, string> = {
   other: "e.g. My Business",
 };
 
-const BUSINESS_TYPES = [
-  {
-    id: "food_beverage" as BusinessType,
-    label: "Food & Beverage",
-    description: "Cafes, restaurants, bakeries",
-    emoji: "🍔",
-    icon: Coffee,
-  },
-  {
-    id: "retail" as BusinessType,
-    label: "Retail",
-    description: "Clothing, electronics, grocery",
-    emoji: "🛍️",
-    icon: ShoppingBag,
-  },
-  {
-    id: "services" as BusinessType,
-    label: "Services",
-    description: "Salon, gym, laundry, spa",
-    emoji: "✂️",
-    icon: Scissors,
-  },
+const BUSINESS_TYPES: { id: BusinessType; label: string; description: string; icon: React.ElementType; iconBg: string; iconColor: string }[] = [
+  { id: "food_beverage", label: "Food & Beverage", description: "Cafes, restaurants, bakeries", icon: UtensilsCrossed, iconBg: "bg-amber-50 dark:bg-amber-950/40", iconColor: "text-amber-600 dark:text-amber-400" },
+  { id: "retail",        label: "Retail",           description: "Clothing, electronics, grocery", icon: ShoppingBag,    iconBg: "bg-blue-50 dark:bg-blue-950/40",   iconColor: "text-blue-600 dark:text-blue-400" },
+  { id: "services",      label: "Services",          description: "Salon, gym, laundry, spa",     icon: Scissors,       iconBg: "bg-rose-50 dark:bg-rose-950/40",   iconColor: "text-rose-600 dark:text-rose-400" },
 ];
 
 const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.ElementType }[]> = {
   food_beverage: [
-    { id: "cafe", label: "Cafe / Coffee Shop", icon: Coffee },
-    { id: "restaurant", label: "Restaurant", icon: UtensilsCrossed },
-    { id: "bakery", label: "Bakery", icon: Cake },
-    { id: "bar", label: "Bar / Pub", icon: Wine },
-    { id: "food_truck", label: "Food Truck", icon: Truck },
+    { id: "cafe",       label: "Cafe / Coffee Shop",       icon: Coffee },
+    { id: "restaurant", label: "Restaurant",               icon: UtensilsCrossed },
+    { id: "bakery",     label: "Bakery",                   icon: Store },
+    { id: "bar",        label: "Bar / Pub",                icon: Wine },
+    { id: "food_truck", label: "Food Truck",               icon: Truck },
   ],
   retail: [
-    { id: "clothing", label: "Clothing / Fashion", icon: Shirt },
-    { id: "electronics", label: "Electronics", icon: Cpu },
-    { id: "grocery", label: "Grocery / Supermarket", icon: ShoppingCart },
-    { id: "pharmacy", label: "Pharmacy / Drugstore", icon: Stethoscope },
-    { id: "perishable_goods", label: "Wet Market / Perishables", icon: UtensilsCrossed },
-    { id: "bookstore", label: "Bookstore", icon: BookOpen },
+    { id: "clothing",        label: "Clothing / Fashion",         icon: Shirt },
+    { id: "electronics",     label: "Electronics",                icon: Cpu },
+    { id: "grocery",         label: "Grocery / Supermarket",      icon: ShoppingCart },
+    { id: "pharmacy",        label: "Pharmacy / Drugstore",       icon: Stethoscope },
+    { id: "perishable_goods",label: "Wet Market / Perishables",   icon: UtensilsCrossed },
+    { id: "bookstore",       label: "Bookstore",                  icon: BookOpen },
   ],
   services: [
-    { id: "salon", label: "Salon / Barbershop", icon: Scissors },
-    { id: "gym", label: "Gym / Fitness Center", icon: Dumbbell },
-    { id: "spa", label: "Spa / Wellness", icon: Sparkles },
-    { id: "clinic", label: "Clinic / Healthcare", icon: Stethoscope },
-    { id: "laundry", label: "Laundry / Dry Cleaning", icon: Shirt },
-    { id: "car_wash", label: "Car Wash / Auto Detailing", icon: Car },
-    { id: "pet_grooming", label: "Pet Grooming", icon: PawPrint },
-    { id: "photography", label: "Photography / Studio", icon: Camera },
-    { id: "cleaning", label: "Cleaning Service", icon: Home },
-    { id: "tutoring", label: "Tutoring / Education", icon: GraduationCap },
-    { id: "repair", label: "Repair & Maintenance", icon: Wrench },
+    { id: "salon",       label: "Salon / Barbershop",          icon: Scissors },
+    { id: "gym",         label: "Gym / Fitness Center",        icon: Dumbbell },
+    { id: "spa",         label: "Spa / Wellness",              icon: Sparkles },
+    { id: "clinic",      label: "Clinic / Healthcare",         icon: Stethoscope },
+    { id: "laundry",     label: "Laundry / Dry Cleaning",      icon: Shirt },
+    { id: "car_wash",    label: "Car Wash / Auto Detailing",   icon: Car },
+    { id: "pet_grooming",label: "Pet Grooming",                icon: PawPrint },
+    { id: "photography", label: "Photography / Studio",        icon: Camera },
+    { id: "cleaning",    label: "Cleaning Service",            icon: Home },
+    { id: "tutoring",    label: "Tutoring / Education",        icon: GraduationCap },
+    { id: "repair",      label: "Repair & Maintenance",        icon: Wrench },
   ],
 };
 
-// Owner flow steps for progress tracking (excludes welcome/employee/language/done)
-const OWNER_PROGRESS_STEPS: Step[] = ["role", "business_type", "business_subtype", "store_info"];
+const FREE_FEATURES: { icon: React.ElementType; label: string; desc: string }[] = [
+  { icon: ShoppingCart, label: "Point of Sale",         desc: "Fast checkout with cash & card" },
+  { icon: Package,      label: "Inventory Tracking",    desc: "Real-time stock management" },
+  { icon: BarChart2,    label: "Sales Analytics",       desc: "Daily, weekly & monthly reports" },
+  { icon: Users,        label: "Customer Management",   desc: "Profiles, history & loyalty" },
+  { icon: WifiOff,      label: "Offline Mode",          desc: "Works even without internet" },
+  { icon: UserCheck,    label: "Staff Accounts",        desc: "Roles & permission control" },
+  { icon: Receipt,      label: "Digital Receipts",      desc: "Print or share via link" },
+  { icon: Smartphone,   label: "Any Device",            desc: "Phone, tablet, or desktop" },
+];
+
+// Owner flow steps for progress tracking
+const OWNER_STEPS: Step[] = ["role", "business_type", "business_subtype", "store_info"];
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
 function StepProgress({ current }: { current: number }) {
-  const total = OWNER_PROGRESS_STEPS.length;
   return (
-    <div className="flex items-center gap-2">
-      {Array.from({ length: total }).map((_, i) => (
+    <div className="flex items-center gap-1.5">
+      {OWNER_STEPS.map((_, i) => (
         <div
           key={i}
           className={[
             "h-1.5 rounded-full transition-all duration-500",
-            i === current ? "w-8 bg-primary" : i < current ? "w-3 bg-primary/40" : "w-3 bg-muted-foreground/20",
+            i === current
+              ? "w-7 bg-primary"
+              : i < current
+              ? "w-2.5 bg-primary/40"
+              : "w-2.5 bg-muted-foreground/20",
           ].join(" ")}
         />
       ))}
@@ -131,20 +137,24 @@ function StepProgress({ current }: { current: number }) {
   );
 }
 
-function CountryPicker({
-  value,
-  onChange,
-}: {
-  value: CountryData | null;
-  onChange: (c: CountryData) => void;
-}) {
+function SectionBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
+      {label}
+    </span>
+  );
+}
+
+function CountryPicker({ value, onChange }: { value: CountryData | null; onChange: (c: CountryData) => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filtered = COUNTRY_LIST.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
+    !search ||
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -153,11 +163,11 @@ function CountryPicker({
         type="button"
         data-testid="btn-country-picker"
         onClick={() => { setOpen(true); setTimeout(() => searchRef.current?.focus(), 50); }}
-        className="flex items-center gap-2 w-full h-11 px-4 rounded-2xl bg-muted/60 border border-border/40 hover:border-primary/40 transition-colors text-left"
+        className="flex items-center gap-2 w-full h-11 px-4 rounded-xl bg-muted/60 border border-border/50 hover:border-primary/40 transition-colors text-left"
       >
         {value ? (
           <>
-            <span className="text-xl leading-none">{value.flag}</span>
+            <span className="text-lg leading-none">{value.flag}</span>
             <span className="flex-1 text-sm font-medium text-foreground truncate">{value.name}</span>
             <span className="text-xs text-muted-foreground shrink-0">{value.currency}</span>
           </>
@@ -167,8 +177,14 @@ function CountryPicker({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="px-4 pt-4 pb-3 border-b border-border/30">
               <p className="text-sm font-bold text-foreground mb-2">{t("onboarding.countryPicker.title")}</p>
               <div className="relative">
@@ -195,7 +211,7 @@ function CountryPicker({
                     value?.code === c.code ? "bg-primary/8" : "",
                   ].join(" ")}
                 >
-                  <span className="text-xl leading-none w-7 text-center">{c.flag}</span>
+                  <span className="text-lg leading-none w-7 text-center">{c.flag}</span>
                   <span className="flex-1 text-sm font-medium text-foreground">{c.name}</span>
                   <span className="text-xs text-muted-foreground shrink-0">{c.currency} · {c.phonePrefix}</span>
                   {value?.code === c.code && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
@@ -209,9 +225,12 @@ function CountryPicker({
   );
 }
 
+// ─── Main component ────────────────────────────────────────────────────────────
+
 export default function Onboarding() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
+
   const [step, setStep] = useState<Step>("welcome");
   const [role, setRole] = useState<Role | null>(null);
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
@@ -225,15 +244,13 @@ export default function Onboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
-    try { return localStorage.getItem("artixpos_language") || "en"; } catch { return "en"; }
-  });
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
 
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
-
   const userPickedCountry = useRef(false);
 
+  // ── Geo-detect country on mount ─────────────────────────────────────────────
   useEffect(() => {
     const locale = detectLocale();
     if (locale.countryCode) {
@@ -244,13 +261,12 @@ export default function Onboarding() {
       }
     }
     detectCountryByIP().then(ipCountry => {
-      if (!ipCountry) return;
-      if (userPickedCountry.current) return;
+      if (!ipCountry || userPickedCountry.current) return;
       setStoreCountry(prev => {
         if (prev?.code === ipCountry.code) return prev;
         setStorePhone(p => {
-          const oldPrefix = prev?.phonePrefix ?? "";
-          const isDefault = !p || p.trim() === oldPrefix || p.trim() === oldPrefix + " " || p.trim() === "";
+          const old = prev?.phonePrefix ?? "";
+          const isDefault = !p || p.trim() === old || p.trim() === old + " " || p.trim() === "";
           return isDefault ? ipCountry.phonePrefix + " " : p;
         });
         return ipCountry;
@@ -258,25 +274,45 @@ export default function Onboarding() {
     }).catch(() => {});
   }, []);
 
+  // ── Invite error from ProtectedRouter ───────────────────────────────────────
+  useEffect(() => {
+    const err = sessionStorage.getItem("invite_error");
+    if (err) { sessionStorage.removeItem("invite_error"); toast({ title: err, variant: "destructive" }); }
+  }, []);
+
   function handleCountryChange(country: CountryData) {
     userPickedCountry.current = true;
     setStoreCountry(country);
     const hasPrefix = storePhone.startsWith("+");
-    if (!hasPrefix || storePhone.trim() === "" || storePhone.trim() === (storeCountry?.phonePrefix ?? "") || storePhone.trim() === (storeCountry?.phonePrefix ?? "") + " ") {
+    const curPrefix = storeCountry?.phonePrefix ?? "";
+    if (!hasPrefix || !storePhone.trim() || storePhone.trim() === curPrefix || storePhone.trim() === curPrefix + " ") {
       setStorePhone(country.phonePrefix + " ");
     }
   }
 
+  function hasPhoneDigitsBeyondPrefix(phone: string, prefix: string) {
+    return phone.replace(/\D/g, "").length > prefix.replace(/\D/g, "").length;
+  }
+
+  function extractToken(input: string) {
+    const trimmed = input.trim();
+    try {
+      const url = new URL(trimmed);
+      return url.searchParams.get("invite") ?? url.searchParams.get("token") ?? trimmed;
+    } catch { return trimmed; }
+  }
+
+  // ── Label lookups ────────────────────────────────────────────────────────────
   const SUBTYPE_LABELS: Record<string, string> = {
     cafe: "Cafe / Coffee Shop", restaurant: "Restaurant", bakery: "Bakery",
     bar: "Bar / Pub", food_truck: "Food Truck", clothing: "Clothing / Fashion",
     electronics: "Electronics", grocery: "Grocery / Supermarket", bookstore: "Bookstore",
     salon: "Salon / Barbershop", gym: "Gym / Fitness Center", spa: "Spa / Wellness",
-    clinic: "Clinic / Healthcare", laundry: "Laundry / Dry Cleaning", car_wash: "Car Wash / Auto Detailing",
-    pet_grooming: "Pet Grooming", photography: "Photography / Studio", cleaning: "Cleaning Service",
+    clinic: "Clinic / Healthcare", laundry: "Laundry / Dry Cleaning",
+    car_wash: "Car Wash / Auto Detailing", pet_grooming: "Pet Grooming",
+    photography: "Photography / Studio", cleaning: "Cleaning Service",
     tutoring: "Tutoring / Education", repair: "Repair & Maintenance", other: "Other",
   };
-
   const BUSINESS_TYPE_LABELS: Record<string, string> = {
     food_beverage: "Food & Beverage", retail: "Retail", services: "Services",
   };
@@ -285,65 +321,39 @@ export default function Onboarding() {
     const offline = "Offline Mode";
     if (type === "food_beverage") {
       if (subType === "restaurant") return ["POS & Order Management", "Kitchen Display System", "Table Management", "Pending Orders Queue", offline];
-      if (subType === "bar") return ["POS & Quick Orders", "Table Management", "Pending Orders Queue", "Discount Codes", offline];
-      if (subType === "bakery") return ["POS & Quick Orders", "Pending Orders Queue", "Product & Menu Management", "Analytics & Reports", offline];
+      if (subType === "bar")        return ["POS & Quick Orders", "Table Management", "Pending Orders Queue", "Discount Codes", offline];
+      if (subType === "bakery")     return ["POS & Quick Orders", "Pending Orders Queue", "Product & Menu Management", "Analytics & Reports", offline];
       if (subType === "food_truck") return ["POS & Quick Orders", "Pending Orders Queue", "Expense Tracking", "Analytics & Reports", offline];
       return ["POS & Order Management", "Pending Orders Queue", "Product & Menu Management", "Analytics & Reports", offline];
     }
     if (type === "retail") {
-      if (subType === "clothing") return ["POS & Inventory Tracking", "Size & Variant Management", "Barcode / SKU Scanning", "Stock Level Alerts", offline];
-      if (subType === "electronics") return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Purchase Orders & Suppliers", "Stock Level Alerts", offline];
-      if (subType === "grocery") return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Purchase Orders & Suppliers", "Low Stock Alerts", offline];
-      if (subType === "bookstore") return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Stock Level Alerts", "Customer Loyalty", offline];
+      if (subType === "clothing")   return ["POS & Inventory Tracking", "Size & Variant Management", "Barcode / SKU Scanning", "Stock Level Alerts", offline];
+      if (subType === "electronics")return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Purchase Orders & Suppliers", "Stock Level Alerts", offline];
+      if (subType === "grocery")    return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Purchase Orders & Suppliers", "Low Stock Alerts", offline];
+      if (subType === "bookstore")  return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Stock Level Alerts", "Customer Loyalty", offline];
       return ["POS & Inventory Tracking", "Barcode / SKU Scanning", "Purchase Orders & Suppliers", "Stock Level Alerts", offline];
     }
     if (type === "services") {
-      if (subType === "salon") return ["Booking Calendar", "Stylist Management", "Client Profiles & History", "POS & Payments", offline];
-      if (subType === "gym") return ["Membership Management", "Session & Class Booking", "Trainer Scheduling", "Courts & Studio Rooms", offline];
-      if (subType === "spa") return ["Booking Calendar", "Treatment Room Management", "Membership & Packages", "Therapist Scheduling", offline];
-      if (subType === "clinic" || subType === "dental") return ["Patient Appointments", "Doctor Scheduling", "Patient Records", "POS & Billing", offline];
+      if (subType === "salon")        return ["Booking Calendar", "Stylist Management", "Client Profiles & History", "POS & Payments", offline];
+      if (subType === "gym")          return ["Membership Management", "Session & Class Booking", "Trainer Scheduling", "Courts & Studio Rooms", offline];
+      if (subType === "spa")          return ["Booking Calendar", "Treatment Room Management", "Membership & Packages", "Therapist Scheduling", offline];
+      if (subType === "clinic")       return ["Patient Appointments", "Doctor Scheduling", "Patient Records", "POS & Billing", offline];
       if (subType === "pet_grooming") return ["Grooming Appointments", "Groomer Scheduling", "Client & Pet Profiles", "POS & Payments", offline];
-      if (subType === "car_wash") return ["Job Queue Management", "Staff Scheduling", "Client Profiles", "POS & Payments", offline];
-      if (subType === "laundry") return ["Order Queue Management", "Staff Scheduling", "Client Profiles", "POS & Payments", offline];
-      if (subType === "photography") return ["Booking Calendar", "Studio Room Management", "Client Profiles", "POS & Billing", offline];
-      if (subType === "tutoring") return ["Session Scheduling", "Tutor Management", "Student Records", "POS & Payments", offline];
-      if (subType === "cleaning") return ["Booking Calendar", "Team Scheduling", "Client Profiles", "POS & Payments", offline];
-      if (subType === "repair") return ["Job Queue Management", "Technician Scheduling", "Client Records", "POS & Billing", offline];
+      if (subType === "car_wash")     return ["Job Queue Management", "Staff Scheduling", "Client Profiles", "POS & Payments", offline];
+      if (subType === "laundry")      return ["Order Queue Management", "Staff Scheduling", "Client Profiles", "POS & Payments", offline];
+      if (subType === "photography")  return ["Booking Calendar", "Studio Room Management", "Client Profiles", "POS & Billing", offline];
+      if (subType === "tutoring")     return ["Session Scheduling", "Tutor Management", "Student Records", "POS & Payments", offline];
+      if (subType === "cleaning")     return ["Booking Calendar", "Team Scheduling", "Client Profiles", "POS & Payments", offline];
+      if (subType === "repair")       return ["Job Queue Management", "Technician Scheduling", "Client Records", "POS & Billing", offline];
       return ["Booking Calendar", "Staff & Provider Management", "Membership & Package Plans", "Room / Station Assignment", offline];
     }
     return ["POS & Order Management", "Customer Management", "Analytics & Reports", "Expenses Tracking", offline];
   }
 
-  useEffect(() => {
-    const err = sessionStorage.getItem("invite_error");
-    if (err) {
-      sessionStorage.removeItem("invite_error");
-      toast({ title: err, variant: "destructive" });
-    }
-  }, []);
-
-  function hasPhoneDigitsBeyondPrefix(phone: string, prefix: string): boolean {
-    const phoneDigits = phone.replace(/\D/g, "");
-    const prefixDigits = prefix.replace(/\D/g, "");
-    return phoneDigits.length > prefixDigits.length;
-  }
-
-  function extractToken(input: string): string {
-    const trimmed = input.trim();
-    try {
-      const url = new URL(trimmed);
-      return url.searchParams.get("invite") ?? url.searchParams.get("token") ?? trimmed;
-    } catch {
-      return trimmed;
-    }
-  }
-
+  // ── Actions ──────────────────────────────────────────────────────────────────
   async function handleEmployeeJoin() {
     const token = extractToken(inviteInput);
-    if (!token) {
-      toast({ title: t("onboarding.employee.errorNoToken"), variant: "destructive" });
-      return;
-    }
+    if (!token) { toast({ title: t("onboarding.employee.errorNoToken"), variant: "destructive" }); return; }
     setIsSubmitting(true);
     try {
       const res = await apiRequest("POST", "/api/admin/invite/redeem", { token });
@@ -351,39 +361,22 @@ export default function Onboarding() {
       if (!res.ok) throw new Error(data.message || t("onboarding.employee.errorInvalid"));
       await updateSettings.mutateAsync({ onboardingComplete: 1 });
       await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setStep("language");
+      setStep("done");
     } catch (err: any) {
       toast({ title: err.message || t("onboarding.employee.errorInvalid"), variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    } finally { setIsSubmitting(false); }
   }
 
   async function handleOwnerComplete() {
-    if (!storeCountry) {
-      toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" });
-      return;
-    }
-    if (!storeName.trim()) {
-      toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" });
-      return;
-    }
-    if (!storeAddress.trim()) {
-      toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" });
-      return;
-    }
-    if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
-      toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" });
-      return;
-    }
-    if (!storeEmail.trim()) {
-      toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" });
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-      toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" });
-      return;
-    }
+    if (!storeCountry)            { toast({ title: t("onboarding.storeInfo.errorCountry"),       variant: "destructive" }); return; }
+    if (!storeName.trim())        { toast({ title: t("onboarding.storeInfo.errorName"),           variant: "destructive" }); return; }
+    if (!storeAddress.trim())     { toast({ title: t("onboarding.storeInfo.errorAddress"),        variant: "destructive" }); return; }
+    if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? ""))
+                                  { toast({ title: t("onboarding.storeInfo.errorPhone"),          variant: "destructive" }); return; }
+    if (!storeEmail.trim())       { toast({ title: t("onboarding.storeInfo.errorEmail"),          variant: "destructive" }); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim()))
+                                  { toast({ title: t("onboarding.storeInfo.errorEmailInvalid"),   variant: "destructive",
+                                            description: t("onboarding.storeInfo.errorEmailInvalidDesc") }); return; }
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -400,15 +393,13 @@ export default function Onboarding() {
         onboardingComplete: 1,
       } as any);
       setShowConfirm(false);
-      setStep("language");
+      setStep("done");
     } catch (err: any) {
       console.error("[onboarding] handleOwnerComplete failed:", err);
-      const message = err?.message || t("onboarding.storeInfo.errorSomethingWrong");
-      setSubmitError(message);
-      toast({ title: t("onboarding.storeInfo.errorSetupFailed"), description: message, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+      const msg = err?.message || t("onboarding.storeInfo.errorSomethingWrong");
+      setSubmitError(msg);
+      toast({ title: t("onboarding.storeInfo.errorSetupFailed"), description: msg, variant: "destructive" });
+    } finally { setIsSubmitting(false); }
   }
 
   async function handleDone() {
@@ -421,123 +412,142 @@ export default function Onboarding() {
     setLocation("/");
   }
 
-  const ownerProgressIndex = OWNER_PROGRESS_STEPS.indexOf(step);
+  async function changeLanguage(code: string) {
+    setSelectedLanguage(code);
+    await loadLocale(code);
+    i18n.changeLanguage(code);
+  }
+
+  const ownerProgressIndex = OWNER_STEPS.indexOf(step);
   const showProgress = ownerProgressIndex >= 0;
 
-  // Determine which steps show the footer nav
-  const showFooterBack = ["role", "business_type", "business_subtype", "store_info", "employee_invite"].includes(step);
-
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
 
-      {/* Subtle background blob */}
+      {/* Ambient glow */}
       <div
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-[0.07] dark:opacity-[0.04] blur-3xl pointer-events-none"
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.06] dark:opacity-[0.04] blur-3xl pointer-events-none"
         style={{ background: "radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)" }}
       />
 
-      {/* Header */}
-      <header className="relative z-10 w-full px-6 py-5 flex items-center justify-between">
+      {/* ── Header ── */}
+      <header className="relative z-10 w-full px-5 sm:px-8 py-4 sm:py-5 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-            <ShoppingCart className="w-4.5 h-4.5 text-primary-foreground" />
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30 shrink-0">
+            <ShoppingCart className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary-foreground" />
           </div>
-          <span className="text-sm font-bold tracking-[0.15em] text-primary/80 uppercase">ArtixPOS</span>
+          <span className="text-xs font-bold tracking-[0.15em] text-primary/80 uppercase">ArtixPOS</span>
         </div>
 
         {showProgress && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <StepProgress current={ownerProgressIndex} />
             <span className="text-xs text-muted-foreground hidden sm:block">
-              Step {ownerProgressIndex + 1} of {OWNER_PROGRESS_STEPS.length}
+              Step {ownerProgressIndex + 1} of {OWNER_STEPS.length}
             </span>
           </div>
         )}
       </header>
 
-      {/* Main content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+      {/* ── Main ── */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
 
-        {/* ── Step: Welcome ── */}
+        {/* ══ WELCOME ══ */}
         {step === "welcome" && (
-          <div className="w-full max-w-lg text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-24 h-24 rounded-[28px] bg-primary/10 dark:bg-primary/15 flex items-center justify-center mx-auto mb-8 text-5xl shadow-sm">
-              👋
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight mb-5">
-              Welcome to ArtixPOS,<br />let's get started 🎉
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-sm mx-auto leading-relaxed mb-10">
-              We're excited to help you run your business. It only takes a few minutes to set up your store.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-10">
-              {[
-                { icon: Zap, text: "Works offline" },
-                { icon: BarChart2, text: "Real-time analytics" },
-                { icon: Shield, text: "BIR-ready" },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-white/5 border border-border/50 shadow-sm">
-                  <Icon className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-sm font-medium text-foreground">{text}</span>
-                </div>
-              ))}
+          <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Hero */}
+            <div className="text-center mb-8 sm:mb-10">
+              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-primary/10 dark:bg-primary/15 mb-5 sm:mb-6">
+                <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight mb-4">
+                Welcome to ArtixPOS,<br className="hidden sm:block" /> let's get started
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-sm sm:max-w-md mx-auto leading-relaxed">
+                Set up your store in minutes. Everything you need to run your business, all in one place.
+              </p>
             </div>
 
-            <Button
-              data-testid="btn-welcome-start"
-              onClick={() => setStep("role")}
-              size="lg"
-              className="px-10 h-13 text-base font-bold rounded-2xl shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 transition-transform"
-            >
-              Start Setup <ChevronRight className="w-5 h-5 ml-1" />
-            </Button>
-            <p className="mt-4 text-xs text-muted-foreground/60">{t("onboarding.role.footerNote")}</p>
+            {/* Free-tier features grid */}
+            <div className="mb-8 sm:mb-10">
+              <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
+                Everything included, free
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {FREE_FEATURES.map(({ icon: Icon, label, desc }) => (
+                  <div
+                    key={label}
+                    className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-white dark:bg-white/5 border border-border/50 shadow-sm"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-semibold text-foreground leading-snug">{label}</p>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 hidden sm:block">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                data-testid="btn-welcome-start"
+                onClick={() => setStep("role")}
+                size="lg"
+                className="w-full sm:w-auto sm:px-12 h-12 sm:h-13 text-base font-bold rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all"
+              >
+                Start Setup <ChevronRight className="w-5 h-5 ml-1" />
+              </Button>
+              <p className="text-xs text-muted-foreground/60 text-center">{t("onboarding.role.footerNote")}</p>
+            </div>
           </div>
         )}
 
-        {/* ── Step: Role ── */}
+        {/* ══ ROLE ══ */}
         {step === "role" && (
           <div className="w-full max-w-lg animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-10">
-              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
-                Your Role
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
+            <div className="text-center mb-8 sm:mb-10">
+              <SectionBadge label="Your Role" />
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground mb-2 sm:mb-3">
                 {t("onboarding.role.title")}
               </h2>
-              <p className="text-base text-muted-foreground">{t("onboarding.role.subtitle")}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.role.subtitle")}</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {[
-                { id: "owner" as Role, emoji: "🧑‍💼", icon: Building2, title: t("onboarding.role.ownerTitle"), desc: t("onboarding.role.ownerDesc"), testId: "btn-role-owner" },
-                { id: "employee" as Role, emoji: "👋", icon: Users, title: t("onboarding.role.employeeTitle"), desc: t("onboarding.role.employeeDesc"), testId: "btn-role-employee" },
+                { id: "owner" as Role, icon: Building2, title: t("onboarding.role.ownerTitle"), desc: t("onboarding.role.ownerDesc"), testId: "btn-role-owner" },
+                { id: "employee" as Role, icon: Users,    title: t("onboarding.role.employeeTitle"), desc: t("onboarding.role.employeeDesc"), testId: "btn-role-employee" },
               ].map(r => {
+                const Icon = r.icon;
                 const isSelected = role === r.id;
                 return (
                   <button
                     key={r.id}
                     data-testid={r.testId}
-                    onClick={() => {
-                      setRole(r.id);
-                      setStep(r.id === "owner" ? "business_type" : "employee_invite");
-                    }}
+                    onClick={() => { setRole(r.id); setStep(r.id === "owner" ? "business_type" : "employee_invite"); }}
                     className={[
-                      "group relative flex flex-col items-center text-center p-8 rounded-[28px] border-2 transition-all duration-300 bg-white dark:bg-white/5",
+                      "group relative flex flex-col items-center text-center p-6 sm:p-8 rounded-2xl sm:rounded-[28px] border-2 transition-all duration-300 bg-white dark:bg-white/5",
                       isSelected
                         ? "border-primary shadow-xl shadow-primary/15 -translate-y-1"
                         : "border-border/60 hover:border-primary/40 hover:shadow-md shadow-sm",
                     ].join(" ")}
                   >
-                    <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
-                      {r.emoji}
+                    <div className={[
+                      "w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 transition-colors",
+                      isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary",
+                    ].join(" ")}>
+                      <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
-                    <h3 className="text-lg font-bold text-foreground mb-1">{r.title}</h3>
-                    <p className="text-sm text-muted-foreground">{r.desc}</p>
+                    <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">{r.title}</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{r.desc}</p>
                     {isSelected && (
-                      <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+                      <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary-foreground" />
                       </div>
                     )}
                   </button>
@@ -547,21 +557,21 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step: Employee Invite ── */}
+        {/* ══ EMPLOYEE INVITE ══ */}
         {step === "employee_invite" && (
           <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-10">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                <Link className="w-8 h-8 text-primary" />
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 mb-5">
+                <Link className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
               </div>
-              <h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-3">
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-2">
                 {t("onboarding.employee.title")}
               </h2>
-              <p className="text-base text-muted-foreground">{t("onboarding.employee.subtitle")}</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">{t("onboarding.employee.noInviteHint")}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.employee.subtitle")}</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">{t("onboarding.employee.noInviteHint")}</p>
             </div>
 
-            <div className="bg-white dark:bg-white/5 rounded-[24px] border border-border/50 shadow-sm p-6 space-y-4">
+            <div className="bg-white dark:bg-white/5 rounded-2xl sm:rounded-3xl border border-border/50 shadow-sm p-5 sm:p-6 space-y-4">
               <div>
                 <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.employee.inviteLabel")}</Label>
                 <Input
@@ -584,27 +594,26 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step: Business Type ── */}
+        {/* ══ BUSINESS TYPE ══ */}
         {step === "business_type" && (
           <div className="w-full max-w-xl animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-10">
-              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
-                Business Profile
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
+            <div className="text-center mb-6 sm:mb-8">
+              <SectionBadge label="Business Profile" />
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground mb-2 sm:mb-3">
                 {t("onboarding.businessType.title")}
               </h2>
-              <p className="text-base text-muted-foreground">{t("onboarding.businessType.subtitle")}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.businessType.subtitle")}</p>
             </div>
 
-            <div className="flex gap-2.5 p-3.5 mb-6 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+            <div className="flex gap-2.5 p-3.5 mb-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                <span className="font-bold">{t("onboarding.businessType.warningTitle")}</span> {t("onboarding.businessType.warningBody")}
+                <span className="font-bold">{t("onboarding.businessType.warningTitle")}</span>{" "}
+                {t("onboarding.businessType.warningBody")}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {BUSINESS_TYPES.map((bt, i) => {
                 const Icon = bt.icon;
                 const isSelected = businessType === bt.id;
@@ -613,22 +622,24 @@ export default function Onboarding() {
                     key={bt.id}
                     data-testid={`btn-business-${bt.id}`}
                     onClick={() => { setBusinessType(bt.id); setBusinessSubType(null); }}
+                    style={{ animationDelay: `${i * 80}ms` }}
                     className={[
-                      "group relative flex flex-col p-6 rounded-[24px] border-2 text-left transition-all duration-300 bg-white dark:bg-white/5",
+                      "group relative flex sm:flex-col items-center sm:items-start gap-4 sm:gap-0 p-5 sm:p-6 rounded-2xl sm:rounded-[24px] border-2 text-left transition-all duration-300 bg-white dark:bg-white/5",
                       isSelected
-                        ? "border-primary shadow-xl shadow-primary/15 -translate-y-1"
+                        ? "border-primary shadow-xl shadow-primary/15 sm:-translate-y-1"
                         : "border-border/60 hover:border-primary/40 hover:shadow-md shadow-sm",
                     ].join(" ")}
-                    style={{ animationDelay: `${i * 80}ms` }}
                   >
-                    <div className="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">
-                      {bt.emoji}
+                    <div className={["w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 sm:mb-4", bt.iconBg].join(" ")}>
+                      <Icon className={["w-6 h-6", bt.iconColor].join(" ")} />
                     </div>
-                    <h3 className="text-base font-bold text-foreground mb-1">{bt.label}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{bt.description}</p>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-foreground mb-0.5 sm:mb-1">{bt.label}</h3>
+                      <p className="text-xs text-muted-foreground leading-snug">{bt.description}</p>
+                    </div>
                     {isSelected && (
-                      <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />
+                      <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary-foreground" />
                       </div>
                     )}
                   </button>
@@ -636,12 +647,12 @@ export default function Onboarding() {
               })}
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-5 sm:mt-6 flex justify-end">
               <Button
                 data-testid="btn-next-subtype"
                 onClick={() => setStep("business_subtype")}
                 disabled={!businessType}
-                className="px-8 h-12 rounded-2xl font-bold"
+                className="w-full sm:w-auto sm:px-8 h-11 sm:h-12 rounded-2xl font-bold"
               >
                 {t("onboarding.businessType.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -649,20 +660,18 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step: Business Sub-type ── */}
+        {/* ══ BUSINESS SUBTYPE ══ */}
         {step === "business_subtype" && businessType && (
           <div className="w-full max-w-xl animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-8">
-              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
-                The Details
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
+            <div className="text-center mb-6 sm:mb-8">
+              <SectionBadge label="The Details" />
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground mb-2 sm:mb-3">
                 {t("onboarding.businessSubtype.title")}
               </h2>
-              <p className="text-base text-muted-foreground">{t("onboarding.businessSubtype.subtitle")}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.businessSubtype.subtitle")}</p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 max-h-[340px] overflow-y-auto pb-2">
+            <div className="flex flex-wrap gap-2.5 justify-center max-h-[44vh] overflow-y-auto pb-2 px-1">
               {SUB_TYPES[businessType].map(sub => {
                 const Icon = sub.icon;
                 const isSelected = businessSubType === sub.id;
@@ -672,9 +681,9 @@ export default function Onboarding() {
                     data-testid={`btn-subtype-${sub.id}`}
                     onClick={() => setBusinessSubType(sub.id)}
                     className={[
-                      "flex items-center gap-2.5 px-5 py-3.5 rounded-2xl border-2 font-medium text-sm transition-all duration-200",
+                      "flex items-center gap-2 px-4 py-3 rounded-2xl border-2 font-medium text-sm transition-all duration-200 whitespace-nowrap",
                       isSelected
-                        ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105"
+                        ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105"
                         : "border-border/60 bg-white dark:bg-white/5 text-foreground hover:border-primary/40 shadow-sm",
                     ].join(" ")}
                   >
@@ -685,12 +694,12 @@ export default function Onboarding() {
               })}
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-5 sm:mt-6 flex justify-end">
               <Button
                 data-testid="btn-next-storeinfo"
                 onClick={() => setStep("store_info")}
                 disabled={!businessSubType}
-                className="px-8 h-12 rounded-2xl font-bold"
+                className="w-full sm:w-auto sm:px-8 h-11 sm:h-12 rounded-2xl font-bold"
               >
                 {t("onboarding.businessSubtype.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -698,20 +707,18 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step: Store Info ── */}
+        {/* ══ STORE INFO ══ */}
         {step === "store_info" && (
           <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-8">
-              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
-                Almost Done
-              </span>
-              <h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-3">
+            <div className="text-center mb-6 sm:mb-8">
+              <SectionBadge label="Almost Done" />
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-2">
                 {t("onboarding.storeInfo.title")}
               </h2>
-              <p className="text-base text-muted-foreground">{t("onboarding.storeInfo.subtitle")}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{t("onboarding.storeInfo.subtitle")}</p>
             </div>
 
-            <div className="bg-white dark:bg-white/5 rounded-[24px] border border-border/50 shadow-sm p-6 space-y-4">
+            <div className="bg-white dark:bg-white/5 rounded-2xl sm:rounded-3xl border border-border/50 shadow-sm p-5 sm:p-6 space-y-4">
               <div>
                 <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.storeInfo.countryLabel")} *</Label>
                 <CountryPicker value={storeCountry} onChange={handleCountryChange} />
@@ -775,21 +782,23 @@ export default function Onboarding() {
               </div>
             )}
 
-            <div className="mt-5 flex justify-end">
+            <div className="mt-4 sm:mt-5 flex justify-end">
               <Button
                 data-testid="btn-finish-setup"
                 onClick={() => {
-                  if (!storeCountry) { toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" }); return; }
-                  if (!storeName.trim()) { toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" }); return; }
-                  if (!storeAddress.trim()) { toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" }); return; }
-                  if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) { toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" }); return; }
-                  if (!storeEmail.trim()) { toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" }); return; }
-                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) { toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" }); return; }
+                  if (!storeCountry)        { toast({ title: t("onboarding.storeInfo.errorCountry"),     variant: "destructive" }); return; }
+                  if (!storeName.trim())    { toast({ title: t("onboarding.storeInfo.errorName"),         variant: "destructive" }); return; }
+                  if (!storeAddress.trim()) { toast({ title: t("onboarding.storeInfo.errorAddress"),      variant: "destructive" }); return; }
+                  if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? ""))
+                                            { toast({ title: t("onboarding.storeInfo.errorPhone"),        variant: "destructive" }); return; }
+                  if (!storeEmail.trim())   { toast({ title: t("onboarding.storeInfo.errorEmail"),        variant: "destructive" }); return; }
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim()))
+                                            { toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" }); return; }
                   setSubmitError(null);
                   setShowConfirm(true);
                 }}
                 disabled={isSubmitting}
-                className="px-8 h-12 rounded-2xl font-bold"
+                className="w-full sm:w-auto sm:px-8 h-11 sm:h-12 rounded-2xl font-bold"
               >
                 {isSubmitting ? t("onboarding.storeInfo.saving") : t("onboarding.storeInfo.reviewButton")}
               </Button>
@@ -797,82 +806,71 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step: Language ── */}
-        {step === "language" && (
-          <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                <Globe className="w-8 h-8 text-primary" />
-              </div>
-              <h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-3">
-                {t("onboarding.language.title")}
-              </h2>
-              <p className="text-base text-muted-foreground">{t("onboarding.language.subtitle")}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 mb-6 max-h-[340px] overflow-y-auto">
-              {SUPPORTED_LANGUAGES.map(lang => {
-                const isSelected = selectedLanguage === lang.code;
-                return (
-                  <button
-                    key={lang.code}
-                    data-testid={`btn-lang-${lang.code}`}
-                    onClick={async () => {
-                      setSelectedLanguage(lang.code);
-                      await loadLocale(lang.code);
-                      i18n.changeLanguage(lang.code);
-                    }}
-                    className={[
-                      "flex flex-col items-start px-4 py-3.5 rounded-2xl border-2 transition-all duration-200",
-                      isSelected
-                        ? "border-primary bg-primary/5 dark:bg-primary/10"
-                        : "border-border/60 bg-white dark:bg-white/5 hover:border-primary/30",
-                    ].join(" ")}
-                  >
-                    <span className={["text-sm font-semibold leading-tight", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
-                      {lang.nativeName}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground mt-0.5">{lang.name}</span>
-                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-1.5" />}
-                  </button>
-                );
-              })}
-            </div>
-
-            <Button
-              data-testid="btn-lang-continue"
-              onClick={() => setStep("done")}
-              className="w-full h-12 rounded-2xl font-bold"
-            >
-              {t("onboarding.language.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        )}
-
-        {/* ── Step: Done ── */}
+        {/* ══ DONE (with language picker) ══ */}
         {step === "done" && (
-          <div className="w-full max-w-sm text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-28 h-28 rounded-[32px] bg-gradient-to-tr from-primary to-primary/70 flex items-center justify-center mx-auto mb-8 shadow-xl shadow-primary/25 text-primary-foreground">
-              <PartyPopper className="w-14 h-14 animate-bounce" />
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Celebration */}
+            <div className="text-center mb-7 sm:mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary to-primary/70 mb-5 shadow-xl shadow-primary/25">
+                <PartyPopper className="w-8 h-8 sm:w-10 sm:h-10 text-primary-foreground" />
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-2">
+                {role === "employee" ? t("onboarding.done.employeeTitle") : t("onboarding.done.ownerTitle")}
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                {role === "employee"
+                  ? t("onboarding.done.employeeSubtitle")
+                  : storeName
+                    ? `${storeName} ${t("onboarding.done.ownerSubtitle")}`
+                    : t("onboarding.done.ownerSubtitleFallback")}
+              </p>
             </div>
-            <h2 className="text-4xl font-extrabold tracking-tight text-foreground mb-3">
-              {role === "employee" ? t("onboarding.done.employeeTitle") : t("onboarding.done.ownerTitle")}
-            </h2>
-            <p className="text-base text-muted-foreground mb-8">
-              {role === "employee"
-                ? t("onboarding.done.employeeSubtitle")
-                : storeName
-                  ? `${storeName} ${t("onboarding.done.ownerSubtitle")}`
-                  : t("onboarding.done.ownerSubtitleFallback")}
-            </p>
 
-            <div className="bg-white dark:bg-white/5 rounded-[20px] border border-border/50 shadow-sm p-4 flex items-center gap-4 mb-6 text-left">
-              <div className="w-10 h-10 bg-green-100 dark:bg-green-950/40 rounded-xl flex items-center justify-center shrink-0">
+            {/* Setup confirmation card */}
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-white/5 border border-border/50 shadow-sm mb-6">
+              <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-950/40 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="font-bold text-foreground text-sm">Store Created</p>
-                <p className="text-xs text-muted-foreground">Dashboard unlocked</p>
+                <p className="text-sm font-bold text-foreground">Store Created</p>
+                <p className="text-xs text-muted-foreground">Dashboard & all features unlocked</p>
+              </div>
+            </div>
+
+            {/* Language picker */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Languages className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold text-foreground">{t("onboarding.language.title")}</p>
+                <span className="ml-auto text-xs text-muted-foreground">{t("onboarding.language.subtitle")}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto">
+                {SUPPORTED_LANGUAGES.map(lang => {
+                  const isSelected = selectedLanguage === lang.code;
+                  return (
+                    <button
+                      key={lang.code}
+                      data-testid={`btn-lang-${lang.code}`}
+                      onClick={() => changeLanguage(lang.code)}
+                      className={[
+                        "relative flex flex-col items-start px-3.5 py-3 rounded-xl border-2 transition-all duration-200 text-left",
+                        isSelected
+                          ? "border-primary bg-primary/5 dark:bg-primary/10"
+                          : "border-border/50 bg-white dark:bg-white/5 hover:border-primary/30",
+                      ].join(" ")}
+                    >
+                      <span className={["text-xs sm:text-sm font-semibold leading-tight", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
+                        {lang.nativeName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5">{lang.name}</span>
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -880,27 +878,27 @@ export default function Onboarding() {
               data-testid="btn-go-to-dashboard"
               onClick={handleDone}
               size="lg"
-              className="w-full h-12 rounded-2xl font-bold shadow-lg shadow-primary/25"
+              className="w-full h-12 rounded-2xl font-bold shadow-lg shadow-primary/20"
             >
-              {t("onboarding.done.dashboardButton")}
+              {t("onboarding.done.dashboardButton")} <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           </div>
         )}
       </main>
 
-      {/* Footer navigation — Back button */}
-      {showFooterBack && (
-        <footer className="relative z-10 w-full px-6 pb-6 pt-2">
+      {/* ── Back button footer ── */}
+      {["role", "employee_invite", "business_type", "business_subtype", "store_info"].includes(step) && (
+        <footer className="relative z-10 w-full px-5 sm:px-8 pb-5 sm:pb-6 pt-1">
           <div className="max-w-xl mx-auto">
             <button
               onClick={() => {
-                if (step === "role") setStep("welcome");
-                else if (step === "employee_invite") setStep("role");
-                else if (step === "business_type") setStep("role");
+                if (step === "role")             setStep("welcome");
+                else if (step === "employee_invite")  setStep("role");
+                else if (step === "business_type")    setStep("role");
                 else if (step === "business_subtype") setStep("business_type");
-                else if (step === "store_info") setStep("business_subtype");
+                else if (step === "store_info")       setStep("business_subtype");
               }}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-white dark:hover:bg-white/5"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-white/70 dark:hover:bg-white/5"
             >
               <ChevronLeft className="w-4 h-4" /> {t("common.back")}
             </button>
@@ -908,14 +906,14 @@ export default function Onboarding() {
         </footer>
       )}
 
-      {/* ── Confirmation Dialog ── */}
+      {/* ── Confirmation dialog ── */}
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent className="rounded-2xl max-w-sm">
+        <AlertDialogContent className="rounded-2xl max-w-sm mx-4">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg">{t("onboarding.confirmDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-left">
-                <div className="space-y-1.5 p-3 rounded-xl bg-muted/50 border border-border/40">
+                <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border/40">
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.storeLabel")}</p>
                     <p className="text-sm font-bold text-foreground">{storeName}</p>
@@ -943,8 +941,8 @@ export default function Onboarding() {
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("onboarding.confirmDialog.featuresLabel")}</p>
-                  <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("onboarding.confirmDialog.featuresLabel")}</p>
+                  <div className="space-y-1.5">
                     {getFeaturePreview(businessType, businessSubType).map(f => (
                       <div key={f} className="flex items-center gap-2">
                         <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -954,9 +952,7 @@ export default function Onboarding() {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-muted-foreground pt-1">
-                  {t("onboarding.confirmDialog.changeNote")}
-                </p>
+                <p className="text-[11px] text-muted-foreground">{t("onboarding.confirmDialog.changeNote")}</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -964,10 +960,7 @@ export default function Onboarding() {
             <AlertDialogCancel className="rounded-xl" disabled={isSubmitting}>{t("onboarding.confirmDialog.goBack")}</AlertDialogCancel>
             <AlertDialogAction
               data-testid="btn-confirm-setup"
-              onClick={(e) => {
-                e.preventDefault();
-                handleOwnerComplete();
-              }}
+              onClick={e => { e.preventDefault(); handleOwnerComplete(); }}
               disabled={isSubmitting}
               className="rounded-xl"
             >

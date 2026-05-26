@@ -128,6 +128,47 @@ export default function Login() {
   // Stats counter visibility
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
+  const lpScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the landing page — pauses when user interacts, resumes after 3 s idle
+  useEffect(() => {
+    const el = lpScrollRef.current;
+    if (!el) return;
+    let paused = false;
+    let resumeTimer: ReturnType<typeof setTimeout> | null = null;
+    let rafId: number;
+    const SPEED = 0.6; // px per frame — slow enough to feel ambient
+
+    const pause = () => {
+      paused = true;
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => { paused = false; }, 3000);
+    };
+
+    el.addEventListener("wheel",       pause, { passive: true });
+    el.addEventListener("touchstart",  pause, { passive: true });
+    el.addEventListener("mousedown",   pause, { passive: true });
+
+    const tick = () => {
+      if (!paused) {
+        const maxScroll = el.scrollHeight - el.clientHeight;
+        if (el.scrollTop < maxScroll) {
+          el.scrollTop += SPEED;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (resumeTimer) clearTimeout(resumeTimer);
+      el.removeEventListener("wheel",      pause);
+      el.removeEventListener("touchstart", pause);
+      el.removeEventListener("mousedown",  pause);
+    };
+  }, []);
 
   // ── Unlock body scroll — index.html sets html,body{overflow:hidden} globally ──
   // We override inline so it wins regardless of screen width or desktop-mode emulation.
@@ -359,36 +400,39 @@ export default function Login() {
   const loginForm = (
     <div style={{ width: "100%", maxWidth: 400 }}>
       <style>{`
-        /* ── Keyframes — only essential, non-looping ones ── */
-        @keyframes rise  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spin  { to{transform:rotate(360deg)} }
+        /* ── Keyframes ── */
+        @keyframes rise        { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spin        { to{transform:rotate(360deg)} }
         @keyframes slide-in-right { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes pdot-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes glow-pulse  { 0%,100%{box-shadow:0 6px 24px rgba(20,184,232,0.38)} 50%{box-shadow:0 6px 38px rgba(20,184,232,0.62)} }
+        @keyframes float-slow  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes pulse-dot   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.45;transform:scale(0.75)} }
+        @keyframes orb-a       { 0%,100%{transform:translate(0,0)} 40%{transform:translate(30px,-22px)} 70%{transform:translate(-18px,14px)} }
+        @keyframes orb-b       { 0%,100%{transform:translate(0,0)} 40%{transform:translate(-24px,18px)} 70%{transform:translate(18px,-10px)} }
 
-        .rise { animation:rise 0.40s cubic-bezier(0.16,1,0.3,1) both }
-        .d1{ animation-delay:0.03s } .d2{ animation-delay:0.09s } .d3{ animation-delay:0.15s } .d4{ animation-delay:0.21s }
+        .rise { animation:rise 0.45s cubic-bezier(0.16,1,0.3,1) both }
+        .d1{ animation-delay:0.03s } .d2{ animation-delay:0.10s } .d3{ animation-delay:0.17s } .d4{ animation-delay:0.24s }
 
-        /* ── Scroll-reveal — simple fade+up, no blur, no 3D ── */
+        /* ── Scroll-reveal — smooth fade+translate, GPU-only ── */
         .sr {
           opacity:0;
-          transform:translateY(28px);
-          transition:opacity 0.55s ease, transform 0.55s cubic-bezier(0.16,1,0.3,1);
+          transform:translateY(24px);
+          transition:opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1);
           will-change:opacity,transform;
         }
-        .sr.sr-left  { transform:translateX(-28px); }
-        .sr.sr-right { transform:translateX(28px); }
-        .sr.sr-scale { transform:scale(0.92); }
+        .sr.sr-left  { transform:translateX(-24px); }
+        .sr.sr-right { transform:translateX(24px); }
+        .sr.sr-scale { transform:scale(0.94); }
         .sr.sr-visible {
           opacity:1 !important;
           transform:none !important;
         }
-        .sr-d1 { transition-delay:0.05s } .sr-d2 { transition-delay:0.10s } .sr-d3 { transition-delay:0.15s }
-        .sr-d4 { transition-delay:0.20s } .sr-d5 { transition-delay:0.25s } .sr-d6 { transition-delay:0.30s }
+        .sr-d1 { transition-delay:0.05s } .sr-d2 { transition-delay:0.11s } .sr-d3 { transition-delay:0.17s }
+        .sr-d4 { transition-delay:0.23s } .sr-d5 { transition-delay:0.29s } .sr-d6 { transition-delay:0.35s }
 
-        /* Kill all animation for users who prefer it */
         @media (prefers-reduced-motion: reduce) {
           .sr,.sr.sr-left,.sr.sr-right,.sr.sr-scale { opacity:1!important;transform:none!important;transition:none!important; }
-          * { animation-duration:0.01ms!important; transition-duration:0.01ms!important; }
+          .float-mockup,.lp-orb,.lp-orb-b { animation:none!important; }
         }
 
         /* ── Form elements ── */
@@ -397,47 +441,54 @@ export default function Login() {
           cursor:pointer;border:none;font-family:inherit;
           background:linear-gradient(135deg,#14b8e8 0%,#0284c7 100%);
           color:#fff;box-shadow:0 4px 18px rgba(20,184,232,0.30);
-          transition:opacity 0.15s,box-shadow 0.2s;
+          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s;
         }
-        .btn-blue:hover:not(:disabled) { box-shadow:0 6px 24px rgba(20,184,232,0.45); opacity:0.92; }
-        .btn-blue:active:not(:disabled){ opacity:0.8 }
+        .btn-blue:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 26px rgba(20,184,232,0.46); }
+        .btn-blue:active:not(:disabled){ transform:scale(0.98) }
         .btn-blue:disabled { opacity:0.55;cursor:not-allowed }
         .btn-social {
           display:flex;align-items:center;gap:12px;width:100%;padding:12px 18px;border-radius:12px;
           font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;font-family:inherit;
-          transition:opacity 0.15s;
+          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
           -webkit-tap-highlight-color:transparent;
         }
-        .btn-social:hover  { opacity:0.85 }
-        .btn-social:active { opacity:0.70 }
-        .btn-social:disabled { opacity:0.6;cursor:not-allowed }
+        .btn-social:hover  { transform:translateY(-1px) }
+        .btn-social:active { transform:scale(0.97) }
+        .btn-social:disabled { opacity:0.6;cursor:not-allowed;transform:none }
         .finput:focus { border-color:rgba(20,184,232,0.55)!important; box-shadow:0 0 0 3px rgba(20,184,232,0.13)!important; }
 
         /* ── Nav link ── */
         .nav-link {
           color:rgba(255,255,255,0.52);font-size:13.5px;font-weight:500;
           text-decoration:none;cursor:pointer;
-          background:none;border:none;font-family:inherit;padding:0;
+          background:none;border:none;font-family:inherit;padding:0;position:relative;
           transition:color 0.2s ease;
         }
+        .nav-link::after {
+          content:'';position:absolute;bottom:-3px;left:0;right:0;height:1.5px;
+          background:linear-gradient(90deg,#14b8e8,#38d9f5);
+          transform:scaleX(0);transform-origin:left;
+          transition:transform 0.28s cubic-bezier(0.16,1,0.3,1);
+        }
         .nav-link:hover { color:#fff; }
+        .nav-link:hover::after { transform:scaleX(1); }
 
         /* ── Header buttons ── */
         .hdr-login {
           padding:8px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
           background:transparent;border:1px solid rgba(20,184,232,0.28);color:#38d9f5;
           cursor:pointer;font-family:inherit;
-          transition:background 0.2s, border-color 0.2s;
+          transition:background 0.2s,border-color 0.2s,transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .hdr-login:hover { background:rgba(20,184,232,0.10);border-color:rgba(56,217,245,0.50); }
+        .hdr-login:hover { background:rgba(20,184,232,0.10);border-color:rgba(56,217,245,0.52);transform:translateY(-1px); }
         .hdr-cta {
           padding:8px 20px;border-radius:10px;font-size:13.5px;font-weight:700;
           background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
           box-shadow:0 3px 14px rgba(20,184,232,0.30);
-          transition:opacity 0.15s,box-shadow 0.2s;
+          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s;
         }
-        .hdr-cta:hover { opacity:0.90; box-shadow:0 6px 22px rgba(20,184,232,0.45); }
+        .hdr-cta:hover { transform:translateY(-1px) scale(1.03); box-shadow:0 6px 22px rgba(20,184,232,0.46); }
 
         /* ── Hero CTA ── */
         .hero-primary {
@@ -445,10 +496,11 @@ export default function Login() {
           background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
           box-shadow:0 6px 24px rgba(20,184,232,0.38);
-          transition:opacity 0.15s, box-shadow 0.2s;
+          transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.25s;
+          animation:glow-pulse 3.5s ease-in-out infinite;
         }
-        .hero-primary:hover { opacity:0.88; box-shadow:0 10px 36px rgba(20,184,232,0.55); }
-        .hero-primary:active { opacity:0.75; }
+        .hero-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 14px 42px rgba(20,184,232,0.58); animation:none; }
+        .hero-primary:active { transform:scale(0.97); animation:none; }
 
         /* ── Section CTA ── */
         .cta-primary {
@@ -456,39 +508,55 @@ export default function Login() {
           background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
           box-shadow:0 6px 24px rgba(20,184,232,0.38);
-          transition:opacity 0.15s, box-shadow 0.2s;
+          transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.25s;
         }
-        .cta-primary:hover { opacity:0.88; box-shadow:0 10px 36px rgba(20,184,232,0.52); }
-        .cta-primary:active { opacity:0.75; }
+        .cta-primary:hover { transform:translateY(-3px) scale(1.025); box-shadow:0 14px 42px rgba(20,184,232,0.54); }
+        .cta-primary:active { transform:scale(0.97); }
 
         /* ── Feature cards ── */
-        .fcard { transition:border-color 0.25s ease; cursor:default; }
-        .fcard:hover { border-color:rgba(20,184,232,0.40)!important; }
+        .fcard {
+          transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
+          cursor:default;
+        }
+        .fcard:hover { border-color:rgba(20,184,232,0.42)!important; transform:translateY(-6px) scale(1.015)!important; box-shadow:0 20px 52px rgba(0,0,0,0.45), 0 0 0 1px rgba(20,184,232,0.16)!important; }
 
         /* ── Device mini-cards ── */
-        .dcard { transition:border-color 0.22s ease; cursor:default; }
-        .dcard:hover { border-color:rgba(20,184,232,0.40)!important; }
+        .dcard {
+          transition:border-color 0.26s ease, transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
+          cursor:default;
+        }
+        .dcard:hover { border-color:rgba(20,184,232,0.42)!important; transform:translateY(-4px) scale(1.04)!important; }
 
         /* ── How it works steps ── */
-        .lp-step { cursor:default; }
-        .lp-step-title { color:rgba(255,255,255,0.82); }
+        .lp-step { transition:transform 0.32s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
+        .lp-step:hover { transform:translateY(-8px); }
+        .lp-step-circle { transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease; }
+        .lp-step:hover .lp-step-circle { transform:scale(1.15) rotate(6deg); }
+        .lp-step-title { transition:color 0.2s ease; color:rgba(255,255,255,0.85); }
+        .lp-step:hover .lp-step-title { color:#fff!important; }
 
         /* ── Security cards ── */
-        .sec-card-pink { border-radius:20px;overflow:hidden; border:1px solid rgba(244,114,182,0.22);background:rgba(244,114,182,0.03); transition:border-color 0.25s ease; cursor:default; }
-        .sec-card-pink:hover { border-color:rgba(244,114,182,0.50)!important; }
-        .sec-card-blue { border-radius:20px;overflow:hidden; border:1px solid rgba(14,165,233,0.22);background:rgba(14,165,233,0.03); transition:border-color 0.25s ease; cursor:default; }
-        .sec-card-blue:hover { border-color:rgba(14,165,233,0.50)!important; }
+        .sec-card-pink { border-radius:22px;overflow:hidden; border:1px solid rgba(244,114,182,0.22);background:rgba(244,114,182,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
+        .sec-card-pink:hover { border-color:rgba(244,114,182,0.55)!important; transform:translateY(-6px)!important; }
+        .sec-card-blue { border-radius:22px;overflow:hidden; border:1px solid rgba(14,165,233,0.22);background:rgba(14,165,233,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
+        .sec-card-blue:hover { border-color:rgba(14,165,233,0.55)!important; transform:translateY(-6px)!important; }
 
         /* ── Pricing cards ── */
-        .price-card { transition:border-color 0.25s ease; cursor:default; }
-        .price-card:hover { border-color:rgba(20,184,232,0.38)!important; }
+        .price-card {
+          transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
+          cursor:default;
+        }
+        .price-card:hover { transform:translateY(-6px) scale(1.012); box-shadow:0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(20,184,232,0.22); border-color:rgba(20,184,232,0.42)!important; }
+
+        /* ── Ambient orbs — very gentle, GPU-only ── */
+        .lp-orb   { animation:orb-a 28s ease-in-out infinite; }
+        .lp-orb-b { animation:orb-b 36s ease-in-out infinite; }
 
         /* ── Misc ── */
-        .pdot { animation:pdot-pulse 2.4s ease-in-out infinite; }
+        .float-mockup { animation:float-slow 9s ease-in-out infinite; }
+        .pdot { animation:pulse-dot 2.2s ease-in-out infinite; }
         .stat-num { background:linear-gradient(90deg,#38d9f5,#14b8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
         .scroll-section { scroll-margin-top:72px; }
-
-        /* ── Off-screen performance ── */
         .lp-section-lazy { content-visibility:auto; contain-intrinsic-size:0 600px; }
       `}</style>
 
@@ -669,12 +737,12 @@ export default function Login() {
   // FULL LANDING PAGE
   // ─────────────────────────────────────────────────────────────────────────
   const landingPage = (
-    <div style={{ position: "fixed", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" as any, background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
+    <div ref={lpScrollRef} style={{ position: "fixed", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" as any, background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
 
-      {/* Background — static, no animations */}
+      {/* Background */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
-        <div style={{ position: "absolute", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,232,0.07) 0%, transparent 60%)", top: -300, left: -250 }} />
-        <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,217,245,0.04) 0%, transparent 60%)", bottom: -80, right: -120 }} />
+        <div className="lp-orb" style={{ position: "absolute", width: 1000, height: 1000, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,232,0.07) 0%, transparent 58%)", top: -380, left: -280 }} />
+        <div className="lp-orb-b" style={{ position: "absolute", width: 660, height: 660, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,217,245,0.04) 0%, transparent 60%)", bottom: -100, right: -140 }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,${BLUE},transparent)` }} />
       </div>
 
@@ -726,8 +794,8 @@ export default function Login() {
             ))}
           </div>
         </div>
-        <div className="sr sr-right sr-d1" style={{ position: "relative" }}>
-          <div style={{ position: "absolute", inset: -40, background: "radial-gradient(ellipse at center, rgba(20,184,232,0.10) 0%, transparent 65%)", pointerEvents: "none" }} />
+        <div className="sr sr-right sr-d1 float-mockup" style={{ position: "relative" }}>
+          <div style={{ position: "absolute", inset: -60, background: "radial-gradient(ellipse at center, rgba(20,184,232,0.12) 0%, transparent 65%)", pointerEvents: "none" }} />
           {dashMockup}
         </div>
       </section>
@@ -761,25 +829,25 @@ export default function Login() {
             Actual features, not a roadmap.
           </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
           {[
-            { icon: "🛒", title: "Point of Sale",             tag: "Barcode · split pay · offline sync" },
-            { icon: "📊", title: "Real-time Analytics",       tag: "Revenue · top products · Excel export" },
-            { icon: "🧠", title: "AI Business Assistant",     tag: "Ask questions about your own data" },
-            { icon: "🏢", title: "Multi-branch Management",   tag: "One account · shared inventory · reports" },
-            { icon: "📦", title: "Inventory & Expiry",        tag: "Low-stock alerts · expiry flags · POs" },
-            { icon: "👥", title: "Staff & Payroll",           tag: "Time clock · schedules · payroll entries" },
-            { icon: "📅", title: "Appointments & Rooms",      tag: "Bookings · salons · clinics · spas" },
-            { icon: "🎁", title: "Loyalty & Memberships",     tag: "Points · tiers · recurring check-ins" },
-            { icon: "🧾", title: "Tax Compliance & Audit",    tag: "OR tracking · VAT · tamper-proof log" },
-            { icon: "💸", title: "Expenses & Suppliers",      tag: "Category tracking · purchase orders" },
-            { icon: "📶", title: "WiFi Voucher Management",   tag: "Timed vouchers sold at POS" },
-            { icon: "🖨️", title: "Receipt & Kitchen Print",  tag: "BT · network · USB · KDS routing" },
+            { icon: "🛒", title: "Point of Sale",            desc: "Full POS with barcode scanning, cash/card/split payment, receipt printing, and pending orders. Keeps working without internet — sales sync when you're back online." },
+            { icon: "📊", title: "Real-time Analytics",      desc: "Live dashboard with today's revenue, top products, staff performance, and hourly trends. Export to Excel or PDF. Data updates the instant a sale is made." },
+            { icon: "🧠", title: "AI Business Assistant",    desc: "Ask the built-in AI about your own data — \"What sold most this week?\" or \"Which branch is underperforming?\" Powered by fast AI with automatic fallback." },
+            { icon: "🏢", title: "Multi-branch Management",  desc: "Run multiple locations under one account. Assign staff to branches, move stock between them, and see combined or per-branch reports in one view." },
+            { icon: "📦", title: "Inventory & Expiry",       desc: "Track stock levels with automatic low-stock alerts. Expiry tracker flags items before they go bad. Full purchase order flow from supplier to shelf." },
+            { icon: "👥", title: "Staff & Payroll",          desc: "Time clock, shift scheduling, payroll periods, and payroll entries. Staff clock in from any device. Owners see labor cost vs. revenue in one place." },
+            { icon: "📅", title: "Appointments & Rooms",     desc: "Book service appointments, assign to staff and rooms, and check out directly from an appointment. Works for salons, clinics, spas, and more." },
+            { icon: "🎁", title: "Loyalty & Memberships",    desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins. Customers track their balance and redeem at checkout." },
+            { icon: "🧾", title: "Tax Compliance & Audit",   desc: "Built-in compliance reports with OR number tracking, VAT computation, and a full void/refund audit trail. Every transaction is logged and tamper-evident." },
+            { icon: "💸", title: "Expenses & Suppliers",     desc: "Log business expenses by category, attach notes, and track against revenue. Manage suppliers and purchase orders from the same screen." },
+            { icon: "📶", title: "WiFi Voucher Management",  desc: "Generate and sell timed internet vouchers directly from the POS. Built for cafes, hotels, and restaurants that offer paid WiFi to guests." },
+            { icon: "🖨️", title: "Receipt & Kitchen Print", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time — no paper tickets needed." },
           ].map((f, i) => (
-            <div key={i} className={`fcard sr sr-d${(i % 4) + 1}`} style={{ padding: "20px 22px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.10)" }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{f.icon}</div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 5 }}>{f.title}</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.36)", lineHeight: 1.55 }}>{f.tag}</div>
+            <div key={i} className={`fcard sr sr-d${(i % 4) + 1}`} style={{ padding: "22px 24px", borderRadius: 16, background: CARD, border: "1px solid rgba(20,184,232,0.10)" }}>
+              <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{f.title}</div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.40)", lineHeight: 1.70 }}>{f.desc}</div>
             </div>
           ))}
         </div>
@@ -846,20 +914,20 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, position: "relative" }}>
             <div style={{ position: "absolute", top: 32, left: "12.5%", right: "12.5%", height: 1, background: "linear-gradient(90deg, transparent, rgba(20,184,232,0.20), rgba(20,184,232,0.20), transparent)", zIndex: 0 }} />
             {[
-              { step: "01", icon: "👤", title: "Create account",    body: "Free in 2 minutes. No credit card.",         color: BLUE },
-              { step: "02", icon: "📦", title: "Add products",      body: "Manual or import. Prices and categories.",   color: "#34d399" },
-              { step: "03", icon: "💳", title: "Make a sale",       body: "Any device. Works offline too.",             color: "#a78bfa" },
-              { step: "04", icon: "📊", title: "Watch your data",   body: "Sales, stock, staff — real time.",           color: "#f59e0b" },
+              { step: "01", icon: "👤", title: "Create your account", body: "Sign up free in 2 minutes. No credit card, no setup fee, no expiry on the free plan.", color: BLUE },
+              { step: "02", icon: "📦", title: "Add your products",   body: "Enter products manually or import a list. Set prices, categories, and stock levels.", color: "#34d399" },
+              { step: "03", icon: "💳", title: "Make your first sale",body: "Open the POS on any device — phone, tablet, or desktop. Works even without internet.", color: "#a78bfa" },
+              { step: "04", icon: "📊", title: "Watch your business", body: "Sales, inventory, staff activity, and expenses — all updating in real time, one screen.", color: "#f59e0b" },
             ].map((item, i) => (
-              <div key={i} className={`sr sr-d${i + 1} lp-step`} style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 16px" }}>
-                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(15,30,48,0.95)", border: `1.5px solid ${item.color}38`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, flexShrink: 0, position: "relative" }}>
-                  <span style={{ fontSize: 24 }}>{item.icon}</span>
-                  <div style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: item.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 9, fontWeight: 900, color: "#0C1420" }}>{item.step}</span>
+              <div key={i} className={`sr sr-d${i + 1} lp-step`} style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 20px" }}>
+                <div className="lp-step-circle" style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(15,30,48,0.95)", border: `1.5px solid ${item.color}40`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, flexShrink: 0, position: "relative" }}>
+                  <span style={{ fontSize: 28 }}>{item.icon}</span>
+                  <div style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: item.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 10, fontWeight: 900, color: "#0C1420" }}>{item.step}</span>
                   </div>
                 </div>
-                <div className="lp-step-title" style={{ fontSize: 14, fontWeight: 800, marginBottom: 8, lineHeight: 1.3 }}>{item.title}</div>
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.40)", lineHeight: 1.6 }}>{item.body}</div>
+                <div className="lp-step-title" style={{ fontSize: 15, fontWeight: 800, marginBottom: 10, lineHeight: 1.3 }}>{item.title}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", lineHeight: 1.7 }}>{item.body}</div>
               </div>
             ))}
           </div>
@@ -888,32 +956,38 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
             <div className="sr sr-left sr-d1 sec-card-pink">
               <div style={{ height: 3, background: "linear-gradient(90deg, #f472b6, #e879f9)" }} />
-              <div style={{ padding: "28px 28px 32px" }}>
-                <div style={{ fontSize: 32, marginBottom: 16 }}>📋</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", marginBottom: 10, lineHeight: 1.25 }}>
+              <div style={{ padding: "36px 36px 40px" }}>
+                <div style={{ fontSize: 40, marginBottom: 20 }}>📋</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                   Every action leaves a permanent record. Nobody can delete it.
                 </div>
-                <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.48)", lineHeight: 1.72, margin: "0 0 16px" }}>
-                  Every void, refund, discount, permission change, and login is permanently logged with a timestamp and who did it. Staff can't delete it. Managers can't delete it.
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, margin: "0 0 20px" }}>
+                  A cashier voids a sale. A manager gives an unauthorized discount. A staff account quietly gets promoted. In most POS systems, these things happen and then they disappear.
                 </p>
-                <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(244,114,182,0.07)", border: "1px solid rgba(244,114,182,0.18)" }}>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.42)", lineHeight: 1.60 }}>You need a history that can't be cleaned up before you look at it.</div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
+                  In ArtixPOS, every void, refund, discount, permission change, and login is permanently logged with a timestamp and who did it. Staff can't delete it. Managers can't delete it. We can't delete it either. That record will always be there.
+                </p>
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(244,114,182,0.07)", border: "1px solid rgba(244,114,182,0.20)" }}>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>When staff handle your cash every day, you need a history that can't be cleaned up before you look at it.</div>
                 </div>
               </div>
             </div>
 
             <div className="sr sr-right sr-d1 sec-card-blue">
               <div style={{ height: 3, background: "linear-gradient(90deg, #0ea5e9, #38bdf8)" }} />
-              <div style={{ padding: "28px 28px 32px" }}>
-                <div style={{ fontSize: 32, marginBottom: 16 }}>🔒</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", marginBottom: 10, lineHeight: 1.25 }}>
+              <div style={{ padding: "36px 36px 40px" }}>
+                <div style={{ fontSize: 40, marginBottom: 20 }}>🔒</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                   Remove a staff account and they're locked out instantly — on every device.
                 </div>
-                <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.48)", lineHeight: 1.72, margin: "0 0 16px" }}>
-                  The moment you deactivate an account, every active session for that person is terminated. Phone, tablet, home computer — they're all out immediately.
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.50)", lineHeight: 1.78, margin: "0 0 20px" }}>
+                  Staff turnover is common in most businesses. When someone leaves, you need their access gone immediately — not in an hour, not after their session expires.
                 </p>
-                <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.16)" }}>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.42)", lineHeight: 1.60 }}>Most systems let old sessions linger. We kill them the second you pull access.</div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", lineHeight: 1.78, margin: "0 0 28px" }}>
+                  The moment you deactivate an account in ArtixPOS, every active session for that person is terminated. It doesn't matter if they're logged in on their phone, a shop tablet, or their home computer. They're out.
+                </p>
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.18)" }}>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>Most systems let old sessions linger for hours. We kill them the second you pull access.</div>
                 </div>
               </div>
             </div>

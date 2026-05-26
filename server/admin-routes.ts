@@ -132,7 +132,20 @@ export function registerAdminRoutes(app: Express) {
       }).parse(req.body);
       const branch = await createBranch(user.tenantId!, input as any);
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "branch", entityId: String(branch.id), metadata: { name: branch.name } });
-      res.status(201).json(branch);
+
+      // If this is the owner's first branch, auto-assign them to it and set it active
+      const allBranches = await getBranches(user.tenantId!);
+      let newToken: string | undefined;
+      if (allBranches.length === 1) {
+        await assignBranch(user.id, branch.id);
+        const dbUser = await getUserById(user.id);
+        if (dbUser) {
+          newToken = signToken({ id: dbUser.id, name: dbUser.name, email: dbUser.email, avatar: dbUser.avatar, provider: dbUser.provider, tenantId: dbUser.tenantId, role: dbUser.role ?? "owner", activeBranchId: branch.id });
+          res.cookie(AUTH_COOKIE, newToken, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        }
+      }
+
+      res.status(201).json({ ...branch, autoSelected: allBranches.length === 1 });
     } catch (err: unknown) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);

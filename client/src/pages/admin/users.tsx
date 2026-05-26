@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Users, Plus, Trash2, ShieldCheck, User2, CreditCard,
-  Building2, Copy, Check, Clock, RefreshCw,
+  Building2, Copy, Check, Clock, RefreshCw, UserPlus, Eye, EyeOff,
   ShieldOff, ShieldAlert, Wifi, WifiOff, KeyRound, Unlock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,206 @@ import { Input } from "@/components/ui/input";
 import {
   useTenantUsers, useDeleteUser, useUpdateUserRole,
   useAssignBranch, useRemoveBranch, useBranches,
-  useEnsureTenant, useRevokeAccess, useRestoreAccess,
+  useEnsureTenant, useRevokeAccess, useRestoreAccess, useCreateStaffUser,
   type TenantUser,
 } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+
+const addStaffSchema = z.object({
+  name:      z.string().min(1, "Name is required"),
+  email:     z.string().email("Valid email required"),
+  role:      z.enum(["manager", "admin", "cashier"]),
+  branchIds: z.array(z.number()).default([]),
+});
+type AddStaffForm = z.infer<typeof addStaffSchema>;
+
+function generatePassword(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#";
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: branches = [] } = useBranches();
+  const createStaff = useCreateStaffUser();
+  const { toast } = useToast();
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  const form = useForm<AddStaffForm>({
+    resolver: zodResolver(addStaffSchema),
+    defaultValues: { name: "", email: "", role: "cashier", branchIds: [] },
+  });
+
+  async function onSubmit(values: AddStaffForm) {
+    const password = generatePassword();
+    try {
+      await createStaff.mutateAsync({ ...values, password });
+      setCreatedPassword(password);
+    } catch (err: any) {
+      toast({ title: err?.message ?? "Failed to create staff account", variant: "destructive" });
+    }
+  }
+
+  function copyPassword() {
+    if (!createdPassword) return;
+    navigator.clipboard.writeText(createdPassword).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+      toast({ title: "Password copied" });
+    });
+  }
+
+  function handleClose() {
+    setCreatedPassword(null);
+    setCopied(false);
+    setShowPw(false);
+    form.reset();
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4 text-primary" />
+            Add Staff Member
+          </DialogTitle>
+          <DialogDescription>
+            Create a login for a staff member. After adding them, set their clock-in PIN from the team list.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!createdPassword ? (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input data-testid="input-staff-name" placeholder="e.g. Maria Cruz" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input data-testid="input-staff-email" type="email" placeholder="maria@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="role" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-staff-role">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="cashier">Cashier</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {branches.length > 0 && (
+                <FormField control={form.control} name="branchIds" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assign to Branches <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                    <div className="space-y-2 rounded-xl border border-border/40 p-3 bg-secondary/30">
+                      {branches.map(branch => (
+                        <div key={branch.id} className="flex items-center gap-2.5">
+                          <Checkbox
+                            id={`add-branch-${branch.id}`}
+                            checked={field.value.includes(branch.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) field.onChange([...field.value, branch.id]);
+                              else field.onChange(field.value.filter((id: number) => id !== branch.id));
+                            }}
+                          />
+                          <label htmlFor={`add-branch-${branch.id}`} className="text-sm cursor-pointer select-none flex items-center gap-1.5">
+                            <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                            {branch.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
+                <Button data-testid="button-create-staff" type="submit" disabled={createStaff.isPending}>
+                  {createStaff.isPending ? "Creating…" : "Create Account"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-7 w-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Account created!</p>
+              </div>
+              <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mb-3">
+                Share these credentials with <span className="font-semibold">{form.getValues("name")}</span> — they'll use them to log in. Then set their clock-in PIN from the team list.
+              </p>
+              <div className="space-y-2">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Email</div>
+                <p className="text-sm font-mono bg-background rounded-lg px-3 py-2 border border-border/60">{form.getValues("email")}</p>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Temporary Password</div>
+                <div className="flex items-center gap-2">
+                  <p className="flex-1 text-sm font-mono bg-background rounded-lg px-3 py-2 border border-border/60 tracking-wider">
+                    {showPw ? createdPassword : "••••••••••••"}
+                  </p>
+                  <button
+                    onClick={() => setShowPw(v => !v)}
+                    className="h-9 w-9 flex items-center justify-center rounded-lg border border-border/60 bg-background hover:bg-secondary transition-colors shrink-0"
+                    data-testid="button-toggle-password"
+                  >
+                    {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    onClick={copyPassword}
+                    className="h-9 w-9 flex items-center justify-center rounded-lg border border-border/60 bg-background hover:bg-secondary transition-colors shrink-0"
+                    data-testid="button-copy-password"
+                  >
+                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Save this password — it won't be shown again. Ask them to change it after first login.
+            </p>
+            <DialogFooter>
+              <Button onClick={handleClose} data-testid="button-done-add-staff">Done</Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const ROLE_ICONS: Record<string, any> = {
   owner: ShieldCheck,
@@ -246,6 +439,7 @@ export default function UsersPage() {
   const revokeAccess = useRevokeAccess();
   const restoreAccess = useRestoreAccess();
   const ensureTenant = useEnsureTenant();
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [revokingUserId, setRevokingUserId] = useState<string | null>(null);
   const [branchAssignUser, setBranchAssignUser] = useState<TenantUser | null>(null);
@@ -301,6 +495,17 @@ export default function UsersPage() {
           <h2 className="text-xl font-black tracking-tight">Team</h2>
           <p className="text-xs text-muted-foreground font-medium">Manage staff roles and branch access</p>
         </div>
+        {isOwner && (
+          <button
+            data-testid="button-add-staff"
+            onClick={() => setAddStaffOpen(true)}
+            className="flex items-center gap-2 h-9 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 hover:opacity-90 transition-opacity shrink-0"
+          >
+            <UserPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Staff</span>
+            <span className="sm:hidden">Add</span>
+          </button>
+        )}
       </div>
 
       {tenantUsers.length === 0 ? (
@@ -311,7 +516,15 @@ export default function UsersPage() {
             <Users className="h-8 w-8 text-purple-500" strokeWidth={1.5} />
           </div>
           <p className="font-semibold text-foreground">No team members yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Staff accounts are added directly and log in with their PIN.</p>
+          <p className="text-sm text-muted-foreground mt-1 mb-5">Add staff accounts directly — they log in with email/password and clock in with a PIN.</p>
+          {isOwner && (
+            <button
+              onClick={() => setAddStaffOpen(true)}
+              className="flex items-center gap-2 h-9 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 hover:opacity-90 transition-opacity"
+            >
+              <UserPlus className="h-4 w-4" /> Add First Staff Member
+            </button>
+          )}
         </div>
 
       ) : (
@@ -496,6 +709,8 @@ export default function UsersPage() {
           })}
         </div>
       )}
+
+      <AddStaffDialog open={addStaffOpen} onClose={() => setAddStaffOpen(false)} />
 
       {branchAssignUser && (
         <BranchAssignDialog

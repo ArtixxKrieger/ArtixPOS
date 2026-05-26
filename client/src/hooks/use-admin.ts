@@ -142,6 +142,7 @@ export function useCreateBranch() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/branches"] });
+      qc.invalidateQueries({ queryKey: ["auth-me"] });
     },
   });
 }
@@ -264,11 +265,13 @@ export function useTenantUsers() {
   });
 }
 
-function useCreateUser() {
+export function useCreateStaffUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; email: string; role: "manager" | "admin" | "cashier"; password: string; branchIds?: number[] }) =>
-      apiRequest("POST", "/api/admin/users", data),
+    mutationFn: async (data: { name: string; email: string; role: "manager" | "admin" | "cashier"; password: string; branchIds?: number[] }) => {
+      const res = await apiRequest("POST", "/api/admin/users", data);
+      return res.json();
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
     },

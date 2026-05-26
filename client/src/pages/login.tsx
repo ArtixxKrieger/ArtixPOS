@@ -15,8 +15,6 @@ function isPluginAvailable(name: string): boolean {
   try { return (window as any).Capacitor?.isPluginAvailable?.(name) === true; } catch { return false; }
 }
 
-
-
 function diagnoseNativeError(raw: string): string {
   const msg = raw.toLowerCase();
   if (msg.includes("10:") || msg.includes("developer_error") || msg.includes("something went wrong"))
@@ -72,7 +70,6 @@ async function nativeGoogleSignIn(): Promise<string> {
   return data.token;
 }
 
-
 function getIsDark(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -81,6 +78,23 @@ function getIsDark(): boolean {
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 type AuthMode = "signin" | "register";
+
+// ── Tiny animated stat card used in the device mockup ───────────────────────
+function StatPill({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 7,
+      padding: "5px 11px", borderRadius: 20,
+      background: "rgba(255,255,255,0.06)",
+      border: "1px solid rgba(255,255,255,0.10)",
+      backdropFilter: "blur(8px)",
+    }}>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}`, flexShrink: 0 }} />
+      <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 500 }}>{label}</span>
+      <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>{value}</span>
+    </div>
+  );
+}
 
 export default function Login() {
   const { t } = useTranslation();
@@ -113,8 +127,6 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Ref holding the OAuth popup-closed poll timer so we can clear it if the
-  // Login component unmounts before the user closes the popup.
   const oauthPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => {
     if (oauthPollTimerRef.current !== null) clearInterval(oauthPollTimerRef.current);
@@ -138,47 +150,32 @@ export default function Login() {
     }
   }, [isLoading]);
 
-  // Once auth resolves, navigate to the app — UNLESS a logout was just
-  // attempted but the server didn't clear the cookie (silent failure). In that
-  // case we retry the full logout cycle right here instead of bouncing the
-  // user back into the app, which would require a second manual logout click.
   useEffect(() => {
     if (isLoading) return;
-
-    // User is confirmed logged out — clear any stale logout-pending flag so
-    // a fresh login is never blocked by a leftover flag from a previous session.
     if (!isAuthenticated) {
       sessionStorage.removeItem("artix-logout-pending");
       return;
     }
-
-    // isAuthenticated = true: either the server cookie survived a failed logout,
-    // or the user just logged in. Only retry the logout if the flag was set
-    // during THIS page visit (i.e. the flag was present when we arrived), not
-    // from a previous session that already completed successfully.
     const logoutPending = sessionStorage.getItem("artix-logout-pending") === "1";
     if (logoutPending) {
       sessionStorage.removeItem("artix-logout-pending");
       (async () => {
-        // Retry the server-side logout so the cookie is definitely cleared.
         try {
           await fetch("/auth/logout", {
             method: "POST",
             credentials: "include",
             headers: getCsrfHeaders("POST"),
           });
-        } catch { /* offline — proceed with client-side logout */ }
+        } catch { }
         const { clearNativeToken } = await import("@/lib/queryClient");
         clearNativeToken();
         await clearAllCache();
         queryClient.cancelQueries();
         queryClient.clear();
-        // replace() so back-button can't restore the authenticated page
         window.location.replace("/login");
       })();
       return;
     }
-
     setLocation("/");
   }, [isAuthenticated, isLoading, setLocation]);
 
@@ -199,7 +196,6 @@ export default function Login() {
     return () => window.removeEventListener("artixpos-debug-update", handler);
   }, []);
 
-  // Fetch Google client ID from server (so VITE_GOOGLE_CLIENT_ID isn't required separately)
   useEffect(() => {
     if (googleClientId) return;
     fetch("/api/auth/config")
@@ -209,8 +205,6 @@ export default function Login() {
       })
       .catch(() => {});
   }, []);
-
-
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -248,9 +242,6 @@ export default function Login() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     try {
       const token = await nativeGoogleSignIn();
-      // Cancel in-flight requests but do NOT call queryClient.clear() — that would
-      // remove auth-me, cause a re-fetch with an empty token, briefly make
-      // isAuthenticated false, and trigger the session-expiry effect (visible flash).
       await queryClient.cancelQueries();
       setNativeToken(token);
       const userFromToken = decodeTokenUser(token);
@@ -259,7 +250,6 @@ export default function Login() {
       } else {
         await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       }
-      // Flush non-auth cache keeping auth-me intact so isAuthenticated stays true
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
@@ -271,19 +261,12 @@ export default function Login() {
     }
   }
 
-  // Listen for the postMessage that the OAuth popup sends on success/failure.
-  // The popup (served by popupResultPage on the server) posts to window.opener
-  // with { type: "google-auth-ok" } or { type: "google-auth-error", error }.
-  // We only accept messages from our own origin so external sites can't spoof.
   useEffect(() => {
     function handleOAuthMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return;
       const data = event.data;
       if (!data || typeof data !== "object") return;
-
       if (data.type === "google-auth-ok") {
-        // Cookie was set by the popup on our origin — invalidate the auth
-        // cache so the next render picks up the new session immediately.
         queryClient.invalidateQueries({ queryKey: ["auth-me"] });
         setSigningIn(false);
       } else if (data.type === "google-auth-error") {
@@ -298,20 +281,12 @@ export default function Login() {
         );
       }
     }
-
     window.addEventListener("message", handleOAuthMessage);
     return () => window.removeEventListener("message", handleOAuthMessage);
   }, []);
 
-  // On native → Capacitor Google Auth plugin.
-  // On web   → always use redirect flow (same tab). The popup approach causes
-  // the OAuth callback to open in a small window and get stuck on "Signing you in…"
-  // because window.opener / postMessage is blocked by the browser after navigating
-  // through Google's domain. The redirect flow navigates the current tab through
-  // the OAuth chain and lands back on "/" with the auth cookie already set.
   function handleGoogleClick() {
     if (isNativePlatform()) { handleNativeGoogleSignIn(); return; }
-
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }
@@ -334,10 +309,6 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setFormError(data.message ?? "Something went wrong."); return; }
       sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-      // Full page reload — destroys the QueryClient, all module-level state, and
-      // every in-flight request so no previous user's data can bleed through.
-      // The auth cookie was already set by the server's login response, so
-      // the fresh page load picks it up and fetches data for the new user.
       window.location.href = "/";
     } catch {
       setFormError("Network error. Please try again.");
@@ -383,6 +354,20 @@ export default function Login() {
 
   if (isLoading || signingIn) return null;
 
+  // ── System sky-blue palette ────────────────────────────────────────────────
+  const C = {
+    primary:    "#14b8e8",
+    primaryDim: "#0ea5e9",
+    primaryGlow:"rgba(20,184,232,0.35)",
+    neon:       "#38d9f5",
+    neonGlow:   "rgba(56,217,245,0.25)",
+    dark:       "#0C1420",
+    darkCard:   "#0f1e2e",
+    darkBorder: "rgba(20,184,232,0.12)",
+    text:       "rgba(255,255,255,0.88)",
+    textMuted:  "rgba(255,255,255,0.45)",
+  };
+
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "11px 14px",
@@ -391,7 +376,7 @@ export default function Login() {
     outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s",
     background: isDark ? "rgba(255,255,255,0.05)" : "#ffffff",
-    border: `1.5px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)"}`,
+    border: `1.5px solid ${isDark ? "rgba(20,184,232,0.15)" : "rgba(0,0,0,0.10)"}`,
     color: isDark ? "rgba(255,255,255,0.92)" : "#1a1a1a",
     boxSizing: "border-box",
     fontFamily: "inherit",
@@ -420,18 +405,26 @@ export default function Login() {
         .btn-social:hover { transform: translateY(-1px); }
         .btn-social:active { transform: translateY(0) scale(0.98); }
         .btn-social:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .btn-primary {
+        .btn-primary-blue {
           width: 100%; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 700;
           cursor: pointer; border: none; font-family: inherit;
-          transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), opacity 0.18s ease;
+          transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), opacity 0.18s ease, box-shadow 0.18s ease;
           -webkit-tap-highlight-color: transparent;
+          background: linear-gradient(135deg, #14b8e8 0%, #0284c7 100%);
+          color: #ffffff;
+          box-shadow: 0 4px 18px rgba(20,184,232,0.35);
         }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.92; }
-        .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-primary-blue:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(20,184,232,0.45); }
+        .btn-primary-blue:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        .btn-primary-blue:disabled { opacity: 0.55; cursor: not-allowed; }
         .form-input:focus {
-          border-color: rgba(124,58,237,0.55) !important;
-          box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+          border-color: rgba(20,184,232,0.55) !important;
+          box-shadow: 0 0 0 3px rgba(20,184,232,0.12) !important;
+        }
+        .tab-active-blue {
+          background: ${isDark ? "rgba(20,184,232,0.2)" : "#ffffff"} !important;
+          color: ${isDark ? "#38d9f5" : "#0284c7"} !important;
+          box-shadow: ${isDark ? "0 1px 4px rgba(0,0,0,0.4)" : "0 1px 4px rgba(0,0,0,0.08)"} !important;
         }
       `}</style>
 
@@ -440,26 +433,26 @@ export default function Login() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-            background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-            boxShadow: "0 4px 14px rgba(109,40,217,0.35)",
+            background: "linear-gradient(135deg, #14b8e8 0%, #0284c7 100%)",
+            boxShadow: "0 4px 14px rgba(20,184,232,0.35)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <span style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>A</span>
           </div>
           <span style={{
             fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
-            color: isDark ? "rgba(167,139,250,0.8)" : "rgba(109,40,217,0.7)",
+            color: isDark ? "rgba(56,217,245,0.8)" : "rgba(2,132,199,0.75)",
           }}>ArtixPOS</span>
         </div>
         <h1 style={{
           fontSize: 26, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.025em",
-          color: isDark ? "#ffffff" : "#0f0a1e", margin: 0, marginBottom: 8,
+          color: isDark ? "#ffffff" : "#0c1a26", margin: 0, marginBottom: 8,
         }}>
           {mode === "register" ? t("login.createAccount") : t("login.welcomeBack")}
         </h1>
         <p style={{
           fontSize: 14, lineHeight: 1.6,
-          color: isDark ? "rgba(255,255,255,0.52)" : "rgba(15,10,30,0.55)",
+          color: isDark ? "rgba(255,255,255,0.52)" : "rgba(12,26,38,0.55)",
           margin: 0,
         }}>
           {mode === "register" ? t("login.createSubtitle") : t("login.signInSubtitle")}
@@ -469,26 +462,22 @@ export default function Login() {
       {/* Mode tabs */}
       <div className="rise d1" style={{
         display: "flex", gap: 3, padding: 3, borderRadius: 11, marginBottom: 22,
-        background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+        background: isDark ? "rgba(20,184,232,0.07)" : "rgba(0,0,0,0.05)",
       }}>
         {(["signin", "register"] as AuthMode[]).map((m) => (
           <button
             key={m}
             onClick={() => switchMode(m)}
             data-testid={`tab-${m}`}
+            className={mode === m ? "tab-active-blue" : ""}
             style={{
               flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 13, fontWeight: 600,
               border: "none", cursor: "pointer", fontFamily: "inherit",
               transition: "background 0.18s, color 0.18s, box-shadow 0.18s",
-              background: mode === m
-                ? isDark ? "rgba(124,58,237,0.55)" : "#ffffff"
-                : "transparent",
+              background: "transparent",
               color: mode === m
-                ? isDark ? "#ffffff" : "#7c3aed"
+                ? isDark ? "#38d9f5" : "#0284c7"
                 : isDark ? "rgba(255,255,255,0.42)" : "rgba(0,0,0,0.42)",
-              boxShadow: mode === m
-                ? isDark ? "0 1px 4px rgba(0,0,0,0.4)" : "0 1px 4px rgba(0,0,0,0.08)"
-                : "none",
             }}
           >
             {m === "signin" ? t("login.signIn") : t("login.createAccount")}
@@ -512,9 +501,9 @@ export default function Login() {
       {hasPendingInvite && !error && !reason && (
         <div className="rise d1" style={{
           padding: "10px 14px", borderRadius: 10, fontSize: 13, textAlign: "center", marginBottom: 16,
-          background: isDark ? "rgba(124,58,237,0.12)" : "rgba(124,58,237,0.07)",
-          border: `1px solid ${isDark ? "rgba(167,139,250,0.25)" : "rgba(124,58,237,0.2)"}`,
-          color: isDark ? "#c4b5fd" : "#7c3aed",
+          background: isDark ? "rgba(20,184,232,0.10)" : "rgba(20,184,232,0.07)",
+          border: `1px solid ${isDark ? "rgba(56,217,245,0.25)" : "rgba(20,184,232,0.2)"}`,
+          color: isDark ? "#38d9f5" : "#0284c7",
         }}>
           You've been invited to join a team. Sign in to accept.
         </div>
@@ -556,7 +545,7 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google button — server-side OAuth redirect */}
+      {/* Google button */}
       <div className="rise d2">
         <button
           type="button"
@@ -566,7 +555,7 @@ export default function Login() {
           disabled={signingIn}
           style={isDark ? {
             background: "rgba(255,255,255,0.07)",
-            border: "1.5px solid rgba(255,255,255,0.10)",
+            border: "1.5px solid rgba(20,184,232,0.15)",
             color: "rgba(255,255,255,0.88)",
             boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
           } : {
@@ -592,14 +581,13 @@ export default function Login() {
         </button>
       </div>
 
-
       {/* Divider */}
       <div className="rise d2" style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
-        <div style={{ flex: 1, height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }} />
+        <div style={{ flex: 1, height: 1, background: isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.08)" }} />
         <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.32)", whiteSpace: "nowrap" }}>
           {mode === "register" ? t("login.orCreateEmail") : t("login.orSignInEmail")}
         </span>
-        <div style={{ flex: 1, height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }} />
+        <div style={{ flex: 1, height: 1, background: isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.08)" }} />
       </div>
 
       {/* Email form */}
@@ -619,7 +607,7 @@ export default function Login() {
             {t("login.emailAddress")}
           </label>
           <input type="email" placeholder="Email" value={formEmail} onChange={e => setFormEmail(e.target.value)}
-            required data-testid="input-email" className="form-input" style={inputStyle} />
+            required data-testid="input-email" className="form-input" style={inputStyle} autoComplete="email" />
         </div>
 
         <div>
@@ -634,6 +622,7 @@ export default function Login() {
               required minLength={mode === "register" ? 8 : undefined}
               data-testid="input-password" className="form-input"
               style={{ ...inputStyle, paddingRight: 44 }}
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
             />
             <button type="button" onClick={() => setShowPassword(v => !v)} data-testid="button-toggle-password"
               style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.32)", display: "flex", alignItems: "center" }}
@@ -662,8 +651,8 @@ export default function Login() {
                 data-testid="checkbox-remember-me"
                 style={{
                   width: 16, height: 16, borderRadius: 4, flexShrink: 0, cursor: "pointer",
-                  border: `1.5px solid ${rememberMe ? "#7c3aed" : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}`,
-                  background: rememberMe ? "#7c3aed" : "transparent",
+                  border: `1.5px solid ${rememberMe ? C.primary : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}`,
+                  background: rememberMe ? C.primary : "transparent",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "background 0.15s, border-color 0.15s",
                 }}
@@ -679,7 +668,7 @@ export default function Login() {
               </span>
             </label>
             <button type="button" onClick={openForgot} data-testid="button-forgot-password"
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(167,139,250,0.75)" : "rgba(109,40,217,0.7)", padding: 0 }}>
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: isDark ? "rgba(56,217,245,0.8)" : "rgba(2,132,199,0.8)", padding: 0 }}>
               {t("login.forgotPassword")}
             </button>
           </div>
@@ -694,8 +683,8 @@ export default function Login() {
           </div>
         )}
 
-        <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary shiny-btn"
-          style={{ marginTop: 4, background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", color: "#ffffff", boxShadow: "0 4px 18px rgba(109,40,217,0.35)" }}>
+        <button type="submit" disabled={formLoading} data-testid="button-submit" className="btn-primary-blue"
+          style={{ marginTop: 4 }}>
           {formLoading
             ? (mode === "register" ? t("login.creatingAccount") : t("login.signingIn"))
             : (mode === "register" ? t("login.createAccount") : t("login.signIn"))}
@@ -717,127 +706,230 @@ export default function Login() {
     </div>
   );
 
-  return (
+  // ── Left hero panel ────────────────────────────────────────────────────────
+  const heroPanel = (
     <div
-      className="min-h-screen flex relative overflow-hidden transition-colors duration-500"
-      style={{ background: isDark ? "#06060f" : "#f4f3f9" }}
+      className="w-[52%] flex-shrink-0 flex flex-col relative overflow-hidden"
+      style={{ background: C.dark }}
     >
-      {/* Background ambient glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {isDark ? (
-          <>
-            <div style={{ position: "absolute", width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 65%)", top: "-20%", left: "-10%", animation: "orb1 16s ease-in-out infinite" }} />
-            <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.10) 0%, transparent 65%)", bottom: "-10%", right: "-5%", animation: "orb2 19s ease-in-out infinite" }} />
-          </>
-        ) : (
-          <>
-            <div style={{ position: "absolute", width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 65%)", top: "-20%", left: "-10%" }} />
-            <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 65%)", bottom: "-10%", right: "-5%" }} />
-          </>
-        )}
-      </div>
-
       <style>{`
-        @keyframes orb1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px,30px); } }
-        @keyframes orb2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-40px,-20px); } }
+        @keyframes float-a { 0%,100%{transform:translateY(0) translateX(0)} 50%{transform:translateY(-18px) translateX(10px)} }
+        @keyframes float-b { 0%,100%{transform:translateY(0) translateX(0)} 50%{transform:translateY(14px) translateX(-8px)} }
+        @keyframes float-c { 0%,100%{transform:translateY(0) translateX(0)} 50%{transform:translateY(-10px) translateX(-12px)} }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
+        @keyframes scan-line {
+          0%{top:-2px;opacity:0} 5%{opacity:1} 95%{opacity:1} 100%{top:100%;opacity:0}
+        }
+        .hero-orb-a { animation: float-a 18s ease-in-out infinite; }
+        .hero-orb-b { animation: float-b 22s ease-in-out infinite; }
+        .hero-orb-c { animation: float-c 15s ease-in-out infinite; }
+        .pulse-dot { animation: pulse-dot 2.4s ease-in-out infinite; }
+        @keyframes slide-up-stagger {
+          from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)}
+        }
+        .hero-in { animation: slide-up-stagger 0.7s cubic-bezier(0.16,1,0.3,1) both; }
+        .hi-1{animation-delay:0.05s} .hi-2{animation-delay:0.15s} .hi-3{animation-delay:0.25s}
+        .hi-4{animation-delay:0.35s} .hi-5{animation-delay:0.45s} .hi-6{animation-delay:0.55s}
       `}</style>
 
-      {/* ── Desktop split layout ─────────────────────────────── */}
-      <div className="hidden md:flex w-full">
-        {/* Left — brand panel */}
-        <div
-          className="w-[45%] flex-shrink-0 flex flex-col justify-between p-12 relative overflow-hidden"
-          style={{
-            background: isDark
-              ? "#060610"
-              : "linear-gradient(150deg, #0f0523 0%, #1a0845 40%, #0c0330 100%)",
-          }}
-        >
-          {/* Grid overlay */}
-          <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.06) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
-          {/* Neon glow orbs — CSS float animation, no JS */}
-          <div className="orb-a" style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%)", top: "-80px", left: "-80px", pointerEvents: "none" }} />
-          <div className="orb-b" style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%)", bottom: "5%", right: "-60px", pointerEvents: "none" }} />
-          <div className="orb-c" style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", top: "50%", left: "60%", pointerEvents: "none" }} />
+      {/* Background ambient glows */}
+      <div className="hero-orb-a" style={{ position:"absolute", width:700, height:700, borderRadius:"50%", background:"radial-gradient(circle, rgba(20,184,232,0.10) 0%, transparent 60%)", top:"-180px", left:"-160px", pointerEvents:"none" }} />
+      <div className="hero-orb-b" style={{ position:"absolute", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle, rgba(56,217,245,0.07) 0%, transparent 60%)", bottom:"-100px", right:"-80px", pointerEvents:"none" }} />
+      <div className="hero-orb-c" style={{ position:"absolute", width:280, height:280, borderRadius:"50%", background:"radial-gradient(circle, rgba(14,165,233,0.08) 0%, transparent 60%)", top:"45%", left:"55%", pointerEvents:"none" }} />
 
-          {/* Logo */}
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-                boxShadow: "0 0 24px rgba(124,58,237,0.6), 0 0 60px rgba(124,58,237,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "1px solid rgba(167,139,250,0.3)",
-              }}>
-                <span style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>A</span>
-              </div>
-              <div>
-                <span style={{ color: "#fff", fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>ArtixPOS</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
-                  <span style={{ color: "rgba(167,139,250,0.7)", fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Business OS</span>
-                </div>
-              </div>
-            </div>
+      {/* Subtle grid */}
+      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(20,184,232,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,232,0.04) 1px, transparent 1px)", backgroundSize:"44px 44px", pointerEvents:"none" }} />
+
+      {/* Top-edge neon line */}
+      <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:"linear-gradient(90deg, transparent 0%, rgba(20,184,232,0.5) 30%, rgba(56,217,245,0.8) 50%, rgba(20,184,232,0.5) 70%, transparent 100%)", pointerEvents:"none" }} />
+
+      <div style={{ position:"relative", display:"flex", flexDirection:"column", height:"100%", padding:"36px 44px 32px" }}>
+
+        {/* ── Logo ── */}
+        <div className="hero-in hi-1" style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{
+            width:40, height:40, borderRadius:12, flexShrink:0,
+            background:"linear-gradient(135deg, #14b8e8 0%, #0284c7 100%)",
+            boxShadow:"0 0 28px rgba(20,184,232,0.55), 0 0 60px rgba(20,184,232,0.15)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            border:"1px solid rgba(56,217,245,0.3)",
+          }}>
+            <span style={{ color:"#fff", fontSize:18, fontWeight:900 }}>A</span>
           </div>
-
-          {/* Center content */}
-          <div style={{ position: "relative" }}>
-            <h2 style={{
-              fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.035em",
-              margin: "0 0 18px",
-            }}>
-              <span style={{ color: "#fff" }}>{t("login.heroTitle1")}</span><br />
-              <span
-                className="animated-gradient-text"
-                style={{ background: "linear-gradient(90deg, #a78bfa 0%, #818cf8 25%, #67e8f9 50%, #a78bfa 75%, #c084fc 100%)" }}
-              >
-                {t("login.heroTitle2")}
-              </span>
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.75, color: "rgba(167,139,250,0.6)", margin: "0 0 36px", maxWidth: 320 }}>
-              {t("login.heroSubtitle")}
-            </p>
-
-            {/* Feature list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[
-                { dot: "#a78bfa", text: t("login.featurePOS"),       delay: "0s" },
-                { dot: "#818cf8", text: t("login.featureAnalytics"), delay: "0.6s" },
-                { dot: "#67e8f9", text: t("login.featureAI"),        delay: "1.2s" },
-                { dot: "#4ade80", text: t("login.featureMulti"),     delay: "1.8s" },
-              ].map((f, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div
-                    className="dot-pulse"
-                    style={{ width: 6, height: 6, borderRadius: "50%", background: f.dot, boxShadow: `0 0 8px ${f.dot}`, flexShrink: 0, animationDelay: f.delay }}
-                  />
-                  <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13.5, fontWeight: 500 }}>{f.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom — version badge */}
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}>
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
-              <span style={{ color: "rgba(167,139,250,0.65)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>ARTIXPOS · BUSINESS PLATFORM</span>
+          <div>
+            <span style={{ color:"#fff", fontSize:17, fontWeight:800, letterSpacing:"-0.01em" }}>ArtixPOS</span>
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+              <div className="pulse-dot" style={{ width:5, height:5, borderRadius:"50%", background:"#38d9f5", boxShadow:"0 0 6px #38d9f5" }} />
+              <span style={{ color:"rgba(56,217,245,0.65)", fontSize:10, fontWeight:600, letterSpacing:"0.12em", textTransform:"uppercase" }}>Business OS</span>
             </div>
           </div>
         </div>
 
+        {/* ── Headline ── */}
+        <div className="hero-in hi-2" style={{ marginTop:40, marginBottom:20 }}>
+          <h2 style={{ fontSize:34, fontWeight:900, lineHeight:1.08, letterSpacing:"-0.03em", margin:"0 0 14px", color:"#fff" }}>
+            Run your whole<br />
+            <span style={{
+              background:"linear-gradient(90deg, #38d9f5 0%, #14b8e8 40%, #38bdf8 70%, #67e8f9 100%)",
+              WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+              backgroundClip:"text",
+            }}>
+              business
+            </span>
+            {" "}from one<br />
+            place.
+          </h2>
+          <p style={{ fontSize:13.5, lineHeight:1.75, color:"rgba(255,255,255,0.42)", maxWidth:340, margin:0 }}>
+            Sales, inventory, payroll, analytics, and AI — all connected, always in sync, works offline too.
+          </p>
+        </div>
+
+        {/* ── Device mockup block ── */}
+        <div className="hero-in hi-3" style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14 }}>
+
+          {/* Mini "dashboard" card — desktop */}
+          <div style={{
+            borderRadius:14, overflow:"hidden",
+            border:"1px solid rgba(20,184,232,0.18)",
+            background:"rgba(15,30,48,0.85)",
+            backdropFilter:"blur(12px)",
+            boxShadow:"0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(20,184,232,0.08)",
+          }}>
+            {/* Window chrome */}
+            <div style={{ padding:"9px 14px", background:"rgba(20,184,232,0.06)", borderBottom:"1px solid rgba(20,184,232,0.10)", display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"rgba(239,68,68,0.6)" }} />
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"rgba(251,191,36,0.6)" }} />
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"rgba(34,197,94,0.5)" }} />
+              <div style={{ flex:1, height:1 }} />
+              <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", fontWeight:500 }}>Dashboard · ArtixPOS</span>
+            </div>
+            {/* Dashboard content */}
+            <div style={{ padding:"14px 16px" }}>
+              {/* Stat row */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:12 }}>
+                {[
+                  { label:"Today's Sales", val:"₱ 24,850", delta:"+12%", c:"#38d9f5" },
+                  { label:"Orders",        val:"137",       delta:"+8%",  c:"#34d399" },
+                  { label:"Active Staff",  val:"9",         delta:"2 on shift", c:"#a78bfa" },
+                ].map((s, i) => (
+                  <div key={i} style={{ padding:"10px 12px", borderRadius:10, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize:9, color:"rgba(255,255,255,0.38)", fontWeight:600, marginBottom:4, letterSpacing:"0.05em", textTransform:"uppercase" }}>{s.label}</div>
+                    <div style={{ fontSize:15, fontWeight:800, color:"#fff", marginBottom:2 }}>{s.val}</div>
+                    <div style={{ fontSize:9, color:s.c, fontWeight:600 }}>{s.delta}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Mini bar chart */}
+              <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:36, marginBottom:10 }}>
+                {[55,70,45,88,62,95,72,84,58,100,76,90].map((h, i) => (
+                  <div key={i} style={{ flex:1, borderRadius:3, background:`rgba(20,184,232,${0.15 + (h/100)*0.55})`, height:`${h}%`, transition:"height 0.3s" }} />
+                ))}
+              </div>
+              {/* Bottom row */}
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                <StatPill label="POS" value="Live" color="#38d9f5" />
+                <StatPill label="Sync" value="Offline ready" color="#34d399" />
+                <StatPill label="AI" value="Active" color="#a78bfa" />
+              </div>
+            </div>
+          </div>
+
+          {/* Two smaller cards side by side */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            {/* Mobile POS card */}
+            <div style={{ borderRadius:12, border:"1px solid rgba(20,184,232,0.15)", background:"rgba(15,30,48,0.7)", backdropFilter:"blur(8px)", padding:"13px 14px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+                <div style={{ width:26, height:26, borderRadius:8, background:"rgba(20,184,232,0.15)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38d9f5" strokeWidth="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>
+                </div>
+                <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.75)" }}>Mobile POS</span>
+              </div>
+              <div style={{ fontSize:9, color:"rgba(255,255,255,0.35)", marginBottom:6 }}>Works on phone · tablet · laptop</div>
+              <div style={{ display:"flex", gap:4 }}>
+                {["📱","💻","🖥️"].map((e,i)=>(
+                  <div key={i} style={{ fontSize:14, padding:"4px 7px", borderRadius:7, background:"rgba(20,184,232,0.08)", border:"1px solid rgba(20,184,232,0.12)" }}>{e}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Security card */}
+            <div style={{ borderRadius:12, border:"1px solid rgba(52,211,153,0.18)", background:"rgba(15,30,48,0.7)", backdropFilter:"blur(8px)", padding:"13px 14px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+                <div style={{ width:26, height:26, borderRadius:8, background:"rgba(52,211,153,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.75)" }}>Security</span>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {["JWT auth + CSRF shield","Row-level data isolation","Brute-force lockout"].map((s,i)=>(
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#34d399" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span style={{ fontSize:9.5, color:"rgba(255,255,255,0.45)", fontWeight:500 }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Feature list ── */}
+        <div className="hero-in hi-4" style={{ marginTop:18, display:"flex", flexDirection:"column", gap:8 }}>
+          {[
+            { icon:"⚡", label:"POS with offline mode",          sub:"Keeps working when internet drops",   c:"#38d9f5" },
+            { icon:"📊", label:"Real-time analytics",            sub:"Sales, margins, and trends live",     c:"#38bdf8" },
+            { icon:"🧠", label:"Built-in AI assistant",          sub:"Answers business questions instantly", c:"#a78bfa" },
+            { icon:"🏢", label:"Multi-branch management",        sub:"One account for all your locations",  c:"#34d399" },
+          ].map((f, i) => (
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ width:30, height:30, borderRadius:9, flexShrink:0, background:`rgba(255,255,255,0.05)`, border:`1px solid rgba(255,255,255,0.08)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>
+                {f.icon}
+              </div>
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.82)" }}>{f.label}</div>
+                <div style={{ fontSize:10.5, color:"rgba(255,255,255,0.35)", marginTop:1 }}>{f.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Bottom badge ── */}
+        <div className="hero-in hi-5" style={{ marginTop:24 }}>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 12px", borderRadius:8, background:"rgba(20,184,232,0.08)", border:"1px solid rgba(20,184,232,0.18)" }}>
+            <div className="pulse-dot" style={{ width:4, height:4, borderRadius:"50%", background:"#38d9f5", boxShadow:"0 0 6px #38d9f5" }} />
+            <span style={{ color:"rgba(56,217,245,0.6)", fontSize:11, fontWeight:600, letterSpacing:"0.07em" }}>ARTIXPOS · BUSINESS PLATFORM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      className="min-h-screen flex relative overflow-hidden"
+      style={{ background: isDark ? C.dark : "#eef7fb" }}
+    >
+      {/* Light-mode ambient tint */}
+      {!isDark && (
+        <>
+          <div style={{ position:"absolute", width:700, height:700, borderRadius:"50%", background:"radial-gradient(circle, rgba(20,184,232,0.09) 0%, transparent 65%)", top:"-20%", left:"-10%", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle, rgba(14,165,233,0.07) 0%, transparent 65%)", bottom:"-10%", right:"-5%", pointerEvents:"none" }} />
+        </>
+      )}
+
+      {/* ── Desktop: hero left + form right ── */}
+      <div className="hidden md:flex w-full">
+        {heroPanel}
+
         {/* Right — form panel */}
         <div
-          className="flex-1 flex items-center justify-center p-12 relative"
-          style={{ background: isDark ? "#06060f" : "#ffffff" }}
+          className="flex-1 flex items-center justify-center p-12 relative overflow-y-auto"
+          style={{ background: isDark ? "#07101a" : "#ffffff" }}
         >
           {formPanel}
         </div>
       </div>
 
-      {/* ── Mobile layout — centered card ─────────────────────── */}
+      {/* ── Mobile: centered card ── */}
       <div
         className="md:hidden flex-1 flex items-center justify-center px-5 py-10 relative z-10"
         style={{ minHeight: "100vh" }}
@@ -848,9 +940,9 @@ export default function Login() {
             padding: "32px 28px",
             borderRadius: 24,
             background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.88)",
-            border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
+            border: `1px solid ${isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.06)"}`,
             boxShadow: isDark
-              ? "0 0 0 1px rgba(255,255,255,0.04), 0 32px 80px rgba(0,0,0,0.65)"
+              ? "0 0 0 1px rgba(20,184,232,0.08), 0 32px 80px rgba(0,0,0,0.65)"
               : "0 8px 50px rgba(0,0,0,0.08), 0 2px 12px rgba(0,0,0,0.04)",
           }}
         >
@@ -860,47 +952,47 @@ export default function Login() {
 
       {/* Forgot password overlay */}
       {showForgot && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: isDark ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", padding: "0 20px" }}>
-          <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, padding: "36px 32px", background: isDark ? "#0f0c1a" : "#ffffff", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}`, boxShadow: isDark ? "0 32px 100px rgba(0,0,0,0.8)" : "0 8px 60px rgba(0,0,0,0.12)" }}>
+        <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", background:isDark?"rgba(0,0,0,0.75)":"rgba(0,0,0,0.45)", backdropFilter:"blur(4px)", padding:"0 20px" }}>
+          <div style={{ width:"100%", maxWidth:420, borderRadius:24, padding:"36px 32px", background:isDark?"#0a1826":"#ffffff", border:`1px solid ${isDark?"rgba(20,184,232,0.15)":"rgba(0,0,0,0.06)"}`, boxShadow:isDark?"0 32px 100px rgba(0,0,0,0.8)":"0 8px 60px rgba(0,0,0,0.12)" }}>
             {forgotSuccess ? (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px", background: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="24" height="24" fill="none" stroke={isDark ? "#c4b5fd" : "#7c3aed"} strokeWidth="2.2" viewBox="0 0 24 24">
+              <div style={{ textAlign:"center" }}>
+                <div style={{ width:52, height:52, borderRadius:"50%", margin:"0 auto 16px", background:isDark?"rgba(20,184,232,0.12)":"rgba(20,184,232,0.08)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="24" height="24" fill="none" stroke={isDark?"#38d9f5":"#0284c7"} strokeWidth="2.2" viewBox="0 0 24 24">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 5.29 5.29l1-.79a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 15.5"/>
                   </svg>
                 </div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px", color: isDark ? "#fff" : "#0f0a1e" }}>Check your email</h2>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,10,30,0.6)", margin: "0 0 24px" }}>
+                <h2 style={{ fontSize:20, fontWeight:800, margin:"0 0 8px", color:isDark?"#fff":"#0c1a26" }}>Check your email</h2>
+                <p style={{ fontSize:13, lineHeight:1.6, color:isDark?"rgba(255,255,255,0.55)":"rgba(12,26,38,0.6)", margin:"0 0 24px" }}>
                   If an account exists for <strong>{forgotEmail}</strong>, a reset link has been sent.
                 </p>
                 <button onClick={closeForgot} data-testid="button-back-to-signin"
-                  style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit", background: "linear-gradient(135deg,#7c3aed,#6d28d9)", color: "#fff" }}>
+                  style={{ width:"100%", padding:"12px 0", borderRadius:12, fontSize:14, fontWeight:700, border:"none", cursor:"pointer", fontFamily:"inherit", background:"linear-gradient(135deg,#14b8e8,#0284c7)", color:"#fff" }}>
                   Back to sign in
                 </button>
               </div>
             ) : (
               <>
-                <button onClick={closeForgot} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "inherit", marginBottom: 20 }}>
+                <button onClick={closeForgot} style={{ background:"none", border:"none", cursor:"pointer", padding:0, color:isDark?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", gap:6, fontSize:13, fontFamily:"inherit", marginBottom:20 }}>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                   Back
                 </button>
-                <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", color: isDark ? "#fff" : "#0f0a1e" }}>Reset password</h2>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,10,30,0.6)", margin: "0 0 22px" }}>
+                <h2 style={{ fontSize:22, fontWeight:800, margin:"0 0 6px", color:isDark?"#fff":"#0c1a26" }}>Reset password</h2>
+                <p style={{ fontSize:13, lineHeight:1.6, color:isDark?"rgba(255,255,255,0.55)":"rgba(12,26,38,0.6)", margin:"0 0 22px" }}>
                   Enter your email and we'll send you a reset link.
                 </p>
-                <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <form onSubmit={handleForgotSubmit} style={{ display:"flex", flexDirection:"column", gap:12 }}>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 5, color: isDark ? "rgba(255,255,255,0.52)" : "rgba(0,0,0,0.48)" }}>Email address</label>
+                    <label style={{ fontSize:12, fontWeight:600, display:"block", marginBottom:5, color:isDark?"rgba(255,255,255,0.52)":"rgba(0,0,0,0.48)" }}>Email address</label>
                     <input type="email" placeholder="you@example.com" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                      required data-testid="input-forgot-email" className="form-input" style={inputStyle} />
+                      required data-testid="input-forgot-email" className="form-input" style={inputStyle} autoComplete="email" />
                   </div>
                   {forgotError && (
-                    <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, background: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)", border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.18)"}`, color: isDark ? "#f87171" : "#dc2626" }}>
+                    <div style={{ padding:"10px 14px", borderRadius:10, fontSize:13, background:isDark?"rgba(239,68,68,0.1)":"rgba(239,68,68,0.07)", border:`1px solid ${isDark?"rgba(239,68,68,0.25)":"rgba(239,68,68,0.18)"}`, color:isDark?"#f87171":"#dc2626" }}>
                       {forgotError}
                     </div>
                   )}
                   <button type="submit" disabled={forgotLoading} data-testid="button-send-reset"
-                    style={{ padding: "13px 0", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "none", cursor: forgotLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: forgotLoading ? 0.7 : 1, background: "linear-gradient(135deg,#7c3aed,#6d28d9)", color: "#fff", boxShadow: "0 4px 16px rgba(109,40,217,0.3)" }}>
+                    style={{ padding:"13px 0", borderRadius:12, fontSize:14, fontWeight:700, border:"none", cursor:forgotLoading?"not-allowed":"pointer", fontFamily:"inherit", opacity:forgotLoading?0.7:1, background:"linear-gradient(135deg,#14b8e8,#0284c7)", color:"#fff", boxShadow:"0 4px 16px rgba(20,184,232,0.3)" }}>
                     {forgotLoading ? "Sending…" : "Send reset link"}
                   </button>
                 </form>
@@ -910,33 +1002,29 @@ export default function Login() {
         </div>
       )}
 
-      {/* Debug panel */}
+      {/* Debug panel (native only) */}
       {isNativePlatform() && showDebug && (
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxHeight: "65vh", display: "flex", flexDirection: "column", background: "#0a0a14", borderTop: "1px solid rgba(167,139,250,0.2)", zIndex: 9999, fontFamily: "monospace", fontSize: 11 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
-            <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 12, letterSpacing: "0.05em" }}>ARTIXPOS DEBUG</span>
-            <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ position:"fixed", bottom:0, left:0, right:0, maxHeight:"65vh", display:"flex", flexDirection:"column", background:"#060f18", borderTop:"1px solid rgba(20,184,232,0.2)", zIndex:9999, fontFamily:"monospace", fontSize:11 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", borderBottom:"1px solid rgba(255,255,255,0.07)", flexShrink:0 }}>
+            <span style={{ color:"#38d9f5", fontWeight:700, fontSize:12, letterSpacing:"0.05em" }}>ARTIXPOS DEBUG</span>
+            <div style={{ display:"flex", gap:6 }}>
               <button onClick={() => { const text = debugEntries.map(e => `${e.ts} [${e.tag}] ${e.msg}`).join("\n"); navigator.clipboard?.writeText(text).then(() => alert("Logs copied!")); }}
-                style={{ color: "#60a5fa", background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 5, cursor: "pointer", fontSize: 10, padding: "2px 8px" }}>Copy</button>
-              <button onClick={refreshDebug} style={{ color: "#94a3b8", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, cursor: "pointer", fontSize: 10, padding: "2px 8px" }}>Refresh</button>
-              <button onClick={() => { clearDebugLogs(); setDebugEntries([]); }} style={{ color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: 5, cursor: "pointer", fontSize: 10, padding: "2px 8px" }}>Clear</button>
+                style={{ color:"#60a5fa", background:"rgba(96,165,250,0.1)", border:"1px solid rgba(96,165,250,0.2)", borderRadius:5, cursor:"pointer", fontSize:10, padding:"2px 8px" }}>Copy</button>
+              <button onClick={refreshDebug} style={{ color:"#94a3b8", background:"none", border:"1px solid rgba(255,255,255,0.1)", borderRadius:5, cursor:"pointer", fontSize:10, padding:"2px 8px" }}>Refresh</button>
+              <button onClick={() => { clearDebugLogs(); setDebugEntries([]); }} style={{ color:"#f87171", background:"rgba(248,113,113,0.08)", border:"1px solid rgba(248,113,113,0.2)", borderRadius:5, cursor:"pointer", fontSize:10, padding:"2px 8px" }}>Clear</button>
             </div>
           </div>
-          <div style={{ overflowY: "auto", flex: 1, padding: "4px 0" }}>
+          <div style={{ overflowY:"auto", flex:1, padding:"4px 0" }}>
             {debugEntries.length === 0 ? (
-              <div style={{ color: "#475569", fontStyle: "italic", padding: "8px 12px" }}>No logs yet.</div>
+              <div style={{ color:"#475569", fontStyle:"italic", padding:"8px 12px" }}>No logs yet.</div>
             ) : (
-              [...debugEntries].reverse().map((e, i) => {
-                const isFail = e.msg.toLowerCase().includes("fail") || e.msg.toLowerCase().includes("error");
-                const isOk = e.msg.toLowerCase().includes("ok ✓") || e.msg.toLowerCase().includes("ready");
-                return (
-                  <div key={i} style={{ padding: "3px 12px", borderLeft: isFail ? "2px solid #f87171" : isOk ? "2px solid #4ade80" : "2px solid transparent", background: isFail ? "rgba(248,113,113,0.05)" : "transparent" }}>
-                    <span style={{ color: "#475569" }}>{e.ts} </span>
-                    <span style={{ color: isFail ? "#f87171" : isOk ? "#4ade80" : "#a78bfa" }}>[{e.tag}] </span>
-                    <span style={{ color: isFail ? "#fca5a5" : "#cbd5e1", wordBreak: "break-all" }}>{e.msg}</span>
-                  </div>
-                );
-              })
+              debugEntries.slice().reverse().map((e, i) => (
+                <div key={i} style={{ padding:"3px 12px", borderBottom:"1px solid rgba(255,255,255,0.04)", display:"flex", gap:8 }}>
+                  <span style={{ color:"#475569", flexShrink:0 }}>{e.ts}</span>
+                  <span style={{ color:"#38d9f5", flexShrink:0 }}>[{e.tag}]</span>
+                  <span style={{ color:"#cbd5e1", wordBreak:"break-all" }}>{e.msg}</span>
+                </div>
+              ))
             )}
           </div>
         </div>

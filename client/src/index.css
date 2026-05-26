@@ -12,98 +12,98 @@
     --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
     /* ── Light mode ──────────────────────────────────────────── */
-    --background: 240 8% 96%;
-    --foreground: 240 15% 10%;
+    --background: 220 14% 96%;
+    --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 15% 10%;
+    --card-foreground: 220 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 15% 10%;
+    --popover-foreground: 220 20% 10%;
 
-    --primary: 262 83% 58%;
+    --primary: 170 100% 33%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 91%;
-    --secondary-foreground: 240 12% 24%;
+    --secondary: 220 8% 91%;
+    --secondary-foreground: 220 12% 24%;
 
-    --muted: 240 5% 92%;
-    --muted-foreground: 240 8% 50%;
+    --muted: 220 8% 92%;
+    --muted-foreground: 220 8% 50%;
 
-    --accent: 262 60% 95%;
-    --accent-foreground: 262 60% 35%;
+    --accent: 170 60% 93%;
+    --accent-foreground: 170 80% 22%;
 
     --destructive: 0 84% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 88%;
+    --border: 220 8% 88%;
     --input: 0 0% 100%;
-    --ring: 262 83% 58%;
+    --ring: 170 100% 33%;
     --radius: 1rem;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 15% 10%;
-    --sidebar-primary: 262 83% 58%;
+    --sidebar-foreground: 220 20% 10%;
+    --sidebar-primary: 170 100% 33%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 262 60% 95%;
-    --sidebar-accent-foreground: 262 60% 35%;
-    --sidebar-border: 240 6% 90%;
-    --sidebar-ring: 262 83% 58%;
+    --sidebar-accent: 170 60% 93%;
+    --sidebar-accent-foreground: 170 80% 22%;
+    --sidebar-border: 220 8% 90%;
+    --sidebar-ring: 170 100% 33%;
 
     /* Charts */
-    --chart-1: 262 83% 58%;
+    --chart-1: 170 100% 33%;
     --chart-2: 199 89% 48%;
-    --chart-3: 158 64% 45%;
-    --chart-4: 38 92% 55%;
-    --chart-5: 0 84% 60%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 280 65% 60%;
   }
 
   .dark {
-    --background: 248 50% 4%;
-    --foreground: 240 10% 94%;
+    --background: 210 20% 6%;
+    --foreground: 210 10% 94%;
 
-    --card: 248 35% 7%;
-    --card-foreground: 240 10% 94%;
+    --card: 210 16% 9%;
+    --card-foreground: 210 10% 94%;
 
-    --popover: 248 35% 7%;
-    --popover-foreground: 240 10% 94%;
+    --popover: 210 16% 9%;
+    --popover-foreground: 210 10% 94%;
 
-    --primary: 265 85% 72%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 170 85% 52%;
+    --primary-foreground: 220 20% 8%;
 
-    --secondary: 248 20% 13%;
-    --secondary-foreground: 240 8% 75%;
+    --secondary: 210 16% 14%;
+    --secondary-foreground: 210 8% 75%;
 
-    --muted: 248 20% 12%;
-    --muted-foreground: 240 8% 50%;
+    --muted: 210 16% 13%;
+    --muted-foreground: 210 8% 50%;
 
-    --accent: 262 45% 17%;
-    --accent-foreground: 265 80% 78%;
+    --accent: 170 50% 14%;
+    --accent-foreground: 170 80% 65%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 248 20% 14%;
-    --input: 248 25% 10%;
-    --ring: 265 85% 72%;
+    --border: 210 16% 15%;
+    --input: 210 20% 11%;
+    --ring: 170 85% 52%;
 
     /* Sidebar */
-    --sidebar-background: 248 50% 3%;
-    --sidebar-foreground: 240 10% 94%;
-    --sidebar-primary: 265 85% 72%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 262 45% 17%;
-    --sidebar-accent-foreground: 265 80% 78%;
-    --sidebar-border: 248 25% 12%;
-    --sidebar-ring: 265 85% 72%;
+    --sidebar-background: 210 22% 5%;
+    --sidebar-foreground: 210 10% 94%;
+    --sidebar-primary: 170 85% 52%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 170 50% 14%;
+    --sidebar-accent-foreground: 170 80% 65%;
+    --sidebar-border: 210 20% 13%;
+    --sidebar-ring: 170 85% 52%;
 
     /* Charts */
-    --chart-1: 265 85% 72%;
+    --chart-1: 170 85% 52%;
     --chart-2: 199 89% 58%;
-    --chart-3: 158 64% 52%;
-    --chart-4: 38 92% 62%;
-    --chart-5: 0 84% 66%;
+    --chart-3: 38 92% 62%;
+    --chart-4: 0 84% 66%;
+    --chart-5: 280 65% 70%;
   }
 }
 
@@ -125,18 +125,18 @@
     text-rendering: optimizeSpeed;
   }
 
-  /* Futuristic deep dark background with neon atmospheric glows */
+  /* Deep dark background with teal atmospheric glows */
   .dark body {
-    background-color: #060610;
+    background-color: #060e0d;
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -8%,  hsl(var(--primary) / 0.22) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 90% 100%, hsl(var(--primary) / 0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 30% at 2% 75%,   hsl(var(--primary) / 0.09) 0%, transparent 60%);
+      radial-gradient(ellipse 80% 50% at 50% -8%,  hsl(var(--primary) / 0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, hsl(var(--primary) / 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 2% 75%,   hsl(var(--primary) / 0.07) 0%, transparent 60%);
   }
 
   /* Light mode subtle tint */
   body:not(.dark) {
-    background-color: hsl(240, 8%, 96%);
+    background-color: hsl(220, 14%, 96%);
     background-image:
       radial-gradient(ellipse 70% 50% at 50% -10%, hsl(var(--primary) / 0.05) 0%, transparent 70%);
   }
@@ -168,14 +168,14 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Sidebar — white on light, near-black with violet tint on dark */
+/* Sidebar — white on light, near-black with teal tint on dark */
 .glass-sidebar {
   background: rgba(255, 255, 255, 0.99);
   border-right: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 1px 0 0 rgba(0, 0, 0, 0.03);
 }
 .dark .glass-sidebar {
-  background: #07060f;
+  background: #060e0d;
   border-right: 1px solid hsl(var(--primary) / 0.12);
   box-shadow: 1px 0 20px rgba(0, 0, 0, 0.4), 1px 0 0 hsl(var(--primary) / 0.08);
 }
@@ -188,7 +188,7 @@
   transform: translateZ(0);
 }
 .dark .glass-nav {
-  background: rgba(8, 9, 20, 0.99);
+  background: rgba(6, 14, 13, 0.99);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.05), 0 -4px 24px rgba(0, 0, 0, 0.45);
   transform: translateZ(0);
@@ -196,13 +196,13 @@
 
 /* Sticky headers */
 .glass-header {
-  background: rgba(244, 243, 249, 0.97);
+  background: rgba(243, 245, 245, 0.97);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03), 0 2px 10px rgba(0, 0, 0, 0.04);
   transform: translateZ(0);
 }
 .dark .glass-header {
-  background: rgba(6, 7, 16, 0.98);
+  background: rgba(6, 14, 13, 0.98);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 10px rgba(0, 0, 0, 0.25);
   transform: translateZ(0);
@@ -237,7 +237,7 @@
   will-change: transform;
 }
 .dark .glass-cart-bar {
-  background: rgba(8, 9, 22, 0.99);
+  background: rgba(6, 14, 13, 0.99);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: 0 -4px 28px rgba(0, 0, 0, 0.50);
   will-change: transform;
@@ -322,8 +322,8 @@
   --phantom-ui-hi: hsl(240, 6%, 96%);
 }
 .dark {
-  --phantom-ui-bg: hsl(248, 15%, 22%);
-  --phantom-ui-hi: hsl(248, 15%, 34%);
+  --phantom-ui-bg: hsl(210, 15%, 22%);
+  --phantom-ui-hi: hsl(210, 15%, 34%);
 }
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
@@ -397,8 +397,8 @@
   --sileo-width: 320px;
   --sileo-height: 44px;
   --sileo-duration: 550ms;
-  --sileo-state-info:    oklch(0.58 0.22 290);
-  --sileo-state-action:  oklch(0.58 0.22 290);
+  --sileo-state-info:    oklch(0.62 0.18 170);
+  --sileo-state-action:  oklch(0.62 0.18 170);
   --sileo-state-success: oklch(0.72 0.20 145);
   --sileo-state-warning: oklch(0.80 0.18 86);
   --sileo-state-error:   oklch(0.63 0.23 25);

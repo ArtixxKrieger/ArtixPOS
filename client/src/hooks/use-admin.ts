@@ -426,37 +426,6 @@ export function useSwitchBranch() {
   });
 }
 
-// ─── Invite Tokens ────────────────────────────────────────────────────────────
-
-export interface InviteResult {
-  token: string;
-  link: string;
-  expiresAt: string;
-}
-
-export function useCreateInvite() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { role: "manager" | "admin" | "cashier"; branchIds?: number[] }): Promise<InviteResult> =>
-      apiRequest("POST", "/api/admin/invite", data).then(r => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/invites"] });
-    },
-  });
-}
-
-function useRedeemInvite() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (token: string) =>
-      apiRequest("POST", "/api/admin/invite/redeem", { token }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["auth-me"] });
-      qc.invalidateQueries({ queryKey: ["/api/admin/tenant"] });
-    },
-  });
-}
-
 // ─── Ensure tenant ────────────────────────────────────────────────────────────
 
 export function useEnsureTenant() {

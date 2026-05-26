@@ -12,7 +12,6 @@ import {
   getAuditLogs, createAuditLog,
   getBranchAnalytics,
   getUserByEmail, verifyPassword,
-  createInviteToken, redeemInviteToken, getInviteTokens,
   banUser, unbanUser,
   getRolePermissions, upsertRolePermission, getRolePermissionForRole,
 } from "./admin-storage";
@@ -65,83 +64,6 @@ export function registerAdminRoutes(app: Express) {
       }
       next(err);
     }
-  });
-
-  // ─── Invite Tokens ────────────────────────────────────────────────────────
-
-  app.post("/api/admin/invite", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
-    try {
-      const user = getAuthUser(req);
-      const input = z.object({
-        role: z.enum(["manager", "admin", "cashier"]),
-        branchIds: z.array(z.number()).optional().default([]),
-      }).parse(req.body);
-
-      const invite = await createInviteToken({
-        tenantId: user.tenantId!,
-        role: input.role,
-        branchIds: input.branchIds,
-        createdBy: user.id,
-      });
-
-      await createAuditLog({
-        tenantId: user.tenantId!,
-        userId: user.id,
-        action: "create_invite",
-        entity: "invite_token",
-        entityId: String(invite.id),
-        metadata: { role: input.role },
-      });
-
-      // Return the invite link for the frontend to display
-      // Prefer APP_URL (e.g. Vercel production), fall back to localhost for dev
-      const link = `${getBaseUrl()}/login?invite=${invite.token}`;
-      res.json({ token: invite.token, link, expiresAt: invite.expiresAt });
-    } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      next(err);
-    }
-  });
-
-  app.post("/api/admin/invite/redeem", requireAuth, async (req, res, next) => {
-    try {
-      const user = getAuthUser(req);
-      const { token } = z.object({ token: z.string().min(1) }).parse(req.body);
-      const result = await redeemInviteToken(token, user.id);
-      if (!result.ok) {
-        return res.status(400).json({ message: result.message });
-      }
-
-      // Fetch updated user and issue new JWT
-      const updatedUser = await getUserById(user.id);
-      if (!updatedUser) return res.status(404).json({ message: "User not found" });
-
-      const tokenUser: TokenUser = {
-        id: updatedUser.id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        avatar: updatedUser.avatar,
-        provider: updatedUser.provider,
-        tenantId: updatedUser.tenantId,
-        role: updatedUser.role || "staff",
-        activeBranchId: null, // Just redeemed, hasn't picked a branch yet
-      };
-
-      const newToken = signToken(tokenUser);
-      res.cookie(AUTH_COOKIE, newToken, { ...AUTH_COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.json({ ok: true, token: newToken, role: result.role, tenantId: result.tenantId });
-    } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      next(err);
-    }
-  });
-
-  app.get("/api/admin/invites", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
-    try {
-      const user = getAuthUser(req);
-      const invites = await getInviteTokens(user.tenantId!);
-      res.json(invites);
-    } catch (err) { next(err); }
   });
 
   // ─── Tenant ───────────────────────────────────────────────────────────────

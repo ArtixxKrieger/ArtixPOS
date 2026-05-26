@@ -48,9 +48,6 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_user_branches_user ON user_branches(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_user_branches_branch ON user_branches(branch_id)`,
 
-  // ── Invite Tokens ─────────────────────────────────────────────────────────
-  `CREATE INDEX IF NOT EXISTS idx_invite_tokens_tenant ON invite_tokens(tenant_id)`,
-
   // ── Ingredients & Recipes ─────────────────────────────────────────────────
   `CREATE INDEX IF NOT EXISTS idx_ingredients_user_del ON ingredients(user_id, deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_product_recipes_product ON product_recipes(product_id)`,

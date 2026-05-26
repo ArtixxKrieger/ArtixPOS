@@ -137,7 +137,6 @@ export async function setupRLS(): Promise<void> {
     const tenantIdTables = [
       "branches",
       "audit_logs",
-      "invite_tokens",
       "or_sequences",
       "sales",
       "role_permissions",

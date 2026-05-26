@@ -92,21 +92,6 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Invite Tokens ────────────────────────────────────────────────────────────
-
-export const inviteTokens = pgTable("invite_tokens", {
-  id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
-  token: text("token").notNull().unique(),
-  role: text("role").notNull(), // manager | admin | cashier
-  branchIds: jsonb("branch_ids").$type<number[]>(),
-  createdBy: text("created_by").notNull().references(() => users.id),
-  usedBy: text("used_by").references(() => users.id),
-  usedAt: text("used_at"),
-  expiresAt: text("expires_at").notNull(),
-  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-});
-
 // ─── Products ─────────────────────────────────────────────────────────────────
 
 export const products = pgTable("products", {
@@ -1195,8 +1180,6 @@ export type InsertSupplierProduct = z.infer<typeof insertSupplierProductSchema>;
 export type Shift = typeof shifts.$inferSelect;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
-
-export type InviteToken = typeof inviteTokens.$inferSelect;
 
 export type TimeLog = typeof timeLogs.$inferSelect;
 export type InsertTimeLog = z.infer<typeof insertTimeLogSchema>;

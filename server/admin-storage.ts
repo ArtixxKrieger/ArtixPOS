@@ -1,8 +1,8 @@
 import { db } from "./db";
 import {
-  tenants, branches, users, userBranches, auditLogs, sales, inviteTokens, rolePermissions,
+  tenants, branches, users, userBranches, auditLogs, sales, rolePermissions,
   timeLogs,
-  type Tenant, type Branch, type User, type AuditLog, type UserBranch, type InviteToken, type RolePermission,
+  type Tenant, type Branch, type User, type AuditLog, type UserBranch, type RolePermission,
 } from "@shared/schema";
 import { eq, and, desc, inArray, isNull, sql, gte, lte } from "drizzle-orm";
 import { invalidateTenantCache } from "./storage";
@@ -313,86 +313,6 @@ export async function getRolePermissionForRole(tenantId: string, role: string): 
   const [perm] = await db.select().from(rolePermissions)
     .where(and(eq(rolePermissions.tenantId, tenantId), eq(rolePermissions.role, role)));
   return perm ?? null;
-}
-
-// ─── Invite Tokens ────────────────────────────────────────────────────────────
-
-export async function createInviteToken(data: {
-  tenantId: string;
-  role: "manager" | "admin" | "cashier";
-  branchIds: number[];
-  createdBy: string;
-}): Promise<InviteToken> {
-  const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  const [invite] = await (db.insert(inviteTokens) as any).values({
-    tenantId: data.tenantId,
-    token,
-    role: data.role,
-    branchIds: data.branchIds,
-    createdBy: data.createdBy,
-    expiresAt,
-  }).returning();
-  return invite;
-}
-
-export async function getInviteToken(token: string): Promise<InviteToken | undefined> {
-  const [invite] = await db.select().from(inviteTokens).where(eq(inviteTokens.token, token));
-  return invite;
-}
-
-export async function redeemInviteToken(token: string, userId: string): Promise<{ ok: boolean; message?: string; role?: string; tenantId?: string }> {
-  const invite = await getInviteToken(token);
-  if (!invite) return { ok: false, message: "Invite link not found or already used" };
-  if (invite.usedAt) return { ok: false, message: "This invite link has already been used" };
-  if (new Date(invite.expiresAt) < new Date()) return { ok: false, message: "This invite link has expired" };
-
-  // Check user doesn't already have a different tenant
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
-  if (!user) return { ok: false, message: "User not found" };
-  if (user.tenantId && user.tenantId !== invite.tenantId) {
-    return { ok: false, message: "You are already a member of another organization" };
-  }
-
-  // Prevent the invite creator from redeeming their own link
-  if (invite.createdBy === userId) {
-    return { ok: false, message: "You cannot redeem an invite link you created" };
-  }
-
-  // Never downgrade an existing owner via an invite link
-  if (user.role === "owner" && user.tenantId === invite.tenantId) {
-    return { ok: false, message: "Owners cannot be reassigned via invite links" };
-  }
-
-  // Assign user to tenant with role
-  await (db.update(users) as any)
-    .set({ tenantId: invite.tenantId, role: invite.role })
-    .where(eq(users.id, userId));
-
-  // Invalidate tenant cache so the new membership is immediately visible
-  invalidateTenantCache(userId);
-
-  // Assign branches in a single bulk insert
-  const branchIds = (invite.branchIds as number[]) || [];
-  await bulkAssignBranches(userId, branchIds);
-
-  // Mark token as used
-  await (db.update(inviteTokens) as any)
-    .set({ usedBy: userId, usedAt: new Date().toISOString() })
-    .where(eq(inviteTokens.token, token));
-
-  return { ok: true, role: invite.role, tenantId: invite.tenantId };
-}
-
-export async function getInviteTokens(tenantId: string): Promise<InviteToken[]> {
-  const now = new Date().toISOString();
-  return await db.select().from(inviteTokens)
-    .where(and(
-      eq(inviteTokens.tenantId, tenantId),
-      isNull(inviteTokens.usedAt),
-      sql`(expires_at IS NULL OR expires_at > ${now})`
-    ))
-    .orderBy(desc(inviteTokens.createdAt));
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────

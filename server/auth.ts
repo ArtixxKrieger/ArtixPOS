@@ -8,7 +8,7 @@ import {
   membershipPlans, memberships, membershipCheckIns,
   expenses, shifts, discountCodes, refunds, timeLogs,
   tables, suppliers, purchaseOrders, purchaseOrderItems, supplierProducts,
-  userBranches, inviteTokens, auditLogs,
+  userBranches, auditLogs,
   ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
   branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
   revokedTokens,
@@ -470,12 +470,6 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // Step 13 — notifications  (refs: users.id NOT NULL)
   await db.delete(notifications).where(inArray(notifications.userId, uids));
 
-  // Step 14 — invite_tokens  (refs: tenants.id NOT NULL, users.id NOT NULL x2)
-  await db.delete(inviteTokens).where(or(
-    inArray(inviteTokens.createdBy, uids),
-    inArray(inviteTokens.usedBy, uids),
-  ));
-
   // Step 15 — time_logs  (refs: users.id NOT NULL)
   await db.delete(timeLogs).where(inArray(timeLogs.userId, uids));
 
@@ -596,8 +590,6 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
   await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await db.update(auditLogs).set({ metadata: { tenantDeleted: true } } as any).where(eq(auditLogs.tenantId, tenantId));
-  await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, tenantId));
-
   // Step 5 — hard-delete the tenant row itself (no FK references remain)
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }

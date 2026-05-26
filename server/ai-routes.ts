@@ -1237,10 +1237,9 @@ CORE FEATURES (available to all businesses):
 4. To close: tap Close Shift → count the cash → confirm — shift summary is saved
 
 ▸ Staff Management
-1. Go to Settings → Invite Staff to generate an invite link
-2. Share the link with the team member — they sign up and are added to your store
-3. Assign roles (Manager or Cashier) — Cashiers can't see expenses or analytics
-4. To remove access: go to Settings → Staff → tap the member → Revoke Access
+1. Go to Settings → Team → tap a staff member → Set PIN to give them clock-in access
+2. Assign roles (Manager or Cashier) — Cashiers can't see expenses or analytics
+3. To remove access: go to Settings → Team → tap the member → Revoke Access
 
 ▸ Settings
 1. Go to Settings (found under More in the bottom nav, or sidebar on desktop)

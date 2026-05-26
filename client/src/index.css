@@ -12,98 +12,99 @@
     --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
     /* ── Light mode ──────────────────────────────────────────── */
-    --background: 220 14% 96%;
-    --foreground: 220 20% 10%;
+    --background: 220 30% 95%;
+    --foreground: 220 65% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 220 65% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 220 65% 12%;
 
-    --primary: 170 100% 33%;
+    --primary: 220 82% 28%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 8% 91%;
-    --secondary-foreground: 220 12% 24%;
+    --secondary: 220 18% 91%;
+    --secondary-foreground: 220 40% 22%;
 
-    --muted: 220 8% 92%;
-    --muted-foreground: 220 8% 50%;
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 18% 46%;
 
-    --accent: 170 60% 93%;
-    --accent-foreground: 170 80% 22%;
+    --accent: 48 95% 88%;
+    --accent-foreground: 48 90% 22%;
 
     --destructive: 0 84% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 8% 88%;
+    --border: 220 18% 86%;
     --input: 0 0% 100%;
-    --ring: 170 100% 33%;
+    --ring: 220 82% 28%;
     --radius: 1rem;
 
-    /* Sidebar */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 10%;
-    --sidebar-primary: 170 100% 33%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 170 60% 93%;
-    --sidebar-accent-foreground: 170 80% 22%;
-    --sidebar-border: 220 8% 90%;
-    --sidebar-ring: 170 100% 33%;
+    /* Sidebar — navy in light mode for brand identity */
+    --sidebar-background: 220 62% 16%;
+    --sidebar-foreground: 48 20% 92%;
+    --sidebar-primary: 48 96% 53%;
+    --sidebar-primary-foreground: 220 65% 10%;
+    --sidebar-accent: 220 55% 22%;
+    --sidebar-accent-foreground: 48 20% 92%;
+    --sidebar-border: 220 55% 22%;
+    --sidebar-ring: 48 96% 53%;
 
-    /* Charts */
-    --chart-1: 170 100% 33%;
+    /* Charts — yellow leads, then complementary palette */
+    --chart-1: 48 96% 50%;
     --chart-2: 199 89% 48%;
-    --chart-3: 38 92% 55%;
+    --chart-3: 158 64% 45%;
     --chart-4: 0 84% 60%;
-    --chart-5: 280 65% 60%;
+    --chart-5: 28 90% 55%;
   }
 
   .dark {
-    --background: 210 20% 6%;
-    --foreground: 210 10% 94%;
+    /* ── Deep navy surfaces with 4-level depth ──────────────── */
+    --background: 220 55% 7%;
+    --foreground: 48 18% 92%;
 
-    --card: 210 16% 9%;
-    --card-foreground: 210 10% 94%;
+    --card: 220 50% 10%;
+    --card-foreground: 48 18% 92%;
 
-    --popover: 210 16% 9%;
-    --popover-foreground: 210 10% 94%;
+    --popover: 220 48% 12%;
+    --popover-foreground: 48 18% 92%;
 
-    --primary: 170 85% 52%;
-    --primary-foreground: 220 20% 8%;
+    --primary: 48 96% 53%;
+    --primary-foreground: 220 65% 8%;
 
-    --secondary: 210 16% 14%;
-    --secondary-foreground: 210 8% 75%;
+    --secondary: 220 42% 16%;
+    --secondary-foreground: 220 18% 68%;
 
-    --muted: 210 16% 13%;
-    --muted-foreground: 210 8% 50%;
+    --muted: 220 38% 14%;
+    --muted-foreground: 220 14% 50%;
 
-    --accent: 170 50% 14%;
-    --accent-foreground: 170 80% 65%;
+    --accent: 48 70% 15%;
+    --accent-foreground: 48 96% 65%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 16% 15%;
-    --input: 210 20% 11%;
-    --ring: 170 85% 52%;
+    --border: 220 42% 18%;
+    --input: 220 50% 11%;
+    --ring: 48 96% 53%;
 
-    /* Sidebar */
-    --sidebar-background: 210 22% 5%;
-    --sidebar-foreground: 210 10% 94%;
-    --sidebar-primary: 170 85% 52%;
-    --sidebar-primary-foreground: 220 20% 8%;
-    --sidebar-accent: 170 50% 14%;
-    --sidebar-accent-foreground: 170 80% 65%;
-    --sidebar-border: 210 20% 13%;
-    --sidebar-ring: 170 85% 52%;
+    /* Sidebar — deepest navy layer */
+    --sidebar-background: 220 62% 5%;
+    --sidebar-foreground: 48 18% 92%;
+    --sidebar-primary: 48 96% 53%;
+    --sidebar-primary-foreground: 220 65% 8%;
+    --sidebar-accent: 220 50% 14%;
+    --sidebar-accent-foreground: 48 96% 68%;
+    --sidebar-border: 220 50% 13%;
+    --sidebar-ring: 48 96% 53%;
 
-    /* Charts */
-    --chart-1: 170 85% 52%;
+    /* Charts — yellow leads, complementary palette */
+    --chart-1: 48 96% 53%;
     --chart-2: 199 89% 58%;
-    --chart-3: 38 92% 62%;
+    --chart-3: 158 64% 52%;
     --chart-4: 0 84% 66%;
-    --chart-5: 280 65% 70%;
+    --chart-5: 28 90% 62%;
   }
 }
 
@@ -125,18 +126,18 @@
     text-rendering: optimizeSpeed;
   }
 
-  /* Deep dark background with teal atmospheric glows */
+  /* Deep navy background with amber atmospheric glows */
   .dark body {
-    background-color: #060e0d;
+    background-color: #07101E;
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -8%,  hsl(var(--primary) / 0.18) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 90% 100%, hsl(var(--primary) / 0.10) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 30% at 2% 75%,   hsl(var(--primary) / 0.07) 0%, transparent 60%);
+      radial-gradient(ellipse 80% 50% at 50% -8%,  hsl(220 60% 18% / 0.60) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, hsl(48 96% 53% / 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 2% 75%,   hsl(220 60% 14% / 0.50) 0%, transparent 60%);
   }
 
   /* Light mode subtle tint */
   body:not(.dark) {
-    background-color: hsl(220, 14%, 96%);
+    background-color: hsl(220, 30%, 95%);
     background-image:
       radial-gradient(ellipse 70% 50% at 50% -10%, hsl(var(--primary) / 0.05) 0%, transparent 70%);
   }
@@ -168,16 +169,16 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Sidebar — white on light, near-black with teal tint on dark */
+/* Sidebar — deep navy both modes */
 .glass-sidebar {
-  background: rgba(255, 255, 255, 0.99);
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.03);
+  background: hsl(220, 62%, 16%);
+  border-right: 1px solid hsl(220, 55%, 22%);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.12);
 }
 .dark .glass-sidebar {
-  background: #060e0d;
-  border-right: 1px solid hsl(var(--primary) / 0.12);
-  box-shadow: 1px 0 20px rgba(0, 0, 0, 0.4), 1px 0 0 hsl(var(--primary) / 0.08);
+  background: #060F1D;
+  border-right: 1px solid hsl(220 50% 13%);
+  box-shadow: 1px 0 20px rgba(0, 0, 0, 0.5), 1px 0 0 hsl(48 96% 53% / 0.06);
 }
 
 /* Fixed bottom nav */
@@ -188,23 +189,23 @@
   transform: translateZ(0);
 }
 .dark .glass-nav {
-  background: rgba(6, 14, 13, 0.99);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.05), 0 -4px 24px rgba(0, 0, 0, 0.45);
+  background: rgba(7, 16, 30, 0.99);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04), 0 -4px 24px rgba(0, 0, 0, 0.55);
   transform: translateZ(0);
 }
 
 /* Sticky headers */
 .glass-header {
-  background: rgba(243, 245, 245, 0.97);
+  background: rgba(232, 237, 248, 0.97);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03), 0 2px 10px rgba(0, 0, 0, 0.04);
   transform: translateZ(0);
 }
 .dark .glass-header {
-  background: rgba(6, 14, 13, 0.98);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 10px rgba(0, 0, 0, 0.25);
+  background: rgba(7, 16, 30, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 10px rgba(0, 0, 0, 0.35);
   transform: translateZ(0);
 }
 
@@ -237,9 +238,9 @@
   will-change: transform;
 }
 .dark .glass-cart-bar {
-  background: rgba(6, 14, 13, 0.99);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 -4px 28px rgba(0, 0, 0, 0.50);
+  background: rgba(7, 16, 30, 0.99);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 -4px 28px rgba(0, 0, 0, 0.60);
   will-change: transform;
 }
 
@@ -322,8 +323,8 @@
   --phantom-ui-hi: hsl(240, 6%, 96%);
 }
 .dark {
-  --phantom-ui-bg: hsl(210, 15%, 22%);
-  --phantom-ui-hi: hsl(210, 15%, 34%);
+  --phantom-ui-bg: hsl(220, 38%, 18%);
+  --phantom-ui-hi: hsl(220, 38%, 28%);
 }
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
@@ -397,8 +398,8 @@
   --sileo-width: 320px;
   --sileo-height: 44px;
   --sileo-duration: 550ms;
-  --sileo-state-info:    oklch(0.62 0.18 170);
-  --sileo-state-action:  oklch(0.62 0.18 170);
+  --sileo-state-info:    oklch(0.60 0.18 240);
+  --sileo-state-action:  oklch(0.82 0.20 88);
   --sileo-state-success: oklch(0.72 0.20 145);
   --sileo-state-warning: oklch(0.80 0.18 86);
   --sileo-state-error:   oklch(0.63 0.23 25);

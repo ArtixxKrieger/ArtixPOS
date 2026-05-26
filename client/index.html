@@ -82,109 +82,19 @@
         to{opacity:1;transform:translateY(0)}
       }
 
-      /* ── Logo ── */
-      .sp-logo-wrap{
-        position:relative;
-        width:96px;height:96px;
-        display:flex;align-items:center;justify-content:center;
-      }
-      .sp-ring{
-        position:absolute;border-radius:50%;
-        border:1.5px solid var(--sp-accent);
-        animation:sp-ring-pulse 3s ease-in-out infinite;
-      }
-      .sp-ring:nth-child(1){width:124px;height:124px;opacity:0.4;animation-delay:0s}
-      .sp-ring:nth-child(2){width:158px;height:158px;opacity:0.22;animation-delay:0.6s}
-      .sp-ring:nth-child(3){width:196px;height:196px;opacity:0.1;animation-delay:1.2s}
-      @keyframes sp-ring-pulse{
-        0%,100%{transform:scale(0.94);opacity:0.35}
-        50%{transform:scale(1.04);opacity:0.08}
-      }
-
-      .sp-logo-box{
-        position:relative;z-index:1;
-        width:84px;height:84px;border-radius:24px;
-        background:linear-gradient(145deg,#7c3aed 0%,#a855f7 60%,#c084fc 100%);
-        display:flex;align-items:center;justify-content:center;
-        animation:sp-logo-glow 2.4s ease-in-out infinite;
-        cursor:default;
-        user-select:none;
-      }
-      @keyframes sp-logo-glow{
-        0%,100%{
-          box-shadow:
-            0 0 0 0 rgba(124,58,237,0),
-            0 0 30px 6px rgba(124,58,237,0.3),
-            0 0 70px 16px rgba(124,58,237,0.1);
-        }
-        50%{
-          box-shadow:
-            0 0 0 8px rgba(124,58,237,0.06),
-            0 0 45px 12px rgba(168,85,247,0.5),
-            0 0 110px 30px rgba(168,85,247,0.18);
-        }
-      }
-      .sp-logo-a{
-        font-size:36px;font-weight:800;color:#fff;
-        letter-spacing:-1.5px;line-height:1;
-        text-shadow:0 2px 16px rgba(0,0,0,0.25);
-        font-family:'Plus Jakarta Sans',sans-serif;
-        transition:transform 0.15s ease;
-      }
-
-      /* ── Brand ── */
-      .sp-brand-block{
-        display:flex;flex-direction:column;align-items:center;gap:8px;
-      }
-      .sp-letters{
-        display:flex;gap:1px;
-        overflow:hidden;
-      }
-      .sp-letters span{
-        display:inline-block;
-        font-size:14px;font-weight:700;letter-spacing:4px;
+      /* ── Wordmark ── */
+      .sp-wordmark{
+        font-size:clamp(28px,5vw,42px);
+        font-weight:800;
+        letter-spacing:0.18em;
         color:var(--sp-accent);
         font-family:'Plus Jakarta Sans',sans-serif;
-        animation:sp-letter-in 0.5s cubic-bezier(0.22,1,0.36,1) both;
+        user-select:none;
+        animation:sp-word-in 0.9s cubic-bezier(0.22,1,0.36,1) both;
       }
-      .sp-letters span:nth-child(1){animation-delay:0.18s}
-      .sp-letters span:nth-child(2){animation-delay:0.22s}
-      .sp-letters span:nth-child(3){animation-delay:0.26s}
-      .sp-letters span:nth-child(4){animation-delay:0.30s}
-      .sp-letters span:nth-child(5){animation-delay:0.34s}
-      .sp-letters span:nth-child(6){animation-delay:0.38s}
-      .sp-letters span:nth-child(7){animation-delay:0.42s}
-      .sp-letters span:nth-child(8){animation-delay:0.46s}
-      @keyframes sp-letter-in{
-        from{opacity:0;transform:translateY(12px) scaleY(0.6)}
-        to{opacity:1;transform:translateY(0) scaleY(1)}
-      }
-      .sp-tagline{
-        font-size:11px;letter-spacing:2.5px;text-transform:uppercase;
-        color:var(--sp-muted);
-        font-family:'Plus Jakarta Sans',sans-serif;
-        animation:sp-fade 0.6s ease 0.65s both;
-      }
-      @keyframes sp-fade{from{opacity:0}to{opacity:1}}
-
-      /* ── Progress bar ── */
-      .sp-bar-wrap{
-        width:160px;height:2px;
-        background:rgba(124,58,237,0.12);
-        border-radius:99px;overflow:hidden;
-        animation:sp-fade 0.6s ease 0.75s both;
-      }
-      .sp-bar-fill{
-        height:100%;width:0%;
-        border-radius:99px;
-        background:linear-gradient(90deg,#7c3aed,#a855f7,#c084fc,#7c3aed);
-        background-size:300% 100%;
-        animation:sp-shimmer 1.8s linear infinite;
-        transition:width 0.5s cubic-bezier(0.4,0,0.2,1);
-      }
-      @keyframes sp-shimmer{
-        0%{background-position:100% 0}
-        100%{background-position:-100% 0}
+      @keyframes sp-word-in{
+        from{opacity:0;transform:translateY(6px)}
+        to{opacity:1;transform:translateY(0)}
       }
 
       /* ── Crash / error UI (keep working) ── */
@@ -368,28 +278,7 @@
       <canvas id="sp-canvas"></canvas>
 
       <div class="sp-center">
-        <!-- Logo with pulsing rings -->
-        <div class="sp-logo-wrap">
-          <div class="sp-ring"></div>
-          <div class="sp-ring"></div>
-          <div class="sp-ring"></div>
-          <div class="sp-logo-box" id="sp-logo-box">
-            <span class="sp-logo-a">A</span>
-          </div>
-        </div>
-
-        <!-- Brand name + tagline -->
-        <div class="sp-brand-block">
-          <div class="sp-letters">
-            <span>A</span><span>R</span><span>T</span><span>I</span><span>X</span><span>P</span><span>O</span><span>S</span>
-          </div>
-          <div class="sp-tagline">Business OS</div>
-        </div>
-
-        <!-- Thin progress bar -->
-        <div class="sp-bar-wrap">
-          <div class="sp-bar-fill" id="sp-progress"></div>
-        </div>
+        <div class="sp-wordmark">ARTIXPOS</div>
       </div>
     </div>
 
@@ -405,7 +294,7 @@
         var W = 0, H = 0;
         var mouse = { x: -9999, y: -9999 };
         var particles = [];
-        var raf, pInterval;
+        var raf;
         var alive = true;
 
         function resize() {
@@ -427,23 +316,6 @@
           mouse.x = -9999; mouse.y = -9999;
         }, { passive: true });
 
-        /* Logo click bounce */
-        var logoBox = document.getElementById('sp-logo-box');
-        if (logoBox) {
-          logoBox.addEventListener('click', function() {
-            /* Burst particles outward from center */
-            for (var i = 0; i < particles.length; i++) {
-              var p = particles[i];
-              var dx = p.ox - W/2, dy = p.oy - H/2;
-              var dist = Math.sqrt(dx*dx+dy*dy) || 1;
-              p.ox += (dx/dist) * (60 + Math.random()*80);
-              p.oy += (dy/dist) * (60 + Math.random()*80);
-              setTimeout((function(pp, ox, oy) {
-                return function() { pp.ox = ox; pp.oy = oy; };
-              })(p, p.ox - (dx/dist)*(60+Math.random()*80), p.oy - (dy/dist)*(60+Math.random()*80)), 600);
-            }
-          });
-        }
 
         /* Build particles — distributed across screen with bias toward edges */
         var DARK_COLORS  = ['139,92,246', '167,139,250', '196,181,253', '124,58,237', '216,180,254'];
@@ -467,13 +339,6 @@
           });
         }
 
-        /* Progress simulation */
-        var progress = 0;
-        var progressEl = document.getElementById('sp-progress');
-        pInterval = setInterval(function() {
-          progress = Math.min(progress + Math.random() * 12 + 4, 88);
-          if (progressEl) progressEl.style.width = progress + '%';
-        }, 280);
 
         /* Draw loop */
         function draw() {
@@ -536,7 +401,6 @@
               if (n.id === 'app-splash') {
                 alive = false;
                 cancelAnimationFrame(raf);
-                clearInterval(pInterval);
                 window.removeEventListener('resize', resize);
                 mo.disconnect();
               }

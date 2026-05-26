@@ -125,15 +125,30 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Features carousel
-  const [featSlide, setFeatSlide] = useState(0);
+  // Features marquee — continuous rAF scroll, pauses on hover/touch
+  const featTrackRef = useRef<HTMLDivElement>(null);
   const featPausedRef = useRef(false);
-  const FEAT_PAGES = 4; // 12 features / 3 per page
+  const featPosRef = useRef(0);
+  const featTouchStartXRef = useRef(0);
+  const featTouchStartPosRef = useRef(0);
+
   useEffect(() => {
-    const t = setInterval(() => {
-      if (!featPausedRef.current) setFeatSlide(s => (s + 1) % FEAT_PAGES);
-    }, 3800);
-    return () => clearInterval(t);
+    const el = featTrackRef.current;
+    if (!el) return;
+    const SPEED = 0.55;
+    let raf: number;
+    const tick = () => {
+      if (!featPausedRef.current) {
+        const halfW = el.scrollWidth / 2;
+        if (halfW > 0) {
+          featPosRef.current = (featPosRef.current + SPEED) % halfW;
+          el.style.transform = `translateX(${-featPosRef.current}px)`;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   // Stats counter visibility
@@ -841,49 +856,62 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Carousel track */}
+        {/* Continuous marquee track — duplicated for seamless loop, swipe to pause/scrub */}
         <div
-          style={{ overflow: "hidden", position: "relative" }}
+          style={{ overflow: "hidden", position: "relative", cursor: "grab", userSelect: "none" }}
           onMouseEnter={() => { featPausedRef.current = true; }}
           onMouseLeave={() => { featPausedRef.current = false; }}
+          onTouchStart={e => {
+            featPausedRef.current = true;
+            featTouchStartXRef.current = e.touches[0].clientX;
+            featTouchStartPosRef.current = featPosRef.current;
+          }}
+          onTouchMove={e => {
+            const delta = featTouchStartXRef.current - e.touches[0].clientX;
+            const el = featTrackRef.current;
+            if (!el) return;
+            const halfW = el.scrollWidth / 2;
+            let newPos = (featTouchStartPosRef.current + delta) % halfW;
+            if (newPos < 0) newPos += halfW;
+            featPosRef.current = newPos;
+            el.style.transform = `translateX(${-newPos}px)`;
+          }}
+          onTouchEnd={() => {
+            setTimeout(() => { featPausedRef.current = false; }, 1200);
+          }}
         >
-          <div style={{
-            display: "flex",
-            transform: `translateX(${-featSlide * 100}%)`,
-            transition: "transform 0.6s cubic-bezier(0.16,1,0.3,1)",
-            willChange: "transform",
-          }}>
-            {[
-              [
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>, title: "Point of Sale", desc: "Full POS with barcode scanning, cash/card/split payments, and receipt printing. Keeps working offline — syncs automatically when you're back online.", color: BLUE },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, title: "Real-time Analytics", desc: "Live dashboard with today's revenue, top products, staff performance, and hourly trends. Export to Excel or PDF the moment a sale is made.", color: "#34d399" },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M22 2 16 8"/><path d="M17 2h5v5"/></svg>, title: "AI Business Assistant", desc: "Ask the built-in AI about your own data — \"What sold most this week?\" or \"Which branch is underperforming?\" Powered by multiple AI providers with automatic fallback.", color: "#a78bfa" },
-              ],
-              [
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, title: "Multi-branch Management", desc: "Run multiple locations under one account. Assign staff to branches, transfer stock between them, and view combined or per-branch reports.", color: BLUE },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>, title: "Inventory & Expiry", desc: "Track stock levels with automatic low-stock alerts. An expiry tracker flags items before they go bad. Full purchase order flow from supplier to shelf.", color: "#34d399" },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, title: "Staff & Payroll", desc: "Time clock, shift scheduling, payroll periods, and payroll entries. Staff clock in from any device. See labor cost versus revenue in one place.", color: "#f59e0b" },
-              ],
-              [
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>, title: "Appointments & Rooms", desc: "Book service appointments, assign to staff and rooms, and check out directly from the appointment screen. Works for salons, clinics, spas, and more.", color: "#a78bfa" },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>, title: "Loyalty & Memberships", desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins. Customers track their balance and redeem rewards at checkout.", color: "#f472b6" },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, title: "Tax Compliance & Audit", desc: "Built-in compliance reports with OR number tracking, VAT computation, and a full void/refund audit trail. Every transaction is logged and tamper-evident.", color: "#34d399" },
-              ],
-              [
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, title: "Expenses & Suppliers", desc: "Log business expenses by category, attach notes, and track against revenue. Manage suppliers and purchase orders from the same screen.", color: "#f59e0b" },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>, title: "WiFi Voucher Management", desc: "Generate and sell timed internet vouchers directly from the POS. Built for cafes, hotels, and restaurants that offer paid WiFi to guests.", color: BLUE },
-                { Icon: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>, title: "Receipt & Kitchen Print", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders to the kitchen in real time — no paper tickets needed.", color: "#a78bfa" },
-              ],
-            ].map((page, pageIdx) => (
-              <div key={pageIdx} style={{ minWidth: "100%", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, padding: "4px 48px 8px" }}>
-                {page.map(({ Icon, title, desc, color }, i) => (
-                  <div key={i} className="fcard" style={{ padding: "28px 26px 30px", borderRadius: 18, background: CARD, border: "1px solid rgba(20,184,232,0.10)", display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div style={{ width: 46, height: 46, borderRadius: 13, background: `${color}14`, border: `1px solid ${color}28`, display: "flex", alignItems: "center", justifyContent: "center", color, flexShrink: 0 }}>
-                      <Icon />
+          {/* Fade edges */}
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right, ${DARK}, transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left, ${DARK}, transparent)`, zIndex: 2, pointerEvents: "none" }} />
+
+          <div
+            ref={featTrackRef}
+            style={{ display: "flex", gap: 18, padding: "4px 0 12px", willChange: "transform" }}
+          >
+            {/* Cards rendered twice for seamless loop */}
+            {[0, 1].map(pass => (
+              <div key={pass} style={{ display: "flex", gap: 18, flexShrink: 0 }}>
+                {[
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>, title: "Point of Sale", desc: "Barcode scanning, cash/card/split payments, receipt printing. Works offline and syncs when back online.", color: BLUE },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, title: "Real-time Analytics", desc: "Live revenue, top products, hourly trends, and staff performance. Export to Excel or PDF anytime.", color: "#34d399" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>, title: "AI Business Assistant", desc: "Ask questions about your own data. \"What sold most this week?\" Multiple AI providers with automatic fallback.", color: "#a78bfa" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, title: "Multi-branch", desc: "One account, multiple locations. Assign staff to branches, transfer stock, and view per-branch reports.", color: BLUE },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>, title: "Inventory & Expiry", desc: "Automatic low-stock alerts, expiry tracking, and full purchase order flow from supplier to shelf.", color: "#34d399" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, title: "Staff & Payroll", desc: "Time clock, shift scheduling, payroll entries. Staff clock in from any device. Track labor cost vs. revenue.", color: "#f59e0b" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>, title: "Appointments & Rooms", desc: "Book and check out service appointments directly. Works for salons, clinics, spas, and hospitality.", color: "#a78bfa" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>, title: "Loyalty & Memberships", desc: "Points-based loyalty with tiered rewards. Membership plans with recurring check-ins and redemptions at checkout.", color: "#f472b6" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, title: "Tax & Audit Log", desc: "OR number tracking, VAT computation, and a full void/refund audit trail. Every transaction is logged and tamper-evident.", color: "#34d399" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, title: "Expenses & Suppliers", desc: "Track expenses by category, manage suppliers and purchase orders, and compare costs against revenue.", color: "#f59e0b" },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>, title: "WiFi Voucher Management", desc: "Generate and sell timed WiFi access vouchers directly from the POS. Built for cafes, hotels, and restaurants.", color: BLUE },
+                  { svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>, title: "Receipt & Kitchen Print", desc: "Bluetooth, network, and USB printer support. Kitchen Display System routes orders in real time — no paper tickets.", color: "#a78bfa" },
+                ].map(({ svg, title, desc, color }, i) => (
+                  <div key={i} className="fcard" style={{ width: 300, flexShrink: 0, padding: "24px 22px", borderRadius: 16, background: CARD, border: "1px solid rgba(20,184,232,0.10)", display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: `${color}14`, border: `1px solid ${color}26`, display: "flex", alignItems: "center", justifyContent: "center", color, flexShrink: 0 }}>
+                      {svg}
                     </div>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{title}</div>
-                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.44)", lineHeight: 1.72 }}>{desc}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{title}</div>
+                      <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.42)", lineHeight: 1.68 }}>{desc}</div>
                     </div>
                   </div>
                 ))}
@@ -891,31 +919,7 @@ export default function Login() {
             ))}
           </div>
         </div>
-
-        {/* Pagination dots + prev/next */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 36 }}>
-          <button
-            onClick={() => setFeatSlide(s => (s - 1 + FEAT_PAGES) % FEAT_PAGES)}
-            style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(20,184,232,0.06)", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.2s, background 0.2s" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.5)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.12)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.22)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.06)"; }}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div style={{ display: "flex", gap: 8 }}>
-            {Array.from({ length: FEAT_PAGES }).map((_, i) => (
-              <button key={i} onClick={() => setFeatSlide(i)} style={{ width: i === featSlide ? 24 : 8, height: 8, borderRadius: 4, border: "none", cursor: "pointer", background: i === featSlide ? BLUE : "rgba(255,255,255,0.16)", transition: "width 0.3s ease, background 0.3s ease", padding: 0 }} />
-            ))}
-          </div>
-          <button
-            onClick={() => setFeatSlide(s => (s + 1) % FEAT_PAGES)}
-            style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(20,184,232,0.06)", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.2s, background 0.2s" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.5)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.12)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.22)"; (e.currentTarget as HTMLElement).style.background = "rgba(20,184,232,0.06)"; }}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)", letterSpacing: "0.04em" }}>Swipe or hover to pause</div>
       </section>
 
       {/* ── DEVICES ── */}
@@ -931,13 +935,13 @@ export default function Login() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {[
-                { icon: "📱", d: "Phone", sub: "Full POS, approvals, and push notifications" },
-                { icon: "📟", d: "Tablet", sub: "Best cashier screen — fast, touch-optimized" },
-                { icon: "💻", d: "Laptop", sub: "Analytics, management, and back-office" },
-                { icon: "🖥️", d: "Desktop", sub: "Kitchen display, kiosk mode, multi-window" },
+                { svg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>, d: "Phone", sub: "Full POS, approvals, and push notifications" },
+                { svg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>, d: "Tablet", sub: "Best cashier screen — fast, touch-optimized" },
+                { svg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>, d: "Laptop", sub: "Analytics, management, and back-office" },
+                { svg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="2 20 22 20"/></svg>, d: "Desktop", sub: "Kitchen display, kiosk mode, multi-window" },
               ].map((dev, i) => (
                 <div key={i} className={`sr sr-left sr-d${i + 2}`} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 13, background: "rgba(20,184,232,0.09)", border: "1px solid rgba(20,184,232,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, transition: "background 0.2s, transform 0.2s" }}>{dev.icon}</div>
+                  <div style={{ width: 42, height: 42, borderRadius: 13, background: "rgba(20,184,232,0.09)", border: "1px solid rgba(20,184,232,0.18)", display: "flex", alignItems: "center", justifyContent: "center", color: NEON, flexShrink: 0 }}>{dev.svg}</div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{dev.d}</div>
                     <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.38)", marginTop: 2 }}>{dev.sub}</div>
@@ -949,9 +953,9 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {[
               { label: "Offline POS", desc: "Sells even with no connection. Auto-syncs when you're back online.", color: NEON },
-              { label: "Install as App", desc: "Add to home screen — behaves like a native app, no app store.", color: "#34d399" },
+              { label: "Install as App", desc: "Add to home screen — behaves like a native app, no app store needed.", color: "#34d399" },
               { label: "Wireless Printing", desc: "Print to Bluetooth or network thermal printers from any device.", color: "#a78bfa" },
-              { label: "QR Payments", desc: "Show payment QR codes at checkout for bank transfer and e-wallets.", color: "#f59e0b" },
+              { label: "Push Notifications", desc: "Get alerts when stock runs low, staff clock in, or daily sales targets are hit.", color: "#f59e0b" },
             ].map((c, i) => (
               <div key={i} className={`sr sr-right sr-d${i + 1} dcard`} style={{ padding: "20px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.11)" }}>
                 <div style={{ width: 9, height: 9, borderRadius: "50%", background: c.color, boxShadow: `0 0 10px ${c.color}`, marginBottom: 11 }} />
@@ -979,14 +983,14 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, position: "relative" }}>
             <div style={{ position: "absolute", top: 32, left: "12.5%", right: "12.5%", height: 1, background: "linear-gradient(90deg, transparent, rgba(20,184,232,0.20), rgba(20,184,232,0.20), transparent)", zIndex: 0 }} />
             {[
-              { step: "01", icon: "👤", title: "Create your account", body: "Sign up free in 2 minutes. No credit card, no setup fee, no expiry on the free plan.", color: BLUE },
-              { step: "02", icon: "📦", title: "Add your products",   body: "Enter products manually or import a list. Set prices, categories, and stock levels.", color: "#34d399" },
-              { step: "03", icon: "💳", title: "Make your first sale",body: "Open the POS on any device — phone, tablet, or desktop. Works even without internet.", color: "#a78bfa" },
-              { step: "04", icon: "📊", title: "Watch your business", body: "Sales, inventory, staff activity, and expenses — all updating in real time, one screen.", color: "#f59e0b" },
+              { step: "01", svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>, title: "Create your account", body: "Sign up free in 2 minutes. No credit card, no setup fee, no expiry on the free plan.", color: BLUE },
+              { step: "02", svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>, title: "Add your products", body: "Enter products manually or import a list. Set prices, categories, and stock levels.", color: "#34d399" },
+              { step: "03", svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>, title: "Make your first sale", body: "Open the POS on any device — phone, tablet, or desktop. Works even without internet.", color: "#a78bfa" },
+              { step: "04", svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, title: "Watch your business", body: "Sales, inventory, staff activity, and expenses — all updating in real time, one screen.", color: "#f59e0b" },
             ].map((item, i) => (
               <div key={i} className={`sr sr-d${i + 1} lp-step`} style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 20px" }}>
-                <div className="lp-step-circle" style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(15,30,48,0.95)", border: `1.5px solid ${item.color}40`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, flexShrink: 0, position: "relative" }}>
-                  <span style={{ fontSize: 28 }}>{item.icon}</span>
+                <div className="lp-step-circle" style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(15,30,48,0.95)", border: `1.5px solid ${item.color}40`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, flexShrink: 0, position: "relative", color: item.color }}>
+                  {item.svg}
                   <div style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: item.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <span style={{ fontSize: 10, fontWeight: 900, color: "#0C1420" }}>{item.step}</span>
                   </div>
@@ -1022,7 +1026,9 @@ export default function Login() {
             <div className="sr sr-left sr-d1 sec-card-pink">
               <div style={{ height: 3, background: "linear-gradient(90deg, #f472b6, #e879f9)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
-                <div style={{ fontSize: 40, marginBottom: 20 }}>📋</div>
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(244,114,182,0.10)", border: "1px solid rgba(244,114,182,0.22)", display: "flex", alignItems: "center", justifyContent: "center", color: "#f472b6", marginBottom: 20 }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                   Every action leaves a permanent record. Nobody can delete it.
                 </div>
@@ -1041,7 +1047,9 @@ export default function Login() {
             <div className="sr sr-right sr-d1 sec-card-blue">
               <div style={{ height: 3, background: "linear-gradient(90deg, #0ea5e9, #38bdf8)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
-                <div style={{ fontSize: 40, marginBottom: 20 }}>🔒</div>
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(14,165,233,0.10)", border: "1px solid rgba(14,165,233,0.22)", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8", marginBottom: 20 }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 14, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                   Remove a staff account and they're locked out instantly — on every device.
                 </div>

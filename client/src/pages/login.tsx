@@ -354,34 +354,37 @@ export default function Login() {
   const loginForm = (
     <div style={{ width: "100%", maxWidth: 400 }}>
       <style>{`
-        @keyframes rise  { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spin  { to{transform:rotate(360deg)} }
+        /* ── Keyframes ── */
+        @keyframes rise        { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spin        { to{transform:rotate(360deg)} }
         @keyframes slide-in-right { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes sr-in { from{opacity:0;transform:translateY(36px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes sr-in-left { from{opacity:0;transform:translateX(-36px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes sr-in-right { from{opacity:0;transform:translateX(36px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes sr-scale { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
-        @keyframes glow-pulse { 0%,100%{box-shadow:0 0 20px rgba(20,184,232,0.25)} 50%{box-shadow:0 0 40px rgba(20,184,232,0.5)} }
-        @keyframes float-slow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
-        @keyframes count-bar  { from{transform:scaleX(0)} to{transform:scaleX(1)} }
-        @keyframes pulse-dot  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
-        @keyframes shimmer    { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        @keyframes border-glow { 0%,100%{border-color:rgba(20,184,232,0.15)} 50%{border-color:rgba(56,217,245,0.4)} }
+        @keyframes glow-pulse  { 0%,100%{box-shadow:0 0 22px rgba(20,184,232,0.30)} 50%{box-shadow:0 0 48px rgba(20,184,232,0.62)} }
+        @keyframes float-slow  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+        @keyframes pulse-dot   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.45;transform:scale(0.72)} }
+        @keyframes shimmer     { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes shimmer-sweep { from{transform:translateX(-110%) skewX(-15deg)} to{transform:translateX(310%) skewX(-15deg)} }
+        @keyframes lp-orb-a    { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(45px,-32px) scale(1.06)} 66%{transform:translate(-24px,20px) scale(0.96)} }
+        @keyframes lp-orb-b    { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-38px,26px) scale(1.04)} 66%{transform:translate(28px,-16px) scale(0.97)} }
 
-        .rise  { animation:rise 0.45s cubic-bezier(0.16,1,0.3,1) both }
+        .rise { animation:rise 0.45s cubic-bezier(0.16,1,0.3,1) both }
         .d1{ animation-delay:0.03s } .d2{ animation-delay:0.10s } .d3{ animation-delay:0.17s } .d4{ animation-delay:0.24s }
 
-        /* Scroll-reveal base state */
-        .sr { opacity:0; transform:translateY(36px); transition:opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1); }
-        .sr.sr-left  { transform:translateX(-36px) }
-        .sr.sr-right { transform:translateX(36px) }
-        .sr.sr-scale { transform:scale(0.93) }
-        .sr.sr-visible { opacity:1!important; transform:none!important; }
-        .sr-d1 { transition-delay:0.05s } .sr-d2 { transition-delay:0.12s } .sr-d3 { transition-delay:0.19s }
-        .sr-d4 { transition-delay:0.26s } .sr-d5 { transition-delay:0.33s } .sr-d6 { transition-delay:0.40s }
-        .sr-d7 { transition-delay:0.47s } .sr-d8 { transition-delay:0.54s } .sr-d9 { transition-delay:0.61s }
-        .sr-d10{ transition-delay:0.68s } .sr-d11{ transition-delay:0.75s } .sr-d12{ transition-delay:0.82s }
+        /* ── Scroll-reveal ── */
+        .sr {
+          opacity:0; transform:translateY(44px);
+          transition:opacity 0.80s cubic-bezier(0.16,1,0.3,1), transform 0.80s cubic-bezier(0.16,1,0.3,1), filter 0.80s ease;
+          filter:blur(4px); will-change:opacity,transform,filter;
+        }
+        .sr.sr-left  { transform:translateX(-44px) }
+        .sr.sr-right { transform:translateX(44px) }
+        .sr.sr-scale { transform:scale(0.88); filter:blur(7px) }
+        .sr.sr-visible { opacity:1!important; transform:none!important; filter:blur(0)!important; }
+        .sr-d1 { transition-delay:0.06s } .sr-d2 { transition-delay:0.14s } .sr-d3 { transition-delay:0.22s }
+        .sr-d4 { transition-delay:0.30s } .sr-d5 { transition-delay:0.38s } .sr-d6 { transition-delay:0.46s }
+        .sr-d7 { transition-delay:0.54s } .sr-d8 { transition-delay:0.62s } .sr-d9 { transition-delay:0.70s }
+        .sr-d10{ transition-delay:0.78s } .sr-d11{ transition-delay:0.86s } .sr-d12{ transition-delay:0.94s }
 
+        /* ── Form elements ── */
         .btn-blue {
           width:100%;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;
           cursor:pointer;border:none;font-family:inherit;
@@ -392,7 +395,6 @@ export default function Login() {
         .btn-blue:hover:not(:disabled) { transform:translateY(-2px) scale(1.01); box-shadow:0 8px 28px rgba(20,184,232,0.5) }
         .btn-blue:active:not(:disabled){ transform:translateY(0) scale(0.98) }
         .btn-blue:disabled { opacity:0.55;cursor:not-allowed }
-
         .btn-social {
           display:flex;align-items:center;gap:12px;width:100%;padding:12px 18px;border-radius:12px;
           font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;font-family:inherit;
@@ -402,126 +404,114 @@ export default function Login() {
         .btn-social:hover  { transform:translateY(-2px) }
         .btn-social:active { transform:scale(0.97) }
         .btn-social:disabled { opacity:0.6;cursor:not-allowed;transform:none }
+        .finput:focus { border-color:rgba(20,184,232,0.55)!important; box-shadow:0 0 0 3px rgba(20,184,232,0.13)!important; }
 
-        .finput:focus {
-          border-color:rgba(20,184,232,0.55)!important;
-          box-shadow:0 0 0 3px rgba(20,184,232,0.13)!important;
-        }
-
-        /* Landing page nav link */
+        /* ── Nav link ── */
         .nav-link {
           color:rgba(255,255,255,0.52);font-size:13.5px;font-weight:500;
-          text-decoration:none;transition:color 0.18s;cursor:pointer;
+          text-decoration:none;cursor:pointer;
           background:none;border:none;font-family:inherit;padding:0;position:relative;
+          transition:color 0.2s ease;
         }
         .nav-link::after {
           content:'';position:absolute;bottom:-3px;left:0;right:0;height:1.5px;
           background:linear-gradient(90deg,#14b8e8,#38d9f5);
-          transform:scaleX(0);transform-origin:left;transition:transform 0.25s cubic-bezier(0.16,1,0.3,1);
+          transform:scaleX(0);transform-origin:left;
+          transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);
         }
-        .nav-link:hover { color:rgba(255,255,255,0.95) }
-        .nav-link:hover::after { transform:scaleX(1) }
+        .nav-link:hover { color:#fff; }
+        .nav-link:hover::after { transform:scaleX(1); }
 
-        /* Feature cards */
-        .fcard {
-          transition:border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
-          cursor:default;
-        }
-        .fcard:hover {
-          border-color:rgba(20,184,232,0.40)!important;
-          transform:translateY(-5px) scale(1.01)!important;
-          box-shadow:0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(20,184,232,0.15)!important;
-        }
-        .fcard .fcard-icon {
-          transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        .fcard:hover .fcard-icon { transform:scale(1.2) rotate(-5deg) }
-
-        /* Header login btn */
+        /* ── Header buttons ── */
         .hdr-login {
           padding:8px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
           background:transparent;border:1px solid rgba(20,184,232,0.28);color:#38d9f5;
           cursor:pointer;font-family:inherit;
-          transition:background 0.18s, border-color 0.18s, transform 0.18s;
+          transition:background 0.2s, border-color 0.2s, transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
         }
-        .hdr-login:hover { background:rgba(20,184,232,0.10);border-color:rgba(56,217,245,0.5);transform:translateY(-1px) }
-
+        .hdr-login:hover { background:rgba(20,184,232,0.12);border-color:rgba(56,217,245,0.60);transform:translateY(-2px);box-shadow:0 6px 20px rgba(20,184,232,0.22); }
+        .hdr-login:active { transform:scale(0.97); }
         .hdr-cta {
           padding:8px 20px;border-radius:10px;font-size:13.5px;font-weight:700;
           background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
           box-shadow:0 3px 14px rgba(20,184,232,0.35);
-          transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+          transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+          position:relative;overflow:hidden;
         }
-        .hdr-cta:hover { transform:translateY(-2px) scale(1.03); box-shadow:0 6px 22px rgba(20,184,232,0.50) }
-        .hdr-cta:active { transform:scale(0.97) }
+        .hdr-cta::after { content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%);transform:translateX(-110%) skewX(-15deg);transition:none; }
+        .hdr-cta:hover { transform:translateY(-2px) scale(1.04); box-shadow:0 8px 26px rgba(20,184,232,0.55); }
+        .hdr-cta:hover::after { animation:shimmer-sweep 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .hdr-cta:active { transform:scale(0.97); }
 
-        /* Hero CTA buttons */
+        /* ── Hero CTA ── */
         .hero-primary {
-          padding:14px 32px;border-radius:13px;font-size:15.5px;font-weight:800;
+          padding:15px 34px;border-radius:14px;font-size:16px;font-weight:800;
           background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
-          box-shadow:0 5px 24px rgba(20,184,232,0.40);
+          box-shadow:0 6px 28px rgba(20,184,232,0.42);
           transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
           animation:glow-pulse 3s ease-in-out infinite;
+          position:relative;overflow:hidden;
         }
-        .hero-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 10px 36px rgba(20,184,232,0.55); animation:none }
-        .hero-primary:active { transform:scale(0.97); animation:none }
+        .hero-primary::after { content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%);transform:translateX(-110%) skewX(-15deg);transition:none; }
+        .hero-primary:hover { transform:translateY(-4px) scale(1.04); box-shadow:0 16px 48px rgba(20,184,232,0.65); animation:none; }
+        .hero-primary:hover::after { animation:shimmer-sweep 0.55s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .hero-primary:active { transform:scale(0.97);animation:none; }
 
-        .hero-secondary {
-          padding:14px 26px;border-radius:13px;font-size:15.5px;font-weight:600;
-          background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.85);
-          cursor:pointer;font-family:inherit;
-          transition:background 0.18s, transform 0.18s, border-color 0.18s;
-        }
-        .hero-secondary:hover { background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.25);transform:translateY(-2px) }
-
-        /* Section CTA */
+        /* ── Section CTA ── */
         .cta-primary {
-          padding:15px 40px;border-radius:14px;font-size:16px;font-weight:800;
+          padding:15px 38px;border-radius:14px;font-size:16px;font-weight:800;
           background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
-          box-shadow:0 6px 28px rgba(20,184,232,0.40);
+          box-shadow:0 6px 28px rgba(20,184,232,0.42);
           transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+          position:relative;overflow:hidden;
         }
-        .cta-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 12px 40px rgba(20,184,232,0.55) }
+        .cta-primary::after { content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%);transform:translateX(-110%) skewX(-15deg);transition:none; }
+        .cta-primary:hover { transform:translateY(-4px) scale(1.035); box-shadow:0 16px 48px rgba(20,184,232,0.62); }
+        .cta-primary:hover::after { animation:shimmer-sweep 0.55s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .cta-primary:active { transform:scale(0.97); }
 
-        /* Security item hover */
-        .sec-item {
-          transition:background 0.2s, border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
-          cursor:default;
-        }
-        .sec-item:hover {
-          background:rgba(20,184,232,0.06)!important;
-          border-color:rgba(20,184,232,0.28)!important;
-          transform:translateX(4px);
-        }
+        /* ── Feature cards ── */
+        .fcard { transition:border-color 0.3s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease; cursor:default; }
+        .fcard:hover { border-color:rgba(20,184,232,0.48)!important; transform:translateY(-10px) scale(1.02)!important; box-shadow:0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(20,184,232,0.22), 0 0 48px rgba(20,184,232,0.09)!important; }
+        .fcard .fcard-icon { transition:transform 0.45s cubic-bezier(0.34,1.56,0.64,1); display:inline-block; }
+        .fcard:hover .fcard-icon { transform:scale(1.32) rotate(-10deg) translateY(-4px); }
 
-        /* Pricing card hover */
-        .price-card {
-          transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
-        }
-        .price-card:hover { transform:translateY(-6px); box-shadow:0 24px 64px rgba(0,0,0,0.6) }
+        /* ── Device mini-cards ── */
+        .dcard { transition:border-color 0.28s ease, transform 0.38s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease; cursor:default; }
+        .dcard:hover { border-color:rgba(20,184,232,0.48)!important; transform:translateY(-6px) scale(1.05)!important; box-shadow:0 20px 52px rgba(20,184,232,0.16), 0 0 0 1px rgba(20,184,232,0.14)!important; }
 
-        /* Float animation for mockup */
-        .float-mockup { animation:float-slow 7s ease-in-out infinite }
+        /* ── How it works steps ── */
+        .lp-step { transition:transform 0.38s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
+        .lp-step:hover { transform:translateY(-10px); }
+        .lp-step-circle { transition:transform 0.42s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.32s ease; }
+        .lp-step:hover .lp-step-circle { transform:scale(1.20) rotate(8deg); box-shadow:0 16px 44px rgba(20,184,232,0.28)!important; }
+        .lp-step-title { transition:color 0.22s ease; }
+        .lp-step:hover .lp-step-title { color:#fff!important; }
 
-        /* Gradient text shimmer for stat numbers */
-        .stat-num {
-          background:linear-gradient(90deg,#38d9f5,#14b8e8,#38d9f5);
-          background-size:200% auto;
-          -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-        }
-        .stat-num.visible { animation:shimmer 3s linear infinite }
+        /* ── Security cards ── */
+        .sec-card-pink { border-radius:22px;overflow:hidden; border:1px solid rgba(244,114,182,0.22);background:rgba(244,114,182,0.03); transition:border-color 0.3s ease, transform 0.42s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease; cursor:default; }
+        .sec-card-pink:hover { border-color:rgba(244,114,182,0.60)!important; transform:translateY(-10px) scale(1.01)!important; box-shadow:0 36px 88px rgba(244,114,182,0.16), 0 0 0 1px rgba(244,114,182,0.16)!important; }
+        .sec-card-blue { border-radius:22px;overflow:hidden; border:1px solid rgba(14,165,233,0.22);background:rgba(14,165,233,0.03); transition:border-color 0.3s ease, transform 0.42s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease; cursor:default; }
+        .sec-card-blue:hover { border-color:rgba(14,165,233,0.60)!important; transform:translateY(-10px) scale(1.01)!important; box-shadow:0 36px 88px rgba(14,165,233,0.14), 0 0 0 1px rgba(14,165,233,0.16)!important; }
 
-        /* Scroll-section anchor offset */
-        .scroll-section { scroll-margin-top:72px }
+        /* ── Pricing cards ── */
+        .price-card { transition:border-color 0.3s ease, transform 0.42s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease; cursor:default; }
+        .price-card:hover { transform:translateY(-10px) scale(1.015); box-shadow:0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(20,184,232,0.24); border-color:rgba(20,184,232,0.38)!important; }
 
-        /* Pulse dot */
-        .pdot { animation:pulse-dot 2.2s ease-in-out infinite }
+        /* ── Ambient orbs ── */
+        .lp-orb   { animation:lp-orb-a 24s ease-in-out infinite; }
+        .lp-orb-b { animation:lp-orb-b 30s ease-in-out infinite; }
 
-        /* Bar chart bars on hover */
-        .dash-bar { transition:height 0.3s, opacity 0.3s }
+        /* ── Misc ── */
+        .float-mockup { animation:float-slow 7s ease-in-out infinite; }
+        .pdot { animation:pulse-dot 2.2s ease-in-out infinite; }
+        .stat-num { background:linear-gradient(90deg,#38d9f5,#14b8e8,#38d9f5);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+        .stat-num.visible { animation:shimmer 3s linear infinite; }
+        .scroll-section { scroll-margin-top:72px; }
+        .dash-bar { transition:height 0.3s, opacity 0.3s; }
       `}</style>
 
       {/* Logo */}
@@ -705,8 +695,8 @@ export default function Login() {
 
       {/* Background */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
-        <div style={{ position: "absolute", width: 1100, height: 1100, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,232,0.08) 0%, transparent 58%)", top: -400, left: -300 }} />
-        <div style={{ position: "absolute", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,217,245,0.05) 0%, transparent 60%)", bottom: -100, right: -150 }} />
+        <div className="lp-orb" style={{ position: "absolute", width: 1100, height: 1100, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,232,0.08) 0%, transparent 58%)", top: -400, left: -300 }} />
+        <div className="lp-orb-b" style={{ position: "absolute", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,217,245,0.05) 0%, transparent 60%)", bottom: -100, right: -150 }} />
         <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(20,184,232,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,232,0.03) 1px,transparent 1px)", backgroundSize: "52px 52px" }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,${BLUE},transparent)` }} />
       </div>
@@ -854,9 +844,7 @@ export default function Login() {
               { label: "Wireless Printing", desc: "Print to Bluetooth or network thermal printers from any device.", color: "#a78bfa" },
               { label: "QR Payments", desc: "Show payment QR codes at checkout for bank transfer and e-wallets.", color: "#f59e0b" },
             ].map((c, i) => (
-              <div key={i} className={`sr sr-right sr-d${i + 1}`} style={{ padding: "20px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.11)", transition: "border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.35)"; (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(20,184,232,0.11)"; (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}>
+              <div key={i} className={`sr sr-right sr-d${i + 1} dcard`} style={{ padding: "20px", borderRadius: 14, background: CARD, border: "1px solid rgba(20,184,232,0.11)" }}>
                 <div style={{ width: 9, height: 9, borderRadius: "50%", background: c.color, boxShadow: `0 0 10px ${c.color}`, marginBottom: 11 }} />
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", marginBottom: 7 }}>{c.label}</div>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", lineHeight: 1.65 }}>{c.desc}</div>
@@ -890,23 +878,21 @@ export default function Login() {
               { step: "03", icon: "💳", title: "Make your first sale", body: "Open the POS on any device — phone, tablet, or desktop. Works even without internet.", color: "#a78bfa" },
               { step: "04", icon: "📊", title: "Watch your business", body: "Sales, inventory, staff activity, and expenses — all updating in real time, one screen.", color: "#f59e0b" },
             ].map((item, i) => (
-              <div key={i} className={`sr sr-d${i + 1}`} style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 20px" }}>
-                <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(15,30,48,0.95)", border: `1.5px solid ${item.color}40`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, flexShrink: 0, boxShadow: `0 0 24px ${item.color}20`, position: "relative" }}>
+              <div key={i} className={`sr sr-d${i + 1} lp-step`} style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 20px" }}>
+                <div className="lp-step-circle" style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(15,30,48,0.95)", border: `1.5px solid ${item.color}40`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, flexShrink: 0, boxShadow: `0 0 24px ${item.color}20`, position: "relative" }}>
                   <span style={{ fontSize: 28 }}>{item.icon}</span>
                   <div style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: item.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <span style={{ fontSize: 10, fontWeight: 900, color: "#0C1420" }}>{item.step}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 10, lineHeight: 1.3 }}>{item.title}</div>
+                <div className="lp-step-title" style={{ fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 10, lineHeight: 1.3 }}>{item.title}</div>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", lineHeight: 1.7 }}>{item.body}</div>
               </div>
             ))}
           </div>
 
           <div className="sr sr-d4" style={{ textAlign: "center", marginTop: 60 }}>
-            <button onClick={() => openPanel("register")} style={{ padding: "14px 32px", borderRadius: 14, fontSize: 15, fontWeight: 700, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 24px rgba(20,184,232,0.35)", transition: "transform 0.18s, box-shadow 0.18s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px rgba(20,184,232,0.45)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(20,184,232,0.35)"; }}>
+            <button onClick={() => openPanel("register")} className="cta-primary" data-testid="button-how-it-works-cta">
               Start for free, no card needed
             </button>
           </div>
@@ -931,9 +917,7 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
             {/* Card 1 — Permanent audit trail */}
-            <div className="sr sr-left sr-d1" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(244,114,182,0.22)", background: "rgba(244,114,182,0.03)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(244,114,182,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(244,114,182,0.08)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(244,114,182,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
+            <div className="sr sr-left sr-d1 sec-card-pink">
               <div style={{ height: 3, background: "linear-gradient(90deg, #f472b6, #e879f9)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
                 <div style={{ fontSize: 40, marginBottom: 20 }}>📋</div>
@@ -953,9 +937,7 @@ export default function Login() {
             </div>
 
             {/* Card 2 — Instant access revocation */}
-            <div className="sr sr-right sr-d1" style={{ borderRadius: 22, overflow: "hidden", border: "1px solid rgba(14,165,233,0.22)", background: "rgba(14,165,233,0.03)", transition: "border-color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s" }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(14,165,233,0.50)"; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 60px rgba(14,165,233,0.08)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(14,165,233,0.22)"; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}>
+            <div className="sr sr-right sr-d1 sec-card-blue">
               <div style={{ height: 3, background: "linear-gradient(90deg, #0ea5e9, #38bdf8)" }} />
               <div style={{ padding: "36px 36px 40px" }}>
                 <div style={{ fontSize: 40, marginBottom: 20 }}>🔒</div>

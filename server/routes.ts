@@ -46,6 +46,7 @@ import { registerMembershipRoutes } from "./routes/memberships";
 import { registerIngredientRoutes, registerRecipeRoutes, registerWifiVoucherRoutes } from "./routes/ingredients";
 import { registerInventoryAdvancedRoutes } from "./routes/inventory-advanced";
 import { registerPushRoutes } from "./routes/push";
+import { registerStaffPinRoutes } from "./routes/staff-pin";
 
 // Public-profile rate limiter — prevents enumeration of all branch IDs
 const publicBranchLimiter = rateLimit({
@@ -126,6 +127,7 @@ export async function registerRoutes(
   registerWifiVoucherRoutes(app);
   registerInventoryAdvancedRoutes(app);
   registerPushRoutes(app);
+  registerStaffPinRoutes(app);
 
   return httpServer;
 }

@@ -101,7 +101,7 @@ async function logAuthEvent(opts: {
 
 let _ephemeralSecret: string | undefined;
 
-function getJwtSecret(): string {
+export function getJwtSecret(): string {
   const secret = process.env.SESSION_SECRET?.trim();
   if (!secret) {
     if (process.env.NODE_ENV === "production") {

@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp } from "lucide-react";
+import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import type { TimeLog } from "@shared/schema";
 
@@ -48,6 +49,7 @@ export default function TimeClockPage() {
   const { isManagerOrAbove, isAdminOrAbove } = useAuth();
   const [now, setNow] = useState(new Date());
   const [tab, setTab] = useState<"me" | "team">("me");
+  const [, setLocation] = useLocation();
   const [showClockIn, setShowClockIn] = useState(false);
   const [showClockOut, setShowClockOut] = useState(false);
   const [clockInNotes, setClockInNotes] = useState("");
@@ -173,12 +175,24 @@ export default function TimeClockPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">Track shifts, breaks &amp; team hours</p>
         </div>
-        <button
-          onClick={exportCSV}
-          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/40 transition-colors"
-        >
-          <Download className="h-3.5 w-3.5" /> Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          {isManagerOrAbove && (
+            <button
+              data-testid="button-staff-clock-in-kiosk"
+              onClick={() => setLocation("/staff-clock-in")}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
+              title="Open staff PIN clock-in screen"
+            >
+              <KeyRound className="h-3.5 w-3.5" /> Staff Clock-in
+            </button>
+          )}
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/40 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" /> Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Tab switcher */}

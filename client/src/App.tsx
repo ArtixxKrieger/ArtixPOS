@@ -26,6 +26,7 @@ import Login from "@/pages/login";
 import ResetPassword from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 import BranchPublicPage from "@/pages/branch-public";
+import StaffPinLogin from "@/pages/staff-pin-login";
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const POS = lazy(() => import("@/pages/pos"));
@@ -775,6 +776,10 @@ function ProtectedRouter() {
         <KitchenDisplayPage />
       </Suspense>
     );
+  }
+
+  if (location === "/staff-clock-in") {
+    return <StaffPinLogin />;
   }
 
   return <AppRouter />;

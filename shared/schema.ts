@@ -62,6 +62,9 @@ export const users = pgTable("users", {
   wageType: text("wage_type").default("none"), // none | hourly | monthly | commission
   wageRate: text("wage_rate").default("0"),
   commissionPercent: text("commission_percent").default("0"),
+  // PIN clock-in (staff only — owners/managers use full login)
+  staffPin: text("staff_pin"),           // scrypt-hashed 4-6 digit PIN
+  pinLockedUntil: text("pin_locked_until"), // ISO timestamp — set after repeated failures
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

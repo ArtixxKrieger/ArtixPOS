@@ -7,6 +7,7 @@ import {
   Scissors, Dumbbell, Sparkles, Store, Users, CheckCircle2,
   Building2, Link, Shirt, Car, Stethoscope,
   PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle, Search, Globe,
+  PartyPopper, Zap, BarChart2, Shield,
 } from "lucide-react";
 import i18n, { SUPPORTED_LANGUAGES, loadLocale } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from 
 
 type Role = "owner" | "employee";
 type BusinessType = "food_beverage" | "retail" | "services";
-type Step = "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "language" | "done";
+type Step = "welcome" | "role" | "employee_invite" | "business_type" | "business_subtype" | "store_info" | "language" | "done";
 
 const STORE_NAME_PLACEHOLDER: Record<string, string> = {
   cafe: "e.g. Maria's Cafe",
@@ -60,25 +61,22 @@ const BUSINESS_TYPES = [
     id: "food_beverage" as BusinessType,
     label: "Food & Beverage",
     description: "Cafes, restaurants, bakeries",
+    emoji: "🍔",
     icon: Coffee,
-    color: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400",
-    activeColor: "bg-amber-100 border-amber-400 dark:bg-amber-900/60 dark:border-amber-600",
   },
   {
     id: "retail" as BusinessType,
     label: "Retail",
     description: "Clothing, electronics, grocery",
+    emoji: "🛍️",
     icon: ShoppingBag,
-    color: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-400",
-    activeColor: "bg-blue-100 border-blue-400 dark:bg-blue-900/60 dark:border-blue-600",
   },
   {
     id: "services" as BusinessType,
     label: "Services",
     description: "Salon, gym, laundry, spa",
+    emoji: "✂️",
     icon: Scissors,
-    color: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400",
-    activeColor: "bg-rose-100 border-rose-400 dark:bg-rose-900/60 dark:border-rose-600",
   },
 ];
 
@@ -113,19 +111,19 @@ const SUB_TYPES: Record<BusinessType, { id: string; label: string; icon: React.E
   ],
 };
 
-function StepDots({ current, total }: { current: number; total: number }) {
+// Owner flow steps for progress tracking (excludes welcome/employee/language/done)
+const OWNER_PROGRESS_STEPS: Step[] = ["role", "business_type", "business_subtype", "store_info"];
+
+function StepProgress({ current }: { current: number }) {
+  const total = OWNER_PROGRESS_STEPS.length;
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       {Array.from({ length: total }).map((_, i) => (
         <div
           key={i}
           className={[
-            "rounded-full transition-all duration-300",
-            i === current
-              ? "w-5 h-1.5 bg-primary"
-              : i < current
-              ? "w-1.5 h-1.5 bg-primary/40"
-              : "w-1.5 h-1.5 bg-muted-foreground/20",
+            "h-1.5 rounded-full transition-all duration-500",
+            i === current ? "w-8 bg-primary" : i < current ? "w-3 bg-primary/40" : "w-3 bg-muted-foreground/20",
           ].join(" ")}
         />
       ))}
@@ -155,7 +153,7 @@ function CountryPicker({
         type="button"
         data-testid="btn-country-picker"
         onClick={() => { setOpen(true); setTimeout(() => searchRef.current?.focus(), 50); }}
-        className="flex items-center gap-2 w-full h-10 px-3 rounded-xl bg-secondary/60 border border-border/40 hover:border-primary/40 transition-colors text-left"
+        className="flex items-center gap-2 w-full h-11 px-4 rounded-2xl bg-muted/60 border border-border/40 hover:border-primary/40 transition-colors text-left"
       >
         {value ? (
           <>
@@ -214,7 +212,7 @@ function CountryPicker({
 export default function Onboarding() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState<Step>("role");
+  const [step, setStep] = useState<Step>("welcome");
   const [role, setRole] = useState<Role | null>(null);
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
   const [businessSubType, setBusinessSubType] = useState<string | null>(null);
@@ -234,13 +232,8 @@ export default function Onboarding() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
 
-  // Track whether the user has manually picked a country so the async IP
-  // lookup never overrides an explicit user choice.
   const userPickedCountry = useRef(false);
 
-  // Phase 1 — instant: use device timezone (works offline, no latency)
-  // Phase 2 — async: IP geolocation corrects cases like a phone bought
-  //           overseas whose timezone/locale still reflects the origin country.
   useEffect(() => {
     const locale = detectLocale();
     if (locale.countryCode) {
@@ -250,9 +243,6 @@ export default function Onboarding() {
         setStorePhone(p => (!p ? country.phonePrefix + " " : p));
       }
     }
-
-    // Phase 2 — fire IP lookup in background; only applies if the user hasn't
-    // touched the picker yet and IP gives a different (more reliable) answer.
     detectCountryByIP().then(ipCountry => {
       if (!ipCountry) return;
       if (userPickedCountry.current) return;
@@ -268,7 +258,6 @@ export default function Onboarding() {
     }).catch(() => {});
   }, []);
 
-  // When country changes, update phone prefix
   function handleCountryChange(country: CountryData) {
     userPickedCountry.current = true;
     setStoreCountry(country);
@@ -325,7 +314,6 @@ export default function Onboarding() {
     return ["POS & Order Management", "Customer Management", "Analytics & Reports", "Expenses Tracking", offline];
   }
 
-  // Show any invite error from the auto-redemption attempt in ProtectedRouter
   useEffect(() => {
     const err = sessionStorage.getItem("invite_error");
     if (err) {
@@ -334,10 +322,6 @@ export default function Onboarding() {
     }
   }, []);
 
-  // Checks whether the user typed actual digits beyond the auto-filled country
-  // prefix. Strips all non-digit characters before comparing lengths so that
-  // mobile browser auto-formatting (dashes, spaces, parentheses, non-breaking
-  // spaces) never causes a false "empty" result.
   function hasPhoneDigitsBeyondPrefix(phone: string, prefix: string): boolean {
     const phoneDigits = phone.replace(/\D/g, "");
     const prefixDigits = prefix.replace(/\D/g, "");
@@ -437,94 +421,162 @@ export default function Onboarding() {
     setLocation("/");
   }
 
-  const OWNER_STEPS = ["role", "business_type", "business_subtype", "store_info"];
-  const ownerStepIndex = OWNER_STEPS.indexOf(step);
+  const ownerProgressIndex = OWNER_PROGRESS_STEPS.indexOf(step);
+  const showProgress = ownerProgressIndex >= 0;
+
+  // Determine which steps show the footer nav
+  const showFooterBack = ["role", "business_type", "business_subtype", "store_info", "employee_invite"].includes(step);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-purple-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#100c1c] flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
 
-      {/* Logo */}
-      <div className="mb-8 flex flex-col items-center gap-2">
-        <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
-          <ShoppingCart className="w-6 h-6 text-white" />
+      {/* Subtle background blob */}
+      <div
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-[0.07] dark:opacity-[0.04] blur-3xl pointer-events-none"
+        style={{ background: "radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)" }}
+      />
+
+      {/* Header */}
+      <header className="relative z-10 w-full px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
+            <ShoppingCart className="w-4.5 h-4.5 text-primary-foreground" />
+          </div>
+          <span className="text-sm font-bold tracking-[0.15em] text-primary/80 uppercase">ArtixPOS</span>
         </div>
-        <span className="text-xs font-bold tracking-[0.2em] text-primary/80 uppercase">ArtixPOS</span>
-      </div>
 
-      {/* Card */}
-      <div className="w-full max-w-sm bg-white dark:bg-[#12121e] rounded-3xl shadow-2xl shadow-black/10 dark:shadow-black/40 border border-border overflow-hidden">
+        {showProgress && (
+          <div className="flex items-center gap-3">
+            <StepProgress current={ownerProgressIndex} />
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              Step {ownerProgressIndex + 1} of {OWNER_PROGRESS_STEPS.length}
+            </span>
+          </div>
+        )}
+      </header>
 
-        {/* ── Step: Role Selection ── */}
-        {step === "role" && (
-          <div className="p-6">
-            <div className="mb-6 text-center">
-              <h1 className="text-2xl font-bold text-foreground mb-1">{t("onboarding.role.title")}</h1>
-              <p className="text-sm text-muted-foreground">{t("onboarding.role.subtitle")}</p>
+      {/* Main content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+
+        {/* ── Step: Welcome ── */}
+        {step === "welcome" && (
+          <div className="w-full max-w-lg text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-24 h-24 rounded-[28px] bg-primary/10 dark:bg-primary/15 flex items-center justify-center mx-auto mb-8 text-5xl shadow-sm">
+              👋
             </div>
-            <div className="flex flex-col gap-3">
-              <button
-                data-testid="btn-role-owner"
-                onClick={() => { setRole("owner"); setStep("business_type"); }}
-                className="flex items-center gap-4 p-4 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 text-left group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Building2 className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">{t("onboarding.role.ownerTitle")}</p>
-                  <p className="text-xs text-muted-foreground">{t("onboarding.role.ownerDesc")}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </button>
+            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight mb-5">
+              Welcome to ArtixPOS,<br />let's get started 🎉
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-sm mx-auto leading-relaxed mb-10">
+              We're excited to help you run your business. It only takes a few minutes to set up your store.
+            </p>
 
-              <button
-                data-testid="btn-role-employee"
-                onClick={() => { setRole("employee"); setStep("employee_invite"); }}
-                className="flex items-center gap-4 p-4 rounded-2xl border-2 border-border bg-muted/30 hover:bg-muted/60 hover:border-muted-foreground/30 transition-all duration-200 text-left group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center group-hover:bg-muted-foreground/20 transition-colors">
-                  <Users className="w-5 h-5 text-muted-foreground" />
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-10">
+              {[
+                { icon: Zap, text: "Works offline" },
+                { icon: BarChart2, text: "Real-time analytics" },
+                { icon: Shield, text: "BIR-ready" },
+              ].map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-white/5 border border-border/50 shadow-sm">
+                  <Icon className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">{text}</span>
                 </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">{t("onboarding.role.employeeTitle")}</p>
-                  <p className="text-xs text-muted-foreground">{t("onboarding.role.employeeDesc")}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </button>
+              ))}
+            </div>
+
+            <Button
+              data-testid="btn-welcome-start"
+              onClick={() => setStep("role")}
+              size="lg"
+              className="px-10 h-13 text-base font-bold rounded-2xl shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 transition-transform"
+            >
+              Start Setup <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+            <p className="mt-4 text-xs text-muted-foreground/60">{t("onboarding.role.footerNote")}</p>
+          </div>
+        )}
+
+        {/* ── Step: Role ── */}
+        {step === "role" && (
+          <div className="w-full max-w-lg animate-in fade-in slide-in-from-right-4 duration-400">
+            <div className="text-center mb-10">
+              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
+                Your Role
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
+                {t("onboarding.role.title")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("onboarding.role.subtitle")}</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { id: "owner" as Role, emoji: "🧑‍💼", icon: Building2, title: t("onboarding.role.ownerTitle"), desc: t("onboarding.role.ownerDesc"), testId: "btn-role-owner" },
+                { id: "employee" as Role, emoji: "👋", icon: Users, title: t("onboarding.role.employeeTitle"), desc: t("onboarding.role.employeeDesc"), testId: "btn-role-employee" },
+              ].map(r => {
+                const isSelected = role === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    data-testid={r.testId}
+                    onClick={() => {
+                      setRole(r.id);
+                      setStep(r.id === "owner" ? "business_type" : "employee_invite");
+                    }}
+                    className={[
+                      "group relative flex flex-col items-center text-center p-8 rounded-[28px] border-2 transition-all duration-300 bg-white dark:bg-white/5",
+                      isSelected
+                        ? "border-primary shadow-xl shadow-primary/15 -translate-y-1"
+                        : "border-border/60 hover:border-primary/40 hover:shadow-md shadow-sm",
+                    ].join(" ")}
+                  >
+                    <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                      {r.emoji}
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground mb-1">{r.title}</h3>
+                    <p className="text-sm text-muted-foreground">{r.desc}</p>
+                    {isSelected && (
+                      <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                        <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* ── Step: Employee Invite ── */}
         {step === "employee_invite" && (
-          <div className="p-6">
-            <button onClick={() => setStep("role")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> {t("common.back")}
-            </button>
-            <div className="mb-6 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-950/50 flex items-center justify-center mx-auto mb-3">
-                <Link className="w-6 h-6 text-primary" />
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
+            <div className="text-center mb-10">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                <Link className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-1">{t("onboarding.employee.title")}</h2>
-              <p className="text-sm text-muted-foreground">{t("onboarding.employee.subtitle")}</p>
-              <p className="text-xs text-muted-foreground/70">{t("onboarding.employee.noInviteHint")}</p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-3">
+                {t("onboarding.employee.title")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("onboarding.employee.subtitle")}</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">{t("onboarding.employee.noInviteHint")}</p>
             </div>
-            <div className="space-y-4">
+
+            <div className="bg-white dark:bg-white/5 rounded-[24px] border border-border/50 shadow-sm p-6 space-y-4">
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.employee.inviteLabel")}</Label>
+                <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.employee.inviteLabel")}</Label>
                 <Input
                   data-testid="input-invite-link"
                   value={inviteInput}
                   onChange={e => setInviteInput(e.target.value)}
                   placeholder={t("onboarding.employee.placeholder")}
-                  className="rounded-xl"
+                  className="rounded-xl h-11"
                 />
               </div>
               <Button
                 data-testid="btn-join-team"
                 onClick={handleEmployeeJoin}
                 disabled={!inviteInput.trim() || isSubmitting}
-                className="w-full rounded-xl h-11"
+                className="w-full rounded-xl h-11 font-bold"
               >
                 {isSubmitting ? t("onboarding.employee.joining") : t("onboarding.employee.joinButton")}
               </Button>
@@ -534,27 +586,26 @@ export default function Onboarding() {
 
         {/* ── Step: Business Type ── */}
         {step === "business_type" && (
-          <div className="p-6">
-            <button onClick={() => setStep("role")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> {t("common.back")}
-            </button>
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-foreground">{t("onboarding.businessType.title")}</h2>
-                <StepDots current={1} total={4} />
-              </div>
-              <p className="text-sm text-muted-foreground">{t("onboarding.businessType.subtitle")}</p>
+          <div className="w-full max-w-xl animate-in fade-in slide-in-from-right-4 duration-400">
+            <div className="text-center mb-10">
+              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
+                Business Profile
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
+                {t("onboarding.businessType.title")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("onboarding.businessType.subtitle")}</p>
             </div>
 
-            {/* Warning banner */}
-            <div className="flex gap-2.5 p-3 mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+            <div className="flex gap-2.5 p-3.5 mb-6 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
                 <span className="font-bold">{t("onboarding.businessType.warningTitle")}</span> {t("onboarding.businessType.warningBody")}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {BUSINESS_TYPES.map(bt => {
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {BUSINESS_TYPES.map((bt, i) => {
                 const Icon = bt.icon;
                 const isSelected = businessType === bt.id;
                 return (
@@ -563,77 +614,83 @@ export default function Onboarding() {
                     data-testid={`btn-business-${bt.id}`}
                     onClick={() => { setBusinessType(bt.id); setBusinessSubType(null); }}
                     className={[
-                      "flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 text-center",
-                      isSelected ? bt.activeColor + " ring-2 ring-primary/20" : bt.color,
-                      "hover:scale-[1.02] active:scale-[0.98]",
+                      "group relative flex flex-col p-6 rounded-[24px] border-2 text-left transition-all duration-300 bg-white dark:bg-white/5",
+                      isSelected
+                        ? "border-primary shadow-xl shadow-primary/15 -translate-y-1"
+                        : "border-border/60 hover:border-primary/40 hover:shadow-md shadow-sm",
                     ].join(" ")}
+                    style={{ animationDelay: `${i * 80}ms` }}
                   >
-                    <Icon className="w-7 h-7" />
-                    <div>
-                      <p className="font-semibold text-xs leading-tight">{bt.label}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{bt.description}</p>
+                    <div className="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                      {bt.emoji}
                     </div>
+                    <h3 className="text-base font-bold text-foreground mb-1">{bt.label}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{bt.description}</p>
+                    {isSelected && (
+                      <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
-            <Button
-              data-testid="btn-next-subtype"
-              onClick={() => setStep("business_subtype")}
-              disabled={!businessType}
-              className="w-full rounded-xl h-11 mt-4"
-            >
-              {t("onboarding.businessType.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                data-testid="btn-next-subtype"
+                onClick={() => setStep("business_subtype")}
+                disabled={!businessType}
+                className="px-8 h-12 rounded-2xl font-bold"
+              >
+                {t("onboarding.businessType.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
         )}
 
         {/* ── Step: Business Sub-type ── */}
         {step === "business_subtype" && businessType && (
-          <div className="flex flex-col" style={{ maxHeight: "calc(100vh - 180px)" }}>
-            <div className="px-6 pt-6 pb-0 flex-shrink-0">
-              <button onClick={() => setStep("business_type")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-                <ChevronLeft className="w-3 h-3" /> {t("common.back")}
-              </button>
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-xl font-bold text-foreground">{t("onboarding.businessSubtype.title")}</h2>
-                  <StepDots current={2} total={4} />
-                </div>
-                <p className="text-sm text-muted-foreground">{t("onboarding.businessSubtype.subtitle")}</p>
-              </div>
+          <div className="w-full max-w-xl animate-in fade-in slide-in-from-right-4 duration-400">
+            <div className="text-center mb-8">
+              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
+                The Details
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
+                {t("onboarding.businessSubtype.title")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("onboarding.businessSubtype.subtitle")}</p>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 pb-2">
-              <div className="flex flex-col gap-2">
-                {SUB_TYPES[businessType].map(sub => {
-                  const Icon = sub.icon;
-                  const isSelected = businessSubType === sub.id;
-                  return (
-                    <button
-                      key={sub.id}
-                      data-testid={`btn-subtype-${sub.id}`}
-                      onClick={() => setBusinessSubType(sub.id)}
-                      className={[
-                        "flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-left",
-                        isSelected
-                          ? "border-primary bg-primary/5 dark:bg-primary/10"
-                          : "border-border bg-muted/30 hover:bg-muted/60",
-                      ].join(" ")}
-                    >
-                      <Icon className={["w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground"].join(" ")} />
-                      <span className={["text-sm font-medium", isSelected ? "text-primary" : "text-foreground"].join(" ")}>{sub.label}</span>
-                      {isSelected && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                    </button>
-                  );
-                })}
-              </div>
+
+            <div className="flex flex-wrap justify-center gap-3 max-h-[340px] overflow-y-auto pb-2">
+              {SUB_TYPES[businessType].map(sub => {
+                const Icon = sub.icon;
+                const isSelected = businessSubType === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    data-testid={`btn-subtype-${sub.id}`}
+                    onClick={() => setBusinessSubType(sub.id)}
+                    className={[
+                      "flex items-center gap-2.5 px-5 py-3.5 rounded-2xl border-2 font-medium text-sm transition-all duration-200",
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105"
+                        : "border-border/60 bg-white dark:bg-white/5 text-foreground hover:border-primary/40 shadow-sm",
+                    ].join(" ")}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {sub.label}
+                  </button>
+                );
+              })}
             </div>
-            <div className="px-6 py-4 flex-shrink-0 border-t border-border/20">
+
+            <div className="mt-6 flex justify-end">
               <Button
                 data-testid="btn-next-storeinfo"
                 onClick={() => setStep("store_info")}
                 disabled={!businessSubType}
-                className="w-full rounded-xl h-11"
+                className="px-8 h-12 rounded-2xl font-bold"
               >
                 {t("onboarding.businessSubtype.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -643,21 +700,20 @@ export default function Onboarding() {
 
         {/* ── Step: Store Info ── */}
         {step === "store_info" && (
-          <div className="p-6">
-            <button onClick={() => setStep("business_subtype")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ChevronLeft className="w-3 h-3" /> {t("common.back")}
-            </button>
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-foreground">{t("onboarding.storeInfo.title")}</h2>
-                <StepDots current={3} total={4} />
-              </div>
-              <p className="text-sm text-muted-foreground">{t("onboarding.storeInfo.subtitle")}</p>
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
+            <div className="text-center mb-8">
+              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
+                Almost Done
+              </span>
+              <h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-3">
+                {t("onboarding.storeInfo.title")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("onboarding.storeInfo.subtitle")}</p>
             </div>
-            <div className="space-y-3">
-              {/* Country */}
+
+            <div className="bg-white dark:bg-white/5 rounded-[24px] border border-border/50 shadow-sm p-6 space-y-4">
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.countryLabel")} *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.storeInfo.countryLabel")} *</Label>
                 <CountryPicker value={storeCountry} onChange={handleCountryChange} />
                 {storeCountry && (
                   <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
@@ -667,252 +723,259 @@ export default function Onboarding() {
                 )}
               </div>
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.storeNameLabel")} *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.storeInfo.storeNameLabel")} *</Label>
                 <Input
                   data-testid="input-store-name"
                   value={storeName}
                   onChange={e => setStoreName(e.target.value)}
                   placeholder={STORE_NAME_PLACEHOLDER[businessSubType ?? ""] ?? "e.g. My Business"}
-                  className="rounded-xl"
+                  className="rounded-xl h-11"
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.addressLabel")} *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.storeInfo.addressLabel")} *</Label>
                 <Input
                   data-testid="input-store-address"
                   value={storeAddress}
                   onChange={e => setStoreAddress(e.target.value)}
                   placeholder={t("onboarding.storeInfo.addressPlaceholder")}
-                  className="rounded-xl"
+                  className="rounded-xl h-11"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.phoneLabel")} *</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.storeInfo.phoneLabel")} *</Label>
                   <Input
                     data-testid="input-store-phone"
                     value={storePhone}
                     onChange={e => setStorePhone(e.target.value)}
                     placeholder={storeCountry ? `${storeCountry.phonePrefix} 912 345 6789` : "+63 912 345 6789"}
-                    className="rounded-xl"
+                    className="rounded-xl h-11"
                     type="tel"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("onboarding.storeInfo.emailLabel")} *</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-2 block">{t("onboarding.storeInfo.emailLabel")} *</Label>
                   <Input
                     data-testid="input-store-email"
                     value={storeEmail}
                     onChange={e => setStoreEmail(e.target.value)}
                     placeholder={t("onboarding.storeInfo.emailPlaceholder")}
-                    className="rounded-xl"
+                    className="rounded-xl h-11"
                     type="email"
                   />
                 </div>
               </div>
             </div>
+
             {submitError && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm mt-4">
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm mt-3">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{submitError}</span>
               </div>
             )}
-            <Button
-              data-testid="btn-finish-setup"
-              onClick={() => {
-                if (!storeCountry) {
-                  toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" });
-                  return;
-                }
-                if (!storeName.trim()) {
-                  toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" });
-                  return;
-                }
-                if (!storeAddress.trim()) {
-                  toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" });
-                  return;
-                }
-                if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
-                  toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" });
-                  return;
-                }
-                if (!storeEmail.trim()) {
-                  toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" });
-                  return;
-                }
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-                  toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" });
-                  return;
-                }
-                setSubmitError(null);
-                setShowConfirm(true);
-              }}
-              disabled={isSubmitting}
-              className="w-full rounded-xl h-11 mt-3"
-            >
-              {isSubmitting ? t("onboarding.storeInfo.saving") : t("onboarding.storeInfo.reviewButton")}
-            </Button>
-          </div>
-        )}
 
-        {/* ── Confirmation Dialog ── */}
-        <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-          <AlertDialogContent className="rounded-2xl max-w-sm">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-lg">{t("onboarding.confirmDialog.title")}</AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-3 text-left">
-                  <div className="space-y-1.5 p-3 rounded-xl bg-muted/50 border border-border/40">
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.storeLabel")}</p>
-                      <p className="text-sm font-bold text-foreground">{storeName}</p>
-                    </div>
-                    {storeCountry && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.countryLabel")}</p>
-                        <p className="text-sm font-semibold text-foreground">
-                          {storeCountry.flag} {storeCountry.name}
-                          <span className="text-muted-foreground font-normal"> · {storeCountry.currency}</span>
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.businessTypeLabel")}</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {businessSubType && businessSubType !== "other"
-                          ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
-                          : BUSINESS_TYPE_LABELS[businessType ?? "other"]}
-                        {businessType && (
-                          <span className="text-muted-foreground font-normal"> · {BUSINESS_TYPE_LABELS[businessType]}</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("onboarding.confirmDialog.featuresLabel")}</p>
-                    <div className="space-y-1">
-                      {getFeaturePreview(businessType, businessSubType).map(f => (
-                        <div key={f} className="flex items-center gap-2">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="text-xs text-foreground">{f}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-muted-foreground pt-1">
-                    {t("onboarding.confirmDialog.changeNote")}
-                  </p>
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl" disabled={isSubmitting}>{t("onboarding.confirmDialog.goBack")}</AlertDialogCancel>
-              <AlertDialogAction
-                data-testid="btn-confirm-setup"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleOwnerComplete();
+            <div className="mt-5 flex justify-end">
+              <Button
+                data-testid="btn-finish-setup"
+                onClick={() => {
+                  if (!storeCountry) { toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" }); return; }
+                  if (!storeName.trim()) { toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" }); return; }
+                  if (!storeAddress.trim()) { toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" }); return; }
+                  if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) { toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" }); return; }
+                  if (!storeEmail.trim()) { toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" }); return; }
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) { toast({ title: t("onboarding.storeInfo.errorEmailInvalid"), description: t("onboarding.storeInfo.errorEmailInvalidDesc"), variant: "destructive" }); return; }
+                  setSubmitError(null);
+                  setShowConfirm(true);
                 }}
                 disabled={isSubmitting}
-                className="rounded-xl"
+                className="px-8 h-12 rounded-2xl font-bold"
               >
-                {isSubmitting ? t("onboarding.confirmDialog.saving") : t("onboarding.confirmDialog.confirmButton")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* ── Step: Language ── */}
-        {step === "language" && (
-          <div className="flex flex-col max-h-[80vh]">
-            <div className="px-6 pt-6 pb-4 flex-shrink-0">
-              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mx-auto mb-4">
-                <Globe className="w-6 h-6 text-primary" />
-              </div>
-              <h2 className="text-xl font-bold text-foreground text-center mb-1">{t("onboarding.language.title")}</h2>
-              <p className="text-sm text-muted-foreground text-center">
-                {t("onboarding.language.subtitle")}
-              </p>
-            </div>
-            <div className="overflow-y-auto px-6 pb-2 flex-1">
-              <div className="grid grid-cols-2 gap-2">
-                {SUPPORTED_LANGUAGES.map(lang => {
-                  const isSelected = selectedLanguage === lang.code;
-                  return (
-                    <button
-                      key={lang.code}
-                      data-testid={`btn-lang-${lang.code}`}
-                      onClick={async () => {
-                        setSelectedLanguage(lang.code);
-                        await loadLocale(lang.code);
-                        i18n.changeLanguage(lang.code);
-                      }}
-                      className={[
-                        "flex flex-col items-start px-3 py-2.5 rounded-xl border-2 transition-all duration-200 text-left",
-                        isSelected
-                          ? "border-primary bg-primary/5 dark:bg-primary/10"
-                          : "border-border bg-muted/30 hover:bg-muted/60",
-                      ].join(" ")}
-                    >
-                      <span className={["text-sm font-semibold leading-tight", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
-                        {lang.nativeName}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">{lang.name}</span>
-                      {isSelected && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-1" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="px-6 py-4 flex-shrink-0 border-t border-border/20 mt-2">
-              <Button
-                data-testid="btn-lang-continue"
-                onClick={() => setStep("done")}
-                className="w-full rounded-xl h-11"
-              >
-                {t("onboarding.language.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
+                {isSubmitting ? t("onboarding.storeInfo.saving") : t("onboarding.storeInfo.reviewButton")}
               </Button>
             </div>
           </div>
         )}
 
+        {/* ── Step: Language ── */}
+        {step === "language" && (
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-400">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                <Globe className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-3">
+                {t("onboarding.language.title")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("onboarding.language.subtitle")}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 mb-6 max-h-[340px] overflow-y-auto">
+              {SUPPORTED_LANGUAGES.map(lang => {
+                const isSelected = selectedLanguage === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    data-testid={`btn-lang-${lang.code}`}
+                    onClick={async () => {
+                      setSelectedLanguage(lang.code);
+                      await loadLocale(lang.code);
+                      i18n.changeLanguage(lang.code);
+                    }}
+                    className={[
+                      "flex flex-col items-start px-4 py-3.5 rounded-2xl border-2 transition-all duration-200",
+                      isSelected
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
+                        : "border-border/60 bg-white dark:bg-white/5 hover:border-primary/30",
+                    ].join(" ")}
+                  >
+                    <span className={["text-sm font-semibold leading-tight", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
+                      {lang.nativeName}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground mt-0.5">{lang.name}</span>
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-1.5" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Button
+              data-testid="btn-lang-continue"
+              onClick={() => setStep("done")}
+              className="w-full h-12 rounded-2xl font-bold"
+            >
+              {t("onboarding.language.continueButton")} <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
         {/* ── Step: Done ── */}
         {step === "done" && (
-          <div className="p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-950/50 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-9 h-9 text-green-600 dark:text-green-400" />
+          <div className="w-full max-w-sm text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-28 h-28 rounded-[32px] bg-gradient-to-tr from-primary to-primary/70 flex items-center justify-center mx-auto mb-8 shadow-xl shadow-primary/25 text-primary-foreground">
+              <PartyPopper className="w-14 h-14 animate-bounce" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">
+            <h2 className="text-4xl font-extrabold tracking-tight text-foreground mb-3">
               {role === "employee" ? t("onboarding.done.employeeTitle") : t("onboarding.done.ownerTitle")}
             </h2>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-base text-muted-foreground mb-8">
               {role === "employee"
                 ? t("onboarding.done.employeeSubtitle")
                 : storeName
                   ? `${storeName} ${t("onboarding.done.ownerSubtitle")}`
                   : t("onboarding.done.ownerSubtitleFallback")}
             </p>
+
+            <div className="bg-white dark:bg-white/5 rounded-[20px] border border-border/50 shadow-sm p-4 flex items-center gap-4 mb-6 text-left">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-950/40 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="font-bold text-foreground text-sm">Store Created</p>
+                <p className="text-xs text-muted-foreground">Dashboard unlocked</p>
+              </div>
+            </div>
+
             <Button
               data-testid="btn-go-to-dashboard"
               onClick={handleDone}
-              className="w-full rounded-xl h-11"
+              size="lg"
+              className="w-full h-12 rounded-2xl font-bold shadow-lg shadow-primary/25"
             >
               {t("onboarding.done.dashboardButton")}
             </Button>
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Footer note */}
-      {step === "role" && (
-        <p className="mt-6 text-xs text-muted-foreground text-center opacity-60">
-          {t("onboarding.role.footerNote")}
-        </p>
+      {/* Footer navigation — Back button */}
+      {showFooterBack && (
+        <footer className="relative z-10 w-full px-6 pb-6 pt-2">
+          <div className="max-w-xl mx-auto">
+            <button
+              onClick={() => {
+                if (step === "role") setStep("welcome");
+                else if (step === "employee_invite") setStep("role");
+                else if (step === "business_type") setStep("role");
+                else if (step === "business_subtype") setStep("business_type");
+                else if (step === "store_info") setStep("business_subtype");
+              }}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-white dark:hover:bg-white/5"
+            >
+              <ChevronLeft className="w-4 h-4" /> {t("common.back")}
+            </button>
+          </div>
+        </footer>
       )}
+
+      {/* ── Confirmation Dialog ── */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent className="rounded-2xl max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg">{t("onboarding.confirmDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-left">
+                <div className="space-y-1.5 p-3 rounded-xl bg-muted/50 border border-border/40">
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.storeLabel")}</p>
+                    <p className="text-sm font-bold text-foreground">{storeName}</p>
+                  </div>
+                  {storeCountry && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.countryLabel")}</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {storeCountry.flag} {storeCountry.name}
+                        <span className="text-muted-foreground font-normal"> · {storeCountry.currency}</span>
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("onboarding.confirmDialog.businessTypeLabel")}</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {businessSubType && businessSubType !== "other"
+                        ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
+                        : BUSINESS_TYPE_LABELS[businessType ?? "other"]}
+                      {businessType && (
+                        <span className="text-muted-foreground font-normal"> · {BUSINESS_TYPE_LABELS[businessType]}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("onboarding.confirmDialog.featuresLabel")}</p>
+                  <div className="space-y-1">
+                    {getFeaturePreview(businessType, businessSubType).map(f => (
+                      <div key={f} className="flex items-center gap-2">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="text-xs text-foreground">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  {t("onboarding.confirmDialog.changeNote")}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl" disabled={isSubmitting}>{t("onboarding.confirmDialog.goBack")}</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="btn-confirm-setup"
+              onClick={(e) => {
+                e.preventDefault();
+                handleOwnerComplete();
+              }}
+              disabled={isSubmitting}
+              className="rounded-xl"
+            >
+              {isSubmitting ? t("onboarding.confirmDialog.saving") : t("onboarding.confirmDialog.confirmButton")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

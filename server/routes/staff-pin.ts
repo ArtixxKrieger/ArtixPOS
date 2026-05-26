@@ -326,7 +326,7 @@ export function registerStaffPinRoutes(app: Express): void {
   // ── 5. Remove a staff member's PIN ───────────────────────────────────────────
   app.delete("/api/staff-pin/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const requestingUser = req.user as any;
 
       const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -345,7 +345,7 @@ export function registerStaffPinRoutes(app: Express): void {
   // ── 6. Unlock a locked PIN (manager override) ────────────────────────────────
   app.post("/api/staff-pin/unlock/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const requestingUser = req.user as any;
 
       const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);

@@ -21,7 +21,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 200 45% 18%;
 
-    --primary: 199 85% 44%;
+    --primary: 199 85% 52%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 199 45% 91%;
@@ -31,28 +31,28 @@
     --muted-foreground: 200 22% 48%;
 
     --accent: 199 70% 91%;
-    --accent-foreground: 199 85% 28%;
+    --accent-foreground: 199 85% 26%;
 
     --destructive: 0 84% 58%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 199 32% 87%;
     --input: 0 0% 100%;
-    --ring: 199 85% 44%;
+    --ring: 199 85% 52%;
     --radius: 1rem;
 
     /* Sidebar — white, sky-blue accents */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 200 45% 18%;
-    --sidebar-primary: 199 85% 44%;
+    --sidebar-primary: 199 85% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 199 65% 93%;
     --sidebar-accent-foreground: 199 80% 28%;
     --sidebar-border: 199 32% 88%;
-    --sidebar-ring: 199 85% 44%;
+    --sidebar-ring: 199 85% 52%;
 
     /* Charts */
-    --chart-1: 199 85% 44%;
+    --chart-1: 199 85% 52%;
     --chart-2: 158 64% 45%;
     --chart-3: 38 92% 55%;
     --chart-4: 0 84% 60%;
@@ -60,47 +60,47 @@
   }
 
   .dark {
-    /* ── Soft cool slate — overcast sky, easy on the eyes ────── */
-    --background: 215 18% 13%;
+    /* ── Deep dark with neon sky blue ────────────────────────── */
+    --background: 215 28% 8%;
     --foreground: 210 14% 90%;
 
-    --card: 215 16% 17%;
+    --card: 215 25% 11%;
     --card-foreground: 210 14% 90%;
 
-    --popover: 215 16% 20%;
+    --popover: 215 25% 14%;
     --popover-foreground: 210 14% 90%;
 
-    --primary: 199 80% 56%;
-    --primary-foreground: 215 30% 10%;
+    --primary: 205 100% 62%;
+    --primary-foreground: 215 40% 8%;
 
-    --secondary: 215 16% 22%;
+    --secondary: 215 22% 16%;
     --secondary-foreground: 210 12% 68%;
 
-    --muted: 215 14% 20%;
+    --muted: 215 20% 14%;
     --muted-foreground: 210 10% 50%;
 
-    --accent: 199 45% 20%;
-    --accent-foreground: 199 80% 70%;
+    --accent: 205 80% 18%;
+    --accent-foreground: 205 100% 72%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 16% 22%;
-    --input: 215 18% 16%;
-    --ring: 199 80% 56%;
+    --border: 215 22% 17%;
+    --input: 215 28% 11%;
+    --ring: 205 100% 62%;
 
-    /* Sidebar — slightly deeper cool slate */
-    --sidebar-background: 215 20% 10%;
+    /* Sidebar — deepest dark layer */
+    --sidebar-background: 215 32% 6%;
     --sidebar-foreground: 210 14% 90%;
-    --sidebar-primary: 199 80% 56%;
-    --sidebar-primary-foreground: 215 30% 10%;
-    --sidebar-accent: 215 16% 17%;
-    --sidebar-accent-foreground: 199 75% 70%;
-    --sidebar-border: 215 18% 15%;
-    --sidebar-ring: 199 80% 56%;
+    --sidebar-primary: 205 100% 62%;
+    --sidebar-primary-foreground: 215 40% 8%;
+    --sidebar-accent: 215 25% 12%;
+    --sidebar-accent-foreground: 205 100% 72%;
+    --sidebar-border: 215 28% 12%;
+    --sidebar-ring: 205 100% 62%;
 
     /* Charts */
-    --chart-1: 199 80% 56%;
+    --chart-1: 205 100% 62%;
     --chart-2: 158 64% 52%;
     --chart-3: 38 92% 62%;
     --chart-4: 0 84% 66%;
@@ -126,13 +126,13 @@
     text-rendering: optimizeSpeed;
   }
 
-  /* Soft cool slate dark — easy on the eyes */
+  /* Deep dark with subtle neon glow at top */
   .dark body {
-    background-color: #1A212E;
+    background-color: #0C1420;
     background-image:
-      radial-gradient(ellipse 70% 40% at 50% -5%,  hsl(199 60% 50% / 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 40% 30% at 90% 100%, hsl(215 18% 20% / 0.50) 0%, transparent 60%),
-      radial-gradient(ellipse 35% 25% at 2% 75%,   hsl(215 18% 16% / 0.40) 0%, transparent 60%);
+      radial-gradient(ellipse 70% 40% at 50% -5%,  hsl(205 100% 62% / 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 30% at 90% 100%, hsl(215 28% 14% / 0.60) 0%, transparent 60%),
+      radial-gradient(ellipse 35% 25% at 2% 75%,   hsl(215 28% 10% / 0.50) 0%, transparent 60%);
   }
 
   /* Light mode — airy sky tint */
@@ -169,16 +169,16 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Sidebar — white on light, soft slate on dark */
+/* Sidebar — white on light, deep dark on dark */
 .glass-sidebar {
   background: rgba(255, 255, 255, 0.99);
   border-right: 1px solid hsl(199, 32%, 88%);
   box-shadow: 1px 0 0 rgba(0, 0, 0, 0.04);
 }
 .dark .glass-sidebar {
-  background: #151C27;
-  border-right: 1px solid hsl(215 18% 15%);
-  box-shadow: 1px 0 16px rgba(0, 0, 0, 0.25), 1px 0 0 hsl(199 60% 50% / 0.05);
+  background: #09101C;
+  border-right: 1px solid hsl(215 28% 12%);
+  box-shadow: 1px 0 16px rgba(0, 0, 0, 0.40), 1px 0 0 hsl(205 100% 62% / 0.06);
 }
 
 /* Fixed bottom nav */
@@ -189,9 +189,9 @@
   transform: translateZ(0);
 }
 .dark .glass-nav {
-  background: rgba(26, 33, 46, 0.99);
+  background: rgba(12, 20, 32, 0.99);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04), 0 -4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04), 0 -4px 20px rgba(0, 0, 0, 0.40);
   transform: translateZ(0);
 }
 
@@ -203,9 +203,9 @@
   transform: translateZ(0);
 }
 .dark .glass-header {
-  background: rgba(26, 33, 46, 0.98);
+  background: rgba(12, 20, 32, 0.98);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 8px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 8px rgba(0, 0, 0, 0.30);
   transform: translateZ(0);
 }
 
@@ -238,9 +238,9 @@
   will-change: transform;
 }
 .dark .glass-cart-bar {
-  background: rgba(26, 33, 46, 0.99);
+  background: rgba(12, 20, 32, 0.99);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.40);
   will-change: transform;
 }
 
@@ -323,8 +323,8 @@
   --phantom-ui-hi: hsl(240, 6%, 96%);
 }
 .dark {
-  --phantom-ui-bg: hsl(215, 16%, 20%);
-  --phantom-ui-hi: hsl(215, 16%, 30%);
+  --phantom-ui-bg: hsl(215, 25%, 16%);
+  --phantom-ui-hi: hsl(215, 25%, 24%);
 }
 @keyframes shimmer {
   0%   { background-position: -200% 0; }

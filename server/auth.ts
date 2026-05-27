@@ -197,7 +197,7 @@ export function signToken(user: TokenUser, rememberMe = false): string {
       activeBranchId: user.activeBranchId ?? null,
     },
     getJwtSecret(),
-    { expiresIn: rememberMe ? "30d" : "7d" }
+    { expiresIn: rememberMe ? "90d" : "7d" }
   );
 }
 
@@ -218,7 +218,7 @@ export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false
   // rememberMe = false → session ends when browser closes (1 day max)
   // rememberMe = true  → cookie persists for 30 days
   const maxAge = rememberMe
-    ? 30 * 24 * 60 * 60 * 1000
+    ? 90 * 24 * 60 * 60 * 1000
     :  1 * 24 * 60 * 60 * 1000;
   res.cookie(AUTH_COOKIE, token, {
     ...AUTH_COOKIE_OPTIONS,

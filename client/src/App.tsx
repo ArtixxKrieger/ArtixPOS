@@ -1,5 +1,7 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient, setNativeToken, NATIVE_TOKEN_KEY, apiRequest } from "./lib/queryClient";
+import { useKioskMode } from "@/hooks/use-kiosk-mode";
+import { LogOut, ShoppingCart } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
@@ -682,6 +684,74 @@ function AppRouter() {
   );
 }
 
+// ── PIN session app: shown to staff who logged in via kiosk PIN ───────────────
+// Restricts the entire app to POS only — no sidebar, no navigation elsewhere.
+function PinSessionApp() {
+  const { user } = useAuth();
+  const { data: settings } = useSettings();
+  const { lock } = useKioskMode();
+  const [location, setLocation] = useLocation();
+  const [clockingOut, setClockingOut] = useState(false);
+  const storeName = (settings as any)?.storeName ?? "ArtixPOS";
+
+  // Force any navigation to /pos
+  useEffect(() => {
+    if (location !== "/pos") setLocation("/pos");
+  }, [location, setLocation]);
+
+  async function handleClockOut() {
+    setClockingOut(true);
+    try {
+      await apiRequest("POST", "/api/staff-pin/clockout");
+    } catch { /* best-effort */ }
+    queryClient.cancelQueries();
+    queryClient.removeQueries({ predicate: q => (q.queryKey[0] as string) !== "auth-me" });
+    await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+    lock();
+  }
+
+  return (
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Minimal staff header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 bg-background shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shadow-sm">
+            <ShoppingCart className="w-3.5 h-3.5 text-primary-foreground" />
+          </div>
+          <span className="text-sm font-bold text-foreground">{storeName}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {user && (
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[11px] font-bold shrink-0">
+                {(user.name ?? "?")[0].toUpperCase()}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-foreground leading-tight">{user.name}</p>
+                <p className="text-[10px] text-muted-foreground capitalize leading-tight">{user.role}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleClockOut}
+            disabled={clockingOut}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition-all duration-150 disabled:opacity-50"
+          >
+            <LogOut className="w-3 h-3" />
+            {clockingOut ? "Clocking out…" : "Clock Out"}
+          </button>
+        </div>
+      </div>
+      {/* POS fills remaining height */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <Suspense fallback={pageFallback}>
+          <POS />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [location] = useLocation();
@@ -780,6 +850,10 @@ function ProtectedRouter() {
 
   if (location === "/staff-clock-in") {
     return <StaffPinLogin />;
+  }
+
+  if (user?.pinSession) {
+    return <PinSessionApp />;
   }
 
   return <AppRouter />;

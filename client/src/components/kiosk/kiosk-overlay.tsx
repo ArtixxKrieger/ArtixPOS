@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { Lock, Unlock, LogOut, ChevronLeft, User, Delete, ShieldAlert, CheckCircle2, Clock as ClockIcon } from "lucide-react";
+import { Lock, Unlock, LogOut, ChevronLeft, User, Delete, ShieldAlert, CheckCircle2, Clock as ClockIcon, Loader2 } from "lucide-react";
 import { useKioskMode } from "@/hooks/use-kiosk-mode";
 import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
@@ -36,21 +36,22 @@ function Clock() {
   );
 }
 
-// ── Manager PIN (4-digit kiosk PIN) ───────────────────────────────────────────
+// ── Manager PIN (server-verified kiosk unlock PIN) ────────────────────────────
 
 function ManagerPinInput({
   onUnlock,
   onDisable,
   onBack,
 }: {
-  onUnlock: (pin: string) => boolean;
-  onDisable: (pin: string) => boolean;
+  onUnlock: () => void;
+  onDisable: () => void;
   onBack: () => void;
 }) {
   const [exitMode, setExitMode] = useState(false);
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const inputRefs = [
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
@@ -71,7 +72,7 @@ function ManagerPinInput({
     if (digit && idx < 3) inputRefs[idx + 1].current?.focus();
     if (digit && idx === 3) {
       const full = [...next].join("");
-      if (full.length === 4) trySubmit(full, next);
+      if (full.length === 4) trySubmit(full);
     }
   }
 
@@ -83,18 +84,25 @@ function ManagerPinInput({
     }
     if (e.key === "Enter") {
       const full = pin.join("");
-      if (full.length === 4) trySubmit(full, pin);
+      if (full.length === 4) trySubmit(full);
     }
   }
 
-  function trySubmit(full: string, currentPin: string[]) {
-    const ok = exitMode ? onDisable(full) : onUnlock(full);
-    if (!ok) {
-      setError(true);
-      setShake(true);
-      setPin(["", "", "", ""]);
-      setTimeout(() => { setShake(false); inputRefs[0].current?.focus(); }, 500);
-    }
+  async function trySubmit(full: string) {
+    setVerifying(true);
+    try {
+      const res = await apiRequest("POST", "/api/kiosk/verify-pin", { pin: full });
+      const data = await res.json();
+      if (data.valid) {
+        exitMode ? onDisable() : onUnlock();
+        return;
+      }
+    } catch { /* network error — treat as wrong PIN */ }
+    setVerifying(false);
+    setError(true);
+    setShake(true);
+    setPin(["", "", "", ""]);
+    setTimeout(() => { setShake(false); inputRefs[0].current?.focus(); }, 500);
   }
 
   function switchMode(mode: boolean) {
@@ -110,7 +118,7 @@ function ManagerPinInput({
           {exitMode ? "Exit Kiosk Mode" : "Manager Unlock"}
         </p>
         <p className="text-white/50 text-[12px] mt-0.5">
-          {exitMode ? "Enter your PIN to disable kiosk mode" : "Enter your 4-digit manager PIN"}
+          {exitMode ? "Enter your PIN to disable kiosk mode" : "Enter your manager PIN"}
         </p>
       </div>
 
@@ -129,6 +137,7 @@ function ManagerPinInput({
             data-testid={`kiosk-pin-${idx}`}
             onChange={(e) => handleDigit(idx, e.target.value)}
             onKeyDown={(e) => handleKeyDown(idx, e)}
+            disabled={verifying}
             className={[
               "w-13 h-14 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all duration-150 caret-transparent",
               "bg-white/10 backdrop-blur-sm",
@@ -137,6 +146,7 @@ function ManagerPinInput({
                 : digit
                 ? "border-white/60 text-white"
                 : "border-white/25 text-white focus:border-white/70",
+              verifying ? "opacity-50" : "",
             ].join(" ")}
             style={{ width: "52px" }}
           />
@@ -148,15 +158,17 @@ function ManagerPinInput({
       )}
 
       <button
-        onClick={() => { const full = pin.join(""); if (full.length === 4) trySubmit(full, pin); }}
-        disabled={pin.join("").length < 4}
+        onClick={() => { const full = pin.join(""); if (full.length === 4) trySubmit(full); }}
+        disabled={pin.join("").length < 4 || verifying}
         data-testid="btn-kiosk-unlock"
         className="w-full py-3 rounded-2xl text-[14px] font-semibold text-white transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
         style={{ background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)" }}
       >
         <span className="flex items-center justify-center gap-2">
-          {exitMode ? <LogOut className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-          {exitMode ? "Disable Kiosk Mode" : "Unlock"}
+          {verifying
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : exitMode ? <LogOut className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+          {verifying ? "Verifying…" : exitMode ? "Disable Kiosk Mode" : "Unlock"}
         </span>
       </button>
 
@@ -280,7 +292,7 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
 // ── Main overlay ──────────────────────────────────────────────────────────────
 
 export function KioskOverlay() {
-  const { isEnabled, isLocked, unlock, forceUnlock, disableKioskMode } = useKioskMode();
+  const { isEnabled, isLocked, forceUnlock, forceDisableKiosk } = useKioskMode();
   const { data: settings } = useSettings();
   const { user: ownerUser } = useAuth();
   const storeName = (settings as any)?.storeName || "ArtixPOS";
@@ -482,8 +494,8 @@ export function KioskOverlay() {
             {/* ── Manager PIN phase ── */}
             {phase === "manager-pin" && (
               <ManagerPinInput
-                onUnlock={unlock}
-                onDisable={disableKioskMode}
+                onUnlock={forceUnlock}
+                onDisable={forceDisableKiosk}
                 onBack={() => setPhase("roster")}
               />
             )}

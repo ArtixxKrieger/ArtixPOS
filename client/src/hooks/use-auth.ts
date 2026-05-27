@@ -23,6 +23,7 @@ export interface AuthUser {
   role: "owner" | "manager" | "admin" | "cashier";
   activeBranchId: number | null;
   activeBranch: ActiveBranchInfo | null;
+  pinSession?: boolean;
 }
 
 // fetchMe is a proper React Query queryFn — it receives the QueryFunctionContext

@@ -20,7 +20,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { db } from "../db";
 import { users, timeLogs, userBranches, revokedTokens } from "@shared/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../crypto";
 import jwt from "jsonwebtoken";
 import { AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getJwtSecret } from "../auth";
@@ -361,3 +361,27 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 }
+
+// ── Auto clock-out: close stale time logs after 8-hour shift window ──────────
+// Runs every 15 minutes. Catches cases where the JWT expired but the time log
+// was never explicitly closed via the clockout endpoint.
+async function runAutoClockout() {
+  try {
+    const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+    const staleLogs = await db
+      .select({ id: timeLogs.id })
+      .from(timeLogs)
+      .where(and(isNull(timeLogs.clockOut), sql`${timeLogs.clockIn} < ${eightHoursAgo}`));
+
+    if (staleLogs.length > 0) {
+      await db
+        .update(timeLogs)
+        .set({ clockOut: new Date().toISOString(), notes: "Auto clock-out: shift exceeded 8 hours" })
+        .where(inArray(timeLogs.id, staleLogs.map(l => l.id)));
+      console.log(`[staff-pin] Auto-closed ${staleLogs.length} stale time log(s)`);
+    }
+  } catch (err) {
+    console.error("[staff-pin] Auto clock-out job error:", err);
+  }
+}
+setInterval(runAutoClockout, 15 * 60 * 1000);

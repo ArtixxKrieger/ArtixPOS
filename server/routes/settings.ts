@@ -7,7 +7,8 @@ import { requireAuth, getSubscription, isProSubscription } from "../middleware";
 import { createTenant, getBranches, createBranch, updateBranch } from "../admin-storage";
 import { db, dbSystem } from "../db";
 import { eq, sql } from "drizzle-orm";
-import { users, tenants } from "@shared/schema";
+import { users, tenants, userSettings } from "@shared/schema";
+import { hashPassword, verifyPassword } from "../crypto";
 import { setAuthCookie } from "../auth";
 import { cache, TTL, settingsCacheKey } from "../cache";
 import { invalidateTenantCache } from "../storage";
@@ -290,6 +291,54 @@ export function registerSettingsRoutes(app: Express): void {
       };
       console.error("[settings] Unhandled error in PUT /api/settings — pgDetail:", pgDetail, "full:", err);
       res.status(500).json({ message: pgDetail.message, error: pgDetail });
+    }
+  });
+
+  // ── Kiosk PIN: set ──────────────────────────────────────────────────────────
+  // Owner-only. Hashes the PIN and persists it in userSettings.
+  app.post("/api/kiosk/set-pin", requireAuth, async (req, res) => {
+    try {
+      const { pin } = z.object({ pin: z.string().min(4).max(8).regex(/^\d+$/, "PIN must be numeric") }).parse(req.body);
+      const uid = getUserId(req);
+      const user = req.user as any;
+      if (user.role !== "owner") return res.status(403).json({ message: "Only owners can set the kiosk PIN." });
+
+      const hashed = await hashPassword(pin);
+      await db
+        .insert(userSettings)
+        .values({ userId: uid, kioskPin: hashed } as any)
+        .onConflictDoUpdate({ target: userSettings.userId, set: { kioskPin: hashed } });
+
+      cache.del(settingsCacheKey(uid));
+      res.json({ message: "Kiosk PIN updated" });
+    } catch (err: any) {
+      if (handleZodError(err, res)) return;
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ── Kiosk PIN: verify ───────────────────────────────────────────────────────
+  // Called by the kiosk lock screen to validate the manager unlock PIN.
+  // Falls back to "1234" if no custom PIN has been set yet.
+  app.post("/api/kiosk/verify-pin", requireAuth, async (req, res) => {
+    try {
+      const { pin } = z.object({ pin: z.string().min(4).max(8) }).parse(req.body);
+      const uid = getUserId(req);
+
+      const settings = await storage.getSettings(uid);
+      const storedHash = (settings as any)?.kioskPin ?? null;
+
+      let valid: boolean;
+      if (storedHash) {
+        valid = await verifyPassword(pin, storedHash);
+      } else {
+        valid = pin === "1234";
+      }
+
+      res.json({ valid });
+    } catch (err: any) {
+      if (handleZodError(err, res)) return;
+      res.status(500).json({ message: "Server error" });
     }
   });
 }

@@ -113,6 +113,13 @@ export function useKioskMode() {
     setIsLocked(false);
   }, []);
 
+  /** Fully disable kiosk without PIN check — used after server-verified manager PIN. */
+  const forceDisableKiosk = useCallback(() => {
+    try { localStorage.removeItem(KIOSK_ENABLED_KEY); } catch {}
+    setIsEnabled(false);
+    setIsLocked(false);
+  }, []);
+
   /** Validate PIN → fully disable kiosk mode. */
   const disableKioskMode = useCallback((pin: string): boolean => {
     if (pin !== getPin()) return false;
@@ -136,7 +143,7 @@ export function useKioskMode() {
 
   return {
     isEnabled, isLocked, isFullscreen,
-    enterKioskMode, lock, unlock, forceUnlock, disableKioskMode, exitKioskMode,
+    enterKioskMode, lock, unlock, forceUnlock, forceDisableKiosk, disableKioskMode, exitKioskMode,
     toggleFullscreen,
     getPin, setPin,
     getIdleMins, setIdleMins,

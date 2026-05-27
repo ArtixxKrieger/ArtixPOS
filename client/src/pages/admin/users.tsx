@@ -29,53 +29,38 @@ import { cn } from "@/lib/utils";
 
 const addStaffSchema = z.object({
   name:      z.string().min(1, "Name is required"),
-  email:     z.string().email("Valid email required"),
   role:      z.enum(["manager", "admin", "cashier"]),
   branchIds: z.array(z.number()).default([]),
+  pin:       z.string().regex(/^\d{4,6}$/, "PIN must be 4–6 digits").optional().or(z.literal("")),
 });
 type AddStaffForm = z.infer<typeof addStaffSchema>;
-
-function generatePassword(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#";
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
 
 function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: branches = [] } = useBranches();
   const createStaff = useCreateStaffUser();
   const { toast } = useToast();
-  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [showPw, setShowPw] = useState(false);
+  const [done, setDone] = useState(false);
+  const [hadPin, setHadPin] = useState(false);
 
   const form = useForm<AddStaffForm>({
     resolver: zodResolver(addStaffSchema),
-    defaultValues: { name: "", email: "", role: "cashier", branchIds: [] },
+    defaultValues: { name: "", role: "cashier", branchIds: [], pin: "" },
   });
 
   async function onSubmit(values: AddStaffForm) {
-    const password = generatePassword();
     try {
-      await createStaff.mutateAsync({ ...values, password });
-      setCreatedPassword(password);
+      const pin = values.pin && values.pin.length >= 4 ? values.pin : undefined;
+      await createStaff.mutateAsync({ name: values.name, role: values.role, branchIds: values.branchIds, pin });
+      setHadPin(!!pin);
+      setDone(true);
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to create staff account", variant: "destructive" });
+      toast({ title: err?.message ?? "Failed to add staff member", variant: "destructive" });
     }
   }
 
-  function copyPassword() {
-    if (!createdPassword) return;
-    navigator.clipboard.writeText(createdPassword).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-      toast({ title: "Password copied" });
-    });
-  }
-
   function handleClose() {
-    setCreatedPassword(null);
-    setCopied(false);
-    setShowPw(false);
+    setDone(false);
+    setHadPin(false);
     form.reset();
     onClose();
   }
@@ -89,11 +74,11 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
             Add Staff Member
           </DialogTitle>
           <DialogDescription>
-            Create a login for a staff member. After adding them, set their clock-in PIN from the team list.
+            Staff sign in with a PIN on the shared device — no app account needed.
           </DialogDescription>
         </DialogHeader>
 
-        {!createdPassword ? (
+        {!done ? (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField control={form.control} name="name" render={({ field }) => (
@@ -101,16 +86,6 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
                   <FormLabel>Full Name</FormLabel>
                   <FormControl>
                     <Input data-testid="input-staff-name" placeholder="e.g. Maria Cruz" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input data-testid="input-staff-email" type="email" placeholder="maria@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -126,11 +101,32 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="cashier">Cashier</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="pin" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Clock-in PIN
+                    <span className="text-muted-foreground font-normal ml-1">(optional — can set later)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      data-testid="input-staff-pin"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="4–6 digits"
+                      {...field}
+                      onChange={e => field.onChange(e.target.value.replace(/\D/g, ""))}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -165,7 +161,7 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
                 <Button data-testid="button-create-staff" type="submit" disabled={createStaff.isPending}>
-                  {createStaff.isPending ? "Creating…" : "Create Account"}
+                  {createStaff.isPending ? "Adding…" : "Add Staff Member"}
                 </Button>
               </DialogFooter>
             </form>
@@ -173,43 +169,24 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-7 w-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-7 w-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
                   <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Account created!</p>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  {form.getValues("name")} added!
+                </p>
               </div>
-              <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mb-3">
-                Share these credentials with <span className="font-semibold">{form.getValues("name")}</span> — they'll use them to log in. Then set their clock-in PIN from the team list.
-              </p>
-              <div className="space-y-2">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Email</div>
-                <p className="text-sm font-mono bg-background rounded-lg px-3 py-2 border border-border/60">{form.getValues("email")}</p>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Temporary Password</div>
-                <div className="flex items-center gap-2">
-                  <p className="flex-1 text-sm font-mono bg-background rounded-lg px-3 py-2 border border-border/60 tracking-wider">
-                    {showPw ? createdPassword : "••••••••••••"}
-                  </p>
-                  <button
-                    onClick={() => setShowPw(v => !v)}
-                    className="h-9 w-9 flex items-center justify-center rounded-lg border border-border/60 bg-background hover:bg-secondary transition-colors shrink-0"
-                    data-testid="button-toggle-password"
-                  >
-                    {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
-                    onClick={copyPassword}
-                    className="h-9 w-9 flex items-center justify-center rounded-lg border border-border/60 bg-background hover:bg-secondary transition-colors shrink-0"
-                    data-testid="button-copy-password"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </div>
+              {hadPin ? (
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                  Their PIN is set. They can clock in on the shared device right away.
+                </p>
+              ) : (
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                  No PIN set yet — tap the <span className="font-semibold">PIN</span> button on their card to set it before their first shift.
+                </p>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground text-center">
-              Save this password — it won't be shown again. Ask them to change it after first login.
-            </p>
             <DialogFooter>
               <Button onClick={handleClose} data-testid="button-done-add-staff">Done</Button>
             </DialogFooter>

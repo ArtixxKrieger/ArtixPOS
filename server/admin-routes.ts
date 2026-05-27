@@ -11,7 +11,7 @@ import {
   getUserBranches, assignBranch, removeBranch, bulkAssignBranches,
   getAuditLogs, createAuditLog,
   getBranchAnalytics,
-  getUserByEmail, verifyPassword,
+  getUserByEmail, verifyPassword, hashPassword,
   banUser, unbanUser,
   getRolePermissions, upsertRolePermission, getRolePermissionForRole,
 } from "./admin-storage";
@@ -601,10 +601,9 @@ export function registerAdminRoutes(app: Express) {
       }
       const input = z.object({
         name: z.string().min(1),
-        email: z.string().email(),
         role: z.enum(["manager", "admin", "cashier"]),
-        password: z.string().min(8),
         branchIds: z.array(z.number()).optional().default([]),
+        pin: z.string().min(4).max(6).regex(/^\d+$/, "PIN must be 4–6 digits").optional(),
       }).parse(req.body);
 
       // Admins cannot create admins or managers
@@ -612,20 +611,18 @@ export function registerAdminRoutes(app: Express) {
         return res.status(403).json({ message: "Admins cannot create admin or manager users" });
       }
 
-      const existing = await getUserByEmail(input.email);
-      if (existing) return res.status(409).json({ message: "A user with this email already exists" });
+      const hashedPin = input.pin ? await hashPassword(input.pin) : undefined;
 
       const newUser = await createStaffUser(user.tenantId!, {
         name: input.name,
-        email: input.email,
         role: input.role as "manager" | "admin" | "cashier",
-        password: input.password,
+        hashedPin,
       });
 
       await bulkAssignBranches(newUser.id, input.branchIds);
 
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "user", entityId: newUser.id, metadata: { name: newUser.name, role: newUser.role } });
-      res.status(201).json({ ...newUser, passwordHash: undefined, branches: input.branchIds });
+      res.status(201).json({ ...newUser, staffPin: undefined, branches: input.branchIds });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);

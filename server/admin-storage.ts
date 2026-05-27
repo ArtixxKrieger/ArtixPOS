@@ -108,25 +108,22 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 
 export async function createStaffUser(tenantId: string, data: {
   name: string;
-  email: string;
   role: "manager" | "admin" | "cashier";
-  password: string;
+  hashedPin?: string; // pre-hashed PIN, set immediately if provided
 }): Promise<User> {
-  const normalizedEmail = data.email.trim().toLowerCase();
-  const passwordHash = await hashPassword(data.password);
-  // Use the same deterministic ID format as /api/auth/login so staff can
-  // sign in through the standard login page (provider="email").
-  const id = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
+  // PIN-only staff: no email, no password, no app login.
+  // They authenticate exclusively via PIN on the in-store kiosk.
+  const id = `staff_${crypto.randomUUID()}`;
   await (db.insert(users) as any).values({
     id,
-    email: normalizedEmail,
+    email: null,
     name: data.name,
     avatar: null,
-    provider: "email",
-    providerId: normalizedEmail,
+    provider: "pin",
+    providerId: id,
     tenantId,
     role: data.role,
-    passwordHash,
+    staffPin: data.hashedPin ?? null,
   });
   const [user] = await db.select().from(users).where(eq(users.id, id));
   return user;

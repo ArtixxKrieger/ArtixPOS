@@ -268,7 +268,7 @@ export function useTenantUsers() {
 export function useCreateStaffUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; role: "manager" | "admin" | "cashier"; password: string; branchIds?: number[] }) => {
+    mutationFn: async (data: { name: string; role: "manager" | "admin" | "cashier"; branchIds?: number[]; pin?: string }) => {
       const res = await apiRequest("POST", "/api/admin/users", data);
       return res.json();
     },

@@ -112,15 +112,18 @@ export async function createStaffUser(tenantId: string, data: {
   role: "manager" | "admin" | "cashier";
   password: string;
 }): Promise<User> {
+  const normalizedEmail = data.email.trim().toLowerCase();
   const passwordHash = await hashPassword(data.password);
-  const id = `local_${crypto.randomUUID()}`;
+  // Use the same deterministic ID format as /api/auth/login so staff can
+  // sign in through the standard login page (provider="email").
+  const id = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
   await (db.insert(users) as any).values({
     id,
-    email: data.email,
+    email: normalizedEmail,
     name: data.name,
     avatar: null,
-    provider: "local",
-    providerId: data.email,
+    provider: "email",
+    providerId: normalizedEmail,
     tenantId,
     role: data.role,
     passwordHash,

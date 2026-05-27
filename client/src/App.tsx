@@ -1,6 +1,5 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient, setNativeToken, NATIVE_TOKEN_KEY, apiRequest } from "./lib/queryClient";
-import { useKioskMode } from "@/hooks/use-kiosk-mode";
 import { LogOut, ShoppingCart } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -689,7 +688,6 @@ function AppRouter() {
 function PinSessionApp() {
   const { user } = useAuth();
   const { data: settings } = useSettings();
-  const { lock } = useKioskMode();
   const [location, setLocation] = useLocation();
   const [clockingOut, setClockingOut] = useState(false);
   const storeName = (settings as any)?.storeName ?? "ArtixPOS";
@@ -707,7 +705,7 @@ function PinSessionApp() {
     queryClient.cancelQueries();
     queryClient.removeQueries({ predicate: q => (q.queryKey[0] as string) !== "auth-me" });
     await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-    lock();
+    setLocation("/staff-clock-in");
   }
 
   return (

@@ -1,4 +1,4 @@
-import { ReactNode, memo, useEffect, useState, startTransition, useCallback } from "react";
+import { ReactNode, memo, useEffect, useState, startTransition } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { AiFloatButton } from "@/components/ai-float-button";
@@ -9,18 +9,14 @@ import {
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
-  PanelLeftClose, PanelLeftOpen, Lock, Maximize, Minimize,
+  PanelLeftClose, PanelLeftOpen, Maximize, Minimize,
 } from "lucide-react";
-import { useKioskMode } from "@/hooks/use-kiosk-mode";
-import { KioskOverlay } from "@/components/kiosk/kiosk-overlay";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { OfflineSyncBanner } from "./offline-sync-banner";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
-import { apiRequest } from "@/lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav } from "./bottom-nav";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAuth } from "@/hooks/use-auth";
@@ -270,22 +266,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const onlineStatus = useOnlineStatus();
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
-  const queryClient = useQueryClient();
   const { isFree } = useSubscription();
-  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, lock: lockKiosk, toggleFullscreen } = useKioskMode();
-
-  const [clockingOut, setClockingOut] = useState(false);
-  const handleClockOut = useCallback(async () => {
-    setClockingOut(true);
-    try { await apiRequest("POST", "/api/staff-pin/clockout"); } catch { /* best-effort */ }
-    queryClient.clear();
-    if (isKioskEnabled) {
-      lockKiosk();
-    } else {
-      logout();
-    }
-    setClockingOut(false);
-  }, [isKioskEnabled, lockKiosk, logout, queryClient]);
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
 
   function toggleSidebar() {
     setSidebarCollapsed(prev => {
@@ -491,25 +482,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 >
                   {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
                 </button>
-                {isManagerOrAbove && (
-                  <button
-                    onClick={() => isKioskEnabled ? lockKiosk() : enterKioskMode()}
-                    disabled={isKioskLocked}
-                    aria-label={isKioskLocked ? "Locked" : isKioskEnabled ? "Lock screen" : "Enable Kiosk Mode"}
-                    data-testid="btn-kiosk-mode-collapsed"
-                    title={isKioskLocked ? "Locked — use PIN on screen to unlock" : isKioskEnabled ? "Lock screen now" : "Enable Kiosk Mode"}
-                    className={[
-                      "w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200",
-                      isKioskLocked
-                        ? "text-violet-400 bg-violet-500/20 border-violet-500/40"
-                        : isKioskEnabled
-                        ? "text-violet-300 bg-violet-500/10 border-violet-500/25"
-                        : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
-                    ].join(" ")}
-                  >
-                    <Lock className="h-3.5 w-3.5" />
-                  </button>
-                )}
                 {isOwner && (
                   <button
                     onClick={() => { if (!isLoggingOut) logout(); }}
@@ -535,25 +507,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     {isFullscreen ? <Minimize className="h-3.5 w-3.5 shrink-0" /> : <Maximize className="h-3.5 w-3.5 shrink-0" />}
                     <span>{isFullscreen ? "Exit Full" : "Fullscreen"}</span>
                   </button>
-                  {isManagerOrAbove && (
-                    <button
-                      onClick={() => isKioskEnabled ? lockKiosk() : enterKioskMode()}
-                      disabled={isKioskLocked}
-                      data-testid="btn-kiosk-mode"
-                      title={isKioskLocked ? "Locked — use PIN on screen to unlock" : isKioskEnabled ? "Lock screen now" : "Enable Kiosk Mode"}
-                      className={[
-                        "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium border transition-all duration-200",
-                        isKioskLocked
-                          ? "text-violet-400 bg-violet-500/15 border-violet-500/35"
-                          : isKioskEnabled
-                          ? "text-violet-300 bg-violet-500/8 border-violet-500/20"
-                          : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
-                      ].join(" ")}
-                    >
-                      <Lock className="h-3.5 w-3.5 shrink-0" />
-                      <span>{isKioskLocked ? "Locked" : isKioskEnabled ? "Kiosk On" : "Lock"}</span>
-                    </button>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-muted/30 border border-border/40">
                   {user.avatar ? (
@@ -630,24 +583,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
 
-            {isManagerOrAbove && (
-              <button
-                onClick={() => isKioskEnabled ? lockKiosk() : enterKioskMode()}
-                disabled={isKioskLocked}
-                data-testid="btn-kiosk-mode-header"
-                title={isKioskLocked ? "Locked — enter PIN on screen to unlock" : isKioskEnabled ? "Lock screen now" : "Enable Kiosk Mode"}
-                className={[
-                  "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border transition-all duration-200",
-                  isKioskLocked
-                    ? "text-violet-400 bg-violet-500/20 border-violet-500/40 cursor-default"
-                    : isKioskEnabled
-                    ? "text-violet-300 bg-violet-500/10 border-violet-500/25 hover:bg-violet-500/20"
-                    : "text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 border-transparent hover:border-violet-500/20",
-                ].join(" ")}
-              >
-                <Lock className="h-4 w-4" />
-              </button>
-            )}
 
             <NotificationBell />
           </div>
@@ -684,7 +619,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <BottomNav />
       {isOwner && <AiFloatButton />}
-      <KioskOverlay />
     </div>
   );
 }

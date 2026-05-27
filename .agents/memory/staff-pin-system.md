@@ -1,6 +1,6 @@
 ---
 name: Staff PIN clock-in system
-description: Design decisions for the PIN-based clock-in system, kiosk integration, and session security
+description: Design decisions for the PIN-based clock-in system and session security (kiosk mode fully removed)
 ---
 
 # Staff PIN Clock-in System
@@ -25,24 +25,25 @@ In `ProtectedRouter` (App.tsx), if `user.pinSession === true`, render `<PinSessi
 
 **Why:** Cashier PIN sessions must not access settings, analytics, products, etc.
 
-## Sign-out behavior
+## Sign-out / Clock-out behavior
 
-- **PIN session:** "Clock Out" button in PinSessionApp calls `POST /api/staff-pin/clockout` (auto-closes time log + revokes JWT), clears query cache, then calls `lock()` from useKioskMode → returns to staff roster lock screen. Does NOT navigate to `/login`.
-- **Owner/full session:** regular logout → `/login`.
+- **PIN session (cashier):** "Clock Out" button in PinSessionApp calls `POST /api/staff-pin/clockout` (auto-closes time log + revokes JWT), clears query cache, then redirects to `/staff-clock-in`. Does NOT navigate to `/login` and does NOT affect the owner's Gmail session.
+- **Owner/full session:** logout button (visible only to owners) → `/login`.
+- **Managers/cashiers in full app-layout:** NO sign out button shown. They use Clock Out from PinSessionApp or TimeClock page.
+- **Settings page:** Sign Out button only shown to owners (`isOwner` check).
 
-## Kiosk manager PIN (DB-backed)
+## Kiosk mode — FULLY REMOVED
 
-- Stored as scrypt hash in `userSettings.kioskPin` (column added to schema).
-- Set via `POST /api/kiosk/set-pin` (owner-only).
-- Verified server-side via `POST /api/kiosk/verify-pin` — falls back to `"1234"` if no custom PIN set.
-- `ManagerPinInput` in kiosk-overlay calls the server to verify; on success calls `forceUnlock()` or `forceDisableKiosk()` (no localStorage PIN check).
+The entire kiosk mode system has been removed:
+- `client/src/components/kiosk/kiosk-overlay.tsx` — deleted
+- `client/src/hooks/use-kiosk-mode.ts` — deleted
+- All kiosk buttons removed from app-layout.tsx, bottom-nav.tsx, settings.tsx
+- `userSettings.kioskPin` column removed from schema
+- `POST /api/kiosk/set-pin` and `POST /api/kiosk/verify-pin` endpoints removed
 
-**Why:** Per-tenant PIN consistent across all devices, not the same default `1234` for everyone.
+Fullscreen toggle is now implemented inline in app-layout.tsx and bottom-nav.tsx using `document.fullscreenElement` + `fullscreenchange` event listener.
 
-## useKioskMode exports added
-
-- `forceUnlock()` — unlock without PIN check (after successful staff PIN auth)
-- `forceDisableKiosk()` — disable kiosk mode without PIN check (after server-verified manager PIN)
+**Why removed:** Owner requested simpler flow — staff clock in via PIN, clock out goes directly to /staff-clock-in. No separate kiosk lock screen needed.
 
 ## Auto clock-out job
 
@@ -50,7 +51,7 @@ In `ProtectedRouter` (App.tsx), if `user.pinSession === true`, render `<PinSessi
 
 ## Session duration
 
-Owner `rememberMe=true` → 90-day JWT + cookie (changed from 30d).
+Owner `rememberMe=true` → 90-day JWT + cookie.
 
 ## Routes
 
@@ -60,5 +61,3 @@ Owner `rememberMe=true` → 90-day JWT + cookie (changed from 30d).
 - `POST /api/staff-pin/set`              — requireManagerOrAbove; hashes PIN and stores
 - `DELETE /api/staff-pin/:userId`         — requireManagerOrAbove; nulls staffPin
 - `POST /api/staff-pin/unlock/:userId`    — requireManagerOrAbove; nulls pinLockedUntil
-- `POST /api/kiosk/set-pin`              — owner-only; hashes and stores kiosk PIN in userSettings
-- `POST /api/kiosk/verify-pin`           — requireAuth; verifies against stored hash or fallback "1234"

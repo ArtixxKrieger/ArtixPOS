@@ -1,4 +1,4 @@
-import { useState, startTransition } from "react";
+import { useState, startTransition, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import {
@@ -6,7 +6,7 @@ import {
   MoreHorizontal, ScrollText, ShieldCheck, Building2, Users,
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
-  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi, Lock, Maximize, Minimize,
+  ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi, Maximize, Minimize,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -16,7 +16,6 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
-import { useKioskMode } from "@/hooks/use-kiosk-mode";
 
 const URL_TO_I18N_KEY: Record<string, string> = {
   "/": "nav.dashboard",
@@ -163,7 +162,16 @@ export function BottomNav() {
   const { user } = useAuth();
   const { data: _settings } = useSettings();
   const { isFree } = useSubscription();
-  const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, lock: lockKiosk, toggleFullscreen } = useKioskMode();
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
 
   const role = user?.role ?? "cashier";
   const isCashier = role === "cashier";
@@ -370,33 +378,6 @@ export function BottomNav() {
                 </span>
               </button>
 
-              {/* Lock / Kiosk — managers/owners only */}
-              {isManagerOrAbove && (
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    setTimeout(() => isKioskEnabled ? lockKiosk() : enterKioskMode(), 300);
-                  }}
-                  disabled={isKioskLocked}
-                  data-testid="btn-kiosk-mode-mobile"
-                  className={[
-                    "flex-1 flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all duration-200 active:scale-95",
-                    isKioskLocked
-                      ? "bg-violet-500/20 border-violet-500/40"
-                      : isKioskEnabled
-                      ? "bg-violet-500/10 border-violet-500/25"
-                      : "bg-muted/60 border-border hover:bg-muted",
-                  ].join(" ")}
-                >
-                  <Lock className={isKioskLocked || isKioskEnabled ? "h-5 w-5 text-violet-400" : "h-5 w-5 text-muted-foreground"} />
-                  <span className={[
-                    "text-[11px] font-semibold",
-                    isKioskLocked || isKioskEnabled ? "text-violet-400" : "text-muted-foreground",
-                  ].join(" ")}>
-                    {isKioskLocked ? "Locked" : isKioskEnabled ? "Kiosk On" : "Lock"}
-                  </span>
-                </button>
-              )}
             </div>
 
             {/* Categorised nav sections */}

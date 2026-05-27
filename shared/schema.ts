@@ -423,7 +423,6 @@ export const userSettings = pgTable("user_settings", {
   accreditationNumber: text("accreditation_number"),
   accreditationDate: text("accreditation_date"),
   machineSerialNumber: text("machine_serial_number"),
-  kioskPin: text("kiosk_pin"),
   vatRegistered: integer("vat_registered").default(1),
 });
 

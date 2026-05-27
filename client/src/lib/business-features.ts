@@ -855,7 +855,7 @@ export function getBusinessFeatures(
   const ALL_FILTERABLE_URLS = [
     "/pending", "/kitchen", "/tables",
     "/appointments", "/staff", "/rooms", "/memberships",
-    "/shifts", "/timeclock", "/payroll",
+    "/shifts", "/timeclock",
     "/inventory", "/expiry",
     "/customers", "/discount-codes", "/loyalty", "/wifi-vouchers", "/refunds",
     "/expenses", "/suppliers", "/purchases",

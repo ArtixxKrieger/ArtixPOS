@@ -612,6 +612,22 @@ export default function UsersPage() {
                   </div>
                 )}
 
+                {/* My PIN — owner can set their own PIN for the kiosk */}
+                {isSelf && isOwner && (
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20">
+                    <button
+                      data-testid={`button-pin-self-${u.id}`}
+                      title="Set your kiosk PIN"
+                      onClick={() => setPinManageUser(u)}
+                      className="h-8 px-3 flex items-center gap-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-xs font-semibold text-amber-700 dark:text-amber-400 border border-amber-300/30 transition-colors shrink-0"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span>Set My Kiosk PIN</span>
+                    </button>
+                    <p className="text-[11px] text-muted-foreground">Lets you unlock the kiosk screen with your PIN</p>
+                  </div>
+                )}
+
                 {/* Action row */}
                 {showActions && (
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20 flex-wrap">

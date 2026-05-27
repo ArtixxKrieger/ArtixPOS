@@ -469,13 +469,16 @@ export default function TimeClockPage() {
           ) : (
             teamByUser.map(member => {
               const memberTodayLogs = member.logs.filter((l: any) => new Date(l.clockIn).toDateString() === today);
+              const memberActive = member.logs.find((l: any) => !l.clockOut);
+              const memberActiveTodayMins = memberActive && new Date(memberActive.clockIn).toDateString() === today
+                ? Math.max(0, Math.floor((now.getTime() - new Date(memberActive.clockIn).getTime()) / 60000) - (memberActive.breakMinutes ?? 0))
+                : 0;
               const memberTodayNet = memberTodayLogs
                 .filter((l: any) => l.clockOut)
                 .reduce((s: number, l: any) => {
                   const gross = Math.floor((new Date(l.clockOut).getTime() - new Date(l.clockIn).getTime()) / 60000);
                   return s + Math.max(0, gross - (l.breakMinutes ?? 0));
-                }, 0);
-              const memberActive = member.logs.find((l: any) => !l.clockOut);
+                }, 0) + memberActiveTodayMins;
               const memberOnBreak = !!(memberActive?.breakStart);
               return (
                 <div key={member.name} className="bg-card border border-border rounded-2xl p-4">

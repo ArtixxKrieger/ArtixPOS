@@ -1,4 +1,4 @@
-import { ReactNode, memo, useEffect, useState, startTransition } from "react";
+import { ReactNode, memo, useEffect, useState, startTransition, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { AiFloatButton } from "@/components/ai-float-button";
@@ -19,6 +19,8 @@ import { OfflineSyncBanner } from "./offline-sync-banner";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
+import { apiRequest } from "@/lib/queryClient";
+import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav } from "./bottom-nav";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAuth } from "@/hooks/use-auth";
@@ -268,8 +270,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const onlineStatus = useOnlineStatus();
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
+  const queryClient = useQueryClient();
   const { isFree } = useSubscription();
   const { isEnabled: isKioskEnabled, isLocked: isKioskLocked, isFullscreen, enterKioskMode, lock: lockKiosk, toggleFullscreen } = useKioskMode();
+
+  const [clockingOut, setClockingOut] = useState(false);
+  const handleClockOut = useCallback(async () => {
+    setClockingOut(true);
+    try { await apiRequest("POST", "/api/staff-pin/clockout"); } catch { /* best-effort */ }
+    queryClient.clear();
+    if (isKioskEnabled) {
+      lockKiosk();
+    } else {
+      logout();
+    }
+    setClockingOut(false);
+  }, [isKioskEnabled, lockKiosk, logout, queryClient]);
 
   function toggleSidebar() {
     setSidebarCollapsed(prev => {
@@ -494,16 +510,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <Lock className="h-3.5 w-3.5" />
                   </button>
                 )}
-                <button
-                  onClick={() => { if (!isLoggingOut) logout(); }}
-                  disabled={isLoggingOut}
-                  aria-label="Logout"
-                  data-testid="button-logout"
-                  title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
-                </button>
+                {isOwner ? (
+                  <button
+                    onClick={() => { if (!isLoggingOut) logout(); }}
+                    disabled={isLoggingOut}
+                    aria-label="Logout"
+                    data-testid="button-logout"
+                    title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleClockOut}
+                    disabled={clockingOut}
+                    aria-label="Clock Out"
+                    title="Clock Out"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <LogOut className={`h-3.5 w-3.5 ${clockingOut ? "animate-pulse" : ""}`} />
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -552,16 +580,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <NotificationBell />
-                    <button
-                      onClick={() => { if (!isLoggingOut) logout(); }}
-                      disabled={isLoggingOut}
-                      aria-label="Logout"
-                      data-testid="button-logout"
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
-                    >
-                      <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
-                    </button>
+                    {isOwner ? (
+                      <button
+                        onClick={() => { if (!isLoggingOut) logout(); }}
+                        disabled={isLoggingOut}
+                        aria-label="Logout"
+                        data-testid="button-logout"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                      >
+                        <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleClockOut}
+                        disabled={clockingOut}
+                        aria-label="Clock Out"
+                        title="Clock Out"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <LogOut className={`h-3.5 w-3.5 ${clockingOut ? "animate-pulse" : ""}`} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

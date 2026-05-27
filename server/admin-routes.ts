@@ -602,7 +602,7 @@ export function registerAdminRoutes(app: Express) {
       const input = z.object({
         name: z.string().min(1),
         role: z.enum(["manager", "admin", "cashier"]),
-        branchIds: z.array(z.number()).optional().default([]),
+        branchIds: z.array(z.number()).min(1, "Assign at least one branch"),
         pin: z.string().min(4).max(6).regex(/^\d+$/, "PIN must be 4–6 digits").optional(),
       }).parse(req.body);
 

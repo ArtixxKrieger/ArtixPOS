@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const addStaffSchema = z.object({
   name:      z.string().min(1, "Name is required"),
   role:      z.enum(["manager", "admin", "cashier"]),
-  branchIds: z.array(z.number()).default([]),
+  branchIds: z.array(z.number()).min(1, "Assign at least one branch"),
   pin:       z.string().regex(/^\d{4,6}$/, "PIN must be 4–6 digits").optional().or(z.literal("")),
 });
 type AddStaffForm = z.infer<typeof addStaffSchema>;
@@ -44,7 +44,7 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
 
   const form = useForm<AddStaffForm>({
     resolver: zodResolver(addStaffSchema),
-    defaultValues: { name: "", role: "cashier", branchIds: [], pin: "" },
+    defaultValues: { name: "", role: "cashier", branchIds: [] as number[], pin: "" },
   });
 
   async function onSubmit(values: AddStaffForm) {
@@ -131,10 +131,14 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
                 </FormItem>
               )} />
 
-              {branches.length > 0 && (
-                <FormField control={form.control} name="branchIds" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assign to Branches <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+              <FormField control={form.control} name="branchIds" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assign to Branch</FormLabel>
+                  {branches.length === 0 ? (
+                    <p className="text-xs text-muted-foreground bg-secondary/40 rounded-xl px-3 py-2 border border-border/40">
+                      No branches yet — create a branch first before adding staff.
+                    </p>
+                  ) : (
                     <div className="space-y-2 rounded-xl border border-border/40 p-3 bg-secondary/30">
                       {branches.map(branch => (
                         <div key={branch.id} className="flex items-center gap-2.5">
@@ -153,10 +157,10 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
                         </div>
                       ))}
                     </div>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              )}
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )} />
 
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
@@ -177,15 +181,23 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
                   {form.getValues("name")} added!
                 </p>
               </div>
-              {hadPin ? (
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                  Their PIN is set. They can clock in on the shared device right away.
-                </p>
-              ) : (
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                  No PIN set yet — tap the <span className="font-semibold">PIN</span> button on their card to set it before their first shift.
-                </p>
-              )}
+              <div className="space-y-2 mt-1">
+                {hadPin ? (
+                  <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                    Their PIN is set — they're ready to clock in.
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                    No PIN set yet — tap the <span className="font-semibold">PIN</span> button on their card to set one before their first shift.
+                  </p>
+                )}
+                <div className="mt-2 rounded-lg bg-emerald-100/60 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide mb-0.5">How they clock in</p>
+                  <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                    Open <span className="font-mono font-semibold">artixpos.com/staff-clock-in</span> on your store device, pick their name, and enter their PIN. Shift starts automatically.
+                  </p>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleClose} data-testid="button-done-add-staff">Done</Button>
@@ -493,7 +505,7 @@ export default function UsersPage() {
             <Users className="h-8 w-8 text-purple-500" strokeWidth={1.5} />
           </div>
           <p className="font-semibold text-foreground">No team members yet</p>
-          <p className="text-sm text-muted-foreground mt-1 mb-5">Add staff accounts directly — they log in with email/password and clock in with a PIN.</p>
+          <p className="text-sm text-muted-foreground mt-1 mb-5">Add staff by name and PIN — no accounts needed. They clock in at <span className="font-medium text-foreground/70">artixpos.com/staff-clock-in</span>.</p>
           {isOwner && (
             <button
               onClick={() => setAddStaffOpen(true)}

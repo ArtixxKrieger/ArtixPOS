@@ -4,10 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
 import {
-  ShoppingCart, Delete, Lock, CheckCircle2, LogOut,
-  User, ChevronLeft, ShieldAlert, Clock, Crown,
+  ShoppingCart, Delete, Lock, CheckCircle2,
+  User, ChevronLeft, ShieldAlert, Clock, Crown, Coffee,
 } from "lucide-react";
 
 const KIOSK_BRANCH_KEY = "kiosk_branch_id";
@@ -23,6 +22,8 @@ interface RosterMember {
   hasPin: boolean;
   isLocked: boolean;
 }
+
+type LoginOutcome = "clocked-in" | "resumed" | "break-ended";
 
 // ── PIN Numpad ────────────────────────────────────────────────────────────────
 
@@ -65,8 +66,8 @@ function Numpad({ onDigit, onDelete, disabled }: {
               "active:scale-95 select-none",
               disabled ? "opacity-40 cursor-not-allowed" : "",
               isDelete
-                ? "bg-muted/60 hover:bg-muted text-muted-foreground"
-                : "bg-white dark:bg-white/8 hover:bg-primary/10 dark:hover:bg-primary/15 border border-border/50 shadow-sm text-foreground",
+                ? "bg-muted/60 hover:bg-muted text-muted-foreground border border-border/40"
+                : "bg-secondary/70 hover:bg-secondary dark:bg-white/8 dark:hover:bg-white/14 border border-border/50 shadow-sm text-foreground",
             ].join(" ")}
           >
             {isDelete ? <Delete className="w-5 h-5 mx-auto" /> : k}
@@ -147,6 +148,7 @@ export default function StaffPinLogin() {
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
+  const [loginOutcome, setLoginOutcome] = useState<LoginOutcome>("clocked-in");
 
   const PIN_LENGTH = 6;
 
@@ -182,7 +184,6 @@ export default function StaffPinLogin() {
     queryFn: async () => {
       if (!branchId) return [];
       let url = `/api/staff-pin/roster?branchId=${branchId}`;
-      // If no active session, pass tenantId so the public endpoint can resolve it
       if (!ownerUser && tenantId) url += `&tenantId=${tenantId}`;
       const res = await apiRequest("GET", url);
       return res.json();
@@ -203,11 +204,49 @@ export default function StaffPinLogin() {
       return data;
     },
     onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      setPhase("success");
-      // Owners go to the dashboard; staff go to timeclock
       const isOwnerLogin = selectedMember?.role === "owner";
-      setTimeout(() => setLocation(isOwnerLogin ? "/" : "/timeclock"), 1200);
+
+      if (isOwnerLogin) {
+        // Owner: clear caches and go to dashboard
+        await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        setLoginOutcome("clocked-in");
+        setPhase("success");
+        setTimeout(() => setLocation("/"), 1200);
+        return;
+      }
+
+      // Pre-populate the active log cache so timeclock shows correct state immediately
+      // (prevents the brief "Clocked Out" flash that confused users into clicking Clock In)
+      if (data.timeLog) {
+        queryClient.setQueryData(["/api/time-logs/active"], data.timeLog);
+      }
+
+      // Determine outcome and auto-end break if needed
+      let outcome: LoginOutcome = "clocked-in";
+
+      if (data.alreadyClockedIn) {
+        if (data.timeLog?.breakStart) {
+          // Employee is returning from a break — end it automatically
+          try {
+            await apiRequest("POST", "/api/time-logs/break-end", {});
+            // Refresh the active log so break end is reflected
+            queryClient.invalidateQueries({ queryKey: ["/api/time-logs/active"] });
+            outcome = "break-ended";
+          } catch {
+            outcome = "resumed";
+          }
+        } else {
+          outcome = "resumed";
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-logs/team"] });
+
+      setLoginOutcome(outcome);
+      setPhase("success");
+      setTimeout(() => setLocation("/timeclock"), 1200);
     },
     onError: (err: any) => {
       setPin("");
@@ -240,7 +279,7 @@ export default function StaffPinLogin() {
 
   // ── Roster view ────────────────────────────────────────────────────────────
   if (phase === "roster") {
-    // Always show owners first so they can re-access their account quickly
+    // Owners always first
     const sortedRoster = [...roster].sort((a, b) => {
       if (a.role === "owner" && b.role !== "owner") return -1;
       if (b.role === "owner" && a.role !== "owner") return 1;
@@ -252,18 +291,13 @@ export default function StaffPinLogin() {
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-[0.05] blur-3xl pointer-events-none"
           style={{ background: "radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)" }} />
 
-        <header className="relative z-10 px-5 sm:px-8 py-4 flex items-center justify-between">
+        <header className="relative z-10 px-5 sm:px-8 py-4 flex items-center">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
               <ShoppingCart className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="text-xs font-bold tracking-[0.15em] text-primary/80 uppercase">ArtixPOS</span>
           </div>
-          {ownerUser && (
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/")} className="text-muted-foreground gap-1.5">
-              <LogOut className="w-3.5 h-3.5" /> Manager view
-            </Button>
-          )}
         </header>
 
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-5 py-8">
@@ -368,25 +402,46 @@ export default function StaffPinLogin() {
   // ── Success view ───────────────────────────────────────────────────────────
   if (phase === "success") {
     const isOwnerMember = selectedMember?.role === "owner";
+    const firstName = selectedMember?.name?.split(" ")[0] ?? "";
+
+    let icon = <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />;
+    let iconBg = "bg-green-100 dark:bg-green-950/40";
+    let headline = `Welcome, ${firstName}!`;
+    let subline = (
+      <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+        <Clock className="w-3.5 h-3.5" /> Clocked in at {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      </div>
+    );
+
+    if (isOwnerMember) {
+      headline = `Welcome back, ${firstName}!`;
+      subline = <p className="text-sm text-muted-foreground">Redirecting to dashboard…</p>;
+    } else if (loginOutcome === "break-ended") {
+      icon = <Coffee className="w-10 h-10 text-amber-600 dark:text-amber-400" />;
+      iconBg = "bg-amber-100 dark:bg-amber-950/40";
+      headline = `Break over, ${firstName}!`;
+      subline = (
+        <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+          <Clock className="w-3.5 h-3.5" /> Back to work — break ended
+        </div>
+      );
+    } else if (loginOutcome === "resumed") {
+      headline = `Welcome back, ${firstName}!`;
+      subline = (
+        <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+          <Clock className="w-3.5 h-3.5" /> Resuming your shift…
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
         <div className="text-center animate-in fade-in zoom-in duration-300">
-          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-950/40 flex items-center justify-center mx-auto mb-5">
-            <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
+          <div className={`w-20 h-20 rounded-full ${iconBg} flex items-center justify-center mx-auto mb-5`}>
+            {icon}
           </div>
-          {isOwnerMember ? (
-            <>
-              <h2 className="text-2xl font-extrabold text-foreground mb-1">Welcome back, {selectedMember?.name?.split(" ")[0]}!</h2>
-              <p className="text-sm text-muted-foreground">Redirecting to dashboard…</p>
-            </>
-          ) : (
-            <>
-              <h2 className="text-2xl font-extrabold text-foreground mb-1">Welcome, {selectedMember?.name?.split(" ")[0]}!</h2>
-              <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-                <Clock className="w-3.5 h-3.5" /> Clocked in at {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </div>
-            </>
-          )}
+          <h2 className="text-2xl font-extrabold text-foreground mb-1">{headline}</h2>
+          {subline}
         </div>
       </div>
     );

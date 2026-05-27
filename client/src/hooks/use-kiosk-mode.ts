@@ -108,6 +108,11 @@ export function useKioskMode() {
     return true;
   }, [getPin]);
 
+  /** Unlock without PIN check — used after successful staff PIN auth. */
+  const forceUnlock = useCallback(() => {
+    setIsLocked(false);
+  }, []);
+
   /** Validate PIN → fully disable kiosk mode. */
   const disableKioskMode = useCallback((pin: string): boolean => {
     if (pin !== getPin()) return false;
@@ -131,7 +136,7 @@ export function useKioskMode() {
 
   return {
     isEnabled, isLocked, isFullscreen,
-    enterKioskMode, lock, unlock, disableKioskMode, exitKioskMode,
+    enterKioskMode, lock, unlock, forceUnlock, disableKioskMode, exitKioskMode,
     toggleFullscreen,
     getPin, setPin,
     getIdleMins, setIdleMins,

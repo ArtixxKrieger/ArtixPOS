@@ -97,11 +97,12 @@ export default function TimeClockPage() {
     onSuccess: () => {
       setShowClockOut(false);
       setClockOutNotes("");
-      if (isPinSession) {
+      const isOwnerSession = user?.role === "owner";
+      if (!isOwnerSession) {
+        // Non-owners (PIN or regular cashier/manager) always return to the kiosk
         toast({ title: "Clocked out — great work! See you next shift." });
         queryClient.cancelQueries();
         queryClient.clear();
-        // Return to the kiosk PIN screen so the next person can clock in
         window.location.replace("/staff-clock-in");
       } else {
         invalidateLogs();

@@ -20,7 +20,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { db } from "../db";
 import { users, timeLogs, userBranches, revokedTokens } from "@shared/schema";
-import { eq, and, isNull, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, inArray, sql, or } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../crypto";
 import jwt from "jsonwebtoken";
 import { AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getJwtSecret } from "../auth";
@@ -83,7 +83,9 @@ export function registerStaffPinRoutes(app: Express): void {
         (req.user as any)?.tenantId ?? (req.query.tenantId as string | undefined) ?? null;
       if (!tenantId) return res.status(403).json({ message: "No tenant" });
 
-      // Get all users in this branch + tenant, excluding owners (they use full login)
+      // Get all users for this tenant+branch.
+      // Owners are included regardless of branch assignment (they own all branches).
+      // Non-owners must have a userBranches row for this branch.
       const rows = await db
         .select({
           id: users.id,
@@ -94,13 +96,17 @@ export function registerStaffPinRoutes(app: Express): void {
           pinLockedUntil: users.pinLockedUntil,
         })
         .from(users)
-        .innerJoin(userBranches, and(
-          eq(userBranches.userId, users.id),
-          eq(userBranches.branchId, branchId),
-        ))
         .where(and(
           eq(users.tenantId, tenantId),
           eq(users.isBanned, false),
+          or(
+            eq(users.role, "owner"),
+            sql`EXISTS (
+              SELECT 1 FROM ${userBranches}
+              WHERE ${userBranches.userId} = ${users.id}
+                AND ${userBranches.branchId} = ${branchId}
+            )`
+          )
         ));
 
       const now = new Date().toISOString();

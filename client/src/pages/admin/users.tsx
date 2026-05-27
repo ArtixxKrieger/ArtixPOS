@@ -520,7 +520,10 @@ export default function UsersPage() {
 
         /* User list */
         <div className="space-y-3">
-          {tenantUsers.map(u => {
+          {[...tenantUsers].sort((a, b) => {
+            const roleOrder: Record<string, number> = { owner: 0, manager: 1, admin: 2, cashier: 3 };
+            return (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
+          }).map(u => {
             const RoleIcon = ROLE_ICONS[u.role] ?? User2;
             const isSelf = u.id === currentUser?.id;
             const showActions = isOwner && !isSelf && u.role !== "owner";

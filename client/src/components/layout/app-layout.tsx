@@ -8,7 +8,7 @@ import {
   Settings, BarChart3, ScrollText, LogOut,
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
-  ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi,
+  ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi, KeyRound,
   PanelLeftClose, PanelLeftOpen, Maximize, Minimize,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
@@ -46,6 +46,7 @@ const NAV_SECTIONS = [
       { label: "Memberships", url: "/memberships", icon: BadgeCheck, proOnly: true },
       { label: "Shifts", url: "/shifts", icon: AlarmClock, proOnly: true },
       { label: "Time Clock", url: "/timeclock", icon: Timer, proOnly: true },
+      { label: "Staff Kiosk", url: "/staff-clock-in", icon: KeyRound, managerOnly: true },
       { label: "Payroll", url: "/payroll", icon: Banknote, ownerOnly: true, proOnly: true },
     ],
   },
@@ -162,6 +163,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/purchases": "Purchase Orders",
   "/shifts": "Shifts",
   "/timeclock": "Time Clock",
+  "/staff-clock-in": "Staff Kiosk",
   "/discount-codes": "Discount Codes",
   "/refunds": "Refunds",
   "/ai": "AI Assistant",

@@ -233,27 +233,33 @@ export default function TimeClockPage() {
               <Lock className="h-3.5 w-3.5" /> Lock Screen
             </button>
           ) : (
-            <>
-              {isManagerOrAbove && (
-                <button
-                  data-testid="button-staff-clock-in-kiosk"
-                  onClick={() => setLocation("/staff-clock-in")}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
-                  title="Open staff PIN clock-in screen"
-                >
-                  <KeyRound className="h-3.5 w-3.5" /> Staff Clock-in
-                </button>
-              )}
-              <button
-                onClick={exportCSV}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/40 transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" /> Export CSV
-              </button>
-            </>
+            <button
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/40 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
           )}
         </div>
       </div>
+
+      {/* Kiosk launch banner — shown to managers when not in a PIN session */}
+      {!isPinSession && isManagerOrAbove && (
+        <button
+          data-testid="button-launch-kiosk-banner"
+          onClick={() => setLocation("/staff-clock-in")}
+          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-primary/10 hover:bg-primary/15 border border-primary/25 transition-colors text-left group"
+        >
+          <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0 group-hover:bg-primary/30 transition-colors">
+            <KeyRound className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-foreground text-sm">Launch Staff Kiosk</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Employees tap their name and enter their PIN to clock in or out</p>
+          </div>
+          <div className="text-xs font-semibold text-primary shrink-0">Open →</div>
+        </button>
+      )}
 
       {/* Tab switcher */}
       {canSeeTeam && (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -7,8 +7,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   ShoppingCart, Delete, Lock, CheckCircle2, LogOut,
-  User, ChevronLeft, ShieldAlert, Clock,
+  User, ChevronLeft, ShieldAlert, Clock, Crown,
 } from "lucide-react";
+
+const KIOSK_BRANCH_KEY = "kiosk_branch_id";
+const KIOSK_TENANT_KEY = "kiosk_tenant_id";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -79,10 +82,12 @@ function Numpad({ onDigit, onDelete, disabled }: {
 function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => void }) {
   const initials = (member.name ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const roleColor: Record<string, string> = {
+    owner:   "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
     manager: "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300",
     admin:   "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300",
     cashier: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
   };
+  const isOwner = member.role === "owner";
   return (
     <button
       onClick={onClick}
@@ -94,14 +99,19 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
           ? "border-destructive/30 opacity-60 cursor-not-allowed"
           : !member.hasPin
           ? "border-dashed border-border/40 opacity-50 cursor-not-allowed"
+          : isOwner
+          ? "border-amber-300/60 hover:border-amber-400/70 hover:shadow-md shadow-sm hover:-translate-y-0.5"
           : "border-border/50 hover:border-primary/40 hover:shadow-md shadow-sm hover:-translate-y-0.5",
       ].join(" ")}
     >
       <div className="relative">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+        <div className={[
+          "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm",
+          isOwner ? "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" : "bg-primary/10 text-primary",
+        ].join(" ")}>
           {member.avatar
             ? <img src={member.avatar} className="w-12 h-12 rounded-xl object-cover" alt={member.name ?? ""} />
-            : initials}
+            : isOwner ? <Crown className="w-5 h-5" /> : initials}
         </div>
         {member.isLocked && (
           <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive flex items-center justify-center">
@@ -111,7 +121,7 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
       </div>
       <div>
         <p className="text-sm font-semibold text-foreground leading-tight">{member.name ?? "Unknown"}</p>
-        <span className={["text-[10px] font-medium px-1.5 py-0.5 rounded-full", roleColor[member.role] ?? roleColor.cashier].join(" ")}>
+        <span className={["text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize", roleColor[member.role] ?? roleColor.cashier].join(" ")}>
           {member.role}
         </span>
       </div>
@@ -140,23 +150,46 @@ export default function StaffPinLogin() {
 
   const PIN_LENGTH = 6;
 
-  // Get the active branch from the owner's session
-  const branchId = (ownerUser as any)?.activeBranchId ?? null;
+  // ── Resolve branch/tenant — from live session or localStorage kiosk state ──
+  const sessionBranchId = (ownerUser as any)?.activeBranchId ?? null;
+  const sessionTenantId = (ownerUser as any)?.tenantId ?? null;
 
-  // Fetch roster
-  const { data: roster = [], isLoading } = useQuery<RosterMember[]>({
-    queryKey: ["/api/staff-pin/roster", branchId],
-    queryFn: async () => {
-      if (!branchId) return [];
-      const res = await apiRequest("GET", `/api/staff-pin/roster?branchId=${branchId}`);
-      return res.json();
-    },
-    enabled: !!branchId,
-    refetchOnWindowFocus: false,
+  const [kioskBranchId, setKioskBranchId] = useState<number | null>(() => {
+    const stored = localStorage.getItem(KIOSK_BRANCH_KEY);
+    return stored ? Number(stored) : null;
+  });
+  const [kioskTenantId, setKioskTenantId] = useState<string | null>(() => {
+    return localStorage.getItem(KIOSK_TENANT_KEY);
   });
 
-  // Filter to non-owner staff only
-  const staffRoster = roster.filter(m => m.role !== "owner");
+  // When the owner is logged in, persist kiosk context so roster still loads
+  // after their session is replaced by a staff PIN session.
+  useEffect(() => {
+    if (sessionBranchId && sessionTenantId) {
+      localStorage.setItem(KIOSK_BRANCH_KEY, String(sessionBranchId));
+      localStorage.setItem(KIOSK_TENANT_KEY, sessionTenantId);
+      setKioskBranchId(sessionBranchId);
+      setKioskTenantId(sessionTenantId);
+    }
+  }, [sessionBranchId, sessionTenantId]);
+
+  const branchId = sessionBranchId ?? kioskBranchId;
+  const tenantId = sessionTenantId ?? kioskTenantId;
+
+  // Fetch roster — works with or without an active session
+  const { data: roster = [], isLoading } = useQuery<RosterMember[]>({
+    queryKey: ["/api/staff-pin/roster", branchId, tenantId],
+    queryFn: async () => {
+      if (!branchId) return [];
+      let url = `/api/staff-pin/roster?branchId=${branchId}`;
+      // If no active session, pass tenantId so the public endpoint can resolve it
+      if (!ownerUser && tenantId) url += `&tenantId=${tenantId}`;
+      const res = await apiRequest("GET", url);
+      return res.json();
+    },
+    enabled: !!branchId && (!!ownerUser || !!tenantId),
+    refetchOnWindowFocus: false,
+  });
 
   const loginMutation = useMutation({
     mutationFn: async (enteredPin: string) => {
@@ -172,7 +205,9 @@ export default function StaffPinLogin() {
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       setPhase("success");
-      setTimeout(() => setLocation("/"), 1200);
+      // Owners go to the dashboard; staff go to timeclock
+      const isOwnerLogin = selectedMember?.role === "owner";
+      setTimeout(() => setLocation(isOwnerLogin ? "/" : "/timeclock"), 1200);
     },
     onError: (err: any) => {
       setPin("");
@@ -205,6 +240,13 @@ export default function StaffPinLogin() {
 
   // ── Roster view ────────────────────────────────────────────────────────────
   if (phase === "roster") {
+    // Always show owners first so they can re-access their account quickly
+    const sortedRoster = [...roster].sort((a, b) => {
+      if (a.role === "owner" && b.role !== "owner") return -1;
+      if (b.role === "owner" && a.role !== "owner") return 1;
+      return 0;
+    });
+
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-[0.05] blur-3xl pointer-events-none"
@@ -228,7 +270,7 @@ export default function StaffPinLogin() {
           <div className="w-full max-w-xl">
             <div className="text-center mb-8">
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-2">
-                Who's clocking in?
+                Who are you?
               </h1>
               <p className="text-sm text-muted-foreground">Select your name, then enter your PIN</p>
             </div>
@@ -239,7 +281,7 @@ export default function StaffPinLogin() {
                   <div key={i} className="h-32 rounded-2xl bg-white/60 dark:bg-white/5 border border-border/30 animate-pulse" />
                 ))}
               </div>
-            ) : staffRoster.length === 0 ? (
+            ) : sortedRoster.length === 0 ? (
               <div className="text-center py-12">
                 <User className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-sm font-medium text-foreground mb-1">No staff assigned to this branch</p>
@@ -247,7 +289,7 @@ export default function StaffPinLogin() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {staffRoster.map(m => (
+                {sortedRoster.map(m => (
                   <StaffCard key={m.id} member={m} onClick={() => selectMember(m)} />
                 ))}
               </div>
@@ -261,6 +303,7 @@ export default function StaffPinLogin() {
   // ── PIN entry view ─────────────────────────────────────────────────────────
   if (phase === "pin" && selectedMember) {
     const isLocked = !!lockedUntil && new Date(lockedUntil) > new Date();
+    const isOwnerMember = selectedMember.role === "owner";
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-[0.05] blur-3xl pointer-events-none"
@@ -277,10 +320,16 @@ export default function StaffPinLogin() {
 
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-5 pb-10">
           <div className="w-full max-w-xs text-center">
-            {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3 text-primary font-bold text-lg">
+            <div className={[
+              "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 font-bold text-lg",
+              isOwnerMember
+                ? "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                : "bg-primary/10 text-primary",
+            ].join(" ")}>
               {selectedMember.avatar
                 ? <img src={selectedMember.avatar} className="w-16 h-16 rounded-2xl object-cover" alt="" />
+                : isOwnerMember
+                ? <Crown className="w-7 h-7" />
                 : (selectedMember.name ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
             </div>
             <h2 className="text-xl font-bold text-foreground mb-0.5">{selectedMember.name}</h2>
@@ -318,16 +367,26 @@ export default function StaffPinLogin() {
 
   // ── Success view ───────────────────────────────────────────────────────────
   if (phase === "success") {
+    const isOwnerMember = selectedMember?.role === "owner";
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
         <div className="text-center animate-in fade-in zoom-in duration-300">
           <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-950/40 flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-extrabold text-foreground mb-1">Welcome, {selectedMember?.name?.split(" ")[0]}!</h2>
-          <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" /> Clocked in at {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </div>
+          {isOwnerMember ? (
+            <>
+              <h2 className="text-2xl font-extrabold text-foreground mb-1">Welcome back, {selectedMember?.name?.split(" ")[0]}!</h2>
+              <p className="text-sm text-muted-foreground">Redirecting to dashboard…</p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-extrabold text-foreground mb-1">Welcome, {selectedMember?.name?.split(" ")[0]}!</h2>
+              <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" /> Clocked in at {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

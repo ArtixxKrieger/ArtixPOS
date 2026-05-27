@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound } from "lucide-react";
+import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -46,7 +46,8 @@ function getNetMins(log: TimeLog): number {
 
 export default function TimeClockPage() {
   const { toast } = useToast();
-  const { isManagerOrAbove, isAdminOrAbove } = useAuth();
+  const { user, isManagerOrAbove, isAdminOrAbove } = useAuth();
+  const isPinSession = !!(user as any)?.pinSession;
   const [now, setNow] = useState(new Date());
   const [tab, setTab] = useState<"me" | "team">("me");
   const [, setLocation] = useLocation();
@@ -85,14 +86,59 @@ export default function TimeClockPage() {
     onError: (e: any) => toast({ title: e?.message ?? "Failed to clock in", variant: "destructive" }),
   });
   const clockOutMutation = useMutation({
-    mutationFn: (notes: string) => apiRequest("POST", "/api/time-logs/clock-out", { notes }),
-    onSuccess: () => { invalidateLogs(); toast({ title: "Clocked out — great work!" }); setShowClockOut(false); setClockOutNotes(""); },
+    mutationFn: async (notes: string) => {
+      if (isPinSession) {
+        // For PIN sessions: the staff-pin clockout endpoint closes the time log
+        // AND revokes the JWT in one call, then we redirect to the kiosk screen.
+        return apiRequest("POST", "/api/staff-pin/clockout", { notes });
+      }
+      return apiRequest("POST", "/api/time-logs/clock-out", { notes });
+    },
+    onSuccess: () => {
+      setShowClockOut(false);
+      setClockOutNotes("");
+      if (isPinSession) {
+        toast({ title: "Clocked out — great work! See you next shift." });
+        queryClient.cancelQueries();
+        queryClient.clear();
+        // Return to the kiosk PIN screen so the next person can clock in
+        window.location.replace("/staff-clock-in");
+      } else {
+        invalidateLogs();
+        toast({ title: "Clocked out — great work!" });
+      }
+    },
     onError: () => toast({ title: "Failed to clock out", variant: "destructive" }),
   });
   const breakStartMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/time-logs/break-start", {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/time-logs/active"] }); toast({ title: "Break started — enjoy your rest!" }); },
+    onSuccess: async () => {
+      toast({ title: "Break started — enjoy your rest!" });
+      if (isPinSession) {
+        // Lock the screen: revoke the PIN session JWT without closing the time log.
+        // When the employee returns and enters their PIN, the system finds the open
+        // log (with breakStart set) and lets them end the break.
+        try {
+          await apiRequest("POST", "/api/staff-pin/lock-screen", {});
+        } catch { /* best-effort */ }
+        queryClient.cancelQueries();
+        queryClient.clear();
+        window.location.replace("/staff-clock-in");
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/time-logs/active"] });
+      }
+    },
     onError: () => toast({ title: "Could not start break", variant: "destructive" }),
+  });
+
+  const lockScreenMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/staff-pin/lock-screen", {}),
+    onSuccess: () => {
+      queryClient.cancelQueries();
+      queryClient.clear();
+      window.location.replace("/staff-clock-in");
+    },
+    onError: () => toast({ title: "Could not lock screen", variant: "destructive" }),
   });
   const breakEndMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/time-logs/break-end", {}),
@@ -176,22 +222,36 @@ export default function TimeClockPage() {
           <p className="text-sm text-muted-foreground mt-0.5">Track shifts, breaks &amp; team hours</p>
         </div>
         <div className="flex items-center gap-2">
-          {isManagerOrAbove && (
+          {isPinSession ? (
             <button
-              data-testid="button-staff-clock-in-kiosk"
-              onClick={() => setLocation("/staff-clock-in")}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
-              title="Open staff PIN clock-in screen"
+              data-testid="button-lock-screen"
+              onClick={() => lockScreenMutation.mutate()}
+              disabled={lockScreenMutation.isPending}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-muted/60 hover:bg-muted text-muted-foreground border border-border/40 transition-colors disabled:opacity-50"
+              title="Lock screen — return to PIN login"
             >
-              <KeyRound className="h-3.5 w-3.5" /> Staff Clock-in
+              <Lock className="h-3.5 w-3.5" /> Lock Screen
             </button>
+          ) : (
+            <>
+              {isManagerOrAbove && (
+                <button
+                  data-testid="button-staff-clock-in-kiosk"
+                  onClick={() => setLocation("/staff-clock-in")}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
+                  title="Open staff PIN clock-in screen"
+                >
+                  <KeyRound className="h-3.5 w-3.5" /> Staff Clock-in
+                </button>
+              )}
+              <button
+                onClick={exportCSV}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/40 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </button>
+            </>
           )}
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/40 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" /> Export CSV
-          </button>
         </div>
       </div>
 

@@ -482,18 +482,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 >
                   {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
                 </button>
-                {isOwner && (
-                  <button
-                    onClick={() => { if (!isLoggingOut) logout(); }}
-                    disabled={isLoggingOut}
-                    aria-label="Logout"
-                    data-testid="button-logout"
-                    title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
-                  </button>
-                )}
+                <button
+                  onClick={() => { if (!isLoggingOut) logout(); }}
+                  disabled={isLoggingOut}
+                  aria-label="Logout"
+                  data-testid="button-logout"
+                  title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                </button>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -523,18 +521,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <NotificationBell />
-                    {isOwner && (
-                      <button
-                        onClick={() => { if (!isLoggingOut) logout(); }}
-                        disabled={isLoggingOut}
-                        aria-label="Logout"
-                        data-testid="button-logout"
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
-                      >
-                        <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => { if (!isLoggingOut) logout(); }}
+                      disabled={isLoggingOut}
+                      aria-label="Logout"
+                      data-testid="button-logout"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={isLoggingOut ? t("common.loggingOut") : t("common.logout")}
+                    >
+                      <LogOut className={`h-3.5 w-3.5 ${isLoggingOut ? "animate-pulse" : ""}`} />
+                    </button>
                   </div>
                 </div>
               </div>

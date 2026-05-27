@@ -863,6 +863,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/b/:id" component={BranchPublicPage} />
+      <Route path="/staff-clock-in" component={StaffPinLogin} />
       <Route component={ProtectedRouter} />
     </Switch>
   );

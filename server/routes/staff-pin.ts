@@ -70,14 +70,17 @@ export function registerStaffPinRoutes(app: Express): void {
 
   // ── 1. Roster: list staff members for a branch (names only, no PINs) ─────────
   // Used by the clock-in screen to show who can log in.
-  // Requires a valid tenant session (owner device is already logged in as owner).
-  app.get("/api/staff-pin/roster", requireAuth, async (req, res) => {
+  // Works with an active session OR with explicit branchId + tenantId query params
+  // (so the kiosk screen can reload the roster after a staff session ends).
+  app.get("/api/staff-pin/roster", async (req, res) => {
     try {
       const branchId = Number(req.query.branchId);
       if (!Number.isInteger(branchId) || branchId <= 0)
         return res.status(400).json({ message: "branchId required" });
 
-      const tenantId = (req.user as any).tenantId;
+      // Resolve tenantId: prefer authenticated session, fall back to query param
+      const tenantId: string | null =
+        (req.user as any)?.tenantId ?? (req.query.tenantId as string | undefined) ?? null;
       if (!tenantId) return res.status(403).json({ message: "No tenant" });
 
       // Get all users in this branch + tenant, excluding owners (they use full login)
@@ -126,8 +129,9 @@ export function registerStaffPinRoutes(app: Express): void {
       if (!user || user.isBanned)
         return res.status(401).json({ message: "Invalid PIN" });
 
-      // Owners and managers must use the regular login
-      if (user.role === "owner" || user.role === "manager")
+      // Managers without a PIN must use the regular login.
+      // Owners CAN use a PIN to re-authenticate at the kiosk screen.
+      if (user.role === "manager" && !user.staffPin)
         return res.status(403).json({ message: "Please use the regular login for your account." });
 
       // PIN lock check
@@ -301,9 +305,9 @@ export function registerStaffPinRoutes(app: Express): void {
       if (!target || target.tenantId !== requestingUser.tenantId)
         return res.status(404).json({ message: "Staff member not found" });
 
-      // Owners cannot have PINs set — they use full auth
-      if (target.role === "owner")
-        return res.status(403).json({ message: "Owners use the regular login, not PIN." });
+      // Only the owner themselves can set their own PIN (managers cannot set owner PINs)
+      if (target.role === "owner" && requestingUser.role !== "owner" && requestingUser.id !== target.id)
+        return res.status(403).json({ message: "Only the owner can set their own PIN." });
 
       // Managers can only set PINs for cashiers/admins, not other managers
       if (requestingUser.role === "manager" && target.role === "manager")
@@ -342,7 +346,41 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // ── 6. Unlock a locked PIN (manager override) ────────────────────────────────
+  // ── 6. Lock screen — revoke PIN session without closing the time log ──────────
+  // Used when an employee starts a break or another staff member needs the device.
+  // The open time log (with breakStart set) remains intact; when they re-login via
+  // PIN the system finds the existing open log and continues from there.
+  app.post("/api/staff-pin/lock-screen", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.pinSession)
+        return res.status(400).json({ message: "Not a PIN session" });
+
+      // Revoke JWT
+      const cookieToken = req.cookies?.[AUTH_COOKIE];
+      const authHeader = req.headers.authorization;
+      const token = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
+      if (token) {
+        try {
+          const payload = jwt.decode(token) as any;
+          if (payload?.jti) {
+            const exp = payload.exp
+              ? new Date(payload.exp * 1000).toISOString()
+              : new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+            await db.insert(revokedTokens).values({ jti: payload.jti, userId: user.id, expiresAt: exp }).onConflictDoNothing();
+          }
+        } catch { /* non-critical */ }
+      }
+
+      res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
+      res.json({ message: "Screen locked" });
+    } catch (err) {
+      console.error("[staff-pin] lock-screen error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ── 7. Unlock a locked PIN (manager override) ────────────────────────────────
   app.post("/api/staff-pin/unlock/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
       const userId = req.params.userId as string;

@@ -378,7 +378,7 @@ const HardwareSettingsRoute = () => <HardwareSettings />;
 const BillingRoute          = () => <BillingPage />;
 
 const TransactionsRoute     = () => <CashierGuard component={Transactions} />;
-const StaffRoute            = () => <CashierGuard component={StaffPage} />;
+const StaffRoute            = () => <ProAndCashierGuard url="/staff" component={StaffPage} />;
 const ExpiryRoute           = () => <CashierGuard component={ExpiryTrackerPage} />;
 const InventoryRoute        = () => (
   <ErrorBoundary fallback={(err, retry) => (

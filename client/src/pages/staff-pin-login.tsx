@@ -148,6 +148,7 @@ export default function StaffPinLogin() {
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [loginOutcome, setLoginOutcome] = useState<LoginOutcome>("clocked-in");
 
   const PIN_LENGTH = 6;
@@ -207,8 +208,10 @@ export default function StaffPinLogin() {
       const isOwnerLogin = selectedMember?.role === "owner";
 
       if (isOwnerLogin) {
-        // Owner: clear caches and go to dashboard
-        await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        // Owner: force-refetch auth with the new cookie so the correct user data
+        // is in the cache BEFORE the redirect fires.  Just invalidating would
+        // leave the old employee data visible until the background refetch lands.
+        await queryClient.refetchQueries({ queryKey: ["auth-me"] });
         setLoginOutcome("clocked-in");
         setPhase("success");
         setTimeout(() => setLocation("/"), 1200);
@@ -240,7 +243,9 @@ export default function StaffPinLogin() {
         }
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Use the correct query key ("auth-me", not "/api/auth/me") and force an
+      // immediate refetch so the new staff JWT is reflected before navigation.
+      await queryClient.refetchQueries({ queryKey: ["auth-me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-logs/team"] });
 
@@ -253,12 +258,14 @@ export default function StaffPinLogin() {
       setShake(true);
       setTimeout(() => setShake(false), 500);
       if (err?.lockedUntil) setLockedUntil(err.lockedUntil);
-      toast({ title: err.message ?? "Incorrect PIN", variant: "destructive" });
+      // Show the error inline inside the kiosk instead of a floating toast
+      setPinError(err.message ?? "Incorrect PIN");
     },
   });
 
   function handleDigit(d: string) {
     if (pin.length >= PIN_LENGTH) return;
+    setPinError(null);
     const next = pin + d;
     setPin(next);
     if (next.length === PIN_LENGTH) {
@@ -267,6 +274,7 @@ export default function StaffPinLogin() {
   }
 
   function handleDelete() {
+    setPinError(null);
     setPin(p => p.slice(0, -1));
   }
 
@@ -274,6 +282,7 @@ export default function StaffPinLogin() {
     setSelectedMember(member);
     setPin("");
     setLockedUntil(null);
+    setPinError(null);
     setPhase("pin");
   }
 
@@ -383,8 +392,14 @@ export default function StaffPinLogin() {
                 <div className={shake ? "animate-bounce" : ""}>
                   <PinDots length={PIN_LENGTH} filled={pin.length} />
                 </div>
-                {loginMutation.isPending && (
+                {loginMutation.isPending ? (
                   <p className="text-xs text-muted-foreground mb-4">Verifying...</p>
+                ) : pinError ? (
+                  <p className="text-xs font-semibold text-destructive mb-4 px-3 py-2 rounded-xl bg-destructive/10 border border-destructive/20">
+                    {pinError}
+                  </p>
+                ) : (
+                  <div className="mb-4" />
                 )}
                 <Numpad
                   onDigit={handleDigit}

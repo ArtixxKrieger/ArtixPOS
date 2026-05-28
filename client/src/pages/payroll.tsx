@@ -17,15 +17,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
   Banknote, Clock, TrendingUp, Users, Pencil, Save, Calendar,
-  Wallet, FileDown, Printer, Search, ChevronDown, ChevronRight,
+  Wallet, FileDown, Printer, Search, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, CircleDot, Circle, Trash2, Plus, AlertCircle,
-  Receipt, CreditCard, ArrowRight, Sparkles, Info,
+  Receipt, CreditCard, ArrowRight, Sparkles, Info, Tag, Building2, Zap,
 } from "lucide-react";
+import { useBranches } from "@/hooks/use-admin";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type WageType = "none" | "hourly" | "monthly" | "commission";
-type StaffWage = { id: string; name: string | null; email: string | null; role: string; wageType: WageType | null; wageRate: string | null; commissionPercent: string | null };
+type StaffWage = { id: string; name: string | null; email: string | null; role: string; wageType: WageType | null; wageRate: string | null; commissionPercent: string | null; staffGroup: string | null };
 type ComputedEntry = { userId: string; name: string | null; email: string | null; role: string; wageType: WageType; wageRate: number; commissionPercent: number; hoursWorked: number; salesAmount: number; payout: number; notes: string };
 type PayrollResponse = { from: string; to: string; entries: ComputedEntry[]; totals: { totalPayout: number; totalHours: number; totalCommissionable: number; staffCount: number } };
 type PayrollPeriod = { id: number; name: string; startDate: string; endDate: string; status: "draft" | "finalized" | "paid"; totalAmount: string | null; notes: string | null; createdAt: string; finalizedAt: string | null; paidAt: string | null };
@@ -96,7 +97,11 @@ export default function PayrollPage() {
   const [wageFilter, setWageFilter] = useState("all");
   const [paystubTarget, setPaystubTarget] = useState<{ staff: StaffWage; entry: ComputedEntry } | null>(null);
   const [editingWage, setEditingWage] = useState<StaffWage | null>(null);
-  const [wageForm, setWageForm] = useState({ wageType: "none" as WageType, wageRate: "0", commissionPercent: "0" });
+  const [wageForm, setWageForm] = useState({ wageType: "none" as WageType, wageRate: "0", commissionPercent: "0", staffGroup: "" });
+  const [quickPayOpen, setQuickPayOpen] = useState(false);
+  const [quickPayPreset, setQuickPayPreset] = useState("thisMonth");
+  const [quickPayBranchId, setQuickPayBranchId] = useState<number | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [createPeriodOpen, setCreatePeriodOpen] = useState(false);
   const [periodForm, setPeriodForm] = useState({ name: "", startDate: startOfMonth(), endDate: todayISO(), notes: "" });
@@ -105,6 +110,8 @@ export default function PayrollPage() {
   const [confirmAction, setConfirmAction] = useState<{ type: string; periodId: number; name: string } | null>(null);
 
   // Queries
+  const { data: branches = [] } = useBranches();
+
   const { data: staff = [], isFetching: staffFetching } = useQuery<StaffWage[]>({
     queryKey: ["/api/payroll/staff"],
     staleTime: 1000 * 60 * 2,
@@ -143,6 +150,17 @@ export default function PayrollPage() {
     mutationFn: async (v: { id: string; data: typeof wageForm }) => (await apiRequest("PUT", `/api/payroll/staff/${v.id}`, v.data)).json(),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/staff"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/compute"] }); setEditingWage(null); toast({ title: t("payroll.wage.updated") }); },
     onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+  });
+
+  const quickPayMutation = useMutation({
+    mutationFn: async (v: { name: string; from: string; to: string; branchId?: number | null }) =>
+      (await apiRequest("POST", "/api/payroll/quick-pay", v)).json(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      setQuickPayOpen(false);
+      toast({ title: `✅ Pay Day complete! ${data.entryCount} employee${data.entryCount !== 1 ? "s" : ""} marked paid.` });
+    },
+    onError: (e: any) => toast({ title: t("common.error"), description: e?.message || "Quick Pay failed", variant: "destructive" }),
   });
 
   const createPeriodMutation = useMutation({
@@ -186,6 +204,48 @@ export default function PayrollPage() {
     toast({ title: t("payroll.export.csvExported") });
   }
 
+  // ── Staff groups (derived) ──────────────────────────────────────────────────
+  const staffGroups = useMemo(() => {
+    const map = new Map<string, StaffWage[]>();
+    for (const s of filteredStaff) {
+      const g = s.staffGroup?.trim() || "";
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(s);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      return a.localeCompare(b);
+    });
+  }, [filteredStaff]);
+
+  // ── Quick pay date helpers ──────────────────────────────────────────────────
+  function quickPayDates(p: string): { from: string; to: string; label: string } {
+    const now = new Date();
+    const ymd = (d: Date) => d.toISOString().slice(0, 10);
+    const mon = (d: Date) => { const r = new Date(d); r.setDate(1); return r; };
+    const eom = (d: Date) => { const r = new Date(d.getFullYear(), d.getMonth() + 1, 0); return r; };
+    const dow = now.getDay();
+    switch (p) {
+      case "thisWeek": {
+        const s = new Date(now); s.setDate(now.getDate() - dow);
+        return { from: ymd(s), to: ymd(now), label: "This Week" };
+      }
+      case "lastWeek": {
+        const e = new Date(now); e.setDate(now.getDate() - dow - 1);
+        const s = new Date(e); s.setDate(e.getDate() - 6);
+        return { from: ymd(s), to: ymd(e), label: "Last Week" };
+      }
+      case "thisMonth": return { from: ymd(mon(now)), to: ymd(now), label: "This Month" };
+      case "lastMonth": {
+        const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return { from: ymd(mon(lm)), to: ymd(eom(lm)), label: "Last Month" };
+      }
+      default: return { from: ymd(mon(now)), to: ymd(now), label: "This Month" };
+    }
+  }
+
   if (!isOwner) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-2 text-center">
@@ -206,9 +266,14 @@ export default function PayrollPage() {
           <h1 className="text-lg font-bold">{t("payroll.title")}</h1>
           <p className="text-xs text-muted-foreground">{fmtShort(from)} {t("payroll.dateTo")} {fmtShort(to)}</p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{t("payroll.stats.totalPayout")}</p>
-          <p className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.totalPayout, currency)}</p>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setQuickPayOpen(true)} className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md" data-testid="btn-pay-day">
+            <Zap className="h-3.5 w-3.5" />Pay Day
+          </Button>
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{t("payroll.stats.totalPayout")}</p>
+            <p className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.totalPayout, currency)}</p>
+          </div>
         </div>
       </div>
 
@@ -294,39 +359,64 @@ export default function PayrollPage() {
                 {staffSearch || wageFilter !== "all" ? t("payroll.staff.noMatch") : <><p>{t("payroll.staff.noStaffYet")}</p><p className="text-muted-foreground/50">{t("payroll.staff.noStaffHint")}</p></>}
               </div>
             ) : (
-              <div className="divide-y divide-border/20">
-                {filteredStaff.map(s => {
-                  const entry = entriesByUser.get(s.id);
-                  const wt = s.wageType ?? "none";
-                  const wageLabel = wt === "hourly" ? `${formatCurrency(s.wageRate || "0", currency)}/hr` : wt === "monthly" ? `${formatCurrency(s.wageRate || "0", currency)}/mo` : wt === "commission" ? `${parseFloat(s.commissionPercent || "0").toFixed(1)}%` : null;
+              <div>
+                {staffGroups.map(([groupName, groupStaff]) => {
+                  const isCollapsed = collapsedGroups.has(groupName);
+                  const groupTotal = groupStaff.reduce((s, m) => s + (entriesByUser.get(m.id)?.payout ?? 0), 0);
+                  const toggleGroup = () => setCollapsedGroups(prev => {
+                    const next = new Set(prev);
+                    if (next.has(groupName)) next.delete(groupName); else next.add(groupName);
+                    return next;
+                  });
                   return (
-                    <div key={s.id} className="px-3 py-2.5 flex items-center gap-2.5" data-testid={`row-payroll-${s.id}`}>
-                      <Av name={s.name || s.email || "?"} id={s.id} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-semibold truncate">{s.name || s.email}</p>
-                          <span className="text-[9px] text-muted-foreground/60 font-medium shrink-0">{roleLabel(s.role)}</span>
+                    <div key={groupName || "__ungrouped__"} className="border-b border-border/10 last:border-0">
+                      {groupName && (
+                        <button onClick={toggleGroup} className="w-full flex items-center gap-2 px-3 py-1.5 bg-muted/30 hover:bg-muted/50 transition-colors" data-testid={`btn-group-${groupName}`}>
+                          <Tag className="h-3 w-3 text-muted-foreground/60" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex-1 text-left">{groupName}</span>
+                          <span className="text-[10px] font-semibold text-muted-foreground">{groupStaff.length} · {formatCurrency(groupTotal, currency)}</span>
+                          {isCollapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronUp className="h-3 w-3 text-muted-foreground" />}
+                        </button>
+                      )}
+                      {!isCollapsed && (
+                        <div className="divide-y divide-border/20">
+                          {groupStaff.map(s => {
+                            const entry = entriesByUser.get(s.id);
+                            const wt = s.wageType ?? "none";
+                            const wageLabel = wt === "hourly" ? `${formatCurrency(s.wageRate || "0", currency)}/hr` : wt === "monthly" ? `${formatCurrency(s.wageRate || "0", currency)}/mo` : wt === "commission" ? `${parseFloat(s.commissionPercent || "0").toFixed(1)}%` : null;
+                            return (
+                              <div key={s.id} className="px-3 py-2.5 flex items-center gap-2.5" data-testid={`row-payroll-${s.id}`}>
+                                <Av name={s.name || s.email || "?"} id={s.id} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-xs font-semibold truncate">{s.name || s.email}</p>
+                                    <span className="text-[9px] text-muted-foreground/60 font-medium shrink-0">{roleLabel(s.role)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthly" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
+                                    {entry && entry.hoursWorked > 0 && <span className="text-[10px] text-muted-foreground">{entry.hoursWorked.toFixed(1)}{t("payroll.staff.hrs")}</span>}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0 flex items-center gap-1">
+                                  <p className={`text-sm font-bold tabular-nums ${(entry?.payout ?? 0) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"}`}>
+                                    {formatCurrency(entry?.payout ?? 0, currency)}
+                                  </p>
+                                  <div className="flex">
+                                    {entry && (entry.payout ?? 0) > 0 && (
+                                      <Button size="icon" variant="ghost" onClick={() => setPaystubTarget({ staff: s, entry })} className="h-7 w-7 text-muted-foreground" data-testid={`btn-paystub-${s.id}`}>
+                                        <Receipt className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    <Button size="icon" variant="ghost" onClick={() => { setWageForm({ wageType: (s.wageType ?? "none") as WageType, wageRate: s.wageRate ?? "0", commissionPercent: s.commissionPercent ?? "0", staffGroup: s.staffGroup ?? "" }); setEditingWage(s); }} className="h-7 w-7 text-muted-foreground" data-testid={`btn-edit-wage-${s.id}`}>
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthly" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
-                          {entry && entry.hoursWorked > 0 && <span className="text-[10px] text-muted-foreground">{entry.hoursWorked.toFixed(1)}{t("payroll.staff.hrs")}</span>}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 flex items-center gap-1">
-                        <p className={`text-sm font-bold tabular-nums ${(entry?.payout ?? 0) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"}`}>
-                          {formatCurrency(entry?.payout ?? 0, currency)}
-                        </p>
-                        <div className="flex">
-                          {entry && (entry.payout ?? 0) > 0 && (
-                            <Button size="icon" variant="ghost" onClick={() => setPaystubTarget({ staff: s, entry })} className="h-7 w-7 text-muted-foreground" data-testid={`btn-paystub-${s.id}`}>
-                              <Receipt className="h-3 w-3" />
-                            </Button>
-                          )}
-                          <Button size="icon" variant="ghost" onClick={() => { setWageForm({ wageType: (s.wageType ?? "none") as WageType, wageRate: s.wageRate ?? "0", commissionPercent: s.commissionPercent ?? "0" }); setEditingWage(s); }} className="h-7 w-7 text-muted-foreground" data-testid={`btn-edit-wage-${s.id}`}>
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -532,6 +622,11 @@ export default function PayrollPage() {
                 <p className="text-[9px] text-muted-foreground mt-1">{t("payroll.wage.commissionHint")}</p>
               </div>
             )}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Department / Category</label>
+              <Input value={wageForm.staffGroup} onChange={e => setWageForm({ ...wageForm, staffGroup: e.target.value })} placeholder="e.g. Kitchen, Floor, Management" className="h-8 text-xs" data-testid="input-staff-group" />
+              <p className="text-[9px] text-muted-foreground mt-1">Groups employees together on the payroll list.</p>
+            </div>
             <div className="flex gap-2 pt-1">
               <Button variant="outline" size="sm" onClick={() => setEditingWage(null)} className="flex-1 h-8 text-xs" data-testid="btn-cancel-wage">{t("common.cancel")}</Button>
               <Button size="sm" onClick={() => updateWageMutation.mutate({ id: editingWage!.id, data: wageForm })} disabled={updateWageMutation.isPending} className="flex-1 h-8 text-xs gap-1" data-testid="btn-save-wage">
@@ -630,6 +725,83 @@ export default function PayrollPage() {
               <Button variant="outline" size="sm" onClick={() => setCreatePeriodOpen(false)} className="flex-1 h-8 text-xs" data-testid="btn-cancel-period">{t("common.cancel")}</Button>
               <Button size="sm" onClick={() => createPeriodMutation.mutate(periodForm)} disabled={createPeriodMutation.isPending || !periodForm.name} className="flex-1 h-8 text-xs gap-1" data-testid="btn-create-period">
                 <Plus className="h-3 w-3" />{createPeriodMutation.isPending ? t("common.loading") : t("common.create")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── QUICK PAY DIALOG ──────────────────────────────────────────────────── */}
+      <Dialog open={quickPayOpen} onOpenChange={setQuickPayOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
+                <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              Pay Day
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Period presets */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Pay Period</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(["thisWeek", "lastWeek", "thisMonth", "lastMonth"] as const).map(p => {
+                  const { label, from: pf, to: pt } = quickPayDates(p);
+                  return (
+                    <button key={p} onClick={() => setQuickPayPreset(p)} className={`rounded-lg px-3 py-2 text-left transition-all border ${quickPayPreset === p ? "bg-emerald-600 text-white border-emerald-600 font-semibold" : "bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground"}`} data-testid={`btn-qp-preset-${p}`}>
+                      <p className="text-[11px] font-semibold">{label}</p>
+                      <p className={`text-[9px] ${quickPayPreset === p ? "text-emerald-100" : "text-muted-foreground/60"}`}>{pf} → {pt}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Branch filter */}
+            {branches.length > 1 && (
+              <div>
+                <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Branch</label>
+                <Select value={quickPayBranchId ? String(quickPayBranchId) : "all"} onValueChange={v => setQuickPayBranchId(v === "all" ? null : Number(v))}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-qp-branch">
+                    <Building2 className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branches.map((b: any) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Preview */}
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-4 py-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Employees on payroll</span>
+                <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{totals.staffCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Total payout</span>
+                <span className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.totalPayout, currency)}</span>
+              </div>
+              <p className="text-[9px] text-emerald-600/70 dark:text-emerald-500/60">Based on current date range. Actual amounts computed from hours & sales in the selected period.</p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setQuickPayOpen(false)} className="flex-1 h-9 text-xs" data-testid="btn-qp-cancel">Cancel</Button>
+              <Button size="sm" onClick={() => {
+                const { from: pf, to: pt, label } = quickPayDates(quickPayPreset);
+                const branchName = quickPayBranchId ? (branches as any[]).find(b => b.id === quickPayBranchId)?.name || "" : "";
+                const name = `Pay Day — ${label}${branchName ? ` (${branchName})` : ""}`;
+                quickPayMutation.mutate({ name, from: pf, to: pt, branchId: quickPayBranchId });
+              }} disabled={quickPayMutation.isPending} className="flex-1 h-9 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold" data-testid="btn-qp-run">
+                {quickPayMutation.isPending ? (
+                  <><span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Processing…</>
+                ) : (
+                  <><Zap className="h-3.5 w-3.5" />Mark All Paid</>
+                )}
               </Button>
             </div>
           </div>

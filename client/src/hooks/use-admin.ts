@@ -268,7 +268,7 @@ export function useTenantUsers() {
 export function useCreateStaffUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; role: "manager" | "admin" | "cashier"; branchIds?: number[]; pin?: string }) => {
+    mutationFn: async (data: { name: string; role: "manager" | "admin" | "cashier" | "staff"; branchIds?: number[]; pin?: string }) => {
       const res = await apiRequest("POST", "/api/admin/users", data);
       return res.json();
     },
@@ -281,7 +281,7 @@ export function useCreateStaffUser() {
 export function useUpdateUserRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, role }: { id: string; role: "owner" | "manager" | "admin" | "cashier" }) =>
+    mutationFn: ({ id, role }: { id: string; role: "owner" | "manager" | "admin" | "cashier" | "staff" }) =>
       apiRequest("PUT", `/api/admin/users/${id}`, { role }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/users"] });

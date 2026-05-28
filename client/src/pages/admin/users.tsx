@@ -44,7 +44,7 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
 
   const form = useForm<AddStaffForm>({
     resolver: zodResolver(addStaffSchema),
-    defaultValues: { name: "", role: "cashier", branchIds: [] as number[], pin: "" },
+    defaultValues: { name: "", role: "staff", branchIds: [] as number[], pin: "" },
   });
 
   async function onSubmit(values: AddStaffForm) {

@@ -737,18 +737,25 @@ function PinSessionApp() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-foreground leading-tight">{user.name}</p>
-                <p className="text-[10px] text-muted-foreground capitalize leading-tight">{user.role}</p>
+                <p className="text-[10px] text-muted-foreground capitalize leading-tight">
+                  {user.role === "staff" ? "Employee" : user.role}
+                </p>
               </div>
             </div>
           )}
-          <button
-            onClick={handleClockOut}
-            disabled={clockingOut}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition-all duration-150 disabled:opacity-50"
-          >
-            <LogOut className="w-3 h-3" />
-            {clockingOut ? "Clocking out…" : "Clock Out"}
-          </button>
+          {/* For clock-in-only employees the timeclock page has its own Clock Out
+              button — showing a second one here would be confusing and could
+              cause a double-request. Only show this button for POS sessions. */}
+          {!isEmployeeOnly && (
+            <button
+              onClick={handleClockOut}
+              disabled={clockingOut}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition-all duration-150 disabled:opacity-50"
+            >
+              <LogOut className="w-3 h-3" />
+              {clockingOut ? "Clocking out…" : "Clock Out"}
+            </button>
+          )}
         </div>
       </div>
       {/* Content: timeclock for clock-in-only employees, POS for cashiers/managers */}

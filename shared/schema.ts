@@ -50,7 +50,7 @@ export const users = pgTable("users", {
   provider: text("provider").notNull(),
   providerId: text("provider_id").notNull(),
   tenantId: text("tenant_id").references(() => tenants.id),
-  role: text("role").default("owner"), // owner | manager | admin | cashier
+  role: text("role").default("owner"), // owner | manager | admin | cashier | staff
   passwordHash: text("password_hash"),
   isBanned: boolean("is_banned").default(false),
   bannedAt: text("banned_at"),
@@ -67,6 +67,23 @@ export const users = pgTable("users", {
   pinLockedUntil: text("pin_locked_until"), // ISO timestamp — set after repeated failures
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
+
+// ─── Invite Tokens ────────────────────────────────────────────────────────────
+
+export const inviteTokens = pgTable("invite_tokens", {
+  id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  token: text("token").notNull().unique(),
+  email: text("email"),
+  role: text("role").default("cashier"), // owner | manager | admin | cashier | staff
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({ id: true, createdAt: true });
+export type InviteToken = typeof inviteTokens.$inferSelect;
+export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
 
 // ─── User Branches ────────────────────────────────────────────────────────────
 
@@ -1122,7 +1139,7 @@ export const closeShiftSchema = z.object({
   variance: z.string().optional().nullable(),
 });
 
-export type UserRole = "owner" | "manager" | "admin" | "cashier";
+export type UserRole = "owner" | "manager" | "admin" | "cashier" | "staff";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

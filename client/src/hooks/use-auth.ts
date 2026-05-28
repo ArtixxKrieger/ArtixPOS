@@ -3,6 +3,7 @@ import { resolveUrl, clearNativeToken, NATIVE_TOKEN_KEY, getCsrfHeaders } from "
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { clearSettingsPrewarm } from "@/hooks/use-settings";
+import type { UserRole } from "@shared/schema";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -20,7 +21,7 @@ export interface AuthUser {
   avatar: string | null;
   provider: string;
   tenantId: string | null;
-  role: "owner" | "manager" | "admin" | "cashier";
+  role: UserRole;
   activeBranchId: number | null;
   activeBranch: ActiveBranchInfo | null;
   pinSession?: boolean;

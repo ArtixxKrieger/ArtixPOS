@@ -587,12 +587,18 @@ function AppRouter() {
     localStorage.setItem(onboardedKey, "1");
   }
 
+  // A user who already belongs to a tenant has definitively completed onboarding
+  // at some point.  Guard against a transient RLS / cold-start race where the
+  // settings endpoint returns onboardingComplete=0 before the tenant context is
+  // fully established — without this guard such a race would force an existing
+  // owner back through the onboarding wizard and potentially create a second tenant.
   const needsOnboarding =
     !settingsError &&
     settings !== undefined &&
     settings !== null &&
     !settings?.onboardingComplete &&
-    !alreadyOnboarded;
+    !alreadyOnboarded &&
+    !user?.tenantId;
 
   if (needsOnboarding && location !== "/onboarding") {
     return <Redirect to="/onboarding" />;
@@ -850,7 +856,10 @@ function ProtectedRouter() {
     return <StaffPinLogin />;
   }
 
-  if (user?.pinSession) {
+  // PIN sessions for cashiers/managers/admins get the restricted kiosk-only view.
+  // Owners who authenticated via PIN still need the full dashboard (they use the
+  // kiosk just to clock in, then manage the store normally).
+  if (user?.pinSession && user?.role !== "owner") {
     return <PinSessionApp />;
   }
 

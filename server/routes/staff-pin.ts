@@ -185,14 +185,18 @@ export function registerStaffPinRoutes(app: Express): void {
         await db.update(users).set({ pinLockedUntil: null }).where(eq(users.id, userId));
       }
 
-      // Verify user belongs to this branch
-      const [branchLink] = await db
-        .select()
-        .from(userBranches)
-        .where(and(eq(userBranches.userId, userId), eq(userBranches.branchId, branchId)))
-        .limit(1);
-      if (!branchLink)
-        return res.status(403).json({ message: "You are not assigned to this branch." });
+      // Verify user belongs to this branch.
+      // Owners own ALL branches and are never listed in userBranches — skip the
+      // check for them.  Non-owners must have an explicit userBranches row.
+      if (user.role !== "owner") {
+        const [branchLink] = await db
+          .select()
+          .from(userBranches)
+          .where(and(eq(userBranches.userId, userId), eq(userBranches.branchId, branchId)))
+          .limit(1);
+        if (!branchLink)
+          return res.status(403).json({ message: "You are not assigned to this branch." });
+      }
 
       // Auto clock-in: check for existing open time log
       const [existingLog] = await db

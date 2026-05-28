@@ -97,17 +97,14 @@ export default function TimeClockPage() {
     onSuccess: () => {
       setShowClockOut(false);
       setClockOutNotes("");
-      const isOwnerSession = user?.role === "owner";
-      if (!isOwnerSession) {
-        // Non-owners (PIN or regular cashier/manager) always return to the kiosk
-        toast({ title: "Clocked out — great work! See you next shift." });
-        queryClient.cancelQueries();
-        queryClient.clear();
-        window.location.replace("/staff-clock-in");
-      } else {
-        invalidateLogs();
-        toast({ title: "Clocked out — great work!" });
-      }
+      // All sessions (owner, manager, cashier, PIN) return to the kiosk after
+      // clock-out so the next person can log in.  For PIN sessions the JWT was
+      // already revoked server-side; for regular sessions the cache is cleared
+      // here and the kiosk roster still loads from its localStorage fallback.
+      toast({ title: "Clocked out — great work! See you next shift." });
+      queryClient.cancelQueries();
+      queryClient.clear();
+      window.location.replace("/staff-clock-in");
     },
     onError: () => toast({ title: "Failed to clock out", variant: "destructive" }),
   });

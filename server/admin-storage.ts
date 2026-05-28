@@ -108,7 +108,7 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 
 export async function createStaffUser(tenantId: string, data: {
   name: string;
-  role: "manager" | "admin" | "cashier";
+  role: "manager" | "admin" | "cashier" | "staff";
   hashedPin?: string; // pre-hashed PIN, set immediately if provided
 }): Promise<User> {
   // PIN-only staff: no email, no password, no app login.
@@ -129,7 +129,7 @@ export async function createStaffUser(tenantId: string, data: {
   return user;
 }
 
-export async function updateUserRole(userId: string, tenantId: string, role: "owner" | "manager" | "admin" | "cashier"): Promise<User | undefined> {
+export async function updateUserRole(userId: string, tenantId: string, role: "owner" | "manager" | "admin" | "cashier" | "staff"): Promise<User | undefined> {
   const [user] = await (db.update(users) as any)
     .set({ role })
     .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))

@@ -698,10 +698,15 @@ function PinSessionApp() {
   const [clockingOut, setClockingOut] = useState(false);
   const storeName = (settings as any)?.storeName ?? "ArtixPOS";
 
-  // Force any navigation to /pos
+  // "staff" role = clock-in/out only employees — they never need POS access.
+  // Cashiers and managers who log in via PIN get the full POS.
+  const isEmployeeOnly = user?.role === "staff";
+
+  // Lock navigation to the appropriate screen for this session type
   useEffect(() => {
-    if (location !== "/pos") setLocation("/pos");
-  }, [location, setLocation]);
+    const target = isEmployeeOnly ? "/timeclock" : "/pos";
+    if (location !== target) setLocation(target);
+  }, [location, setLocation, isEmployeeOnly]);
 
   async function handleClockOut() {
     setClockingOut(true);
@@ -746,10 +751,10 @@ function PinSessionApp() {
           </button>
         </div>
       </div>
-      {/* POS fills remaining height */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Content: timeclock for clock-in-only employees, POS for cashiers/managers */}
+      <div className={isEmployeeOnly ? "flex-1 min-h-0 overflow-auto" : "flex-1 min-h-0 overflow-hidden"}>
         <Suspense fallback={pageFallback}>
-          <POS />
+          {isEmployeeOnly ? <TimeClockPage /> : <POS />}
         </Suspense>
       </div>
     </div>

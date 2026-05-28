@@ -1,2 +1,3 @@
 - [Tenant context SET LOCAL ROLE bug](tenant-context-role-switch.md) — SET LOCAL ROLE inside an open transaction aborts it on permission failure; always use SAVEPOINT + GRANT artixpos_app to pool user.
 - [Staff PIN clock-in system](staff-pin-system.md) — PIN auth design decisions: getJwtSecret must be exported from auth.ts to share the same secret; timeLogs has no tenantId column; owners/managers excluded from PIN login.
+- [Employee role design](employee-role-design.md) — "staff" role added for clock-in-only workers; separate from POS users; PinSessionApp branches on role.

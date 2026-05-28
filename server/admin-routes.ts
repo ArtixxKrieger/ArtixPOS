@@ -601,7 +601,7 @@ export function registerAdminRoutes(app: Express) {
       }
       const input = z.object({
         name: z.string().min(1),
-        role: z.enum(["manager", "admin", "cashier"]),
+        role: z.enum(["manager", "admin", "cashier", "staff"]),
         branchIds: z.array(z.number()).min(1, "Assign at least one branch"),
         pin: z.string().min(4).max(6).regex(/^\d+$/, "PIN must be 4–6 digits").optional(),
       }).parse(req.body);
@@ -615,7 +615,7 @@ export function registerAdminRoutes(app: Express) {
 
       const newUser = await createStaffUser(user.tenantId!, {
         name: input.name,
-        role: input.role as "manager" | "admin" | "cashier",
+        role: input.role as "manager" | "admin" | "cashier" | "staff",
         hashedPin,
       });
 
@@ -634,7 +634,7 @@ export function registerAdminRoutes(app: Express) {
       const user = getAuthUser(req);
       const targetId = req.params.id as string;
       const input = z.object({
-        role: z.enum(["owner", "manager", "admin", "cashier"]).optional(),
+        role: z.enum(["owner", "manager", "admin", "cashier", "staff"]).optional(),
         name: z.string().min(1).optional(),
       }).parse(req.body);
 

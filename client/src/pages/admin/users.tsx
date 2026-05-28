@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 
 const addStaffSchema = z.object({
   name:      z.string().min(1, "Name is required"),
-  role:      z.enum(["manager", "admin", "cashier"]),
+  role:      z.enum(["manager", "admin", "cashier", "staff"]),
   branchIds: z.array(z.number()).min(1, "Assign at least one branch"),
   pin:       z.string().regex(/^\d{4,6}$/, "PIN must be 4–6 digits").optional().or(z.literal("")),
 });
@@ -101,7 +101,8 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="cashier">Cashier</SelectItem>
+                      <SelectItem value="staff">Employee — clock in/out only</SelectItem>
+                      <SelectItem value="cashier">Cashier — POS access</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
                     </SelectContent>
@@ -214,6 +215,7 @@ const ROLE_ICONS: Record<string, any> = {
   manager: User2,
   admin: User2,
   cashier: CreditCard,
+  staff: Clock,
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -221,6 +223,15 @@ const ROLE_COLORS: Record<string, string> = {
   manager: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
   admin: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   cashier: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  staff: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Owner",
+  manager: "Manager",
+  admin: "Admin",
+  cashier: "Cashier",
+  staff: "Employee",
 };
 
 function getOnlineStatus(lastSeenAt: string | null): { label: string; color: string; dot: string } {
@@ -521,7 +532,7 @@ export default function UsersPage() {
         /* User list */
         <div className="space-y-3">
           {[...tenantUsers].sort((a, b) => {
-            const roleOrder: Record<string, number> = { owner: 0, manager: 1, admin: 2, cashier: 3 };
+            const roleOrder: Record<string, number> = { owner: 0, manager: 1, admin: 2, cashier: 3, staff: 4 };
             return (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
           }).map(u => {
             const RoleIcon = ROLE_ICONS[u.role] ?? User2;
@@ -583,7 +594,7 @@ export default function UsersPage() {
                         ROLE_COLORS[u.role]
                       )}>
                         <RoleIcon className="h-2.5 w-2.5" />
-                        {u.role.charAt(0).toUpperCase() + u.role.slice(1)}
+                        {ROLE_LABELS[u.role] ?? (u.role.charAt(0).toUpperCase() + u.role.slice(1))}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -677,9 +688,10 @@ export default function UsersPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="staff">Employee</SelectItem>
                         <SelectItem value="cashier">Cashier</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
                       </SelectContent>
                     </Select>
 

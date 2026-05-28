@@ -416,16 +416,33 @@ export function registerStaffPinRoutes(app: Express): void {
 async function runAutoClockout() {
   try {
     const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+    const now = new Date().toISOString();
+
+    // Fetch stale logs including break state so we can compute accurate break minutes
     const staleLogs = await db
-      .select({ id: timeLogs.id })
+      .select({ id: timeLogs.id, breakStart: timeLogs.breakStart, breakMinutes: timeLogs.breakMinutes })
       .from(timeLogs)
       .where(and(isNull(timeLogs.clockOut), sql`${timeLogs.clockIn} < ${eightHoursAgo}`));
 
     if (staleLogs.length > 0) {
-      await db
-        .update(timeLogs)
-        .set({ clockOut: new Date().toISOString(), notes: "Auto clock-out: shift exceeded 8 hours" })
-        .where(inArray(timeLogs.id, staleLogs.map(l => l.id)));
+      // Update each log individually so we can accumulate final break minutes correctly
+      // for any employee who was still on break when their 8-hour window expired.
+      for (const log of staleLogs) {
+        let finalBreakMinutes = log.breakMinutes ?? 0;
+        if (log.breakStart) {
+          const breakMs = new Date(now).getTime() - new Date(log.breakStart).getTime();
+          finalBreakMinutes += Math.max(0, Math.floor(breakMs / 60000));
+        }
+        await db
+          .update(timeLogs)
+          .set({
+            clockOut: now,
+            breakStart: null,
+            breakMinutes: finalBreakMinutes,
+            notes: "Auto clock-out: shift exceeded 8 hours",
+          })
+          .where(eq(timeLogs.id, log.id));
+      }
       console.log(`[staff-pin] Auto-closed ${staleLogs.length} stale time log(s)`);
     }
   } catch (err) {

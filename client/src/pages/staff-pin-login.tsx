@@ -45,32 +45,39 @@ function PinDots({ length, filled }: { length: number; filled: number }) {
   );
 }
 
-function Numpad({ onDigit, onDelete, disabled }: {
+function Numpad({ onDigit, onDelete, onEnter, pinLength, disabled }: {
   onDigit: (d: string) => void;
   onDelete: () => void;
+  onEnter: () => void;
+  pinLength: number;
   disabled?: boolean;
 }) {
-  const keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
+  // Bottom-left slot: shows "Enter" (↵) when 4–5 digits are typed so staff
+  // with shorter PINs can submit without waiting for 6 digits.
+  // Auto-submit fires at 6 digits so that slot stays empty for 6-digit PINs.
+  const showEnter = pinLength >= 4 && pinLength < 6;
+  const keys = ["1","2","3","4","5","6","7","8","9","enter","0","⌫"];
   return (
     <div className="grid grid-cols-3 gap-3 w-full max-w-[260px] mx-auto">
       {keys.map((k, i) => {
-        if (k === "") return <div key={i} />;
+        if (k === "enter" && !showEnter) return <div key={i} />;
         const isDelete = k === "⌫";
+        const isEnter = k === "enter";
         return (
           <button
             key={k}
-            disabled={disabled}
-            onClick={() => isDelete ? onDelete() : onDigit(k)}
+            disabled={disabled || (isEnter && pinLength < 4)}
+            onClick={() => isDelete ? onDelete() : isEnter ? onEnter() : onDigit(k)}
             className={[
               "h-14 rounded-2xl text-xl font-semibold transition-all duration-100",
               "active:scale-95 select-none",
               disabled ? "opacity-40 cursor-not-allowed" : "",
-              isDelete
+              isDelete || isEnter
                 ? "bg-muted/60 hover:bg-muted text-muted-foreground border border-border/40"
                 : "bg-secondary/70 hover:bg-secondary dark:bg-white/8 dark:hover:bg-white/14 border border-border/50 shadow-sm text-foreground",
             ].join(" ")}
           >
-            {isDelete ? <Delete className="w-5 h-5 mx-auto" /> : k}
+            {isDelete ? <Delete className="w-5 h-5 mx-auto" /> : isEnter ? "↵" : k}
           </button>
         );
       })}
@@ -87,6 +94,10 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
     manager: "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300",
     admin:   "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300",
     cashier: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+    staff:   "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+  };
+  const roleLabel: Record<string, string> = {
+    owner: "Owner", manager: "Manager", admin: "Admin", cashier: "Cashier", staff: "Employee",
   };
   const isOwner = member.role === "owner";
   return (
@@ -122,8 +133,8 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
       </div>
       <div>
         <p className="text-sm font-semibold text-foreground leading-tight">{member.name ?? "Unknown"}</p>
-        <span className={["text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize", roleColor[member.role] ?? roleColor.cashier].join(" ")}>
-          {member.role}
+        <span className={["text-[10px] font-medium px-1.5 py-0.5 rounded-full", roleColor[member.role] ?? roleColor.cashier].join(" ")}>
+          {roleLabel[member.role] ?? member.role}
         </span>
       </div>
       {!member.hasPin && (
@@ -263,17 +274,24 @@ export default function StaffPinLogin() {
     },
   });
 
+  function submitPin(currentPin: string) {
+    if (currentPin.length < 4) return;
+    loginMutation.mutate(currentPin);
+  }
+
   function handleDigit(d: string) {
-    if (pin.length >= PIN_LENGTH) return;
+    if (pin.length >= PIN_LENGTH || loginMutation.isPending) return;
     setPinError(null);
     const next = pin + d;
     setPin(next);
+    // Auto-submit at the max length; shorter PINs use the ↵ Enter button
     if (next.length === PIN_LENGTH) {
       loginMutation.mutate(next);
     }
   }
 
   function handleDelete() {
+    if (loginMutation.isPending) return;
     setPinError(null);
     setPin(p => p.slice(0, -1));
   }
@@ -376,7 +394,9 @@ export default function StaffPinLogin() {
                 : (selectedMember.name ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
             </div>
             <h2 className="text-xl font-bold text-foreground mb-0.5">{selectedMember.name}</h2>
-            <p className="text-xs text-muted-foreground mb-2 capitalize">{selectedMember.role}</p>
+            <p className="text-xs text-muted-foreground mb-2">
+              {({ owner: "Owner", manager: "Manager", admin: "Admin", cashier: "Cashier", staff: "Employee" } as Record<string,string>)[selectedMember.role] ?? selectedMember.role}
+            </p>
 
             {isLocked ? (
               <div className="flex flex-col items-center gap-3 py-6">
@@ -404,6 +424,8 @@ export default function StaffPinLogin() {
                 <Numpad
                   onDigit={handleDigit}
                   onDelete={handleDelete}
+                  onEnter={() => submitPin(pin)}
+                  pinLength={pin.length}
                   disabled={loginMutation.isPending}
                 />
               </>

@@ -184,6 +184,14 @@ export default function TimeClockPage() {
     return Array.from(map.values());
   }, [teamLogs]);
 
+  // Count of team members currently in overtime (active shift > 8 h)
+  const teamOtCount = teamByUser.reduce((count, member) => {
+    const active = member.logs.find((l: any) => !l.clockOut);
+    if (!active) return count;
+    const activeMins = Math.max(0, Math.floor((now.getTime() - new Date(active.clockIn).getTime()) / 60000) - (active.breakMinutes ?? 0));
+    return activeMins > OT_THRESHOLD_MINS ? count + 1 : count;
+  }, 0);
+
   function exportCSV() {
     const rows = [
       ["Date", "Clock In", "Clock Out", "Break (min)", "Net Hours", "Clock-In Notes", "Clock-Out Notes"],
@@ -271,6 +279,11 @@ export default function TimeClockPage() {
             >
               {t === "team" && <Users className="h-3.5 w-3.5" />}
               {t === "me" ? "My Hours" : "Team"}
+              {t === "team" && teamOtCount > 0 && (
+                <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-none">
+                  {teamOtCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -544,13 +557,18 @@ export default function TimeClockPage() {
                   return s + Math.max(0, gross - (l.breakMinutes ?? 0));
                 }, 0) + memberActiveTodayMins;
               const memberOnBreak = !!(memberActive?.breakStart);
+              const memberIsOt = memberActiveTodayMins > OT_THRESHOLD_MINS;
               return (
-                <div key={member.name} className="bg-card border border-border rounded-2xl p-4">
+                <div key={member.name} className={cn(
+                  "bg-card border rounded-2xl p-4 transition-colors",
+                  memberIsOt ? "border-orange-400/40" : "border-border"
+                )}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={cn(
                         "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
                         memberOnBreak ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                          : memberIsOt ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
                           : memberActive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                           : "bg-secondary text-muted-foreground"
                       )}>
@@ -561,13 +579,21 @@ export default function TimeClockPage() {
                         <p className="text-[11px] text-muted-foreground truncate">{member.email}</p>
                       </div>
                     </div>
-                    <Badge className={cn("text-[10px] px-2.5 py-0.5 border shrink-0",
-                      memberOnBreak ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30"
-                        : memberActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30"
-                        : "bg-secondary text-muted-foreground border-border"
-                    )}>
-                      {memberOnBreak ? "On Break" : memberActive ? "Active" : "Off Duty"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {memberIsOt && (
+                        <Badge className="text-[10px] px-2 py-0.5 border bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-400/30">
+                          <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                          OT +{fmtMins(memberActiveTodayMins - OT_THRESHOLD_MINS)}
+                        </Badge>
+                      )}
+                      <Badge className={cn("text-[10px] px-2.5 py-0.5 border",
+                        memberOnBreak ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30"
+                          : memberActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30"
+                          : "bg-secondary text-muted-foreground border-border"
+                      )}>
+                        {memberOnBreak ? "On Break" : memberActive ? "Active" : "Off Duty"}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-2.5 text-xs text-muted-foreground">
                     <span>

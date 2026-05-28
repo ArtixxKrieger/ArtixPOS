@@ -769,11 +769,13 @@ export function AppTour() {
 
   useEffect(() => {
     if (!storageKey) return;
+    // Check both localStorage (fast, offline) and DB flag (syncs across devices)
     if (localStorage.getItem(storageKey)) return;
+    if ((settings as any)?.tourSeen) return;
     if (!settings?.onboardingComplete) return;
     const timer = setTimeout(() => setVisible(true), 1000);
     return () => clearTimeout(timer);
-  }, [storageKey, settings?.onboardingComplete]);
+  }, [storageKey, settings?.onboardingComplete, (settings as any)?.tourSeen]);
 
   useEffect(() => {
     const handler = () => {
@@ -798,6 +800,13 @@ export function AppTour() {
 
   const dismiss = useCallback(() => {
     if (storageKey) localStorage.setItem(storageKey, "1");
+    // Persist to DB so the tour doesn't re-appear on other devices / after cache clears
+    fetch("/api/settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tourSeen: 1 }),
+    }).catch(() => {});
     setExiting(true);
     setTimeout(() => setVisible(false), 280);
   }, [storageKey]);

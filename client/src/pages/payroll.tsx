@@ -26,7 +26,7 @@ import { useBranches } from "@/hooks/use-admin";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type WageType = "none" | "hourly" | "monthly" | "commission";
-type StaffWage = { id: string; name: string | null; email: string | null; role: string; wageType: WageType | null; wageRate: string | null; commissionPercent: string | null; staffGroup: string | null };
+type StaffWage = { id: string; name: string | null; email: string | null; role: string; wageType: WageType | null; wageRate: string | null; commissionPercent: string | null; staffGroup: string | null; branchId: number | null; branchName: string | null };
 type ComputedEntry = { userId: string; name: string | null; email: string | null; role: string; wageType: WageType; wageRate: number; commissionPercent: number; hoursWorked: number; salesAmount: number; payout: number; notes: string };
 type PayrollResponse = { from: string; to: string; entries: ComputedEntry[]; totals: { totalPayout: number; totalHours: number; totalCommissionable: number; staffCount: number } };
 type PayrollPeriod = { id: number; name: string; startDate: string; endDate: string; status: "draft" | "finalized" | "paid"; totalAmount: string | null; notes: string | null; createdAt: string; finalizedAt: string | null; paidAt: string | null };
@@ -204,21 +204,34 @@ export default function PayrollPage() {
     toast({ title: t("payroll.export.csvExported") });
   }
 
-  // ── Staff groups (derived) ──────────────────────────────────────────────────
-  const staffGroups = useMemo(() => {
-    const map = new Map<string, StaffWage[]>();
+  // ── Staff groups: branch → department (derived) ─────────────────────────────
+  type BranchGroup = { branchId: number | null; branchName: string; departments: [string, StaffWage[]][] };
+  const staffGroups = useMemo((): BranchGroup[] => {
+    const branchMap = new Map<number | -1, { branchName: string; depts: Map<string, StaffWage[]> }>();
     for (const s of filteredStaff) {
-      const g = s.staffGroup?.trim() || "";
-      if (!map.has(g)) map.set(g, []);
-      map.get(g)!.push(s);
+      const bKey = s.branchId ?? -1;
+      if (!branchMap.has(bKey)) branchMap.set(bKey, { branchName: s.branchName || "No Branch", depts: new Map() });
+      const dept = s.staffGroup?.trim() || "";
+      const bg = branchMap.get(bKey)!;
+      if (!bg.depts.has(dept)) bg.depts.set(dept, []);
+      bg.depts.get(dept)!.push(s);
     }
-    return Array.from(map.entries()).sort(([a], [b]) => {
-      if (!a && !b) return 0;
-      if (!a) return 1;
-      if (!b) return -1;
-      return a.localeCompare(b);
-    });
+    const sortDepts = (entries: [string, StaffWage[]][]) =>
+      entries.sort(([a], [b]) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : a.localeCompare(b));
+    return Array.from(branchMap.entries())
+      .sort(([a], [b]) => (a === -1 ? 1 : b === -1 ? -1 : 0))
+      .map(([bKey, { branchName, depts }]) => ({
+        branchId: bKey === -1 ? null : bKey as number,
+        branchName,
+        departments: sortDepts(Array.from(depts.entries())),
+      }));
   }, [filteredStaff]);
+
+  const toggleCollapse = (key: string) => setCollapsedGroups(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
 
   // ── Quick pay date helpers ──────────────────────────────────────────────────
   function quickPayDates(p: string): { from: string; to: string; label: string } {
@@ -360,63 +373,78 @@ export default function PayrollPage() {
               </div>
             ) : (
               <div>
-                {staffGroups.map(([groupName, groupStaff]) => {
-                  const isCollapsed = collapsedGroups.has(groupName);
-                  const groupTotal = groupStaff.reduce((s, m) => s + (entriesByUser.get(m.id)?.payout ?? 0), 0);
-                  const toggleGroup = () => setCollapsedGroups(prev => {
-                    const next = new Set(prev);
-                    if (next.has(groupName)) next.delete(groupName); else next.add(groupName);
-                    return next;
-                  });
+                {staffGroups.map(branchGroup => {
+                  const bKey = `b:${branchGroup.branchId ?? "none"}`;
+                  const isBranchCollapsed = collapsedGroups.has(bKey);
+                  const allBranchStaff = branchGroup.departments.flatMap(([, m]) => m);
+                  const branchTotal = allBranchStaff.reduce((s, m) => s + (entriesByUser.get(m.id)?.payout ?? 0), 0);
+                  const showBranchHeader = staffGroups.length > 1 || branchGroup.branchId !== null;
                   return (
-                    <div key={groupName || "__ungrouped__"} className="border-b border-border/10 last:border-0">
-                      {groupName && (
-                        <button onClick={toggleGroup} className="w-full flex items-center gap-2 px-3 py-1.5 bg-muted/30 hover:bg-muted/50 transition-colors" data-testid={`btn-group-${groupName}`}>
-                          <Tag className="h-3 w-3 text-muted-foreground/60" />
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex-1 text-left">{groupName}</span>
-                          <span className="text-[10px] font-semibold text-muted-foreground">{groupStaff.length} · {formatCurrency(groupTotal, currency)}</span>
-                          {isCollapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronUp className="h-3 w-3 text-muted-foreground" />}
+                    <div key={bKey} className="border-b border-border/15 last:border-0">
+                      {showBranchHeader && (
+                        <button onClick={() => toggleCollapse(bKey)} className="w-full flex items-center gap-2 px-3 py-2 bg-primary/5 hover:bg-primary/10 transition-colors" data-testid={`btn-branch-${bKey}`}>
+                          <Building2 className="h-3 w-3 text-primary/60 shrink-0" />
+                          <span className="text-[10px] font-black uppercase tracking-wider flex-1 text-left text-foreground/80">{branchGroup.branchName}</span>
+                          <span className="text-[10px] font-semibold text-muted-foreground">{allBranchStaff.length} staff · {formatCurrency(branchTotal, currency)}</span>
+                          {isBranchCollapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
                         </button>
                       )}
-                      {!isCollapsed && (
-                        <div className="divide-y divide-border/20">
-                          {groupStaff.map(s => {
-                            const entry = entriesByUser.get(s.id);
-                            const wt = s.wageType ?? "none";
-                            const wageLabel = wt === "hourly" ? `${formatCurrency(s.wageRate || "0", currency)}/hr` : wt === "monthly" ? `${formatCurrency(s.wageRate || "0", currency)}/mo` : wt === "commission" ? `${parseFloat(s.commissionPercent || "0").toFixed(1)}%` : null;
-                            return (
-                              <div key={s.id} className="px-3 py-2.5 flex items-center gap-2.5" data-testid={`row-payroll-${s.id}`}>
-                                <Av name={s.name || s.email || "?"} id={s.id} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="text-xs font-semibold truncate">{s.name || s.email}</p>
-                                    <span className="text-[9px] text-muted-foreground/60 font-medium shrink-0">{roleLabel(s.role)}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthly" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
-                                    {entry && entry.hoursWorked > 0 && <span className="text-[10px] text-muted-foreground">{entry.hoursWorked.toFixed(1)}{t("payroll.staff.hrs")}</span>}
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0 flex items-center gap-1">
-                                  <p className={`text-sm font-bold tabular-nums ${(entry?.payout ?? 0) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"}`}>
-                                    {formatCurrency(entry?.payout ?? 0, currency)}
-                                  </p>
-                                  <div className="flex">
-                                    {entry && (entry.payout ?? 0) > 0 && (
-                                      <Button size="icon" variant="ghost" onClick={() => setPaystubTarget({ staff: s, entry })} className="h-7 w-7 text-muted-foreground" data-testid={`btn-paystub-${s.id}`}>
-                                        <Receipt className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                    <Button size="icon" variant="ghost" onClick={() => { setWageForm({ wageType: (s.wageType ?? "none") as WageType, wageRate: s.wageRate ?? "0", commissionPercent: s.commissionPercent ?? "0", staffGroup: s.staffGroup ?? "" }); setEditingWage(s); }} className="h-7 w-7 text-muted-foreground" data-testid={`btn-edit-wage-${s.id}`}>
-                                      <Pencil className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
+                      {!isBranchCollapsed && branchGroup.departments.map(([dept, members]) => {
+                        const dKey = `d:${branchGroup.branchId ?? "none"}:${dept}`;
+                        const isDeptCollapsed = collapsedGroups.has(dKey);
+                        const deptTotal = members.reduce((s, m) => s + (entriesByUser.get(m.id)?.payout ?? 0), 0);
+                        return (
+                          <div key={dKey} className="border-b border-border/10 last:border-0">
+                            {dept && (
+                              <button onClick={() => toggleCollapse(dKey)} className={`w-full flex items-center gap-2 py-1.5 bg-muted/25 hover:bg-muted/45 transition-colors ${showBranchHeader ? "pl-6 pr-3" : "pl-3 pr-3"}`} data-testid={`btn-dept-${dKey}`}>
+                                <Tag className="h-2.5 w-2.5 text-muted-foreground/50 shrink-0" />
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex-1 text-left">{dept}</span>
+                                <span className="text-[9px] text-muted-foreground/60">{members.length} · {formatCurrency(deptTotal, currency)}</span>
+                                {isDeptCollapsed ? <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/60 shrink-0" /> : <ChevronUp className="h-2.5 w-2.5 text-muted-foreground/60 shrink-0" />}
+                              </button>
+                            )}
+                            {!isDeptCollapsed && (
+                              <div className="divide-y divide-border/20">
+                                {members.map(s => {
+                                  const entry = entriesByUser.get(s.id);
+                                  const wt = s.wageType ?? "none";
+                                  const wageLabel = wt === "hourly" ? `${formatCurrency(s.wageRate || "0", currency)}/hr` : wt === "monthly" ? `${formatCurrency(s.wageRate || "0", currency)}/mo` : wt === "commission" ? `${parseFloat(s.commissionPercent || "0").toFixed(1)}%` : null;
+                                  return (
+                                    <div key={s.id} className={`py-2.5 flex items-center gap-2.5 ${showBranchHeader ? (dept ? "pl-8 pr-3" : "pl-6 pr-3") : "px-3"}`} data-testid={`row-payroll-${s.id}`}>
+                                      <Av name={s.name || s.email || "?"} id={s.id} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-xs font-semibold truncate">{s.name || s.email}</p>
+                                          <span className="text-[9px] text-muted-foreground/60 font-medium shrink-0">{roleLabel(s.role)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthly" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
+                                          {entry && entry.hoursWorked > 0 && <span className="text-[10px] text-muted-foreground">{entry.hoursWorked.toFixed(1)}{t("payroll.staff.hrs")}</span>}
+                                        </div>
+                                      </div>
+                                      <div className="text-right shrink-0 flex items-center gap-1">
+                                        <p className={`text-sm font-bold tabular-nums ${(entry?.payout ?? 0) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"}`}>
+                                          {formatCurrency(entry?.payout ?? 0, currency)}
+                                        </p>
+                                        <div className="flex">
+                                          {entry && (entry.payout ?? 0) > 0 && (
+                                            <Button size="icon" variant="ghost" onClick={() => setPaystubTarget({ staff: s, entry })} className="h-7 w-7 text-muted-foreground" data-testid={`btn-paystub-${s.id}`}>
+                                              <Receipt className="h-3 w-3" />
+                                            </Button>
+                                          )}
+                                          <Button size="icon" variant="ghost" onClick={() => { setWageForm({ wageType: (s.wageType ?? "none") as WageType, wageRate: s.wageRate ?? "0", commissionPercent: s.commissionPercent ?? "0", staffGroup: s.staffGroup ?? "" }); setEditingWage(s); }} className="h-7 w-7 text-muted-foreground" data-testid={`btn-edit-wage-${s.id}`}>
+                                            <Pencil className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -685,7 +713,15 @@ export default function PayrollPage() {
           })()}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditingEntry(null)} className="flex-1 h-8 text-xs" data-testid="btn-cancel-entry">{t("common.cancel")}</Button>
-            <Button size="sm" onClick={() => updateEntryMutation.mutate({ id: editingEntry!.id, data: entryForm })} disabled={updateEntryMutation.isPending} className="flex-1 h-8 text-xs gap-1" data-testid="btn-save-entry">
+            <Button size="sm" onClick={() => {
+              const b = parseFloat((entryForm as any).baseAmount || "0") || 0;
+              const c = parseFloat((entryForm as any).commissionAmount || "0") || 0;
+              const ti = parseFloat((entryForm as any).tipAmount || "0") || 0;
+              const bo = parseFloat((entryForm as any).bonusAmount || "0") || 0;
+              const d = parseFloat((entryForm as any).deductionAmount || "0") || 0;
+              const a = parseFloat((entryForm as any).advanceAmount || "0") || 0;
+              updateEntryMutation.mutate({ id: editingEntry!.id, data: { ...entryForm, netAmount: (b + c + ti + bo - d - a).toFixed(2) } });
+            }} disabled={updateEntryMutation.isPending} className="flex-1 h-8 text-xs gap-1" data-testid="btn-save-entry">
               <Save className="h-3 w-3" />{updateEntryMutation.isPending ? t("common.loading") : t("common.save")}
             </Button>
           </div>

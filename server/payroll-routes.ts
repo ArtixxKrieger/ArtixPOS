@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
-import { users, timeLogs, sales, payrollPeriods, payrollEntries, userBranches } from "@shared/schema";
+import { users, timeLogs, sales, payrollPeriods, payrollEntries, userBranches, branches } from "@shared/schema";
 import { and, eq, gte, lte, inArray, isNull, isNotNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
@@ -105,7 +105,25 @@ export function registerPayrollRoutes(app: Express) {
         })
         .from(users)
         .where(eq(users.tenantId, user.tenantId!));
-      res.json(list);
+
+      // Attach first branch per user
+      const userIds = list.map(u => u.id);
+      const branchRows = userIds.length
+        ? await db
+            .select({ userId: userBranches.userId, branchId: userBranches.branchId, branchName: branches.name })
+            .from(userBranches)
+            .innerJoin(branches, eq(branches.id, userBranches.branchId))
+            .where(inArray(userBranches.userId, userIds))
+        : [];
+      const branchMap = new Map<string, { branchId: number; branchName: string }>();
+      for (const row of branchRows) {
+        if (!branchMap.has(row.userId)) branchMap.set(row.userId, { branchId: row.branchId, branchName: row.branchName });
+      }
+      res.json(list.map(u => ({
+        ...u,
+        branchId: branchMap.get(u.id)?.branchId ?? null,
+        branchName: branchMap.get(u.id)?.branchName ?? null,
+      })));
     } catch (err) {
       next(err);
     }
@@ -465,8 +483,10 @@ export function registerPayrollRoutes(app: Express) {
       const userIds = tenantUsers.map(u => u.id);
 
       // Compute hours and sales for the period
-      const logs = userIds.length ? await db.select().from(timeLogs).where(and(inArray(timeLogs.userId, userIds), isNotNull(timeLogs.clockOut), gte(timeLogs.clockIn, input.from), lte(timeLogs.clockIn, input.to))) : [];
-      const tenantSales = userIds.length ? await db.select({ cashierId: sales.cashierId, total: sales.total }).from(sales).where(and(inArray(sales.userId, userIds), isNull(sales.deletedAt), gte(sales.createdAt, input.from), lte(sales.createdAt, input.to))) : [];
+      const fromISO = `${input.from}T00:00:00.000Z`;
+      const toISO = `${input.to}T23:59:59.999Z`;
+      const logs = userIds.length ? await db.select().from(timeLogs).where(and(inArray(timeLogs.userId, userIds), isNotNull(timeLogs.clockOut), gte(timeLogs.clockIn, fromISO), lte(timeLogs.clockIn, toISO))) : [];
+      const tenantSales = userIds.length ? await db.select({ cashierId: sales.cashierId, total: sales.total }).from(sales).where(and(inArray(sales.userId, userIds), isNull(sales.deletedAt), gte(sales.createdAt, fromISO), lte(sales.createdAt, toISO))) : [];
 
       const hoursMap = new Map<string, number>();
       for (const log of logs) {

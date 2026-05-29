@@ -697,7 +697,8 @@ export function registerPayrollRoutes(app: Express) {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
       const targetUserId = req.params.id;
-      const [target] = await db.select().from(users).where(and(eq(users.id, targetUserId), eq(users.tenantId, user.tenantId!)));
+      const tenantId = user.tenantId as string;
+      const [target] = await db.select().from(users).where(and(eq(users.id, String(targetUserId)), eq(users.tenantId, tenantId)));
       if (!target) return res.status(404).json({ message: "Not found" });
 
       const entries = await db.select({

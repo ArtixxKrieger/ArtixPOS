@@ -1168,7 +1168,7 @@ export default function PayrollPage() {
               {confirmAction?.type === "finalize" ? t("payroll.periods.finalize") : confirmAction?.type === "markPaid" ? t("payroll.periods.markPaid") : t("payroll.periods.deletePeriod")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              {confirmAction?.type === "finalize" ? t("payroll.periods.finalizeConfirm", { name: confirmAction.name }) : confirmAction?.type === "markPaid" ? t("payroll.periods.payConfirm", { name: confirmAction.name }) : t("payroll.periods.deleteConfirm", { name: confirmAction.name })}
+              {confirmAction?.type === "finalize" ? t("payroll.periods.finalizeConfirm", { name: confirmAction?.name }) : confirmAction?.type === "markPaid" ? t("payroll.periods.payConfirm", { name: confirmAction?.name }) : t("payroll.periods.deleteConfirm", { name: confirmAction?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">

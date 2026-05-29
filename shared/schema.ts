@@ -807,6 +807,7 @@ export type LoyaltyPointsLog = typeof loyaltyPointsLog.$inferSelect;
 
 export const payrollPeriods = pgTable("payroll_periods", {
   id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id),
   userId: text("user_id").notNull().references(() => users.id), // owner who created it
   name: text("name").notNull(),
   startDate: text("start_date").notNull(),

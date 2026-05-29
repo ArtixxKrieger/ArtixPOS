@@ -312,12 +312,12 @@ export function registerPayrollRoutes(app: Express) {
         .insert(payrollPeriods as any)
         .values({
           tenantId: user.tenantId,
+          userId: user.id,
           name: input.name,
           startDate: input.from,
           endDate: input.to,
           notes: input.notes || null,
           status: "draft",
-          createdBy: user.id,
         })
         .returning() as any[];
       const period = rows[0];

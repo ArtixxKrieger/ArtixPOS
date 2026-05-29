@@ -850,7 +850,7 @@ export type WifiVoucher = typeof wifiVouchers.$inferSelect;
 
 export const payrollAuditLog = pgTable("payroll_audit_log", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => users.id),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id),
   action: text("action").notNull(), // "quick_pay" | "mark_paid" | "finalize" | "delete"
   periodId: integer("period_id"),
   periodName: text("period_name").notNull(),

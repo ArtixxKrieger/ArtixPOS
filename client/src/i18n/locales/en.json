@@ -436,6 +436,24 @@
     "export": {
       "csvExported": "CSV exported",
       "exportCSV": "Export CSV"
+    },
+    "payMethod": {
+      "label": "Payment Method",
+      "cash": "Cash",
+      "gcash": "GCash",
+      "maya": "Maya",
+      "bank": "Bank",
+      "check": "Check",
+      "reference": "Reference / Note",
+      "referencePlaceholder": "e.g. GCash ref #12345",
+      "processedBy": "Processed by",
+      "payoutPreview": "Payout Preview",
+      "noEligible": "No staff with wages configured",
+      "howPaying": "How are you paying?",
+      "proceedAnyway": "Proceed anyway",
+      "duplicateWarning": "already covers this date range",
+      "confirmPayDay": "Confirm Pay Day",
+      "markAsPaid": "Mark as Paid"
     }
   },
   "purchases": {

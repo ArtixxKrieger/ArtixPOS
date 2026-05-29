@@ -400,11 +400,21 @@ export function registerPayrollRoutes(app: Express) {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
       const id = Number(req.params.id);
+      const bodySchema = z.object({
+        paymentMethod: z.string().optional().default("cash"),
+        paymentReference: z.string().optional().default(""),
+      });
+      const body = bodySchema.parse(req.body ?? {});
       const [period] = await db.select().from(payrollPeriods as any).where(eq((payrollPeriods as any).id, id));
       if (!period || (period as any).tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
       if ((period as any).status !== "finalized") return res.status(409).json({ message: "Period must be finalized first" });
       const [updated] = await db.update(payrollPeriods as any)
-        .set({ status: "paid", paidAt: new Date().toISOString() })
+        .set({
+          status: "paid",
+          paidAt: new Date().toISOString(),
+          paymentMethod: body.paymentMethod || "cash",
+          paymentReference: body.paymentReference || null,
+        })
         .where(eq((payrollPeriods as any).id, id))
         .returning() as any[];
       res.json(updated);
@@ -472,8 +482,30 @@ export function registerPayrollRoutes(app: Express) {
         from: z.string().min(1),
         to: z.string().min(1),
         branchId: z.number().optional().nullable(),
+        paymentMethod: z.string().optional().default("cash"),
+        paymentReference: z.string().optional().default(""),
+        force: z.boolean().optional().default(false),
       });
       const input = schema.parse(req.body);
+
+      // Duplicate detection: warn if a paid period already covers this date range
+      if (!input.force) {
+        const overlap = await db.select().from(payrollPeriods as any).where(
+          and(
+            eq((payrollPeriods as any).tenantId, user.tenantId),
+            eq((payrollPeriods as any).status, "paid"),
+            isNull((payrollPeriods as any).deletedAt),
+            lte((payrollPeriods as any).startDate, input.to),
+            gte((payrollPeriods as any).endDate, input.from),
+          )
+        ) as any[];
+        if (overlap.length > 0) {
+          return res.status(409).json({
+            message: "A paid period already exists for this date range.",
+            conflict: { name: overlap[0].name, startDate: overlap[0].startDate, endDate: overlap[0].endDate },
+          });
+        }
+      }
 
       // Get tenant users, optionally filtered to a specific branch
       let tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
@@ -515,6 +547,8 @@ export function registerPayrollRoutes(app: Express) {
         status: "paid",
         finalizedAt: now,
         paidAt: now,
+        paymentMethod: input.paymentMethod || "cash",
+        paymentReference: input.paymentReference || null,
       }).returning() as any[];
 
       // Build entries for employees with a wage type

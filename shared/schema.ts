@@ -817,6 +817,8 @@ export const payrollPeriods = pgTable("payroll_periods", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   finalizedAt: text("finalized_at"),
   paidAt: text("paid_at"),
+  paymentMethod: text("payment_method"),
+  paymentReference: text("payment_reference"),
   deletedAt: text("deleted_at"),
 });
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, nativeFetch } from "@/lib/queryClient";
+import { apiRequest, nativeFetch, getCsrfHeaders } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
@@ -29,7 +29,7 @@ type WageType = "none" | "hourly" | "monthly" | "commission";
 type StaffWage = { id: string; name: string | null; email: string | null; role: string; wageType: WageType | null; wageRate: string | null; commissionPercent: string | null; staffGroup: string | null; branchId: number | null; branchName: string | null };
 type ComputedEntry = { userId: string; name: string | null; email: string | null; role: string; wageType: WageType; wageRate: number; commissionPercent: number; hoursWorked: number; salesAmount: number; payout: number; notes: string };
 type PayrollResponse = { from: string; to: string; entries: ComputedEntry[]; totals: { totalPayout: number; totalHours: number; totalCommissionable: number; staffCount: number } };
-type PayrollPeriod = { id: number; name: string; startDate: string; endDate: string; status: "draft" | "finalized" | "paid"; totalAmount: string | null; notes: string | null; createdAt: string; finalizedAt: string | null; paidAt: string | null };
+type PayrollPeriod = { id: number; name: string; startDate: string; endDate: string; status: "draft" | "finalized" | "paid"; totalAmount: string | null; notes: string | null; createdAt: string; finalizedAt: string | null; paidAt: string | null; paymentMethod?: string | null; paymentReference?: string | null };
 type PayrollEntry = { id: number; periodId: number; employeeUserId: string; employeeName: string; wageType: string; wageRate: string; hoursWorked: string | null; baseAmount: string; commissionAmount: string | null; tipAmount: string | null; bonusAmount: string | null; deductionAmount: string | null; advanceAmount: string | null; netAmount: string; notes: string | null };
 type AnalyticsPeriod = { id: number; name: string; startDate: string; endDate: string; status: string; totalAmount: number };
 type AnalyticsData = { periods: AnalyticsPeriod[]; topEarners: { name: string; total: number; periods: number }[]; wageTypeBreakdown: { type: string; total: number }[] };
@@ -57,6 +57,16 @@ function downloadCSV(filename: string, rows: Record<string, any>[]) {
 
 const AVATAR_COLORS = ["bg-violet-500","bg-emerald-500","bg-rose-500","bg-amber-500","bg-sky-500","bg-indigo-500","bg-pink-500","bg-teal-500"];
 function avatarColor(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) & 0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length]; }
+
+const PAY_METHODS = [
+  { id: "cash",  label: "Cash",          icon: "💵" },
+  { id: "gcash", label: "GCash",         icon: "📱" },
+  { id: "maya",  label: "Maya",          icon: "💳" },
+  { id: "bank",  label: "Bank Transfer", icon: "🏦" },
+  { id: "check", label: "Check",         icon: "📝" },
+] as const;
+function payMethodIcon(m: string) { return PAY_METHODS.find(x => x.id === m)?.icon ?? "💰"; }
+function payMethodLabel(m: string) { return PAY_METHODS.find(x => x.id === m)?.label ?? m; }
 
 // ── Tiny components ───────────────────────────────────────────────────────────
 
@@ -105,6 +115,13 @@ export default function PayrollPage() {
   const [quickPayOpen, setQuickPayOpen] = useState(false);
   const [quickPayPreset, setQuickPayPreset] = useState("thisMonth");
   const [quickPayBranchId, setQuickPayBranchId] = useState<number | null>(null);
+  const [quickPayMethod, setQuickPayMethod] = useState("cash");
+  const [quickPayReference, setQuickPayReference] = useState("");
+  const [quickPayDuplicate, setQuickPayDuplicate] = useState<{ name: string; startDate: string; endDate: string } | null>(null);
+  const [quickPayForce, setQuickPayForce] = useState(false);
+  const [markPaidDialog, setMarkPaidDialog] = useState<{ periodId: number; name: string; totalAmount: string } | null>(null);
+  const [markPaidMethod, setMarkPaidMethod] = useState("cash");
+  const [markPaidRef, setMarkPaidRef] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [createPeriodOpen, setCreatePeriodOpen] = useState(false);
@@ -178,15 +195,37 @@ export default function PayrollPage() {
   });
 
   const quickPayMutation = useMutation({
-    mutationFn: async (v: { name: string; from: string; to: string; branchId?: number | null }) =>
-      (await apiRequest("POST", "/api/payroll/quick-pay", v)).json(),
+    mutationFn: async (v: { name: string; from: string; to: string; branchId?: number | null; paymentMethod?: string; paymentReference?: string; force?: boolean }) => {
+      const res = await nativeFetch("/api/payroll/quick-pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders("POST") },
+        body: JSON.stringify(v),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const err: any = new Error(data.message || "Quick Pay failed");
+        if (res.status === 409 && data.conflict) err.conflict = data.conflict;
+        throw err;
+      }
+      return data;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
       setQuickPayOpen(false);
-      toast({ title: `✅ Pay Day complete! ${data.entryCount} employee${data.entryCount !== 1 ? "s" : ""} marked paid.` });
+      setQuickPayDuplicate(null);
+      setQuickPayForce(false);
+      setQuickPayReference("");
+      const method = payMethodIcon(quickPayMethod) + " " + payMethodLabel(quickPayMethod);
+      toast({ title: `✅ Pay Day complete! ${data.entryCount} employee${data.entryCount !== 1 ? "s" : ""} paid via ${method}.` });
     },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message || "Quick Pay failed", variant: "destructive" }),
+    onError: (e: any) => {
+      if ((e as any).conflict) {
+        setQuickPayDuplicate((e as any).conflict);
+      } else {
+        toast({ title: t("common.error"), description: e?.message || "Quick Pay failed", variant: "destructive" });
+      }
+    },
   });
 
   const createPeriodMutation = useMutation({
@@ -245,8 +284,17 @@ export default function PayrollPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); setConfirmAction(null); toast({ title: t("payroll.periods.finalized_toast") }); },
   });
   const markPaidMutation = useMutation({
-    mutationFn: async (id: number) => (await apiRequest("POST", `/api/payroll/periods/${id}/pay`, {})).json(),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); setConfirmAction(null); toast({ title: t("payroll.periods.paid_toast") }); },
+    mutationFn: async (v: { id: number; paymentMethod?: string; paymentReference?: string }) =>
+      (await apiRequest("POST", `/api/payroll/periods/${v.id}/pay`, { paymentMethod: v.paymentMethod, paymentReference: v.paymentReference })).json(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
+      setMarkPaidDialog(null);
+      setMarkPaidMethod("cash");
+      setMarkPaidRef("");
+      toast({ title: t("payroll.periods.paid_toast") });
+    },
+    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
   });
   const deletePeriodMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/payroll/periods/${id}`, {}),
@@ -585,7 +633,12 @@ export default function PayrollPage() {
                           <p className="text-xs font-semibold truncate">{period.name}</p>
                           <StatusDot status={period.status} t={t} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground">{fmtShort(period.startDate)} → {fmtShort(period.endDate)}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {fmtShort(period.startDate)} → {fmtShort(period.endDate)}
+                          {period.status === "paid" && period.paymentMethod && (
+                            <> · {payMethodIcon(period.paymentMethod)} {payMethodLabel(period.paymentMethod)}{period.paymentReference ? ` · ${period.paymentReference}` : ""}</>
+                          )}
+                        </p>
                       </div>
                       <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0">{formatCurrency(period.totalAmount || "0", currency)}</p>
                       {isExp ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
@@ -606,11 +659,17 @@ export default function PayrollPage() {
                             </>
                           )}
                           {period.status === "finalized" && (
-                            <Button size="sm" className="h-6 text-[11px] px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setConfirmAction({ type: "markPaid", periodId: period.id, name: period.name })} data-testid={`btn-mark-paid-${period.id}`}>
+                            <Button size="sm" className="h-6 text-[11px] px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setMarkPaidDialog({ periodId: period.id, name: period.name, totalAmount: period.totalAmount || "0" }); setMarkPaidMethod("cash"); setMarkPaidRef(""); }} data-testid={`btn-mark-paid-${period.id}`}>
                               <Banknote className="h-2.5 w-2.5" />{t("payroll.periods.markPaid")}
                             </Button>
                           )}
-                          {period.status === "paid" && <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{t("payroll.periods.statusPaid")}</span>}
+                          {period.status === "paid" && (
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {t("payroll.periods.statusPaid")}
+                              {period.paymentMethod && <span className="ml-1 opacity-70">{payMethodIcon(period.paymentMethod)} {payMethodLabel(period.paymentMethod)}</span>}
+                            </span>
+                          )}
                           <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 gap-1 text-muted-foreground" onClick={exportPeriodCSV} data-testid={`btn-export-period-${period.id}`}>
                             <FileDown className="h-2.5 w-2.5" />{t("payroll.export.exportCSV")}
                           </Button>
@@ -1084,25 +1143,31 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── QUICK PAY DIALOG ──────────────────────────────────────────────────── */}
-      <Dialog open={quickPayOpen} onOpenChange={o => !o && setQuickPayOpen(false)}>
-        <DialogContent className="max-w-xs">
+      {/* ── PAY DAY DIALOG ────────────────────────────────────────────────────── */}
+      <Dialog open={quickPayOpen} onOpenChange={o => { if (!o) { setQuickPayOpen(false); setQuickPayDuplicate(null); setQuickPayForce(false); } }}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5 text-emerald-500" />Pay Day
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+
+            {/* Pay period presets */}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Pay Period</label>
               <div className="flex flex-wrap gap-1.5">
                 {(["thisWeek","lastWeek","thisMonth","lastMonth"] as const).map(p => (
-                  <button key={p} onClick={() => setQuickPayPreset(p)} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${quickPayPreset === p ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`} data-testid={`btn-qp-preset-${p}`}>
+                  <button key={p} onClick={() => { setQuickPayPreset(p); setQuickPayDuplicate(null); setQuickPayForce(false); }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${quickPayPreset === p ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`}
+                    data-testid={`btn-qp-preset-${p}`}>
                     {quickPayDates(p).label}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Branch filter */}
             {(branches as any[]).length > 1 && (
               <div>
                 <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Branch (optional)</label>
@@ -1115,71 +1180,194 @@ export default function PayrollPage() {
                 </Select>
               </div>
             )}
+
+            {/* Payment method */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">How are you paying?</label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {PAY_METHODS.map(m => (
+                  <button key={m.id} onClick={() => setQuickPayMethod(m.id)}
+                    className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl text-[10px] font-semibold border transition-all ${quickPayMethod === m.id ? "bg-primary/10 border-primary text-primary" : "border-border/40 text-muted-foreground hover:border-border"}`}
+                    data-testid={`btn-qp-method-${m.id}`}>
+                    <span className="text-lg leading-none">{m.icon}</span>
+                    {m.label.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reference / note */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Reference / Note (optional)</label>
+              <Input value={quickPayReference} onChange={e => setQuickPayReference(e.target.value)}
+                placeholder={quickPayMethod === "gcash" || quickPayMethod === "maya" ? "e.g. Ref #12345" : quickPayMethod === "bank" ? "e.g. Bank ref or account no." : "Optional note..."}
+                className="h-8 text-xs" data-testid="input-qp-reference" />
+            </div>
+
+            {/* Per-employee payout preview */}
             {(() => {
               const { from: qFrom, to: qTo } = quickPayDates(quickPayPreset);
+              const days = Math.max(1, (new Date(qTo).getTime() - new Date(qFrom).getTime()) / 86400000 + 1);
+              const workDays = Math.min(days, Math.round(days * 5 / 7));
               const eligible = staff.filter(s => s.wageType && s.wageType !== "none" && (!quickPayBranchId || s.branchId === quickPayBranchId));
-              const est = eligible.reduce((sum, s) => {
+              const total = eligible.reduce((sum, s) => {
                 const rate = parseFloat(s.wageRate || "0") || 0;
                 if (s.wageType === "monthly") return sum + rate;
-                if (s.wageType === "hourly") return sum + rate * 8;
+                if (s.wageType === "hourly") return sum + rate * workDays * 8;
                 return sum;
               }, 0);
               return (
-                <div className="rounded-xl bg-muted/40 border border-border/30 px-3 py-2.5 space-y-1.5">
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-muted-foreground">Period</span>
-                    <span className="font-semibold">{fmtShort(qFrom)} → {fmtShort(qTo)}</span>
+                <div className="rounded-xl bg-muted/40 border border-border/30 overflow-hidden">
+                  <div className="px-3 py-1.5 border-b border-border/20 flex justify-between items-center bg-muted/20">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Payout Preview</span>
+                    <span className="text-[9px] text-muted-foreground">{fmtShort(qFrom)} → {fmtShort(qTo)}</span>
                   </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-muted-foreground">Staff on payroll</span>
-                    <span className="font-semibold">{eligible.length} employee{eligible.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  {est > 0 && (
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">Est. total</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">~{formatCurrency(est, currency)}</span>
+                  {eligible.length === 0 ? (
+                    <p className="px-3 py-3 text-center text-[10px] text-muted-foreground">No staff with wages configured</p>
+                  ) : (
+                    <div className="divide-y divide-border/15 max-h-32 overflow-y-auto">
+                      {eligible.map(s => {
+                        const rate = parseFloat(s.wageRate || "0") || 0;
+                        let est = 0; let wageLabel = "";
+                        if (s.wageType === "monthly") { est = rate; wageLabel = "Monthly"; }
+                        else if (s.wageType === "hourly") { est = rate * workDays * 8; wageLabel = "Hourly ~"; }
+                        else if (s.wageType === "commission") { wageLabel = `${parseFloat(s.commissionPercent || "0")}% commission`; }
+                        return (
+                          <div key={s.id} className="px-3 py-1.5 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Av name={s.name || s.email || "?"} id={s.id} sm />
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-semibold truncate">{s.name || s.email}</p>
+                                <p className="text-[9px] text-muted-foreground">{wageLabel}</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0">
+                              {s.wageType === "commission" ? "—" : `~${formatCurrency(est, currency)}`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {total > 0 && (
+                    <div className="px-3 py-1.5 border-t border-border/20 flex justify-between items-center">
+                      <span className="text-[10px] font-semibold">{eligible.length} employee{eligible.length !== 1 ? "s" : ""}</span>
+                      <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">~{formatCurrency(total, currency)}</span>
                     </div>
                   )}
                 </div>
               );
             })()}
-            <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2.5 py-2">
-              <Info className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-amber-700 dark:text-amber-400">Immediately creates and marks a pay period as paid — no draft/finalize steps.</p>
+
+            {/* Duplicate warning */}
+            {quickPayDuplicate && !quickPayForce && (
+              <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2.5 py-2">
+                <AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-[10px] text-amber-700 dark:text-amber-400">
+                  <span className="font-semibold">"{quickPayDuplicate.name}"</span> already covers {fmtShort(quickPayDuplicate.startDate)} → {fmtShort(quickPayDuplicate.endDate)}.{" "}
+                  <button onClick={() => setQuickPayForce(true)} className="underline font-semibold" data-testid="btn-qp-force">Proceed anyway</button>
+                </div>
+              </div>
+            )}
+
+            {/* Processed by */}
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <CheckCircle2 className="h-3 w-3 shrink-0" />
+              Processed by <span className="font-semibold text-foreground">{user?.name || user?.email}</span> · {new Date().toLocaleDateString()}
             </div>
+
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setQuickPayOpen(false)} className="flex-1 h-8 text-xs">{t("common.cancel")}</Button>
+              <Button variant="outline" size="sm" onClick={() => { setQuickPayOpen(false); setQuickPayDuplicate(null); setQuickPayForce(false); }} className="flex-1 h-8 text-xs">{t("common.cancel")}</Button>
               <Button size="sm" onClick={() => {
                 const { from: qFrom, to: qTo, label } = quickPayDates(quickPayPreset);
-                quickPayMutation.mutate({ name: `${label} Pay Run`, from: qFrom, to: qTo, branchId: quickPayBranchId });
-              }} disabled={quickPayMutation.isPending} className="flex-1 h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="btn-confirm-quick-pay">
-                <Zap className="h-3 w-3" />{quickPayMutation.isPending ? "Processing..." : "Mark All Paid"}
+                quickPayMutation.mutate({ name: `${label} Pay Run`, from: qFrom, to: qTo, branchId: quickPayBranchId, paymentMethod: quickPayMethod, paymentReference: quickPayReference || undefined, force: quickPayForce });
+              }} disabled={quickPayMutation.isPending || (!!quickPayDuplicate && !quickPayForce)}
+                className="flex-1 h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="btn-confirm-quick-pay">
+                <Zap className="h-3 w-3" />{quickPayMutation.isPending ? "Processing..." : "Confirm Pay Day"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ── CONFIRM ACTION DIALOG ─────────────────────────────────────────────── */}
+      {/* ── MARK AS PAID DIALOG ───────────────────────────────────────────────── */}
+      <Dialog open={!!markPaidDialog} onOpenChange={o => !o && setMarkPaidDialog(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <Banknote className="h-3.5 w-3.5 text-emerald-500" />Mark as Paid
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Confirming payment for <span className="font-semibold text-foreground">{markPaidDialog?.name}</span>
+              {markPaidDialog?.totalAmount && parseFloat(markPaidDialog.totalAmount) > 0 && (
+                <> — <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(markPaidDialog.totalAmount, currency)}</span></>
+              )}.
+            </p>
+
+            {/* Payment method */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">How are you paying?</label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {PAY_METHODS.map(m => (
+                  <button key={m.id} onClick={() => setMarkPaidMethod(m.id)}
+                    className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl text-[10px] font-semibold border transition-all ${markPaidMethod === m.id ? "bg-primary/10 border-primary text-primary" : "border-border/40 text-muted-foreground hover:border-border"}`}
+                    data-testid={`btn-mp-method-${m.id}`}>
+                    <span className="text-lg leading-none">{m.icon}</span>
+                    {m.label.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reference */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Reference / Note (optional)</label>
+              <Input value={markPaidRef} onChange={e => setMarkPaidRef(e.target.value)}
+                placeholder={markPaidMethod === "gcash" || markPaidMethod === "maya" ? "e.g. Ref #12345" : "Optional note..."}
+                className="h-8 text-xs" data-testid="input-mp-reference" />
+            </div>
+
+            {/* Processed by */}
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <CheckCircle2 className="h-3 w-3 shrink-0" />
+              Processed by <span className="font-semibold text-foreground">{user?.name || user?.email}</span>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setMarkPaidDialog(null)} className="flex-1 h-8 text-xs">{t("common.cancel")}</Button>
+              <Button size="sm" onClick={() => {
+                if (!markPaidDialog) return;
+                markPaidMutation.mutate({ id: markPaidDialog.periodId, paymentMethod: markPaidMethod, paymentReference: markPaidRef || undefined });
+              }} disabled={markPaidMutation.isPending}
+                className="flex-1 h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="btn-confirm-mark-paid">
+                <Banknote className="h-3 w-3" />{markPaidMutation.isPending ? "Saving..." : "Confirm Payment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CONFIRM ACTION DIALOG (finalize / delete only) ───────────────────── */}
       <AlertDialog open={!!confirmAction} onOpenChange={o => !o && setConfirmAction(null)}>
         <AlertDialogContent className="max-w-xs">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm">
-              {confirmAction?.type === "finalize" ? t("payroll.periods.finalize") : confirmAction?.type === "markPaid" ? t("payroll.periods.markPaid") : t("payroll.periods.deletePeriod")}
+              {confirmAction?.type === "finalize" ? t("payroll.periods.finalize") : t("payroll.periods.deletePeriod")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              {confirmAction?.type === "finalize" ? t("payroll.periods.finalizeConfirm", { name: confirmAction?.name }) : confirmAction?.type === "markPaid" ? t("payroll.periods.payConfirm", { name: confirmAction?.name }) : t("payroll.periods.deleteConfirm", { name: confirmAction?.name })}
+              {confirmAction?.type === "finalize" ? t("payroll.periods.finalizeConfirm", { name: confirmAction?.name }) : t("payroll.periods.deleteConfirm", { name: confirmAction?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="h-8 text-xs">{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction className={`h-8 text-xs ${confirmAction?.type === "delete" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : confirmAction?.type === "markPaid" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`} onClick={() => {
+            <AlertDialogAction className={`h-8 text-xs ${confirmAction?.type === "delete" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`} onClick={() => {
               if (!confirmAction) return;
               if (confirmAction.type === "finalize") finalizeMutation.mutate(confirmAction.periodId);
-              else if (confirmAction.type === "markPaid") markPaidMutation.mutate(confirmAction.periodId);
               else if (confirmAction.type === "delete") deletePeriodMutation.mutate(confirmAction.periodId);
             }}>
-              {confirmAction?.type === "delete" ? t("payroll.periods.deletePeriod") : confirmAction?.type === "markPaid" ? t("payroll.periods.markPaid") : t("payroll.periods.finalize")}
+              {confirmAction?.type === "delete" ? t("payroll.periods.deletePeriod") : t("payroll.periods.finalize")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

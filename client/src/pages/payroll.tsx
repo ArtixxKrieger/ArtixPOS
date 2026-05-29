@@ -20,7 +20,7 @@ import {
   CheckCircle2, Trash2, Plus, AlertCircle,
   Receipt, Tag, Building2, Zap, Lock,
   BarChart2, Trophy, UserPlus, TrendingDown, ClipboardList,
-  Smartphone, CreditCard, Landmark, FileText, type LucideIcon,
+  CreditCard, Wallet, type LucideIcon,
 } from "lucide-react";
 import { useBranches } from "@/hooks/use-admin";
 
@@ -60,11 +60,9 @@ const AVATAR_COLORS = ["bg-violet-500","bg-emerald-500","bg-rose-500","bg-amber-
 function avatarColor(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) & 0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length]; }
 
 const PAY_METHODS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "cash",  label: "Cash",          icon: Banknote },
-  { id: "gcash", label: "GCash",         icon: Smartphone },
-  { id: "maya",  label: "Maya",          icon: CreditCard },
-  { id: "bank",  label: "Bank Transfer", icon: Landmark },
-  { id: "check", label: "Check",         icon: FileText },
+  { id: "cash",    label: "Cash",     icon: Banknote },
+  { id: "card",    label: "Card",     icon: CreditCard },
+  { id: "ewallet", label: "E-Wallet", icon: Wallet },
 ];
 function PayMethodIcon({ method, className }: { method: string; className?: string }) {
   const m = PAY_METHODS.find(x => x.id === method);
@@ -1334,7 +1332,7 @@ export default function PayrollPage() {
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Reference / Note (optional)</label>
               <Input value={quickPayReference} onChange={e => setQuickPayReference(e.target.value)}
-                placeholder={quickPayMethod === "gcash" || quickPayMethod === "maya" ? "e.g. Ref #12345" : quickPayMethod === "bank" ? "e.g. Bank ref or account no." : "Optional note..."}
+                placeholder={quickPayMethod === "card" ? "e.g. Last 4 digits or receipt no." : quickPayMethod === "ewallet" ? "e.g. Ref #12345" : "Optional note..."}
                 className="h-8 text-xs" data-testid="input-qp-reference" />
             </div>
 
@@ -1462,7 +1460,7 @@ export default function PayrollPage() {
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Reference / Note (optional)</label>
               <Input value={markPaidRef} onChange={e => setMarkPaidRef(e.target.value)}
-                placeholder={markPaidMethod === "gcash" || markPaidMethod === "maya" ? "e.g. Ref #12345" : "Optional note..."}
+                placeholder={markPaidMethod === "card" ? "e.g. Last 4 digits or receipt no." : markPaidMethod === "ewallet" ? "e.g. Ref #12345" : "Optional note..."}
                 className="h-8 text-xs" data-testid="input-mp-reference" />
             </div>
 

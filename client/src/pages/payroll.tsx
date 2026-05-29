@@ -14,12 +14,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import {
   Banknote, Clock, TrendingUp, Users, Pencil, Save, Calendar,
-  Wallet, FileDown, Printer, Search, ChevronDown, ChevronRight, ChevronUp,
-  CheckCircle2, CircleDot, Circle, Trash2, Plus, AlertCircle,
-  Receipt, CreditCard, ArrowRight, Sparkles, Info, Tag, Building2, Zap,
+  FileDown, Printer, Search, ChevronDown, ChevronRight, ChevronUp,
+  CheckCircle2, Trash2, Plus, AlertCircle,
+  Receipt, Info, Tag, Building2, Zap,
+  BarChart2, Trophy, UserPlus, TrendingDown,
 } from "lucide-react";
 import { useBranches } from "@/hooks/use-admin";
 
@@ -31,6 +31,9 @@ type ComputedEntry = { userId: string; name: string | null; email: string | null
 type PayrollResponse = { from: string; to: string; entries: ComputedEntry[]; totals: { totalPayout: number; totalHours: number; totalCommissionable: number; staffCount: number } };
 type PayrollPeriod = { id: number; name: string; startDate: string; endDate: string; status: "draft" | "finalized" | "paid"; totalAmount: string | null; notes: string | null; createdAt: string; finalizedAt: string | null; paidAt: string | null };
 type PayrollEntry = { id: number; periodId: number; employeeUserId: string; employeeName: string; wageType: string; wageRate: string; hoursWorked: string | null; baseAmount: string; commissionAmount: string | null; tipAmount: string | null; bonusAmount: string | null; deductionAmount: string | null; advanceAmount: string | null; netAmount: string; notes: string | null };
+type AnalyticsPeriod = { id: number; name: string; startDate: string; endDate: string; status: string; totalAmount: number };
+type AnalyticsData = { periods: AnalyticsPeriod[]; topEarners: { name: string; total: number; periods: number }[]; wageTypeBreakdown: { type: string; total: number }[] };
+type HistoryEntry = { entryId: number; periodId: number; periodName: string; startDate: string; endDate: string; status: string; paidAt: string | null; netAmount: string; hoursWorked: string; wageType: string };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,8 +44,8 @@ const endOfLastWeek = () => { const d = new Date(); d.setDate(d.getDate() - d.ge
 const startOfMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); };
 const startOfLastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10); };
 const endOfLastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10); };
-const fmtDate = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 const fmtShort = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
+const fmtMed = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 function downloadCSV(filename: string, rows: Record<string, any>[]) {
   if (!rows.length) return;
@@ -67,8 +70,8 @@ function Av({ name, id, sm }: { name: string; id: string; sm?: boolean }) {
 
 function StatusDot({ status, t }: { status: string; t: any }) {
   const cfg = {
-    draft:     { dot: "bg-slate-400",   text: "text-slate-500 dark:text-slate-400",   label: t("payroll.periods.statusDraft") },
-    finalized: { dot: "bg-amber-400",   text: "text-amber-600 dark:text-amber-400",   label: t("payroll.periods.statusFinalized") },
+    draft:     { dot: "bg-slate-400",   text: "text-slate-500 dark:text-slate-400",    label: t("payroll.periods.statusDraft") },
+    finalized: { dot: "bg-amber-400",   text: "text-amber-600 dark:text-amber-400",    label: t("payroll.periods.statusFinalized") },
     paid:      { dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", label: t("payroll.periods.statusPaid") },
   }[status] ?? { dot: "bg-slate-400", text: "text-slate-500", label: status };
   return (
@@ -90,6 +93,7 @@ export default function PayrollPage() {
   const currency = (settings as any)?.currency || "$";
   const isOwner = user?.role === "owner";
 
+  // ── State ────────────────────────────────────────────────────────────────────
   const [from, setFrom] = useState(startOfMonth());
   const [to, setTo] = useState(todayISO());
   const [preset, setPreset] = useState("thisMonth");
@@ -108,8 +112,11 @@ export default function PayrollPage() {
   const [editingEntry, setEditingEntry] = useState<PayrollEntry | null>(null);
   const [entryForm, setEntryForm] = useState<Partial<PayrollEntry>>({});
   const [confirmAction, setConfirmAction] = useState<{ type: string; periodId: number; name: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "finalized" | "paid">("all");
+  const [addEntryOpen, setAddEntryOpen] = useState(false);
+  const [addEntryForm, setAddEntryForm] = useState({ employeeUserId: "", baseAmount: "0", commissionAmount: "0", tipAmount: "0", bonusAmount: "0", deductionAmount: "0", advanceAmount: "0", hoursWorked: "0", notes: "" });
 
-  // Queries
+  // ── Queries ──────────────────────────────────────────────────────────────────
   const { data: branches = [] } = useBranches();
 
   const { data: staff = [], isFetching: staffFetching } = useQuery<StaffWage[]>({
@@ -145,7 +152,25 @@ export default function PayrollPage() {
     enabled: !!expandedPeriod,
   });
 
-  // Mutations
+  const { data: analytics } = useQuery<AnalyticsData>({
+    queryKey: ["/api/payroll/analytics"],
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
+
+  const staffHistoryId = paystubTarget?.staff.id ?? null;
+  const { data: staffHistory = [] } = useQuery<HistoryEntry[]>({
+    queryKey: ["/api/payroll/staff", staffHistoryId, "history"],
+    queryFn: async () => {
+      if (!staffHistoryId) return [];
+      const r = await nativeFetch(`/api/payroll/staff/${staffHistoryId}/history`);
+      return r.ok ? r.json() : [];
+    },
+    enabled: !!staffHistoryId,
+    staleTime: 1000 * 60,
+  });
+
+  // ── Mutations ────────────────────────────────────────────────────────────────
   const updateWageMutation = useMutation({
     mutationFn: async (v: { id: string; data: typeof wageForm }) => (await apiRequest("PUT", `/api/payroll/staff/${v.id}`, v.data)).json(),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/staff"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/compute"] }); setEditingWage(null); toast({ title: t("payroll.wage.updated") }); },
@@ -157,6 +182,7 @@ export default function PayrollPage() {
       (await apiRequest("POST", "/api/payroll/quick-pay", v)).json(),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
       setQuickPayOpen(false);
       toast({ title: `✅ Pay Day complete! ${data.entryCount} employee${data.entryCount !== 1 ? "s" : ""} marked paid.` });
     },
@@ -164,47 +190,78 @@ export default function PayrollPage() {
   });
 
   const createPeriodMutation = useMutation({
-    mutationFn: async (d: typeof periodForm) => (await apiRequest("POST", "/api/payroll/periods", d)).json(),
-    onSuccess: (p) => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); setCreatePeriodOpen(false); setPeriodForm({ name: "", startDate: startOfMonth(), endDate: todayISO(), notes: "" }); setExpandedPeriod(p.id); toast({ title: t("payroll.periods.created_toast") }); },
+    mutationFn: async (d: typeof periodForm) =>
+      (await apiRequest("POST", "/api/payroll/periods", { name: d.name, from: d.startDate, to: d.endDate, notes: d.notes, entries: [] })).json(),
+    onSuccess: (p) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
+      setCreatePeriodOpen(false);
+      setPeriodForm({ name: "", startDate: startOfMonth(), endDate: todayISO(), notes: "" });
+      setExpandedPeriod(p.period?.id ?? p.id ?? null);
+      toast({ title: t("payroll.periods.created_toast") });
+    },
     onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
   });
 
   const updateEntryMutation = useMutation({
     mutationFn: async (v: { id: number; data: Partial<PayrollEntry> }) => (await apiRequest("PUT", `/api/payroll/entries/${v.id}`, v.data)).json(),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods", expandedPeriod, "entries"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); setEditingEntry(null); toast({ title: t("payroll.entries.updated") }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods", expandedPeriod, "entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
+      setEditingEntry(null);
+      toast({ title: t("payroll.entries.updated") });
+    },
     onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
   });
 
-  const finalizeMutation = useMutation({ mutationFn: async (id: number) => (await apiRequest("POST", `/api/payroll/periods/${id}/finalize`, {})).json(), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); setConfirmAction(null); toast({ title: t("payroll.periods.finalized_toast") }); } });
-  const markPaidMutation = useMutation({ mutationFn: async (id: number) => (await apiRequest("POST", `/api/payroll/periods/${id}/pay`, {})).json(), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); setConfirmAction(null); toast({ title: t("payroll.periods.paid_toast") }); } });
-  const deletePeriodMutation = useMutation({ mutationFn: async (id: number) => apiRequest("DELETE", `/api/payroll/periods/${id}`, {}), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); if (expandedPeriod === confirmAction?.periodId) setExpandedPeriod(null); setConfirmAction(null); toast({ title: t("payroll.periods.deleted_toast") }); } });
+  const addEntryMutation = useMutation({
+    mutationFn: async (v: { periodId: number; data: any }) =>
+      (await apiRequest("POST", `/api/payroll/periods/${v.periodId}/entries`, v.data)).json(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods", expandedPeriod, "entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
+      setAddEntryOpen(false);
+      setAddEntryForm({ employeeUserId: "", baseAmount: "0", commissionAmount: "0", tipAmount: "0", bonusAmount: "0", deductionAmount: "0", advanceAmount: "0", hoursWorked: "0", notes: "" });
+      toast({ title: "Employee added to period" });
+    },
+    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+  });
 
-  // Derived
+  const deleteEntryMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/payroll/entries/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods", expandedPeriod, "entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
+      toast({ title: "Entry removed" });
+    },
+    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+  });
+
+  const finalizeMutation = useMutation({
+    mutationFn: async (id: number) => (await apiRequest("POST", `/api/payroll/periods/${id}/finalize`, {})).json(),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); setConfirmAction(null); toast({ title: t("payroll.periods.finalized_toast") }); },
+  });
+  const markPaidMutation = useMutation({
+    mutationFn: async (id: number) => (await apiRequest("POST", `/api/payroll/periods/${id}/pay`, {})).json(),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); setConfirmAction(null); toast({ title: t("payroll.periods.paid_toast") }); },
+  });
+  const deletePeriodMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/payroll/periods/${id}`, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); if (expandedPeriod === confirmAction?.periodId) setExpandedPeriod(null); setConfirmAction(null); toast({ title: t("payroll.periods.deleted_toast") }); },
+  });
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
   const entriesByUser = useMemo(() => { const m = new Map<string, ComputedEntry>(); payroll?.entries.forEach(e => m.set(e.userId, e)); return m; }, [payroll]);
   const filteredStaff = useMemo(() => staff.filter(s => { const q = staffSearch.toLowerCase(); return (!q || (s.name || s.email || "").toLowerCase().includes(q)) && (wageFilter === "all" || (s.wageType ?? "none") === wageFilter); }), [staff, staffSearch, wageFilter]);
   const totals = payroll?.totals ?? { totalPayout: 0, totalHours: 0, totalCommissionable: 0, staffCount: 0 };
+  const filteredPeriods = useMemo(() => statusFilter === "all" ? periods : periods.filter(p => p.status === statusFilter), [periods, statusFilter]);
+  const staffInPeriod = useMemo(() => new Set(periodEntries.map(e => e.employeeUserId)), [periodEntries]);
+  const staffNotInPeriod = useMemo(() => staff.filter(s => !staffInPeriod.has(s.id)), [staff, staffInPeriod]);
 
-  function applyPreset(p: string) {
-    setPreset(p);
-    const map: Record<string, [string, string]> = { thisWeek: [startOfWeek(), todayISO()], lastWeek: [startOfLastWeek(), endOfLastWeek()], thisMonth: [startOfMonth(), todayISO()], lastMonth: [startOfLastMonth(), endOfLastMonth()], last30: [todayISO(-30), todayISO()] };
-    if (map[p]) { setFrom(map[p][0]); setTo(map[p][1]); }
-  }
-
-  function roleLabel(role: string) { const k = `payroll.roles.${role}`; const v = t(k); return v === k ? role : v; }
-
-  function exportComputeCSV() {
-    if (!payroll) return;
-    downloadCSV(`payroll-${from}-to-${to}.csv`, payroll.entries.map(e => ({ [t("payroll.entries.employee")]: e.name || e.email || e.userId, [t("payroll.paystub.role")]: roleLabel(e.role), [t("payroll.wage.type")]: e.wageType, [t("payroll.paystub.hoursWorked")]: e.hoursWorked, [t("payroll.paystub.salesAmount")]: e.salesAmount, [t("payroll.paystub.netPay")]: e.payout })));
-    toast({ title: t("payroll.export.csvExported") });
-  }
-
-  function exportPeriodCSV() {
-    if (!periodEntries.length) return;
-    downloadCSV(`payroll-period.csv`, periodEntries.map(e => ({ [t("payroll.entries.employee")]: e.employeeName, [t("payroll.wage.type")]: e.wageType, [t("payroll.entries.hours")]: e.hoursWorked || "0", [t("payroll.entries.base")]: e.baseAmount, [t("payroll.entries.commission")]: e.commissionAmount || "0", [t("payroll.entries.tips")]: e.tipAmount || "0", [t("payroll.entries.bonus")]: e.bonusAmount || "0", [t("payroll.entries.deductions")]: e.deductionAmount || "0", [t("payroll.entries.advance")]: e.advanceAmount || "0", [t("payroll.entries.net")]: e.netAmount })));
-    toast({ title: t("payroll.export.csvExported") });
-  }
-
-  // ── Staff groups: branch → department (derived) ─────────────────────────────
+  // ── Staff groups: branch → department ────────────────────────────────────────
   type BranchGroup = { branchId: number | null; branchName: string; departments: [string, StaffWage[]][] };
   const staffGroups = useMemo((): BranchGroup[] => {
     const branchMap = new Map<number | -1, { branchName: string; depts: Map<string, StaffWage[]> }>();
@@ -233,7 +290,27 @@ export default function PayrollPage() {
     return next;
   });
 
-  // ── Quick pay date helpers ──────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function applyPreset(p: string) {
+    setPreset(p);
+    const map: Record<string, [string, string]> = { thisWeek: [startOfWeek(), todayISO()], lastWeek: [startOfLastWeek(), endOfLastWeek()], thisMonth: [startOfMonth(), todayISO()], lastMonth: [startOfLastMonth(), endOfLastMonth()], last30: [todayISO(-30), todayISO()] };
+    if (map[p]) { setFrom(map[p][0]); setTo(map[p][1]); }
+  }
+
+  function roleLabel(role: string) { const k = `payroll.roles.${role}`; const v = t(k); return v === k ? role : v; }
+
+  function exportComputeCSV() {
+    if (!payroll) return;
+    downloadCSV(`payroll-${from}-to-${to}.csv`, payroll.entries.map(e => ({ Employee: e.name || e.email || e.userId, Role: roleLabel(e.role), WageType: e.wageType, HoursWorked: e.hoursWorked, SalesAmount: e.salesAmount, NetPay: e.payout })));
+    toast({ title: t("payroll.export.csvExported") });
+  }
+
+  function exportPeriodCSV() {
+    if (!periodEntries.length) return;
+    downloadCSV(`payroll-period.csv`, periodEntries.map(e => ({ Employee: e.employeeName, WageType: e.wageType, Hours: e.hoursWorked || "0", Base: e.baseAmount, Commission: e.commissionAmount || "0", Tips: e.tipAmount || "0", Bonus: e.bonusAmount || "0", Deductions: e.deductionAmount || "0", Advance: e.advanceAmount || "0", Net: e.netAmount })));
+    toast({ title: t("payroll.export.csvExported") });
+  }
+
   function quickPayDates(p: string): { from: string; to: string; label: string } {
     const now = new Date();
     const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -241,22 +318,22 @@ export default function PayrollPage() {
     const eom = (d: Date) => { const r = new Date(d.getFullYear(), d.getMonth() + 1, 0); return r; };
     const dow = now.getDay();
     switch (p) {
-      case "thisWeek": {
-        const s = new Date(now); s.setDate(now.getDate() - dow);
-        return { from: ymd(s), to: ymd(now), label: "This Week" };
-      }
-      case "lastWeek": {
-        const e = new Date(now); e.setDate(now.getDate() - dow - 1);
-        const s = new Date(e); s.setDate(e.getDate() - 6);
-        return { from: ymd(s), to: ymd(e), label: "Last Week" };
-      }
+      case "thisWeek": { const s = new Date(now); s.setDate(now.getDate() - dow); return { from: ymd(s), to: ymd(now), label: "This Week" }; }
+      case "lastWeek": { const e = new Date(now); e.setDate(now.getDate() - dow - 1); const s = new Date(e); s.setDate(e.getDate() - 6); return { from: ymd(s), to: ymd(e), label: "Last Week" }; }
       case "thisMonth": return { from: ymd(mon(now)), to: ymd(now), label: "This Month" };
-      case "lastMonth": {
-        const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        return { from: ymd(mon(lm)), to: ymd(eom(lm)), label: "Last Month" };
-      }
+      case "lastMonth": { const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return { from: ymd(mon(lm)), to: ymd(eom(lm)), label: "Last Month" }; }
       default: return { from: ymd(mon(now)), to: ymd(now), label: "This Month" };
     }
+  }
+
+  function computeEntryNet(f: Record<string, any>) {
+    const b = parseFloat(f.baseAmount || "0") || 0;
+    const c = parseFloat(f.commissionAmount || "0") || 0;
+    const ti = parseFloat(f.tipAmount || "0") || 0;
+    const bo = parseFloat(f.bonusAmount || "0") || 0;
+    const d = parseFloat(f.deductionAmount || "0") || 0;
+    const a = parseFloat(f.advanceAmount || "0") || 0;
+    return b + c + ti + bo - d - a;
   }
 
   if (!isOwner) {
@@ -268,12 +345,12 @@ export default function PayrollPage() {
     );
   }
 
-  // ── render ─────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4 page-enter">
 
-      {/* ── MINIMAL HEADER ──────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold">{t("payroll.title")}</h1>
@@ -290,7 +367,7 @@ export default function PayrollPage() {
         </div>
       </div>
 
-      {/* ── STATS ROW ───────────────────────────────────────────────────────── */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: t("payroll.stats.totalHours"), value: `${totals.totalHours.toFixed(1)} ${t("payroll.staff.hrs")}`, icon: Clock },
@@ -304,24 +381,24 @@ export default function PayrollPage() {
         ))}
       </div>
 
-      {/* ── TABS ────────────────────────────────────────────────────────────── */}
+      {/* Tabs */}
       <Tabs defaultValue="compute">
-        <TabsList className="w-full h-9 rounded-lg p-0.5 bg-muted/50">
-          <TabsTrigger value="compute" className="flex-1 h-8 rounded-md text-xs font-semibold" data-testid="tab-quick-compute">
+        <TabsList className="w-full h-9 rounded-lg p-0.5 bg-muted/50 grid grid-cols-3">
+          <TabsTrigger value="compute" className="h-8 rounded-md text-xs font-semibold" data-testid="tab-quick-compute">
             <TrendingUp className="h-3 w-3 mr-1" />{t("payroll.tabs.quickCompute")}
           </TabsTrigger>
-          <TabsTrigger value="periods" className="flex-1 h-8 rounded-md text-xs font-semibold" data-testid="tab-pay-periods">
+          <TabsTrigger value="periods" className="h-8 rounded-md text-xs font-semibold" data-testid="tab-pay-periods">
             <Calendar className="h-3 w-3 mr-1" />{t("payroll.tabs.payPeriods")}
             {periods.length > 0 && <span className="ml-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-black px-1 flex items-center justify-center">{periods.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="h-8 rounded-md text-xs font-semibold" data-testid="tab-analytics">
+            <BarChart2 className="h-3 w-3 mr-1" />Analytics
           </TabsTrigger>
         </TabsList>
 
         {/* ── QUICK COMPUTE ─────────────────────────────────────────────────── */}
         <TabsContent value="compute" className="space-y-3 mt-3">
-
-          {/* Date range */}
           <div className="rounded-xl bg-card border border-border/40 p-3 space-y-2.5">
-            {/* Presets */}
             <div className="flex flex-wrap gap-1.5">
               {(["thisWeek","lastWeek","thisMonth","lastMonth","last30"] as const).map(p => (
                 <button key={p} onClick={() => applyPreset(p)} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${preset === p ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`} data-testid={`btn-preset-${p}`}>
@@ -341,18 +418,14 @@ export default function PayrollPage() {
             </div>
           </div>
 
-          {/* Staff list */}
           <div className="rounded-xl bg-card border border-border/40 overflow-hidden">
-            {/* Toolbar */}
             <div className="px-3 py-2.5 border-b border-border/30 flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input value={staffSearch} onChange={e => setStaffSearch(e.target.value)} placeholder={t("payroll.staff.searchPlaceholder")} className="h-7 pl-6 text-[11px] bg-muted/40 border-0" data-testid="input-staff-search" />
               </div>
               <Select value={wageFilter} onValueChange={setWageFilter}>
-                <SelectTrigger className="h-7 text-[11px] w-28 bg-muted/40 border-0" data-testid="select-wage-filter">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-7 text-[11px] w-28 bg-muted/40 border-0" data-testid="select-wage-filter"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("payroll.staff.allWageTypes")}</SelectItem>
                   <SelectItem value="none">{t("payroll.wage.noWage")}</SelectItem>
@@ -409,13 +482,19 @@ export default function PayrollPage() {
                                   const entry = entriesByUser.get(s.id);
                                   const wt = s.wageType ?? "none";
                                   const wageLabel = wt === "hourly" ? `${formatCurrency(s.wageRate || "0", currency)}/hr` : wt === "monthly" ? `${formatCurrency(s.wageRate || "0", currency)}/mo` : wt === "commission" ? `${parseFloat(s.commissionPercent || "0").toFixed(1)}%` : null;
+                                  const overtimeHrs = (entry && wt === "hourly" && entry.hoursWorked > 40) ? entry.hoursWorked - 40 : 0;
                                   return (
                                     <div key={s.id} className={`py-2.5 flex items-center gap-2.5 ${showBranchHeader ? (dept ? "pl-8 pr-3" : "pl-6 pr-3") : "px-3"}`} data-testid={`row-payroll-${s.id}`}>
                                       <Av name={s.name || s.email || "?"} id={s.id} />
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
                                           <p className="text-xs font-semibold truncate">{s.name || s.email}</p>
                                           <span className="text-[9px] text-muted-foreground/60 font-medium shrink-0">{roleLabel(s.role)}</span>
+                                          {overtimeHrs > 0 && (
+                                            <span className="text-[9px] font-bold text-amber-500 shrink-0 flex items-center gap-0.5 bg-amber-50 dark:bg-amber-950/40 px-1 py-0.5 rounded" title={`${overtimeHrs.toFixed(1)} hrs overtime`}>
+                                              <Clock className="h-2 w-2" />OT
+                                            </span>
+                                          )}
                                         </div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                           {wageLabel && <span className="text-[10px] text-muted-foreground">{t(`payroll.staff.${wt === "monthly" ? "monthlySalary" : wt}`) || wt} · {wageLabel}</span>}
@@ -462,18 +541,42 @@ export default function PayrollPage() {
             </Button>
           </div>
 
-          {periods.length === 0 && !periodsFetching ? (
+          {/* Status filter pills */}
+          <div className="flex gap-1.5 flex-wrap">
+            {(["all", "draft", "finalized", "paid"] as const).map(s => {
+              const count = s === "all" ? periods.length : periods.filter(p => p.status === s).length;
+              return (
+                <button key={s} onClick={() => setStatusFilter(s)} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`} data-testid={`btn-status-filter-${s}`}>
+                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  {count > 0 && <span className={`h-3.5 min-w-3.5 rounded-full text-[9px] font-black px-0.5 flex items-center justify-center ${statusFilter === s ? "bg-white/20 text-inherit" : "bg-muted text-muted-foreground"}`}>{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {filteredPeriods.length === 0 && !periodsFetching ? (
             <div className="rounded-xl border border-dashed border-border py-10 text-center space-y-2">
               <Calendar className="h-7 w-7 mx-auto text-muted-foreground/30" />
-              <p className="text-xs text-muted-foreground">{t("payroll.periods.noPeriods")}</p>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setCreatePeriodOpen(true)}>
-                <Plus className="h-3 w-3" />{t("payroll.periods.newPeriod")}
-              </Button>
+              <p className="text-xs text-muted-foreground">{statusFilter !== "all" ? `No ${statusFilter} periods` : t("payroll.periods.noPeriods")}</p>
+              {statusFilter === "all" && (
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setCreatePeriodOpen(true)}>
+                  <Plus className="h-3 w-3" />{t("payroll.periods.newPeriod")}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
-              {periods.map(period => {
+              {filteredPeriods.map(period => {
                 const isExp = expandedPeriod === period.id;
+                const entrySummary = isExp && periodEntries.length > 0 ? {
+                  base: periodEntries.reduce((s, e) => s + (parseFloat(e.baseAmount) || 0), 0),
+                  commission: periodEntries.reduce((s, e) => s + (parseFloat(e.commissionAmount || "0") || 0), 0),
+                  bonus: periodEntries.reduce((s, e) => s + (parseFloat(e.bonusAmount || "0") || 0), 0),
+                  tips: periodEntries.reduce((s, e) => s + (parseFloat(e.tipAmount || "0") || 0), 0),
+                  deductions: periodEntries.reduce((s, e) => s + (parseFloat(e.deductionAmount || "0") || 0), 0),
+                  advance: periodEntries.reduce((s, e) => s + (parseFloat(e.advanceAmount || "0") || 0), 0),
+                } : null;
+
                 return (
                   <div key={period.id} className="rounded-xl bg-card border border-border/40 overflow-hidden" data-testid={`card-period-${period.id}`}>
                     <button className="w-full text-left px-3.5 py-3 flex items-center gap-3 hover:bg-muted/30 transition-colors" onClick={() => setExpandedPeriod(isExp ? null : period.id)} data-testid={`btn-expand-period-${period.id}`}>
@@ -490,12 +593,17 @@ export default function PayrollPage() {
 
                     {isExp && (
                       <div className="border-t border-border/20">
-                        {/* Actions */}
+                        {/* Actions bar */}
                         <div className="px-3.5 py-2 flex items-center gap-1.5 flex-wrap bg-muted/20 border-b border-border/15">
                           {period.status === "draft" && (
-                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2.5 gap-1" onClick={() => setConfirmAction({ type: "finalize", periodId: period.id, name: period.name })} data-testid={`btn-finalize-${period.id}`}>
-                              <CheckCircle2 className="h-2.5 w-2.5" />{t("payroll.periods.finalize")}
-                            </Button>
+                            <>
+                              <Button size="sm" variant="outline" className="h-6 text-[11px] px-2.5 gap-1" onClick={() => setConfirmAction({ type: "finalize", periodId: period.id, name: period.name })} data-testid={`btn-finalize-${period.id}`}>
+                                <CheckCircle2 className="h-2.5 w-2.5" />{t("payroll.periods.finalize")}
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-6 text-[11px] px-2.5 gap-1 text-sky-600 border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40" onClick={() => setAddEntryOpen(true)} data-testid={`btn-add-entry-${period.id}`}>
+                                <UserPlus className="h-2.5 w-2.5" />Add Employee
+                              </Button>
+                            </>
                           )}
                           {period.status === "finalized" && (
                             <Button size="sm" className="h-6 text-[11px] px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setConfirmAction({ type: "markPaid", periodId: period.id, name: period.name })} data-testid={`btn-mark-paid-${period.id}`}>
@@ -517,36 +625,55 @@ export default function PayrollPage() {
                         {periodEntries.length === 0 ? (
                           <p className="px-3.5 py-5 text-center text-xs text-muted-foreground">{t("payroll.entries.noEntries")}</p>
                         ) : (
-                          <div className="divide-y divide-border/15">
-                            {periodEntries.map(entry => {
-                              const net = parseFloat(entry.netAmount);
-                              return (
-                                <div key={entry.id} className="px-3.5 py-2.5 flex items-center gap-2.5" data-testid={`row-entry-${entry.id}`}>
-                                  <Av name={entry.employeeName} id={entry.employeeUserId} sm />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold truncate">{entry.employeeName}</p>
-                                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
-                                      <span className="capitalize">{entry.wageType}</span>
-                                      {parseFloat(entry.hoursWorked || "0") > 0 && <span>{parseFloat(entry.hoursWorked || "0").toFixed(1)}{t("payroll.staff.hrs")}</span>}
-                                      {parseFloat(entry.commissionAmount || "0") > 0 && <span className="text-violet-500">{formatCurrency(entry.commissionAmount || "0", currency)} {t("payroll.entries.commission")}</span>}
-                                      {parseFloat(entry.bonusAmount || "0") > 0 && <span className="text-sky-500">+{formatCurrency(entry.bonusAmount || "0", currency)} {t("payroll.entries.bonus")}</span>}
-                                      {parseFloat(entry.deductionAmount || "0") > 0 && <span className="text-rose-500">-{formatCurrency(entry.deductionAmount || "0", currency)}</span>}
+                          <>
+                            <div className="divide-y divide-border/15">
+                              {periodEntries.map(entry => {
+                                const net = parseFloat(entry.netAmount);
+                                return (
+                                  <div key={entry.id} className="px-3.5 py-2.5 flex items-center gap-2.5" data-testid={`row-entry-${entry.id}`}>
+                                    <Av name={entry.employeeName} id={entry.employeeUserId} sm />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-semibold truncate">{entry.employeeName}</p>
+                                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                                        <span className="capitalize">{entry.wageType}</span>
+                                        {parseFloat(entry.hoursWorked || "0") > 0 && <span>{parseFloat(entry.hoursWorked || "0").toFixed(1)}{t("payroll.staff.hrs")}</span>}
+                                        {parseFloat(entry.commissionAmount || "0") > 0 && <span className="text-violet-500">{formatCurrency(entry.commissionAmount || "0", currency)} comm</span>}
+                                        {parseFloat(entry.bonusAmount || "0") > 0 && <span className="text-sky-500">+{formatCurrency(entry.bonusAmount || "0", currency)} bonus</span>}
+                                        {parseFloat(entry.tipAmount || "0") > 0 && <span className="text-amber-500">+{formatCurrency(entry.tipAmount || "0", currency)} tips</span>}
+                                        {parseFloat(entry.deductionAmount || "0") > 0 && <span className="text-rose-500">-{formatCurrency(entry.deductionAmount || "0", currency)} deduct</span>}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(net, currency)}</p>
+                                      {period.status === "draft" && (
+                                        <>
+                                          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => { setEntryForm({ ...entry }); setEditingEntry(entry); }} data-testid={`btn-edit-entry-${entry.id}`}>
+                                            <Pencil className="h-3 w-3" />
+                                          </Button>
+                                          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteEntryMutation.mutate(entry.id)} disabled={deleteEntryMutation.isPending} data-testid={`btn-delete-entry-${entry.id}`}>
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(net, currency)}</p>
-                                    {period.status === "draft" && (
-                                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => { setEntryForm({ ...entry }); setEditingEntry(entry); }} data-testid={`btn-edit-entry-${entry.id}`}>
-                                        <Pencil className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                                );
+                              })}
+                            </div>
+                            {/* Summary breakdown */}
+                            {entrySummary && (
+                              <div className="px-3.5 py-2 bg-muted/15 border-t border-border/15 flex flex-wrap gap-x-4 gap-y-0.5">
+                                <span className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-wider w-full mb-0.5">Breakdown</span>
+                                {entrySummary.base > 0 && <span className="text-[10px] text-muted-foreground">Base <strong className="text-foreground">{formatCurrency(entrySummary.base, currency)}</strong></span>}
+                                {entrySummary.commission > 0 && <span className="text-[10px] text-violet-500">Comm <strong>{formatCurrency(entrySummary.commission, currency)}</strong></span>}
+                                {entrySummary.bonus > 0 && <span className="text-[10px] text-sky-500">Bonus <strong>{formatCurrency(entrySummary.bonus, currency)}</strong></span>}
+                                {entrySummary.tips > 0 && <span className="text-[10px] text-amber-500">Tips <strong>{formatCurrency(entrySummary.tips, currency)}</strong></span>}
+                                {entrySummary.deductions > 0 && <span className="text-[10px] text-rose-500">Deduct <strong>-{formatCurrency(entrySummary.deductions, currency)}</strong></span>}
+                                {entrySummary.advance > 0 && <span className="text-[10px] text-rose-400">Advance <strong>-{formatCurrency(entrySummary.advance, currency)}</strong></span>}
+                              </div>
+                            )}
+                          </>
                         )}
-
                         {period.notes && <p className="px-3.5 py-2 text-[10px] text-muted-foreground italic border-t border-border/15">"{period.notes}"</p>}
                       </div>
                     )}
@@ -554,6 +681,149 @@ export default function PayrollPage() {
                 );
               })}
             </div>
+          )}
+        </TabsContent>
+
+        {/* ── ANALYTICS ─────────────────────────────────────────────────────── */}
+        <TabsContent value="analytics" className="space-y-3 mt-3">
+          {!analytics || analytics.periods.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border py-12 text-center space-y-2">
+              <BarChart2 className="h-8 w-8 mx-auto text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground">No payroll history yet.</p>
+              <p className="text-[10px] text-muted-foreground/60">Create and pay periods to see analytics here.</p>
+            </div>
+          ) : (
+            <>
+              {/* Payout history bar chart */}
+              <div className="rounded-xl bg-card border border-border/40 p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Payout History</p>
+                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    Total {formatCurrency(analytics.periods.reduce((s, p) => s + p.totalAmount, 0), currency)}
+                  </p>
+                </div>
+                <div className="flex items-end gap-1 h-20">
+                  {(() => {
+                    const maxAmt = Math.max(...analytics.periods.map(p => p.totalAmount), 1);
+                    return analytics.periods.map(p => {
+                      const pct = Math.max((p.totalAmount / maxAmt) * 100, 3);
+                      const color = p.status === "paid" ? "bg-emerald-500 dark:bg-emerald-600" : p.status === "finalized" ? "bg-amber-400" : "bg-slate-300 dark:bg-slate-600";
+                      return (
+                        <div key={p.id} className="flex-1 flex flex-col items-center gap-0.5 group cursor-pointer" title={`${p.name}: ${formatCurrency(p.totalAmount, currency)}`}>
+                          <div className="w-full flex flex-col justify-end" style={{ height: "64px" }}>
+                            <div className={`w-full rounded-t-sm ${color} transition-all duration-200 group-hover:opacity-70`} style={{ height: `${pct}%`, minHeight: "3px" }} />
+                          </div>
+                          <span className="text-[7px] text-muted-foreground/50 truncate w-full text-center leading-tight">{fmtShort(p.startDate)}</span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/20">
+                  {[{ color: "bg-emerald-500", label: "Paid" }, { color: "bg-amber-400", label: "Finalized" }, { color: "bg-slate-300 dark:bg-slate-600", label: "Draft" }].map(l => (
+                    <div key={l.label} className="flex items-center gap-1">
+                      <div className={`h-2 w-2 rounded-sm ${l.color} shrink-0`} />
+                      <span className="text-[9px] text-muted-foreground">{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Period-over-period comparison */}
+              {analytics.periods.length >= 2 && (() => {
+                const last = analytics.periods[analytics.periods.length - 1];
+                const prev = analytics.periods[analytics.periods.length - 2];
+                const delta = last.totalAmount - prev.totalAmount;
+                const pct = prev.totalAmount > 0 ? ((delta / prev.totalAmount) * 100).toFixed(1) : null;
+                return (
+                  <div className="rounded-xl bg-card border border-border/40 p-3">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-3">Period-over-Period</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 text-center min-w-0">
+                        <p className="text-[9px] text-muted-foreground mb-0.5 truncate">{prev.name}</p>
+                        <p className="text-sm font-bold tabular-nums">{formatCurrency(prev.totalAmount, currency)}</p>
+                        <p className="text-[9px] text-muted-foreground/50">{fmtShort(prev.startDate)}</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5 shrink-0">
+                        <div className={`flex items-center gap-0.5 text-[11px] font-black ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                          {delta >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                          {pct ? `${delta >= 0 ? "+" : ""}${pct}%` : "—"}
+                        </div>
+                        <span className={`text-[9px] font-semibold ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                          {delta >= 0 ? "+" : ""}{formatCurrency(Math.abs(delta), currency)}
+                        </span>
+                      </div>
+                      <div className="flex-1 text-center min-w-0">
+                        <p className="text-[9px] text-muted-foreground mb-0.5 truncate">{last.name}</p>
+                        <p className="text-sm font-bold tabular-nums">{formatCurrency(last.totalAmount, currency)}</p>
+                        <p className="text-[9px] text-muted-foreground/50">{fmtShort(last.startDate)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Wage type breakdown */}
+              {analytics.wageTypeBreakdown.length > 0 && (
+                <div className="rounded-xl bg-card border border-border/40 p-3">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-3">Wage Type Breakdown</p>
+                  <div className="space-y-2.5">
+                    {(() => {
+                      const total = analytics.wageTypeBreakdown.reduce((s, w) => s + w.total, 0) || 1;
+                      const colors: Record<string, string> = { hourly: "bg-sky-500", monthly: "bg-violet-500", commission: "bg-amber-500" };
+                      return analytics.wageTypeBreakdown.map(w => {
+                        const pct = (w.total / total) * 100;
+                        return (
+                          <div key={w.type}>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-[10px] font-semibold capitalize">{w.type}</span>
+                              <span className="text-[10px] text-muted-foreground tabular-nums">{formatCurrency(w.total, currency)} · {pct.toFixed(1)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted/60 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${colors[w.type] || "bg-primary"}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Top earners */}
+              {analytics.topEarners.length > 0 && (
+                <div className="rounded-xl bg-card border border-border/40 overflow-hidden">
+                  <div className="px-3 py-2.5 border-b border-border/20 flex items-center gap-1.5">
+                    <Trophy className="h-3 w-3 text-amber-500" />
+                    <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Top Earners (All Time)</p>
+                  </div>
+                  <div className="divide-y divide-border/15">
+                    {analytics.topEarners.map((e, i) => {
+                      const maxTotal = analytics.topEarners[0]?.total || 1;
+                      const medalColor = ["text-amber-500", "text-slate-400", "text-orange-400"][i] ?? "text-muted-foreground/30";
+                      return (
+                        <div key={`${e.name}-${i}`} className="px-3 py-2.5">
+                          <div className="flex items-center gap-2.5 mb-1">
+                            <span className={`text-xs font-black w-5 text-center tabular-nums shrink-0 ${medalColor}`}>{i + 1}</span>
+                            <div className={`h-7 w-7 rounded-full ${avatarColor(e.name)} text-white flex items-center justify-center text-[10px] font-bold shrink-0`}>
+                              {(e.name || "?")[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate">{e.name}</p>
+                              <p className="text-[9px] text-muted-foreground">{e.periods} period{e.periods !== 1 ? "s" : ""}</p>
+                            </div>
+                            <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0">{formatCurrency(e.total, currency)}</p>
+                          </div>
+                          <div className="ml-[52px] h-1 bg-muted/40 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${i === 0 ? "bg-amber-400" : i === 1 ? "bg-slate-400" : "bg-primary/50"}`} style={{ width: `${(e.total / maxTotal) * 100}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>
@@ -575,9 +845,10 @@ export default function PayrollPage() {
                   <div>
                     <p className="text-sm font-semibold">{s.name || s.email}</p>
                     <p className="text-[10px] text-muted-foreground">{roleLabel(s.role)} · {fmtShort(from)} {t("payroll.dateTo")} {fmtShort(to)}</p>
+                    {s.staffGroup && <p className="text-[9px] text-muted-foreground/60">{s.staffGroup}</p>}
                   </div>
                 </div>
-                <div className="space-y-1 text-xs mb-4">
+                <div className="space-y-0.5 text-xs mb-4">
                   {[
                     { label: t("payroll.paystub.hoursWorked"), value: entry.hoursWorked > 0 ? `${entry.hoursWorked.toFixed(2)} ${t("payroll.staff.hrs")}` : null },
                     { label: t("payroll.paystub.salesAmount"), value: entry.salesAmount > 0 ? formatCurrency(entry.salesAmount, currency) : null },
@@ -593,7 +864,7 @@ export default function PayrollPage() {
                   <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{t("payroll.paystub.netPay")}</span>
                   <span className="text-lg font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(entry.payout, currency)}</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-5">
                   <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => window.print()} data-testid="btn-print-paystub">
                     <Printer className="h-3 w-3" />{t("payroll.paystub.printStub")}
                   </Button>
@@ -601,6 +872,27 @@ export default function PayrollPage() {
                     <FileDown className="h-3 w-3" />{t("payroll.export.exportCSV")}
                   </Button>
                 </div>
+
+                {/* Pay history */}
+                {staffHistory.length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-2">Pay History</p>
+                    <div className="space-y-1.5">
+                      {staffHistory.map(h => (
+                        <div key={h.entryId} className="rounded-lg bg-muted/30 px-2.5 py-2 flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-semibold truncate">{h.periodName}</p>
+                            <p className="text-[9px] text-muted-foreground">{fmtShort(h.startDate)} → {fmtShort(h.endDate)}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(h.netAmount, currency)}</p>
+                            <StatusDot status={h.status} t={t} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             );
           })()}
@@ -610,9 +902,7 @@ export default function PayrollPage() {
       {/* ── EDIT WAGE DIALOG ──────────────────────────────────────────────────── */}
       <Dialog open={!!editingWage} onOpenChange={o => !o && setEditingWage(null)}>
         <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-sm">{t("payroll.wage.settings")}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-sm">{t("payroll.wage.settings")}</DialogTitle></DialogHeader>
           {editingWage && (
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/40">
               <Av name={editingWage.name || editingWage.email || "?"} id={editingWage.id} sm />
@@ -668,9 +958,7 @@ export default function PayrollPage() {
       {/* ── EDIT ENTRY DIALOG ─────────────────────────────────────────────────── */}
       <Dialog open={!!editingEntry} onOpenChange={o => !o && setEditingEntry(null)}>
         <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-sm">{t("payroll.entries.editEntry")}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-sm">{t("payroll.entries.editEntry")}</DialogTitle></DialogHeader>
           {editingEntry && (
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/40">
               <Av name={editingEntry.employeeName} id={editingEntry.employeeUserId} sm />
@@ -697,30 +985,15 @@ export default function PayrollPage() {
             <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">{t("payroll.entries.notes")}</label>
             <Textarea value={entryForm.notes ?? ""} onChange={e => setEntryForm({ ...entryForm, notes: e.target.value })} rows={2} className="text-xs resize-none" data-testid="input-entry-notes" />
           </div>
-          {(() => {
-            const b = parseFloat((entryForm as any).baseAmount || "0") || 0;
-            const c = parseFloat((entryForm as any).commissionAmount || "0") || 0;
-            const ti = parseFloat((entryForm as any).tipAmount || "0") || 0;
-            const bo = parseFloat((entryForm as any).bonusAmount || "0") || 0;
-            const d = parseFloat((entryForm as any).deductionAmount || "0") || 0;
-            const a = parseFloat((entryForm as any).advanceAmount || "0") || 0;
-            return (
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-3 py-2.5 flex justify-between items-center mt-1">
-                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{t("payroll.paystub.netPay")}</span>
-                <span className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(b + c + ti + bo - d - a, currency)}</span>
-              </div>
-            );
-          })()}
+          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-3 py-2.5 flex justify-between items-center mt-1">
+            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{t("payroll.paystub.netPay")}</span>
+            <span className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(computeEntryNet(entryForm as any), currency)}</span>
+          </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditingEntry(null)} className="flex-1 h-8 text-xs" data-testid="btn-cancel-entry">{t("common.cancel")}</Button>
             <Button size="sm" onClick={() => {
-              const b = parseFloat((entryForm as any).baseAmount || "0") || 0;
-              const c = parseFloat((entryForm as any).commissionAmount || "0") || 0;
-              const ti = parseFloat((entryForm as any).tipAmount || "0") || 0;
-              const bo = parseFloat((entryForm as any).bonusAmount || "0") || 0;
-              const d = parseFloat((entryForm as any).deductionAmount || "0") || 0;
-              const a = parseFloat((entryForm as any).advanceAmount || "0") || 0;
-              updateEntryMutation.mutate({ id: editingEntry!.id, data: { ...entryForm, netAmount: (b + c + ti + bo - d - a).toFixed(2) } });
+              const net = computeEntryNet(entryForm as any);
+              updateEntryMutation.mutate({ id: editingEntry!.id, data: { ...entryForm, netAmount: net.toFixed(2) } });
             }} disabled={updateEntryMutation.isPending} className="flex-1 h-8 text-xs gap-1" data-testid="btn-save-entry">
               <Save className="h-3 w-3" />{updateEntryMutation.isPending ? t("common.loading") : t("common.save")}
             </Button>
@@ -728,16 +1001,198 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── CREATE PERIOD DIALOG ──────────────────────────────────────────────── */}
-      <Dialog open={createPeriodOpen} onOpenChange={setCreatePeriodOpen}>
+      {/* ── ADD EMPLOYEE TO PERIOD DIALOG ─────────────────────────────────────── */}
+      <Dialog open={addEntryOpen} onOpenChange={o => !o && setAddEntryOpen(false)}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle className="text-sm">{t("payroll.periods.createPeriod")}</DialogTitle>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <UserPlus className="h-3.5 w-3.5 text-primary" />Add Employee to Period
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">{t("payroll.periods.periodName")}</label>
-              <Input value={periodForm.name} onChange={e => setPeriodForm({ ...periodForm, name: e.target.value })} placeholder={t("payroll.periods.periodNamePlaceholder")} className="h-8 text-xs" data-testid="input-period-name" />
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Employee</label>
+              <Select value={addEntryForm.employeeUserId} onValueChange={v => {
+                const s = staff.find(s => s.id === v);
+                if (!s) { setAddEntryForm({ ...addEntryForm, employeeUserId: v }); return; }
+                const wt = s.wageType ?? "none";
+                const wageRate = parseFloat(s.wageRate || "0") || 0;
+                setAddEntryForm({ ...addEntryForm, employeeUserId: v, baseAmount: wt === "monthly" ? String(wageRate) : "0" });
+              }}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-add-entry-employee">
+                  <SelectValue placeholder="Select employee..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffNotInPeriod.length === 0 ? (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">All employees already in this period</div>
+                  ) : (
+                    staffNotInPeriod.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name || s.email || s.id}
+                        {s.wageType && s.wageType !== "none" && <span className="text-muted-foreground ml-1 text-[10px]">· {s.wageType}</span>}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: "hoursWorked", label: "Hours" },
+                { key: "baseAmount", label: `Base (${currency})` },
+                { key: "commissionAmount", label: `Commission (${currency})` },
+                { key: "tipAmount", label: `Tips (${currency})` },
+                { key: "bonusAmount", label: `Bonus (${currency})` },
+                { key: "deductionAmount", label: `Deductions (${currency})` },
+                { key: "advanceAmount", label: `Advance (${currency})` },
+              ].map(({ key, label }) => (
+                <div key={key}>
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">{label}</label>
+                  <Input type="number" step="0.01" min="0" value={(addEntryForm as any)[key]} onChange={e => setAddEntryForm({ ...addEntryForm, [key]: e.target.value })} className="h-8 text-xs" data-testid={`input-add-entry-${key}`} />
+                </div>
+              ))}
+            </div>
+            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-3 py-2 flex justify-between items-center">
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">Net Pay</span>
+              <span className="text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(computeEntryNet(addEntryForm), currency)}</span>
+            </div>
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Notes</label>
+              <Textarea value={addEntryForm.notes} onChange={e => setAddEntryForm({ ...addEntryForm, notes: e.target.value })} rows={2} className="text-xs resize-none" placeholder="Optional..." data-testid="input-add-entry-notes" />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setAddEntryOpen(false)} className="flex-1 h-8 text-xs">{t("common.cancel")}</Button>
+              <Button size="sm" onClick={() => {
+                if (!addEntryForm.employeeUserId || !expandedPeriod) return;
+                const s = staff.find(s => s.id === addEntryForm.employeeUserId);
+                const net = computeEntryNet(addEntryForm);
+                addEntryMutation.mutate({
+                  periodId: expandedPeriod,
+                  data: {
+                    ...addEntryForm,
+                    employeeName: s?.name || s?.email || addEntryForm.employeeUserId,
+                    wageType: s?.wageType || "none",
+                    wageRate: s?.wageRate || "0",
+                    netAmount: net.toFixed(2),
+                  },
+                });
+              }} disabled={addEntryMutation.isPending || !addEntryForm.employeeUserId} className="flex-1 h-8 text-xs gap-1" data-testid="btn-save-add-entry">
+                <Save className="h-3 w-3" />{addEntryMutation.isPending ? "Adding..." : "Add Employee"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── QUICK PAY DIALOG ──────────────────────────────────────────────────── */}
+      <Dialog open={quickPayOpen} onOpenChange={o => !o && setQuickPayOpen(false)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-emerald-500" />Pay Day
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Pay Period</label>
+              <div className="flex flex-wrap gap-1.5">
+                {(["thisWeek","lastWeek","thisMonth","lastMonth"] as const).map(p => (
+                  <button key={p} onClick={() => setQuickPayPreset(p)} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${quickPayPreset === p ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`} data-testid={`btn-qp-preset-${p}`}>
+                    {quickPayDates(p).label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(branches as any[]).length > 1 && (
+              <div>
+                <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Branch (optional)</label>
+                <Select value={quickPayBranchId === null ? "all" : String(quickPayBranchId)} onValueChange={v => setQuickPayBranchId(v === "all" ? null : Number(v))}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-qp-branch"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {(branches as any[]).map((b: any) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(() => {
+              const { from: qFrom, to: qTo } = quickPayDates(quickPayPreset);
+              const eligible = staff.filter(s => s.wageType && s.wageType !== "none" && (!quickPayBranchId || s.branchId === quickPayBranchId));
+              const est = eligible.reduce((sum, s) => {
+                const rate = parseFloat(s.wageRate || "0") || 0;
+                if (s.wageType === "monthly") return sum + rate;
+                if (s.wageType === "hourly") return sum + rate * 8;
+                return sum;
+              }, 0);
+              return (
+                <div className="rounded-xl bg-muted/40 border border-border/30 px-3 py-2.5 space-y-1.5">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-muted-foreground">Period</span>
+                    <span className="font-semibold">{fmtShort(qFrom)} → {fmtShort(qTo)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-muted-foreground">Staff on payroll</span>
+                    <span className="font-semibold">{eligible.length} employee{eligible.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  {est > 0 && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-muted-foreground">Est. total</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">~{formatCurrency(est, currency)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2.5 py-2">
+              <Info className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-700 dark:text-amber-400">Immediately creates and marks a pay period as paid — no draft/finalize steps.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setQuickPayOpen(false)} className="flex-1 h-8 text-xs">{t("common.cancel")}</Button>
+              <Button size="sm" onClick={() => {
+                const { from: qFrom, to: qTo, label } = quickPayDates(quickPayPreset);
+                quickPayMutation.mutate({ name: `${label} Pay Run`, from: qFrom, to: qTo, branchId: quickPayBranchId });
+              }} disabled={quickPayMutation.isPending} className="flex-1 h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="btn-confirm-quick-pay">
+                <Zap className="h-3 w-3" />{quickPayMutation.isPending ? "Processing..." : "Mark All Paid"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CONFIRM ACTION DIALOG ─────────────────────────────────────────────── */}
+      <AlertDialog open={!!confirmAction} onOpenChange={o => !o && setConfirmAction(null)}>
+        <AlertDialogContent className="max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm">
+              {confirmAction?.type === "finalize" ? t("payroll.periods.finalize") : confirmAction?.type === "markPaid" ? t("payroll.periods.markPaid") : t("payroll.periods.deletePeriod")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              {confirmAction?.type === "finalize" ? t("payroll.periods.finalizeConfirm", { name: confirmAction.name }) : confirmAction?.type === "markPaid" ? t("payroll.periods.payConfirm", { name: confirmAction.name }) : t("payroll.periods.deleteConfirm", { name: confirmAction.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="h-8 text-xs">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction className={`h-8 text-xs ${confirmAction?.type === "delete" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : confirmAction?.type === "markPaid" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`} onClick={() => {
+              if (!confirmAction) return;
+              if (confirmAction.type === "finalize") finalizeMutation.mutate(confirmAction.periodId);
+              else if (confirmAction.type === "markPaid") markPaidMutation.mutate(confirmAction.periodId);
+              else if (confirmAction.type === "delete") deletePeriodMutation.mutate(confirmAction.periodId);
+            }}>
+              {confirmAction?.type === "delete" ? t("payroll.periods.deletePeriod") : confirmAction?.type === "markPaid" ? t("payroll.periods.markPaid") : t("payroll.periods.finalize")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── CREATE PERIOD DIALOG ──────────────────────────────────────────────── */}
+      <Dialog open={createPeriodOpen} onOpenChange={o => !o && setCreatePeriodOpen(false)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader><DialogTitle className="text-sm">{t("payroll.periods.newPeriod")}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">{t("payroll.periods.name")}</label>
+              <Input value={periodForm.name} onChange={e => setPeriodForm({ ...periodForm, name: e.target.value })} placeholder={t("payroll.periods.namePlaceholder")} className="h-8 text-xs" data-testid="input-period-name" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -750,126 +1205,22 @@ export default function PayrollPage() {
               </div>
             </div>
             <div>
-              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">{t("payroll.periods.notes")}</label>
-              <Textarea value={periodForm.notes} onChange={e => setPeriodForm({ ...periodForm, notes: e.target.value })} rows={2} className="text-xs resize-none" data-testid="input-period-notes" />
+              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">{t("payroll.entries.notes")}</label>
+              <Textarea value={periodForm.notes} onChange={e => setPeriodForm({ ...periodForm, notes: e.target.value })} rows={2} className="text-xs resize-none" placeholder="Optional period notes..." data-testid="input-period-notes" />
             </div>
-            <div className="rounded-lg bg-muted/60 px-3 py-2 text-[10px] text-muted-foreground flex items-start gap-1.5">
-              <Sparkles className="h-3 w-3 shrink-0 mt-0.5" />
-              {t("payroll.periods.autoGenerated")}
+            <div className="rounded-lg bg-muted/30 border border-border/30 p-2.5">
+              <p className="text-[10px] text-muted-foreground">{t("payroll.periods.draftNote")}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCreatePeriodOpen(false)} className="flex-1 h-8 text-xs" data-testid="btn-cancel-period">{t("common.cancel")}</Button>
-              <Button size="sm" onClick={() => createPeriodMutation.mutate(periodForm)} disabled={createPeriodMutation.isPending || !periodForm.name} className="flex-1 h-8 text-xs gap-1" data-testid="btn-create-period">
-                <Plus className="h-3 w-3" />{createPeriodMutation.isPending ? t("common.loading") : t("common.create")}
+              <Button variant="outline" size="sm" onClick={() => setCreatePeriodOpen(false)} className="flex-1 h-8 text-xs">{t("common.cancel")}</Button>
+              <Button size="sm" onClick={() => createPeriodMutation.mutate(periodForm)} disabled={createPeriodMutation.isPending || !periodForm.name} className="flex-1 h-8 text-xs gap-1" data-testid="btn-save-period">
+                <Save className="h-3 w-3" />{createPeriodMutation.isPending ? t("common.loading") : t("payroll.periods.createPeriod")}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ── QUICK PAY DIALOG ──────────────────────────────────────────────────── */}
-      <Dialog open={quickPayOpen} onOpenChange={setQuickPayOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
-                <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              Pay Day
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Period presets */}
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Pay Period</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(["thisWeek", "lastWeek", "thisMonth", "lastMonth"] as const).map(p => {
-                  const { label, from: pf, to: pt } = quickPayDates(p);
-                  return (
-                    <button key={p} onClick={() => setQuickPayPreset(p)} className={`rounded-lg px-3 py-2 text-left transition-all border ${quickPayPreset === p ? "bg-emerald-600 text-white border-emerald-600 font-semibold" : "bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground"}`} data-testid={`btn-qp-preset-${p}`}>
-                      <p className="text-[11px] font-semibold">{label}</p>
-                      <p className={`text-[9px] ${quickPayPreset === p ? "text-emerald-100" : "text-muted-foreground/60"}`}>{pf} → {pt}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Branch filter */}
-            {branches.length > 1 && (
-              <div>
-                <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Branch</label>
-                <Select value={quickPayBranchId ? String(quickPayBranchId) : "all"} onValueChange={v => setQuickPayBranchId(v === "all" ? null : Number(v))}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-qp-branch">
-                    <Building2 className="h-3 w-3 mr-1.5 text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branches.map((b: any) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Preview */}
-            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-4 py-3 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Employees on payroll</span>
-                <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{totals.staffCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Total payout</span>
-                <span className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.totalPayout, currency)}</span>
-              </div>
-              <p className="text-[9px] text-emerald-600/70 dark:text-emerald-500/60">Based on current date range. Actual amounts computed from hours & sales in the selected period.</p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setQuickPayOpen(false)} className="flex-1 h-9 text-xs" data-testid="btn-qp-cancel">Cancel</Button>
-              <Button size="sm" onClick={() => {
-                const { from: pf, to: pt, label } = quickPayDates(quickPayPreset);
-                const branchName = quickPayBranchId ? (branches as any[]).find(b => b.id === quickPayBranchId)?.name || "" : "";
-                const name = `Pay Day — ${label}${branchName ? ` (${branchName})` : ""}`;
-                quickPayMutation.mutate({ name, from: pf, to: pt, branchId: quickPayBranchId });
-              }} disabled={quickPayMutation.isPending} className="flex-1 h-9 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold" data-testid="btn-qp-run">
-                {quickPayMutation.isPending ? (
-                  <><span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Processing…</>
-                ) : (
-                  <><Zap className="h-3.5 w-3.5" />Mark All Paid</>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── CONFIRM ACTION ────────────────────────────────────────────────────── */}
-      <AlertDialog open={!!confirmAction} onOpenChange={o => !o && setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm">
-              {confirmAction?.type === "finalize" && t("payroll.periods.finalizeConfirm")}
-              {confirmAction?.type === "markPaid" && t("payroll.periods.markPaidConfirm")}
-              {confirmAction?.type === "delete" && t("payroll.periods.deleteConfirm")}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              <span className="font-semibold text-foreground">{confirmAction?.name}</span> —{" "}
-              {confirmAction?.type === "finalize" && t("payroll.periods.finalizeDesc")}
-              {confirmAction?.type === "markPaid" && t("payroll.periods.markPaidDesc")}
-              {confirmAction?.type === "delete" && t("payroll.periods.deleteDesc")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="h-8 text-xs">{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction className={`h-8 text-xs ${confirmAction?.type === "delete" ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : ""}`} onClick={() => { if (!confirmAction) return; if (confirmAction.type === "finalize") finalizeMutation.mutate(confirmAction.periodId); else if (confirmAction.type === "markPaid") markPaidMutation.mutate(confirmAction.periodId); else if (confirmAction.type === "delete") deletePeriodMutation.mutate(confirmAction.periodId); }} data-testid="btn-confirm-action">
-              {confirmAction?.type === "finalize" && t("payroll.periods.finalize")}
-              {confirmAction?.type === "markPaid" && t("payroll.periods.markPaid")}
-              {confirmAction?.type === "delete" && t("common.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

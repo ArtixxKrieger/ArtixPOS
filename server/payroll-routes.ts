@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { users, timeLogs, sales, payrollPeriods, payrollEntries, userBranches, branches } from "@shared/schema";
-import { and, eq, gte, lte, inArray, isNull, isNotNull, desc } from "drizzle-orm";
+import { and, eq, gte, lte, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
 
@@ -290,6 +290,7 @@ export function registerPayrollRoutes(app: Express) {
         name: z.string().min(1),
         from: z.string().min(1),
         to: z.string().min(1),
+        notes: z.string().optional().default(""),
         entries: z.array(z.object({
           userId: z.string(),
           employeeName: z.string().nullable().optional(),
@@ -303,7 +304,7 @@ export function registerPayrollRoutes(app: Express) {
           advanceAmount: z.union([z.string(), z.number()]).transform(String).optional(),
           netAmount: z.union([z.string(), z.number()]).transform(String),
           notes: z.string().optional(),
-        })),
+        })).optional().default([]),
       });
       const input = schema.parse(req.body);
 
@@ -314,6 +315,7 @@ export function registerPayrollRoutes(app: Express) {
           name: input.name,
           startDate: input.from,
           endDate: input.to,
+          notes: input.notes || null,
           status: "draft",
           createdBy: user.id,
         })
@@ -560,5 +562,167 @@ export function registerPayrollRoutes(app: Express) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
     }
+  });
+
+  // ── Add a manual entry to an existing draft period ────────────────────────────
+  app.post("/api/payroll/periods/:id/entries", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const periodId = Number(req.params.id);
+      const [period] = await db.select().from(payrollPeriods as any).where(eq((payrollPeriods as any).id, periodId));
+      if (!period || (period as any).tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+      if ((period as any).status !== "draft") return res.status(409).json({ message: "Can only add entries to draft periods" });
+
+      const schema = z.object({
+        employeeUserId: z.string(),
+        employeeName: z.string(),
+        wageType: z.string().default("none"),
+        wageRate: z.union([z.string(), z.number()]).transform(String).default("0"),
+        hoursWorked: z.union([z.string(), z.number()]).transform(String).default("0"),
+        baseAmount: z.union([z.string(), z.number()]).transform(String).default("0"),
+        commissionAmount: z.union([z.string(), z.number()]).transform(String).default("0"),
+        tipAmount: z.union([z.string(), z.number()]).transform(String).default("0"),
+        bonusAmount: z.union([z.string(), z.number()]).transform(String).default("0"),
+        deductionAmount: z.union([z.string(), z.number()]).transform(String).default("0"),
+        advanceAmount: z.union([z.string(), z.number()]).transform(String).default("0"),
+        netAmount: z.union([z.string(), z.number()]).transform(String),
+        notes: z.string().optional().default(""),
+      });
+      const input = schema.parse(req.body);
+
+      const [entry] = await db.insert(payrollEntries as any).values({
+        periodId,
+        employeeUserId: input.employeeUserId,
+        employeeName: input.employeeName,
+        wageType: input.wageType,
+        wageRate: input.wageRate,
+        hoursWorked: input.hoursWorked,
+        baseAmount: input.baseAmount,
+        commissionAmount: input.commissionAmount,
+        tipAmount: input.tipAmount,
+        bonusAmount: input.bonusAmount,
+        deductionAmount: input.deductionAmount,
+        advanceAmount: input.advanceAmount,
+        netAmount: input.netAmount,
+        notes: input.notes,
+      }).returning() as any[];
+
+      const allEntries = await db.select().from(payrollEntries as any).where(eq((payrollEntries as any).periodId, periodId));
+      const newTotal = (allEntries as any[]).reduce((s, e) => s + (parseFloat(e.netAmount) || 0), 0);
+      await db.update(payrollPeriods as any).set({ totalAmount: newTotal.toFixed(2) }).where(eq((payrollPeriods as any).id, periodId));
+
+      res.status(201).json(entry);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // ── Delete a single entry from a draft period ─────────────────────────────────
+  app.delete("/api/payroll/entries/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const entryId = Number(req.params.id);
+      const [entry] = await db.select().from(payrollEntries as any).where(eq((payrollEntries as any).id, entryId));
+      if (!entry) return res.status(404).json({ message: "Entry not found" });
+      const [period] = await db.select().from(payrollPeriods as any).where(eq((payrollPeriods as any).id, (entry as any).periodId));
+      if (!period || (period as any).tenantId !== user.tenantId) return res.status(403).json({ message: "Unauthorized" });
+      if ((period as any).status !== "draft") return res.status(409).json({ message: "Can only delete entries from draft periods" });
+      await db.delete(payrollEntries as any).where(eq((payrollEntries as any).id, entryId));
+      const allEntries = await db.select().from(payrollEntries as any).where(eq((payrollEntries as any).periodId, (period as any).id));
+      const newTotal = (allEntries as any[]).reduce((s, e) => s + (parseFloat(e.netAmount) || 0), 0);
+      await db.update(payrollPeriods as any).set({ totalAmount: newTotal.toFixed(2) }).where(eq((payrollPeriods as any).id, (period as any).id));
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  // ── Analytics: period history + top earners + wage breakdown ─────────────────
+  app.get("/api/payroll/analytics", requireAuth, requireTenant, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+
+      const recentPeriods = await db
+        .select()
+        .from(payrollPeriods as any)
+        .where(and(eq((payrollPeriods as any).tenantId, user.tenantId!), isNull((payrollPeriods as any).deletedAt)))
+        .orderBy(desc((payrollPeriods as any).createdAt))
+        .limit(12) as any[];
+
+      if (!recentPeriods.length) return res.json({ periods: [], topEarners: [], wageTypeBreakdown: [] });
+
+      const periodIds = recentPeriods.map((p: any) => p.id);
+      const allEntries = await db.select().from(payrollEntries as any)
+        .where(inArray((payrollEntries as any).periodId, periodIds)) as any[];
+
+      // Period totals (chronological order)
+      const periodTotals = recentPeriods.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        status: p.status,
+        totalAmount: parseFloat(p.totalAmount || "0"),
+      })).reverse();
+
+      // Top earners across all periods
+      const earnerMap = new Map<string, { name: string; total: number; periods: number }>();
+      for (const e of allEntries) {
+        const net = parseFloat(e.netAmount || "0");
+        const existing = earnerMap.get(e.employeeUserId);
+        if (existing) { existing.total += net; existing.periods++; }
+        else earnerMap.set(e.employeeUserId, { name: e.employeeName, total: net, periods: 1 });
+      }
+      const topEarners = Array.from(earnerMap.values()).sort((a, b) => b.total - a.total).slice(0, 8);
+
+      // Wage type breakdown
+      const wageTypeMap = new Map<string, number>();
+      for (const e of allEntries) {
+        const net = parseFloat(e.netAmount || "0");
+        wageTypeMap.set(e.wageType, (wageTypeMap.get(e.wageType) ?? 0) + net);
+      }
+      const wageTypeBreakdown = Array.from(wageTypeMap.entries())
+        .map(([type, total]) => ({ type, total }))
+        .sort((a, b) => b.total - a.total);
+
+      res.json({ periods: periodTotals, topEarners, wageTypeBreakdown });
+    } catch (err) { next(err); }
+  });
+
+  // ── Per-employee pay history (last 10 periods they appear in) ─────────────────
+  app.get("/api/payroll/staff/:id/history", requireAuth, requireTenant, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const targetUserId = req.params.id;
+      const [target] = await db.select().from(users).where(and(eq(users.id, targetUserId), eq(users.tenantId, user.tenantId!)));
+      if (!target) return res.status(404).json({ message: "Not found" });
+
+      const entries = await db.select({
+        entryId: (payrollEntries as any).id,
+        periodId: (payrollEntries as any).periodId,
+        periodName: (payrollPeriods as any).name,
+        startDate: (payrollPeriods as any).startDate,
+        endDate: (payrollPeriods as any).endDate,
+        status: (payrollPeriods as any).status,
+        paidAt: (payrollPeriods as any).paidAt,
+        netAmount: (payrollEntries as any).netAmount,
+        baseAmount: (payrollEntries as any).baseAmount,
+        hoursWorked: (payrollEntries as any).hoursWorked,
+        wageType: (payrollEntries as any).wageType,
+      })
+      .from(payrollEntries as any)
+      .innerJoin(payrollPeriods as any, eq((payrollEntries as any).periodId, (payrollPeriods as any).id))
+      .where(and(
+        eq((payrollEntries as any).employeeUserId, targetUserId),
+        isNull((payrollPeriods as any).deletedAt),
+      ))
+      .orderBy(desc((payrollPeriods as any).createdAt))
+      .limit(10) as any[];
+
+      res.json(entries);
+    } catch (err) { next(err); }
   });
 }

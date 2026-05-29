@@ -845,8 +845,29 @@ export const payrollEntries = pgTable("payroll_entries", {
 export type Ingredient = typeof ingredients.$inferSelect;
 export type ProductRecipe = typeof productRecipes.$inferSelect;
 export type WifiVoucher = typeof wifiVouchers.$inferSelect;
+// ─── Payroll Audit Log ────────────────────────────────────────────────────────
+
+export const payrollAuditLog = pgTable("payroll_audit_log", {
+  id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // "quick_pay" | "mark_paid" | "finalize" | "delete"
+  periodId: integer("period_id"),
+  periodName: text("period_name").notNull(),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  paymentMethod: text("payment_method"),
+  paymentReference: text("payment_reference"),
+  entryCount: integer("entry_count"),
+  totalAmount: text("total_amount"),
+  performedBy: text("performed_by").notNull(),
+  performedByName: text("performed_by_name"),
+  performedAt: text("performed_at").$defaultFn(() => new Date().toISOString()),
+  notes: text("notes"),
+});
+
 export type PayrollPeriod = typeof payrollPeriods.$inferSelect;
 export type PayrollEntry = typeof payrollEntries.$inferSelect;
+export type PayrollAuditLog = typeof payrollAuditLog.$inferSelect;
 
 // ─── Insert Schemas ───────────────────────────────────────────────────────────
 

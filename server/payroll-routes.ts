@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
-import { users, timeLogs, sales, payrollPeriods, payrollEntries, userBranches, branches } from "@shared/schema";
+import { users, timeLogs, sales, payrollPeriods, payrollEntries, payrollAuditLog, userBranches, branches } from "@shared/schema";
 import { and, eq, gte, lte, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
@@ -390,6 +390,17 @@ export function registerPayrollRoutes(app: Express) {
         .set({ status: "finalized", finalizedAt: new Date().toISOString() })
         .where(eq((payrollPeriods as any).id, id))
         .returning() as any[];
+      await db.insert(payrollAuditLog as any).values({
+        tenantId: user.tenantId,
+        action: "finalize",
+        periodId: id,
+        periodName: (period as any).name,
+        startDate: (period as any).startDate,
+        endDate: (period as any).endDate,
+        performedBy: user.id,
+        performedByName: user.name || user.email || user.id,
+        totalAmount: (period as any).totalAmount,
+      });
       res.json(updated);
     } catch (err) { next(err); }
   });
@@ -417,6 +428,21 @@ export function registerPayrollRoutes(app: Express) {
         })
         .where(eq((payrollPeriods as any).id, id))
         .returning() as any[];
+      const entryRows = await db.select().from(payrollEntries as any).where(eq((payrollEntries as any).periodId, id));
+      await db.insert(payrollAuditLog as any).values({
+        tenantId: user.tenantId,
+        action: "mark_paid",
+        periodId: id,
+        periodName: (period as any).name,
+        startDate: (period as any).startDate,
+        endDate: (period as any).endDate,
+        paymentMethod: body.paymentMethod || "cash",
+        paymentReference: body.paymentReference || null,
+        entryCount: (entryRows as any[]).length,
+        totalAmount: (period as any).totalAmount,
+        performedBy: user.id,
+        performedByName: user.name || user.email || user.id,
+      });
       res.json(updated);
     } catch (err) { next(err); }
   });
@@ -433,6 +459,17 @@ export function registerPayrollRoutes(app: Express) {
       await db.update(payrollPeriods as any)
         .set({ deletedAt: new Date().toISOString() })
         .where(eq((payrollPeriods as any).id, id));
+      await db.insert(payrollAuditLog as any).values({
+        tenantId: user.tenantId,
+        action: "delete",
+        periodId: id,
+        periodName: (period as any).name,
+        startDate: (period as any).startDate,
+        endDate: (period as any).endDate,
+        performedBy: user.id,
+        performedByName: user.name || user.email || user.id,
+        totalAmount: (period as any).totalAmount,
+      });
       res.json({ ok: true });
     } catch (err) { next(err); }
   });
@@ -591,11 +628,43 @@ export function registerPayrollRoutes(app: Express) {
         .where(eq((payrollPeriods as any).id, period.id))
         .returning() as any[];
 
+      await db.insert(payrollAuditLog as any).values({
+        tenantId: user.tenantId,
+        action: "quick_pay",
+        periodId: period.id,
+        periodName: input.name,
+        startDate: input.from,
+        endDate: input.to,
+        paymentMethod: input.paymentMethod || "cash",
+        paymentReference: input.paymentReference || null,
+        entryCount: entries.length,
+        totalAmount: totalAmount.toFixed(2),
+        performedBy: user.id,
+        performedByName: user.name || user.email || user.id,
+      });
       res.status(201).json({ period: updated, entryCount: entries.length, totalAmount });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       next(err);
     }
+  });
+
+  // ── Audit Log ─────────────────────────────────────────────────────────────────
+  app.get("/api/payroll/audit-log", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      if (!(await ensurePro(req, res))) return;
+      const user = getAuthUser(req);
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const offset = Number(req.query.offset) || 0;
+      const rows = await db
+        .select()
+        .from(payrollAuditLog as any)
+        .where(eq((payrollAuditLog as any).tenantId, user.tenantId))
+        .orderBy(desc((payrollAuditLog as any).performedAt))
+        .limit(limit)
+        .offset(offset) as any[];
+      res.json(rows);
+    } catch (err) { next(err); }
   });
 
   // ── Add a manual entry to an existing draft period ────────────────────────────

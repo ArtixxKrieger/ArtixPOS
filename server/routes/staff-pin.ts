@@ -118,7 +118,7 @@ export function registerStaffPinRoutes(app: Express): void {
         hasPin: !!r.hasPin,
         isLocked: !!(r.pinLockedUntil && r.pinLockedUntil > now),
       })));
-    } catch (err) { res.status(500).json({ message: "Server error" }); }
+    } catch { res.status(500).json({ message: "Server error" }); }
   });
 
   // ── 2. PIN login — authenticate and auto clock-in ─────────────────────────────

@@ -19,7 +19,7 @@ import {
   FileDown, Printer, Search, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, Trash2, Plus, AlertCircle,
   Receipt, Tag, Building2, Zap, Lock,
-  BarChart2, Trophy, UserPlus, TrendingDown, ClipboardList,
+  BarChart2, Trophy, UserPlus, TrendingDown,
   CreditCard, Wallet, type LucideIcon,
 } from "lucide-react";
 import { useBranches } from "@/hooks/use-admin";
@@ -179,13 +179,6 @@ export default function PayrollPage() {
     refetchOnWindowFocus: false,
   });
 
-  type AuditEntry = { id: number; action: string; periodId: number | null; periodName: string; startDate: string | null; endDate: string | null; paymentMethod: string | null; paymentReference: string | null; entryCount: number | null; totalAmount: string | null; performedBy: string; performedByName: string | null; performedAt: string | null; notes: string | null };
-  const [auditFilter, setAuditFilter] = useState("all");
-  const { data: auditLog = [], isFetching: auditFetching } = useQuery<AuditEntry[]>({
-    queryKey: ["/api/payroll/audit-log"],
-    staleTime: 1000 * 60,
-    refetchOnWindowFocus: false,
-  });
 
   const staffHistoryId = paystubTarget?.staff.id ?? null;
   const { data: staffHistory = [] } = useQuery<HistoryEntry[]>({
@@ -442,7 +435,7 @@ export default function PayrollPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="compute">
-        <TabsList className="w-full h-9 rounded-lg p-0.5 bg-muted/50 grid grid-cols-4">
+        <TabsList className="w-full h-9 rounded-lg p-0.5 bg-muted/50 grid grid-cols-3">
           <TabsTrigger value="compute" className="h-8 rounded-md text-xs font-semibold px-1" data-testid="tab-quick-compute">
             <TrendingUp className="h-3 w-3 shrink-0" /><span className="ml-1 hidden sm:inline truncate">{t("payroll.tabs.quickCompute")}</span><span className="ml-1 sm:hidden">Compute</span>
           </TabsTrigger>
@@ -452,10 +445,6 @@ export default function PayrollPage() {
           </TabsTrigger>
           <TabsTrigger value="analytics" className="h-8 rounded-md text-xs font-semibold px-1" data-testid="tab-analytics">
             <BarChart2 className="h-3 w-3 shrink-0" /><span className="ml-1 truncate">Analytics</span>
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="h-8 rounded-md text-xs font-semibold px-1" data-testid="tab-audit">
-            <ClipboardList className="h-3 w-3 shrink-0" /><span className="ml-1 truncate">Audit</span>
-            {auditLog.length > 0 && <span className="ml-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-black px-1 flex items-center justify-center shrink-0">{auditLog.length}</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -901,119 +890,6 @@ export default function PayrollPage() {
           )}
         </TabsContent>
 
-        {/* ── AUDIT LOG ─────────────────────────────────────────────────────── */}
-        <TabsContent value="audit" className="space-y-3 mt-3">
-          {/* Action filter chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              { id: "all",       label: "All",       icon: ClipboardList },
-              { id: "quick_pay", label: "Pay Day",   icon: Zap },
-              { id: "mark_paid", label: "Mark Paid", icon: CheckCircle2 },
-              { id: "finalize",  label: "Finalized", icon: Lock },
-              { id: "delete",    label: "Deleted",   icon: Trash2 },
-            ] as { id: string; label: string; icon: LucideIcon }[]).map(f => {
-              const Icon = f.icon;
-              return (
-                <button key={f.id} onClick={() => setAuditFilter(f.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${auditFilter === f.id ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`}
-                  data-testid={`btn-audit-filter-${f.id}`}>
-                  <Icon className="h-2.5 w-2.5 shrink-0" />{f.label}
-                  {f.id !== "all" && auditLog.filter(e => e.action === f.id).length > 0 && (
-                    <span className={`h-3.5 min-w-3.5 rounded-full text-[9px] font-black px-0.5 flex items-center justify-center ${auditFilter === f.id ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                      {auditLog.filter(e => e.action === f.id).length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {auditFetching ? (
-            <div className="rounded-xl border border-border/40 divide-y divide-border/15 animate-pulse">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-muted/20" />)}
-            </div>
-          ) : (() => {
-            const filtered = auditFilter === "all" ? auditLog : auditLog.filter(e => e.action === auditFilter);
-            if (filtered.length === 0) return (
-              <div className="rounded-xl border border-dashed border-border py-12 text-center space-y-2">
-                <ClipboardList className="h-8 w-8 mx-auto text-muted-foreground/30" />
-                <p className="text-xs text-muted-foreground">No audit entries yet.</p>
-                <p className="text-[10px] text-muted-foreground/60">Actions like Pay Day, Mark Paid, Finalize, and Delete are recorded here.</p>
-              </div>
-            );
-            return (
-              <div className="rounded-xl border border-border/40 overflow-hidden">
-                <div className="px-3 py-2 border-b border-border/20 bg-muted/20 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <ClipboardList className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Payment Audit Log</span>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground">{filtered.length} record{filtered.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="divide-y divide-border/10 max-h-[480px] overflow-y-auto">
-                  {filtered.map(entry => {
-                    const actionMeta: Record<string, { icon: LucideIcon; label: string; color: string; bg: string }> = {
-                      quick_pay: { icon: Zap,          label: "Pay Day",   color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-950/60" },
-                      mark_paid: { icon: CheckCircle2, label: "Mark Paid", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-950/60" },
-                      finalize:  { icon: Lock,         label: "Finalized", color: "text-sky-600 dark:text-sky-400",         bg: "bg-sky-100 dark:bg-sky-950/60" },
-                      delete:    { icon: Trash2,       label: "Deleted",   color: "text-rose-600 dark:text-rose-400",       bg: "bg-rose-100 dark:bg-rose-950/60" },
-                    };
-                    const meta = actionMeta[entry.action] ?? { icon: ClipboardList, label: entry.action, color: "text-muted-foreground", bg: "bg-muted/60" };
-                    const MetaIcon = meta.icon;
-                    const when = entry.performedAt ? new Date(entry.performedAt) : null;
-                    const dateStr = when ? when.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
-                    const timeStr = when ? when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "";
-                    return (
-                      <div key={entry.id} className="px-3 py-2.5 hover:bg-muted/20 transition-colors" data-testid={`audit-row-${entry.id}`}>
-                        <div className="flex items-start gap-2.5">
-                          {/* Action icon circle */}
-                          <div className={`h-7 w-7 rounded-full ${meta.bg} flex items-center justify-center shrink-0 mt-0.5`}><MetaIcon className={`h-3.5 w-3.5 ${meta.color}`} /></div>
-                          <div className="flex-1 min-w-0">
-                            {/* Top row: period name + action + amount */}
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className={`text-[10px] font-bold ${meta.color}`}>{meta.label}</span>
-                                <span className="text-[10px] text-muted-foreground truncate">— {entry.periodName}</span>
-                              </div>
-                              {entry.totalAmount && parseFloat(entry.totalAmount) > 0 && (
-                                <span className="text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0">{formatCurrency(entry.totalAmount, currency)}</span>
-                              )}
-                            </div>
-                            {/* Middle row: date range + employee count */}
-                            {(entry.startDate || entry.entryCount != null) && (
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                {entry.startDate && entry.endDate && (
-                                  <span className="text-[9px] text-muted-foreground">{fmtShort(entry.startDate)} → {fmtShort(entry.endDate)}</span>
-                                )}
-                                {entry.entryCount != null && (
-                                  <span className="text-[9px] text-muted-foreground">{entry.entryCount} employee{entry.entryCount !== 1 ? "s" : ""}</span>
-                                )}
-                              </div>
-                            )}
-                            {/* Bottom row: payment method + ref + who + when */}
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {entry.paymentMethod && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-[9px] font-semibold text-foreground">
-                                  <PayMethodIcon method={entry.paymentMethod} className="h-2.5 w-2.5" /> {payMethodLabel(entry.paymentMethod)}
-                                </span>
-                              )}
-                              {entry.paymentReference && (
-                                <span className="text-[9px] text-muted-foreground font-mono">{entry.paymentReference}</span>
-                              )}
-                              <span className="text-[9px] text-muted-foreground ml-auto shrink-0">
-                                by <span className="font-semibold text-foreground">{entry.performedByName || entry.performedBy}</span> · {dateStr} {timeStr}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </TabsContent>
       </Tabs>
 
       {/* ── PAY STUB SHEET ────────────────────────────────────────────────────── */}

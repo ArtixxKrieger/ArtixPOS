@@ -110,7 +110,7 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.4",
     "sileo": "^0.1.5",
-    "swagger-jsdoc": "^6.2.8",
+    "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",

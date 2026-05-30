@@ -4,5 +4,4 @@ function vib(pattern: number | number[]) {
 
 export const hapticLight    = () => vib(8);
 export const hapticSuccess  = () => vib([35, 20, 65]);
-export const hapticError    = () => vib([15, 10, 15]);
 export const hapticMilestone = () => vib([50, 30, 50, 30, 100]);

@@ -12,9 +12,8 @@ import { useEffect, useState, useRef, lazy, Suspense, ComponentType, ReactNode }
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
-import { initUserSession } from "@/lib/offline-db";
+import { initUserSession, clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
-import { clearAllCache } from "@/lib/offline-db";
 import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";

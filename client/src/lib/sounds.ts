@@ -12,10 +12,6 @@ export function isSoundEnabled(): boolean {
   return localStorage.getItem("artix_sounds") !== "0";
 }
 
-export function setSoundEnabled(enabled: boolean) {
-  localStorage.setItem("artix_sounds", enabled ? "1" : "0");
-  window.dispatchEvent(new CustomEvent("artix_sound_change"));
-}
 
 function tone(
   freq: number,

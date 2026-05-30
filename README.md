@@ -1,20 +1,17 @@
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:4F1FBF,50:7C3AED,100:A78BFA&height=200&section=header&text=ArtixPOS&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Business%20OS%20for%20Filipino%20Stores&descAlignY=58&descSize=18&descColor=E9D5FF" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:4F1FBF,50:7C3AED,100:A78BFA&height=200&section=header&text=ArtixPOS&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=The%20POS%20built%20for%20your%20industry&descAlignY=58&descSize=18&descColor=E9D5FF" width="100%" />
 
 <div align="center">
 
-<a href="#"><img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=7C3AED&center=true&vCenter=true&random=false&width=500&height=40&lines=Point+of+Sale+that+works+offline+%F0%9F%9B%92;BIR+Compliant+out+of+the+box+%F0%9F%87%B5%F0%9F%87%AD;AI+assistant+built+right+in+%F0%9F%A4%96;Multi-branch+%26+multi-staff+%F0%9F%8F%A2;Runs+on+Android+%26+iOS+too+%F0%9F%93%B1" alt="Typing SVG" /></a>
+<a href="#"><img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=7C3AED&center=true&vCenter=true&random=false&width=600&height=40&lines=A+POS+that+actually+fits+your+business+%F0%9F%8E%AF;No+demo+call+needed+%E2%80%94+set+up+in+minutes+%E2%9A%A1;Works+offline%2C+on+any+device+%F0%9F%93%B1;AI+assistant+built+right+in+%F0%9F%A4%96;Multi-branch+%26+multi-staff+%F0%9F%8F%A2" alt="Typing SVG" /></a>
 
 <br /><br />
 
 <img src="https://img.shields.io/badge/Offline_Ready-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/Multi--Branch-%E2%9C%93-brightgreen?style=flat-square" />
-<img src="https://img.shields.io/badge/BIR_Compliant-%E2%9C%93-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/Free_to_Start-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/AI_Powered-%E2%9C%93-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/No_Demo_Required-%E2%9C%93-blue?style=flat-square" />
 <img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
-
-<br /><br />
-
-<img src="screenshots/login.jpg" width="900" alt="ArtixPOS" />
 
 </div>
 
@@ -22,9 +19,13 @@
 
 ## What is ArtixPOS?
 
-ArtixPOS is a full-stack POS and business management system built for Filipino stores, restaurants, salons, clinics, pharmacies, hotels, and pretty much any business that needs more than just a cash register.
+Most POS systems are built for a generic "store." ArtixPOS is built for **your specific type of business**.
 
-The goal was simple: one app that handles everything, works without internet, and actually makes sense to use day to day. No more jumping between a POS, a separate inventory tool, a spreadsheet for payroll, and another app for BIR reports.
+A cafe doesn't run like a pharmacy. A salon doesn't run like a hotel. Every industry has its own terminology, its own workflows, and its own pain points — and most POS software ignores that entirely. ArtixPOS doesn't.
+
+Each business type gets its own dedicated module: the right feature set, the right labels, the right defaults. A restaurant sees tables and a kitchen display. A salon sees appointment slots and per-stylist scheduling. A pharmacy sees batch numbers and expiry alerts. Out of the box, with no customization required.
+
+And unlike every other POS at this level, you don't need to book a demo, talk to a sales rep, or wait for an onboarding call. **Sign up, pick your business type, and you're live.** Free.
 
 > Works on the web, installable as a PWA, and wraps into native Android and iOS via Capacitor.
 
@@ -32,6 +33,12 @@ The goal was simple: one app that handles everything, works without internet, an
 
 <table>
   <tr>
+    <td align="center" width="200">
+      <br />🎯<br />
+      <b>Industry-fit</b><br />
+      <sub>Terminology and features per business type</sub>
+      <br /><br />
+    </td>
     <td align="center" width="200">
       <br />⚡<br />
       <b>Fast</b><br />
@@ -50,14 +57,26 @@ The goal was simple: one app that handles everything, works without internet, an
       <sub>All your locations under one account</sub>
       <br /><br />
     </td>
-    <td align="center" width="200">
-      <br />🇵🇭<br />
-      <b>BIR Ready</b><br />
-      <sub>X/Z-Reports, e-Journal, OR Numbers, VAT</sub>
-      <br /><br />
-    </td>
   </tr>
 </table>
+
+<br />
+
+## The core idea — one platform, every industry
+
+Most POS systems make you fit your business into their mold. ArtixPOS works the other way around.
+
+| Business type | What's different |
+|---|---|
+| 🍳 Cafe / Restaurant | Tables, kitchen display, dine-in / takeout / delivery queues |
+| 💇 Salon / Spa | Appointment calendar, per-staff scheduling, service bookings |
+| 💊 Pharmacy | Batch numbers, generic names, expiry date alerts |
+| 🏨 Hotel / Guesthouse | Room availability, occupancy tracking, check-in/out |
+| 🛒 Retail / Grocery | Barcode scanning, variants, bulk inventory management |
+| 🏋️ Gym / Clinic | Memberships, recurring billing, appointment slots |
+| 📡 ISP / Voucher | WiFi voucher generation and management |
+
+Each module uses the correct language for that industry. No renaming workarounds. No shoehorning.
 
 <br />
 
@@ -66,90 +85,62 @@ The goal was simple: one app that handles everything, works without internet, an
 ### 🛒 Point of Sale
 - Touch-friendly register with barcode scanning built in
 - Products support variants, sizes, modifiers, and add-ons
-- Accepts cash, card, GCash, and Maya
-- Auto-generates WiFi voucher codes on receipts
+- Accepts cash, card, and digital wallets
 - Handles dine-in, takeout, and delivery queues
 - Goes fully offline and syncs everything back when you reconnect
+- Auto-generates WiFi voucher codes on receipts
 
 ### 📦 Inventory and Products
 - Full product catalog with categories, SKUs, and barcodes
 - Stock levels update in real time with low-stock alerts
-- Expiry date and batch number tracking for pharmacies and groceries
+- Expiry date and batch number tracking
 - Supplier profiles and Purchase Order tracking
+- Waste log and stock transfer between branches
 
 ### 📊 Analytics and Reports
 - Revenue dashboard broken down by day, week, and month
-- See your top products, category performance, and hourly traffic
-- Shift reports with cash drawer reconciliation built in
-- Expense tracking so you can see actual net profit
-
-### 🇵🇭 BIR Compliance
-
-| Feature | What it does |
-|---|---|
-| X-Reports | Shift-level transaction summary |
-| Z-Reports | End-of-day fiscal report |
-| e-Journal | Electronic journal you can download |
-| VAT Breakdown | VATable, VAT-exempt, and zero-rated sales |
-| Form 2550M | Monthly VAT worksheet ready to print |
-| OR Sequencing | Official receipt numbers that never repeat |
-| SC/PWD Discounts | Senior citizen and PWD exemptions handled automatically |
-| Audit Trail | Every voided transaction is logged and tamper-evident |
+- Top products, category performance, and hourly traffic
+- Shift reports with cash drawer reconciliation
+- Expense tracking for real net profit visibility
+- Export to Excel or PDF anytime
 
 ### 👥 Customers and Loyalty
-- Customer profiles with their full purchase history
+- Customer profiles with full purchase history
 - Loyalty points with birthday bonuses and referral rewards
-- Digital stamp cards (buy 10, get 1 free style)
+- Digital stamp cards
 - Membership and subscription plans
 - Promo codes with usage limits, minimum order rules, and expiry
 
 ### 🏢 Staff and Payroll
-- Staff profiles with role-based access controls
-- Time clock for clock-in and clock-out
-- Payroll that handles hourly, monthly, and commission-based staff
+- Role-based access controls
+- Time clock for clock-in and clock-out (PIN or app)
+- Payroll for hourly, monthly, and commission-based staff
 - Calendar booking system for salons, clinics, and gyms
-- Assign specific staff members to transactions
-
-### 🍽️ Industry Modules
-
-<table>
-  <tr>
-    <th>Module</th>
-    <th>Who it's for</th>
-    <th>What it does</th>
-  </tr>
-  <tr>
-    <td>🍳 Kitchen Display System</td>
-    <td>Restaurants and cafes</td>
-    <td>Live order queue screen for kitchen staff</td>
-  </tr>
-  <tr>
-    <td>🪑 Table and Floor Management</td>
-    <td>Dine-in restaurants and bars</td>
-    <td>Visual floor layout showing table status at a glance</td>
-  </tr>
-  <tr>
-    <td>📅 Appointment Calendar</td>
-    <td>Salons, clinics, spas</td>
-    <td>Booking system with per-staff scheduling</td>
-  </tr>
-  <tr>
-    <td>🛏️ Room Management</td>
-    <td>Hotels and guesthouses</td>
-    <td>Track room availability and occupancy</td>
-  </tr>
-  <tr>
-    <td>💊 Expiry Tracking</td>
-    <td>Pharmacies and groceries</td>
-    <td>Batch numbers, generic names, and expiry alerts</td>
-  </tr>
-</table>
+- Push notifications for staff alerts
 
 ### 🤖 AI Business Assistant
 - Pulls insights from your actual sales data
-- Runs on multiple AI providers with automatic failover if one goes down
-- Falls back to a local AI model when there's no internet at all
-- Floating button keeps it one tap away from any screen
+- Ask in plain language: "What sold most this week?"
+- Runs on multiple AI providers with automatic failover
+- Falls back to a local model when there's no internet
+- One tap away from any screen
+
+### 🔒 Security and Compliance
+- Row-Level Security — tenants are fully isolated at the database level
+- JWT auth with token revocation and brute-force protection
+- Full audit trail — every void, refund, and login is logged and tamper-evident
+- Receipt number sequencing that never repeats
+- VAT computation and tax reporting built in
+
+<br />
+
+## No demo. No sales call. Just sign up.
+
+The usual enterprise POS flow: find a vendor → request a demo → wait a week → sit through a sales call → negotiate pricing → wait for onboarding → go live 6 weeks later.
+
+ArtixPOS flow: go to artixpos.com → pick your business type → you're live.
+
+It's free to start. No credit card. No lock-in.
 
 <br />
 
@@ -213,8 +204,6 @@ The goal was simple: one app that handles everything, works without internet, an
       <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" />
       <img src="https://img.shields.io/badge/VPS_Ready-1C1C1C?style=flat-square&logo=linux&logoColor=white" />
       <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
-      <img src="https://img.shields.io/badge/PM2-2B037A?style=flat-square&logo=pm2&logoColor=white" />
-      <img src="https://img.shields.io/badge/nginx-009639?style=flat-square&logo=nginx&logoColor=white" />
     </td>
   </tr>
 </table>
@@ -223,7 +212,7 @@ The goal was simple: one app that handles everything, works without internet, an
 
 ## How offline works
 
-The app is a PWA so it installs like a native app and keeps working when the internet drops. Sales get written to IndexedDB on the device, a mutation queue tracks everything that happened while offline, and once connectivity comes back it syncs automatically. Nothing gets lost and nobody has to do anything manually.
+The app is a PWA so it installs like a native app and keeps working when the internet drops. Sales get written to IndexedDB on the device, a mutation queue tracks everything that happened offline, and once connectivity comes back it syncs automatically. Nothing gets lost and nobody has to do anything manually.
 
 ```
 Sell while offline   →  Saved to device (IndexedDB)
@@ -238,12 +227,12 @@ AI goes down?        →  Local model picks up the slack
 
 Copyright 2025 ArtixPOS. All rights reserved.
 
-This repo is up for portfolio and demo purposes only. You can look but you can't copy, fork, or use any of this in your own projects without written permission from the author.
+This repo is public for portfolio and reference purposes only. You may not copy, fork, or use any part of this in your own projects without written permission from the author.
 
 <br />
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:4F1FBF,50:7C3AED,100:A78BFA&height=120&section=footer&animation=fadeIn" width="100%" />
 
 <div align="center">
-  <sub>Built for Filipino businesses 🇵🇭</sub>
+  <sub>Built for every business. artixpos.com</sub>
 </div>

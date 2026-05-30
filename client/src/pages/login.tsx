@@ -952,15 +952,15 @@ export default function Login() {
             <span style={{ fontSize: 12, fontWeight: 600, color: NEON, letterSpacing: "0.04em" }}>Full-stack POS · Works offline too</span>
           </div>
           <h1 className="gsap-h-title" style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.02, letterSpacing: "-0.045em", margin: "0 0 22px" }}>
-            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}><span style={{ display: "inline-block" }}>Run your entire</span></div>
+            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}><span style={{ display: "inline-block" }}>Your industry.</span></div>
             <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}>
-              <span style={{ display: "inline-block", background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 35%,#38bdf8 70%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>business</span>{" "}
-              <span style={{ display: "inline-block" }}>from</span>
+              <span style={{ display: "inline-block" }}>Your </span>{" "}
+              <span style={{ display: "inline-block", background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 35%,#38bdf8 70%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>POS.</span>
             </div>
-            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}><span style={{ display: "inline-block" }}>one screen.</span></div>
+            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}><span style={{ display: "inline-block" }}>No demo needed.</span></div>
           </h1>
           <p className="gsap-h-sub" style={{ fontSize: 16.5, lineHeight: 1.75, color: "rgba(255,255,255,0.48)", marginBottom: 38, maxWidth: 440 }}>
-            ArtixPOS is a complete business platform — point of sale, inventory, staff, payroll, analytics, and a built-in AI assistant. Works on any device. Even without internet.
+            ArtixPOS adapts to your business type — cafe, salon, pharmacy, hotel, and more. Each industry gets its own terminology, dedicated features, and tailored workflows. Set up in minutes, free to start. No demo call required.
           </p>
           <div className="gsap-h-ctas" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <button onClick={() => openPanel("register")} className="hero-primary">Start for free →</button>

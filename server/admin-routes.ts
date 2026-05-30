@@ -24,7 +24,7 @@ import {
   productRecipes, purchaseOrderItems, pendingOrders, userBranches,
 } from "@shared/schema";
 import { eq, and, isNull, isNotNull, inArray, sql, desc } from "drizzle-orm";
-import { signToken, AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getBaseUrl, type TokenUser } from "./auth";
+import { signToken, AUTH_COOKIE, AUTH_COOKIE_OPTIONS } from "./auth";
 import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
 export function registerAdminRoutes(app: Express) {

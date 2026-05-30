@@ -15,7 +15,7 @@ import {
   notifications, stockLogs, wasteLog, stockTransfers, stockTransferItems,
   loyaltyTiers, loyaltyRewards, loyaltyPointsLog,
 } from "@shared/schema";
-import { eq, or, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";

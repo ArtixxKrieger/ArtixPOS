@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { users, timeLogs, sales, payrollPeriods, payrollEntries, payrollAuditLog, userBranches, branches } from "@shared/schema";
-import { and, eq, gte, lte, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
+import { and, eq, gte, lte, inArray, isNull, isNotNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth, requireOwner, requireTenant, getAuthUser, getSubscription, isProSubscription } from "./middleware";
 

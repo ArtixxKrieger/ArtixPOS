@@ -20,7 +20,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { db } from "../db";
 import { users, timeLogs, userBranches, revokedTokens } from "@shared/schema";
-import { eq, and, isNull, inArray, sql, or } from "drizzle-orm";
+import { eq, and, isNull, sql, or } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../crypto";
 import jwt from "jsonwebtoken";
 import { AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getJwtSecret } from "../auth";
@@ -45,7 +45,7 @@ function getIp(req: import("express").Request): string {
 // Key: userId, Value: { count, resetAt }
 const pinAttempts = new Map<string, { count: number; resetAt: number }>();
 
-function getPinAttempts(userId: string): number {
+function _getPinAttempts(userId: string): number {
   const entry = pinAttempts.get(userId);
   if (!entry) return 0;
   if (Date.now() > entry.resetAt) { pinAttempts.delete(userId); return 0; }

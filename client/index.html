@@ -3,17 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>ArtixPOS</title>
+    <title>ArtixPOS — Philippine POS &amp; Business Management Software</title>
     <meta name="theme-color" content="#7c3aed" />
-    <meta name="description" content="ArtixPOS — BIR-compliant Philippine POS system with real-time sales, inventory, analytics, and payroll management." />
-    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="ArtixPOS is a BIR-compliant Philippine POS system. Manage sales, inventory, payroll, appointments, and more — with a built-in AI assistant. Works offline." />
     <meta name="google" content="notranslate" />
+    <link rel="canonical" href="https://artixpos.com/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="ArtixPOS" />
-    <meta property="og:description" content="BIR-compliant Philippine POS system with real-time sales, inventory, analytics, and payroll management." />
-    <meta property="og:image" content="/logo192.png" />
+    <meta property="og:site_name" content="ArtixPOS" />
+    <meta property="og:locale" content="en_PH" />
+    <meta property="og:url" content="https://artixpos.com/" />
+    <meta property="og:title" content="ArtixPOS — Philippine POS &amp; Business Management Software" />
+    <meta property="og:description" content="BIR-compliant Philippine POS system. Manage sales, inventory, payroll, appointments, and more — with a built-in AI assistant. Works offline." />
+    <meta property="og:image" content="https://artixpos.com/logo192.png" />
+    <meta property="og:image:width" content="192" />
+    <meta property="og:image:height" content="192" />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@artixpos" />
+    <meta name="twitter:title" content="ArtixPOS — Philippine POS &amp; Business Management Software" />
+    <meta name="twitter:description" content="BIR-compliant Philippine POS system. Manage sales, inventory, payroll, appointments, and more — with a built-in AI assistant. Works offline." />
+    <meta name="twitter:image" content="https://artixpos.com/logo192.png" />
 
     <!-- PWA / iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -24,12 +36,12 @@
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- DNS prefetch for external resources -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <!-- Async (non-render-blocking) font loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" /></noscript>
 
     <style>
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -144,6 +156,49 @@
         font-family:monospace;padding:24px;z-index:99999;
       }
     </style>
+
+    <!-- Structured data — WebSite + Organization (Google Knowledge Graph) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://artixpos.com/#website",
+          "url": "https://artixpos.com/",
+          "name": "ArtixPOS",
+          "description": "BIR-compliant Philippine POS and business management software.",
+          "inLanguage": "en-PH"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://artixpos.com/#organization",
+          "name": "ArtixPOS",
+          "url": "https://artixpos.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://artixpos.com/logo192.png",
+            "width": 192,
+            "height": 192
+          },
+          "sameAs": []
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://artixpos.com/#app",
+          "name": "ArtixPOS",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web, Android, iOS",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "PHP"
+          },
+          "description": "BIR-compliant Philippine POS system with sales, inventory, payroll, appointments, and AI assistant."
+        }
+      ]
+    }
+    </script>
 
     <script>window.__splashStart = Date.now();</script>
     <script>

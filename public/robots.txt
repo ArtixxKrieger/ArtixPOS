@@ -1,0 +1,46 @@
+User-agent: *
+Allow: /
+
+# App pages require authentication — no useful content for crawlers
+Disallow: /pos
+Disallow: /products
+Disallow: /customers
+Disallow: /transactions
+Disallow: /analytics
+Disallow: /expenses
+Disallow: /staff
+Disallow: /payroll
+Disallow: /inventory
+Disallow: /appointments
+Disallow: /memberships
+Disallow: /loyalty
+Disallow: /tables
+Disallow: /rooms
+Disallow: /kitchen
+Disallow: /bir
+Disallow: /timeclock
+Disallow: /shifts
+Disallow: /reports
+Disallow: /settings
+Disallow: /billing
+Disallow: /admin
+Disallow: /wifi-vouchers
+Disallow: /purchases
+Disallow: /refunds
+Disallow: /discount-codes
+Disallow: /api/
+
+# AI training crawlers
+User-agent: GPTBot
+Disallow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+Sitemap: https://artixpos.com/sitemap.xml

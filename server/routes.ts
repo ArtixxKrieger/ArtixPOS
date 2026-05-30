@@ -33,6 +33,7 @@ import { registerCustomerRoutes } from "./routes/customers";
 import { registerExpenseRoutes } from "./routes/expenses";
 import { registerShiftRoutes } from "./routes/shifts";
 import { registerBirRoutes } from "./routes/bir";
+import { registerSeoRoutes } from "./routes/seo";
 import { registerDiscountCodeRoutes } from "./routes/discount-codes";
 import { registerRefundRoutes } from "./routes/refunds";
 import { registerTableRoutes } from "./routes/tables";
@@ -110,6 +111,7 @@ export async function registerRoutes(
   registerExpenseRoutes(app);
   registerShiftRoutes(app);
   registerBirRoutes(app);
+  registerSeoRoutes(app);
   registerDiscountCodeRoutes(app);
   registerRefundRoutes(app);
   registerTableRoutes(app);

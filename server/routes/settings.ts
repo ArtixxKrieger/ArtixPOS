@@ -23,8 +23,7 @@ export function registerSettingsRoutes(app: Express): void {
     // Settings can be null pre-onboarding, so we use a sentinel to distinguish
     // "not cached" from "cached but null". A null result is NOT cached so the
     // next request re-checks after the user completes onboarding.
-    const l1 = cache.get<object>(cacheKey);
-    const cached = l1;
+    const cached = await cache.getAsync<object>(cacheKey);
     if (cached) {
       const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
@@ -57,7 +56,7 @@ export function registerSettingsRoutes(app: Express): void {
     if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
       storage.updateSettings(uid, { onboardingComplete: 1 }).catch(() => {});
       const healed = { ...settings, onboardingComplete: 1 };
-      cache.set(cacheKey, healed, TTL.SETTINGS);
+      await cache.setAsync(cacheKey, healed, TTL.SETTINGS);
       res.setHeader("Cache-Control", "no-store");
       return res.json(healed);
     }
@@ -85,7 +84,7 @@ export function registerSettingsRoutes(app: Express): void {
       }
     }
 
-    cache.set(cacheKey, settings, TTL.SETTINGS);
+    await cache.setAsync(cacheKey, settings, TTL.SETTINGS);
     res.setHeader("Cache-Control", "no-store");
     res.json(settings);
   });

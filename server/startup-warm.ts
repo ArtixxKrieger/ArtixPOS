@@ -46,13 +46,13 @@ export async function warmCache(): Promise<void> {
           ]);
 
           if (products.status === "fulfilled")
-            cache.set(productsCacheKey(uid), products.value, TTL.PRODUCTS);
+            await cache.setAsync(productsCacheKey(uid), products.value, TTL.PRODUCTS);
 
           if (settings.status === "fulfilled" && settings.value)
-            cache.set(settingsCacheKey(uid), settings.value, TTL.SETTINGS);
+            await cache.setAsync(settingsCacheKey(uid), settings.value, TTL.SETTINGS);
 
           if (customers.status === "fulfilled")
-            cache.set(customersCacheKey(uid), customers.value, 60_000);
+            await cache.setAsync(customersCacheKey(uid), customers.value, 60_000);
         } catch {
           // Per-user errors are silently swallowed — don't abort other users.
         }

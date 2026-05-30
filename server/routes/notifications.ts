@@ -10,10 +10,7 @@ export function registerNotificationRoutes(app: Express): void {
   app.get("/api/notifications", requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const ck = notificationsCacheKey(uid);
-    const cached = cache.get<object[]>(ck);
-    if (cached) return res.json(cached);
-    const list = await storage.getNotifications(uid);
-    cache.set(ck, list, 30_000); // 30 s — notifications are near-real-time
+    const list = await cache.getOrFetch(ck, () => storage.getNotifications(uid), 30_000);
     res.json(list);
   });
 

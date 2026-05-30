@@ -18,7 +18,7 @@ export function registerDashboardRoutes(app: Express): void {
 
     // Cache for 30 s — stats are approximate by nature; a short TTL is fine.
     const cacheKey = dashboardCacheKey(uid, bid);
-    const cached = cache.get<object>(cacheKey);
+    const cached = await cache.getAsync<object>(cacheKey);
     if (cached) {
       res.setHeader("Cache-Control", "no-store");
       return res.json(cached);
@@ -70,7 +70,7 @@ export function registerDashboardRoutes(app: Express): void {
       },
     };
 
-    cache.set(cacheKey, payload, 30_000);
+    await cache.setAsync(cacheKey, payload, 30_000);
     res.setHeader("Cache-Control", "private, max-age=30");
     res.json(payload);
   });

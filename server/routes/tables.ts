@@ -11,10 +11,7 @@ export function registerTableRoutes(app: Express): void {
   app.get("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     const uid = getUserId(req);
     const ck = tablesCacheKey(uid);
-    const cached = cache.get<object[]>(ck);
-    if (cached) return res.json(cached);
-    const list = await storage.getTables(uid);
-    cache.set(ck, list, 120_000); // 2 min — table config rarely changes during service
+    const list = await cache.getOrFetch(ck, () => storage.getTables(uid), 120_000);
     res.json(list);
   });
 

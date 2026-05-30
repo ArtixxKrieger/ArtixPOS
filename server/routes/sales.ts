@@ -22,17 +22,14 @@ export function registerSaleRoutes(app: Express): void {
     const bid = getActiveBranchId(req);
     const tag = `${limit || ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${includeVoided || ""}`;
     const ck = salesCacheKey(uid, bid, tag);
-    const cached = cache.get<object[]>(ck);
-    if (cached) return res.json(cached);
-    const salesList = await storage.getSales(uid, {
+    const salesList = await cache.getOrFetch(ck, () => storage.getSales(uid, {
       branchId: bid ?? undefined,
       limit: Math.min(Number(limit) || 200, 1000),
       offset: Math.max(Number(offset) || 0, 0),
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       includeVoided: includeVoided === "1",
-    });
-    cache.set(ck, salesList, 15_000); // 15 s — short TTL; invalidated on create/void
+    }), 15_000);
     res.json(salesList);
   });
 

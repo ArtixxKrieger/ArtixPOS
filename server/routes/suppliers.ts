@@ -11,10 +11,7 @@ export function registerSupplierRoutes(app: Express): void {
   app.get("/api/suppliers", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const ck = suppliersCacheKey(uid);
-    const cached = cache.get<object[]>(ck);
-    if (cached) return res.json(cached);
-    const list = await storage.getSuppliers(uid);
-    cache.set(ck, list, 120_000); // 2 min — suppliers change rarely
+    const list = await cache.getOrFetch(ck, () => storage.getSuppliers(uid), 120_000);
     res.json(list);
   });
 

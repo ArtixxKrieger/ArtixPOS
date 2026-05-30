@@ -5,6 +5,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { NATIVE_TOKEN_KEY, apiRequest, setNativeToken, queryClient, resolveUrl, getCsrfHeaders } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -94,6 +97,136 @@ function useCountUp(target: number, visible: boolean, duration = 1200) {
 
 // ── Card tilt removed for performance on low-end devices ─────────────────────
 function useCardTilt() { /* noop */ }
+
+// ── GSAP landing animations ───────────────────────────────────────────────────
+function useLandingAnimations(
+  lpScrollRef: React.RefObject<HTMLDivElement | null>,
+  dashWrapRef: React.RefObject<HTMLDivElement | null>
+) {
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const scroller = lpScrollRef.current;
+    if (!scroller || reduced) return;
+
+    const extraCleanup: Array<() => void> = [];
+
+    const ctx = gsap.context(() => {
+      // ── Hero entrance ──────────────────────────────────────────────
+      gsap.set(".gsap-h-badge",     { opacity: 0, y: 18, scale: 0.88 });
+      gsap.set(".gsap-h-line > *",  { y: "108%", opacity: 0 });
+      gsap.set(".gsap-h-sub",       { opacity: 0, y: 28, filter: "blur(8px)" });
+      gsap.set(".gsap-h-ctas",      { opacity: 0, y: 20, scale: 0.95 });
+      gsap.set(".gsap-h-trust > *", { opacity: 0, y: 12 });
+      gsap.set(".gsap-h-dash",      { opacity: 0, x: 55, rotateY: -14, scale: 0.94, transformPerspective: 900 });
+
+      gsap.timeline({ defaults: { ease: "expo.out" }, delay: 0.05 })
+        .to(".gsap-h-badge",     { opacity: 1, y: 0, scale: 1, duration: 0.75, ease: "back.out(2.2)" })
+        .to(".gsap-h-line > *",  { y: "0%", opacity: 1, stagger: 0.11, duration: 0.78, ease: "back.out(1.5)" }, 0.2)
+        .to(".gsap-h-sub",       { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.85 }, 0.55)
+        .to(".gsap-h-ctas",      { opacity: 1, y: 0, scale: 1, duration: 0.72, ease: "back.out(1.5)" }, 0.62)
+        .to(".gsap-h-trust > *", { opacity: 1, y: 0, stagger: 0.09, duration: 0.6, ease: "back.out(1.8)" }, 0.7)
+        .to(".gsap-h-dash",      { opacity: 1, x: 0, rotateY: 0, scale: 1, duration: 1.2, ease: "expo.out" }, 0.3);
+
+      // ── Dashboard 3D mouse tilt ────────────────────────────────────
+      const dashWrap = dashWrapRef.current;
+      const dashCard = dashWrap?.querySelector<HTMLElement>(".gsap-dash-card");
+      if (dashWrap && dashCard) {
+        const onMove = (e: MouseEvent) => {
+          const r = dashWrap.getBoundingClientRect();
+          const nx = (e.clientX - r.left) / r.width - 0.5;
+          const ny = (e.clientY - r.top) / r.height - 0.5;
+          gsap.to(dashCard, { rotateY: nx * 20, rotateX: -ny * 14, duration: 0.5, ease: "power2.out", transformPerspective: 900 });
+          gsap.to(".gsap-d-l1", { x: nx * -10, y: ny * -7,  duration: 0.5, ease: "power2.out" });
+          gsap.to(".gsap-d-l2", { x: nx * -18, y: ny * -12, duration: 0.5, ease: "power2.out" });
+          gsap.to(".gsap-d-l3", { x: nx * -26, y: ny * -16, duration: 0.5, ease: "power2.out" });
+        };
+        const onLeave = () => {
+          gsap.to(dashCard, { rotateX: 0, rotateY: 0, duration: 1.0, ease: "elastic.out(1,0.45)" });
+          gsap.to([".gsap-d-l1", ".gsap-d-l2", ".gsap-d-l3"], { x: 0, y: 0, duration: 1.0, ease: "elastic.out(1,0.45)" });
+        };
+        dashWrap.addEventListener("mousemove", onMove);
+        dashWrap.addEventListener("mouseleave", onLeave);
+        extraCleanup.push(() => {
+          dashWrap.removeEventListener("mousemove", onMove);
+          dashWrap.removeEventListener("mouseleave", onLeave);
+        });
+      }
+
+      // ── Magnetic CTA buttons ───────────────────────────────────────
+      const addMagnetic = (selector: string) => {
+        const btn = scroller.querySelector<HTMLElement>(selector);
+        if (!btn) return;
+        const onMove = (e: MouseEvent) => {
+          const r = btn.getBoundingClientRect();
+          gsap.to(btn, { x: (e.clientX - r.left - r.width / 2) * 0.27, y: (e.clientY - r.top - r.height / 2) * 0.27, duration: 0.35, ease: "power2.out" });
+        };
+        const onLeave = () => gsap.to(btn, { x: 0, y: 0, duration: 0.65, ease: "elastic.out(1,0.45)" });
+        btn.addEventListener("mousemove", onMove);
+        btn.addEventListener("mouseleave", onLeave);
+        extraCleanup.push(() => { btn.removeEventListener("mousemove", onMove); btn.removeEventListener("mouseleave", onLeave); });
+      };
+      addMagnetic(".hero-primary");
+      addMagnetic(".cta-primary");
+
+      // ── How-it-works line draw ─────────────────────────────────────
+      const hiwLine = scroller.querySelector<HTMLElement>(".gsap-hiw-line");
+      if (hiwLine) {
+        gsap.set(hiwLine, { scaleX: 0, transformOrigin: "left center" });
+        ScrollTrigger.create({
+          trigger: hiwLine, start: "top 82%", scroller,
+          onEnter: () => gsap.to(hiwLine, { scaleX: 1, duration: 1.1, ease: "power3.inOut" }),
+          once: true,
+        });
+      }
+
+      // ── Step circles spring in ─────────────────────────────────────
+      gsap.utils.toArray<HTMLElement>(".lp-step-circle").forEach((el, i) => {
+        gsap.set(el, { scale: 0, rotation: -15 });
+        ScrollTrigger.create({
+          trigger: el, start: "top 88%", scroller,
+          onEnter: () => gsap.to(el, { scale: 1, rotation: 0, duration: 0.7, delay: i * 0.11, ease: "back.out(2.3)" }),
+          once: true,
+        });
+      });
+
+      // ── Security cards perspective reveal ──────────────────────────
+      const secPink = scroller.querySelector<HTMLElement>(".sec-card-pink");
+      const secBlue = scroller.querySelector<HTMLElement>(".sec-card-blue");
+      if (secPink) {
+        gsap.set(secPink, { x: -60, rotateY: 15, transformPerspective: 900 });
+        ScrollTrigger.create({
+          trigger: secPink, start: "top 82%", scroller,
+          onEnter: () => gsap.to(secPink, { x: 0, rotateY: 0, duration: 1.0, ease: "expo.out" }),
+          once: true,
+        });
+      }
+      if (secBlue) {
+        gsap.set(secBlue, { x: 60, rotateY: -15, transformPerspective: 900 });
+        ScrollTrigger.create({
+          trigger: secBlue, start: "top 82%", scroller,
+          onEnter: () => gsap.to(secBlue, { x: 0, rotateY: 0, duration: 1.0, delay: 0.12, ease: "expo.out" }),
+          once: true,
+        });
+      }
+
+      // ── Pricing cards pop in ───────────────────────────────────────
+      gsap.utils.toArray<HTMLElement>(".price-card").forEach((el, i) => {
+        gsap.set(el, { y: 40, scale: 0.94 });
+        ScrollTrigger.create({
+          trigger: el, start: "top 86%", scroller,
+          onEnter: () => gsap.to(el, { y: 0, scale: 1, duration: 0.85, delay: i * 0.12, ease: "back.out(1.4)" }),
+          once: true,
+        });
+      });
+    });
+
+    return () => {
+      ctx.revert();
+      ScrollTrigger.getAll().forEach(t => t.kill());
+      extraCleanup.forEach(fn => fn());
+    };
+  }, []);
+}
 
 export default function Login() {
   const { t } = useTranslation();
@@ -250,9 +383,12 @@ export default function Login() {
     }
   }, [showLoginPanel]);
 
-  // Scroll reveal + card tilt
+  const dashWrapRef = useRef<HTMLDivElement>(null);
+
+  // Scroll reveal + card tilt + GSAP animations
   useScrollReveal();
   useCardTilt();
+  useLandingAnimations(lpScrollRef, dashWrapRef);
 
   // Stats visibility observer
   useEffect(() => {
@@ -740,7 +876,7 @@ export default function Login() {
   // ─────────────────────────────────────────────────────────────────────────
   const bars = [40,65,50,80,55,92,68,78,50,100,72,88];
   const dashMockup = (
-    <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(10,18,32,0.96)", boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(20,184,232,0.07)", backdropFilter: "blur(20px)" }}>
+    <div className="gsap-dash-card" style={{ borderRadius: 18, overflow: "hidden", border: "1px solid rgba(20,184,232,0.22)", background: "rgba(10,18,32,0.96)", boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(20,184,232,0.07)", backdropFilter: "blur(20px)", transformStyle: "preserve-3d", willChange: "transform" }}>
       <div style={{ padding: "10px 16px", background: "rgba(20,184,232,0.06)", borderBottom: "1px solid rgba(20,184,232,0.10)", display: "flex", alignItems: "center", gap: 6 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(239,68,68,0.55)" }} />
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(251,191,36,0.55)" }} />
@@ -749,7 +885,7 @@ export default function Login() {
         <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>Dashboard · ArtixPOS</span>
       </div>
       <div style={{ padding: "16px 18px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
+        <div className="gsap-d-l1" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
           {[{ l: "Today's Sales", v: "₱ 24,850", d: "+12%", c: NEON }, { l: "Orders", v: "137", d: "+8%", c: "#34d399" }, { l: "Active Staff", v: "9 / 12", d: "3 available", c: "#a78bfa" }].map((s, i) => (
             <div key={i} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", transition: "background 0.2s" }}>
               <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.l}</div>
@@ -758,12 +894,12 @@ export default function Login() {
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 34, marginBottom: 12 }}>
+        <div className="gsap-d-l2" style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 34, marginBottom: 12 }}>
           {bars.map((h, i) => (
             <div key={i} className="dash-bar" style={{ flex: 1, borderRadius: 3, height: `${h}%`, background: `rgba(20,184,232,${0.15 + (h / 100) * 0.55})` }} />
           ))}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <div className="gsap-d-l3" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {[{ l: "POS", v: "Live", c: NEON }, { l: "Offline", v: "Ready", c: "#34d399" }, { l: "AI", v: "Active", c: "#a78bfa" }, { l: "2 Branches", v: "Synced", c: "#f59e0b" }].map((p, i) => (
             <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", transition: "background 0.2s" }}>
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: p.c, boxShadow: `0 0 6px ${p.c}` }} />
@@ -811,21 +947,25 @@ export default function Login() {
       {/* ── HERO ── */}
       <section style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "100px 32px 88px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
         <div>
-          <div className="sr sr-left" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 13px", borderRadius: 20, background: "rgba(20,184,232,0.10)", border: "1px solid rgba(20,184,232,0.22)", marginBottom: 26 }}>
+          <div className="gsap-h-badge" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 13px", borderRadius: 20, background: "rgba(20,184,232,0.10)", border: "1px solid rgba(20,184,232,0.22)", marginBottom: 26 }}>
             <div className="pdot" style={{ width: 6, height: 6, borderRadius: "50%", background: NEON, boxShadow: `0 0 8px ${NEON}` }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: NEON, letterSpacing: "0.04em" }}>Full-stack POS · Works offline too</span>
           </div>
-          <h1 className="sr sr-left sr-d1" style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.02, letterSpacing: "-0.045em", margin: "0 0 22px" }}>
-            Run your entire<br />
-            <span style={{ background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 35%,#38bdf8 70%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>business</span>{" "}from<br />one screen.
+          <h1 className="gsap-h-title" style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.02, letterSpacing: "-0.045em", margin: "0 0 22px" }}>
+            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}><span style={{ display: "inline-block" }}>Run your entire</span></div>
+            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}>
+              <span style={{ display: "inline-block", background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 35%,#38bdf8 70%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>business</span>{" "}
+              <span style={{ display: "inline-block" }}>from</span>
+            </div>
+            <div className="gsap-h-line" style={{ display: "block", overflow: "hidden", lineHeight: 1.1 }}><span style={{ display: "inline-block" }}>one screen.</span></div>
           </h1>
-          <p className="sr sr-left sr-d2" style={{ fontSize: 16.5, lineHeight: 1.75, color: "rgba(255,255,255,0.48)", marginBottom: 38, maxWidth: 440 }}>
+          <p className="gsap-h-sub" style={{ fontSize: 16.5, lineHeight: 1.75, color: "rgba(255,255,255,0.48)", marginBottom: 38, maxWidth: 440 }}>
             ArtixPOS is a complete business platform — point of sale, inventory, staff, payroll, analytics, and a built-in AI assistant. Works on any device. Even without internet.
           </p>
-          <div className="sr sr-left sr-d3" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <div className="gsap-h-ctas" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <button onClick={() => openPanel("register")} className="hero-primary">Start for free →</button>
           </div>
-          <div className="sr sr-left sr-d4" style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 30 }}>
+          <div className="gsap-h-trust" style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 30 }}>
             {["No credit card required", "Free to start", "Works offline"].map((txt, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}><path d="M2 6.5l3 3 6-6" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -834,7 +974,7 @@ export default function Login() {
             ))}
           </div>
         </div>
-        <div className="sr sr-right sr-d1 float-mockup" style={{ position: "relative" }}>
+        <div ref={dashWrapRef} className="gsap-h-dash float-mockup" style={{ position: "relative", perspective: 900 }}>
           <div style={{ position: "absolute", inset: -60, background: "radial-gradient(ellipse at center, rgba(20,184,232,0.12) 0%, transparent 65%)", pointerEvents: "none" }} />
           {dashMockup}
         </div>
@@ -1023,7 +1163,7 @@ export default function Login() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, position: "relative" }}>
-            <div style={{ position: "absolute", top: 32, left: "12.5%", right: "12.5%", height: 1, background: "linear-gradient(90deg, transparent, rgba(20,184,232,0.20), rgba(20,184,232,0.20), transparent)", zIndex: 0 }} />
+            <div className="gsap-hiw-line" style={{ position: "absolute", top: 32, left: "12.5%", right: "12.5%", height: 1, background: "linear-gradient(90deg, transparent, rgba(20,184,232,0.20), rgba(20,184,232,0.20), transparent)", zIndex: 0 }} />
             {[
               { step: "01", svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>, title: "Create your account", body: "Sign up free in 2 minutes. No credit card, no setup fee, no expiry on the free plan.", color: BLUE },
               { step: "02", svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>, title: "Add your products", body: "Enter products manually or import a list. Set prices, categories, and stock levels.", color: "#34d399" },

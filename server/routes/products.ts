@@ -85,10 +85,16 @@ export function registerProductRoutes(app: Express): void {
       });
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
+      const existing = await storage.getProduct(Number(req.params.id), uid);
       const product = await storage.updateProduct(Number(req.params.id), uid, input);
       if (!product) return res.status(404).json({ message: "Product not found" });
       cache.del(productsCacheKey(uid));
-      await auditLog(req, "update", "product", String(product.id), { name: product.name });
+      const auditMeta: Record<string, unknown> = { name: product.name };
+      if (existing && input.price !== undefined && existing.price !== product.price) {
+        auditMeta.oldPrice = existing.price;
+        auditMeta.newPrice = product.price;
+      }
+      await auditLog(req, "update", "product", String(product.id), auditMeta);
       res.json(product);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;
@@ -111,9 +117,13 @@ export function registerProductRoutes(app: Express): void {
     try {
       const { delta } = z.object({ delta: z.number() }).parse(req.body);
       const uid = getUserId(req);
+      const before = await storage.getProduct(Number(req.params.id), uid);
       const product = await storage.adjustStock(Number(req.params.id), uid, delta);
       if (!product) return res.status(404).json({ message: "Product not found" });
       cache.del(productsCacheKey(uid));
+      await auditLog(req, "stock_adjust", "product", String(product.id), {
+        name: product.name, delta, fromStock: before?.stock ?? null, toStock: product.stock,
+      });
       res.json(product);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;
@@ -125,9 +135,13 @@ export function registerProductRoutes(app: Express): void {
     try {
       const { stock } = z.object({ stock: z.number().int().min(0) }).parse(req.body);
       const uid = getUserId(req);
+      const before = await storage.getProduct(Number(req.params.id), uid);
       const product = await storage.setStock(Number(req.params.id), uid, stock);
       if (!product) return res.status(404).json({ message: "Product not found" });
       cache.del(productsCacheKey(uid));
+      await auditLog(req, "stock_set", "product", String(product.id), {
+        name: product.name, fromStock: before?.stock ?? null, toStock: product.stock,
+      });
       res.json(product);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;

@@ -5,7 +5,7 @@ import { requireAuth, requirePro } from "../middleware";
 import { insertShiftSchema, closeShiftSchema, shifts as shiftsTable } from "@shared/schema";
 import { db } from "../db";
 import { and, eq } from "drizzle-orm";
-import { getUserId, handleZodError } from "../lib/route-utils";
+import { getUserId, handleZodError, auditLog } from "../lib/route-utils";
 
 // ── Helper: OR number min/max using numeric ordering ─────────────────────────
 // Avoids lexicographic bugs where "9" > "100".
@@ -49,6 +49,9 @@ export function registerShiftRoutes(app: Express): void {
       const existing = await storage.getOpenShift(uid);
       if (existing) return res.status(409).json({ message: "A shift is already open" });
       const shift = await storage.openShift(uid, openingBalance, notes ?? undefined, denominationOpen ?? undefined);
+      await auditLog(req, "shift_open", "shift", String(shift.id), {
+        openingBalance, notes: notes ?? null,
+      });
       res.status(201).json(shift);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;
@@ -144,6 +147,9 @@ export function registerShiftRoutes(app: Express): void {
         variance ?? undefined,
       );
       if (!shift) return res.status(404).json({ message: "Shift not found" });
+      await auditLog(req, "shift_close", "shift", String(shift.id), {
+        closingBalance, variance: variance ?? null, notes: notes ?? null,
+      });
       res.json(shift);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;
@@ -160,6 +166,7 @@ export function registerShiftRoutes(app: Express): void {
       }).parse(req.body);
       const shift = await storage.addCashAdjustment(Number(req.params.id), getUserId(req), type, amount, reason);
       if (!shift) return res.status(404).json({ message: "Shift not found or not open" });
+      await auditLog(req, "cash_adjustment", "shift", String(shift.id), { type, amount, reason });
       res.json(shift);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;

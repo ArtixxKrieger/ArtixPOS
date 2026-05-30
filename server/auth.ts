@@ -931,6 +931,7 @@ export function setupAuth(app: Express) {
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
         recordFailedAttempt(ip);
+        logAuthEvent({ userId: user.id, tenantId: user.tenantId ?? null, action: "login_failed", metadata: { ip, reason: "invalid_password" } });
         return res.status(401).json({ message: "Invalid email or password." });
       }
 

@@ -5,7 +5,7 @@ import {
   ScrollText, UserPlus, Pencil, Trash2, LogIn, GitBranch,
   Filter, X, Download, ShoppingCart, Package, Users,
   Settings, Tag, DollarSign, FileText, FileSpreadsheet,
-  Zap, CheckCircle2, Lock, Banknote,
+  Zap, CheckCircle2, Lock, Banknote, Clock, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,27 +35,34 @@ type SelectedEntry =
   | { _type: "general"; log: AuditLog }
   | { _type: "payroll"; log: PayrollEntry };
 
-type Source = "all" | "activity" | "payroll";
+type Source = "all" | "activity" | "payroll" | "risk";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const ACTION_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {
-  create:             { label: "Created",     bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: UserPlus },
-  update:             { label: "Updated",     bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Pencil },
-  delete:             { label: "Deleted",     bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: Trash2 },
-  delete_sale:        { label: "Sale Deleted",bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: Trash2 },
-  login:              { label: "Login",       bg: "bg-purple-500/10",  text: "text-purple-600 dark:text-purple-400",   icon: LogIn },
-  assign_branch:      { label: "Assigned",    bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",     icon: GitBranch },
-  remove_branch:      { label: "Unassigned",  bg: "bg-secondary",      text: "text-muted-foreground",                  icon: GitBranch },
-  update_role:        { label: "Role Changed",bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Pencil },
-  create_invite:      { label: "Invite Sent", bg: "bg-indigo-500/10",  text: "text-indigo-600 dark:text-indigo-400",   icon: UserPlus },
-  update_permissions: { label: "Permissions", bg: "bg-violet-500/10",  text: "text-violet-600 dark:text-violet-400",   icon: Settings },
-  receive:            { label: "Received",    bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: Package },
-  ban:                { label: "Banned",      bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: X },
-  unban:              { label: "Restored",    bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: UserPlus },
-  set_main:           { label: "Set Main",    bg: "bg-secondary",      text: "text-muted-foreground",                  icon: GitBranch },
-  cancel:             { label: "Cancelled",   bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: X },
-  update_payment:     { label: "Payment Upd", bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Pencil },
+  create:             { label: "Created",      bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: UserPlus },
+  update:             { label: "Updated",      bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Pencil },
+  delete:             { label: "Deleted",      bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: Trash2 },
+  delete_sale:        { label: "Sale Deleted", bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: Trash2 },
+  void:               { label: "Voided",       bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: X },
+  login:              { label: "Login",        bg: "bg-purple-500/10",  text: "text-purple-600 dark:text-purple-400",   icon: LogIn },
+  login_failed:       { label: "Login Failed", bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: LogIn },
+  assign_branch:      { label: "Assigned",     bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",     icon: GitBranch },
+  remove_branch:      { label: "Unassigned",   bg: "bg-secondary",      text: "text-muted-foreground",                  icon: GitBranch },
+  update_role:        { label: "Role Changed", bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Pencil },
+  create_invite:      { label: "Invite Sent",  bg: "bg-indigo-500/10",  text: "text-indigo-600 dark:text-indigo-400",   icon: UserPlus },
+  update_permissions: { label: "Permissions",  bg: "bg-violet-500/10",  text: "text-violet-600 dark:text-violet-400",   icon: Settings },
+  receive:            { label: "Received",     bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: Package },
+  ban:                { label: "Banned",       bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: X },
+  unban:              { label: "Restored",     bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: UserPlus },
+  set_main:           { label: "Set Main",     bg: "bg-secondary",      text: "text-muted-foreground",                  icon: GitBranch },
+  cancel:             { label: "Cancelled",    bg: "bg-rose-500/10",    text: "text-rose-600 dark:text-rose-400",       icon: X },
+  update_payment:     { label: "Payment Upd",  bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Pencil },
+  stock_adjust:       { label: "Stock Change", bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",     icon: Package },
+  stock_set:          { label: "Stock Set",    bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",     icon: Package },
+  shift_open:         { label: "Shift Open",   bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: Clock },
+  shift_close:        { label: "Shift Close",  bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Clock },
+  cash_adjustment:    { label: "Cash Adjust",  bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",     icon: DollarSign },
 };
 
 const PAYROLL_ACTION_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {
@@ -79,9 +86,10 @@ const ENTITY_ICONS: Record<string, any> = {
 
 const ENTITY_OPTIONS = [
   { value: "", label: "All Types" },
-  { value: "product", label: "Products" },
-  { value: "customer", label: "Customers" },
   { value: "sale", label: "Sales" },
+  { value: "product", label: "Products" },
+  { value: "shift", label: "Shifts" },
+  { value: "customer", label: "Customers" },
   { value: "refund", label: "Refunds" },
   { value: "expense", label: "Expenses" },
   { value: "discount_code", label: "Discount Codes" },
@@ -89,7 +97,21 @@ const ENTITY_OPTIONS = [
   { value: "purchase_order", label: "Purchase Orders" },
   { value: "user", label: "Team / Users" },
   { value: "branch", label: "Branches" },
+  { value: "auth", label: "Login / Auth" },
 ];
+
+const RISK_ACTIONS = new Set([
+  "delete", "delete_sale", "void", "stock_adjust", "stock_set",
+  "cash_adjustment", "login_failed", "ban",
+]);
+function isRiskEntry(e: { _type: "general"; log: AuditLog } | { _type: "payroll"; log: PayrollEntry }): boolean {
+  if (e._type === "general") {
+    if (RISK_ACTIONS.has(e.log.action)) return true;
+    if (e.log.action === "create" && e.log.entity === "refund") return true;
+    return false;
+  }
+  return e.log.action === "delete";
+}
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -137,8 +159,36 @@ function describeEvent(action: string, entity: string, metadata: Record<string, 
   if (action === "ban") return `Revoked access for a user`;
   if (action === "unban") return `Restored access for a user`;
   if (action === "create" && entity === "product") return `Added product "${meta.name}"`;
-  if (action === "update" && entity === "product") return `Updated product "${meta.name}"`;
+  if (action === "update" && entity === "product") {
+    if (meta.oldPrice !== undefined && meta.newPrice !== undefined)
+      return `Changed price of "${meta.name}": ${meta.oldPrice} → ${meta.newPrice}`;
+    return `Updated product "${meta.name}"`;
+  }
+  if (action === "stock_adjust" && entity === "product") {
+    const dir = Number(meta.delta) >= 0 ? `+${meta.delta}` : String(meta.delta);
+    return `Stock adjusted: "${meta.name}" ${dir} units (${meta.fromStock ?? "?"} → ${meta.toStock ?? "?"})`;
+  }
+  if (action === "stock_set" && entity === "product") {
+    return `Stock count set: "${meta.name}" to ${meta.toStock} units (was ${meta.fromStock ?? "?"})`;
+  }
   if (action === "delete" && entity === "product") return `Deleted product "${meta.name ?? ""}"`;
+  if (action === "void" && entity === "sale") {
+    const reason = meta.voidReason ? ` — Reason: ${meta.voidReason}` : "";
+    return `Voided a sale${reason}`;
+  }
+  if (action === "shift_open" && entity === "shift") {
+    return `Opened shift with ₱${meta.openingBalance ?? "?"} opening balance${meta.notes ? ` — ${meta.notes}` : ""}`;
+  }
+  if (action === "shift_close" && entity === "shift") {
+    const v = meta.variance != null ? ` · Variance: ₱${meta.variance}` : "";
+    return `Closed shift with ₱${meta.closingBalance ?? "?"} closing balance${v}${meta.notes ? ` — ${meta.notes}` : ""}`;
+  }
+  if (action === "cash_adjustment" && entity === "shift") {
+    const dir = meta.type === "in" ? "added in" : "taken out";
+    return `Cash ${dir}: ₱${meta.amount ?? "?"}${meta.reason ? ` — ${meta.reason}` : ""}`;
+  }
+  if (action === "login" && entity === "auth") return `Successful login`;
+  if (action === "login_failed" && entity === "auth") return `Failed login attempt${meta.ip ? ` from ${meta.ip}` : ""}`;
   if (action === "create" && entity === "customer") return `Added customer "${meta.name}"`;
   if (action === "update" && entity === "customer") return `Updated customer "${meta.name}"`;
   if (action === "delete" && entity === "customer") return `Deleted customer "${meta.name ?? ""}"`;
@@ -296,7 +346,9 @@ export default function AuditLogs() {
 
     if (source !== "payroll") {
       for (const log of generalLogs) {
-        rows.push({ key: `g-${log.id}`, sortAt: log.createdAt ?? "", entry: { _type: "general", log } });
+        const entry: SelectedEntry = { _type: "general", log };
+        if (source === "risk" && !isRiskEntry(entry)) continue;
+        rows.push({ key: `g-${log.id}`, sortAt: log.createdAt ?? "", entry });
       }
     }
 
@@ -305,7 +357,9 @@ export default function AuditLogs() {
       if (filters.startDate) filtered = filtered.filter(e => e.performedAt && e.performedAt >= filters.startDate!);
       if (filters.endDate) filtered = filtered.filter(e => e.performedAt && e.performedAt <= filters.endDate! + "T23:59:59.999Z");
       for (const log of filtered) {
-        rows.push({ key: `p-${log.id}`, sortAt: log.performedAt ?? "", entry: { _type: "payroll", log } });
+        const entry: SelectedEntry = { _type: "payroll", log };
+        if (source === "risk" && !isRiskEntry(entry)) continue;
+        rows.push({ key: `p-${log.id}`, sortAt: log.performedAt ?? "", entry });
       }
     }
 
@@ -384,21 +438,27 @@ export default function AuditLogs() {
       </div>
 
       {/* Source chips */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {([
-          { id: "all",      label: "All Activity",   icon: ScrollText },
-          { id: "activity", label: "Staff Actions",  icon: Users },
-          { id: "payroll",  label: "Payroll",        icon: Banknote },
-        ] as { id: Source; label: string; icon: any }[]).map(s => {
+          { id: "all",      label: "All Activity",  icon: ScrollText,     risk: false },
+          { id: "activity", label: "Staff Actions", icon: Users,          risk: false },
+          { id: "payroll",  label: "Payroll",       icon: Banknote,       risk: false },
+          { id: "risk",     label: "Risk Events",   icon: AlertTriangle,  risk: true  },
+        ] as { id: Source; label: string; icon: any; risk: boolean }[]).map(s => {
           const Icon = s.icon;
+          const isActive = source === s.id;
           return (
             <button key={s.id}
               onClick={() => { setSource(s.id); setFilters({}); setShowFilters(false); }}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all",
-                source === s.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+                isActive
+                  ? s.risk
+                    ? "bg-rose-500 text-white shadow-sm shadow-rose-500/30"
+                    : "bg-primary text-primary-foreground shadow-sm"
+                  : s.risk
+                    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
+                    : "bg-secondary/60 text-muted-foreground hover:text-foreground"
               )}
               data-testid={`btn-source-${s.id}`}>
               <Icon className="h-3 w-3 shrink-0" />{s.label}
@@ -493,13 +553,18 @@ export default function AuditLogs() {
               <ScrollText className="h-7 w-7 text-muted-foreground/30" strokeWidth={1.5} />
             </div>
             <p className="font-semibold text-muted-foreground">
-              {hasFilters ? "No events match your filters" : source === "payroll" ? "No payroll actions yet" : "No activity recorded yet"}
+              {hasFilters ? "No events match your filters"
+                : source === "payroll" ? "No payroll actions yet"
+                : source === "risk" ? "No risk events found"
+                : "No activity recorded yet"}
             </p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               {hasFilters
                 ? "Try changing the filters above"
                 : source === "payroll"
                 ? "Pay Day runs, mark-paid, finalize, and deletes appear here"
+                : source === "risk"
+                ? "Voids, deletions, stock edits, cash adjustments, and failed logins appear here"
                 : "Staff actions will appear here as your team works"}
             </p>
           </div>

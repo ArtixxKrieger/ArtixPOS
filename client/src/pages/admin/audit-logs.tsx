@@ -578,7 +578,8 @@ export default function AuditLogs() {
         <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
 
           {/* General event detail */}
-          {selectedEntry?._type === "general" && (() => {
+          {(() => {
+            if (!selectedEntry || selectedEntry._type !== "general") return null;
             const log = selectedEntry.log;
             const cfg = ACTION_CONFIG[log.action] ?? {
               label: log.action.replace(/_/g, " "), bg: "bg-secondary",
@@ -631,7 +632,8 @@ export default function AuditLogs() {
           })()}
 
           {/* Payroll event detail */}
-          {selectedEntry?._type === "payroll" && (() => {
+          {(() => {
+            if (!selectedEntry || selectedEntry._type !== "payroll") return null;
             const log = selectedEntry.log;
             const cfg = PAYROLL_ACTION_CONFIG[log.action] ?? {
               label: log.action.replace(/_/g, " "), bg: "bg-secondary",

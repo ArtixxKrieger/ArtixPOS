@@ -33,6 +33,47 @@ function getClientIp(req: Request): string {
   );
 }
 
+// ── Password strength validator ───────────────────────────────────────────────
+// Returns an error string if the password is too weak, null if acceptable.
+// Rules are intentionally mirrored in the client-side strength meter so the
+// UI and API stay in sync without a round-trip for every keystroke.
+const COMMON_PASSWORDS = new Set([
+  "password","password1","password123","12345678","123456789","1234567890",
+  "qwerty123","qwertyui","letmein1","welcome1","admin1234","iloveyou1",
+  "monkey123","dragon123","master123","sunshine1","princess1","shadow123",
+  "baseball","football","superman1","batman123","trustno1","starwars1",
+]);
+
+function validatePasswordStrength(password: string, email?: string): string | null {
+  if (!password || typeof password !== "string") return "Password is required.";
+  if (password.length < 8) return "Password must be at least 8 characters.";
+  if (password.length > 128) return "Password must be under 128 characters.";
+
+  const lower   = /[a-z]/.test(password);
+  const upper   = /[A-Z]/.test(password);
+  const digit   = /[0-9]/.test(password);
+  const symbol  = /[^a-zA-Z0-9]/.test(password);
+  const classes = [lower, upper, digit, symbol].filter(Boolean).length;
+
+  if (classes < 2) {
+    return "Password must include at least two of: uppercase letters, lowercase letters, numbers, or symbols.";
+  }
+
+  const normalized = password.toLowerCase();
+  if (COMMON_PASSWORDS.has(normalized)) {
+    return "This password is too common. Please choose something more unique.";
+  }
+
+  if (email) {
+    const emailLocal = email.split("@")[0].toLowerCase();
+    if (emailLocal.length >= 4 && normalized.includes(emailLocal)) {
+      return "Password should not contain your email address.";
+    }
+  }
+
+  return null;
+}
+
 export const AUTH_COOKIE = "auth_token";
 
 // ── Token revocation (logout invalidation) ────────────────────────────────────
@@ -847,9 +888,8 @@ export function setupAuth(app: Express) {
     if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ message: "A valid email address is required." });
     }
-    if (!password || typeof password !== "string" || password.length < 8) {
-      return res.status(400).json({ message: "Password must be at least 8 characters." });
-    }
+    const pwError = validatePasswordStrength(password, email);
+    if (pwError) return res.status(400).json({ message: pwError });
     try {
       const normalizedEmail = email.trim().toLowerCase();
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;

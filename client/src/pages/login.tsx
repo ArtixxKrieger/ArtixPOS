@@ -54,6 +54,18 @@ const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 type AuthMode = "signin" | "register";
 
+// ── Password strength meter ───────────────────────────────────────────────────
+function getPasswordStrength(pwd: string): { score: 0 | 1 | 2 | 3; label: string; color: string } {
+  if (!pwd || pwd.length < 8) return { score: 0, label: "Too short", color: "#ef4444" };
+  const classes = [/[a-z]/.test(pwd), /[A-Z]/.test(pwd), /[0-9]/.test(pwd), /[^a-zA-Z0-9]/.test(pwd)].filter(Boolean).length;
+  const bonus = pwd.length >= 12 ? 1 : 0;
+  const total = classes + bonus;
+  if (total <= 2) return { score: 0, label: "Weak",        color: "#ef4444" };
+  if (total === 3) return { score: 1, label: "Fair",        color: "#f97316" };
+  if (total === 4) return { score: 2, label: "Strong",      color: "#22c55e" };
+  return              { score: 3, label: "Very strong",  color: "#16a34a" };
+}
+
 const BLUE  = "#14b8e8";
 const BLUE2 = "#0284c7";
 const NEON  = "#38d9f5";
@@ -825,7 +837,7 @@ export default function Login() {
         </div>
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.46)", display: "block", marginBottom: 5 }}>
-            Password {mode === "register" && <span style={{ fontWeight: 400, opacity: 0.6 }}>(min. 8 characters)</span>}
+            Password
           </label>
           <div style={{ position: "relative" }}>
             <input type={showPassword ? "text" : "password"} placeholder={mode === "register" ? "Create a password" : "Password"} value={formPassword} onChange={e => setFormPassword(e.target.value)} required minLength={mode === "register" ? 8 : undefined} data-testid="input-password" className="finput" style={{ ...inputBase, paddingRight: 44 }} autoComplete={mode === "register" ? "new-password" : "current-password"} />
@@ -836,6 +848,20 @@ export default function Login() {
                 : <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
             </button>
           </div>
+          {mode === "register" && formPassword.length > 0 && (() => {
+            const s = getPasswordStrength(formPassword);
+            return (
+              <div style={{ marginTop: 7 }}>
+                <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} style={{ flex: 1, height: 3, borderRadius: 99, transition: "background 0.3s", background: i <= s.score ? s.color : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)" }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 600, color: s.color }}>{s.label}</span>
+                {s.score < 2 && <span style={{ fontSize: 11, color: isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.38)", marginLeft: 6 }}>— add uppercase, numbers, or symbols</span>}
+              </div>
+            );
+          })()}
         </div>
         {mode === "signin" && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -3 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>

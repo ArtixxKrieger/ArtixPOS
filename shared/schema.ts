@@ -18,6 +18,41 @@ export type OpeningHours = {
   [day: string]: { open: string; close: string; closed: boolean };
 };
 
+// ─── POS Feature Flags ────────────────────────────────────────────────────────
+// Stored per-tenant in user_settings.pos_features (JSONB).
+// Free features are always toggleable. Pro features require an active subscription.
+export type PosFeatures = {
+  setupComplete: boolean;
+  // ── Free features ──────────────────────────────────────────────────────────
+  takeout: boolean;          // Takeout / to-go order type in POS
+  delivery: boolean;         // Delivery order type + address field
+  barcodeScanning: boolean;  // Scan barcodes to add items
+  receiptName: boolean;      // Name on receipt (Starbucks-style)
+  customerAccounts: boolean; // Link sales to customer profiles
+  // ── Pro features ───────────────────────────────────────────────────────────
+  tables: boolean;           // Table management & floor map
+  kitchenDisplay: boolean;   // Send orders to kitchen/bar screen
+  splitBill: boolean;        // Split bill across multiple guests
+  loyalty: boolean;          // Earn & redeem loyalty points
+};
+
+export const PRO_POS_FEATURE_KEYS: (keyof PosFeatures)[] = [
+  "tables", "kitchenDisplay", "splitBill", "loyalty",
+];
+
+export const DEFAULT_POS_FEATURES: PosFeatures = {
+  setupComplete: false,
+  takeout: true,
+  delivery: false,
+  barcodeScanning: true,
+  receiptName: false,
+  customerAccounts: true,
+  tables: false,
+  kitchenDisplay: false,
+  splitBill: false,
+  loyalty: false,
+};
+
 export const branches = pgTable("branches", {
   id: serial("id").primaryKey(),
   tenantId: text("tenant_id").notNull().references(() => tenants.id),
@@ -437,6 +472,7 @@ export const userSettings = pgTable("user_settings", {
   wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
   wifiAutoIssue: integer("wifi_auto_issue").default(0),
   country: text("country"),
+  posFeatures: jsonb("pos_features").$type<PosFeatures>(),
   // BIR Compliance (Philippines Bureau of Internal Revenue)
   tin: text("tin"),
   ptuNumber: text("ptu_number"),

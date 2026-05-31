@@ -67,6 +67,7 @@ const PayrollPage = lazy(() => import("@/pages/payroll"));
 const BIRPage = lazy(() => import("@/pages/bir"));
 const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
 const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
+const FeaturesPage = lazy(() => import("@/pages/features"));
 const InventoryHubPage = lazy(() => import("@/pages/inventory-hub"));
 const VercelAnalytics = lazy(() =>
   import("@vercel/analytics/react").then((m) => ({ default: m.Analytics }))
@@ -230,6 +231,29 @@ function CashierGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   if (user?.role === "cashier") return <Redirect to="/" />;
   return <Component />;
+}
+
+// Redirects first-time POS users to the features setup wizard.
+// Only fires when the user is actually navigated to /pos and posFeatures
+// has never been configured (null). Existing users with a businessType set
+// are sent to the wizard pre-populated with sensible defaults.
+function POSWithSetupGuard() {
+  const [location, setLocation] = useLocation();
+  const { data: settings, isLoading } = useSettings();
+  const posFeatures = (settings as any)?.posFeatures;
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (location !== "/pos") return;
+    if (posFeatures == null) {
+      setLocation("/features?setup=1");
+    }
+  }, [isLoading, posFeatures, location, setLocation]);
+
+  // Render POS regardless — it stays mounted in the background via PersistentRoute.
+  // The effect above handles the redirect; the POS will be display:none while
+  // the user is on /features anyway.
+  return <POS />;
 }
 
 function AdminGuard({ component: Component }: { component: ComponentType }) {
@@ -423,6 +447,7 @@ const DiscountCodesRoute    = () => <ProAndCashierGuard url="/discount-codes" co
 const SuppliersRoute        = () => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />;
 const PurchasesRoute        = () => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />;
 
+const FeaturesRoute         = () => <Suspense fallback={null}><FeaturesPage /></Suspense>;
 const ShiftsRoute           = () => <ProGuard url="/shifts" component={Shifts} />;
 const TablesRoute           = () => <ProGuard url="/tables" component={TablesPage} />;
 const KitchenRoute          = () => <ProGuard url="/kitchen" component={KitchenPage} />;
@@ -470,6 +495,7 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/bir"),
   () => import("@/pages/bir-audit-log"),
   () => import("@/pages/expiry-tracker"),
+  () => import("@/pages/features"),
   () => import("@/pages/admin/index"),
   () => import("@/pages/admin/branches"),
   () => import("@/pages/admin/users"),
@@ -626,7 +652,7 @@ function AppRouter() {
         <Suspense fallback={pageFallback}><Dashboard /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/pos" currentPath={location}>
-        <Suspense fallback={pageFallback}><POS /></Suspense>
+        <Suspense fallback={pageFallback}><POSWithSetupGuard /></Suspense>
       </PersistentRoute>
       <PersistentRoute path="/pending" currentPath={location}>
         <Suspense fallback={pageFallback}><PendingOrders /></Suspense>
@@ -680,6 +706,7 @@ function AppRouter() {
             <Route path="/expiry" component={ExpiryRoute} />
             <Route path="/inventory" component={InventoryRoute} />
             <Route path="/billing" component={BillingRoute} />
+            <Route path="/features" component={FeaturesRoute} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

@@ -133,7 +133,7 @@ export function registerSettingsRoutes(app: Express): void {
       }
 
       // ── Pro-only field guard ───────────────────────────────────────────────
-      // Strip WiFi voucher fields server-side if the tenant is not on Pro.
+      // Strip WiFi voucher fields and Pro posFeatures server-side if not on Pro.
       // This prevents free users from bypassing the UI paywall via direct API calls.
       const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
       if (tenantIdForProCheck) {
@@ -147,6 +147,15 @@ export function registerSettingsRoutes(app: Express): void {
             ];
             for (const field of proOnlyWifiFields) {
               delete (input as any)[field];
+            }
+            // Strip Pro POS feature flags — free users cannot enable Pro features
+            // by directly calling the API (all Pro flags are forced to false).
+            if ((input as any).posFeatures && typeof (input as any).posFeatures === "object") {
+              const pf = (input as any).posFeatures as Record<string, unknown>;
+              pf.tables = false;
+              pf.kitchenDisplay = false;
+              pf.splitBill = false;
+              pf.loyalty = false;
             }
           }
         } catch (proCheckErr) {

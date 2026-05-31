@@ -16,7 +16,7 @@ import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
-  Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle,
+  Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle, Zap,
 } from "lucide-react";
 import { COUNTRY_LIST, getCountryByCode, type CountryData } from "@/lib/locale-detect";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -712,6 +712,25 @@ export default function Settings() {
           </form>
         </Form>
       )}
+
+      {/* ── POS Features ─────────────────────────────────────── */}
+      <SectionLabel icon={Zap}>POS Setup</SectionLabel>
+      <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setLocation("/features")}
+          className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/30 transition-colors text-left"
+        >
+          <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">POS Features</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Turn features on or off — tables, delivery, loyalty &amp; more</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        </button>
+      </div>
 
       {/* ── Plan Voucher ────────────────────────────────────────── */}
       {isOwner && (

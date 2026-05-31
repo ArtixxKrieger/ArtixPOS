@@ -875,7 +875,7 @@ export function setupAuth(app: Express) {
       });
 
       if (!created) {
-        return res.status(409).json({ message: "An account with this email already exists." });
+        return res.status(409).json({ message: "Unable to create account. Please try signing in, or use a different email address." });
       }
 
       setAuthCookie(res, { id: created.id, name: created.name ?? null, email: created.email ?? null, avatar: created.avatar ?? null, provider: created.provider, tenantId: (created as any).tenantId ?? null, role: created.role ?? "owner", activeBranchId: (created as any).activeBranchId ?? null });
@@ -1355,7 +1355,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/forgot-password", async (req, res, next) => {
+  app.post("/api/auth/forgot-password", bruteForceGuard, async (req, res, next) => {
     try {
       const { email } = req.body;
       if (!email || typeof email !== "string") {

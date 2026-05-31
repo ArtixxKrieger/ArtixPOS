@@ -652,12 +652,9 @@ export default async function handler(req: Request, res: Response) {
         path.includes("/auth/google") ||
         path.includes("/auth/facebook");
       if (isOAuthCallback) {
-        // Include the first 150 chars of the actual error so it surfaces on the
-        // login page for easy diagnosis without needing Vercel log access.
-        const detail = encodeURIComponent(errMsg.slice(0, 150));
-        res.redirect(`/login?error=server_unavailable&detail=${detail}`);
+        res.redirect(`/login?error=server_unavailable`);
       } else {
-        res.status(500).json({ error: "Internal Server Error", detail: errMsg.slice(0, 150) });
+        res.status(500).json({ error: "Internal Server Error" });
       }
     }
   }

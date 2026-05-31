@@ -706,8 +706,11 @@ export function registerPaymentWebhookRoutes(app: Express) {
         }
 
         // Look up which tenant owns this checkout session
-        const allPayments = await db.select().from(subscriptionPayments);
-        const match = allPayments.find((p) => p.paymongoCheckoutId === checkoutId);
+        const [match] = await db
+          .select()
+          .from(subscriptionPayments)
+          .where(eq(subscriptionPayments.paymongoCheckoutId, checkoutId))
+          .limit(1);
 
         if (!match) {
           // Could be a test payment or from a different environment — log and

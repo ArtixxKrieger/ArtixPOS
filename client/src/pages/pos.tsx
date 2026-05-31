@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag, Camera } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag, Camera, Truck, Scissors } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,7 @@ import { playCheckout, playAddItem, playMilestone, playError } from "@/lib/sound
 import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { ConfettiBurst } from "@/components/confetti";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
+import { BillSplitDialog, type SplitPortion } from "@/components/bill-split-dialog";
 
 // ── Responsive column count for the POS product grid ─────────────────────────
 // Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
@@ -200,7 +201,9 @@ export default function POS() {
   const [receiptName, setReceiptName] = useState<string>("");
   const [tip, setTip] = useState<number>(0);
   const [issueWifi, setIssueWifi] = useState<boolean>(false);
-  const [orderType, setOrderType] = useState<"dine_in" | "takeout">("dine_in");
+  const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">("dine_in");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [showBillSplit, setShowBillSplit] = useState(false);
 
   const [scPwdType, setScPwdType] = useState<"none" | "sc" | "pwd">("none");
   const [scPwdId, setScPwdId] = useState<string>("");
@@ -504,6 +507,9 @@ export default function POS() {
       vatExemptSales:       (isScPwd ? discountedSubtotal : 0).toString(),
       zeroRatedSales:       "0",
       orderType:            isFoodBeverage ? orderType : null,
+      deliveryAddress:      isFoodBeverage && orderType === "delivery" && deliveryAddress.trim()
+                              ? deliveryAddress.trim()
+                              : null,
     };
 
     // Snapshots — used for optimistic receipt & rollback
@@ -569,6 +575,8 @@ export default function POS() {
     setScPwdType("none");
     setScPwdId("");
     setOrderType("dine_in");
+    setDeliveryAddress("");
+    setShowBillSplit(false);
     setCartOpen(false);
 
     createPending.mutate(orderData, {
@@ -663,7 +671,7 @@ export default function POS() {
     effectiveDiscount, loyaltyDiscount, tip, appliedCode, loyaltyPointsToRedeem,
     isScPwd, scPwdType, scPwdId, discountedSubtotal, globalTaxRate, changeAmount,
     paymentMethod, selectedCustomer, receiptName, issueWifi, discount, isFoodBeverage,
-    orderType, clearCart, replaceCart, createPending, toast, loyaltyRedemptionRate,
+    orderType, deliveryAddress, clearCart, replaceCart, createPending, toast, loyaltyRedemptionRate,
     checkMilestone,
   ]);
 
@@ -673,6 +681,39 @@ export default function POS() {
         (c.phone && c.phone.includes(customerSearch))
       : true,
   ).slice(0, 8);
+
+  // ── Bill split handler ─────────────────────────────────────────────────────
+  // Called when "By Items" mode charges separate bills — creates one pending
+  // order per person so each gets their own receipt and sale record.
+  const handleSplitByItems = useCallback((splits: SplitPortion[]) => {
+    splits.forEach((split, idx) => {
+      createPending.mutate({
+        items: split.items as any,
+        subtotal: split.subtotal.toFixed(2),
+        tax: split.tax.toFixed(2),
+        total: split.total.toFixed(2),
+        paymentAmount: split.total.toFixed(2),
+        changeAmount: "0",
+        discount: "0",
+        loyaltyDiscount: "0",
+        tip: "0",
+        status: "paid",
+        paymentMethod,
+        orderType: isFoodBeverage ? orderType : null,
+        notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
+      } as any, {
+        onSuccess: () => {
+          if (idx === splits.length - 1) {
+            clearCart();
+            toast({ title: `Split bill processed`, description: `${splits.length} separate bills charged.` });
+          }
+        },
+        onError: () => {
+          toast({ title: `Failed to charge ${split.personLabel}`, variant: "destructive" });
+        },
+      });
+    });
+  }, [createPending, paymentMethod, orderType, isFoodBeverage, clearCart, toast]);
 
   // ── Cart panel content (shared between desktop sidebar & mobile sheet) ─────
   const CartContent = (
@@ -794,34 +835,61 @@ export default function POS() {
 
           {/* Order type — food & beverage only */}
           {isFoodBeverage && (
-            <div className="flex gap-1 bg-secondary/60 rounded-xl p-1" data-testid="order-type-toggle">
-              <button
-                onClick={() => setOrderType("dine_in")}
-                data-testid="button-order-type-dine-in"
-                className={[
-                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                  orderType === "dine_in"
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                <Utensils className="h-3 w-3" />
-                Dine In
-              </button>
-              <button
-                onClick={() => setOrderType("takeout")}
-                data-testid="button-order-type-takeout"
-                className={[
-                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                  orderType === "takeout"
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                <ShoppingBag className="h-3 w-3" />
-                Takeout
-              </button>
-            </div>
+            <>
+              <div className="flex gap-1 bg-secondary/60 rounded-xl p-1" data-testid="order-type-toggle">
+                <button
+                  onClick={() => setOrderType("dine_in")}
+                  data-testid="button-order-type-dine-in"
+                  className={[
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    orderType === "dine_in"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <Utensils className="h-3 w-3" />
+                  Dine In
+                </button>
+                <button
+                  onClick={() => setOrderType("takeout")}
+                  data-testid="button-order-type-takeout"
+                  className={[
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    orderType === "takeout"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <ShoppingBag className="h-3 w-3" />
+                  Takeout
+                </button>
+                <button
+                  onClick={() => setOrderType("delivery")}
+                  data-testid="button-order-type-delivery"
+                  className={[
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    orderType === "delivery"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <Truck className="h-3 w-3" />
+                  Delivery
+                </button>
+              </div>
+
+              {/* Delivery address — shown only when delivery is selected */}
+              {orderType === "delivery" && (
+                <Input
+                  type="text"
+                  value={deliveryAddress}
+                  onChange={e => setDeliveryAddress(e.target.value.slice(0, 120))}
+                  placeholder="Delivery address (optional)"
+                  className="h-8 rounded-xl bg-secondary/60 border-none text-xs"
+                  data-testid="input-delivery-address"
+                />
+              )}
+            </>
           )}
 
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -1182,7 +1250,18 @@ export default function POS() {
       </div>
 
       {/* Checkout button — pinned at bottom */}
-      <div className="shrink-0 pt-2 border-t border-border/40">
+      <div className="shrink-0 pt-2 border-t border-border/40 space-y-1.5">
+        {/* Split Bill — food & bev only, needs at least 2 items */}
+        {isFoodBeverage && cart.length >= 2 && (
+          <button
+            onClick={() => setShowBillSplit(true)}
+            className="w-full h-8 rounded-xl border border-border/50 text-xs font-bold text-muted-foreground hover:text-foreground hover:border-border transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+            data-testid="button-split-bill"
+          >
+            <Scissors className="h-3 w-3" />
+            Split Bill
+          </button>
+        )}
         <Button
           className={`w-full h-11 rounded-2xl font-bold text-white bg-primary hover:opacity-90 transition-all active:scale-[0.98] shiny-btn${cart.length > 0 && !createPending.isPending ? " checkout-pulse" : ""}`}
           onClick={handleCheckout}
@@ -1547,6 +1626,19 @@ export default function POS() {
         open={showCameraScanner}
         onClose={() => setShowCameraScanner(false)}
         onScan={(barcode) => barcodeLookupMutation.mutate(barcode)}
+      />
+
+      {/* Bill Split Dialog — food & beverage only */}
+      <BillSplitDialog
+        open={showBillSplit}
+        onClose={() => setShowBillSplit(false)}
+        cart={cart}
+        total={total}
+        subtotal={subtotal}
+        tax={tax}
+        currency={currency}
+        onEqualSplitDone={() => {}}
+        onItemSplitCharge={handleSplitByItems}
       />
 
       {/* Quick Add Product — shown when a scanned barcode has no match */}

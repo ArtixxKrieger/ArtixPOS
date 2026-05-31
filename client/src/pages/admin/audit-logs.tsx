@@ -74,7 +74,8 @@ const PAYROLL_ACTION_CONFIG: Record<string, { label: string; bg: string; text: s
 
 const PAY_METHOD_LABEL: Record<string, string> = {
   cash: "Cash", card: "Card", ewallet: "E-Wallet",
-  gcash: "GCash", maya: "Maya", bank: "Bank Transfer", check: "Check",
+  gcash: "E-Wallet", maya: "E-Wallet", paymaya: "E-Wallet",
+  bank: "Bank Transfer", check: "Check",
 };
 
 const ENTITY_ICONS: Record<string, any> = {

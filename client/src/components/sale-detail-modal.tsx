@@ -59,27 +59,33 @@ interface SaleDetailModalProps {
 }
 
 const PAYMENT_ICONS: Record<string, React.ReactNode> = {
-  cash: <CreditCard className="h-3 w-3" />,
-  card: <CreditCard className="h-3 w-3" />,
-  online: <Smartphone className="h-3 w-3" />,
-  gcash: <Smartphone className="h-3 w-3" />,
-  maya: <Smartphone className="h-3 w-3" />,
+  cash:    <CreditCard className="h-3 w-3" />,
+  card:    <CreditCard className="h-3 w-3" />,
+  online:  <Smartphone className="h-3 w-3" />,
+  ewallet: <Smartphone className="h-3 w-3" />,
+  gcash:   <Smartphone className="h-3 w-3" />,
+  maya:    <Smartphone className="h-3 w-3" />,
+  paymaya: <Smartphone className="h-3 w-3" />,
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
-  cash: "Cash",
-  card: "Card",
-  online: "Online",
-  gcash: "GCash",
-  maya: "Maya",
+  cash:    "Cash",
+  card:    "Card",
+  online:  "Online",
+  ewallet: "E-Wallet",
+  gcash:   "E-Wallet",
+  maya:    "E-Wallet",
+  paymaya: "E-Wallet",
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
-  cash: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  card: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  online: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  gcash: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  maya: "bg-green-500/10 text-green-600 dark:text-green-400",
+  cash:    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  card:    "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  online:  "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  ewallet: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  gcash:   "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  maya:    "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  paymaya: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
 };
 
 export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {

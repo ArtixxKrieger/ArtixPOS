@@ -165,10 +165,9 @@ export default function Settings() {
   };
 
   const DEFAULT_METHODS = [
-    { id: "cash", label: "Cash", isCash: true },
-    { id: "card", label: "Card", isCash: false },
-    { id: "gcash", label: "GCash", isCash: false },
-    { id: "maya", label: "Maya", isCash: false },
+    { id: "cash",    label: "Cash",     isCash: true  },
+    { id: "card",    label: "Card",     isCash: false },
+    { id: "ewallet", label: "E-Wallet", isCash: false },
   ];
 
   type PaymentMethod = { id: string; label: string; isCash: boolean };

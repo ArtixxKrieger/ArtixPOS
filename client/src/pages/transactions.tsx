@@ -12,22 +12,26 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 
 type DateFilter = "all" | "today" | "week" | "month" | "custom";
-type PaymentFilter = "all" | "cash" | "card" | "gcash" | "maya" | "online";
+type PaymentFilter = "all" | "cash" | "card" | "ewallet" | "online";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Cash",
   card: "Card",
   online: "Online",
-  gcash: "GCash",
-  maya: "Maya",
+  ewallet: "E-Wallet",
+  gcash: "E-Wallet",
+  maya: "E-Wallet",
+  paymaya: "E-Wallet",
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
   cash: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   card: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   online: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  gcash: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  maya: "bg-green-500/10 text-green-600 dark:text-green-400",
+  ewallet: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  gcash: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  maya: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  paymaya: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
 };
 
 const ALL_COLUMNS = [
@@ -315,8 +319,7 @@ export default function Transactions() {
           <DropdownItem active={paymentFilter === "all"} onClick={() => setPaymentFilter("all")}>All methods</DropdownItem>
           <DropdownItem active={paymentFilter === "cash"} onClick={() => setPaymentFilter("cash")}>Cash</DropdownItem>
           <DropdownItem active={paymentFilter === "card"} onClick={() => setPaymentFilter("card")}>Card</DropdownItem>
-          <DropdownItem active={paymentFilter === "gcash"} onClick={() => setPaymentFilter("gcash")}>GCash</DropdownItem>
-          <DropdownItem active={paymentFilter === "maya"} onClick={() => setPaymentFilter("maya")}>Maya</DropdownItem>
+          <DropdownItem active={paymentFilter === "ewallet"} onClick={() => setPaymentFilter("ewallet")}>E-Wallet</DropdownItem>
           <DropdownItem active={paymentFilter === "online"} onClick={() => setPaymentFilter("online")}>Online</DropdownItem>
         </DropdownMenu>
 

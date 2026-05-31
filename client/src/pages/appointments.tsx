@@ -36,8 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 const PAYMENT_METHODS = [
   { value: "cash",          label: "Cash",          icon: Banknote },
   { value: "card",          label: "Card",          icon: CreditCard },
-  { value: "gcash",         label: "GCash",         icon: Smartphone },
-  { value: "maya",          label: "Maya",          icon: Smartphone },
+  { value: "ewallet",       label: "E-Wallet",      icon: Smartphone },
   { value: "bank_transfer", label: "Bank Transfer", icon: Building2 },
 ];
 

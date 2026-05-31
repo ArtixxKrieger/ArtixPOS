@@ -9,8 +9,12 @@ const PAYMONGO_BASE = "https://api.paymongo.com/v1";
 
 const PLANS = {
   pro: {
-    monthly: { amount: 3000, label: "ArtixPOS Pro — Monthly", description: "Full access to all features, billed monthly." },
-    annual:  { amount: 499900, label: "ArtixPOS Pro — Annual",  description: "Full access to all features, billed annually. Save ~30%!" },
+    monthly: { amount: 49900,  label: "ArtixPOS Pro — Monthly",      description: "Single-location powerhouse. All modules, AI assistant, loyalty & more." },
+    annual:  { amount: 499900, label: "ArtixPOS Pro — Annual",        description: "Single-location powerhouse, billed annually. Save 17%!" },
+  },
+  business: {
+    monthly: { amount: 99900,  label: "ArtixPOS Business — Monthly",  description: "Multi-branch, BIR compliance, advanced payroll & priority support." },
+    annual:  { amount: 999900, label: "ArtixPOS Business — Annual",   description: "Multi-branch, BIR compliance & advanced payroll. Save 17%!" },
   },
 };
 
@@ -129,7 +133,7 @@ export function registerSubscriptionRoutes(app: Express) {
       }
 
       // auto-expire if period ended
-      if (sub && sub.plan === "pro" && sub.currentPeriodEnd) {
+      if (sub && (sub.plan === "pro" || sub.plan === "business") && sub.currentPeriodEnd) {
         const expired = new Date(sub.currentPeriodEnd) < new Date();
         if (expired && sub.status === "active") {
           await db
@@ -174,12 +178,15 @@ export function registerSubscriptionRoutes(app: Express) {
       const tenantId = user?.tenantId;
       if (!tenantId) return res.status(400).json({ message: "No tenant found. Complete onboarding first." });
 
-      const { billingCycle } = req.body as { billingCycle: "monthly" | "annual" };
+      const { billingCycle, plan: planKey = "pro" } = req.body as { billingCycle: "monthly" | "annual"; plan?: "pro" | "business" };
       if (!billingCycle || !["monthly", "annual"].includes(billingCycle)) {
         return res.status(400).json({ message: "Invalid billing cycle" });
       }
+      if (!["pro", "business"].includes(planKey)) {
+        return res.status(400).json({ message: "Invalid plan" });
+      }
 
-      const planInfo = PLANS.pro[billingCycle];
+      const planInfo = PLANS[planKey][billingCycle];
       const referenceNumber = `artixpos-${tenantId.slice(0, 8)}-${Date.now()}`;
 
       const baseUrl = process.env.APP_URL ?? `https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost:5000"}`;
@@ -201,7 +208,7 @@ export function registerSubscriptionRoutes(app: Express) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.insert(subscriptionPayments).values({
         tenantId,
-        plan: "pro",
+        plan: planKey,
         billingCycle,
         amount: planInfo.amount,
         status: "pending",
@@ -292,7 +299,7 @@ export function registerSubscriptionRoutes(app: Express) {
             .update(tenantSubscriptions)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .set({
-              plan: "pro",
+              plan: pending.plan ?? "pro",
               billingCycle,
               status: "active",
               currentPeriodStart: now.toISOString(),
@@ -305,7 +312,7 @@ export function registerSubscriptionRoutes(app: Express) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await db.insert(tenantSubscriptions).values({
             tenantId,
-            plan: "pro",
+            plan: pending.plan ?? "pro",
             billingCycle,
             status: "active",
             currentPeriodStart: now.toISOString(),

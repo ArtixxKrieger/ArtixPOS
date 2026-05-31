@@ -9,10 +9,9 @@ export const DEFAULT_PAYMENT_METHODS: ReadonlyArray<{
   label: string;
   isCash: boolean;
 }> = [
-  { id: "cash",  label: "Cash",  isCash: true  },
-  { id: "card",  label: "Card",  isCash: false },
-  { id: "gcash", label: "GCash", isCash: false },
-  { id: "maya",  label: "Maya",  isCash: false },
+  { id: "cash",    label: "Cash",     isCash: true  },
+  { id: "card",    label: "Card",     isCash: false },
+  { id: "ewallet", label: "E-Wallet", isCash: false },
 ] as const;
 
 /**

@@ -70,8 +70,9 @@ interface MonthlySummary {
 }
 
 const PAYMENT_LABEL: Record<string, string> = {
-  cash: "Cash", card: "Card", gcash: "GCash", maya: "Maya",
-  paymaya: "PayMaya", ewallet: "E-Wallet", credit: "Credit Card", debit: "Debit Card",
+  cash: "Cash", card: "Card", ewallet: "E-Wallet",
+  gcash: "E-Wallet", maya: "E-Wallet", paymaya: "E-Wallet",
+  credit: "Credit Card", debit: "Debit Card", online: "Online",
 };
 const DISCOUNT_LABEL: Record<string, string> = {
   regular: "Regular", sc: "Senior Citizen (SC)", pwd: "PWD",
@@ -80,7 +81,7 @@ const DISCOUNT_LABEL: Record<string, string> = {
 function PaymentIcon({ method }: { method: string }) {
   const m = method.toLowerCase();
   if (m === "card" || m === "credit" || m === "debit") return <CreditCard className="h-3.5 w-3.5" />;
-  if (m === "gcash" || m === "maya" || m === "paymaya" || m === "ewallet") return <Smartphone className="h-3.5 w-3.5" />;
+  if (m === "ewallet" || m === "e-wallet" || m === "gcash" || m === "maya" || m === "paymaya" || m === "online") return <Smartphone className="h-3.5 w-3.5" />;
   return <Banknote className="h-3.5 w-3.5" />;
 }
 

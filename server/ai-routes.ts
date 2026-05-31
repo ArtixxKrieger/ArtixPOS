@@ -1184,7 +1184,7 @@ CORE FEATURES (available to all businesses):
 2. Tap items to add them to the cart (use search bar or scroll by category)
 3. To apply a discount: tap the % icon on the cart, enter a code or set a manual discount
 4. To assign a customer: tap "Add Customer" on the cart
-5. Tap Charge → choose payment method (Cash, Card, GCash, etc.) → confirm
+5. Tap Charge → choose payment method (Cash, Card, E-Wallet, etc.) → confirm
 6. Receipt appears — can be shared or printed
 
 ▸ Adding ${itemsWord}

@@ -2,24 +2,18 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useSubscription, PRO_FEATURES, FREE_LIMITS, type BillingCycle, type TenantSubscription } from "@/hooks/use-subscription";
+import {
+  useSubscription,
+  PRO_FEATURES, BUSINESS_FEATURES, FREE_LIMITS,
+  type BillingCycle, type TenantSubscription, type SubscriptionPlan,
+} from "@/hooks/use-subscription";
 import { useRevenueCat, isNative } from "@/lib/revenuecat";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Check, Crown, Zap, X, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
+import { Check, Crown, Zap, Building2, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
 
 interface SubscriptionPayment {
   id: number;
@@ -40,13 +34,18 @@ function formatAmount(centavos: number) {
   return (centavos / 100).toLocaleString("en-PH", { style: "currency", currency: "PHP" });
 }
 
+const PLAN_CONFIG: Record<string, { label: string; icon: React.ElementType; badge: string; badgeCls: string }> = {
+  free:     { label: "Free",     icon: Zap,       badge: "Free",     badgeCls: "bg-muted text-muted-foreground" },
+  pro:      { label: "Pro",      icon: Crown,     badge: "Pro",      badgeCls: "bg-violet-600 text-white" },
+  business: { label: "Business", icon: Building2, badge: "Business", badgeCls: "bg-amber-500 text-white" },
+};
+
 export default function BillingPage() {
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { subscription, isPro, isLoading, refetch } = useSubscription();
+  const { subscription, plan: currentPlan, isPro, isBusiness, isLoading, refetch } = useSubscription();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   const native = isNative();
@@ -57,7 +56,6 @@ export default function BillingPage() {
     enabled: !!user,
   });
 
-  // Handle return from PayMongo checkout (web only)
   useEffect(() => {
     if (native) return;
     const params = new URLSearchParams(window.location.search);
@@ -68,7 +66,8 @@ export default function BillingPage() {
         .then((r) => r.json())
         .then((data) => {
           if (data.success) {
-            toast({ title: "Subscription activated!", description: "Welcome to ArtixPOS Pro. Enjoy all features!" });
+            const planName = data.plan === "business" ? "Business" : "Pro";
+            toast({ title: `${planName} activated!`, description: `Welcome to ArtixPOS ${planName}. Enjoy all features!` });
             queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
             queryClient.invalidateQueries({ queryKey: ["/api/subscription/payments"] });
           } else {
@@ -87,8 +86,8 @@ export default function BillingPage() {
   }, []);
 
   const checkoutMutation = useMutation({
-    mutationFn: (cycle: BillingCycle) =>
-      apiRequest("POST", "/api/subscription/checkout", { billingCycle: cycle }).then((r) => r.json()),
+    mutationFn: ({ plan, cycle }: { plan: "pro" | "business"; cycle: BillingCycle }) =>
+      apiRequest("POST", "/api/subscription/checkout", { plan, billingCycle: cycle }).then((r) => r.json()),
     onSuccess: (data) => {
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
@@ -99,19 +98,10 @@ export default function BillingPage() {
     onError: () => toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }),
   });
 
-  const cancelMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/subscription/cancel", {}).then((r) => r.json()),
-    onSuccess: () => {
-      toast({ title: "Subscription will cancel", description: "Your Pro access continues until the end of the billing period." });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
-    },
-    onError: () => toast({ title: "Error", description: "Could not cancel. Please try again.", variant: "destructive" }),
-  });
-
   const reactivateMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/subscription/reactivate", {}).then((r) => r.json()),
     onSuccess: () => {
-      toast({ title: "Subscription reactivated!", description: "Your Pro plan will continue past the current period." });
+      toast({ title: "Subscription reactivated!", description: "Your plan will continue past the current period." });
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
     },
     onError: () => toast({ title: "Error", description: "Could not reactivate. Please try again.", variant: "destructive" }),
@@ -147,19 +137,21 @@ export default function BillingPage() {
   if (isLoading || verifying) return null;
 
   const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
-
   const nativePrice = rc.monthlyPackage?.product?.priceString ?? null;
 
+  const planCfg = PLAN_CONFIG[currentPlan] ?? PLAN_CONFIG.free;
+  const PlanIcon = planCfg.icon;
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      {/* Pro Required Banner */}
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+
       {showProRequiredBanner && (
         <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/30 px-4 py-4">
           <Lock className="h-5 w-5 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold text-violet-900 dark:text-violet-200">Pro Feature</p>
             <p className="text-sm text-violet-700 dark:text-violet-300 mt-0.5">
-              The page you tried to access is only available on the Pro plan. Upgrade below to unlock all features.
+              The page you tried to access requires a paid plan. Upgrade below to unlock it.
             </p>
           </div>
         </div>
@@ -167,33 +159,30 @@ export default function BillingPage() {
 
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h1>
-        <p className="text-slate-500 dark:text-white/50 mt-1">Manage your ArtixPOS plan and payment history.</p>
+        <h1 className="text-2xl font-bold">Billing & Subscription</h1>
+        <p className="text-muted-foreground">Manage your ArtixPOS plan and payment history.</p>
       </div>
 
-      {/* Current Plan Status */}
+      {/* Current Plan Card */}
       <Card className="border border-border/60 bg-card shadow-sm overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <span className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                {isPro ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                <PlanIcon className="w-4 h-4" />
               </span>
               Current Plan
             </CardTitle>
-            {isPro ? (
-              <Badge className="bg-violet-600 text-white gap-1.5">
-                <Crown className="w-3.5 h-3.5" /> Pro
-              </Badge>
-            ) : (
-              <Badge variant="secondary">Free</Badge>
-            )}
+            <Badge className={planCfg.badgeCls}>
+              <PlanIcon className="w-3 h-3 mr-1" />
+              {planCfg.badge}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {isPro ? (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" />
                 <span>
                   {subscription.cancelAtPeriodEnd
@@ -201,16 +190,16 @@ export default function BillingPage() {
                     : `Renews on ${formatDate(subscription.currentPeriodEnd)}`}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CreditCard className="w-4 h-4" />
                 <span className="capitalize">{subscription.billingCycle} billing</span>
               </div>
 
-              {subscription.cancelAtPeriodEnd ? (
+              {subscription.cancelAtPeriodEnd && (
                 <div className="flex items-start gap-3 mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                   <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                   <div className="text-sm text-amber-700 dark:text-amber-400">
-                    Your plan is set to cancel. You'll lose Pro features after {formatDate(subscription.currentPeriodEnd)}.
+                    Your plan is set to cancel. You'll lose access after {formatDate(subscription.currentPeriodEnd)}.
                     {!native && (
                       <Button
                         size="sm"
@@ -225,30 +214,17 @@ export default function BillingPage() {
                     )}
                   </div>
                 </div>
-              ) : (
-                isOwner && !native && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
-                    onClick={() => setShowCancelDialog(true)}
-                    data-testid="button-cancel-subscription"
-                  >
-                    Cancel Subscription
-                  </Button>
-                )
               )}
 
-              {/* Native: manage subscription note */}
               {native && isOwner && (
-                <p className="text-xs text-slate-500 dark:text-white/40 mt-1">
-                  To cancel or manage your subscription, go to your device's App Store / Play Store subscription settings.
+                <p className="text-xs text-muted-foreground mt-1">
+                  To manage your subscription, go to your device's App Store / Play Store subscription settings.
                 </p>
               )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              You're on the <strong>Free plan</strong> — {FREE_LIMITS.branches} branch, {FREE_LIMITS.products} products, {FREE_LIMITS.staff} staff accounts, and simple analytics are included. Upgrade when you need multiple locations, automation, and advanced reports.
+              You're on the <strong>Free plan</strong> — {FREE_LIMITS.branches} branch, up to {FREE_LIMITS.products} products, and {FREE_LIMITS.staff} staff accounts. Upgrade to Pro or Business when you need more.
             </p>
           )}
         </CardContent>
@@ -259,21 +235,16 @@ export default function BillingPage() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                {isPro ? "Extend or Switch Billing Cycle" : "Upgrade to Pro"}
-              </h2>
-              <p className="text-sm text-muted-foreground">Keep essentials free. Pro unlocks scale, automation, and cross-business tools.</p>
+              <h2 className="text-lg font-semibold">Choose a Plan</h2>
+              <p className="text-sm text-muted-foreground">Start free, upgrade when you need more power or compliance.</p>
             </div>
 
-            {/* Billing cycle toggle — web only */}
             {!native && (
               <div className="inline-flex rounded-xl border border-border p-1 bg-muted/40 w-fit">
                 <button
                   onClick={() => setBillingCycle("monthly")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                    billingCycle === "monthly"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                    billingCycle === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
                   data-testid="button-billing-monthly"
                 >
@@ -282,50 +253,50 @@ export default function BillingPage() {
                 <button
                   onClick={() => setBillingCycle("annual")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                    billingCycle === "annual"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                    billingCycle === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
                   data-testid="button-billing-annual"
                 >
                   Annual
-                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save</Badge>
+                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save 17%</Badge>
                 </button>
               </div>
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Free Card */}
-            <Card className={`overflow-hidden relative bg-card ${!isPro ? "border-primary/60" : "border-border/60"}`}>
+          <div className="grid gap-4 md:grid-cols-3">
+
+            {/* ── Free Card ── */}
+            <Card className={`overflow-hidden bg-card ${currentPlan === "free" ? "border-primary/50 ring-1 ring-primary/20" : "border-border/60"}`}>
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2">
-                  <span className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-muted-foreground" />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <span className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4 text-muted-foreground" />
                   </span>
                   Free
                 </CardTitle>
                 <CardDescription>
-                  <span className="text-3xl font-black text-slate-900 dark:text-white">₱0</span>
-                  <span className="text-slate-400 ml-1">/ month</span>
+                  <span className="text-2xl font-black text-foreground">₱0</span>
+                  <span className="text-muted-foreground ml-1 text-sm">/ month</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <ul className="space-y-2 text-sm">
+                <ul className="space-y-1.5 text-sm">
                   {[
                     `${FREE_LIMITS.branches} branch`,
                     `Up to ${FREE_LIMITS.products} products`,
                     `Up to ${FREE_LIMITS.staff} staff accounts`,
-                    "Core features needed for your business type",
-                    "Simple analytics dashboard",
+                    "Cash payments only",
+                    "Basic analytics (last 7 days)",
+                    "Core POS features",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-muted-foreground">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                       {f}
                     </li>
                   ))}
                 </ul>
-                {!isPro && (
+                {currentPlan === "free" && (
                   <div className="pt-2">
                     <Badge className="w-full justify-center py-1.5 bg-muted text-muted-foreground border-0">Current Plan</Badge>
                   </div>
@@ -333,17 +304,17 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            {/* Pro Card */}
-            <Card className={`relative overflow-hidden bg-card ${isPro ? "border-primary/60" : "border-border/60"}`}>
+            {/* ── Pro Card ── */}
+            <Card className={`relative overflow-hidden bg-card ${currentPlan === "pro" ? "border-violet-500/60 ring-1 ring-violet-500/20" : "border-border/60"}`}>
               <div className="absolute top-3 right-3 z-10">
-                <Badge className="bg-violet-600 text-white gap-1">
+                <Badge className="bg-violet-600 text-white gap-1 text-[11px]">
                   <Crown className="w-3 h-3" /> Pro
                 </Badge>
               </div>
-              <CardHeader className="relative pb-4">
-                <CardTitle className="flex items-center gap-2">
-                  <span className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Crown className="w-5 h-5 text-primary" />
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <span className="h-8 w-8 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <Crown className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   </span>
                   Pro
                 </CardTitle>
@@ -351,46 +322,40 @@ export default function BillingPage() {
                   {native ? (
                     rc.isLoadingOfferings ? null : nativePrice ? (
                       <>
-                        <span className="text-3xl font-black text-slate-900 dark:text-white">{nativePrice}</span>
-                        <span className="text-slate-400 ml-1">/ month</span>
+                        <span className="text-2xl font-black text-foreground">{nativePrice}</span>
+                        <span className="text-muted-foreground ml-1 text-sm">/ month</span>
                       </>
                     ) : (
-                      <span className="text-slate-400 text-sm">Price unavailable</span>
+                      <span className="text-muted-foreground text-sm">Price unavailable</span>
                     )
                   ) : billingCycle === "monthly" ? (
                     <>
-                      <span className="text-3xl font-black text-slate-900 dark:text-white">₱30</span>
-                      <span className="text-slate-400 ml-1">/ month</span>
+                      <span className="text-2xl font-black text-foreground">₱499</span>
+                      <span className="text-muted-foreground ml-1 text-sm">/ month</span>
                     </>
                   ) : (
                     <>
-                      <span className="text-3xl font-black text-slate-900 dark:text-white">₱4,999</span>
-                      <span className="text-slate-400 ml-1">/ year</span>
+                      <span className="text-2xl font-black text-foreground">₱4,999</span>
+                      <span className="text-muted-foreground ml-1 text-sm">/ year</span>
+                      <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">₱416/mo</span>
                     </>
                   )}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="relative space-y-3">
-                <ul className="space-y-2 text-sm">
-                  {[
-                    "Unlimited branches, products, and staff",
-                    "All modules across every business type",
-                    "Advanced analytics and exports",
-                    "AI assistant, expenses, suppliers, purchases",
-                    "Customer loyalty and automation tools",
-                  ].map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-muted-foreground">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                      {f}
+              <CardContent className="space-y-3">
+                <ul className="space-y-1.5 text-sm">
+                  {PRO_FEATURES.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-muted-foreground">
+                      <Check className="w-3.5 h-3.5 text-violet-500 shrink-0 mt-0.5" />
+                      <span>{f}</span>
                     </li>
                   ))}
                 </ul>
 
-                <div className="pt-2 space-y-2">
+                <div className="pt-2">
                   {native ? (
-                    /* ── Native iOS/Android: RevenueCat purchase flow ── */
                     <>
-                      {isPro ? (
+                      {currentPlan === "pro" ? (
                         <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border-0">
                           <Crown className="w-3.5 h-3.5 mr-1.5" /> Active subscription
                         </Badge>
@@ -402,67 +367,137 @@ export default function BillingPage() {
                           data-testid="button-native-upgrade-pro"
                         >
                           {rc.isPurchasing ? "Processing…" : rc.isLoadingOfferings ? "Loading…" : (
-                            <>
-                              <Crown className="w-4 h-4 mr-2" />
-                              Subscribe{nativePrice ? ` — ${nativePrice}/mo` : " to Pro"}
-                            </>
+                            <><Crown className="w-4 h-4 mr-2" />Subscribe{nativePrice ? ` — ${nativePrice}/mo` : " to Pro"}</>
                           )}
                         </Button>
                       )}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="w-full text-slate-500 dark:text-white/40 text-xs"
+                        className="w-full text-muted-foreground text-xs mt-1"
                         onClick={handleNativeRestore}
                         disabled={rc.isRestoring}
                         data-testid="button-native-restore"
                       >
                         {rc.isRestoring ? "Restoring…" : <><RefreshCw className="w-3 h-3 mr-1" /> Restore previous purchase</>}
                       </Button>
-                      <p className="text-xs text-center text-slate-400 mt-1">
-                        Billed via the App Store / Play Store
-                      </p>
+                    </>
+                  ) : currentPlan === "pro" ? (
+                    <>
+                      <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border-0">
+                        <Crown className="w-3.5 h-3.5 mr-1.5" /> Current Plan
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-2 text-xs"
+                        onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
+                        disabled={checkoutMutation.isPending}
+                        data-testid="button-renew-pro"
+                      >
+                        {checkoutMutation.isPending ? "Redirecting…" : `Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
+                      </Button>
                     </>
                   ) : (
-                    /* ── Web: PayMongo checkout flow ── */
-                    <>
-                      {isPro ? (
-                        <Button
-                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                          onClick={() => checkoutMutation.mutate(billingCycle)}
-                          disabled={checkoutMutation.isPending}
-                          data-testid="button-renew-pro"
-                        >
-                          {checkoutMutation.isPending ? "Redirecting…" : `Renew / Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
-                        </Button>
-                      ) : (
-                        <Button
-                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                          onClick={() => checkoutMutation.mutate(billingCycle)}
-                          disabled={checkoutMutation.isPending}
-                          data-testid="button-upgrade-pro"
-                        >
-                          {checkoutMutation.isPending ? "Redirecting…" : (
-                            <>
-                              <Crown className="w-4 h-4 mr-2" />
-                              Upgrade to Pro — {billingCycle === "monthly" ? "₱30/mo" : "₱4,999/yr"}
-                            </>
-                          )}
-                        </Button>
+                    <Button
+                      className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                      onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
+                      disabled={checkoutMutation.isPending}
+                      data-testid="button-upgrade-pro"
+                    >
+                      {checkoutMutation.isPending ? "Redirecting…" : (
+                        <><Crown className="w-4 h-4 mr-2" />Get Pro — {billingCycle === "monthly" ? "₱499/mo" : "₱4,999/yr"}</>
                       )}
-                      <p className="text-xs text-center text-slate-400 mt-2">
-                        Secure payment via GCash, Card, GrabPay, or Maya
-                      </p>
-                    </>
+                    </Button>
                   )}
                 </div>
               </CardContent>
             </Card>
+
+            {/* ── Business Card ── */}
+            <Card className={`relative overflow-hidden bg-card ${currentPlan === "business" ? "border-amber-500/60 ring-1 ring-amber-500/20" : "border-border/60"}`}>
+              <div className="absolute top-3 right-3 z-10">
+                <Badge className="bg-amber-500 text-white gap-1 text-[11px]">
+                  <Building2 className="w-3 h-3" /> Business
+                </Badge>
+              </div>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <span className="h-8 w-8 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </span>
+                  Business
+                </CardTitle>
+                <CardDescription>
+                  {billingCycle === "monthly" ? (
+                    <>
+                      <span className="text-2xl font-black text-foreground">₱999</span>
+                      <span className="text-muted-foreground ml-1 text-sm">/ month</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-2xl font-black text-foreground">₱9,999</span>
+                      <span className="text-muted-foreground ml-1 text-sm">/ year</span>
+                      <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">₱833/mo</span>
+                    </>
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <ul className="space-y-1.5 text-sm">
+                  {BUSINESS_FEATURES.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-muted-foreground">
+                      <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="pt-2">
+                  {!native && currentPlan === "business" ? (
+                    <>
+                      <Badge className="w-full justify-center py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
+                        <Building2 className="w-3.5 h-3.5 mr-1.5" /> Current Plan
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-2 text-xs"
+                        onClick={() => checkoutMutation.mutate({ plan: "business", cycle: billingCycle })}
+                        disabled={checkoutMutation.isPending}
+                        data-testid="button-renew-business"
+                      >
+                        {checkoutMutation.isPending ? "Redirecting…" : `Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
+                      </Button>
+                    </>
+                  ) : !native ? (
+                    <Button
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+                      onClick={() => checkoutMutation.mutate({ plan: "business", cycle: billingCycle })}
+                      disabled={checkoutMutation.isPending}
+                      data-testid="button-upgrade-business"
+                    >
+                      {checkoutMutation.isPending ? "Redirecting…" : (
+                        <><Building2 className="w-4 h-4 mr-2" />Get Business — {billingCycle === "monthly" ? "₱999/mo" : "₱9,999/yr"}</>
+                      )}
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center pt-1">Available on web only</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
           </div>
 
-          {/* Native store badge */}
+          {!native && (
+            <p className="text-xs text-center text-muted-foreground">
+              Secure payment via card or e-wallet · Cancel anytime from your store's billing settings
+            </p>
+          )}
+
           {native && (
-            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/30 justify-center">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
               <Smartphone className="w-3.5 h-3.5" />
               <span>Payments are processed securely by Apple / Google</span>
             </div>
@@ -470,40 +505,40 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Payment History — web only (App Store receipts managed by Apple/Google) */}
+      {/* Payment History — web only */}
       {!native && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payment History</h2>
-          {payments.length === 0 ? (
+          <h2 className="text-lg font-semibold">Payment History</h2>
+          {paymentsLoading ? null : payments.length === 0 ? (
             <div
-              className="text-center py-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 text-sm flex flex-col items-center gap-2"
+              className="text-center py-10 border border-dashed border-border rounded-xl text-muted-foreground text-sm flex flex-col items-center gap-2"
               data-testid="empty-payment-history"
             >
               <CreditCard className="h-7 w-7 opacity-40" />
               <span>No payments yet — your billing history will appear here.</span>
             </div>
           ) : (
-            <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+            <div className="border border-border/60 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                <thead className="bg-muted/40 border-b border-border/60">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Plan</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-white/60">Cycle</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-white/60">Amount</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-white/60">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cycle</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                <tbody className="divide-y divide-border/40">
                   {payments.map((p) => (
-                    <tr key={p.id} className="bg-white dark:bg-transparent" data-testid={`row-payment-${p.id}`}>
-                      <td className="px-4 py-3 text-slate-700 dark:text-white/70">{formatDate(p.paidAt ?? p.createdAt)}</td>
-                      <td className="px-4 py-3 capitalize text-slate-700 dark:text-white/70">{p.plan}</td>
-                      <td className="px-4 py-3 capitalize text-slate-700 dark:text-white/70">{p.billingCycle}</td>
-                      <td className="px-4 py-3 text-right text-slate-700 dark:text-white/70">{formatAmount(p.amount)}</td>
+                    <tr key={p.id} className="bg-card" data-testid={`row-payment-${p.id}`}>
+                      <td className="px-4 py-3 text-foreground/70">{formatDate(p.paidAt ?? p.createdAt)}</td>
+                      <td className="px-4 py-3 capitalize text-foreground/70">{p.plan}</td>
+                      <td className="px-4 py-3 capitalize text-foreground/70">{p.billingCycle}</td>
+                      <td className="px-4 py-3 text-right text-foreground/70">{formatAmount(p.amount)}</td>
                       <td className="px-4 py-3 text-right">
                         {p.status === "paid" ? (
-                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Paid</Badge>
+                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">Paid</Badge>
                         ) : p.status === "pending" ? (
                           <Badge variant="secondary">Pending</Badge>
                         ) : (
@@ -517,30 +552,6 @@ export default function BillingPage() {
             </div>
           )}
         </div>
-      )}
-
-      {/* Cancel Confirm Dialog — web only */}
-      {!native && (
-        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Your Pro features will remain active until <strong>{formatDate(subscription.currentPeriodEnd)}</strong>. After that, your account will revert to the Free plan.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel data-testid="button-cancel-dialog-no">Keep Pro</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-red-600 hover:bg-red-700"
-                onClick={() => { cancelMutation.mutate(); setShowCancelDialog(false); }}
-                data-testid="button-cancel-dialog-confirm"
-              >
-                Yes, Cancel
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       )}
     </div>
   );

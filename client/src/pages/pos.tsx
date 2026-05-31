@@ -155,6 +155,9 @@ export default function POS() {
   const isCafeStyle =
     isFoodBeverage &&
     (CAFE_STYLE_BUSINESS_SUBTYPES as readonly string[]).includes(businessSubType);
+  const canSplitBill =
+    isFoodBeverage &&
+    (businessSubType === "restaurant" || businessSubType === "bar");
 
   // ── Cart state (extracted hook) ────────────────────────────────────────────
   const {
@@ -1257,7 +1260,7 @@ export default function POS() {
       {/* Checkout button — pinned at bottom */}
       <div className="shrink-0 pt-2 border-t border-border/40 space-y-1.5">
         {/* Split Bill — food & bev only, needs at least 2 items */}
-        {isFoodBeverage && cart.length >= 2 && (
+        {canSplitBill && cart.length >= 2 && (
           <button
             onClick={() => setShowBillSplit(true)}
             className="w-full h-8 rounded-xl border border-border/50 text-xs font-bold text-muted-foreground hover:text-foreground hover:border-border transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"

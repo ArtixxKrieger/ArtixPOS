@@ -218,19 +218,6 @@
           });
         } catch(e) {}
 
-        /* ── Disable right-click context menu ── */
-        document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
-
-        /* ── Block common devtools keyboard shortcuts ── */
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'F12') { e.preventDefault(); return false; }
-          if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
-            e.preventDefault(); return false;
-          }
-          if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return false; }
-          if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return false; }
-        });
-
         /* ── One-time console warning ── */
         console.log('%cSTOP!', 'color: red; font-size: 48px; font-weight: bold;');
         console.log('%cThis browser feature is for developers only. Do not paste anything here. Doing so may compromise your account.', 'color: black; font-size: 16px;');

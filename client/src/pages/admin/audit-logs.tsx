@@ -142,7 +142,7 @@ function formatCurrency(v: string | number | null) {
 
 // ── Event describers ──────────────────────────────────────────────────────────
 
-function describeEvent(action: string, entity: string, metadata: Record<string, any> | null) {
+function describeEvent(action: string, entity: string, metadata: Record<string, any> | null, currency = "") {
   const meta = metadata ?? {};
   if (action === "create" && entity === "tenant") return `Created organization "${meta.name}"`;
   if (action === "create" && entity === "branch") return `Created branch "${meta.name}"`;
@@ -177,15 +177,15 @@ function describeEvent(action: string, entity: string, metadata: Record<string, 
     return `Voided a sale${reason}`;
   }
   if (action === "shift_open" && entity === "shift") {
-    return `Opened shift with ₱${meta.openingBalance ?? "?"} opening balance${meta.notes ? ` — ${meta.notes}` : ""}`;
+    return `Opened shift with ${currency}${meta.openingBalance ?? "?"} opening balance${meta.notes ? ` — ${meta.notes}` : ""}`;
   }
   if (action === "shift_close" && entity === "shift") {
-    const v = meta.variance != null ? ` · Variance: ₱${meta.variance}` : "";
-    return `Closed shift with ₱${meta.closingBalance ?? "?"} closing balance${v}${meta.notes ? ` — ${meta.notes}` : ""}`;
+    const v = meta.variance != null ? ` · Variance: ${currency}${meta.variance}` : "";
+    return `Closed shift with ${currency}${meta.closingBalance ?? "?"} closing balance${v}${meta.notes ? ` — ${meta.notes}` : ""}`;
   }
   if (action === "cash_adjustment" && entity === "shift") {
     const dir = meta.type === "in" ? "added in" : "taken out";
-    return `Cash ${dir}: ₱${meta.amount ?? "?"}${meta.reason ? ` — ${meta.reason}` : ""}`;
+    return `Cash ${dir}: ${currency}${meta.amount ?? "?"}${meta.reason ? ` — ${meta.reason}` : ""}`;
   }
   if (action === "login" && entity === "auth") return `Successful login`;
   if (action === "login_failed" && entity === "auth") return `Failed login attempt${meta.ip ? ` from ${meta.ip}` : ""}`;
@@ -255,7 +255,7 @@ function exportToCSV(logs: AuditLog[]) {
     log.actorEmail || "",
     log.action,
     log.entity,
-    describeEvent(log.action, log.entity, log.metadata).replace(/,/g, ";"),
+    describeEvent(log.action, log.entity, log.metadata, currency).replace(/,/g, ";"),
   ]);
   const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
@@ -282,7 +282,7 @@ async function exportToPDF(logs: AuditLog[], storeLabel: string) {
       formatDate(log.createdAt ?? ""),
       log.actorName || log.actorEmail || log.userId,
       (ACTION_CONFIG[log.action]?.label ?? log.action).toString(),
-      describeEvent(log.action, log.entity, log.metadata),
+      describeEvent(log.action, log.entity, log.metadata, currency),
     ]),
     styles: { fontSize: 9, cellPadding: 6, valign: "top", overflow: "linebreak" },
     headStyles: { fillColor: [109, 40, 217], textColor: 255, fontStyle: "bold" },
@@ -329,6 +329,9 @@ export default function AuditLogs() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<SelectedEntry | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const { data: settings } = useQuery<{ currency?: string }>({ queryKey: ["/api/settings"], staleTime: 1000 * 60 * 5 });
+  const currency = settings?.currency ?? "";
 
   const { data: users = [] } = useTenantUsers();
   const { data: generalLogs = [], isLoading: generalLoading } = useAuditLogs(
@@ -589,7 +592,7 @@ export default function AuditLogs() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium line-clamp-2 leading-snug">
-                        {describeEvent(log.action, log.entity, log.metadata)}
+                        {describeEvent(log.action, log.entity, log.metadata, currency)}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-xs text-muted-foreground shrink-0">{formatDate(log.createdAt ?? "")}</p>
@@ -668,7 +671,7 @@ export default function AuditLogs() {
                 <div className="mt-5 space-y-3">
                   <div className="rounded-2xl bg-secondary/40 p-4">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">What happened</p>
-                    <p className="text-sm font-medium leading-relaxed">{describeEvent(log.action, log.entity, log.metadata)}</p>
+                    <p className="text-sm font-medium leading-relaxed">{describeEvent(log.action, log.entity, log.metadata, currency)}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2 rounded-2xl border border-border/40 p-4">

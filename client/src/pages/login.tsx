@@ -912,7 +912,7 @@ export default function Login() {
       </div>
       <div style={{ padding: "16px 18px" }}>
         <div className="gsap-d-l1" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
-          {[{ l: "Today's Sales", v: "₱ 24,850", d: "+12%", c: NEON }, { l: "Orders", v: "137", d: "+8%", c: "#34d399" }, { l: "Active Staff", v: "9 / 12", d: "3 available", c: "#a78bfa" }].map((s, i) => (
+          {[{ l: "Today's Sales", v: "24,850", d: "+12%", c: NEON }, { l: "Orders", v: "137", d: "+8%", c: "#34d399" }, { l: "Active Staff", v: "9 / 12", d: "3 available", c: "#a78bfa" }].map((s, i) => (
             <div key={i} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", transition: "background 0.2s" }}>
               <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.l}</div>
               <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 3 }}>{s.v}</div>
@@ -1287,7 +1287,7 @@ export default function Login() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, maxWidth: 680, margin: "0 auto" }}>
             <div className="price-card sr sr-left sr-d2" style={{ padding: "28px 26px", borderRadius: 18, background: CARD, border: "1px solid rgba(20,184,232,0.14)", textAlign: "left" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>FREE</div>
-              <div style={{ fontSize: 34, fontWeight: 900, color: "#fff", marginBottom: 4 }}>₱0 <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span></div>
+              <div style={{ fontSize: 34, fontWeight: 900, color: "#fff", marginBottom: 4 }}>Free <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span></div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", marginBottom: 22 }}>No credit card. No expiry.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {["Full POS", "Products & inventory", "Basic analytics", "Single branch", "Transaction history"].map((f, i) => (

@@ -188,6 +188,7 @@ export default function POS() {
       hapticMilestone();
       setTimeout(() => setMilestone(null), 3600);
     }, []),
+    settings?.currency || "",
   );
 
   // ── Show undo chip whenever an item is removed ─────────────────────────────

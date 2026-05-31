@@ -1,13 +1,13 @@
 import { useRef, useCallback } from "react";
 
-const MILESTONES = [
-  { threshold: 0.01,   label: "First sale of the day!",  emoji: "🎉" },
-  { threshold: 1000,   label: "₱1,000 reached!",          emoji: "🔥" },
-  { threshold: 5000,   label: "₱5,000 — amazing!",        emoji: "⚡" },
-  { threshold: 10000,  label: "₱10,000 today!",            emoji: "🏆" },
-  { threshold: 25000,  label: "₱25,000 — incredible!",     emoji: "💫" },
-  { threshold: 50000,  label: "₱50,000 — legendary!",      emoji: "🌟" },
-  { threshold: 100000, label: "₱100K — you're the GOAT!",  emoji: "👑" },
+const MILESTONE_THRESHOLDS = [
+  { threshold: 0.01,   label: (c: string) => `First sale of the day!`,              emoji: "🎉" },
+  { threshold: 1000,   label: (c: string) => `${c}1,000 reached!`,                  emoji: "🔥" },
+  { threshold: 5000,   label: (c: string) => `${c}5,000 — amazing!`,                emoji: "⚡" },
+  { threshold: 10000,  label: (c: string) => `${c}10,000 today!`,                   emoji: "🏆" },
+  { threshold: 25000,  label: (c: string) => `${c}25,000 — incredible!`,            emoji: "💫" },
+  { threshold: 50000,  label: (c: string) => `${c}50,000 — legendary!`,             emoji: "🌟" },
+  { threshold: 100000, label: (c: string) => `${c}100K — you're the GOAT!`,         emoji: "👑" },
 ];
 
 function todayKey() {
@@ -37,19 +37,18 @@ export function addToTodayTotal(amount: number): number {
   return next;
 }
 
-// Module-level guard: prevents re-firing within the same browser session even
-// if localStorage is unavailable (incognito, storage quota exceeded, etc.).
 const sessionFired = new Set<number>();
 
 export function useMilestones(
   onMilestone: (label: string, emoji: string) => void,
+  currency = "",
 ) {
   const prev = useRef(getTodayTotal());
 
   const check = useCallback(
     (newTotal: number) => {
       const seen = seenSet();
-      for (const m of MILESTONES) {
+      for (const m of MILESTONE_THRESHOLDS) {
         if (
           !seen.has(m.threshold) &&
           !sessionFired.has(m.threshold) &&
@@ -58,13 +57,13 @@ export function useMilestones(
         ) {
           markSeen(m.threshold);
           sessionFired.add(m.threshold);
-          onMilestone(m.label, m.emoji);
+          onMilestone(m.label(currency), m.emoji);
           break;
         }
       }
       prev.current = newTotal;
     },
-    [onMilestone],
+    [onMilestone, currency],
   );
 
   return { check };

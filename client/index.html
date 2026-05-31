@@ -157,7 +157,7 @@
       }
     </style>
 
-    <!-- Structured data — WebSite + Organization (Google Knowledge Graph) -->
+    <!-- Structured data — WebSite + Organization + SoftwareApplication + FAQ -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -167,13 +167,19 @@
           "@id": "https://artixpos.com/#website",
           "url": "https://artixpos.com/",
           "name": "ArtixPOS",
-          "description": "All-in-one point of sale and business management software.",
-          "inLanguage": "en"
+          "description": "ArtixPOS is an all-in-one point of sale and business management software for cafes, salons, pharmacies, hotels, and retail stores.",
+          "inLanguage": "en",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://artixpos.com/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
         },
         {
           "@type": "Organization",
           "@id": "https://artixpos.com/#organization",
           "name": "ArtixPOS",
+          "alternateName": "Artix POS",
           "url": "https://artixpos.com/",
           "logo": {
             "@type": "ImageObject",
@@ -181,20 +187,111 @@
             "width": 192,
             "height": 192
           },
+          "description": "ArtixPOS provides point of sale and business management software for small and medium businesses across multiple industries.",
+          "foundingDate": "2024",
           "sameAs": []
         },
         {
           "@type": "SoftwareApplication",
           "@id": "https://artixpos.com/#app",
           "name": "ArtixPOS",
+          "alternateName": "Artix Point of Sale",
           "applicationCategory": "BusinessApplication",
-          "operatingSystem": "Web, Android, iOS",
+          "applicationSubCategory": "Point of Sale Software",
+          "operatingSystem": "Web, Android, iOS, Windows, macOS",
+          "url": "https://artixpos.com/",
           "offers": {
             "@type": "Offer",
             "price": "0",
-            "priceCurrency": "USD"
+            "priceCurrency": "USD",
+            "description": "Free to start, no credit card required"
           },
-          "description": "All-in-one POS system with sales, inventory, payroll, appointments, and a built-in AI assistant."
+          "description": "ArtixPOS is an all-in-one POS and business management platform built for cafes, restaurants, salons, pharmacies, hotels, and retail stores. It includes point of sale, inventory management, payroll, staff scheduling, customer management, appointments, loyalty programs, expense tracking, and a built-in AI business assistant. Works fully offline with automatic sync.",
+          "featureList": [
+            "Point of Sale (POS) with offline support",
+            "Inventory and stock management",
+            "Payroll and staff scheduling",
+            "Customer relationship management (CRM)",
+            "Appointment booking system",
+            "Loyalty and membership programs",
+            "Sales analytics and reports",
+            "Multi-branch management",
+            "Built-in AI business assistant",
+            "Expense tracking",
+            "Purchase order management",
+            "WiFi voucher management",
+            "Receipt printing (ESC/POS thermal printers)",
+            "Progressive Web App (PWA) — works offline",
+            "Android and iOS mobile app"
+          ],
+          "screenshot": "https://artixpos.com/logo192.png",
+          "softwareVersion": "1.0",
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "24"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is ArtixPOS?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "ArtixPOS is an all-in-one point of sale (POS) and business management software designed for cafes, restaurants, salons, pharmacies, hotels, and retail stores. It includes sales, inventory, payroll, appointments, customer management, and a built-in AI assistant."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does ArtixPOS work offline?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. ArtixPOS is built as a Progressive Web App (PWA) with full offline support. You can continue making sales even without an internet connection, and the data syncs automatically when you reconnect."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What businesses can use ArtixPOS?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "ArtixPOS supports multiple business types including cafes, restaurants, retail stores, salons, pharmacies, hotels, and more. Each business type gets its own dedicated features and terminology."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is ArtixPOS free?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "ArtixPOS offers a free plan with no credit card required. You can start using it immediately and upgrade as your business grows."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does ArtixPOS have an AI assistant?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. ArtixPOS has a built-in AI business assistant powered by multiple AI providers (Groq, Cerebras, Mistral). It can answer questions about your sales, inventory, and business performance."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does ArtixPOS support multiple branches?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. ArtixPOS supports multi-branch management, allowing you to manage multiple store locations from a single account with centralized reporting and staff management."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What devices does ArtixPOS work on?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "ArtixPOS works on any device with a web browser — desktop, tablet, or smartphone. It also has native Android and iOS apps available."
+              }
+            }
+          ]
         }
       ]
     }

@@ -30,17 +30,51 @@ Disallow: /refunds
 Disallow: /discount-codes
 Disallow: /api/
 
-# AI training crawlers
+# AI crawlers — allow public pages so AI tools can learn about ArtixPOS
 User-agent: GPTBot
-Disallow: /
+Allow: /
+Disallow: /pos
+Disallow: /products
+Disallow: /customers
+Disallow: /transactions
+Disallow: /analytics
+Disallow: /expenses
+Disallow: /staff
+Disallow: /payroll
+Disallow: /inventory
+Disallow: /appointments
+Disallow: /memberships
+Disallow: /loyalty
+Disallow: /tables
+Disallow: /rooms
+Disallow: /kitchen
+Disallow: /bir
+Disallow: /timeclock
+Disallow: /shifts
+Disallow: /reports
+Disallow: /settings
+Disallow: /billing
+Disallow: /admin
+Disallow: /api/
 
 User-agent: Google-Extended
 Allow: /
 
 User-agent: anthropic-ai
-Disallow: /
+Allow: /
+Disallow: /pos
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
 
 User-agent: CCBot
-Disallow: /
+Allow: /
 
 Sitemap: https://artixpos.com/sitemap.xml

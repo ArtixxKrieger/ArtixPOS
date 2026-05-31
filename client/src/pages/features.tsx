@@ -215,7 +215,13 @@ export default function FeaturesPage() {
   }
 
   async function handleSave() {
-    await saveFeatures({ ...draft, setupComplete: true });
+    try {
+      await saveFeatures({ ...draft, setupComplete: true });
+    } catch {
+      // Server error (e.g. DB migration not yet run). The optimistic update
+      // keeps posFeatures in the local cache so the setup-guard won't loop.
+      // We still navigate in setup mode so the user isn't stuck.
+    }
     if (isSetupMode) {
       setLocation("/pos");
     }
@@ -226,15 +232,15 @@ export default function FeaturesPage() {
       (settings as any)?.businessType,
       (settings as any)?.businessSubType,
     );
-    saveFeatures({ ...DEFAULT_POS_FEATURES, ...btDefaults, setupComplete: true }).then(() => {
-      setLocation("/pos");
-    }).catch(() => {});
+    // Fire-and-forget: don't block navigation on the save outcome.
+    saveFeatures({ ...DEFAULT_POS_FEATURES, ...btDefaults, setupComplete: true }).catch(() => {});
+    setLocation("/pos");
   }
 
   if (isLoading) return null;
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-40">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/30 px-4 py-3 flex items-center gap-3">
         {!isSetupMode ? (
@@ -322,29 +328,37 @@ export default function FeaturesPage() {
       </div>
 
       {/* ── Sticky save bar ──────────────────────────────────────────────────── */}
-      <div className="fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur border-t border-border/30 px-4 py-3 flex gap-2 max-w-xl mx-auto">
-        {isSetupMode && !isSetup && (
-          <button
-            onClick={handleSkip}
-            disabled={isSaving}
-            className="flex-1 py-3 rounded-2xl text-sm font-medium border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Skip for now
-          </button>
-        )}
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="flex-1 py-3 rounded-2xl text-sm font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      {/* Outer div handles fixed positioning full-width. Inner div handles
+          max-width centering. These MUST be separate: margin:auto is ignored
+          by the browser when both left+right are explicitly set on a fixed element. */}
+      <div className="fixed bottom-0 left-0 right-0 z-30">
+        <div
+          className="bg-background/95 backdrop-blur border-t border-border/30 px-4 pt-3 flex gap-2 max-w-xl mx-auto"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
         >
-          {isSaving ? (
-            <span className="inline-block w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-          ) : isSetupMode ? (
-            <>Save &amp; Open POS <ArrowRight size={15} /></>
-          ) : (
-            "Save Changes"
+          {isSetupMode && !isSetup && (
+            <button
+              onClick={handleSkip}
+              disabled={isSaving}
+              className="flex-1 py-3 rounded-2xl text-sm font-medium border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Skip for now
+            </button>
           )}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 py-3 rounded-2xl text-sm font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isSaving ? (
+              <span className="inline-block w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            ) : isSetupMode ? (
+              <>Save &amp; Open POS <ArrowRight size={15} /></>
+            ) : (
+              "Save Changes"
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

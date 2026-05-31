@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   ShoppingBag, Truck, ScanLine, Receipt, UserCheck,
@@ -189,16 +189,24 @@ export default function FeaturesPage() {
     return { ...DEFAULT_POS_FEATURES, ...btDefaults };
   });
 
-  // Re-sync if settings loaded after first render
+  // Track whether we've done the one-time initialisation from async-loaded settings.
+  // Without this, the effect fires again whenever settings is re-fetched (e.g., cache
+  // warm from IDB), silently overwriting any toggles the user has made mid-session.
+  const draftInitialized = useRef(false);
+
   useEffect(() => {
     if (features) {
+      // Always sync when saved posFeatures arrives — keeps draft consistent with DB.
       setDraft({ ...features });
-    } else if (settings && !features) {
+      draftInitialized.current = true;
+    } else if (settings && !features && !draftInitialized.current) {
+      // One-time initialisation from businessType when posFeatures hasn't been saved yet.
       const btDefaults = getDefaultsForBusinessType(
         (settings as any)?.businessType,
         (settings as any)?.businessSubType,
       );
       setDraft({ ...DEFAULT_POS_FEATURES, ...btDefaults });
+      draftInitialized.current = true;
     }
   }, [features, settings]);
 
@@ -318,7 +326,8 @@ export default function FeaturesPage() {
         {isSetupMode && !isSetup && (
           <button
             onClick={handleSkip}
-            className="flex-1 py-3 rounded-2xl text-sm font-medium border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors"
+            disabled={isSaving}
+            className="flex-1 py-3 rounded-2xl text-sm font-medium border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Skip for now
           </button>

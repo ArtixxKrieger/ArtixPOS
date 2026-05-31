@@ -1068,6 +1068,18 @@ export const insertUserSettingSchema = z.object({
   wifiDurationMinutes: z.number().optional().nullable(),
   wifiAutoIssue: z.number().optional().nullable(),
   country: z.string().optional().nullable(),
+  posFeatures: z.object({
+    setupComplete: z.boolean(),
+    takeout: z.boolean(),
+    delivery: z.boolean(),
+    barcodeScanning: z.boolean(),
+    receiptName: z.boolean(),
+    customerAccounts: z.boolean(),
+    tables: z.boolean(),
+    kitchenDisplay: z.boolean(),
+    splitBill: z.boolean(),
+    loyalty: z.boolean(),
+  }).optional().nullable(),
 });
 
 export const insertDiscountCodeSchema = z.object({

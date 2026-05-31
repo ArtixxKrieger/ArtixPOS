@@ -245,10 +245,13 @@ function POSWithSetupGuard() {
   useEffect(() => {
     if (isLoading) return;
     if (location !== "/pos") return;
-    if (posFeatures == null) {
+    // Only redirect when settings loaded successfully (non-null) but posFeatures
+    // has never been configured. Avoids a redirect loop when settings fail to
+    // load (network error / 401) and settings itself is null.
+    if (settings != null && posFeatures == null) {
       setLocation("/features?setup=1");
     }
-  }, [isLoading, posFeatures, location, setLocation]);
+  }, [isLoading, settings, posFeatures, location, setLocation]);
 
   // Render POS regardless — it stays mounted in the background via PersistentRoute.
   // The effect above handles the redirect; the POS will be display:none while

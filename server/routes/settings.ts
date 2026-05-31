@@ -7,7 +7,7 @@ import { requireAuth, getSubscription, isProSubscription } from "../middleware";
 import { createTenant, getBranches, createBranch, updateBranch } from "../admin-storage";
 import { db, dbSystem } from "../db";
 import { eq, sql } from "drizzle-orm";
-import { users, tenants } from "@shared/schema";
+import { users, tenants, PRO_POS_FEATURE_KEYS } from "@shared/schema";
 import { setAuthCookie } from "../auth";
 import { cache, TTL, settingsCacheKey } from "../cache";
 import { invalidateTenantCache } from "../storage";
@@ -152,10 +152,7 @@ export function registerSettingsRoutes(app: Express): void {
             // by directly calling the API (all Pro flags are forced to false).
             if ((input as any).posFeatures && typeof (input as any).posFeatures === "object") {
               const pf = (input as any).posFeatures as Record<string, unknown>;
-              pf.tables = false;
-              pf.kitchenDisplay = false;
-              pf.splitBill = false;
-              pf.loyalty = false;
+              for (const k of PRO_POS_FEATURE_KEYS) pf[k as string] = false;
             }
           }
         } catch (proCheckErr) {

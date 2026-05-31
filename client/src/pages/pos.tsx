@@ -685,34 +685,39 @@ export default function POS() {
   // ── Bill split handler ─────────────────────────────────────────────────────
   // Called when "By Items" mode charges separate bills — creates one pending
   // order per person so each gets their own receipt and sale record.
-  const handleSplitByItems = useCallback((splits: SplitPortion[]) => {
-    splits.forEach((split, idx) => {
-      createPending.mutate({
-        items: split.items as any,
-        subtotal: split.subtotal.toFixed(2),
-        tax: split.tax.toFixed(2),
-        total: split.total.toFixed(2),
-        paymentAmount: split.total.toFixed(2),
-        changeAmount: "0",
-        discount: "0",
-        loyaltyDiscount: "0",
-        tip: "0",
-        status: "paid",
-        paymentMethod,
-        orderType: isFoodBeverage ? orderType : null,
-        notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
-      } as any, {
-        onSuccess: () => {
-          if (idx === splits.length - 1) {
-            clearCart();
-            toast({ title: `Split bill processed`, description: `${splits.length} separate bills charged.` });
-          }
-        },
-        onError: () => {
-          toast({ title: `Failed to charge ${split.personLabel}`, variant: "destructive" });
-        },
+  const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
+    let succeeded = 0;
+    for (const [idx, split] of splits.entries()) {
+      try {
+        await createPending.mutateAsync({
+          items: split.items as any,
+          subtotal: split.subtotal.toFixed(2),
+          tax: split.tax.toFixed(2),
+          total: split.total.toFixed(2),
+          paymentAmount: split.total.toFixed(2),
+          changeAmount: "0",
+          discount: "0",
+          loyaltyDiscount: "0",
+          tip: "0",
+          status: "paid",
+          paymentMethod,
+          orderType: isFoodBeverage ? orderType : null,
+          notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
+        } as any);
+        succeeded++;
+      } catch {
+        toast({ title: `Failed to charge ${split.personLabel}`, variant: "destructive" });
+      }
+    }
+    if (succeeded > 0) {
+      clearCart();
+      toast({
+        title: "Split bill processed",
+        description: succeeded === splits.length
+          ? `${succeeded} separate bills charged.`
+          : `${succeeded} of ${splits.length} bills charged — ${splits.length - succeeded} failed.`,
       });
-    });
+    }
   }, [createPending, paymentMethod, orderType, isFoodBeverage, clearCart, toast]);
 
   // ── Cart panel content (shared between desktop sidebar & mobile sheet) ─────

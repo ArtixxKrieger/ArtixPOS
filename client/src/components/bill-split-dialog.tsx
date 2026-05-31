@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
@@ -56,6 +56,18 @@ export function BillSplitDialog({
     cart.forEach(item => { init[item.cartId] = 0; });
     return init;
   });
+
+  // Reset assignments whenever the dialog opens so stale cartIds from a
+  // previous opening (items added/removed since) don't bleed through.
+  useEffect(() => {
+    if (open) {
+      setMode("equal");
+      setEqualPeople(2);
+      const init: Record<string, number> = {};
+      cart.forEach(item => { init[item.cartId] = 0; });
+      setItemAssignments(init);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const perPersonEqual = total / equalPeople;
 

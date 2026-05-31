@@ -37,6 +37,10 @@ export function addToTodayTotal(amount: number): number {
   return next;
 }
 
+// Module-level guard: prevents re-firing within the same browser session even
+// if localStorage is unavailable (incognito, storage quota exceeded, etc.).
+const sessionFired = new Set<number>();
+
 export function useMilestones(
   onMilestone: (label: string, emoji: string) => void,
 ) {
@@ -46,8 +50,14 @@ export function useMilestones(
     (newTotal: number) => {
       const seen = seenSet();
       for (const m of MILESTONES) {
-        if (!seen.has(m.threshold) && prev.current < m.threshold && newTotal >= m.threshold) {
+        if (
+          !seen.has(m.threshold) &&
+          !sessionFired.has(m.threshold) &&
+          prev.current < m.threshold &&
+          newTotal >= m.threshold
+        ) {
           markSeen(m.threshold);
+          sessionFired.add(m.threshold);
           onMilestone(m.label, m.emoji);
           break;
         }

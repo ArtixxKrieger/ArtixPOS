@@ -9,8 +9,9 @@ import {
   PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle,
   Search, Globe, PartyPopper, Zap, BarChart2, Shield,
   Package, WifiOff, UserCheck, Receipt, Smartphone, Check,
-  Languages,
+  Languages, LogOut,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import i18n, { SUPPORTED_LANGUAGES, loadLocale } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -245,6 +246,7 @@ export default function Onboarding() {
 
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
+  const { logout, isLoggingOut } = useAuth();
   const userPickedCountry = useRef(false);
 
   // ── Geo-detect country on mount ─────────────────────────────────────────────
@@ -407,14 +409,27 @@ export default function Onboarding() {
           <span className="text-xs font-bold tracking-[0.15em] text-primary/80 uppercase">ArtixPOS</span>
         </div>
 
-        {showProgress && (
-          <div className="flex items-center gap-2.5">
-            <StepProgress current={ownerProgressIndex} />
-            <span className="text-xs text-muted-foreground hidden sm:block">
-              Step {ownerProgressIndex + 1} of {OWNER_STEPS.length}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-2.5">
+          {showProgress && (
+            <div className="flex items-center gap-2.5">
+              <StepProgress current={ownerProgressIndex} />
+              <span className="text-xs text-muted-foreground hidden sm:block">
+                Step {ownerProgressIndex + 1} of {OWNER_STEPS.length}
+              </span>
+            </div>
+          )}
+          {step !== "done" && (
+            <button
+              data-testid="btn-onboarding-logout"
+              onClick={() => logout()}
+              disabled={isLoggingOut}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-white/70 dark:hover:bg-white/5 disabled:opacity-50"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isLoggingOut ? "Logging out…" : "Log out"}</span>
+            </button>
+          )}
+        </div>
       </header>
 
       {/* ── Main ── */}
@@ -765,19 +780,32 @@ export default function Onboarding() {
       </main>
 
       {/* ── Back button footer ── */}
-      {["business_type", "business_subtype", "store_info"].includes(step) && (
+      {["welcome", "business_type", "business_subtype", "store_info"].includes(step) && (
         <footer className="relative z-10 w-full px-5 sm:px-8 pb-5 sm:pb-6 pt-1">
           <div className="max-w-xl mx-auto">
-            <button
-              onClick={() => {
-                if (step === "business_type")         setStep("welcome");
-                else if (step === "business_subtype") setStep("business_type");
-                else if (step === "store_info")       setStep("business_subtype");
-              }}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-white/70 dark:hover:bg-white/5"
-            >
-              <ChevronLeft className="w-4 h-4" /> {t("common.back")}
-            </button>
+            {step === "welcome" ? (
+              <button
+                data-testid="btn-onboarding-back-login"
+                onClick={() => logout()}
+                disabled={isLoggingOut}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-white/70 dark:hover:bg-white/5 disabled:opacity-50"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                {isLoggingOut ? "Logging out…" : "Back to login"}
+              </button>
+            ) : (
+              <button
+                data-testid="btn-onboarding-back"
+                onClick={() => {
+                  if (step === "business_type")         setStep("welcome");
+                  else if (step === "business_subtype") setStep("business_type");
+                  else if (step === "store_info")       setStep("business_subtype");
+                }}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-white/70 dark:hover:bg-white/5"
+              >
+                <ChevronLeft className="w-4 h-4" /> {t("common.back")}
+              </button>
+            )}
           </div>
         </footer>
       )}

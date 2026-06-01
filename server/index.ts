@@ -26,6 +26,7 @@ import { cache } from "./cache";
 import { tenantContextMiddleware } from "./tenant-context";
 import { setupRLS } from "./rls-setup";
 import { pool } from "./db";
+import { startCleanupScheduler } from "./cleanup";
 
 const app = express();
 const httpServer = createServer(app);
@@ -499,6 +500,10 @@ async function _doInit() {
     // Fire-and-forget: pre-load cache for onboarded users after routes are ready.
     // Never blocks startup — if the DB is slow the server still starts immediately.
     warmCache().catch(() => {});
+    // Periodic cleanup: expired revoked tokens + old read notifications.
+    // Non-blocking — runs on a 1h interval with timer.unref() so it never
+    // prevents process exit.
+    startCleanupScheduler();
     console.log("[init] step 6/8 — setupSwagger");
     setupSwagger(app);
 

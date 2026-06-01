@@ -13,94 +13,183 @@ import { storage } from "../storage";
 import { requireAuth, requirePro, requireManagerOrAbove } from "../middleware";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
-import { orNumericRange } from "./shifts";
 import { getUserId } from "../lib/route-utils";
 
 export function registerBirRoutes(app: Express): void {
 
   // ── BIR X-Report (intra-day running total) ─────────────────────────────────
+  // All aggregation runs in PostgreSQL — no row data is pulled into Node.js.
+  // Previously this loaded up to 10,000 rows and ran multiple JS .reduce()
+  // passes, which is both slower and silently wrong at high volume.
   app.get("/api/bir/x-report", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const openShift = await storage.getOpenShift(uid);
     if (!openShift) return res.json({ shift: null });
     const startDate = openShift.openedAt!;
-    const salesList = await storage.getSales(uid, { limit: 10000, startDate });
 
-    const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
-    const { orFrom, orTo } = orNumericRange(orNumbers);
+    // Fire all three aggregate queries in parallel — each scans only the
+    // tenant's rows in the current shift window via the tenant+created_at index.
+    const [aggRows, pmRows, dtRows] = await Promise.all([
+      // Aggregate totals
+      db.execute(sql`
+        SELECT
+          COUNT(*)::int                                                                      AS total_txn,
+          COALESCE(SUM(CAST(total              AS NUMERIC)), 0)::float8                     AS gross_sales,
+          COALESCE(SUM(CAST(tax                AS NUMERIC)), 0)::float8                     AS vat_amount,
+          COALESCE(SUM(CAST(discount           AS NUMERIC)), 0)::float8                     AS total_discount,
+          COALESCE(SUM(CAST(loyalty_discount   AS NUMERIC)), 0)::float8                     AS total_loyalty_discount,
+          COALESCE(SUM(CAST(vatable_sales      AS NUMERIC)), 0)::float8                     AS vatable_sales,
+          COALESCE(SUM(CAST(vat_exempt_sales   AS NUMERIC)), 0)::float8                     AS vat_exempt_sales,
+          COALESCE(SUM(CAST(zero_rated_sales   AS NUMERIC)), 0)::float8                     AS zero_rated_sales,
+          MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_min,
+          MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_max
+        FROM sales
+        WHERE user_id = ${uid}
+          AND deleted_at IS NULL
+          AND created_at >= ${startDate}
+      `),
+      // Payment method breakdown
+      db.execute(sql`
+        SELECT
+          COALESCE(payment_method, 'cash')                                  AS pm,
+          COUNT(*)::int                                                      AS count,
+          COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8                  AS total
+        FROM sales
+        WHERE user_id = ${uid}
+          AND deleted_at IS NULL
+          AND created_at >= ${startDate}
+        GROUP BY payment_method
+      `),
+      // Discount type breakdown
+      db.execute(sql`
+        SELECT
+          COALESCE(discount_type, 'regular')                                AS dt,
+          COUNT(*)::int                                                      AS count,
+          COALESCE(SUM(CAST(total    AS NUMERIC)), 0)::float8               AS total,
+          COALESCE(SUM(CAST(discount AS NUMERIC)), 0)::float8               AS discount
+        FROM sales
+        WHERE user_id = ${uid}
+          AND deleted_at IS NULL
+          AND created_at >= ${startDate}
+        GROUP BY discount_type
+      `),
+    ]);
+
+    const agg = (aggRows.rows as any[])[0] ?? {};
+    const orMin: bigint | null = agg.or_min ?? null;
+    const orMax: bigint | null = agg.or_max ?? null;
+    const orFrom = orMin !== null ? String(orMin).padStart(7, "0") : "(none)";
+    const orTo   = orMax !== null ? String(orMax).padStart(7, "0") : "(none)";
 
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-    for (const sale of salesList) {
-      const pm = sale.paymentMethod || "cash";
-      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, total: 0 };
-      paymentBreakdown[pm].count++;
-      paymentBreakdown[pm].total += parseFloat(sale.total || "0");
+    for (const r of pmRows.rows as any[]) {
+      paymentBreakdown[r.pm] = { count: Number(r.count), total: Number(r.total) };
     }
 
     const discountBreakdown: Record<string, { count: number; total: number; discount: number }> = {};
-    for (const sale of salesList) {
-      const dt = (sale as any).discountType || "regular";
-      if (!discountBreakdown[dt]) discountBreakdown[dt] = { count: 0, total: 0, discount: 0 };
-      discountBreakdown[dt].count++;
-      discountBreakdown[dt].total += parseFloat(sale.total || "0");
-      discountBreakdown[dt].discount += parseFloat(sale.discount || "0");
+    for (const r of dtRows.rows as any[]) {
+      discountBreakdown[r.dt] = { count: Number(r.count), total: Number(r.total), discount: Number(r.discount) };
     }
+
+    const gross = Number(agg.gross_sales ?? 0);
+    const vat   = Number(agg.vat_amount  ?? 0);
 
     res.json({
       shift: openShift,
       orFrom, orTo,
-      totalTransactions: salesList.length,
-      grossSales:          salesList.reduce((a, s) => a + parseFloat(s.total    || "0"), 0),
-      netSales:            salesList.reduce((a, s) => a + parseFloat(s.total    || "0") - parseFloat(s.tax || "0"), 0),
-      totalDiscount:       salesList.reduce((a, s) => a + parseFloat(s.discount || "0"), 0),
-      totalLoyaltyDiscount:salesList.reduce((a, s) => a + parseFloat((s as any).loyaltyDiscount || "0"), 0),
-      vatableSalesTotal:   salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales   || "0"), 0),
-      vatExemptTotal:      salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales  || "0"), 0),
-      zeroRatedTotal:      salesList.reduce((a, s) => a + parseFloat((s as any).zeroRatedSales  || "0"), 0),
-      vatAmountTotal:      salesList.reduce((a, s) => a + parseFloat(s.tax      || "0"), 0),
+      totalTransactions:    Number(agg.total_txn              ?? 0),
+      grossSales:           gross,
+      netSales:             gross - vat,
+      totalDiscount:        Number(agg.total_discount         ?? 0),
+      totalLoyaltyDiscount: Number(agg.total_loyalty_discount ?? 0),
+      vatableSalesTotal:    Number(agg.vatable_sales          ?? 0),
+      vatExemptTotal:       Number(agg.vat_exempt_sales       ?? 0),
+      zeroRatedTotal:       Number(agg.zero_rated_sales       ?? 0),
+      vatAmountTotal:       vat,
       paymentBreakdown,
       discountBreakdown,
     });
   });
 
   // ── BIR Monthly Summary ────────────────────────────────────────────────────
+  // All aggregation runs in PostgreSQL — no row data pulled into Node.js.
+  // Previously this loaded up to 10,000 rows and ran multiple JS .reduce()
+  // passes, which silently truncates reports for months with >10K transactions.
   app.get("/api/bir/summary", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
 
     const [year, mon] = month.split("-").map(Number);
-    const monStr = String(mon).padStart(2, "0");
-    const lastDay = new Date(year, mon, 0).getDate();
-    const lastDayStr = String(lastDay).padStart(2, "0");
+    const monStr    = String(mon).padStart(2, "0");
+    const lastDay   = new Date(year, mon, 0).getDate();
+    const lastDayStr= String(lastDay).padStart(2, "0");
     const startDate = new Date(`${year}-${monStr}-01T00:00:00+08:00`).toISOString();
     const endDate   = new Date(`${year}-${monStr}-${lastDayStr}T23:59:59.999+08:00`).toISOString();
+    const uid       = getUserId(req);
 
-    const salesList = await storage.getSales(getUserId(req), { limit: 10000, startDate, endDate });
-    const orNumbers = salesList.map(s => s.orNumber).filter(Boolean) as string[];
-    const { orFrom, orTo } = orNumericRange(orNumbers);
+    const [aggRows, pmRows] = await Promise.all([
+      // Single-pass aggregate — replaces 8+ separate JS reduce() calls
+      db.execute(sql`
+        SELECT
+          COUNT(*)::int                                                                             AS total_txn,
+          COALESCE(SUM(CAST(total            AS NUMERIC)), 0)::float8                              AS gross_sales,
+          COALESCE(SUM(CAST(tax              AS NUMERIC)), 0)::float8                              AS output_vat,
+          COALESCE(SUM(CAST(vatable_sales    AS NUMERIC)), 0)::float8                              AS vatable_sales,
+          COALESCE(SUM(CAST(vat_exempt_sales AS NUMERIC)), 0)::float8                              AS vat_exempt_sales,
+          COALESCE(SUM(CAST(zero_rated_sales AS NUMERIC)), 0)::float8                              AS zero_rated_sales,
+          COALESCE(SUM(CAST(discount         AS NUMERIC)), 0)::float8                              AS total_discount,
+          COUNT(*)         FILTER (WHERE discount_type IN ('sc','pwd'))::int                       AS sc_pwd_count,
+          COALESCE(SUM(CAST(discount AS NUMERIC)) FILTER (WHERE discount_type IN ('sc','pwd')), 0)::float8 AS sc_pwd_discount,
+          MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_min,
+          MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_max
+        FROM sales
+        WHERE user_id = ${uid}
+          AND deleted_at IS NULL
+          AND created_at >= ${startDate}
+          AND created_at <= ${endDate}
+      `),
+      // Payment method breakdown
+      db.execute(sql`
+        SELECT
+          COALESCE(payment_method, 'cash')                             AS pm,
+          COUNT(*)::int                                                AS count,
+          COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8            AS total
+        FROM sales
+        WHERE user_id = ${uid}
+          AND deleted_at IS NULL
+          AND created_at >= ${startDate}
+          AND created_at <= ${endDate}
+        GROUP BY payment_method
+      `),
+    ]);
+
+    const agg    = (aggRows.rows as any[])[0] ?? {};
+    const orMin: bigint | null = agg.or_min ?? null;
+    const orMax: bigint | null = agg.or_max ?? null;
+    const orFrom = orMin !== null ? String(orMin).padStart(7, "0") : "(none)";
+    const orTo   = orMax !== null ? String(orMax).padStart(7, "0") : "(none)";
 
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-    for (const s of salesList) {
-      const pm = s.paymentMethod || "cash";
-      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, total: 0 };
-      paymentBreakdown[pm].count++;
-      paymentBreakdown[pm].total += parseFloat(s.total || "0");
+    for (const r of pmRows.rows as any[]) {
+      paymentBreakdown[r.pm] = { count: Number(r.count), total: Number(r.total) };
     }
 
-    const scPwdSales = salesList.filter(s => ["sc","pwd"].includes((s as any).discountType));
+    const gross  = Number(agg.gross_sales ?? 0);
+    const vat    = Number(agg.output_vat  ?? 0);
+
     res.json({
       month, orFrom, orTo,
-      totalTransactions: salesList.length,
-      grossSales:     salesList.reduce((a, s) => a + parseFloat(s.total       || "0"), 0),
-      netSales:       salesList.reduce((a, s) => a + parseFloat(s.total || "0") - parseFloat(s.tax || "0"), 0),
-      outputVat:      salesList.reduce((a, s) => a + parseFloat(s.tax         || "0"), 0),
-      vatableSales:   salesList.reduce((a, s) => a + parseFloat((s as any).vatableSales   || "0"), 0),
-      vatExemptSales: salesList.reduce((a, s) => a + parseFloat((s as any).vatExemptSales || "0"), 0),
-      zeroRatedSales: salesList.reduce((a, s) => a + parseFloat((s as any).zeroRatedSales || "0"), 0),
-      totalDiscount:  salesList.reduce((a, s) => a + parseFloat(s.discount    || "0"), 0),
-      scPwdCount:     scPwdSales.length,
-      scPwdDiscount:  scPwdSales.reduce((a, s) => a + parseFloat(s.discount   || "0"), 0),
+      totalTransactions: Number(agg.total_txn       ?? 0),
+      grossSales:        gross,
+      netSales:          gross - vat,
+      outputVat:         vat,
+      vatableSales:      Number(agg.vatable_sales    ?? 0),
+      vatExemptSales:    Number(agg.vat_exempt_sales ?? 0),
+      zeroRatedSales:    Number(agg.zero_rated_sales ?? 0),
+      totalDiscount:     Number(agg.total_discount   ?? 0),
+      scPwdCount:        Number(agg.sc_pwd_count     ?? 0),
+      scPwdDiscount:     Number(agg.sc_pwd_discount  ?? 0),
       paymentBreakdown,
     });
   });

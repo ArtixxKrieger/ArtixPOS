@@ -71,6 +71,80 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_po_items_po_id ON purchase_order_items(purchase_order_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id, created_at)`,
+
+  // ── BRIN indexes ────────────────────────────────────────────────────────────
+  // BRIN (Block Range INdex) tracks min/max values per 128-page block range.
+  // For tables where rows are inserted in creation-time order (sales, audit_logs,
+  // loyalty_points_log, stock_logs), BRIN reduces date-range I/O by ~90% vs a
+  // B-tree scan, and is 100–300× smaller than an equivalent B-tree index.
+  // At 10M rows a B-tree on created_at is ~200MB; the BRIN equivalent is ~128KB.
+  `CREATE INDEX IF NOT EXISTS idx_sales_created_brin            ON sales            USING brin(created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_logs_created_brin       ON audit_logs       USING brin(created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_loyalty_points_log_created_brin ON loyalty_points_log USING brin(created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_logs_created_brin       ON stock_logs       USING brin(created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_time_logs_created_brin        ON time_logs        USING brin(created_at)`,
+
+  // ── loyalty_points_log — ZERO indexes beyond PK; every query is a full scan ─
+  `CREATE INDEX IF NOT EXISTS idx_loyalty_points_log_customer   ON loyalty_points_log(customer_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_loyalty_points_log_user       ON loyalty_points_log(user_id, customer_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_loyalty_points_log_sale       ON loyalty_points_log(sale_id) WHERE sale_id IS NOT NULL`,
+
+  // ── stock_logs — missing created_at range + user-scoped queries ─────────────
+  `CREATE INDEX IF NOT EXISTS idx_stock_logs_product            ON stock_logs(product_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_logs_user               ON stock_logs(user_id, created_at)`,
+
+  // ── waste_log — ZERO indexes beyond PK ────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_waste_log_user                ON waste_log(user_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_waste_log_product             ON waste_log(product_id) WHERE product_id IS NOT NULL`,
+
+  // ── membership_check_ins — ZERO indexes beyond PK ─────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_membership_checkins_membership ON membership_check_ins(membership_id, checked_in_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_membership_checkins_customer  ON membership_check_ins(customer_id, checked_in_at)`,
+
+  // ── revoked_tokens — without this, every cleanup query scans the full table ─
+  // jwtAuthMiddleware also runs cleanup queries; no expiry index = O(N) always.
+  `CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires        ON revoked_tokens(expires_at)`,
+
+  // ── audit_logs entity history — looking up one entity's audit trail ─────────
+  `CREATE INDEX IF NOT EXISTS idx_audit_logs_entity             ON audit_logs(tenant_id, entity, entity_id) WHERE entity_id IS NOT NULL`,
+
+  // ── Partial indexes: active-only rows (exclude soft-deleted rows entirely) ──
+  // Soft-deleted rows accumulate indefinitely. A partial index is a fraction
+  // of the size of its full equivalent because it omits all deleted rows —
+  // and it is the only index that analytics queries (deleted_at IS NULL) use.
+  `CREATE INDEX IF NOT EXISTS idx_sales_active_tenant           ON sales(tenant_id, created_at)            WHERE deleted_at IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_products_active_user          ON products(user_id, category)             WHERE deleted_at IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_customers_active_user         ON customers(user_id)                      WHERE deleted_at IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_suppliers_active_user         ON suppliers(user_id)                      WHERE deleted_at IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_ingredients_active_user       ON ingredients(user_id)                    WHERE deleted_at IS NULL`,
+
+  // ── Notifications: unread-only filter (hot path on every page load) ─────────
+  `CREATE INDEX IF NOT EXISTS idx_notifications_unread          ON notifications(user_id, created_at)      WHERE read_at IS NULL`,
+
+  // ── Time Logs: open sessions — clocked-in employees not yet clocked out ─────
+  `CREATE INDEX IF NOT EXISTS idx_timelogs_open                 ON time_logs(user_id)                      WHERE clock_out IS NULL AND deleted_at IS NULL`,
+
+  // ── Stock Transfers ────────────────────────────────────────────────────────
+  `CREATE INDEX IF NOT EXISTS idx_stock_transfers_user          ON stock_transfers(user_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_product  ON stock_transfer_items(product_id)`,
+
+  // ── Push Subscriptions: looked up on every push notification ──────────────
+  `CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user       ON push_subscriptions(user_id)`,
+
+  // ── Bloom filter index on sales ────────────────────────────────────────────
+  // Bloom filters probabilistically eliminate heap pages that cannot match a
+  // multi-column equality probe. When a query filters on (tenant_id, branch_id,
+  // payment_method, discount_type) — common in analytics — the bloom index
+  // skips whole 8 KB pages that have no matching combination, reducing I/O
+  // even when each column has low selectivity (many rows per tenant/branch).
+  // Wrapped in DO…EXCEPTION so a missing bloom extension never breaks startup.
+  `DO $$ BEGIN
+    CREATE EXTENSION IF NOT EXISTS bloom;
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_sales_bloom ON sales USING bloom(tenant_id, payment_method, discount_type) WITH (length=128)';
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END $$`,
 ];
 
 // FK cascade constraints — idempotent DO blocks (EXCEPTION WHEN duplicate_object)

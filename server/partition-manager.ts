@@ -38,8 +38,27 @@ async function isPartitioned(tableName: string): Promise<boolean> {
   return result.rows[0]?.is_part ?? false;
 }
 
+// Returns the set of partition names that already exist in pg_class.
+async function existingPartitions(tableName: string): Promise<Set<string>> {
+  const result = await pool.query<{ relname: string }>(`
+    SELECT c.relname
+    FROM   pg_inherits i
+    JOIN   pg_class    c ON c.oid = i.inhrelid
+    JOIN   pg_class    p ON p.oid = i.inhparent
+    WHERE  p.relname = $1
+      AND  p.relnamespace = 'public'::regnamespace
+  `, [tableName]);
+  return new Set(result.rows.map(r => r.relname));
+}
+
 async function ensureMonthlyPartitions(tableName: string): Promise<number> {
   const now = new Date();
+
+  // Snapshot existing partitions before creating anything — pg_class reports
+  // all child tables regardless of whether CREATE TABLE IF NOT EXISTS is a
+  // no-op or creates a new table, so this is the only reliable way to count
+  // genuinely new partitions without false positives.
+  const existing = await existingPartitions(tableName);
   let created = 0;
 
   for (let delta = -MONTHS_BEHIND; delta <= MONTHS_AHEAD; delta++) {
@@ -55,16 +74,15 @@ async function ensureMonthlyPartitions(tableName: string): Promise<number> {
     const fromVal  = `${yyyy}-${mm}-01T00:00:00.000Z`;
     const toVal    = `${nyyyy}-${nmm}-01T00:00:00.000Z`;
 
-    // IF NOT EXISTS means this is fully idempotent — safe to run on every restart.
-    const result = await pool.query(
+    // CREATE TABLE IF NOT EXISTS is fully idempotent — safe on every restart.
+    await pool.query(
       `CREATE TABLE IF NOT EXISTS "${partName}"
          PARTITION OF "${tableName}"
          FOR VALUES FROM ($1) TO ($2)`,
       [fromVal, toVal],
     );
-    // commandStatus is "CREATE TABLE" when a new partition was created,
-    // undefined / no-op when it already existed.
-    if ((result as any).command === "CREATE") created++;
+
+    if (!existing.has(partName)) created++;
   }
 
   return created;
@@ -74,7 +92,7 @@ export async function ensurePartitions(): Promise<void> {
   for (const table of PARTITIONED_TABLES) {
     try {
       if (!(await isPartitioned(table))) {
-        // Table hasn't been migrated yet — skip silently.
+        // Table hasn't been migrated to partitioned yet — skip silently.
         continue;
       }
       const n = await ensureMonthlyPartitions(table);
@@ -84,8 +102,8 @@ export async function ensurePartitions(): Promise<void> {
         console.log(`[partitions] ${table} — all partitions up to date`);
       }
     } catch (err: unknown) {
-      // Non-fatal: a partition creation error must never bring down the server.
-      console.warn(`[partitions] ${table} — partition check failed:`, (err as Error)?.message ?? String(err));
+      // Non-fatal: a partition creation error must never crash the server.
+      console.warn(`[partitions] ${table} — check failed:`, (err as Error)?.message ?? String(err));
     }
   }
 }

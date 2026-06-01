@@ -2815,11 +2815,13 @@ export class DatabaseStorage implements IStorage {
         // compute newStock = max(0, prevStock - sold) from a stale pre-update
         // read and both fire the out-of-stock notification. With RETURNING,
         // only the sale whose committed value transitions to 0 notifies.
+        // Use .returning() with no args (the consistent pattern in this codebase)
+        // to guarantee compatibility with the Drizzle version in use.
         const [updated] = await (db.update(products) as any)
           .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${sold})` })
           .where(eq(products.id, product.id))
-          .returning({ stock: products.stock });
-        const newStock: number = updated?.stock ?? Math.max(0, prevStock - sold);
+          .returning();
+        const newStock: number = (updated as any)?.stock ?? Math.max(0, prevStock - sold);
         const threshold = product.lowStockThreshold ?? 10;
         // Notify if stock just hit 0
         if (newStock === 0 && prevStock > 0) {

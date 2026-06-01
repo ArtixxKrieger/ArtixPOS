@@ -139,7 +139,7 @@ export function registerBirRoutes(app: Express): void {
           COALESCE(SUM(CAST(vat_exempt_sales AS NUMERIC)), 0)::float8                              AS vat_exempt_sales,
           COALESCE(SUM(CAST(zero_rated_sales AS NUMERIC)), 0)::float8                              AS zero_rated_sales,
           COALESCE(SUM(CAST(discount         AS NUMERIC)), 0)::float8                              AS total_discount,
-          COUNT(*)         FILTER (WHERE discount_type IN ('sc','pwd'))::int                       AS sc_pwd_count,
+          (COUNT(*) FILTER (WHERE discount_type IN ('sc','pwd')))::int                              AS sc_pwd_count,
           COALESCE(SUM(CAST(discount AS NUMERIC)) FILTER (WHERE discount_type IN ('sc','pwd')), 0)::float8 AS sc_pwd_discount,
           MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_min,
           MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_max

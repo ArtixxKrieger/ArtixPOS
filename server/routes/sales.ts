@@ -30,7 +30,10 @@ export function registerSaleRoutes(app: Express): void {
     if (endDate && !isValidDate(endDate)) return res.status(400).json({ message: "Invalid endDate format" });
     const uid = getUserId(req);
     const bid = getActiveBranchId(req);
-    const beforeId = before ? Number(before) : undefined;
+    // Validate cursor: Number("abc") === NaN which passes `!= null` and would
+    // produce WHERE id < NaN — invalid SQL. Guard with Number.isFinite.
+    const beforeIdRaw = Number(before);
+    const beforeId = before && Number.isFinite(beforeIdRaw) ? beforeIdRaw : undefined;
     const pageLimit = Math.min(Number(limit) || 200, 1000);
 
     const tag = `${pageLimit}:${beforeId ?? ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${includeVoided || ""}`;

@@ -27,6 +27,7 @@ import { tenantContextMiddleware } from "./tenant-context";
 import { setupRLS } from "./rls-setup";
 import { pool } from "./db";
 import { startCleanupScheduler } from "./cleanup";
+import { ensurePartitions } from "./partition-manager";
 
 const app = express();
 const httpServer = createServer(app);
@@ -465,6 +466,9 @@ async function _doInit() {
     if (process.env.VERCEL !== "1") {
       console.log("[init] step 3/8 — ensureIndexes");
       await ensureIndexes();
+      // Auto-create future monthly partitions for sales & audit_logs — no-op
+      // if the tables haven't been migrated to partitioned yet (safe to run always).
+      await ensurePartitions();
     } else {
       console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
     }

@@ -126,7 +126,7 @@ export interface IStorage {
   markAllNotificationsRead(userId: string): Promise<void>;
 
   // Sales
-  getSales(userId: string, opts?: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean }): Promise<Sale[]>;
+  getSales(userId: string, opts?: { limit?: number; offset?: number; beforeId?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean }): Promise<Sale[]>;
   getSaleById(id: number, userId: string): Promise<Sale | undefined>;
   createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
   softDeleteSale(id: number, userId: string, deletedBy: string, reason?: string): Promise<boolean>;
@@ -550,9 +550,9 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Sales ────────────────────────────────────────────────────────────────
 
-  async getSales(userId: string, opts: { limit?: number; offset?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean } = {}): Promise<Sale[]> {
+  async getSales(userId: string, opts: { limit?: number; offset?: number; beforeId?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean } = {}): Promise<Sale[]> {
     try {
-      const { limit = 200, offset = 0, startDate, endDate, customerId, branchId, includeVoided = false } = opts;
+      const { limit = 200, offset = 0, beforeId, startDate, endDate, customerId, branchId, includeVoided = false } = opts;
       const userIds = await this.getTenantUserIds(userId);
       const userCondition = userIds.length === 1
         ? eq(sales.userId, userIds[0])
@@ -563,6 +563,20 @@ export class DatabaseStorage implements IStorage {
       if (endDate) conditions.push(sql`${sales.createdAt} <= ${endDate}`);
       if (customerId) conditions.push(eq(sales.customerId, customerId));
       if (branchId != null) conditions.push(eq(sales.branchId, branchId));
+
+      // Keyset (cursor) pagination: WHERE id < :beforeId is O(log N) via PK index
+      // regardless of how deep into the table the cursor is.
+      // OFFSET pagination degrades to O(N) at large offsets — at offset 50,000
+      // PostgreSQL reads and discards 50,000 rows just to skip them.
+      // When beforeId is provided, offset is ignored.
+      if (beforeId != null) {
+        conditions.push(sql`${sales.id} < ${beforeId}`);
+        return await dbRead.select().from(sales)
+          .where(and(...conditions))
+          .orderBy(desc(sales.id))
+          .limit(limit);
+      }
+
       return await dbRead.select().from(sales)
         .where(and(...conditions))
         .orderBy(desc(sales.createdAt))

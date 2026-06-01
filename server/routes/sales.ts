@@ -14,22 +14,42 @@ import { getUserId, getActiveBranchId, resolveBranchId, auditLog, isValidDate, h
 export function registerSaleRoutes(app: Express): void {
 
   // ── List sales (paginated, filterable) ────────────────────────────────────
+  // Supports both OFFSET pagination (legacy) and keyset cursor pagination.
+  //
+  // Keyset usage:   GET /api/sales?before=<id>&limit=200
+  //   - Pass ?before=<last_id_on_current_page> to get the next page.
+  //   - Response includes X-Next-Cursor header: the smallest id in this page.
+  //     Use it as ?before=<X-Next-Cursor> to fetch the next page.
+  //   - Returns [] when there are no more rows.
+  //
+  // OFFSET usage (legacy, degrades at large offsets):
+  //   GET /api/sales?offset=200&limit=200
   app.get(api.sales.list.path, requireAuth, async (req, res) => {
-    const { limit, offset, startDate, endDate, includeVoided } = req.query as Record<string, string>;
+    const { limit, offset, before, startDate, endDate, includeVoided } = req.query as Record<string, string>;
     if (startDate && !isValidDate(startDate)) return res.status(400).json({ message: "Invalid startDate format" });
     if (endDate && !isValidDate(endDate)) return res.status(400).json({ message: "Invalid endDate format" });
     const uid = getUserId(req);
     const bid = getActiveBranchId(req);
-    const tag = `${limit || ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${includeVoided || ""}`;
+    const beforeId = before ? Number(before) : undefined;
+    const pageLimit = Math.min(Number(limit) || 200, 1000);
+
+    const tag = `${pageLimit}:${beforeId ?? ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${includeVoided || ""}`;
     const ck = salesCacheKey(uid, bid, tag);
     const salesList = await cache.getOrFetch(ck, () => storage.getSales(uid, {
-      branchId: bid ?? undefined,
-      limit: Math.min(Number(limit) || 200, 1000),
-      offset: Math.max(Number(offset) || 0, 0),
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
+      branchId:      bid ?? undefined,
+      limit:         pageLimit,
+      beforeId:      beforeId,
+      offset:        beforeId == null ? Math.max(Number(offset) || 0, 0) : undefined,
+      startDate:     startDate || undefined,
+      endDate:       endDate || undefined,
       includeVoided: includeVoided === "1",
     }), 15_000);
+
+    // Emit the next-page cursor so clients can paginate without OFFSET
+    if (salesList.length > 0) {
+      const minId = salesList[salesList.length - 1].id;
+      res.setHeader("X-Next-Cursor", String(minId));
+    }
     res.json(salesList);
   });
 

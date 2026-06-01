@@ -2808,11 +2808,18 @@ export class DatabaseStorage implements IStorage {
         const sold = productQty.get(product.id) ?? 0;
         if (sold === 0) continue;
         const prevStock = product.stock ?? 0;
-        // Atomic decrement via SQL expression — prevents race conditions with concurrent sales
-        await (db.update(products) as any)
+
+        // Atomic decrement + RETURNING — the returned value is the actual
+        // post-update stock as committed by PostgreSQL, not a stale JS read.
+        // Without RETURNING, two concurrent sales depleting the last unit both
+        // compute newStock = max(0, prevStock - sold) from a stale pre-update
+        // read and both fire the out-of-stock notification. With RETURNING,
+        // only the sale whose committed value transitions to 0 notifies.
+        const [updated] = await (db.update(products) as any)
           .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${sold})` })
-          .where(eq(products.id, product.id));
-        const newStock = Math.max(0, prevStock - sold);
+          .where(eq(products.id, product.id))
+          .returning({ stock: products.stock });
+        const newStock: number = updated?.stock ?? Math.max(0, prevStock - sold);
         const threshold = product.lowStockThreshold ?? 10;
         // Notify if stock just hit 0
         if (newStock === 0 && prevStock > 0) {

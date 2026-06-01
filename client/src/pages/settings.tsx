@@ -17,6 +17,10 @@ import {
   Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
   Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle, Zap,
+  HelpCircle, ShoppingCart, LayoutDashboard, Package, Boxes, Users, Gift,
+  IdCard, Calendar, UserCheck, Clock, Wallet, Receipt, TrendingUp, Tag,
+  RotateCcw, LayoutGrid, ChefHat, Truck, ClipboardList, FileBarChart, Bot,
+  Building2, AlarmClock, Wifi, ChevronDown,
 } from "lucide-react";
 import { COUNTRY_LIST, getCountryByCode, type CountryData } from "@/lib/locale-detect";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -141,6 +145,9 @@ export default function Settings() {
   const [redeemingVoucher, setRedeemingVoucher] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [langSearch, setLangSearch] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
+  const [helpSearch, setHelpSearch] = useState("");
+  const [expandedHelp, setExpandedHelp] = useState<string | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
   const countrySearchRef = useRef<HTMLInputElement>(null);
@@ -357,12 +364,22 @@ export default function Settings() {
             {user?.activeBranch?.name ?? (settings as any)?.storeName ?? "Your store"} · {businessLabel || "Business"}
           </p>
         </div>
-        {isPro && (
-          <div className="ml-auto flex items-center gap-1.5 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 rounded-full px-3 py-1 shrink-0">
-            <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
-            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {isPro && (
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 rounded-full px-3 py-1">
+              <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
+              <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
+            </div>
+          )}
+          <button
+            onClick={() => { setShowHelp(true); setHelpSearch(""); setExpandedHelp(null); }}
+            data-testid="button-help"
+            className="h-8 w-8 rounded-xl bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
+            title="Help"
+          >
+            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* ── Appearance ──────────────────────────────────────────── */}
@@ -1003,6 +1020,515 @@ export default function Settings() {
 
       {/* Version */}
       <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">ArtixPOS · Business OS</p>
+
+      {/* ── Help Dialog ──────────────────────────────────────────── */}
+      <Dialog open={showHelp} onOpenChange={(open) => { setShowHelp(open); if (!open) { setHelpSearch(""); setExpandedHelp(null); } }}>
+        <DialogContent className="sm:max-w-[480px] max-w-[calc(100vw-24px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <HelpCircle className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-black leading-tight">Help Center</DialogTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">How to set up and use each feature</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="px-4 pb-3 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 pointer-events-none" />
+              <input
+                type="text"
+                value={helpSearch}
+                onChange={(e) => { setHelpSearch(e.target.value); setExpandedHelp(null); }}
+                placeholder="Search features..."
+                data-testid="input-help-search"
+                className="w-full h-10 pl-10 pr-4 rounded-2xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 focus:bg-secondary/80 transition-all placeholder:text-muted-foreground/40 font-medium"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-y-auto px-4 pb-6 space-y-2">
+            {(() => {
+              const HELP_FEATURES: {
+                id: string;
+                icon: React.ElementType;
+                color: string;
+                title: string;
+                tagline: string;
+                steps: string[];
+              }[] = [
+                {
+                  id: "pos",
+                  icon: ShoppingCart,
+                  color: "bg-blue-500/15 text-blue-500",
+                  title: "Point of Sale",
+                  tagline: "Ring up sales and accept payments from customers",
+                  steps: [
+                    "Open the POS page from the main navigation.",
+                    "Tap or click products to add them to the cart. Use the search bar to find items quickly.",
+                    "Adjust quantities by tapping the item in the cart.",
+                    "Apply a discount code or loyalty redemption if the customer has one.",
+                    "Select a payment method (Cash, Card, E-Wallet, or a custom method you set up).",
+                    "Tap Charge and confirm the amount. Change is calculated automatically for cash.",
+                    "Print or send the receipt when the sale is complete.",
+                  ],
+                },
+                {
+                  id: "dashboard",
+                  icon: LayoutDashboard,
+                  color: "bg-violet-500/15 text-violet-500",
+                  title: "Dashboard",
+                  tagline: "Your store's daily snapshot at a glance",
+                  steps: [
+                    "The dashboard loads automatically when you open the app.",
+                    "The top cards show today's sales total, number of transactions, and average order value.",
+                    "The chart below shows sales trends over the selected date range.",
+                    "Scroll down to see top-selling products and recent transactions.",
+                    "Tap any card to jump to the related page for more detail.",
+                  ],
+                },
+                {
+                  id: "pending",
+                  icon: ClipboardList,
+                  color: "bg-orange-500/15 text-orange-500",
+                  title: "Pending Orders",
+                  tagline: "Manage orders that are placed but not yet fulfilled",
+                  steps: [
+                    "Go to Pending Orders from the navigation.",
+                    "Each card shows the order number, items, and the time it was placed.",
+                    "Tap an order to see its full details.",
+                    "Mark it as Ready when it is prepared, or Completed when it has been picked up or served.",
+                    "You can also cancel an order from the detail view if needed.",
+                  ],
+                },
+                {
+                  id: "products",
+                  icon: Package,
+                  color: "bg-green-500/15 text-green-500",
+                  title: "Products",
+                  tagline: "Add and manage everything you sell",
+                  steps: [
+                    "Go to Products from the navigation.",
+                    "Tap the plus button to add a new product.",
+                    "Fill in the name, price, and category. Upload a photo if you want one.",
+                    "Turn on stock tracking if you want the app to count down inventory as you sell.",
+                    "Set a low stock threshold so you get notified before you run out.",
+                    "Use categories to group products and make them easier to find at the POS.",
+                    "Tap any product to edit it or toggle it as active or inactive.",
+                  ],
+                },
+                {
+                  id: "inventory",
+                  icon: Boxes,
+                  color: "bg-teal-500/15 text-teal-500",
+                  title: "Inventory Hub",
+                  tagline: "Track stock levels, movements, and low-stock alerts",
+                  steps: [
+                    "Go to Inventory from the navigation.",
+                    "The hub shows current stock levels for all products with tracking enabled.",
+                    "Use the Adjust Stock button to add or remove units manually (for receiving deliveries or correcting counts).",
+                    "The Stock Log tab shows a full history of every change with reasons.",
+                    "Low stock alerts appear here and as push notifications if you have them enabled.",
+                    "Use Waste Log to record spoilage or damaged goods separately from adjustments.",
+                  ],
+                },
+                {
+                  id: "customers",
+                  icon: Users,
+                  color: "bg-cyan-500/15 text-cyan-500",
+                  title: "Customers",
+                  tagline: "Keep a record of who shops with you",
+                  steps: [
+                    "Go to Customers from the navigation.",
+                    "Tap the plus button to add a new customer. Name and phone number are enough to get started.",
+                    "Customer profiles track purchase history, loyalty points, and membership status.",
+                    "At the POS, search for a customer by name or phone to attach them to the sale.",
+                    "Attaching a customer lets you award loyalty points automatically.",
+                    "Tap any customer to see their full purchase history and point balance.",
+                  ],
+                },
+                {
+                  id: "loyalty",
+                  icon: Gift,
+                  color: "bg-pink-500/15 text-pink-500",
+                  title: "Loyalty Program",
+                  tagline: "Reward repeat customers with points they can redeem",
+                  steps: [
+                    "Go to Loyalty from the navigation.",
+                    "Create tiers (Bronze, Silver, Gold) with different point multipliers if you want.",
+                    "Set how many pesos (or your currency) equal one point.",
+                    "Set how many points equal one peso in redemption value.",
+                    "At the POS, attach a customer to the sale. Points are awarded automatically after checkout.",
+                    "Customers can redeem points as a discount at the POS when you tap Redeem Points.",
+                    "Create rewards (free item, discount) that customers can claim at specific point thresholds.",
+                  ],
+                },
+                {
+                  id: "memberships",
+                  icon: IdCard,
+                  color: "bg-indigo-500/15 text-indigo-500",
+                  title: "Memberships",
+                  tagline: "Sell subscription-based access or perks",
+                  steps: [
+                    "Go to Memberships from the navigation.",
+                    "Create a membership plan with a name, price, and duration (monthly or yearly).",
+                    "Add benefits such as discounts, free check-ins, or custom perks.",
+                    "Sell a membership to a customer by opening their profile and tapping Add Membership.",
+                    "The membership page tracks active, expired, and expiring-soon members.",
+                    "Customers with active memberships get their benefits applied automatically at checkout.",
+                  ],
+                },
+                {
+                  id: "appointments",
+                  icon: Calendar,
+                  color: "bg-rose-500/15 text-rose-500",
+                  title: "Appointments",
+                  tagline: "Let customers book time slots with your staff",
+                  steps: [
+                    "Go to Appointments from the navigation.",
+                    "Create services with a name, duration, and price.",
+                    "Assign services to specific staff members.",
+                    "Book an appointment by tapping the plus button and choosing a customer, service, staff, date, and time.",
+                    "The calendar view shows all upcoming bookings by day or week.",
+                    "Mark an appointment as Completed or No Show when the time comes.",
+                    "Completed appointments can be converted directly to a sale.",
+                  ],
+                },
+                {
+                  id: "staff",
+                  icon: UserCheck,
+                  color: "bg-amber-500/15 text-amber-500",
+                  title: "Staff",
+                  tagline: "Manage your team members and their roles",
+                  steps: [
+                    "Go to Staff from the navigation (or Admin if you are an owner).",
+                    "Tap Invite to send a team member an account link.",
+                    "Set their role: Owner, Manager, Cashier, or Staff.",
+                    "Cashiers can process sales but cannot access reports or settings.",
+                    "Managers can access reports and most settings but cannot delete the account.",
+                    "Staff (clock-in role) can only use the time clock and do not have POS access.",
+                    "You can assign staff to specific branches if you run multiple locations.",
+                  ],
+                },
+                {
+                  id: "timeclock",
+                  icon: Clock,
+                  color: "bg-sky-500/15 text-sky-500",
+                  title: "Time Clock",
+                  tagline: "Track when your team members clock in and out",
+                  steps: [
+                    "Go to Time Clock from the navigation.",
+                    "Staff can clock in by entering their PIN on the kiosk page (/staff-clock-in).",
+                    "The Time Clock page shows who is currently clocked in and for how long.",
+                    "Clock-out happens the same way as clock-in using the PIN.",
+                    "Managers can manually edit time entries if someone forgot to clock out.",
+                    "Time logs feed into Payroll to calculate hours worked per period.",
+                  ],
+                },
+                {
+                  id: "payroll",
+                  icon: Wallet,
+                  color: "bg-emerald-500/15 text-emerald-500",
+                  title: "Payroll",
+                  tagline: "Compute wages based on hours worked",
+                  steps: [
+                    "Go to Payroll from the navigation.",
+                    "Set each staff member's hourly rate or daily rate in their profile.",
+                    "Select a pay period (weekly, bi-weekly, or custom date range).",
+                    "The system reads time clock records and calculates gross pay automatically.",
+                    "Add bonuses or deductions per employee for that period.",
+                    "Generate a payroll summary to review totals before finalizing.",
+                    "Mark the period as paid to keep a clear record.",
+                  ],
+                },
+                {
+                  id: "expenses",
+                  icon: Receipt,
+                  color: "bg-red-500/15 text-red-500",
+                  title: "Expenses",
+                  tagline: "Log your business costs and track spending",
+                  steps: [
+                    "Go to Expenses from the navigation.",
+                    "Tap the plus button to add a new expense.",
+                    "Enter the amount, category (Rent, Utilities, Supplies, etc.), date, and an optional note.",
+                    "Attach a photo of the receipt if you want a digital copy.",
+                    "Expenses are subtracted from gross sales in your profit reports.",
+                    "Use the filters to see expenses by category or date range.",
+                  ],
+                },
+                {
+                  id: "analytics",
+                  icon: TrendingUp,
+                  color: "bg-violet-500/15 text-violet-500",
+                  title: "Analytics",
+                  tagline: "Detailed reports on your sales performance",
+                  steps: [
+                    "Go to Analytics from the navigation.",
+                    "Choose a date range at the top to focus on a specific period.",
+                    "The Sales Overview shows gross sales, net sales, VAT, and discounts.",
+                    "The Products tab shows which items sell most by quantity and by revenue.",
+                    "The Payments tab breaks down how customers are paying (Cash, Card, etc.).",
+                    "The Hours tab shows your busiest hours and days of the week.",
+                    "Export any report as a CSV for use in a spreadsheet.",
+                  ],
+                },
+                {
+                  id: "discounts",
+                  icon: Tag,
+                  color: "bg-lime-500/15 text-lime-600",
+                  title: "Discount Codes",
+                  tagline: "Create promo codes and vouchers for customers",
+                  steps: [
+                    "Go to Discount Codes from the navigation.",
+                    "Tap the plus button to create a new code.",
+                    "Choose a type: percentage off, fixed amount off, or free item.",
+                    "Set an optional expiry date and maximum number of uses.",
+                    "At the POS, the cashier taps Discount and types or scans the code.",
+                    "The discount is applied automatically to the cart total.",
+                    "Track how many times each code has been used from the list view.",
+                  ],
+                },
+                {
+                  id: "refunds",
+                  icon: RotateCcw,
+                  color: "bg-orange-500/15 text-orange-500",
+                  title: "Refunds",
+                  tagline: "Process returns and issue refunds to customers",
+                  steps: [
+                    "Go to Refunds from the navigation, or find the original sale in Transactions.",
+                    "Tap the sale you want to refund.",
+                    "Select the items being returned. You can do a partial refund for specific items.",
+                    "Choose the refund method (Cash, original payment method, or store credit).",
+                    "Add a reason for the refund to keep your records clean.",
+                    "Confirm the refund. Stock is added back automatically for returned items.",
+                    "The refund appears in the Refunds page and is reflected in your daily totals.",
+                  ],
+                },
+                {
+                  id: "tables",
+                  icon: LayoutGrid,
+                  color: "bg-yellow-500/15 text-yellow-600",
+                  title: "Tables",
+                  tagline: "Manage dine-in seating for restaurants and cafes",
+                  steps: [
+                    "Go to Tables from the navigation.",
+                    "Set up your floor plan by adding tables and naming them (Table 1, Bar Seat A, etc.).",
+                    "Tap an available table to open a new order for it.",
+                    "Add items from the menu just like the regular POS.",
+                    "Orders are saved to the table until the customer is ready to pay.",
+                    "Multiple orders can be merged or split at checkout.",
+                    "The table map updates in real time so staff can see which tables are occupied.",
+                  ],
+                },
+                {
+                  id: "kitchen",
+                  icon: ChefHat,
+                  color: "bg-red-500/15 text-red-500",
+                  title: "Kitchen Display",
+                  tagline: "Show orders to your kitchen or preparation team",
+                  steps: [
+                    "Enable the Kitchen Display feature in POS Features setup.",
+                    "Open /kitchen-display on a tablet or monitor in the kitchen.",
+                    "New orders appear as cards automatically when a sale is rung up.",
+                    "Kitchen staff can tap Mark Ready when an order is prepared.",
+                    "The front-of-house staff sees the Ready status and can notify the customer.",
+                    "Completed orders move to a Done column and clear after a short time.",
+                  ],
+                },
+                {
+                  id: "suppliers",
+                  icon: Truck,
+                  color: "bg-slate-500/15 text-slate-500",
+                  title: "Suppliers",
+                  tagline: "Manage the vendors you buy your stock from",
+                  steps: [
+                    "Go to Suppliers from the navigation.",
+                    "Tap the plus button to add a new supplier.",
+                    "Enter the supplier name, contact person, phone, email, and address.",
+                    "Link products to a supplier so you know who to call when stock is low.",
+                    "View a supplier's purchase history from their profile page.",
+                  ],
+                },
+                {
+                  id: "purchases",
+                  icon: ClipboardList,
+                  color: "bg-teal-500/15 text-teal-500",
+                  title: "Purchase Orders",
+                  tagline: "Record stock replenishment from your suppliers",
+                  steps: [
+                    "Go to Purchases from the navigation.",
+                    "Tap the plus button to create a new purchase order.",
+                    "Select a supplier and add the products and quantities you are ordering.",
+                    "Save it as a Draft while waiting for delivery, then mark it as Received.",
+                    "When marked Received, stock levels are updated automatically.",
+                    "Purchase orders help you track how much you spend on restocking over time.",
+                  ],
+                },
+                {
+                  id: "bir",
+                  icon: FileBarChart,
+                  color: "bg-blue-500/15 text-blue-500",
+                  title: "BIR Compliance",
+                  tagline: "Generate official tax reports required by the BIR (Philippines)",
+                  steps: [
+                    "Go to BIR Compliance from the navigation.",
+                    "Make sure your TIN and business name are set in Settings before generating reports.",
+                    "The X-Report shows your running totals for the current shift.",
+                    "The Z-Report closes the shift and produces a final summary.",
+                    "The Monthly Summary aggregates all transactions for the selected month.",
+                    "Export the eSales CSV to submit your sales file to the BIR.",
+                    "The E-Journal is an electronic record of every transaction, which you are required to keep.",
+                  ],
+                },
+                {
+                  id: "ai",
+                  icon: Bot,
+                  color: "bg-fuchsia-500/15 text-fuchsia-500",
+                  title: "AI Assistant",
+                  tagline: "Ask business questions in plain language and get instant answers",
+                  steps: [
+                    "Go to AI Assistant from the navigation.",
+                    "Type your question in the chat box. For example: What were my top 5 products last week?",
+                    "The assistant reads your sales, inventory, and customer data to answer.",
+                    "You can ask about trends, comparisons, and recommendations.",
+                    "Try questions like: Which hours are slowest? or What is my profit margin this month?",
+                    "The assistant remembers the context within a conversation so you can follow up.",
+                  ],
+                },
+                {
+                  id: "branches",
+                  icon: Building2,
+                  color: "bg-indigo-500/15 text-indigo-500",
+                  title: "Branches",
+                  tagline: "Run and compare multiple store locations from one account",
+                  steps: [
+                    "Go to Admin then Branches from the navigation (Owner only).",
+                    "Tap Add Branch and fill in the branch name, address, and contact details.",
+                    "Each branch has its own products, staff, shifts, and settings.",
+                    "Switch between branches using the branch selector at the top of the app.",
+                    "Admin Analytics lets you compare performance across all branches side by side.",
+                    "Staff can be assigned to one or more branches.",
+                  ],
+                },
+                {
+                  id: "shifts",
+                  icon: AlarmClock,
+                  color: "bg-amber-500/15 text-amber-500",
+                  title: "Shifts",
+                  tagline: "Open and close your register with a cash count",
+                  steps: [
+                    "Go to Shifts from the navigation, or open one directly from the POS.",
+                    "Tap Open Shift and enter your starting cash amount.",
+                    "All sales during the shift are tracked under that shift.",
+                    "When you are done for the day, tap Close Shift.",
+                    "Count the cash in the drawer and enter the amount. The system shows you any overage or shortage.",
+                    "Closed shift summaries are saved for BIR reporting and auditing.",
+                  ],
+                },
+                {
+                  id: "wifi",
+                  icon: Wifi,
+                  color: "bg-sky-500/15 text-sky-500",
+                  title: "WiFi Vouchers",
+                  tagline: "Sell internet access codes to customers",
+                  steps: [
+                    "Go to WiFi Vouchers from the More menu.",
+                    "Create a batch of vouchers with a duration (1 hour, 1 day, etc.) and price.",
+                    "Vouchers are generated as unique codes you can print or show on screen.",
+                    "Sell a voucher through the POS like any other product.",
+                    "Customers enter the code on the WiFi login page to get access.",
+                    "Used vouchers are marked automatically so you know which ones have been redeemed.",
+                  ],
+                },
+                {
+                  id: "push",
+                  icon: Bell,
+                  color: "bg-green-500/15 text-green-500",
+                  title: "Push Notifications",
+                  tagline: "Get alerts for low stock, new orders, and more",
+                  steps: [
+                    "In Settings, scroll to the Notifications section.",
+                    "Tap Enable Notifications and allow the permission when your browser asks.",
+                    "You will receive alerts for low stock, out-of-stock products, and new orders.",
+                    "Notifications work even when the app is in the background, as long as the tab is open.",
+                    "To stop notifications, tap Disable Notifications in the same section.",
+                  ],
+                },
+                {
+                  id: "payments",
+                  icon: CreditCard,
+                  color: "bg-violet-500/15 text-violet-500",
+                  title: "Payment Methods",
+                  tagline: "Set up how your customers can pay",
+                  steps: [
+                    "In Settings, scroll to the Checkout section and tap Manage Payment Methods.",
+                    "The defaults are Cash, Card, and E-Wallet. Toggle any of them off if you do not accept them.",
+                    "Tap Add Method to create a custom payment option (Bank Transfer, Utang, etc.).",
+                    "Mark a method as Cash Equivalent if it should be counted in the cash drawer total.",
+                    "Changes take effect immediately at the POS.",
+                  ],
+                },
+              ];
+
+              const q = helpSearch.toLowerCase().trim();
+              const filtered = q
+                ? HELP_FEATURES.filter(f =>
+                    f.title.toLowerCase().includes(q) ||
+                    f.tagline.toLowerCase().includes(q) ||
+                    f.steps.some(s => s.toLowerCase().includes(q))
+                  )
+                : HELP_FEATURES;
+
+              if (filtered.length === 0) return (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50 gap-2">
+                  <HelpCircle className="h-8 w-8" strokeWidth={1.2} />
+                  <p className="text-sm font-medium">No results for "{helpSearch}"</p>
+                </div>
+              );
+
+              return filtered.map((feat) => {
+                const Icon = feat.icon;
+                const isOpen = expandedHelp === feat.id;
+                return (
+                  <div key={feat.id} className="rounded-2xl border border-border/25 bg-card overflow-hidden shadow-sm">
+                    <button
+                      onClick={() => setExpandedHelp(isOpen ? null : feat.id)}
+                      data-testid={`button-help-${feat.id}`}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 active:bg-secondary/60 transition-colors text-left"
+                    >
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${feat.color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground leading-none">{feat.title}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{feat.tagline}</p>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground/50 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-4 pb-4 border-t border-border/20 pt-3 space-y-2">
+                        {feat.steps.map((step, i) => (
+                          <div key={i} className="flex gap-3">
+                            <span className="mt-0.5 h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                              {i + 1}
+                            </span>
+                            <p className="text-[12px] text-muted-foreground leading-snug">{step}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Delete Account Dialog ────────────────────────────────── */}
       <AlertDialog

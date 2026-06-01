@@ -12,8 +12,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Check, Crown, Zap, Building2, CreditCard, Calendar, AlertTriangle, Lock, RefreshCw, Smartphone } from "lucide-react";
+import {
+  Check, X, Crown, Zap, Building2, CreditCard, Calendar,
+  AlertTriangle, Lock, RefreshCw, Sparkles, Bot, FileText,
+  Users, Package, BarChart3, Briefcase, Star,
+} from "lucide-react";
 
 interface SubscriptionPayment {
   id: number;
@@ -34,11 +37,37 @@ function formatAmount(centavos: number) {
   return (centavos / 100).toLocaleString("en-PH", { style: "currency", currency: "PHP" });
 }
 
-const PLAN_CONFIG: Record<string, { label: string; icon: React.ElementType; badge: string; badgeCls: string }> = {
-  free:     { label: "Free",     icon: Zap,       badge: "Free",     badgeCls: "bg-muted text-muted-foreground" },
-  pro:      { label: "Pro",      icon: Crown,     badge: "Pro",      badgeCls: "bg-violet-600 text-white" },
-  business: { label: "Business", icon: Building2, badge: "Business", badgeCls: "bg-amber-500 text-white" },
-};
+const COMPARISON_ROWS: {
+  label: string;
+  icon: React.ElementType;
+  free: string | boolean;
+  pro: string | boolean;
+  business: string | boolean;
+}[] = [
+  { label: "Branches",               icon: Building2,  free: "1",             pro: "1",              business: "Up to 10" },
+  { label: "Products",               icon: Package,    free: "Up to 100",     pro: "Unlimited",      business: "Unlimited" },
+  { label: "Staff accounts",         icon: Users,      free: "2",             pro: "Up to 15",       business: "Unlimited" },
+  { label: "Analytics history",      icon: BarChart3,  free: "7 days",        pro: "Unlimited",      business: "Unlimited" },
+  { label: "Customer loyalty",       icon: Star,       free: false,           pro: true,             business: true },
+  { label: "Appointments",           icon: Calendar,   free: false,           pro: true,             business: true },
+  { label: "Suppliers & POs",        icon: Briefcase,  free: false,           pro: true,             business: true },
+  { label: "Payroll",                icon: CreditCard, free: false,           pro: "Basic",          business: "Advanced (SSS/PhilHealth/Pag-IBIG)" },
+  { label: "AI business assistant",  icon: Bot,        free: false,           pro: false,            business: true },
+  { label: "BIR compliance",         icon: FileText,   free: false,           pro: false,            business: true },
+  { label: "Multi-branch reports",   icon: BarChart3,  free: false,           pro: false,            business: true },
+  { label: "Audit log",              icon: FileText,   free: false,           pro: true,             business: true },
+  { label: "Priority support",       icon: Sparkles,   free: false,           pro: false,            business: true },
+];
+
+function ComparisonCell({ value, accent }: { value: string | boolean; accent: "gray" | "violet" | "amber" }) {
+  if (value === false) return <X className="w-4 h-4 text-muted-foreground/40 mx-auto" />;
+  if (value === true) {
+    const color = accent === "violet" ? "text-violet-500" : accent === "amber" ? "text-amber-500" : "text-emerald-500";
+    return <Check className={`w-4 h-4 ${color} mx-auto`} />;
+  }
+  const color = accent === "violet" ? "text-violet-600 dark:text-violet-400" : accent === "amber" ? "text-amber-600 dark:text-amber-400" : "text-foreground";
+  return <span className={`text-xs font-medium ${color}`}>{value}</span>;
+}
 
 export default function BillingPage() {
   const [, navigate] = useLocation();
@@ -133,23 +162,27 @@ export default function BillingPage() {
   };
 
   const isOwner = user?.role === "owner";
-
   if (isLoading || verifying) return null;
 
   const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
   const nativePrice = rc.monthlyPackage?.product?.priceString ?? null;
 
-  const planCfg = PLAN_CONFIG[currentPlan] ?? PLAN_CONFIG.free;
-  const PlanIcon = planCfg.icon;
+  const proMonthlyPrice  = "₱499";
+  const proAnnualPrice   = "₱4,999";
+  const proMonthlyEq     = "₱416/mo";
+  const bizMonthlyPrice  = "₱999";
+  const bizAnnualPrice   = "₱9,999";
+  const bizMonthlyEq     = "₱833/mo";
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
 
+      {/* Pro-required banner */}
       {showProRequiredBanner && (
         <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/30 px-4 py-4">
           <Lock className="h-5 w-5 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
           <div>
-            <p className="font-semibold text-violet-900 dark:text-violet-200">Pro Feature</p>
+            <p className="font-semibold text-violet-900 dark:text-violet-200">Upgrade Required</p>
             <p className="text-sm text-violet-700 dark:text-violet-300 mt-0.5">
               The page you tried to access requires a paid plan. Upgrade below to unlock it.
             </p>
@@ -157,402 +190,488 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">Billing & Subscription</h1>
-        <p className="text-muted-foreground">Manage your ArtixPOS plan and payment history.</p>
+      {/* Page header */}
+      <div className="text-center space-y-2 pt-2">
+        <h1 className="text-3xl font-black tracking-tight">Simple, transparent pricing</h1>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Start free. Upgrade when your business grows. No hidden fees, cancel anytime.
+        </p>
       </div>
 
-      {/* Current Plan Card */}
-      <Card className="border border-border/60 bg-card shadow-sm overflow-hidden">
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <span className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <PlanIcon className="w-4 h-4" />
-              </span>
-              Current Plan
-            </CardTitle>
-            <Badge className={planCfg.badgeCls}>
-              <PlanIcon className="w-3 h-3 mr-1" />
-              {planCfg.badge}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isPro ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>
-                  {subscription.cancelAtPeriodEnd
-                    ? `Access until ${formatDate(subscription.currentPeriodEnd)} (cancels then)`
-                    : `Renews on ${formatDate(subscription.currentPeriodEnd)}`}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CreditCard className="w-4 h-4" />
-                <span className="capitalize">{subscription.billingCycle} billing</span>
-              </div>
-
-              {subscription.cancelAtPeriodEnd && (
-                <div className="flex items-start gap-3 mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                  <div className="text-sm text-amber-700 dark:text-amber-400">
-                    Your plan is set to cancel. You'll lose access after {formatDate(subscription.currentPeriodEnd)}.
-                    {!native && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-amber-700 dark:text-amber-400 p-0 h-auto ml-1 underline"
-                        onClick={() => reactivateMutation.mutate()}
-                        disabled={reactivateMutation.isPending}
-                        data-testid="button-reactivate"
-                      >
-                        Reactivate
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {native && isOwner && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  To manage your subscription, go to your device's App Store / Play Store subscription settings.
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              You're on the <strong>Free plan</strong> — {FREE_LIMITS.branches} branch, up to {FREE_LIMITS.products} products, and {FREE_LIMITS.staff} staff accounts. Upgrade to Pro or Business when you need more.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Upgrade Section */}
-      {isOwner && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+      {/* Current plan status */}
+      {isPro && (
+        <div className={`flex items-center justify-between flex-wrap gap-3 rounded-2xl border px-5 py-4 ${
+          isBusiness
+            ? "border-amber-300/60 bg-amber-50/60 dark:border-amber-700/40 dark:bg-amber-950/20"
+            : "border-violet-300/60 bg-violet-50/60 dark:border-violet-700/40 dark:bg-violet-950/20"
+        }`}>
+          <div className="flex items-center gap-3">
+            {isBusiness
+              ? <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              : <Crown className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            }
             <div>
-              <h2 className="text-lg font-semibold">Choose a Plan</h2>
-              <p className="text-sm text-muted-foreground">Start free, upgrade when you need more power or compliance.</p>
+              <p className="font-semibold text-sm">
+                {isBusiness ? "Business Plan" : "Pro Plan"} — {(subscription.billingCycle ?? "monthly") === "monthly" ? "Monthly" : "Annual"} billing
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {subscription.cancelAtPeriodEnd
+                  ? `Cancels ${formatDate(subscription.currentPeriodEnd)}`
+                  : `Renews ${formatDate(subscription.currentPeriodEnd)}`}
+              </p>
             </div>
-
-            {!native && (
-              <div className="inline-flex rounded-xl border border-border p-1 bg-muted/40 w-fit">
-                <button
-                  onClick={() => setBillingCycle("monthly")}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                    billingCycle === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid="button-billing-monthly"
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setBillingCycle("annual")}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                    billingCycle === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid="button-billing-annual"
-                >
-                  Annual
-                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0">Save 17%</Badge>
-                </button>
-              </div>
-            )}
           </div>
+          {subscription.cancelAtPeriodEnd && !native && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={() => reactivateMutation.mutate()}
+              disabled={reactivateMutation.isPending}
+              data-testid="button-reactivate"
+            >
+              {reactivateMutation.isPending ? "Reactivating…" : "Reactivate subscription"}
+            </Button>
+          )}
+        </div>
+      )}
 
-          <div className="grid gap-4 md:grid-cols-3">
+      {/* Billing cycle toggle */}
+      {isOwner && !native && (
+        <div className="flex justify-center">
+          <div className="inline-flex items-center rounded-2xl border border-border bg-muted/40 p-1 gap-1">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+                billingCycle === "monthly"
+                  ? "bg-card text-foreground shadow-sm border border-border/60"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="button-billing-monthly"
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle("annual")}
+              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
+                billingCycle === "annual"
+                  ? "bg-card text-foreground shadow-sm border border-border/60"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="button-billing-annual"
+            >
+              Annual
+              <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                SAVE 17%
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
-            {/* ── Free Card ── */}
-            <Card className={`overflow-hidden bg-card ${currentPlan === "free" ? "border-primary/50 ring-1 ring-primary/20" : "border-border/60"}`}>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <span className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
+      {/* Pricing cards */}
+      {isOwner && (
+        <div className="grid gap-4 md:grid-cols-3 items-stretch">
+
+          {/* ── Free ── */}
+          <div className={`relative flex flex-col rounded-2xl border bg-card overflow-hidden ${
+            currentPlan === "free" ? "border-primary/40 ring-1 ring-primary/15" : "border-border/60"
+          }`}>
+            <div className="p-6 flex flex-col gap-4 flex-1">
+              {/* Plan name */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center">
                     <Zap className="w-4 h-4 text-muted-foreground" />
                   </span>
-                  Free
-                </CardTitle>
-                <CardDescription>
-                  <span className="text-2xl font-black text-foreground">₱0</span>
-                  <span className="text-muted-foreground ml-1 text-sm">/ month</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <ul className="space-y-1.5 text-sm">
-                  {[
-                    `${FREE_LIMITS.branches} branch`,
-                    `Up to ${FREE_LIMITS.products} products`,
-                    `Up to ${FREE_LIMITS.staff} staff accounts`,
-                    "Cash payments only",
-                    "Basic analytics (last 7 days)",
-                    "Core POS features",
-                  ].map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-muted-foreground">
-                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                  <span className="font-bold text-lg">Free</span>
+                </div>
                 {currentPlan === "free" && (
-                  <div className="pt-2">
-                    <Badge className="w-full justify-center py-1.5 bg-muted text-muted-foreground border-0">Current Plan</Badge>
+                  <Badge className="bg-muted text-muted-foreground border-0 text-[11px]">Current</Badge>
+                )}
+              </div>
+
+              {/* Price */}
+              <div>
+                <div className="flex items-end gap-1">
+                  <span className="text-4xl font-black">₱0</span>
+                  <span className="text-muted-foreground text-sm pb-1">/ month</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Free forever</p>
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-2.5 flex-1">
+                {[
+                  `${FREE_LIMITS.branches} branch`,
+                  `Up to ${FREE_LIMITS.products} products`,
+                  `Up to ${FREE_LIMITS.staff} staff accounts`,
+                  "Core POS features",
+                  "Cash payments",
+                  "7-day analytics",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                    <Check className="w-4 h-4 text-muted-foreground/60 shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              <div className="pt-2">
+                {currentPlan === "free" ? (
+                  <div className="w-full text-center py-2.5 rounded-xl bg-muted/60 text-sm text-muted-foreground font-medium">
+                    Your current plan
+                  </div>
+                ) : (
+                  <div className="w-full text-center py-2.5 rounded-xl bg-muted/30 text-sm text-muted-foreground border border-border/40">
+                    Downgrade to Free
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* ── Pro Card ── */}
-            <Card className={`relative overflow-hidden bg-card ${currentPlan === "pro" ? "border-violet-500/60 ring-1 ring-violet-500/20" : "border-border/60"}`}>
-              <div className="absolute top-3 right-3 z-10">
-                <Badge className="bg-violet-600 text-white gap-1 text-[11px]">
-                  <Crown className="w-3 h-3" /> Pro
-                </Badge>
               </div>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <span className="h-8 w-8 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
-                    <Crown className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                  </span>
-                  Pro
-                </CardTitle>
-                <CardDescription>
-                  {native ? (
-                    rc.isLoadingOfferings ? null : nativePrice ? (
-                      <>
-                        <span className="text-2xl font-black text-foreground">{nativePrice}</span>
-                        <span className="text-muted-foreground ml-1 text-sm">/ month</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Price unavailable</span>
-                    )
-                  ) : billingCycle === "monthly" ? (
-                    <>
-                      <span className="text-2xl font-black text-foreground">₱499</span>
-                      <span className="text-muted-foreground ml-1 text-sm">/ month</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-2xl font-black text-foreground">₱4,999</span>
-                      <span className="text-muted-foreground ml-1 text-sm">/ year</span>
-                      <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">₱416/mo</span>
-                    </>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <ul className="space-y-1.5 text-sm">
-                  {PRO_FEATURES.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-muted-foreground">
-                      <Check className="w-3.5 h-3.5 text-violet-500 shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="pt-2">
-                  {native ? (
-                    <>
-                      {currentPlan === "pro" ? (
-                        <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border-0">
-                          <Crown className="w-3.5 h-3.5 mr-1.5" /> Active subscription
-                        </Badge>
-                      ) : (
-                        <Button
-                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                          onClick={handleNativePurchase}
-                          disabled={rc.isPurchasing || rc.isLoadingOfferings || !rc.monthlyPackage}
-                          data-testid="button-native-upgrade-pro"
-                        >
-                          {rc.isPurchasing ? "Processing…" : rc.isLoadingOfferings ? "Loading…" : (
-                            <><Crown className="w-4 h-4 mr-2" />Subscribe{nativePrice ? ` — ${nativePrice}/mo` : " to Pro"}</>
-                          )}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-muted-foreground text-xs mt-1"
-                        onClick={handleNativeRestore}
-                        disabled={rc.isRestoring}
-                        data-testid="button-native-restore"
-                      >
-                        {rc.isRestoring ? "Restoring…" : <><RefreshCw className="w-3 h-3 mr-1" /> Restore previous purchase</>}
-                      </Button>
-                    </>
-                  ) : currentPlan === "pro" ? (
-                    <>
-                      <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border-0">
-                        <Crown className="w-3.5 h-3.5 mr-1.5" /> Current Plan
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full mt-2 text-xs"
-                        onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
-                        disabled={checkoutMutation.isPending}
-                        data-testid="button-renew-pro"
-                      >
-                        {checkoutMutation.isPending ? "Redirecting…" : `Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                      onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
-                      disabled={checkoutMutation.isPending}
-                      data-testid="button-upgrade-pro"
-                    >
-                      {checkoutMutation.isPending ? "Redirecting…" : (
-                        <><Crown className="w-4 h-4 mr-2" />Get Pro — {billingCycle === "monthly" ? "₱499/mo" : "₱4,999/yr"}</>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── Business Card ── */}
-            <Card className={`relative overflow-hidden bg-card ${currentPlan === "business" ? "border-amber-500/60 ring-1 ring-amber-500/20" : "border-border/60"}`}>
-              <div className="absolute top-3 right-3 z-10">
-                <Badge className="bg-amber-500 text-white gap-1 text-[11px]">
-                  <Building2 className="w-3 h-3" /> Business
-                </Badge>
-              </div>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <span className="h-8 w-8 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                    <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  </span>
-                  Business
-                </CardTitle>
-                <CardDescription>
-                  {billingCycle === "monthly" ? (
-                    <>
-                      <span className="text-2xl font-black text-foreground">₱999</span>
-                      <span className="text-muted-foreground ml-1 text-sm">/ month</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-2xl font-black text-foreground">₱9,999</span>
-                      <span className="text-muted-foreground ml-1 text-sm">/ year</span>
-                      <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">₱833/mo</span>
-                    </>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <ul className="space-y-1.5 text-sm">
-                  {BUSINESS_FEATURES.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-muted-foreground">
-                      <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="pt-2">
-                  {!native && currentPlan === "business" ? (
-                    <>
-                      <Badge className="w-full justify-center py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
-                        <Building2 className="w-3.5 h-3.5 mr-1.5" /> Current Plan
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full mt-2 text-xs"
-                        onClick={() => checkoutMutation.mutate({ plan: "business", cycle: billingCycle })}
-                        disabled={checkoutMutation.isPending}
-                        data-testid="button-renew-business"
-                      >
-                        {checkoutMutation.isPending ? "Redirecting…" : `Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
-                      </Button>
-                    </>
-                  ) : !native ? (
-                    <Button
-                      className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
-                      onClick={() => checkoutMutation.mutate({ plan: "business", cycle: billingCycle })}
-                      disabled={checkoutMutation.isPending}
-                      data-testid="button-upgrade-business"
-                    >
-                      {checkoutMutation.isPending ? "Redirecting…" : (
-                        <><Building2 className="w-4 h-4 mr-2" />Get Business — {billingCycle === "monthly" ? "₱999/mo" : "₱9,999/yr"}</>
-                      )}
-                    </Button>
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-center pt-1">Available on web only</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
+            </div>
           </div>
 
-          {!native && (
-            <p className="text-xs text-center text-muted-foreground">
-              Secure payment via card or e-wallet · Cancel anytime from your store's billing settings
-            </p>
-          )}
-
-          {native && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Payments are processed securely by Apple / Google</span>
+          {/* ── Pro ── */}
+          <div className={`relative flex flex-col rounded-2xl overflow-hidden ${
+            currentPlan === "pro"
+              ? "border-violet-500/60 ring-2 ring-violet-500/20"
+              : "border-violet-400/30 ring-2 ring-violet-500/10"
+            } border`}
+            style={{ background: "linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%)" }}
+          >
+            {/* Popular ribbon */}
+            <div className="bg-violet-600 text-white text-center text-xs font-bold py-1.5 tracking-wide">
+              ⭐ MOST POPULAR
             </div>
-          )}
+
+            <div className="p-6 flex flex-col gap-4 flex-1">
+              {/* Plan name */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-9 w-9 rounded-xl bg-violet-500/15 flex items-center justify-center">
+                    <Crown className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                  </span>
+                  <span className="font-bold text-lg">Pro</span>
+                </div>
+                {currentPlan === "pro" && (
+                  <Badge className="bg-violet-600 text-white border-0 text-[11px]">
+                    <Crown className="w-3 h-3 mr-1" /> Active
+                  </Badge>
+                )}
+              </div>
+
+              {/* Price */}
+              <div>
+                {native ? (
+                  rc.isLoadingOfferings ? (
+                    <div className="h-10 bg-muted/40 animate-pulse rounded-lg" />
+                  ) : (
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-black">{nativePrice ?? "—"}</span>
+                      <span className="text-muted-foreground text-sm pb-1">/ month</span>
+                    </div>
+                  )
+                ) : billingCycle === "monthly" ? (
+                  <div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-black text-violet-600 dark:text-violet-400">{proMonthlyPrice}</span>
+                      <span className="text-muted-foreground text-sm pb-1">/ month</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">billed monthly</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-black text-violet-600 dark:text-violet-400">{proAnnualPrice}</span>
+                      <span className="text-muted-foreground text-sm pb-1">/ year</span>
+                    </div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                      {proMonthlyEq} · Save ₱1,000/yr
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-2.5 flex-1">
+                {PRO_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm">
+                    <Check className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              <div className="pt-2 space-y-2">
+                {native ? (
+                  <>
+                    {currentPlan === "pro" ? (
+                      <div className="w-full text-center py-2.5 rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-sm font-semibold">
+                        <Crown className="w-3.5 h-3.5 inline mr-1.5" />Active Plan
+                      </div>
+                    ) : (
+                      <Button
+                        className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold h-11 rounded-xl"
+                        onClick={handleNativePurchase}
+                        disabled={rc.isPurchasing || rc.isLoadingOfferings || !rc.monthlyPackage}
+                        data-testid="button-native-upgrade-pro"
+                      >
+                        {rc.isPurchasing ? "Processing…" : rc.isLoadingOfferings ? "Loading…" : (
+                          <><Crown className="w-4 h-4 mr-2" />Upgrade to Pro</>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost" size="sm"
+                      className="w-full text-muted-foreground text-xs"
+                      onClick={handleNativeRestore}
+                      disabled={rc.isRestoring}
+                      data-testid="button-native-restore"
+                    >
+                      {rc.isRestoring ? "Restoring…" : <><RefreshCw className="w-3 h-3 mr-1" />Restore purchase</>}
+                    </Button>
+                  </>
+                ) : currentPlan === "pro" ? (
+                  <>
+                    <div className="w-full text-center py-2.5 rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-sm font-semibold">
+                      <Crown className="w-3.5 h-3.5 inline mr-1.5" />Current Plan
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      className="w-full text-xs"
+                      onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
+                      disabled={checkoutMutation.isPending}
+                      data-testid="button-renew-pro"
+                    >
+                      {checkoutMutation.isPending ? "Redirecting…" : `Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold h-11 rounded-xl"
+                    onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
+                    disabled={checkoutMutation.isPending}
+                    data-testid="button-upgrade-pro"
+                  >
+                    {checkoutMutation.isPending ? "Redirecting…" : (
+                      <><Crown className="w-4 h-4 mr-2" />Get Pro — {billingCycle === "monthly" ? `${proMonthlyPrice}/mo` : `${proAnnualPrice}/yr`}</>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Business ── */}
+          <div className={`relative flex flex-col rounded-2xl border overflow-hidden ${
+            currentPlan === "business"
+              ? "border-amber-500/60 ring-2 ring-amber-500/20"
+              : "border-amber-400/20 ring-1 ring-amber-500/10"
+          }`}>
+            {/* Scale ribbon */}
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center text-xs font-bold py-1.5 tracking-wide">
+              🏢 BEST FOR SCALE
+            </div>
+
+            <div className="p-6 flex flex-col gap-4 flex-1">
+              {/* Plan name */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                    <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </span>
+                  <span className="font-bold text-lg">Business</span>
+                </div>
+                {currentPlan === "business" && (
+                  <Badge className="bg-amber-500 text-white border-0 text-[11px]">
+                    <Building2 className="w-3 h-3 mr-1" /> Active
+                  </Badge>
+                )}
+              </div>
+
+              {/* Price */}
+              <div>
+                {billingCycle === "monthly" ? (
+                  <div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{bizMonthlyPrice}</span>
+                      <span className="text-muted-foreground text-sm pb-1">/ month</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">billed monthly</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{bizAnnualPrice}</span>
+                      <span className="text-muted-foreground text-sm pb-1">/ year</span>
+                    </div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                      {bizMonthlyEq} · Save ₱2,000/yr
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-2.5 flex-1">
+                {BUSINESS_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm">
+                    <Check className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              <div className="pt-2 space-y-2">
+                {!native && currentPlan === "business" ? (
+                  <>
+                    <div className="w-full text-center py-2.5 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-sm font-semibold">
+                      <Building2 className="w-3.5 h-3.5 inline mr-1.5" />Current Plan
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      className="w-full text-xs"
+                      onClick={() => checkoutMutation.mutate({ plan: "business", cycle: billingCycle })}
+                      disabled={checkoutMutation.isPending}
+                      data-testid="button-renew-business"
+                    >
+                      {checkoutMutation.isPending ? "Redirecting…" : `Switch to ${billingCycle === "monthly" ? "Monthly" : "Annual"}`}
+                    </Button>
+                  </>
+                ) : !native ? (
+                  <Button
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold h-11 rounded-xl border-0"
+                    onClick={() => checkoutMutation.mutate({ plan: "business", cycle: billingCycle })}
+                    disabled={checkoutMutation.isPending}
+                    data-testid="button-upgrade-business"
+                  >
+                    {checkoutMutation.isPending ? "Redirecting…" : (
+                      <><Building2 className="w-4 h-4 mr-2" />Get Business — {billingCycle === "monthly" ? `${bizMonthlyPrice}/mo` : `${bizAnnualPrice}/yr`}</>
+                    )}
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center pt-1">Available on web only</p>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 
-      {/* Payment History — web only */}
-      {!native && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Payment History</h2>
-          {paymentsLoading ? null : payments.length === 0 ? (
-            <div
-              className="text-center py-10 border border-dashed border-border rounded-xl text-muted-foreground text-sm flex flex-col items-center gap-2"
-              data-testid="empty-payment-history"
-            >
-              <CreditCard className="h-7 w-7 opacity-40" />
-              <span>No payments yet — your billing history will appear here.</span>
-            </div>
-          ) : (
-            <div className="border border-border/60 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 border-b border-border/60">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cycle</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {payments.map((p) => (
-                    <tr key={p.id} className="bg-card" data-testid={`row-payment-${p.id}`}>
-                      <td className="px-4 py-3 text-foreground/70">{formatDate(p.paidAt ?? p.createdAt)}</td>
-                      <td className="px-4 py-3 capitalize text-foreground/70">{p.plan}</td>
-                      <td className="px-4 py-3 capitalize text-foreground/70">{p.billingCycle}</td>
-                      <td className="px-4 py-3 text-right text-foreground/70">{formatAmount(p.amount)}</td>
-                      <td className="px-4 py-3 text-right">
-                        {p.status === "paid" ? (
-                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">Paid</Badge>
-                        ) : p.status === "pending" ? (
-                          <Badge variant="secondary">Pending</Badge>
-                        ) : (
-                          <Badge variant="destructive">Failed</Badge>
-                        )}
+      {/* Feature comparison table */}
+      {isOwner && (
+        <div className="rounded-2xl border border-border/60 overflow-hidden">
+          <div className="bg-muted/30 px-6 py-4 border-b border-border/60">
+            <h2 className="font-bold text-base">Feature comparison</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/40">
+                  <th className="text-left px-6 py-3 font-medium text-muted-foreground w-1/2">Feature</th>
+                  <th className="text-center px-4 py-3 font-medium text-muted-foreground w-[16%]">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Free</span>
+                    </div>
+                  </th>
+                  <th className="text-center px-4 py-3 font-medium text-violet-600 dark:text-violet-400 w-[17%] bg-violet-50/50 dark:bg-violet-950/20">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Crown className="w-3.5 h-3.5" />
+                      <span>Pro</span>
+                    </div>
+                  </th>
+                  <th className="text-center px-4 py-3 font-medium text-amber-600 dark:text-amber-400 w-[17%]">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Business</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_ROWS.map((row, i) => {
+                  const Icon = row.icon;
+                  return (
+                    <tr
+                      key={row.label}
+                      className={`border-b border-border/30 last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}
+                    >
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2.5 text-muted-foreground">
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{row.label}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <ComparisonCell value={row.free} accent="gray" />
+                      </td>
+                      <td className="px-4 py-3 text-center bg-violet-50/30 dark:bg-violet-950/10">
+                        <ComparisonCell value={row.pro} accent="violet" />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <ComparisonCell value={row.business} accent="amber" />
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      {/* Non-owner notice */}
+      {!isOwner && (
+        <div className="rounded-2xl border border-border/60 bg-muted/30 px-6 py-8 text-center space-y-1.5">
+          <Lock className="w-6 h-6 text-muted-foreground mx-auto" />
+          <p className="font-semibold">Owner access required</p>
+          <p className="text-sm text-muted-foreground">Only account owners can manage subscriptions.</p>
+        </div>
+      )}
+
+      {/* Payment history */}
+      {payments.length > 0 && (
+        <div className="rounded-2xl border border-border/60 overflow-hidden">
+          <div className="bg-muted/30 px-6 py-4 border-b border-border/60">
+            <h2 className="font-bold text-base">Payment history</h2>
+          </div>
+          <div className="divide-y divide-border/40">
+            {payments.map((p) => (
+              <div key={p.id} className="flex items-center justify-between px-6 py-4 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <span className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold ${
+                    p.plan === "business" ? "bg-amber-500/10 text-amber-600" : "bg-violet-500/10 text-violet-600"
+                  }`}>
+                    {p.plan === "business" ? <Building2 className="w-4 h-4" /> : <Crown className="w-4 h-4" />}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium capitalize">{p.plan} — {p.billingCycle}</p>
+                    <p className="text-xs text-muted-foreground">{p.status === "paid" ? `Paid ${formatDate(p.paidAt)}` : "Pending"}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold">{formatAmount(p.amount)}</p>
+                  <Badge
+                    className={`text-[10px] px-2 py-0 border-0 ${
+                      p.status === "paid"
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    {p.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

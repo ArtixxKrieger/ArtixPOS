@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   useSubscription,
   PRO_FEATURES, BUSINESS_FEATURES, FREE_LIMITS,
-  type BillingCycle, type TenantSubscription, type SubscriptionPlan,
+  type BillingCycle,
 } from "@/hooks/use-subscription";
 import { useRevenueCat, isNative } from "@/lib/revenuecat";
 import { useAuth } from "@/hooks/use-auth";
@@ -18,23 +18,9 @@ import {
   Users, Package, BarChart3, Briefcase, Star,
 } from "lucide-react";
 
-interface SubscriptionPayment {
-  id: number;
-  plan: string;
-  billingCycle: string;
-  amount: number;
-  status: string;
-  paidAt?: string | null;
-  createdAt: string;
-}
-
 function formatDate(iso?: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
-}
-
-function formatAmount(centavos: number) {
-  return (centavos / 100).toLocaleString("en-PH", { style: "currency", currency: "PHP" });
 }
 
 const COMPARISON_ROWS: {
@@ -59,14 +45,16 @@ const COMPARISON_ROWS: {
   { label: "Priority support",       icon: Users,      free: false,           pro: false,            business: true },
 ];
 
-function ComparisonCell({ value, accent }: { value: string | boolean; accent: "gray" | "violet" | "amber" }) {
+function ComparisonCell({ value, accent }: { value: string | boolean; accent: "gray" | "primary" | "amber" }) {
   if (value === false) return <X className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />;
   if (value === true) {
-    const color = accent === "violet" ? "text-violet-500" : accent === "amber" ? "text-amber-500" : "text-emerald-500";
-    return <Check className={`w-3.5 h-3.5 ${color} mx-auto`} />;
+    if (accent === "primary") return <Check className="w-3.5 h-3.5 text-primary mx-auto" />;
+    if (accent === "amber") return <Check className="w-3.5 h-3.5 text-amber-500 mx-auto" />;
+    return <Check className="w-3.5 h-3.5 text-emerald-500 mx-auto" />;
   }
-  const color = accent === "violet" ? "text-violet-600 dark:text-violet-400" : accent === "amber" ? "text-amber-600 dark:text-amber-400" : "text-foreground";
-  return <span className={`text-xs font-medium ${color}`}>{value}</span>;
+  if (accent === "primary") return <span className="text-xs font-medium text-primary">{value}</span>;
+  if (accent === "amber") return <span className="text-xs font-medium text-amber-600 dark:text-amber-400">{value}</span>;
+  return <span className="text-xs font-medium text-foreground">{value}</span>;
 }
 
 export default function BillingPage() {
@@ -79,11 +67,6 @@ export default function BillingPage() {
 
   const native = isNative();
   const rc = useRevenueCat(user?.tenantId ?? undefined);
-
-  const { data: payments = [] } = useQuery<SubscriptionPayment[]>({
-    queryKey: ["/api/subscription/payments"],
-    enabled: !!user,
-  });
 
   useEffect(() => {
     if (native) return;
@@ -98,7 +81,6 @@ export default function BillingPage() {
             const planName = data.plan === "business" ? "Business" : "Pro";
             toast({ title: `${planName} activated`, description: `Welcome to ArtixPOS ${planName}.` });
             queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/subscription/payments"] });
           } else {
             toast({ title: "Payment pending", description: "Your payment is being processed. Check back shortly.", variant: "destructive" });
           }
@@ -109,7 +91,6 @@ export default function BillingPage() {
           navigate("/billing", { replace: true });
         });
     } else if (status === "cancel") {
-      toast({ title: "Payment cancelled", description: "Your subscription was not changed." });
       navigate("/billing", { replace: true });
     }
   }, []);
@@ -167,12 +148,12 @@ export default function BillingPage() {
   const showProRequiredBanner = new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
   const nativePrice = rc.monthlyPackage?.product?.priceString ?? null;
 
-  const proMonthlyPrice  = "₱499";
-  const proAnnualPrice   = "₱4,999";
-  const proMonthlyEq     = "₱416/mo";
-  const bizMonthlyPrice  = "₱999";
-  const bizAnnualPrice   = "₱9,999";
-  const bizMonthlyEq     = "₱833/mo";
+  const proMonthlyPrice = "₱499";
+  const proAnnualPrice  = "₱4,999";
+  const proMonthlyEq    = "₱416/mo";
+  const bizMonthlyPrice = "₱999";
+  const bizAnnualPrice  = "₱9,999";
+  const bizMonthlyEq    = "₱833/mo";
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -303,37 +284,31 @@ export default function BillingPage() {
                 ))}
               </ul>
 
-              <div>
-                {currentPlan === "free" ? (
-                  <div className="w-full text-center py-2 rounded-lg bg-muted/60 text-xs text-muted-foreground font-medium">
-                    Current plan
-                  </div>
-                ) : (
-                  <div className="w-full text-center py-2 rounded-lg border border-border/50 text-xs text-muted-foreground">
-                    Downgrade to Free
-                  </div>
-                )}
-              </div>
+              {currentPlan === "free" && (
+                <div className="w-full text-center py-2 rounded-lg bg-muted/60 text-xs text-muted-foreground font-medium">
+                  Current plan
+                </div>
+              )}
             </div>
           </div>
 
           {/* Pro */}
           <div className={`relative flex flex-col rounded-xl border overflow-hidden ${
             currentPlan === "pro"
-              ? "border-violet-400/60 ring-1 ring-violet-500/20"
-              : "border-violet-300/40"
+              ? "border-primary/40 ring-1 ring-primary/20"
+              : "border-primary/25"
           }`}>
-            <div className="h-0.5 bg-violet-500 w-full" />
+            <div className="h-0.5 bg-primary w-full" />
             <div className="p-5 flex flex-col gap-5 flex-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">Pro</span>
-                  <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
                     Popular
                   </span>
                 </div>
                 {currentPlan === "pro" && (
-                  <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-300 border-0 text-[10px] font-medium">
+                  <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-medium">
                     Active
                   </Badge>
                 )}
@@ -345,14 +320,14 @@ export default function BillingPage() {
                     <div className="h-9 bg-muted/40 animate-pulse rounded-lg" />
                   ) : (
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-violet-600 dark:text-violet-400">{nativePrice ?? "—"}</span>
+                      <span className="text-3xl font-bold text-primary">{nativePrice ?? "—"}</span>
                       <span className="text-muted-foreground text-sm">/ month</span>
                     </div>
                   )
                 ) : billingCycle === "monthly" ? (
                   <div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-violet-600 dark:text-violet-400">{proMonthlyPrice}</span>
+                      <span className="text-3xl font-bold text-primary">{proMonthlyPrice}</span>
                       <span className="text-muted-foreground text-sm">/ month</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">billed monthly</p>
@@ -360,7 +335,7 @@ export default function BillingPage() {
                 ) : (
                   <div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-violet-600 dark:text-violet-400">{proAnnualPrice}</span>
+                      <span className="text-3xl font-bold text-primary">{proAnnualPrice}</span>
                       <span className="text-muted-foreground text-sm">/ year</span>
                     </div>
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
@@ -373,7 +348,7 @@ export default function BillingPage() {
               <ul className="space-y-2 flex-1">
                 {PRO_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check className="w-3.5 h-3.5 text-violet-500 shrink-0 mt-0.5" />
+                    <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                     <span>{f}</span>
                   </li>
                 ))}
@@ -383,12 +358,12 @@ export default function BillingPage() {
                 {native ? (
                   <>
                     {currentPlan === "pro" ? (
-                      <div className="w-full text-center py-2 rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-300 text-xs font-medium">
+                      <div className="w-full text-center py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium">
                         Active plan
                       </div>
                     ) : (
                       <Button
-                        className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold h-9 rounded-lg text-sm"
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-9 rounded-lg text-sm"
                         onClick={handleNativePurchase}
                         disabled={rc.isPurchasing || rc.isLoadingOfferings || !rc.monthlyPackage}
                         data-testid="button-native-upgrade-pro"
@@ -408,7 +383,7 @@ export default function BillingPage() {
                   </>
                 ) : currentPlan === "pro" ? (
                   <>
-                    <div className="w-full text-center py-2 rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-300 text-xs font-medium">
+                    <div className="w-full text-center py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium">
                       Current plan
                     </div>
                     <Button
@@ -423,7 +398,7 @@ export default function BillingPage() {
                   </>
                 ) : (
                   <Button
-                    className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold h-9 rounded-lg text-sm"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-9 rounded-lg text-sm"
                     onClick={() => checkoutMutation.mutate({ plan: "pro", cycle: billingCycle })}
                     disabled={checkoutMutation.isPending}
                     data-testid="button-upgrade-pro"
@@ -535,7 +510,7 @@ export default function BillingPage() {
                 <tr className="border-b border-border/40">
                   <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground w-1/2">Feature</th>
                   <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-[16%]">Free</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-violet-600 dark:text-violet-400 w-[17%] bg-violet-50/30 dark:bg-violet-950/10">
+                  <th className="text-center px-4 py-3 text-xs font-medium text-primary w-[17%] bg-primary/5">
                     Pro
                   </th>
                   <th className="text-center px-4 py-3 text-xs font-medium text-amber-600 dark:text-amber-400 w-[17%]">
@@ -560,8 +535,8 @@ export default function BillingPage() {
                       <td className="px-4 py-3 text-center">
                         <ComparisonCell value={row.free} accent="gray" />
                       </td>
-                      <td className="px-4 py-3 text-center bg-violet-50/30 dark:bg-violet-950/10">
-                        <ComparisonCell value={row.pro} accent="violet" />
+                      <td className="px-4 py-3 text-center bg-primary/5">
+                        <ComparisonCell value={row.pro} accent="primary" />
                       </td>
                       <td className="px-4 py-3 text-center">
                         <ComparisonCell value={row.business} accent="amber" />
@@ -581,47 +556,6 @@ export default function BillingPage() {
           <Lock className="w-5 h-5 text-muted-foreground mx-auto" />
           <p className="font-medium text-sm">Owner access required</p>
           <p className="text-xs text-muted-foreground">Only account owners can manage subscriptions.</p>
-        </div>
-      )}
-
-      {/* Payment history */}
-      {payments.length > 0 && (
-        <div className="rounded-xl border border-border/60 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-border/60">
-            <h2 className="font-semibold text-sm">Payment history</h2>
-          </div>
-          <div className="divide-y divide-border/40">
-            {payments.map((p) => (
-              <div key={p.id} className="flex items-center justify-between px-5 py-4 flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                    p.plan === "business" ? "bg-amber-500/10" : "bg-violet-500/10"
-                  }`}>
-                    {p.plan === "business"
-                      ? <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      : <Zap className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                    }
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium capitalize">{p.plan} — {p.billingCycle}</p>
-                    <p className="text-xs text-muted-foreground">{p.status === "paid" ? `Paid ${formatDate(p.paidAt)}` : "Pending"}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold">{formatAmount(p.amount)}</p>
-                  <Badge
-                    className={`text-[10px] px-2 py-0 border-0 ${
-                      p.status === "paid"
-                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                    }`}
-                  >
-                    {p.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 

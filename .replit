@@ -10,10 +10,6 @@ packages = ["unzip", "zip", "turso-cli"]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 23636
-externalPort = 3001
-
 [env]
 PORT = "5000"
 

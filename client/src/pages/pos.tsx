@@ -488,6 +488,11 @@ export default function POS() {
     const loyaltyPointsPerUnit = parseNumeric(settings?.loyaltyPointsPerUnit || "1");
     const pointsEarned = Math.floor(subtotal * loyaltyPointsPerUnit);
 
+    // One-time key per checkout attempt. Sent to the server so a replayed
+    // request (network hiccup where server succeeded but response was lost)
+    // returns the original result instead of creating a duplicate sale.
+    const idempotencyKey = nanoid();
+
     const orderData = {
       items:                cart,
       subtotal:             subtotal.toString(),
@@ -583,7 +588,8 @@ export default function POS() {
     setShowBillSplit(false);
     setCartOpen(false);
 
-    createPending.mutate(orderData, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    createPending.mutate({ ...orderData, idempotencyKey } as any, {
       onSuccess: async (result) => {
         // Patch receipt with real OR / order numbers from server
         setReceiptData(prev =>

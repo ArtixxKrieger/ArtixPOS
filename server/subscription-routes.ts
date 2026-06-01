@@ -261,7 +261,7 @@ export function registerSubscriptionRoutes(app: Express) {
           pending = ownedMatch;
         } else if (ownedMatch.status === "paid") {
           // Already verified — idempotent success response
-          return res.json({ success: true, plan: "pro", alreadyVerified: true });
+          return res.json({ success: true, plan: ownedMatch.plan ?? "pro", alreadyVerified: true });
         }
       }
 
@@ -320,7 +320,7 @@ export function registerSubscriptionRoutes(app: Express) {
           } as any);
         }
 
-        return res.json({ success: true, plan: "pro", periodEnd: periodEnd.toISOString() });
+        return res.json({ success: true, plan: pending.plan ?? "pro", periodEnd: periodEnd.toISOString() });
       }
 
       return res.json({ success: false, status: paymentStatus });

@@ -6,6 +6,9 @@ import { requireAuth } from "../middleware";
 import { emit as emitTenantEvent } from "../events";
 import { getRolePermissionForRole } from "../admin-storage";
 import { getUserId, getTenantId, getActiveBranchId, resolveBranchId, auditLog, handleZodError } from "../lib/route-utils";
+import { cache } from "../cache";
+
+const IDEM_TTL_MS = 60 * 60 * 1000; // 1 hour idempotency window
 
 export function registerPendingOrderRoutes(app: Express): void {
 
@@ -18,6 +21,28 @@ export function registerPendingOrderRoutes(app: Express): void {
   // ── Create pending order (also auto-creates a sale when status = "paid") ──
   app.post(api.pendingOrders.create.path, requireAuth, async (req, res) => {
     try {
+      // ── Idempotency guard ────────────────────────────────────────────────────
+      // The frontend generates a nanoid() `idempotencyKey` per checkout attempt.
+      // If the server processed the request but the response was lost (e.g. a
+      // WiFi hiccup), the offline-sync layer replays the same POST body including
+      // the same key. We return the cached result instead of creating a duplicate
+      // sale. The key is NOT in the Drizzle schema — we read it from the raw body
+      // before Zod strips unknown fields.
+      const rawIdempotencyKey = typeof (req.body as Record<string, unknown>).idempotencyKey === "string"
+        ? (req.body as Record<string, unknown>).idempotencyKey as string
+        : undefined;
+      const idemTenantId = (req.user as Record<string, unknown> | undefined)?.tenantId as string | undefined;
+
+      if (rawIdempotencyKey && idemTenantId) {
+        const idemCacheKey = `idem:po:${idemTenantId}:${rawIdempotencyKey}`;
+        const cached = cache.get<object>(idemCacheKey);
+        if (cached) {
+          // Already processed — return the original response, no duplicate side-effects.
+          return res.status(201).json(cached);
+        }
+      }
+      // ── End idempotency guard ────────────────────────────────────────────────
+
       const bodySchema = api.pendingOrders.create.input.extend({
         subtotal: z.coerce.string(),
         total: z.coerce.string(),
@@ -139,13 +164,21 @@ export function registerPendingOrderRoutes(app: Express): void {
       }
 
       // Merge BIR receipt identifiers from the auto-created sale into the order response
-
-      res.status(201).json({
+      const responseBody = {
         ...order,
         orNumber: saleOrNumber ?? (order as any).orNumber ?? null,
         receiptNumber: saleReceiptNumber ?? (order as any).receiptNumber ?? null,
         saleId,
-      });
+      };
+
+      // Cache successful response so a replay of the same idempotency key
+      // returns the original result without creating a second sale.
+      if (rawIdempotencyKey && idemTenantId) {
+        const idemCacheKey = `idem:po:${idemTenantId}:${rawIdempotencyKey}`;
+        cache.set(idemCacheKey, responseBody, IDEM_TTL_MS);
+      }
+
+      res.status(201).json(responseBody);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;
     }

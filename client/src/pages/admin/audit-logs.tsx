@@ -248,7 +248,7 @@ function describePayroll(e: PayrollEntry) {
 
 // ── Export helpers ────────────────────────────────────────────────────────────
 
-function exportToCSV(logs: AuditLog[]) {
+function exportToCSV(logs: AuditLog[], currency = "") {
   const headers = ["Date", "Actor", "Email", "Action", "Type", "Description"];
   const rows = logs.map(log => [
     new Date(log.createdAt ?? "").toLocaleString(),
@@ -266,7 +266,7 @@ function exportToCSV(logs: AuditLog[]) {
   URL.revokeObjectURL(url);
 }
 
-async function exportToPDF(logs: AuditLog[], storeLabel: string) {
+async function exportToPDF(logs: AuditLog[], storeLabel: string, currency = "") {
   const [{ default: jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const autoTable = (autoTableMod as any).default ?? (autoTableMod as any);
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
@@ -414,7 +414,7 @@ export default function AuditLogs() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-xl">
-                <DropdownMenuItem onClick={() => exportToCSV(generalLogs)} data-testid="menu-export-csv" className="gap-2 text-sm cursor-pointer">
+                <DropdownMenuItem onClick={() => exportToCSV(generalLogs, currency)} data-testid="menu-export-csv" className="gap-2 text-sm cursor-pointer">
                   <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <div className="flex flex-col">
                     <span className="font-medium">Export as CSV</span>
@@ -425,7 +425,7 @@ export default function AuditLogs() {
                   onClick={async () => {
                     if (isExportingPdf) return;
                     setIsExportingPdf(true);
-                    try { await exportToPDF(generalLogs, "Audit history"); }
+                    try { await exportToPDF(generalLogs, "Audit history", currency); }
                     finally { setIsExportingPdf(false); }
                   }}
                   data-testid="menu-export-pdf" className="gap-2 text-sm cursor-pointer">

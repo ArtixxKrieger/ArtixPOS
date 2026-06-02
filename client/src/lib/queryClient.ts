@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getCached, setCached } from "./offline-db";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -190,25 +191,64 @@ function fetchWithTimeout(
   ).finally(() => clearTimeout(timeoutId));
 }
 
+// ── IDB cache helpers for default queryFn ────────────────────────────────
+// These patterns identify URLs that should NOT be cached in IDB:
+// - Auth endpoints (stale auth data causes login loops)
+// - Non-API keys like "auth-me"
+const IDB_SKIP_PATTERNS = [
+  /^auth-me$/,
+  /\/api\/auth\//,
+  /^\/api\/me$/,
+  /\/api\/health$/,
+];
+
+function shouldCacheInIDB(rawUrl: string): boolean {
+  if (!rawUrl.startsWith("/api/")) return false;
+  return !IDB_SKIP_PATTERNS.some((p) => p.test(rawUrl));
+}
+
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey, signal }) => {
-    const url = resolveUrl(queryKey.join("/") as string);
-    const res = await fetchWithTimeout(
-      url,
-      { credentials: getCredentials(), headers: getAuthHeaders() },
-      signal,
-    );
+    // The raw (non-resolved) URL is used as the IDB key so it stays consistent
+    // across environments (dev proxy vs production domain).
+    const rawUrl = queryKey.join("/") as string;
+    const url = resolveUrl(rawUrl);
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    try {
+      const res = await fetchWithTimeout(
+        url,
+        { credentials: getCredentials(), headers: getAuthHeaders() },
+        signal,
+      );
+
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
+
+      await throwIfResNotOk(res);
+      const data = await res.json();
+
+      // Write to IDB on success — fire-and-forget so we don't block rendering
+      if (shouldCacheInIDB(rawUrl)) {
+        setCached(rawUrl, data).catch(() => {});
+      }
+
+      return data as T;
+    } catch (err) {
+      // On network / timeout error, try the IDB cache before propagating.
+      // This is what makes every page work offline without per-hook changes.
+      if (shouldCacheInIDB(rawUrl)) {
+        try {
+          const cached = await getCached<T>(rawUrl);
+          if (cached !== null) return cached;
+        } catch {}
+      }
+      throw err;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({

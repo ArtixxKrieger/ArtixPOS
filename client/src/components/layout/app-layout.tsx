@@ -19,6 +19,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useOfflinePrefetch } from "@/hooks/use-offline-prefetch";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { getBusinessFeatures } from "@/lib/business-features";
@@ -266,6 +267,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(getInitialDark);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
   const onlineStatus = useOnlineStatus();
+  const { lastPrefetch, isPrefetching, prefetchNow } = useOfflinePrefetch();
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
@@ -570,7 +572,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </p>
             </div>
 
-            <OfflineSyncBanner status={onlineStatus} />
+            <OfflineSyncBanner
+              status={onlineStatus}
+              lastPrefetch={lastPrefetch}
+              isPrefetching={isPrefetching}
+              onPrefetch={prefetchNow}
+            />
 
             <button
               onClick={toggleFullscreen}
@@ -603,7 +610,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <p className="text-[13px] font-semibold text-foreground flex-1 truncate">
               {businessLabels[location] ?? PAGE_TITLES[location] ?? ""}
             </p>
-            <OfflineSyncBanner status={onlineStatus} />
+            <OfflineSyncBanner
+              status={onlineStatus}
+              lastPrefetch={lastPrefetch}
+              isPrefetching={isPrefetching}
+              onPrefetch={prefetchNow}
+            />
           </div>
         </header>
 

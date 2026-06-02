@@ -1,9 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { RefreshCw, CloudOff, AlertTriangle, CheckCircle2, WifiOff } from "lucide-react";
+import { RefreshCw, CloudOff, AlertTriangle, CheckCircle2, WifiOff, Database } from "lucide-react";
 import type { OnlineStatus } from "@/hooks/use-online-status";
 
 interface OfflineSyncBannerProps {
   status: OnlineStatus;
+  lastPrefetch?: Date | null;
+  isPrefetching?: boolean;
+  onPrefetch?: () => void;
+}
+
+function formatAge(date: Date): string {
+  const ms = Date.now() - date.getTime();
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 type PillState =
@@ -16,7 +29,7 @@ type PillState =
 
 const DONE_DISPLAY_MS = 2500;
 
-export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
+export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false, onPrefetch }: OfflineSyncBannerProps) {
   const {
     isOnline,
     isReady,
@@ -27,6 +40,13 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
     lastSync,
     triggerRetryFailed,
   } = status;
+
+  // Tick every minute so the "cached Xm ago" label stays fresh
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const [pillState, setPillState] = useState<PillState>("hidden");
   const [dismissedFailed, setDismissedFailed] = useState(false);
@@ -189,8 +209,39 @@ export function OfflineSyncBanner({ status }: OfflineSyncBannerProps) {
         className={`${baseClass} px-2.5 py-1 bg-muted text-muted-foreground border-border/50`}
       >
         <WifiOff className="h-2.5 w-2.5 shrink-0" />
-        <span>Offline</span>
+        <span className="hidden sm:inline">
+          {lastPrefetch ? `Offline · cached ${formatAge(lastPrefetch)}` : "Offline"}
+        </span>
+        <span className="sm:hidden">Offline</span>
       </div>
+    );
+  }
+
+  // When online and actively refreshing cached data in the background
+  if (isPrefetching) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className={`${baseClass} px-2.5 py-1 bg-primary/8 text-primary/70 border-primary/15`}
+      >
+        <Database className="h-2.5 w-2.5 shrink-0 animate-pulse" />
+        <span className="hidden sm:inline">Caching data…</span>
+      </div>
+    );
+  }
+
+  // When online and there's cached data — show a subtle "refresh data" button
+  if (isOnline && lastPrefetch && onPrefetch && pillState === "hidden") {
+    return (
+      <button
+        onClick={onPrefetch}
+        title={`Data cached ${formatAge(lastPrefetch)} · Click to refresh`}
+        className={`${baseClass} px-2 py-1 bg-transparent text-muted-foreground/50 border-transparent hover:bg-muted/60 hover:text-muted-foreground hover:border-border/40 transition-all duration-150`}
+        aria-label="Refresh cached data"
+      >
+        <Database className="h-3 w-3 shrink-0" />
+      </button>
     );
   }
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, ShieldCheck, User2, CreditCard, ChevronRight, Info } from "lucide-react";
+import { ShieldCheck, User2, CreditCard, ChevronRight, Info } from "lucide-react";
 import { useRolePermissions, useUpdateRolePermission, type RolePermission } from "@/hooks/use-admin";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -161,16 +161,6 @@ export default function PermissionsPage() {
   return (
     <div className="space-y-5 page-enter pb-6">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-violet-500/25 shrink-0">
-          <Shield className="h-5 w-5" />
-        </div>
-        <div>
-          <h2 className="text-xl font-black tracking-tight">Permissions</h2>
-          <p className="text-xs text-muted-foreground font-medium">Control what each role can do in the POS</p>
-        </div>
-      </div>
 
       {/* Info banner */}
       <div className="flex items-start gap-3 p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5">

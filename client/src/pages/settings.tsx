@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Globe, Check, Sun, Moon, Monitor, Store,
-  Phone, Mail, MapPin, DollarSign, Palette, Shield, Settings2,
+  Phone, Mail, MapPin, DollarSign, Palette, Shield,
   Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle, Zap,
   HelpCircle, ShoppingCart, LayoutDashboard, Package, Boxes, Users, Gift,
   IdCard, Calendar, UserCheck, Clock, Wallet, Receipt, TrendingUp, Tag,
@@ -353,25 +353,6 @@ export default function Settings() {
 
   return (
     <div className="max-w-lg page-enter space-y-0.5">
-
-      {/* ── Hero header ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 pb-3 pt-1">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
-          <Settings2 className="h-6 w-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-black text-foreground leading-tight">Settings</h1>
-          <p className="text-[12px] text-muted-foreground">
-            {user?.activeBranch?.name ?? (settings as any)?.storeName ?? "Your store"} · {businessLabel || "Business"}
-          </p>
-        </div>
-        {isPro && (
-          <div className="ml-auto flex items-center gap-1.5 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 rounded-full px-3 py-1 shrink-0">
-            <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
-            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
-          </div>
-        )}
-      </div>
 
       {/* ── Appearance ──────────────────────────────────────────── */}
       <SectionLabel icon={Palette}>Appearance</SectionLabel>
@@ -956,9 +937,17 @@ export default function Settings() {
               <p className="text-sm font-semibold truncate leading-none">{user.name ?? "User"}</p>
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user.email ?? `via ${user.provider}`}</p>
             </div>
-            <span className="text-[10px] font-bold text-muted-foreground capitalize bg-muted px-2.5 py-1 rounded-full border border-border/30">
-              {user.role}
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isPro && (
+                <div className="flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
+                  <Star className="h-2.5 w-2.5 text-violet-500 fill-violet-500" />
+                  <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
+                </div>
+              )}
+              <span className="text-[10px] font-bold text-muted-foreground capitalize bg-muted px-2.5 py-1 rounded-full border border-border/30">
+                {user.role}
+              </span>
+            </div>
           </div>
         )}
 

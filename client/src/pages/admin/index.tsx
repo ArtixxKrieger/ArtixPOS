@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import {
-  Building2, Users, BarChart3, ScrollText, ShieldCheck,
+  Building2, Users, BarChart3, ScrollText,
   ChevronRight, AlertTriangle, Shield, Clock,
   ShoppingCart, Package, Pencil, Trash2, LogIn, UserPlus, GitBranch, Tag, DollarSign, Settings,
 } from "lucide-react";
@@ -144,20 +144,6 @@ export default function AdminIndex() {
 
   return (
     <div className="space-y-5 page-enter pb-6">
-
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
-          <ShieldCheck className="h-5 w-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black tracking-tight">Admin Panel</h2>
-          {tenant && <p className="text-xs text-muted-foreground font-medium truncate">{tenant.name}</p>}
-        </div>
-        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary capitalize shrink-0">
-          {user?.role}
-        </span>
-      </div>
 
       {/* No-branch warning */}
       {branches.length === 0 && isOwner && (

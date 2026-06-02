@@ -1695,17 +1695,7 @@ export default function Branches() {
 
   return (
     <div className="space-y-5 page-enter pb-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 shrink-0">
-          <Building2 className="h-5 w-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black tracking-tight">Branches</h2>
-          <p className="text-xs text-muted-foreground font-medium">
-            {branches.length} location{branches.length !== 1 ? "s" : ""} · click any branch to view details
-          </p>
-        </div>
+      <div className="flex justify-end">
         {isOwner && (
           <button
             data-testid="button-create-branch"

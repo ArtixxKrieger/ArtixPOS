@@ -447,23 +447,6 @@ export default function WifiVouchersPage() {
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-24 md:pb-8 space-y-3">
 
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-1">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
-          <Wifi className="h-5 w-5 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-black leading-none">WiFi Vouchers</h1>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Print guest WiFi access on every receipt</p>
-        </div>
-        {isPro && (
-          <div className="flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 rounded-full px-2.5 py-1 shrink-0">
-            <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
-            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
-          </div>
-        )}
-      </div>
-
       {!isPro ? (
         <>
           <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm space-y-3">

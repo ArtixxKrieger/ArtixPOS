@@ -377,15 +377,7 @@ export default function AuditLogs() {
   return (
     <div className="space-y-4 page-enter pb-6">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/25 shrink-0">
-          <ScrollText className="h-5 w-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black tracking-tight">Audit Log</h2>
-          <p className="text-xs text-muted-foreground font-medium">All staff & payroll activity in one place</p>
-        </div>
+      <div className="flex justify-end">
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowFilters(f => !f)}

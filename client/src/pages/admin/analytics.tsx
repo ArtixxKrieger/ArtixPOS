@@ -209,17 +209,6 @@ export default function AdminAnalytics() {
   return (
     <div className="space-y-5 page-enter pb-6">
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
-          <BarChart3 className="h-5 w-5" />
-        </div>
-        <div>
-          <h2 className="text-xl font-black tracking-tight">Analytics</h2>
-          <p className="text-xs text-muted-foreground font-medium">Cross-branch performance overview</p>
-        </div>
-      </div>
-
       {/* ── KPI Cards ── */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4 stagger-children">
         {[

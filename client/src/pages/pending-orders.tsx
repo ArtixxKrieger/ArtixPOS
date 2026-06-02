@@ -5,7 +5,7 @@ import { useMyPermissions } from "@/hooks/use-admin";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Clock, Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, Utensils, ShoppingBag, Bell } from "lucide-react";
+import { Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, Utensils, ShoppingBag, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
@@ -162,19 +162,6 @@ export default function PendingOrders() {
 
   return (
     <div className="space-y-5 page-enter pb-4">
-
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/25 shrink-0">
-          <Clock className="h-5.5 w-5.5" />
-        </div>
-        <div>
-          <h2 className="text-xl font-black tracking-tight">Pending Orders</h2>
-          <p className="text-xs text-muted-foreground font-medium">
-            {orders.length === 0 ? "No pending orders" : `${orders.length} order${orders.length !== 1 ? "s" : ""} waiting`}
-          </p>
-        </div>
-      </div>
 
       {/* Stale orders alert — shown when any order has been waiting 15+ minutes */}
       {staleOrders.length > 0 && (

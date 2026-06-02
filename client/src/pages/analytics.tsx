@@ -728,20 +728,8 @@ export default function Analytics() {
   return (
     <div className="space-y-5 page-enter pb-24 md:pb-8">
 
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
-            <BarChart3 className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-xl font-black tracking-tight">Analytics</h2>
-            <p className="text-xs text-muted-foreground font-medium">Deep performance insights</p>
-          </div>
-        </div>
-
-        {/* Date range + export */}
-        <div className="flex flex-col gap-2 sm:items-end">
+      {/* Date range + export */}
+      <div className="flex flex-col gap-2 sm:items-end">
           {/* Preset pills — scrollable on narrow phones */}
           <div className="overflow-x-auto scrollbar-none -mx-0.5 px-0.5 pb-0.5">
             <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30 w-max">
@@ -814,7 +802,6 @@ export default function Analytics() {
             ))}
           </div>
         </div>
-      </div>
 
       {/* ── KPI Cards ── */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 stagger-children">

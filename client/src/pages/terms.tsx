@@ -51,6 +51,7 @@ export default function TermsOfService() {
   const [activeSection, setActiveSection] = useState("acceptance");
   const isMobile = useIsMobile();
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const ids = SECTIONS.map((s) => s.id);
@@ -63,7 +64,7 @@ export default function TermsOfService() {
           }
         }
       },
-      { rootMargin: "-20% 0px -70% 0px", threshold: 0 }
+      { root: scrollContainerRef.current, rootMargin: "-20% 0px -70% 0px", threshold: 0 }
     );
     ids.forEach((id) => {
       const el = document.getElementById(id);
@@ -74,11 +75,15 @@ export default function TermsOfService() {
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!el || !scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const containerTop = container.getBoundingClientRect().top;
+    const elTop = el.getBoundingClientRect().top;
+    container.scrollBy({ top: elTop - containerTop - 64, behavior: "smooth" });
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
+    <div ref={scrollContainerRef} style={{ height: "100vh", overflowY: "auto", overflowX: "hidden", background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
 
       {/* Top bar */}
       <header style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: `1px solid ${BORDER}`, background: "rgba(12,20,32,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: isMobile ? "0 16px" : "0 32px", height: 52, display: "flex", alignItems: "center", justifyContent: "space-between" }}>

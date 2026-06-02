@@ -1,6 +1,17 @@
 import { useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 const BLUE = "#14b8e8";
 const DARK = "#0C1420";
 const SURFACE = "#111827";
@@ -33,6 +44,7 @@ function SectionAnchor({ id }: { id: string }) {
 export default function PrivacyPolicy() {
   const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState("overview");
+  const isMobile = useIsMobile();
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -64,30 +76,29 @@ export default function PrivacyPolicy() {
     <div style={{ minHeight: "100vh", background: DARK, color: "#fff", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
 
       {/* Top bar */}
-      <header style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: `1px solid ${BORDER}`, background: "rgba(12,20,32,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: "0 32px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg,${BLUE},#0284c7)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>A</span>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: `1px solid ${BORDER}`, background: "rgba(12,20,32,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: isMobile ? "0 16px" : "0 32px", height: 52, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <div style={{ width: 26, height: 26, borderRadius: 7, background: `linear-gradient(135deg,${BLUE},#0284c7)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}>A</span>
           </div>
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: "#fff" }}>ArtixPOS</span>
-          <span style={{ color: BORDER, margin: "0 4px" }}>·</span>
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>Privacy Policy</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>ArtixPOS</span>
+          {!isMobile && <><span style={{ color: BORDER, margin: "0 2px" }}>·</span><span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Privacy Policy</span></>}
         </div>
         <button
           onClick={() => setLocation("/login")}
-          style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${BORDER}`, color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12.5, fontFamily: "inherit", padding: "6px 14px", borderRadius: 8, transition: "all 0.15s" }}
+          style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${BORDER}`, color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, fontFamily: "inherit", padding: "5px 12px", borderRadius: 7, transition: "all 0.15s", flexShrink: 0 }}
           onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
           onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.borderColor = BORDER; }}
         >
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-          Back to login
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+          {isMobile ? "Back" : "Back to login"}
         </button>
       </header>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 32px 120px", display: "flex", gap: 52, alignItems: "flex-start" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "28px 18px 80px" : "48px 32px 120px", display: "flex", gap: isMobile ? 0 : 52, alignItems: "flex-start" }}>
 
-        {/* Sidebar TOC */}
-        <aside style={{ width: 220, flexShrink: 0, position: "sticky", top: 80, maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
+        {/* Sidebar TOC — hidden on mobile */}
+        <aside style={{ width: 220, flexShrink: 0, position: "sticky", top: 72, maxHeight: "calc(100vh - 90px)", overflowY: "auto", display: isMobile ? "none" : "block" }}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "0 0 16px" }}>Contents</p>
           <nav style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {SECTIONS.map((s) => (
@@ -128,7 +139,7 @@ export default function PrivacyPolicy() {
               </svg>
               <span style={{ fontSize: 12, color: BLUE, fontWeight: 600 }}>Privacy & Data</span>
             </div>
-            <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 12px", lineHeight: 1.1 }}>Privacy Policy</h1>
+            <h1 style={{ fontSize: isMobile ? 26 : 36, fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 12px", lineHeight: 1.1 }}>Privacy Policy</h1>
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.40)", margin: "0 0 20px", lineHeight: 1.7 }}>
               This Privacy Policy describes how ArtixPOS collects, uses, stores, and shares information about you when you use our platform. We are committed to protecting your privacy and handling your data with transparency.
             </p>

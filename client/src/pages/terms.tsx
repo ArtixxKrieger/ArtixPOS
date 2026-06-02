@@ -49,6 +49,9 @@ function SectionAnchor({ id }: { id: string }) {
 export default function TermsOfService() {
   const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState("acceptance");
+  const [tocOpen, setTocOpen] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const touchStartY = useRef(0);
   const isMobile = useIsMobile();
   const observerRef = useRef<IntersectionObserver | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -80,6 +83,19 @@ export default function TermsOfService() {
     const containerTop = container.getBoundingClientRect().top;
     const elTop = el.getBoundingClientRect().top;
     container.scrollBy({ top: elTop - containerTop - 64, behavior: "smooth" });
+  };
+
+  const onSheetTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    setDragY(0);
+  };
+  const onSheetTouchMove = (e: React.TouchEvent) => {
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) setDragY(delta);
+  };
+  const onSheetTouchEnd = () => {
+    if (dragY > 80) setTocOpen(false);
+    setDragY(0);
   };
 
   return (
@@ -669,6 +685,92 @@ export default function TermsOfService() {
 
         </main>
       </div>
+
+      {/* Mobile: floating Contents button */}
+      {isMobile && (
+        <button
+          onClick={() => setTocOpen(true)}
+          style={{
+            position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", gap: 7,
+            background: BLUE, color: "#fff", border: "none", borderRadius: 24,
+            padding: "11px 22px", fontSize: 13.5, fontWeight: 700, fontFamily: "inherit",
+            cursor: "pointer", zIndex: 40,
+            boxShadow: "0 4px 24px rgba(20,184,232,0.40)",
+          }}
+        >
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+          </svg>
+          Contents
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+      )}
+
+      {/* Mobile: bottom sheet overlay */}
+      {isMobile && tocOpen && (
+        <div
+          onClick={() => setTocOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 48, backdropFilter: "blur(2px)" }}
+        />
+      )}
+
+      {/* Mobile: bottom sheet */}
+      {isMobile && (
+        <div
+          onTouchStart={onSheetTouchStart}
+          onTouchMove={onSheetTouchMove}
+          onTouchEnd={onSheetTouchEnd}
+          style={{
+            position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 49,
+            background: "#111827",
+            borderRadius: "20px 20px 0 0",
+            border: `1px solid ${BORDER}`,
+            borderBottom: "none",
+            maxHeight: "75vh",
+            display: "flex",
+            flexDirection: "column",
+            transform: tocOpen ? `translateY(${Math.max(0, dragY)}px)` : "translateY(100%)",
+            transition: dragY > 0 ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
+            willChange: "transform",
+          }}
+        >
+          {/* Drag handle */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 20px 12px", flexShrink: 0, cursor: "grab" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", marginBottom: 14 }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.30)", margin: 0 }}>Contents</p>
+              <button onClick={() => setTocOpen(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.35)", cursor: "pointer", padding: 4, display: "flex" }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          {/* Scrollable nav list */}
+          <nav style={{ overflowY: "auto", padding: "0 12px 32px", display: "flex", flexDirection: "column", gap: 1 }}>
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => { scrollTo(s.id); setTocOpen(false); }}
+                style={{
+                  background: activeSection === s.id ? "rgba(20,184,232,0.08)" : "none",
+                  border: "none",
+                  borderLeft: `2px solid ${activeSection === s.id ? BLUE : "transparent"}`,
+                  color: activeSection === s.id ? BLUE : "rgba(255,255,255,0.55)",
+                  cursor: "pointer", fontSize: 14, fontFamily: "inherit",
+                  textAlign: "left", padding: "11px 14px",
+                  borderRadius: "0 8px 8px 0", lineHeight: 1.4,
+                  width: "100%",
+                }}
+              >
+                {s.title}
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
+
     </div>
   );
 }

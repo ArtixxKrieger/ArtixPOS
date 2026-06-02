@@ -59,6 +59,8 @@ const StaffPage = lazy(() => import("@/pages/staff"));
 const RoomsPage = lazy(() => import("@/pages/rooms"));
 const MembershipsPage = lazy(() => import("@/pages/memberships"));
 const BillingPage = lazy(() => import("@/pages/billing"));
+const TermsPage   = lazy(() => import("@/pages/terms"));
+const PrivacyPage = lazy(() => import("@/pages/privacy"));
 const PrintSettings = lazy(() => import("@/pages/print-settings"));
 const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
 const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
@@ -911,6 +913,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/terms" component={() => <Suspense fallback={null}><TermsPage /></Suspense>} />
+      <Route path="/privacy" component={() => <Suspense fallback={null}><PrivacyPage /></Suspense>} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/b/:id" component={BranchPublicPage} />
       <Route path="/staff-clock-in" component={StaffPinLogin} />

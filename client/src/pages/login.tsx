@@ -886,6 +886,20 @@ export default function Login() {
         {t("login.noCC")}
       </p>
 
+      <p className="rise d4" style={{ marginTop: 10, fontSize: 11, textAlign: "center", lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.28)" }}>
+        {mode === "register" && "By creating an account, you agree to our "}
+        <a href="/terms" target="_blank" rel="noopener noreferrer"
+          style={{ color: isDark ? "rgba(56,217,245,0.65)" : BLUE2, textDecoration: "none", borderBottom: `1px solid currentColor`, opacity: 0.9 }}>
+          Terms
+        </a>
+        <span style={{ opacity: 0.5 }}>{mode === "register" ? " and " : " · "}</span>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer"
+          style={{ color: isDark ? "rgba(56,217,245,0.65)" : BLUE2, textDecoration: "none", borderBottom: `1px solid currentColor`, opacity: 0.9 }}>
+          Privacy Policy
+        </a>
+        {mode === "register" && "."}
+      </p>
+
       {isNativePlatform() && (
         <div style={{ marginTop: 14, textAlign: "center" }}>
           <button onClick={() => { refreshDebug(); setShowDebug(v => !v); }}
@@ -1331,7 +1345,17 @@ export default function Login() {
           <div style={{ width: 24, height: 24, borderRadius: 8, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>A</span>
           </div>
-          <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>© 2025 ArtixPOS · Business Platform</span>
+          <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>
+            © 2025 ArtixPOS
+            <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
+            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "rgba(255,255,255,0.28)", textDecoration: "none", borderBottom: "1px solid rgba(255,255,255,0.12)", transition: "color 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.28)")}>Terms</a>
+            <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "rgba(255,255,255,0.28)", textDecoration: "none", borderBottom: "1px solid rgba(255,255,255,0.12)", transition: "color 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.28)")}>Privacy</a>
+          </span>
         </div>
       </section>
 

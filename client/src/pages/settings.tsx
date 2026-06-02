@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
   Globe, Check, Sun, Moon, Monitor, Store,
@@ -364,22 +365,12 @@ export default function Settings() {
             {user?.activeBranch?.name ?? (settings as any)?.storeName ?? "Your store"} · {businessLabel || "Business"}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          {isPro && (
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 rounded-full px-3 py-1">
-              <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
-              <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
-            </div>
-          )}
-          <button
-            onClick={() => { setShowHelp(true); setHelpSearch(""); setExpandedHelp(null); }}
-            data-testid="button-help"
-            className="h-8 w-8 rounded-xl bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
-            title="Help"
-          >
-            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
+        {isPro && (
+          <div className="ml-auto flex items-center gap-1.5 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 rounded-full px-3 py-1 shrink-0">
+            <Star className="h-3 w-3 text-violet-500 fill-violet-500" />
+            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
+          </div>
+        )}
       </div>
 
       {/* ── Appearance ──────────────────────────────────────────── */}
@@ -972,6 +963,21 @@ export default function Settings() {
         )}
 
         <button
+          onClick={() => { setShowHelp(true); setHelpSearch(""); setExpandedHelp(null); }}
+          data-testid="button-help"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"
+        >
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <HelpCircle className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="text-left flex-1">
+            <p className="text-sm font-medium">Help Center</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">How to set up and use each feature</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        </button>
+
+        <button
           onClick={() => {
             setLocation("/");
             setTimeout(() => {
@@ -1021,20 +1027,24 @@ export default function Settings() {
       {/* Version */}
       <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">ArtixPOS · Business OS</p>
 
-      {/* ── Help Dialog ──────────────────────────────────────────── */}
-      <Dialog open={showHelp} onOpenChange={(open) => { setShowHelp(open); if (!open) { setHelpSearch(""); setExpandedHelp(null); } }}>
-        <DialogContent className="sm:max-w-[480px] max-w-[calc(100vw-24px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
+      {/* ── Help Sheet (bottom on mobile, centered on desktop) ───── */}
+      <Sheet open={showHelp} onOpenChange={(open) => { setShowHelp(open); if (!open) { setHelpSearch(""); setExpandedHelp(null); } }}>
+        <SheetContent side="bottom" className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+          </div>
+          <SheetHeader className="px-6 pt-3 pb-4 shrink-0 text-left">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
                 <HelpCircle className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-black leading-tight">Help Center</DialogTitle>
+                <SheetTitle className="text-lg font-black leading-tight">Help Center</SheetTitle>
                 <p className="text-[11px] text-muted-foreground mt-0.5">How to set up and use each feature</p>
               </div>
             </div>
-          </DialogHeader>
+          </SheetHeader>
 
           <div className="px-4 pb-3 shrink-0">
             <div className="relative">
@@ -1527,8 +1537,8 @@ export default function Settings() {
               });
             })()}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* ── Delete Account Dialog ────────────────────────────────── */}
       <AlertDialog

@@ -6,11 +6,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Wifi, Save, Eye, EyeOff, Clock, Receipt, Sparkles, ChevronRight,
   Info, CheckCircle2, WifiOff, Plus, Trash2, Lock, Unlock,
   Copy, Check, Zap, Shield, Settings2, ToggleLeft, ToggleRight,
-  Star, Signal, Pencil, QrCode, Download,
+  Star, Signal, Pencil, QrCode, Download, Router, Server,
+  AlertCircle, Loader2, RefreshCw,
 } from "lucide-react";
 
 type SecurityType = "WPA2" | "WPA" | "WEP" | "Open";
@@ -361,6 +363,18 @@ export default function WifiVouchersPage() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"qr" | "receipt">("qr");
 
+  // MikroTik router integration state
+  const [mkEnabled, setMkEnabled] = useState(false);
+  const [mkHost, setMkHost] = useState("");
+  const [mkPort, setMkPort] = useState("80");
+  const [mkUser, setMkUser] = useState("admin");
+  const [mkPassword, setMkPassword] = useState("");
+  const [mkProfile, setMkProfile] = useState("default");
+  const [mkSsl, setMkSsl] = useState(false);
+  const [mkShowPassword, setMkShowPassword] = useState(false);
+  const [mkTestStatus, setMkTestStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
+  const [mkTestMsg, setMkTestMsg] = useState("");
+
   useEffect(() => {
     if (!settings) return;
     const s = settings as any;
@@ -376,7 +390,36 @@ export default function WifiVouchersPage() {
     const savedProfiles: NetworkProfile[] = s.wifiNetworkProfiles || [];
     setProfiles(savedProfiles);
     setActiveProfileId(s.wifiActiveProfileId || null);
+    // MikroTik
+    setMkEnabled(!!s.mikrotikEnabled);
+    setMkHost(s.mikrotikHost || "");
+    setMkPort(s.mikrotikPort || "80");
+    setMkUser(s.mikrotikUser || "admin");
+    setMkPassword(s.mikrotikPassword || "");
+    setMkProfile(s.mikrotikHotspotProfile || "default");
+    setMkSsl(!!s.mikrotikUseSsl);
   }, [settings]);
+
+  const handleTestConnection = async () => {
+    if (!mkHost.trim()) {
+      toast({ title: "Enter router IP first", variant: "destructive" });
+      return;
+    }
+    setMkTestStatus("testing");
+    setMkTestMsg("");
+    try {
+      const res = await apiRequest("POST", "/api/mikrotik/test", {
+        host: mkHost.trim(), port: mkPort, user: mkUser, password: mkPassword,
+        hotspotProfile: mkProfile, useSsl: mkSsl,
+      });
+      const data = await res.json();
+      setMkTestStatus(data.ok ? "ok" : "error");
+      setMkTestMsg(data.message || "");
+    } catch {
+      setMkTestStatus("error");
+      setMkTestMsg("Request failed — check the router IP");
+    }
+  };
 
   const handleSave = () => {
     if (enabled && !ssid.trim()) {
@@ -396,6 +439,13 @@ export default function WifiVouchersPage() {
         wifiShowQr: showQr,
         wifiNetworkProfiles: profiles,
         wifiActiveProfileId: activeProfileId,
+        mikrotikEnabled: mkEnabled ? 1 : 0,
+        mikrotikHost: mkHost.trim() || null,
+        mikrotikPort: mkPort || "80",
+        mikrotikUser: mkUser || "admin",
+        mikrotikPassword: mkPassword || null,
+        mikrotikHotspotProfile: mkProfile || "default",
+        mikrotikUseSsl: mkSsl ? 1 : 0,
       } as any,
       { onSuccess: () => toast({ title: "WiFi settings saved" }) }
     );
@@ -781,6 +831,119 @@ export default function WifiVouchersPage() {
                 <li key={i} className="text-[11px] text-muted-foreground leading-relaxed list-disc">{tip}</li>
               ))}
             </ul>
+          </div>
+
+          {/* ── Router Integration (MikroTik) ────────────────── */}
+          <SectionLabel icon={Router}>Router Integration</SectionLabel>
+          <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
+            {/* Header toggle */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">MikroTik Hotspot</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Enforce voucher time limits on your router</p>
+              </div>
+              <button type="button" onClick={() => setMkEnabled(v => !v)} data-testid="toggle-mikrotik-enabled" className="shrink-0">
+                {mkEnabled
+                  ? <ToggleRight className="h-7 w-7 text-emerald-500" />
+                  : <ToggleLeft className="h-7 w-7 text-muted-foreground/40" />}
+              </button>
+            </div>
+
+            {mkEnabled && (
+              <div className="px-4 pb-4 space-y-0">
+                {/* Router IP */}
+                <SettingRow label="Router IP" hint="LAN address of your MikroTik (e.g. 192.168.1.2)">
+                  <Input value={mkHost} onChange={e => setMkHost(e.target.value)}
+                    placeholder="192.168.1.2"
+                    className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-44"
+                    data-testid="input-mikrotik-host" />
+                </SettingRow>
+
+                {/* Port */}
+                <SettingRow label="API Port" hint="Default 80 (HTTP) or 443 (HTTPS)">
+                  <Input value={mkPort} onChange={e => setMkPort(e.target.value)}
+                    placeholder="80"
+                    className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-24"
+                    data-testid="input-mikrotik-port" />
+                </SettingRow>
+
+                {/* Username */}
+                <SettingRow label="Username" hint="Router admin username">
+                  <Input value={mkUser} onChange={e => setMkUser(e.target.value)}
+                    placeholder="admin"
+                    className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-36"
+                    data-testid="input-mikrotik-user" />
+                </SettingRow>
+
+                {/* Password */}
+                <SettingRow label="Password" hint="Router admin password">
+                  <div className="relative w-36">
+                    <Input type={mkShowPassword ? "text" : "password"} value={mkPassword}
+                      onChange={e => setMkPassword(e.target.value)} placeholder="••••••"
+                      className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-8"
+                      data-testid="input-mikrotik-password" />
+                    <button type="button" onClick={() => setMkShowPassword(v => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                      {mkShowPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </SettingRow>
+
+                {/* Hotspot Profile */}
+                <SettingRow label="Hotspot Profile" hint='Name of the RouterOS hotspot profile (usually "default")'>
+                  <Input value={mkProfile} onChange={e => setMkProfile(e.target.value)}
+                    placeholder="default"
+                    className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3 w-36"
+                    data-testid="input-mikrotik-profile" />
+                </SettingRow>
+
+                {/* Use HTTPS */}
+                <SettingRow label="Use HTTPS" hint="Enable if router uses SSL (port 443)">
+                  <button type="button" onClick={() => setMkSsl(v => !v)} data-testid="toggle-mikrotik-ssl" className="shrink-0">
+                    {mkSsl
+                      ? <ToggleRight className="h-7 w-7 text-emerald-500" />
+                      : <ToggleLeft className="h-7 w-7 text-muted-foreground/40" />}
+                  </button>
+                </SettingRow>
+
+                {/* Test connection */}
+                <div className="pt-3">
+                  <button type="button" onClick={handleTestConnection}
+                    disabled={mkTestStatus === "testing"}
+                    data-testid="button-test-mikrotik"
+                    className="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-xs font-semibold border border-border/40 bg-muted/50 hover:bg-muted transition-colors disabled:opacity-50">
+                    {mkTestStatus === "testing"
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Server className="h-3.5 w-3.5" />}
+                    {mkTestStatus === "testing" ? "Testing…" : "Test Connection"}
+                  </button>
+
+                  {mkTestStatus !== "idle" && mkTestStatus !== "testing" && (
+                    <div className={[
+                      "flex items-start gap-2 mt-2 px-3 py-2 rounded-xl text-[11px]",
+                      mkTestStatus === "ok"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        : "bg-destructive/10 text-destructive",
+                    ].join(" ")}>
+                      {mkTestStatus === "ok"
+                        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        : <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
+                      <span>{mkTestMsg || (mkTestStatus === "ok" ? "Connected successfully" : "Connection failed")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!mkEnabled && (
+              <div className="px-4 py-3">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  When enabled, every voucher you sell is automatically pushed to your MikroTik router as a hotspot user.
+                  Customers connect to the captive portal with the voucher code — time limits are enforced by the router.
+                  Requires a MikroTik running RouterOS v7+ with the REST API enabled (IP → Hotspot).
+                </p>
+              </div>
+            )}
           </div>
 
           <Button onClick={handleSave} disabled={updateSettings.isPending}

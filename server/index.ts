@@ -28,6 +28,8 @@ import { setupRLS } from "./rls-setup";
 import { pool } from "./db";
 import { startCleanupScheduler } from "./cleanup";
 import { ensurePartitions } from "./partition-manager";
+import { storage } from "./storage";
+import { removeHotspotUser, type MikrotikConfig } from "./mikrotik";
 
 const app = express();
 const httpServer = createServer(app);
@@ -629,6 +631,36 @@ if (process.env.VERCEL !== "1") {
       process.exit(1);
     }
   });
+
+  // ── Periodic WiFi voucher expiry ─────────────────────────────────────────────
+  // Marks overdue "active" vouchers as "expired" every 5 minutes and removes the
+  // corresponding hotspot users from connected MikroTik routers.
+  setInterval(async () => {
+    try {
+      const expired = await storage.expireOverdueVouchers();
+      if (!expired.length) return;
+      const byUser: Record<string, typeof expired> = {};
+      for (const v of expired) (byUser[v.userId] ??= []).push(v);
+      for (const [userId, vouchers] of Object.entries(byUser)) {
+        const settings = await storage.getSettings(userId);
+        if (!settings?.mikrotikEnabled || !(settings as any).mikrotikHost) continue;
+        const cfg: MikrotikConfig = {
+          host: (settings as any).mikrotikHost,
+          port: (settings as any).mikrotikPort || "80",
+          user: (settings as any).mikrotikUser || "admin",
+          password: (settings as any).mikrotikPassword || "",
+          hotspotProfile: (settings as any).mikrotikHotspotProfile || "default",
+          useSsl: !!(settings as any).mikrotikUseSsl,
+        };
+        for (const v of vouchers) {
+          if (v.mikrotikUserId) removeHotspotUser(cfg, v.mikrotikUserId).catch(() => {});
+        }
+      }
+      console.log(`[voucher-expiry] expired=${expired.length}`);
+    } catch (err: any) {
+      console.warn("[voucher-expiry] cron error:", err?.message);
+    }
+  }, 5 * 60_000).unref();
 
   // ── Periodic health telemetry ────────────────────────────────────────────────
   // Logs heap + cache stats every 60s. Visible in deployment logs and helps

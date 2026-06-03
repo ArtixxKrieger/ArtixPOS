@@ -98,7 +98,7 @@ import {
   loyaltyPointsLog,
   type LoyaltyPointsLog,
 } from "@shared/schema";
-import { eq, and, isNull, isNotNull, inArray, desc, sql, type SQL } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, inArray, desc, sql, lt, type SQL } from "drizzle-orm";
 
 export interface IStorage {
   // Products
@@ -2329,6 +2329,26 @@ export class DatabaseStorage implements IStorage {
       expiresAt: expires.toISOString(),
     } as any).where(eq(wifiVouchers.id, v.id)).returning();
     return updated;
+  }
+
+  async updateWifiVoucherMikrotikId(id: number, mikrotikUserId: string): Promise<void> {
+    await db.update(wifiVouchers)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .set({ mikrotikUserId } as any)
+      .where(eq(wifiVouchers.id, id));
+  }
+
+  async expireOverdueVouchers(): Promise<Array<{ id: number; mikrotikUserId: string | null; userId: string }>> {
+    const now = new Date().toISOString();
+    return db.update(wifiVouchers)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .set({ status: "expired" } as any)
+      .where(and(eq(wifiVouchers.status, "active"), lt(wifiVouchers.expiresAt, now)))
+      .returning({
+        id: wifiVouchers.id,
+        mikrotikUserId: wifiVouchers.mikrotikUserId,
+        userId: wifiVouchers.userId,
+      });
   }
 
   // ─── Payroll ──────────────────────────────────────────────────────────────

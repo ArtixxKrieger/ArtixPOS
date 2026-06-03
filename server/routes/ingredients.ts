@@ -4,6 +4,24 @@ import { storage } from "../storage";
 import { requireAuth, requireManagerOrAbove, requirePro } from "../middleware";
 import { insertIngredientSchema, insertWifiVoucherSchema } from "@shared/schema";
 import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
+import {
+  testMikrotikConnection,
+  createHotspotUser,
+  removeHotspotUser,
+  type MikrotikConfig,
+} from "../mikrotik";
+
+function buildMikrotikConfig(s: any): MikrotikConfig | null {
+  if (!s?.mikrotikEnabled || !s?.mikrotikHost) return null;
+  return {
+    host: s.mikrotikHost,
+    port: s.mikrotikPort || "80",
+    user: s.mikrotikUser || "admin",
+    password: s.mikrotikPassword || "",
+    hotspotProfile: s.mikrotikHotspotProfile || "default",
+    useSsl: !!s.mikrotikUseSsl,
+  };
+}
 
 export function registerIngredientRoutes(app: Express): void {
 
@@ -100,6 +118,16 @@ export function registerWifiVoucherRoutes(app: Express): void {
       const input = insertWifiVoucherSchema.parse(req.body);
       const created = await storage.createWifiVoucher(getUserId(req), input);
       await auditLog(req, "create", "wifi_voucher", String(created.id), { code: created.code });
+
+      // Push to MikroTik if enabled — fire-and-forget so the response is instant
+      const settings = await storage.getSettings(getUserId(req));
+      const mkConfig = buildMikrotikConfig(settings);
+      if (mkConfig) {
+        createHotspotUser(mkConfig, created.code, created.durationMinutes).then(mkId => {
+          if (mkId) storage.updateWifiVoucherMikrotikId(created.id, mkId).catch(() => {});
+        }).catch(() => {});
+      }
+
       res.status(201).json(created);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;
@@ -114,5 +142,41 @@ export function registerWifiVoucherRoutes(app: Express): void {
     if (!v) return res.status(404).json({ message: "Voucher not found" });
     await auditLog(req, "redeem", "wifi_voucher", String(v.id), { code: v.code });
     res.json(v);
+  });
+
+  // ── Test MikroTik connection ───────────────────────────────────────────────
+  app.post("/api/mikrotik/test", requireAuth, requirePro, async (req, res) => {
+    const { host, port, user, password, hotspotProfile, useSsl } = req.body;
+    if (!host) return res.status(400).json({ ok: false, message: "Router IP address is required" });
+    const config: MikrotikConfig = {
+      host: String(host).trim(),
+      port: port || "80",
+      user: user || "admin",
+      password: password || "",
+      hotspotProfile: hotspotProfile || "default",
+      useSsl: !!useSsl,
+    };
+    const result = await testMikrotikConnection(config);
+    res.json(result);
+  });
+
+  // ── Expire overdue vouchers + remove from MikroTik ────────────────────────
+  app.post("/api/mikrotik/sync", requireAuth, requirePro, async (req, res) => {
+    const expired = await storage.expireOverdueVouchers();
+    const byUser: Record<string, typeof expired> = {};
+    for (const v of expired) (byUser[v.userId] ??= []).push(v);
+    let removed = 0;
+    for (const [userId, vouchers] of Object.entries(byUser)) {
+      const settings = await storage.getSettings(userId);
+      const mkConfig = buildMikrotikConfig(settings);
+      if (!mkConfig) continue;
+      for (const v of vouchers) {
+        if (v.mikrotikUserId) {
+          await removeHotspotUser(mkConfig, v.mikrotikUserId);
+          removed++;
+        }
+      }
+    }
+    res.json({ expired: expired.length, removed });
   });
 }

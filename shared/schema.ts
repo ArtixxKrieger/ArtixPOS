@@ -471,6 +471,14 @@ export const userSettings = pgTable("user_settings", {
   wifiPassword: text("wifi_password"),
   wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
   wifiAutoIssue: integer("wifi_auto_issue").default(0),
+  // MikroTik router integration
+  mikrotikEnabled: integer("mikrotik_enabled").default(0),
+  mikrotikHost: text("mikrotik_host"),
+  mikrotikPort: text("mikrotik_port").default("80"),
+  mikrotikUser: text("mikrotik_user").default("admin"),
+  mikrotikPassword: text("mikrotik_password"),
+  mikrotikHotspotProfile: text("mikrotik_hotspot_profile").default("default"),
+  mikrotikUseSsl: integer("mikrotik_use_ssl").default(0),
   country: text("country"),
   posFeatures: jsonb("pos_features").$type<PosFeatures>(),
   // BIR Compliance (Philippines Bureau of Internal Revenue)
@@ -704,6 +712,7 @@ export const wifiVouchers = pgTable("wifi_vouchers", {
   customerEmail: text("customer_email"),
   redeemedAt: text("redeemed_at"),
   expiresAt: text("expires_at"),
+  mikrotikUserId: text("mikrotik_user_id"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -1067,6 +1076,13 @@ export const insertUserSettingSchema = z.object({
   wifiPassword: z.string().optional().nullable(),
   wifiDurationMinutes: z.number().optional().nullable(),
   wifiAutoIssue: z.number().optional().nullable(),
+  mikrotikEnabled: z.number().optional().nullable(),
+  mikrotikHost: z.string().optional().nullable(),
+  mikrotikPort: z.string().optional().nullable(),
+  mikrotikUser: z.string().optional().nullable(),
+  mikrotikPassword: z.string().optional().nullable(),
+  mikrotikHotspotProfile: z.string().optional().nullable(),
+  mikrotikUseSsl: z.number().optional().nullable(),
   country: z.string().optional().nullable(),
   posFeatures: z.object({
     setupComplete: z.boolean(),

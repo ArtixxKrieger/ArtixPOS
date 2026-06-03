@@ -144,6 +144,8 @@ export function registerSettingsRoutes(app: Express): void {
               "wifiEnabled", "wifiSsid", "wifiPassword", "wifiDurationMinutes",
               "wifiSecurityType", "wifiVoucherTitle", "wifiSpeedLabel", "wifiVoucherNote",
               "wifiShowQr", "wifiNetworkProfiles", "wifiActiveProfileId",
+              "mikrotikEnabled", "mikrotikHost", "mikrotikPort", "mikrotikUser",
+              "mikrotikPassword", "mikrotikHotspotProfile", "mikrotikUseSsl",
             ];
             for (const field of proOnlyWifiFields) {
               delete (input as any)[field];

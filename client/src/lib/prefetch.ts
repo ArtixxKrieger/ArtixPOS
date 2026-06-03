@@ -22,16 +22,41 @@ import { getCached } from "./offline-db";
  * Pending Orders and Customers are data-ready on first visit.
  */
 
-const ALL_PREFETCH_URLS = [
+/**
+ * All critical API URLs to keep warm in both IDB and the React Query cache.
+ * Exported so useOfflinePrefetch can reference the same list for periodic
+ * background refreshes without duplicating or drifting from this definition.
+ *
+ * Core (top group): fetched immediately on login — always needed for the POS.
+ * Extended (bottom group): fetched in parallel on login and refreshed every
+ * 5 min for full offline coverage of all app pages.
+ */
+export const ALL_PREFETCH_URLS: readonly string[] = [
+  // ── Core ────────────────────────────────────────────────────────────────
   "/api/settings",
   "/api/subscription",
   "/api/dashboard/stats",
   "/api/notifications",
-  // Previously Wave 2 (delayed 3-4 s) — now fetched immediately on login:
   "/api/pending-orders",
   "/api/products",
   "/api/customers",
+  // ── Extended (full offline coverage) ────────────────────────────────────
+  "/api/expenses",
+  "/api/staff",
+  "/api/suppliers",
+  "/api/branches",
+  "/api/categories",
+  "/api/memberships",
+  "/api/loyalty-tiers",
+  "/api/tables",
+  "/api/rooms",
+  "/api/pos-features",
 ];
+
+// ── localStorage key used by useOfflinePrefetch for the last-prefetch timestamp
+// Defined here so clearPrefetchCache can remove it on logout / user-switch.
+const LAST_UID_LS_KEY = "pos-last-uid";
+const prefetchTsKey = (uid: string) => `artixpos_last_prefetch_${uid}`;
 
 const prefetchedUsers = new Set<string>();
 
@@ -83,4 +108,12 @@ export function prefetchBootstrapData(userId: string): void {
 
 export function clearPrefetchCache(): void {
   prefetchedUsers.clear();
+
+  // Also remove the user-scoped last-prefetch timestamp written by
+  // useOfflinePrefetch — otherwise the "Offline · cached Xm ago" label
+  // would show a stale time from the previous session after logout.
+  try {
+    const uid = localStorage.getItem(LAST_UID_LS_KEY);
+    if (uid) localStorage.removeItem(prefetchTsKey(uid));
+  } catch {}
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { nativeFetch, queryClient } from "@/lib/queryClient";
 import { setCached } from "@/lib/offline-db";
+import { ALL_PREFETCH_URLS } from "@/lib/prefetch";
 
 const PREFETCH_INTERVAL_MS = 5 * 60 * 1000;
 // localStorage key is user-scoped to prevent User A's timestamp being shown to User B.
@@ -9,25 +10,11 @@ const LAST_UID_LS_KEY = "pos-last-uid";
 const prefetchTsKey = () =>
   `artixpos_last_prefetch_${localStorage.getItem(LAST_UID_LS_KEY) ?? "anon"}`;
 
-// All critical endpoints to keep warm in IDB.
-// These cover every page a user might land on while offline.
-const CRITICAL_ENDPOINTS = [
-  "/api/products",
-  "/api/customers",
-  "/api/pending-orders",
-  "/api/settings",
-  "/api/expenses",
-  "/api/staff",
-  "/api/suppliers",
-  "/api/branches",
-  "/api/categories",
-  "/api/memberships",
-  "/api/loyalty-tiers",
-  "/api/tables",
-  "/api/rooms",
-  "/api/pos-features",
-];
-
+// prefetchBootstrapData (called on every login) handles the initial IDB seed
+// and network fetch for ALL_PREFETCH_URLS.  This hook's only job is the
+// periodic background refresh — keeping IDB warm between logins.
+// We intentionally bypass queryClient/staleTime so data is always refreshed
+// even after staleTime:Infinity would otherwise suppress re-fetches.
 async function prefetchEndpoint(url: string): Promise<void> {
   try {
     const res = await nativeFetch(url, { cache: "no-store" });
@@ -73,7 +60,7 @@ export function useOfflinePrefetch(): OfflinePrefetchState {
 
     try {
       // Fan out all fetches in parallel — each one is independent
-      await Promise.allSettled(CRITICAL_ENDPOINTS.map(prefetchEndpoint));
+      await Promise.allSettled(ALL_PREFETCH_URLS.map(prefetchEndpoint));
       if (mountedRef.current) {
         const now = new Date();
         setLastPrefetch(now);
@@ -105,13 +92,11 @@ export function useOfflinePrefetch(): OfflinePrefetchState {
       }, PREFETCH_INTERVAL_MS);
     };
 
-    // Initial prefetch — delayed 3 s so the auth + settings fetch (which
-    // matters more to the user) wins the first network window.
-    const initTimer = setTimeout(() => {
-      if (!cancelled) prefetchNow();
-    }, 3_000);
-
-    // Periodic refresh
+    // Start the periodic 5-minute refresh cycle.
+    // No immediate initial fetch here — prefetchBootstrapData (called on login
+    // from App.tsx) already handles the first fetch for ALL_PREFETCH_URLS,
+    // including both core and extended endpoints.  Duplicating that here would
+    // fire 17 parallel requests a second time within 3-5 s of login.
     schedule();
 
     // Re-prefetch immediately when the device comes back online.
@@ -127,7 +112,6 @@ export function useOfflinePrefetch(): OfflinePrefetchState {
     return () => {
       cancelled = true;
       mountedRef.current = false;
-      clearTimeout(initTimer);
       if (timerRef.current) clearTimeout(timerRef.current);
       window.removeEventListener("online", handleOnline);
     };

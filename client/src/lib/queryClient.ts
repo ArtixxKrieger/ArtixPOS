@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getCached, setCached } from "./offline-db";
+import { getCached, setCached, isNetworkError } from "./offline-db";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -239,9 +239,13 @@ export const getQueryFn: <T>(options: {
 
       return data as T;
     } catch (err) {
-      // On network / timeout error, try the IDB cache before propagating.
-      // This is what makes every page work offline without per-hook changes.
-      if (shouldCacheInIDB(rawUrl)) {
+      // ONLY fall back to IDB for genuine network / timeout failures.
+      // Do NOT serve stale cache for 4xx/5xx — those are intentional server
+      // signals (403 = lost access, 404 = deleted) and must propagate so the
+      // UI shows the real error instead of silently serving stale data.
+      const isTimeout =
+        err instanceof DOMException && err.name === "TimeoutError";
+      if ((isNetworkError(err) || isTimeout) && shouldCacheInIDB(rawUrl)) {
         try {
           const cached = await getCached<T>(rawUrl);
           if (cached !== null) return cached;

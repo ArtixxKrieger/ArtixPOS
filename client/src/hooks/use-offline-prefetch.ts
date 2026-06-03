@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { nativeFetch } from "@/lib/queryClient";
+import { nativeFetch, queryClient } from "@/lib/queryClient";
 import { setCached } from "@/lib/offline-db";
-import { queryClient } from "@/lib/queryClient";
 
 const PREFETCH_INTERVAL_MS = 5 * 60 * 1000;
+// localStorage key is user-scoped to prevent User A's timestamp being shown to User B.
+// We read the same UID key that offline-db.ts writes on session init.
+const LAST_UID_LS_KEY = "pos-last-uid";
+const prefetchTsKey = () =>
+  `artixpos_last_prefetch_${localStorage.getItem(LAST_UID_LS_KEY) ?? "anon"}`;
 
 // All critical endpoints to keep warm in IDB.
 // These cover every page a user might land on while offline.
@@ -29,6 +33,8 @@ async function prefetchEndpoint(url: string): Promise<void> {
     const res = await nativeFetch(url, { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
+    // Write to IDB (for cold-start offline reads) and React Query cache
+    // (so any mounted component immediately reflects the fresh data).
     await setCached(url, data);
     queryClient.setQueryData([url], data);
   } catch {
@@ -45,14 +51,17 @@ export interface OfflinePrefetchState {
 export function useOfflinePrefetch(): OfflinePrefetchState {
   const [lastPrefetch, setLastPrefetch] = useState<Date | null>(() => {
     try {
-      const stored = localStorage.getItem("artixpos_last_prefetch");
-      return stored ? new Date(stored) : null;
+      const stored = localStorage.getItem(prefetchTsKey());
+      if (!stored) return null;
+      const d = new Date(stored);
+      // Discard malformed dates — they'd corrupt the "cached Xm ago" label
+      return Number.isFinite(d.getTime()) ? d : null;
     } catch {
       return null;
     }
   });
   const [isPrefetching, setIsPrefetching] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const runningRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -68,7 +77,9 @@ export function useOfflinePrefetch(): OfflinePrefetchState {
       if (mountedRef.current) {
         const now = new Date();
         setLastPrefetch(now);
-        try { localStorage.setItem("artixpos_last_prefetch", now.toISOString()); } catch {}
+        try {
+          localStorage.setItem(prefetchTsKey(), now.toISOString());
+        } catch {}
       }
     } finally {
       runningRef.current = false;
@@ -79,28 +90,42 @@ export function useOfflinePrefetch(): OfflinePrefetchState {
   useEffect(() => {
     mountedRef.current = true;
 
-    // Initial prefetch — run once on mount with a short delay so the app
-    // shell renders first (avoids competing with the initial auth + settings fetches)
-    const initTimer = setTimeout(() => {
-      prefetchNow();
-    }, 3000);
+    // ── Timer-leak guard ──────────────────────────────────────────────────
+    // `schedule` is self-rescheduling via .finally(). Without this flag,
+    // if a prefetch is in-flight when the component unmounts, .finally()
+    // fires AFTER cleanup and creates an orphan timer that reschedules
+    // itself indefinitely, since timerRef was already cleared.
+    let cancelled = false;
 
-    // Periodic refresh every 5 minutes while the app is open
     const schedule = () => {
+      if (cancelled) return;
       timerRef.current = setTimeout(() => {
+        if (cancelled) return;
         prefetchNow().finally(schedule);
       }, PREFETCH_INTERVAL_MS);
     };
+
+    // Initial prefetch — delayed 3 s so the auth + settings fetch (which
+    // matters more to the user) wins the first network window.
+    const initTimer = setTimeout(() => {
+      if (!cancelled) prefetchNow();
+    }, 3_000);
+
+    // Periodic refresh
     schedule();
 
-    // Re-prefetch immediately when coming back online
+    // Re-prefetch immediately when the device comes back online.
+    // Cancel any pending scheduled timer first to avoid a double-run right
+    // after reconnection.
     const handleOnline = () => {
+      if (cancelled) return;
       if (timerRef.current) clearTimeout(timerRef.current);
       prefetchNow().finally(schedule);
     };
     window.addEventListener("online", handleOnline);
 
     return () => {
+      cancelled = true;
       mountedRef.current = false;
       clearTimeout(initTimer);
       if (timerRef.current) clearTimeout(timerRef.current);

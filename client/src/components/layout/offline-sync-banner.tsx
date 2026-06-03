@@ -11,6 +11,8 @@ interface OfflineSyncBannerProps {
 
 function formatAge(date: Date): string {
   const ms = Date.now() - date.getTime();
+  // Guard: Invalid Date (malformed localStorage value) or clock skew
+  if (!Number.isFinite(ms) || ms < 0) return "unknown";
   const mins = Math.floor(ms / 60_000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;

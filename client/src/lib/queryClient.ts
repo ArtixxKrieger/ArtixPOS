@@ -208,11 +208,11 @@ function shouldCacheInIDB(rawUrl: string): boolean {
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
+export function getQueryFn<T>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey, signal }) => {
+}): QueryFunction<T> {
+  const { on401: unauthorizedBehavior } = options;
+  return async ({ queryKey, signal }) => {
     // The raw (non-resolved) URL is used as the IDB key so it stays consistent
     // across environments (dev proxy vs production domain).
     const rawUrl = queryKey.join("/") as string;
@@ -226,7 +226,7 @@ export const getQueryFn: <T>(options: {
       );
 
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-        return null;
+        return null as unknown as T;
       }
 
       await throwIfResNotOk(res);
@@ -254,6 +254,7 @@ export const getQueryFn: <T>(options: {
       throw err;
     }
   };
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {

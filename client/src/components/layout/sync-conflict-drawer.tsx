@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ElementType } from "react";
 import {
   Sheet,
   SheetContent,
@@ -60,7 +60,7 @@ const COLLECTION_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-const COLLECTION_ICONS: Record<string, React.ElementType> = {
+const COLLECTION_ICONS: Record<string, ElementType> = {
   sales: ShoppingCart,
   "pending-orders": ClipboardList,
   products: Package,
@@ -77,7 +77,7 @@ const METHOD_VERB: Record<string, string> = {
   DELETE: "Delete",
 };
 
-function describeMutation(item: QueuedMutation): { label: string; detail: string | null; Icon: React.ElementType } {
+function describeMutation(item: QueuedMutation): { label: string; detail: string | null; Icon: ElementType } {
   const collection = collectionFromUrl(item.url);
   const collectionLabel = COLLECTION_LABELS[collection] ?? collection;
   const verb = METHOD_VERB[item.method] ?? item.method;

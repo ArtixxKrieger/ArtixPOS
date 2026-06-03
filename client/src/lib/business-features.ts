@@ -857,13 +857,13 @@ export function getBusinessFeatures(
     "/appointments", "/staff", "/rooms", "/memberships",
     "/shifts", "/timeclock",
     "/inventory", "/expiry",
-    "/customers", "/discount-codes", "/loyalty", "/wifi-vouchers", "/refunds",
+    "/customers", "/discount-codes", "/loyalty", "/refunds",
     "/expenses", "/suppliers", "/purchases",
   ];
-  // NOTE: /bir and /bir-audit-log are intentionally excluded from this whitelist.
-  // BIR Compliance is a subscription-tier feature (Business plan), not a
-  // business-type feature. Its visibility is controlled entirely by the
-  // proOnly + ownerOnly flags in the nav and the ProAndOwnerGuard route guard.
+  // NOTE: /bir, /bir-audit-log, and /wifi-vouchers are intentionally excluded
+  // from this whitelist. They are subscription-tier features, not business-type
+  // features. Their visibility is controlled entirely by the proOnly/ownerOnly
+  // flags in the nav and the corresponding route guards.
   for (const url of ALL_FILTERABLE_URLS) {
     if (!sidebarOrder.includes(url)) {
       hidden.add(url);

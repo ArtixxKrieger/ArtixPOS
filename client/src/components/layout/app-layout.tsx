@@ -14,6 +14,7 @@ import {
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { OfflineSyncBanner } from "./offline-sync-banner";
+import { SyncConflictDrawer } from "./sync-conflict-drawer";
 import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -268,6 +269,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
   const onlineStatus = useOnlineStatus();
   const { lastPrefetch, isPrefetching, prefetchNow } = useOfflinePrefetch();
+  const [conflictDrawerOpen, setConflictDrawerOpen] = useState(false);
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
   const { isFree } = useSubscription();
@@ -577,6 +579,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               lastPrefetch={lastPrefetch}
               isPrefetching={isPrefetching}
               onPrefetch={prefetchNow}
+              onOpenConflicts={() => setConflictDrawerOpen(true)}
             />
 
             <button
@@ -615,6 +618,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               lastPrefetch={lastPrefetch}
               isPrefetching={isPrefetching}
               onPrefetch={prefetchNow}
+              onOpenConflicts={() => setConflictDrawerOpen(true)}
             />
           </div>
         </header>
@@ -629,6 +633,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <BottomNav />
       {isOwner && <AiFloatButton />}
+
+      <SyncConflictDrawer
+        open={conflictDrawerOpen}
+        onClose={() => setConflictDrawerOpen(false)}
+        onResolved={() => onlineStatus.triggerSync()}
+      />
     </div>
   );
 }

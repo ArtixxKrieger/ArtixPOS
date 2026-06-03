@@ -7,6 +7,7 @@ interface OfflineSyncBannerProps {
   lastPrefetch?: Date | null;
   isPrefetching?: boolean;
   onPrefetch?: () => void;
+  onOpenConflicts?: () => void;
 }
 
 function formatAge(date: Date): string {
@@ -31,7 +32,7 @@ type PillState =
 
 const DONE_DISPLAY_MS = 2500;
 
-export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false, onPrefetch }: OfflineSyncBannerProps) {
+export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false, onPrefetch, onOpenConflicts }: OfflineSyncBannerProps) {
   const {
     isOnline,
     isReady,
@@ -161,13 +162,14 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
       >
         <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
         <span className="hidden sm:inline">
-          {failedQueueCount} failed
+          {failedQueueCount} unsynced
         </span>
         <button
-          onClick={triggerRetryFailed}
+          onClick={onOpenConflicts}
+          data-testid="btn-open-conflicts"
           className="underline underline-offset-1 hover:no-underline shrink-0 font-bold"
         >
-          Retry
+          Review
         </button>
         <button
           onClick={() => {

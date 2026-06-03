@@ -375,6 +375,32 @@ export async function getFailedQueueCount(): Promise<number> {
   }
 }
 
+/** Return full details for all permanently-failed mutations (for conflict UI). */
+export async function getFailedQueueItems(): Promise<QueuedMutation[]> {
+  try {
+    const db = await getDB();
+    const all = await db.getAll("mutation-queue");
+    return all.filter((item) => item.permanentlyFailed);
+  } catch {
+    return [];
+  }
+}
+
+/** Discard a single permanently-failed item from the queue (same as removeQueueItem). */
+export async function discardQueueItem(id: number): Promise<void> {
+  return removeQueueItem(id);
+}
+
+/** Discard all permanently-failed items from the queue. */
+export async function discardAllFailedItems(): Promise<void> {
+  try {
+    const db = await getDB();
+    const all = await db.getAll("mutation-queue");
+    const failed = all.filter((item) => item.permanentlyFailed);
+    await Promise.all(failed.map((item) => removeQueueItem(item.id!)));
+  } catch {}
+}
+
 // ─── Utilities ──────────────────────────────────────────────────────────────
 export function isNetworkError(err: unknown): boolean {
   if (err instanceof TypeError) return true;

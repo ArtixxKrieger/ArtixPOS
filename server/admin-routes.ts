@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import {
   requireAuth, requireOwner, requireAdminOrAbove, requireManagerOrAbove,
-  requireTenant, getAuthUser, getSubscription, isProSubscription
+  requireTenant, getAuthUser, getSubscription, isProSubscription, isBusinessSubscription
 } from "./middleware";
 import {
   getTenant, updateTenant, createTenant,
@@ -109,10 +109,20 @@ export function registerAdminRoutes(app: Express) {
     try {
       const user = getAuthUser(req);
       const sub = await getSubscription(user.tenantId!);
+      const existingBranches = await getBranches(user.tenantId!);
       if (!isProSubscription(sub)) {
-        const existingBranches = await getBranches(user.tenantId!);
         if (existingBranches.length >= 1) {
           return res.status(403).json({ message: "The Free plan includes 1 branch. Upgrade to Pro when you are ready to manage multiple locations.", code: "BRANCH_LIMIT_REACHED" });
+        }
+      } else if (!isBusinessSubscription(sub)) {
+        // Pro plan: 1 branch max
+        if (existingBranches.length >= 1) {
+          return res.status(403).json({ message: "The Pro plan includes 1 branch. Upgrade to Business to manage multiple locations.", code: "BRANCH_LIMIT_REACHED" });
+        }
+      } else {
+        // Business plan: 10 branches max
+        if (existingBranches.length >= 10) {
+          return res.status(403).json({ message: "The Business plan supports up to 10 branches. Contact support if you need more.", code: "BRANCH_LIMIT_REACHED" });
         }
       }
       const input = z.object({
@@ -512,10 +522,18 @@ export function registerAdminRoutes(app: Express) {
       if (!source) return res.status(404).json({ message: "Branch not found" });
 
       const sub = await getSubscription(user.tenantId!);
+      const existingBranches = await getBranches(user.tenantId!);
       if (!isProSubscription(sub)) {
-        const existingBranches = await getBranches(user.tenantId!);
         if (existingBranches.length >= 1) {
           return res.status(403).json({ message: "Upgrade to Pro to duplicate branches.", code: "BRANCH_LIMIT_REACHED" });
+        }
+      } else if (!isBusinessSubscription(sub)) {
+        if (existingBranches.length >= 1) {
+          return res.status(403).json({ message: "The Pro plan includes 1 branch. Upgrade to Business to manage multiple locations.", code: "BRANCH_LIMIT_REACHED" });
+        }
+      } else {
+        if (existingBranches.length >= 10) {
+          return res.status(403).json({ message: "The Business plan supports up to 10 branches. Contact support if you need more.", code: "BRANCH_LIMIT_REACHED" });
         }
       }
 
@@ -593,12 +611,19 @@ export function registerAdminRoutes(app: Express) {
     try {
       const user = getAuthUser(req);
       const sub = await getSubscription(user.tenantId!);
+      const tenantUsers = await getTenantUsers(user.tenantId!);
       if (!isProSubscription(sub)) {
-        const tenantUsers = await getTenantUsers(user.tenantId!);
+        // Free: owner + 2 staff = 3 total
         if (tenantUsers.length >= 3) {
           return res.status(403).json({ message: "The Free plan includes the owner plus 2 staff accounts. Upgrade to Pro to add more team members.", code: "STAFF_LIMIT_REACHED" });
         }
+      } else if (!isBusinessSubscription(sub)) {
+        // Pro: owner + 15 staff = 16 total
+        if (tenantUsers.length >= 16) {
+          return res.status(403).json({ message: "The Pro plan supports up to 15 staff accounts. Upgrade to Business for unlimited team members.", code: "STAFF_LIMIT_REACHED" });
+        }
       }
+      // Business: unlimited staff — no check needed
       const input = z.object({
         name: z.string().min(1),
         role: z.enum(["manager", "admin", "cashier", "staff"]),

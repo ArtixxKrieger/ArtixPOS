@@ -441,7 +441,7 @@ const AdminAuditLogsRoute   = () => <AdminGuard component={AdminAuditLogs} />;
 const AdminPermissionsRoute = () => <AdminGuard component={AdminPermissions} />;
 
 const RefundsRoute          = () => <ManagerOrAboveGuard component={Refunds} />;
-const AiRoute               = () => <OwnerGuard component={AiPage} />;
+const AiRoute               = () => <ProAndOwnerGuard component={AiPage} />;
 const PrintSettingsRoute    = () => <OwnerGuard component={PrintSettings} />;
 const BIRRoute              = () => <ProAndOwnerGuard component={BIRPage} />;
 const BIRAuditLogRoute      = () => <ProAndOwnerGuard component={BIRAuditLogPage} />;

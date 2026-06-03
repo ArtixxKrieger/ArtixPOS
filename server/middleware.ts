@@ -73,7 +73,14 @@ export async function getSubscription(tenantId: string) {
 
 export function isProSubscription(sub: { plan: string; status: string; currentPeriodEnd?: string | null } | null): boolean {
   if (!sub) return false;
-  if (sub.plan !== "pro" || sub.status !== "active") return false;
+  if ((sub.plan !== "pro" && sub.plan !== "business") || sub.status !== "active") return false;
+  if (sub.currentPeriodEnd && new Date(sub.currentPeriodEnd) < new Date()) return false;
+  return true;
+}
+
+export function isBusinessSubscription(sub: { plan: string; status: string; currentPeriodEnd?: string | null } | null): boolean {
+  if (!sub) return false;
+  if (sub.plan !== "business" || sub.status !== "active") return false;
   if (sub.currentPeriodEnd && new Date(sub.currentPeriodEnd) < new Date()) return false;
   return true;
 }

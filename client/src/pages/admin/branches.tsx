@@ -1641,11 +1641,16 @@ export default function Branches() {
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const isOwner = user?.role === "owner";
   const { toast } = useToast();
-  const { isPro } = useSubscription();
+  const { isPro, isBusiness } = useSubscription();
   const [, setLocation] = useLocation();
 
   function handleAddBranch() {
-    if (!isPro && branches.length >= 1) {
+    const atLimit = !isPro
+      ? branches.length >= 1          // Free: 1 branch
+      : !isBusiness
+        ? branches.length >= 1        // Pro: 1 branch
+        : branches.length >= 10;      // Business: 10 branches
+    if (atLimit) {
       setShowUpgradeCard(true);
     } else {
       setEditingBranch(undefined);

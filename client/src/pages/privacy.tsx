@@ -380,18 +380,6 @@ export default function PrivacyPolicy() {
                     data: "Queries you send to the AI assistant are processed by these providers. We do not send your full business database — only the context you include in your query.",
                     url: null,
                   },
-                  {
-                    name: "Upstash",
-                    role: "Rate limiting and caching infrastructure",
-                    data: "IP addresses for rate limiting purposes only. No business data is cached in Upstash.",
-                    url: "https://upstash.com/trust/privacy.pdf",
-                  },
-                  {
-                    name: "Sentry",
-                    role: "Error monitoring and service reliability",
-                    data: "Stack traces, error context, and basic device/browser info when errors occur. Personal data in error messages is automatically scrubbed.",
-                    url: "https://sentry.io/privacy/",
-                  },
                 ].map(({ name, role, data, url }) => (
                   <div key={name} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "16px 20px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
@@ -415,27 +403,9 @@ export default function PrivacyPolicy() {
               <SectionAnchor id="cookies" />
               <SectionHeader num="8" title="Cookies & Tracking" />
               <SubHeader>8.1 What We Use</SubHeader>
-              <Body>ArtixPOS uses a minimal set of browser storage mechanisms:</Body>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, margin: "0 0 20px" }}>
-                {[
-                  { name: "auth_token (HttpOnly Cookie)", purpose: "Keeps you logged in securely. Expires with your session or after 30 days. Cannot be read by JavaScript.", required: true },
-                  { name: "csrf_token (Cookie)", purpose: "Protects against cross-site request forgery attacks. Readable by JavaScript to include in request headers.", required: true },
-                  { name: "localStorage", purpose: "Stores your UI preferences (theme, sidebar state, language), offline POS data, and cached app state for performance.", required: true },
-                  { name: "IndexedDB", purpose: "Stores offline transaction data for the PWA, enabling the app to work without an internet connection.", required: false },
-                ].map(({ name, purpose, required }) => (
-                  <div key={name} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "14px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={{ flexShrink: 0, marginTop: 2 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", padding: "2px 7px", borderRadius: 4, background: required ? "rgba(20,184,232,0.12)" : "rgba(255,255,255,0.05)", color: required ? BLUE : "rgba(255,255,255,0.30)" }}>
-                        {required ? "REQUIRED" : "OPTIONAL"}
-                      </span>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.75)", margin: "0 0 4px" }}>{name}</p>
-                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", margin: 0, lineHeight: 1.6 }}>{purpose}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Body>
+                ArtixPOS stores a small amount of data in your browser to keep you logged in, save your preferences (theme, language, sidebar state), and enable offline POS functionality. We use secure cookies for authentication and your browser's local storage for app state. No data is shared with advertising networks.
+              </Body>
               <SubHeader>8.2 What We Do Not Use</SubHeader>
               <BulletList items={[
                 "Third-party advertising or tracking cookies",

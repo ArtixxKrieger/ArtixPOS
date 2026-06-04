@@ -432,8 +432,6 @@ export default function TermsOfService() {
                 "PayMongo — for payment processing and subscription management",
                 "Google and Facebook — for optional OAuth authentication",
                 "Groq, Cerebras, and Mistral — for AI assistant features",
-                "Upstash — for caching and rate limiting infrastructure",
-                "Sentry — for error monitoring and service reliability",
               ]} />
               <Body>
                 Your use of Third-Party Services is subject to those services' own terms of service and privacy policies. We are not responsible for the availability, accuracy, or practices of any Third-Party Services. We do not endorse and are not responsible for any Third-Party Services. Your relationship with third-party providers is solely between you and them.

@@ -354,7 +354,6 @@ export default function Settings() {
   return (
     <div className="max-w-lg page-enter space-y-0.5">
 
-      {/* ── Appearance ──────────────────────────────────────────── */}
       <SectionLabel icon={Palette}>Appearance</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
         {/* Theme selector */}
@@ -413,7 +412,6 @@ export default function Settings() {
         </button>
       </div>
 
-      {/* ── Language picker dialog ───────────────────────────────── */}
       <Dialog open={showLangPicker} onOpenChange={(open) => { setShowLangPicker(open); if (!open) setLangSearch(""); }}>
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
@@ -483,7 +481,6 @@ export default function Settings() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Country picker dialog ────────────────────────────────── */}
       <Dialog open={showCountryPicker} onOpenChange={(open) => { setShowCountryPicker(open); if (!open) setCountrySearch(""); }}>
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
@@ -558,7 +555,6 @@ export default function Settings() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Owner settings ──────────────────────────────────────── */}
       {isOwner && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -701,7 +697,6 @@ export default function Settings() {
         </Form>
       )}
 
-      {/* ── POS Features ─────────────────────────────────────── */}
       <SectionLabel icon={Zap}>POS Setup</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
         <button
@@ -720,7 +715,6 @@ export default function Settings() {
         </button>
       </div>
 
-      {/* ── Plan Voucher ────────────────────────────────────────── */}
       {isOwner && (
         <>
           <SectionLabel icon={Sparkles}>Subscription</SectionLabel>
@@ -780,7 +774,6 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* ── Payment Methods ───────────────────────────────────── */}
           <SectionLabel icon={CreditCard}>Checkout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
             <button
@@ -868,7 +861,6 @@ export default function Settings() {
         </>
       )}
 
-      {/* ── Notifications ───────────────────────────────────────── */}
       <SectionLabel icon={Bell}>Notifications</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden px-4 py-1">
         {pushSupported ? (
@@ -920,8 +912,6 @@ export default function Settings() {
         )}
       </div>
 
-
-      {/* ── Account ─────────────────────────────────────────────── */}
       <SectionLabel icon={Shield}>Account</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
         {user && (
@@ -1016,7 +1006,6 @@ export default function Settings() {
       {/* Version */}
       <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">ArtixPOS · Business OS</p>
 
-      {/* ── Help Sheet (bottom on mobile, centered on desktop) ───── */}
       <Sheet open={showHelp} onOpenChange={(open) => { setShowHelp(open); if (!open) { setHelpSearch(""); setExpandedHelp(null); } }}>
         <SheetContent side="bottom" className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
           {/* Drag handle */}
@@ -1529,7 +1518,6 @@ export default function Settings() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Delete Account Dialog ────────────────────────────────── */}
       <AlertDialog
         open={showDeleteConfirm}
         onOpenChange={(open) => {

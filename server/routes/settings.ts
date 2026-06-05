@@ -15,7 +15,6 @@ import { getUserId, getTenantId, auditLog, handleZodError } from "../lib/route-u
 
 export function registerSettingsRoutes(app: Express): void {
 
-  // ── Get settings ───────────────────────────────────────────────────────────
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const cacheKey = settingsCacheKey(uid);
@@ -89,7 +88,6 @@ export function registerSettingsRoutes(app: Express): void {
     res.json(settings);
   });
 
-  // ── Update settings ────────────────────────────────────────────────────────
   app.put(api.settings.update.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.settings.update.input.extend({
@@ -132,7 +130,6 @@ export function registerSettingsRoutes(app: Express): void {
         console.error("[settings] Failed to ensure user row:", userCheckErr);
       }
 
-      // ── Pro-only field guard ───────────────────────────────────────────────
       // Strip WiFi voucher fields and Pro posFeatures server-side if not on Pro.
       // This prevents free users from bypassing the UI paywall via direct API calls.
       const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;

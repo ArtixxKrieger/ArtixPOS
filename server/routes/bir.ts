@@ -17,7 +17,6 @@ import { getUserId } from "../lib/route-utils";
 
 export function registerBirRoutes(app: Express): void {
 
-  // ── BIR X-Report (intra-day running total) ─────────────────────────────────
   // All aggregation runs in PostgreSQL — no row data is pulled into Node.js.
   // Previously this loaded up to 10,000 rows and ran multiple JS .reduce()
   // passes, which is both slower and silently wrong at high volume.
@@ -111,7 +110,6 @@ export function registerBirRoutes(app: Express): void {
     });
   });
 
-  // ── BIR Monthly Summary ────────────────────────────────────────────────────
   // All aggregation runs in PostgreSQL — no row data pulled into Node.js.
   // Previously this loaded up to 10,000 rows and ran multiple JS .reduce()
   // passes, which silently truncates reports for months with >10K transactions.
@@ -194,7 +192,6 @@ export function registerBirRoutes(app: Express): void {
     });
   });
 
-  // ── BIR eSales CSV Export ──────────────────────────────────────────────────
   app.get("/api/bir/esales-export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
@@ -268,7 +265,6 @@ export function registerBirRoutes(app: Express): void {
     res.send(csv);
   });
 
-  // ── BIR Electronic Journal (E-Journal) ────────────────────────────────────
   // Generates a sequential, fixed-width text log of all POS transactions for a
   // given month — grouped by calendar day with daily subtotals and a period
   // summary. This is the standard CAS E-Journal format required by BIR.
@@ -458,7 +454,6 @@ export function registerBirRoutes(app: Express): void {
     res.send(lines.join("\n"));
   });
 
-  // ── BIR OR Gap Detection ───────────────────────────────────────────────────
   // Uses a DB-level window function so we never load full sale rows into memory.
   app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
@@ -497,7 +492,6 @@ export function registerBirRoutes(app: Express): void {
     });
   });
 
-  // ── BIR Void Audit Trail ───────────────────────────────────────────────────
   app.get("/api/bir/void-trail", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
     const rows = await db.execute(sql`
@@ -555,7 +549,6 @@ export function registerBirRoutes(app: Express): void {
     });
   });
 
-  // ── BIR Void Trail CSV Export ──────────────────────────────────────────────
   app.get("/api/bir/void-trail/export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
     const rows = await db.execute(sql`
@@ -606,7 +599,6 @@ export function registerBirRoutes(app: Express): void {
     res.send(lines.join("\r\n"));
   });
 
-  // ── BIR Hash Integrity Audit ───────────────────────────────────────────────
   // Recomputes every sale's SHA-256 hash from stored fiscal fields. Any mismatch
   // proves the row was modified after initial creation.
   app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
@@ -658,7 +650,6 @@ export function registerBirRoutes(app: Express): void {
     });
   });
 
-  // ── BIR Refund Audit Trail CSV Export ──────────────────────────────────────
   app.get("/api/bir/refund-trail/export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
     const rows = await db.execute(sql`

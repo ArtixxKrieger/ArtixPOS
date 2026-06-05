@@ -358,7 +358,6 @@ function LoadingScreen({ message }: { message?: string }) {
   return null;
 }
 
-// ── Persistent route paths ─────────────────────────────────────────────────
 // These routes are ALWAYS kept mounted after first visit and toggled via CSS.
 // Navigation between them is a pure style change — zero JS work, zero skeleton.
 const PINNED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics", "/products"]);
@@ -395,13 +394,6 @@ function PersistentRoute({
   );
 }
 
-// ── Stable route components ────────────────────────────────────────────────
-// Defined at module level so their references NEVER change between renders.
-// Inline arrow functions inside AppRouter would create new references every
-// render, causing Wouter to unmount + remount the page each time.
-//
-// Note: Dashboard, POS, Pending, Settings, Analytics are handled by
-// PersistentRoute above — no route constant needed for those.
 const HardwareSettingsRoute = () => <HardwareSettings />;
 const BillingRoute          = () => <BillingPage />;
 
@@ -559,7 +551,6 @@ function AppRouter() {
   // Apply the active branch's color as the app-wide primary theme color
   useBranchTheme();
 
-  // ── First-load splash gate ─────────────────────────────────────────────────
   // We only want to show the boot splash ONCE — during the very first settings
   // fetch on a fresh page load. Every subsequent render (navigations, background
   // refetches, or AppRouter remounts from /kitchen-display) will already have
@@ -720,7 +711,6 @@ function AppRouter() {
   );
 }
 
-// ── PIN session app: shown to staff who logged in via kiosk PIN ───────────────
 // Restricts the entire app to POS only — no sidebar, no navigation elsewhere.
 function PinSessionApp() {
   const { user } = useAuth();

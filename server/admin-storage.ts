@@ -8,11 +8,8 @@ import { eq, and, desc, inArray, isNull, sql, gte, lte } from "drizzle-orm";
 import { invalidateTenantCache } from "./storage";
 import crypto from "crypto";
 
-// ─── Password Hashing (unified — delegates to crypto.ts) ──────────────────────
 import { hashPassword, verifyPassword } from "./crypto";
 export { hashPassword, verifyPassword };
-
-// ─── Tenants ──────────────────────────────────────────────────────────────────
 
 export async function getTenant(tenantId: string): Promise<Tenant | undefined> {
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId));
@@ -32,8 +29,6 @@ export async function updateTenant(tenantId: string, name: string): Promise<Tena
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId));
   return tenant;
 }
-
-// ─── Branches ─────────────────────────────────────────────────────────────────
 
 export async function getBranches(tenantId: string): Promise<Branch[]> {
   return await db.select().from(branches).where(
@@ -80,8 +75,6 @@ export async function deleteBranch(id: number, tenantId: string): Promise<void> 
     .set({ deletedAt: new Date().toISOString(), isActive: false } as any)
     .where(and(eq(branches.id, id), eq(branches.tenantId, tenantId)));
 }
-
-// ─── Users (tenant scoped) ────────────────────────────────────────────────────
 
 export async function getTenantUsers(tenantId: string): Promise<(User & { branches: number[] })[]> {
   const tenantUsers = await db.select().from(users).where(eq(users.tenantId, tenantId));
@@ -171,8 +164,6 @@ export async function updateLastSeen(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
-// ─── User Branches ────────────────────────────────────────────────────────────
-
 export async function getUserBranches(userId: string): Promise<number[]> {
   const rows = await db.select().from(userBranches).where(eq(userBranches.userId, userId));
   return rows.map(r => r.branchId);
@@ -200,8 +191,6 @@ export async function removeBranch(userId: string, branchId: number): Promise<vo
     and(eq(userBranches.userId, userId), eq(userBranches.branchId, branchId))
   );
 }
-
-// ─── Audit Logs ───────────────────────────────────────────────────────────────
 
 export async function createAuditLog(data: {
   tenantId: string;
@@ -276,8 +265,6 @@ export async function getAuditLogs(
   return rows as AuditLogWithActor[];
 }
 
-// ─── Role Permissions ─────────────────────────────────────────────────────────
-
 export async function getRolePermissions(tenantId: string): Promise<RolePermission[]> {
   return await db.select().from(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
 }
@@ -314,8 +301,6 @@ export async function getRolePermissionForRole(tenantId: string, role: string): 
     .where(and(eq(rolePermissions.tenantId, tenantId), eq(rolePermissions.role, role)));
   return perm ?? null;
 }
-
-// ─── Analytics ────────────────────────────────────────────────────────────────
 
 export async function getBranchAnalytics(tenantId: string, branchIds?: number[]) {
   const allBranches = await getBranches(tenantId);

@@ -158,7 +158,6 @@ export default function Dashboard() {
   return (
     <div className="space-y-4 page-enter">
 
-      {/* Hero Card */}
       <div data-tour="tour-dashboard-hero" className="glass-card rounded-3xl p-5 md:p-8 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent border-blue-500/20 dark:border-blue-500/10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -z-10" />
         <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl -z-10" />
@@ -197,7 +196,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Strip */}
       <div data-tour="tour-dashboard-kpi" className="grid gap-3 grid-cols-2 lg:grid-cols-4 stagger-children">
         {[
           { label: t("dashboard.totalSales"), display: todaySales.length.toString(), icon: CreditCard, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10", glow: "from-emerald-500/8" },
@@ -244,7 +242,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
         <div className="glass-card rounded-2xl overflow-hidden border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
           <div className="px-4 py-3 border-b border-amber-500/15 flex items-center gap-2.5">
@@ -284,9 +281,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Best Seller + All-Time Row */}
       <div className="grid grid-cols-2 gap-3 stagger-reveal">
-        {/* Best Seller Today */}
         <div className="glass-card glow-hover-card rounded-2xl p-4 bg-gradient-to-br from-violet-500/8 to-transparent animate-fade-scale">
           <div className="flex items-center gap-2 mb-2.5">
             <div className="h-7 w-7 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
@@ -306,7 +301,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* All-Time Total — server-computed, no row-count limit */}
         <div className="glass-card glow-hover-card rounded-2xl p-4 bg-gradient-to-br from-primary/8 to-transparent animate-fade-scale">
           <div className="flex items-center gap-2 mb-2.5">
             <div className="h-7 w-7 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -322,7 +316,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Quick Report */}
       <div className="glass-card rounded-2xl p-4 space-y-4">
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -359,7 +352,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Transactions Table */}
       {todaySales.length > 0 ? (
         <div className="glass-card rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-black/5 dark:border-white/5 flex items-center gap-2.5 bg-white/30 dark:bg-black/20">

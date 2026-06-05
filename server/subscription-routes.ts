@@ -433,9 +433,7 @@ export function registerSubscriptionRoutes(app: Express) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // PayMongo Webhook
-// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/webhooks/paymongo
 //
 // PayMongo calls this endpoint server-to-server whenever a payment event
@@ -452,7 +450,6 @@ export function registerSubscriptionRoutes(app: Express) {
 //   Format: t=<timestamp>,te=<test_sig>,li=<live_sig>
 //   Signed payload: "<timestamp>.<raw_body_string>"
 //   Algorithm: HMAC-SHA256(signed_payload, webhook_secret) → hex
-// ─────────────────────────────────────────────────────────────────────────────
 
 function verifyPayMongoSignature(rawBody: Buffer, signatureHeader: string): boolean {
   const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
@@ -530,9 +527,7 @@ async function activateProForTenant(tenantId: string, billingCycle: "monthly" | 
   return periodEnd;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // RevenueCat Webhook
-// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/webhooks/revenuecat
 //
 // RevenueCat calls this endpoint server-to-server whenever a subscription event
@@ -544,7 +539,6 @@ async function activateProForTenant(tenantId: string, billingCycle: "monthly" | 
 //   Authorization header value: copy into REVENUECAT_WEBHOOK_SECRET
 //
 // The app_user_id in the payload is the tenantId set at SDK init time.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const RC_PRO_EVENTS = new Set([
   "INITIAL_PURCHASE",
@@ -618,7 +612,6 @@ export function registerRevenueCatWebhookRoutes(app: Express) {
       return res.status(400).json({ message: "Empty or non-raw body" });
     }
 
-    // ── 1. Verify authorization header ──────────────────────────────────────
     const secret = process.env.REVENUECAT_WEBHOOK_SECRET || process.env.REVENUECAT_SECRET_KEY;
     if (secret) {
       const auth = String(req.headers["authorization"] ?? "");
@@ -633,7 +626,6 @@ export function registerRevenueCatWebhookRoutes(app: Express) {
       console.warn("[webhook/revenuecat] No webhook secret set — skipping auth check (dev only)");
     }
 
-    // ── 2. Parse event ────────────────────────────────────────────────────────
     let payload: any;
     try {
       payload = JSON.parse(rawBody.toString("utf8"));
@@ -654,7 +646,6 @@ export function registerRevenueCatWebhookRoutes(app: Express) {
       return res.status(422).json({ message: "Missing app_user_id" });
     }
 
-    // ── 3. Handle event types ─────────────────────────────────────────────────
     try {
       if (RC_PRO_EVENTS.has(eventType)) {
         await activateRevenueCatPro(tenantId, expirationAtMs);
@@ -685,14 +676,12 @@ export function registerPaymentWebhookRoutes(app: Express) {
       return res.status(400).json({ message: "Empty or non-raw body" });
     }
 
-    // ── 1. Verify signature ─────────────────────────────────────────────────
     const sigHeader = String(req.headers["x-paymongo-signature"] ?? "");
     if (!verifyPayMongoSignature(rawBody, sigHeader)) {
       console.warn("[webhook/paymongo] Invalid signature — rejecting");
       return res.status(401).json({ message: "Invalid signature" });
     }
 
-    // ── 2. Parse event ──────────────────────────────────────────────────────
     let event: any;
     try {
       event = JSON.parse(rawBody.toString("utf8"));
@@ -703,7 +692,6 @@ export function registerPaymentWebhookRoutes(app: Express) {
     const eventType: string = event?.data?.attributes?.type ?? "";
     console.log(`[webhook/paymongo] Received event: ${eventType}`);
 
-    // ── 3. Handle checkout_session.payment.paid ─────────────────────────────
     if (eventType === "checkout_session.payment.paid") {
       try {
         const checkoutId: string = event?.data?.attributes?.data?.id ?? "";

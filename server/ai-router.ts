@@ -18,7 +18,6 @@ import { statSync } from "fs";
 import path from "path";
 import { createBreaker } from "./circuit-breaker";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 export interface AIMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -26,7 +25,6 @@ export interface AIMessage {
 
 type FetchResponse = Awaited<ReturnType<typeof fetch>>;
 
-// ─── Provider configurations ──────────────────────────────────────────────────
 interface ProviderConfig {
   name: string;
   baseUrl: string;
@@ -78,7 +76,6 @@ const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-// ─── Per-provider circuit breakers ───────────────────────────────────────────
 // Each provider gets its own breaker. If a provider fails 5 times in a row
 // the breaker opens and that provider is skipped instantly (fail fast) for 30s,
 // then moves to HALF_OPEN to test recovery before closing again.
@@ -89,7 +86,6 @@ const breakers = {
   ollama:   createBreaker({ name: "ollama",   failureThreshold: 3, resetTimeoutMs: 60_000 }),
 };
 
-// ─── Per-provider rate-limit state ───────────────────────────────────────────
 interface RateLimitState {
   requests: number;
   tokens: number;
@@ -147,7 +143,6 @@ function blockProvider(name: string, durationMs: number, reason: string): void {
   console.warn(`[ai-router] provider "${name}" blocked for ${Math.round(durationMs / 1000)}s — ${reason}`);
 }
 
-// ─── Round-robin index per provider (for fast-model rotation) ────────────────
 const modelIndex = new Map<string, number>();
 
 function nextModel(cfg: ProviderConfig, preferSmart: boolean): string {
@@ -157,7 +152,6 @@ function nextModel(cfg: ProviderConfig, preferSmart: boolean): string {
   return cfg.fastModels[idx];
 }
 
-// ─── Ollama local service ─────────────────────────────────────────────────────
 const OLLAMA_MODEL = "llama3.2:3b";
 // http:// is intentional — Ollama runs locally on loopback; HTTPS is not applicable.
 const OLLAMA_BASE_URL = "http://127.0.0.1:11434";
@@ -292,7 +286,6 @@ export function stopOllama(): void {
   }
 }
 
-// ─── Ollama streaming call ─────────────────────────────────────────────────────
 async function callOllama(
   messages: AIMessage[],
   maxTokens: number,
@@ -325,7 +318,6 @@ async function callOllama(
   return res;
 }
 
-// ─── Cloud provider streaming call ───────────────────────────────────────────
 async function callCloudProvider(
   cfg: ProviderConfig,
   messages: AIMessage[],
@@ -410,7 +402,6 @@ async function callCloudProvider(
   });
 }
 
-// ─── Provider status for logging/debugging ───────────────────────────────────
 export function getProviderStatus(): Record<string, { available: boolean; requests: number; tokens: number }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const out: Record<string, any> = {};
@@ -429,7 +420,6 @@ export function getProviderStatus(): Record<string, { available: boolean; reques
   return out;
 }
 
-// ─── Main router — PUBLIC API ─────────────────────────────────────────────────
 /**
  * Resolves an AI streaming response, trying each provider in fallback order:
  *   Groq → Cerebras → Mistral → Ollama
@@ -447,7 +437,6 @@ export async function resolveAIStream(
   opts: { preferSmart?: boolean } = {},
 ): Promise<FetchResponse> {
   const preferSmart = opts.preferSmart ?? false;
-  // ── Try cloud providers in priority order ────────────────────────────────
   for (const cfg of PROVIDERS) {
     if (!isAvailable(cfg)) {
       const state = getState(cfg.name);
@@ -481,7 +470,6 @@ export async function resolveAIStream(
     }
   }
 
-  // ── All cloud providers exhausted — fall back to local Ollama ────────────
   console.log(`[ai-router][${requestId}] all cloud providers exhausted — using Ollama offline fallback`);
   try {
     return await breakers.ollama.execute(() => callOllama(messages, maxTokens, requestId));
@@ -489,7 +477,6 @@ export async function resolveAIStream(
     console.error(`[ai-router][${requestId}] Ollama fallback also failed: ${ollamaErr.message}`);
   }
 
-  // ── Absolute last resort — throw with a user-friendly message ────────────
   throw Object.assign(
     new Error("The AI is temporarily busy. Please try again in a moment."),
     { statusCode: 503, debugInfo: "all providers exhausted" }

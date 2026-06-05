@@ -27,21 +27,18 @@ import type { ReceiptData } from "@/components/receipt-modal";
 import { CameraScannerModal } from "@/components/camera-scanner-modal";
 import { QuickAddProductDialog } from "@/components/quick-add-product-dialog";
 
-// ── New extracted helpers ──────────────────────────────────────────────────
 import { useCart, type CartItem } from "@/hooks/use-cart";
 import { useCartTotals } from "@/hooks/use-cart-totals";
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { DEFAULT_PAYMENT_METHODS, CAFE_STYLE_BUSINESS_SUBTYPES } from "@/constants/pos";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-// ── Satisfaction / delight layer ──────────────────────────────────────────
 import { playCheckout, playAddItem, playMilestone, playError } from "@/lib/sounds";
 import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { ConfettiBurst } from "@/components/confetti";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 import { BillSplitDialog, type SplitPortion } from "@/components/bill-split-dialog";
 
-// ── Responsive column count for the POS product grid ─────────────────────────
 // Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
 function useGridCols(): 2 | 3 | 4 {
   const get = (): 2 | 3 | 4 => {
@@ -57,8 +54,6 @@ function useGridCols(): 2 | 3 | 4 {
   return cols;
 }
 
-
-// ── Memoized product card — stable reference prevents unnecessary re-renders ──
 type ProductCardProps = {
   product: Product;
   onClick: (p: Product) => void;
@@ -159,7 +154,6 @@ export default function POS() {
     isFoodBeverage &&
     (businessSubType === "restaurant" || businessSubType === "bar");
 
-  // ── Cart state (extracted hook) ────────────────────────────────────────────
   const {
     cart,
     cartCount,
@@ -173,7 +167,6 @@ export default function POS() {
     clearCart,
   } = useCart(toast);
 
-  // ── Delight / satisfaction state ───────────────────────────────────────────
   const [showConfetti, setShowConfetti]           = useState(false);
   const [milestone, setMilestone]                 = useState<{ label: string; emoji: string } | null>(null);
   const [saleFlash, setSaleFlash]                 = useState<{ amount: string; key: number } | null>(null);
@@ -191,10 +184,8 @@ export default function POS() {
     settings?.currency || "",
   );
 
-  // ── Show undo chip whenever an item is removed ─────────────────────────────
   // lastRemoved is already managed inside useCart with a 5-second auto-clear
 
-  // ── UI state ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [category, setCategory] = useState<string>("all");
@@ -228,18 +219,15 @@ export default function POS() {
   const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<{ code: string; discountAmount: number; type: string } | null>(null);
 
-  // ── Barcode scanner UI state ───────────────────────────────────────────────
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanFlash, setScanFlash] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [quickAddBarcode, setQuickAddBarcode] = useState<string | null>(null);
 
-  // ── Receipt ────────────────────────────────────────────────────────────────
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
-  // ── Payment / totals ───────────────────────────────────────────────────────
   const paymentMethods: { id: string; label: string; isCash: boolean }[] =
     (settings as any)?.paymentMethods?.length
       ? (settings as any).paymentMethods
@@ -254,7 +242,6 @@ export default function POS() {
   const loyaltyRedemptionRate = parseNumeric(settings?.loyaltyRedemptionRate || "100");
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
 
-  // ── Financial totals (extracted hook — memoized) ───────────────────────────
   const loyaltyDiscount =
     selectedCustomer && loyaltyPointsToRedeem > 0 && !isScPwd
       ? loyaltyPointsToRedeem / loyaltyRedemptionRate
@@ -278,7 +265,6 @@ export default function POS() {
   const numericPayment = isCashPayment ? parseNumeric(paymentAmount || "0") : total;
   const changeAmount = isCashPayment ? Math.max(0, numericPayment - total) : 0;
 
-  // ── Product grid helpers ───────────────────────────────────────────────────
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category || "General"));
     return ["all", ...Array.from(cats)];
@@ -301,7 +287,6 @@ export default function POS() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, debouncedSearch, category, freqVersion]);
 
-  // ── Virtual grid setup ─────────────────────────────────────────────────────
   // Virtualizes the product list so only visible rows are in the DOM.
   // With 1 000 products @ 4 cols = 250 rows; we render ≈ 9-12 at a time.
   const productScrollRef = useRef<HTMLDivElement>(null);
@@ -320,7 +305,6 @@ export default function POS() {
     productScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [debouncedSearch, category]);
 
-  // ── handleProductClick — memoized for product-grid render stability ────────
   const handleProductClick = useCallback((product: Product) => {
     if (Array.isArray(product.sizes) && product.sizes.length > 0) {
       setSelectedProduct(product);
@@ -342,7 +326,6 @@ export default function POS() {
     }
   }, [addToCart]);
 
-  // ── Barcode lookup mutation ────────────────────────────────────────────────
   // Keep a stable ref to handleProductClick so the mutation's onSuccess always
   // calls the latest version even if the cart changes between renders.
   const handleProductClickRef = useRef(handleProductClick);
@@ -369,7 +352,6 @@ export default function POS() {
     }
   }, [barcodeInput, barcodeLookupMutation]);
 
-  // ── Global barcode scanner (extracted hook) ────────────────────────────────
   useBarcodeScanner({
     dedicatedInputRef: barcodeRef,
     onScanStart: useCallback(() => {
@@ -379,7 +361,6 @@ export default function POS() {
     onScan: useCallback((barcode: string) => barcodeLookupMutation.mutate(barcode), [barcodeLookupMutation]),
   });
 
-  // ── Discount code mutation ─────────────────────────────────────────────────
   const validateDiscountMutation = useMutation({
     mutationFn: (params: { code: string; orderTotal: number }) =>
       apiRequest("POST", "/api/discount-codes/validate", params).then(r => r.json()),
@@ -394,19 +375,16 @@ export default function POS() {
     },
   });
 
-  // ── Sync payment amount for non-cash methods ───────────────────────────────
   useEffect(() => {
     if (!isCashPayment) setPaymentAmount(total.toString());
   }, [isCashPayment, total]);
 
-  // ── Re-focus payment input when cart changes ───────────────────────────────
   useEffect(() => {
     if (isCashPayment && isPaymentFocused && paymentInputRef.current) {
       paymentInputRef.current.focus({ preventScroll: true });
     }
   }, [cart, discount, isCashPayment]);
 
-  // ── Reorder hand-off from AI page ──────────────────────────────────────────
   // The AI's "Reorder" button stashes a payload in sessionStorage then routes
   // here. We pick it up once, populate cart + selected customer, then clear.
   const reorderConsumedRef = useRef(false);
@@ -471,7 +449,6 @@ export default function POS() {
     });
   }, [products, customers, toast, replaceCart]);
 
-  // ── Checkout ───────────────────────────────────────────────────────────────
   const handleCheckout = useCallback(() => {
     if (cart.length === 0) return;
     const actualTotal = Math.max(0, total);
@@ -692,7 +669,6 @@ export default function POS() {
       : true,
   ).slice(0, 8);
 
-  // ── Bill split handler ─────────────────────────────────────────────────────
   // Called when "By Items" mode charges separate bills — creates one pending
   // order per person so each gets their own receipt and sale record.
   const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
@@ -730,7 +706,6 @@ export default function POS() {
     }
   }, [createPending, paymentMethod, orderType, isFoodBeverage, clearCart, toast]);
 
-  // ── Cart panel content (shared between desktop sidebar & mobile sheet) ─────
   const CartContent = (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
@@ -1289,13 +1264,11 @@ export default function POS() {
     </div>
   );
 
-  // ── Main layout ────────────────────────────────────────────────────────────
   return (
     <div
       className="flex gap-5 page-enter"
       style={{ height: isMobile ? "calc(100dvh - 196px)" : "calc(100dvh - 132px)" }}
     >
-      {/* ── Delight layer ──────────────────────────────────────────────────── */}
 
       {/* Confetti burst on milestone */}
       {showConfetti && (

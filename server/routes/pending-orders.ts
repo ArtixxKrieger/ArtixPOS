@@ -12,16 +12,13 @@ const IDEM_TTL_MS = 60 * 60 * 1000; // 1 hour idempotency window
 
 export function registerPendingOrderRoutes(app: Express): void {
 
-  // ── List pending orders for current branch ─────────────────────────────────
   app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {
     const orders = await storage.getPendingOrders(getUserId(req), getActiveBranchId(req));
     res.json(orders);
   });
 
-  // ── Create pending order (also auto-creates a sale when status = "paid") ──
   app.post(api.pendingOrders.create.path, requireAuth, async (req, res) => {
     try {
-      // ── Idempotency guard ────────────────────────────────────────────────────
       // The frontend generates a nanoid() `idempotencyKey` per checkout attempt.
       // If the server processed the request but the response was lost (e.g. a
       // WiFi hiccup), the offline-sync layer replays the same POST body including
@@ -41,7 +38,6 @@ export function registerPendingOrderRoutes(app: Express): void {
           return res.status(201).json(cached);
         }
       }
-      // ── End idempotency guard ────────────────────────────────────────────────
 
       const bodySchema = api.pendingOrders.create.input.extend({
         subtotal: z.coerce.string(),
@@ -184,7 +180,6 @@ export function registerPendingOrderRoutes(app: Express): void {
     }
   });
 
-  // ── Update pending order ───────────────────────────────────────────────────
   app.put(api.pendingOrders.update.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.pendingOrders.update.input.extend({
@@ -204,7 +199,6 @@ export function registerPendingOrderRoutes(app: Express): void {
     }
   });
 
-  // ── Delete (void) pending order ────────────────────────────────────────────
   app.delete(api.pendingOrders.delete.path, requireAuth, async (req, res) => {
     const user = req.user;
     if (user?.tenantId && user.role !== "owner") {
@@ -221,7 +215,6 @@ export function registerPendingOrderRoutes(app: Express): void {
     res.status(204).end();
   });
 
-  // ── Update kitchen status ─────────────────────────────────────────────────
   // Kept here (not in sse.ts) because it mutates an order — only the SSE push
   // is related to the real-time channel.
   app.patch("/api/pending-orders/:id/kitchen", requireAuth, async (req, res) => {

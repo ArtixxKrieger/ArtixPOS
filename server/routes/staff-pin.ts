@@ -31,8 +31,6 @@ import crypto from "crypto";
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCK_MINUTES = 15;
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
 function getIp(req: import("express").Request): string {
   return (
     (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
@@ -64,11 +62,8 @@ function clearPinAttempts(userId: string): void {
   pinAttempts.delete(userId);
 }
 
-// ── Route registration ─────────────────────────────────────────────────────────
-
 export function registerStaffPinRoutes(app: Express): void {
 
-  // ── 1. Roster: list staff members for a branch (names only, no PINs) ─────────
   // Used by the clock-in screen to show who can log in.
   // Works with an active session OR with explicit branchId + tenantId query params
   // (so the kiosk screen can reload the roster after a staff session ends).
@@ -121,7 +116,6 @@ export function registerStaffPinRoutes(app: Express): void {
     } catch { res.status(500).json({ message: "Server error" }); }
   });
 
-  // ── 2. PIN login — authenticate and auto clock-in ─────────────────────────────
   app.post("/api/staff-pin/login", bruteForceGuard, async (req, res) => {
     try {
       const { userId, pin, branchId } = z.object({
@@ -256,7 +250,6 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // ── 3. PIN clock-out — revoke session and close time log ──────────────────────
   app.post("/api/staff-pin/clockout", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
@@ -301,7 +294,6 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // ── 4. Set / reset a staff member's PIN ───────────────────────────────────────
   app.post("/api/staff-pin/set", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
       const { userId, pin } = z.object({
@@ -337,7 +329,6 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // ── 5. Remove a staff member's PIN ───────────────────────────────────────────
   app.delete("/api/staff-pin/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
       const userId = req.params.userId as string;
@@ -356,7 +347,6 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // ── 6. Lock screen — revoke PIN session without closing the time log ──────────
   // Used when an employee starts a break or another staff member needs the device.
   // The open time log (with breakStart set) remains intact; when they re-login via
   // PIN the system finds the existing open log and continues from there.
@@ -390,7 +380,6 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // ── 7. Unlock a locked PIN (manager override) ────────────────────────────────
   app.post("/api/staff-pin/unlock/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
       const userId = req.params.userId as string;
@@ -410,7 +399,6 @@ export function registerStaffPinRoutes(app: Express): void {
   });
 }
 
-// ── Auto clock-out: close stale time logs after 8-hour shift window ──────────
 // Runs every 15 minutes. Catches cases where the JWT expired but the time log
 // was never explicitly closed via the clockout endpoint.
 async function runAutoClockout() {

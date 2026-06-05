@@ -13,7 +13,6 @@ import { getUserId, getActiveBranchId, resolveBranchId, auditLog, isValidDate, h
 
 export function registerSaleRoutes(app: Express): void {
 
-  // ── List sales (paginated, filterable) ────────────────────────────────────
   // Supports both OFFSET pagination (legacy) and keyset cursor pagination.
   //
   // Keyset usage:   GET /api/sales?before=<id>&limit=200
@@ -56,7 +55,6 @@ export function registerSaleRoutes(app: Express): void {
     res.json(salesList);
   });
 
-  // ── CSV export ─────────────────────────────────────────────────────────────
   app.get("/api/sales/export", requireAuth, requireManagerOrAbove, async (req, res) => {
     const { startDate, endDate } = req.query as Record<string, string>;
     const salesList = await storage.getSales(getUserId(req), {
@@ -96,7 +94,6 @@ export function registerSaleRoutes(app: Express): void {
     res.send(csv);
   });
 
-  // ── Create sale ────────────────────────────────────────────────────────────
   app.post(api.sales.create.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.sales.create.input.extend({
@@ -207,7 +204,6 @@ export function registerSaleRoutes(app: Express): void {
     }
   });
 
-  // ── Void (soft-delete) a sale ─────────────────────────────────────────────
   // Locked sales (those already included in a closed shift Z-report) cannot be
   // voided to preserve BIR audit integrity.
   app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
@@ -222,7 +218,6 @@ export function registerSaleRoutes(app: Express): void {
     const id = Number(req.params.id);
     const uid = getUserId(req);
 
-    // ── BIR Z-report lock ──────────────────────────────────────────────────
     const [saleRow] = await db
       .select({ id: salesTable.id, createdAt: salesTable.createdAt })
       .from(salesTable)

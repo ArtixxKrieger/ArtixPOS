@@ -217,7 +217,6 @@ export default function Products() {
     control: form.control, name: "sizes"
   });
 
-  // ── Barcode scan-into-field ──────────────────────────────────────────────────
   const [scanningBarcode, setScanningBarcode] = useState(false);
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -354,7 +353,6 @@ export default function Products() {
   return (
     <div className="space-y-4 page-enter">
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl font-black tracking-tight">{productPlural}</h2>
@@ -375,7 +373,6 @@ export default function Products() {
             />
           </div>
 
-          {/* Hidden file input */}
           <input
             ref={fileInputRef}
             type="file"

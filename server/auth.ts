@@ -33,7 +33,6 @@ function getClientIp(req: Request): string {
   );
 }
 
-// ── Password strength validator ───────────────────────────────────────────────
 // Returns an error string if the password is too weak, null if acceptable.
 // Rules are intentionally mirrored in the client-side strength meter so the
 // UI and API stay in sync without a round-trip for every keystroke.
@@ -76,7 +75,6 @@ function validatePasswordStrength(password: string, email?: string): string | nu
 
 export const AUTH_COOKIE = "auth_token";
 
-// ── Token revocation (logout invalidation) ────────────────────────────────────
 // In-memory Set for O(1) lookup on every request. DB is the durable source of
 // truth; the Set is populated on startup and updated on every logout.
 const _revokedJtis = new Set<string>();
@@ -113,12 +111,10 @@ async function revokeToken(jti: string, userId: string, expiresAt: string): Prom
   }
 }
 
-
 // Load revoked tokens on startup and prune stale entries every hour
 _loadRevokedTokens();
 setInterval(_pruneRevokedTokens, 60 * 60 * 1000);
 
-// ── Auth event audit logger ───────────────────────────────────────────────────
 // Logs auth events to the audit_logs table. Uses "system" as tenantId when
 // the user has no tenant yet (new accounts, pre-onboarding).
 async function logAuthEvent(opts: {
@@ -271,10 +267,6 @@ export function clearAuthCookie(res: Response) {
   res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
 }
 
-// ── Password hashing ──────────────────────────────────────────────────────────
-// hashPassword and verifyPassword are imported from ./crypto above
-
-// ── In-memory banned users set ────────────────────────────────────────────────
 export const bannedUserIds = new Set<string>();
 
 // Seed banned users from DB so the set survives server restarts
@@ -301,7 +293,6 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
     try {
       const payload = jwt.verify(token, getJwtSecret()) as import("jsonwebtoken").JwtPayload;
 
-      // ── Revocation check (O(1) in-memory Set) ──────────────────────────────
       if (payload.jti && _revokedJtis.has(payload.jti)) {
         next();
         return;
@@ -400,7 +391,6 @@ const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.artixpos.app";
 async function deleteUsersData(uids: string[]): Promise<void> {
   if (uids.length === 0) return;
 
-  // ── Pre-fetch IDs needed for child-table deletes ─────────────────────────
   // We need parent IDs so we can cascade into child tables that don't carry
   // a userId column directly (purchaseOrderItems, stockTransferItems, etc.)
   const userProductIds = (
@@ -435,7 +425,6 @@ async function deleteUsersData(uids: string[]): Promise<void> {
     await db.select({ id: stockTransfers.id }).from(stockTransfers).where(inArray(stockTransfers.userId, uids))
   ).map(r => r.id);
 
-  // ── DELETION ORDER (FK dependency graph, leaves first) ───────────────────
   // Rule: every table with a NOT NULL FK → another table being deleted must
   // be deleted BEFORE its parent. Soft-deletes (UPDATE) are NOT used here —
   // a soft-deleted row still holds its FK pointer and will block the final
@@ -520,8 +509,6 @@ async function deleteUsersData(uids: string[]): Promise<void> {
     await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
   await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
-
-  // ── Parents that had children deleted above ───────────────────────────────
 
   // Step 17 — stock_transfers  (refs: users.id NOT NULL — children deleted in step 4)
   await db.delete(stockTransfers).where(inArray(stockTransfers.userId, uids));
@@ -727,8 +714,6 @@ export function setupAuth(app: Express) {
 
   const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
-  // ── Google strategy ───────────────────────────────────────────────────────────
-
   if (googleEnabled) {
     passport.use(
       new GoogleStrategy(
@@ -764,16 +749,12 @@ export function setupAuth(app: Express) {
     console.log("[auth] Google OAuth not configured (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET missing)");
   }
 
-  // ── Public auth config (client ID safe to expose) ────────────────────────────
-
   app.get("/api/auth/config", (_req, res) => {
     res.json({
       googleClientId: process.env.GOOGLE_CLIENT_ID || null,
       facebookAppId: process.env.FACEBOOK_APP_ID || null,
     });
   });
-
-  // ── Google routes ─────────────────────────────────────────────────────────────
 
   app.get("/auth/google", (req, res, next) => {
     const isNative = req.query.native === "1";
@@ -841,8 +822,6 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  // ── Native Google token verification ─────────────────────────────────────────
-
   app.post("/api/auth/google/native", async (req, res, next) => {
     const { idToken } = req.body ?? {};
     if (!idToken || typeof idToken !== "string") {
@@ -877,8 +856,6 @@ export function setupAuth(app: Express) {
       next(err);
     }
   });
-
-  // ── Email / Password register & login ────────────────────────────────────────
 
   app.post("/api/auth/register", async (req, res, next) => {
     const { name, email, password } = req.body ?? {};
@@ -997,8 +974,6 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // ── Logout & account management ───────────────────────────────────────────────
-
   app.post("/auth/logout", async (req, res) => {
     const jti = req.tokenJti;
     const exp = req.tokenExp;
@@ -1015,7 +990,6 @@ export function setupAuth(app: Express) {
     res.json({ ok: true });
   });
 
-  // ── Token refresh ─────────────────────────────────────────────────────────────
   // Validates the current token and issues a fresh 7-day token, resetting the
   // sliding session window. The old token is revoked so it cannot be reused.
   app.post("/api/auth/refresh", async (req, res, _next) => {
@@ -1051,7 +1025,6 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // ── Data export (GDPR/portability) ──────────────────────────────────────────
   // Owners can download a JSON archive of every record tied to their store
   // before they delete the account. Non-owners get just their personal rows.
   app.get("/api/auth/export", async (req, res, next) => {
@@ -1280,7 +1253,6 @@ export function setupAuth(app: Express) {
         await db.delete(users).where(inArray(users.id, userIdsToWipe));
       }
 
-      // ── Bust all server-side caches for every wiped user ─────────────────
       // The settings cache is keyed by userId. Because email-based userIds are
       // deterministic (sha256 of email), a stale cache entry would be served to
       // the same user if they re-register with the same email — making it look
@@ -1305,7 +1277,6 @@ export function setupAuth(app: Express) {
     if (!req.user) return res.status(401).json({ user: null });
     const u = req.user;
 
-    // ── Re-read live user state from DB ──────────────────────────────────────
     // The JWT is signed once at login and cached by the client for up to 7 days.
     // If the JWT was issued BEFORE onboarding completed (tenantId was null then),
     // the token still carries tenantId=null even though the DB now has a real

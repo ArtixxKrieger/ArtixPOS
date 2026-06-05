@@ -8,7 +8,6 @@ import { getEssentialBusinessUrls } from "@shared/business-access";
  */
 
 export type BusinessTerminology = {
-  // ── Appointment / booking ─────────────────────────────────────────────────
   page: string;               // Page title e.g. "Bookings", "Sessions", "Patients"
   entry: string;              // Singular e.g. "Appointment", "Booking", "Job"
   entryPlural: string;        // Plural e.g. "Appointments", "Bookings", "Jobs"
@@ -16,28 +15,23 @@ export type BusinessTerminology = {
   bookButton: string;         // CTA e.g. "Book", "Schedule", "Add Job", "Queue"
   emptyState: string;         // Empty state message
 
-  // ── People ────────────────────────────────────────────────────────────────
   customer: string;           // e.g. "Customer", "Client", "Patient", "Student"
   staff: string;              // e.g. "Staff", "Stylist", "Doctor", "Trainer"
   room: string;               // e.g. "Room", "Chair", "Station", "Court", "Studio"
 
-  // ── Products & inventory ──────────────────────────────────────────────────
   product: string;            // "Product" | "Medicine" | "Menu Item" | "Item" | "Service"
   productPlural: string;      // "Products" | "Medicines" | "Menu Items" | "Items"
   categoryLabel: string;      // "Category" | "Drug Category" | "Menu Section" | "Department"
   supplierLabel: string;      // "Supplier" | "Drug Supplier" | "Distributor" | "Vendor"
 
-  // ── POS / cart ────────────────────────────────────────────────────────────
   posAction: string;          // Checkout CTA: "Process Sale" | "Dispense" | "Ring Up" | "Close Tab"
   addToCartLabel: string;     // "Add to Cart" | "Add to Prescription" | "Add to Order"
   cartLabel: string;          // "Cart" | "Prescription" | "Order Ticket" | "Basket" | "Tab"
 
-  // ── Transactions ──────────────────────────────────────────────────────────
   transactionLabel: string;   // "Transaction" | "Dispensation" | "Visit" | "Order" | "Job"
   transactionPlural: string;  // "Transactions" | "Dispensations" | "Visits" | "Orders"
   orderLabel: string;         // (legacy compat) transaction unit e.g. "order", "booking"
 
-  // ── Analytics labels ──────────────────────────────────────────────────────
   topItemsLabel: string;      // "Top Products" | "Top Medicines" | "Top Services"
   itemUnit: string;           // "unit" | "booking" | "session" | "job" | "kg"
   bestSellerLabel: string;    // "Best Seller" | "Most Booked" | "Most Dispensed"
@@ -110,7 +104,6 @@ export function getBusinessFeatures(
     return { hiddenUrls: hidden, essentialUrls: getEssentialBusinessUrls(businessType, businessSubType), showBarcode, primaryNavUrls, labels, sidebarOrder, terminology, quickSuggestions };
   }
 
-  // ── Food & Beverage ──────────────────────────────────────────────────────
   if (businessType === "food_beverage") {
     showBarcode = false;
     hidden.add("/appointments");
@@ -264,7 +257,6 @@ export function getBusinessFeatures(
         break;
     }
 
-  // ── Retail ───────────────────────────────────────────────────────────────
   } else if (businessType === "retail") {
     showBarcode = true;
     hidden.add("/kitchen");
@@ -436,7 +428,6 @@ export function getBusinessFeatures(
         break;
     }
 
-  // ── Services ─────────────────────────────────────────────────────────────
   } else if (businessType === "services") {
     showBarcode = false;
     hidden.add("/kitchen");
@@ -846,7 +837,6 @@ export function getBusinessFeatures(
     }
   }
 
-  // ── Whitelist enforcement ─────────────────────────────────────────────────
   // Every business type defines its own sidebarOrder — the exact set of modules
   // it needs. Anything not in that list is irrelevant and should be hidden.
   // This replaces the old piecemeal hidden.add() calls for modules that were

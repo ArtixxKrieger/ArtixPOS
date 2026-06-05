@@ -29,8 +29,6 @@ import { getSeedTemplate, SEED_TEMPLATES } from "./branch-seeds";
 
 export function registerAdminRoutes(app: Express) {
 
-  // ─── Local Login (email/password for staff) ───────────────────────────────
-
   app.post("/api/auth/local-login", bruteForceGuard, async (req, res, next) => {
     const ip =
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
@@ -66,8 +64,6 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // ─── Tenant ───────────────────────────────────────────────────────────────
-
   app.get("/api/admin/tenant", requireAuth, requireTenant, async (req, res, next) => {
     try {
       const { tenantId } = getAuthUser(req);
@@ -89,8 +85,6 @@ export function registerAdminRoutes(app: Express) {
       next(err);
     }
   });
-
-  // ─── Branches ─────────────────────────────────────────────────────────────
 
   app.get("/api/admin/branches", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
@@ -162,7 +156,6 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // ─── Branch onboarding: preview & seed default catalog ───────────────────
   // GET returns the matching template (so the UI can ask "want a sample
   // coffee menu?" before committing). POST actually inserts the products
   // (and tables, where applicable) for the branch.
@@ -426,7 +419,6 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // ─── Branch stats ─────────────────────────────────────────────────────────
   app.get("/api/admin/branches/:id/stats", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
@@ -513,7 +505,6 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: unknown) { next(err); }
   });
 
-  // ─── Duplicate branch (copy settings only, not data) ──────────────────────
   app.post("/api/admin/branches/:id/duplicate", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
@@ -586,8 +577,6 @@ export function registerAdminRoutes(app: Express) {
       res.json(branch);
     } catch (err) { next(err); }
   });
-
-  // ─── Users ────────────────────────────────────────────────────────────────
 
   app.get("/api/admin/users", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
@@ -722,8 +711,6 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // ─── User Branch Assignment ───────────────────────────────────────────────
-
   app.post("/api/admin/users/:id/branches", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
@@ -747,8 +734,6 @@ export function registerAdminRoutes(app: Express) {
       res.status(204).end();
     } catch (err) { next(err); }
   });
-
-  // ─── Branch Switch ────────────────────────────────────────────────────────
 
   app.post("/api/admin/switch-branch", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
@@ -779,8 +764,6 @@ export function registerAdminRoutes(app: Express) {
       next(err);
     }
   });
-
-  // ─── Sales (manager/owner scope) ─────────────────────────────────────────
 
   // Manager+ can soft-delete any sale in their tenant
   app.delete("/api/sales/:id", requireAuth, requireTenant, requireManagerOrAbove, async (req, res, next) => {
@@ -867,8 +850,6 @@ export function registerAdminRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ─── Analytics ────────────────────────────────────────────────────────────
-
   app.get("/api/admin/analytics", requireAuth, requireTenant, requireAdminOrAbove, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
@@ -880,8 +861,6 @@ export function registerAdminRoutes(app: Express) {
       res.json(analytics);
     } catch (err) { next(err); }
   });
-
-  // ─── Audit Logs ───────────────────────────────────────────────────────────
 
   app.get("/api/admin/audit-logs", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
@@ -899,8 +878,6 @@ export function registerAdminRoutes(app: Express) {
       res.json(logs);
     } catch (err) { next(err); }
   });
-
-  // ─── Role Permissions ─────────────────────────────────────────────────────
 
   app.get("/api/admin/permissions", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
@@ -957,8 +934,6 @@ export function registerAdminRoutes(app: Express) {
       res.json({ ...perm, role: user.role });
     } catch (err) { next(err); }
   });
-
-  // ─── Ensure tenant exists (called after login) ────────────────────────────
 
   app.post("/api/admin/ensure-tenant", requireAuth, async (req, res, next) => {
     try {

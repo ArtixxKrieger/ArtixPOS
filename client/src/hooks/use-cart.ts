@@ -22,7 +22,6 @@ type ToastFn = (opts: { title: string; description?: string; variant?: "default"
 export function useCart(toast: ToastFn) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // ── Undo-remove support ──────────────────────────────────────────────────
   const [lastRemoved, setLastRemoved] = useState<{ item: CartItem; index: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

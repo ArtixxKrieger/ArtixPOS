@@ -24,8 +24,6 @@ import { cn } from "@/lib/utils";
 import type { Sale, UserSetting } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
 
-/* ── helpers ─────────────────────────────────────── */
-
 function Counter({ value, prefix = "", decimals, compact }: { value: number; prefix?: string; decimals?: number; compact?: boolean }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -244,7 +242,6 @@ const tooltipItemStyle = {
   fontWeight: 600,
 };
 
-/* ── Toggle Button Group ─────────────────────────── */
 function ToggleGroup<T extends string>({ value, onChange, options }: {
   value: T; onChange: (v: T) => void;
   options: { value: T; label: string }[];
@@ -269,7 +266,6 @@ function ToggleGroup<T extends string>({ value, onChange, options }: {
   );
 }
 
-/* ── Insight Card ────────────────────────────────── */
 function InsightCard({ icon: Icon, text, color }: { icon: React.ComponentType<{ className?: string }>; text: string; color: string }) {
   return (
     <div className="flex items-start gap-3 p-3.5 bg-secondary/40 dark:bg-white/[0.04] border border-border/30 rounded-2xl">
@@ -477,7 +473,6 @@ function FreeAnalyticsView({
   );
 }
 
-/* ── Main Component ──────────────────────────────── */
 export default function Analytics() {
   const { data: sales = [], isLoading } = useSales() as { data: Sale[] | undefined; isLoading: boolean };
   const { data: settings } = useSettings() as { data: UserSetting | null | undefined };
@@ -803,7 +798,6 @@ export default function Analytics() {
           </div>
         </div>
 
-      {/* ── KPI Cards ── */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 stagger-children">
         {[
           {
@@ -875,7 +869,6 @@ export default function Analytics() {
         ))}
       </div>
 
-      {/* ── Toggles strip ── */}
       <div className="flex flex-wrap gap-2 items-center">
         <ToggleGroup value={metric} onChange={(v) => setMetric(v as Metric)} options={[{ value: "revenue", label: "Revenue" }, { value: "orders", label: "Orders" }]} />
         <ToggleGroup value={chartKind} onChange={(v) => setChartKind(v as ChartKind)} options={[{ value: "area", label: "Area" }, { value: "bar", label: "Bar" }, { value: "line", label: "Line" }]} />
@@ -893,7 +886,6 @@ export default function Analytics() {
         </button>
       </div>
 
-      {/* ── Revenue / Orders Trend ── */}
       <div className="glass-card rounded-3xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
           <div className="h-7 w-7 rounded-xl bg-indigo-500/10 flex items-center justify-center">
@@ -957,7 +949,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* ── Top Products + Hourly Heatmap ── */}
       <div className="grid gap-4 md:grid-cols-2">
 
         {/* Top Items — label adapts to business type */}
@@ -1061,7 +1052,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* ── Day of Week + Payment Methods ── */}
       <div className="grid gap-4 md:grid-cols-2">
 
         {/* Day of Week */}
@@ -1155,7 +1145,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* ── Category Breakdown ── */}
       {categoryData.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
@@ -1201,7 +1190,6 @@ export default function Analytics() {
         </div>
       )}
 
-      {/* ── Smart Insights ── */}
       {insights.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">

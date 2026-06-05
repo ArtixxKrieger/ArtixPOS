@@ -30,7 +30,6 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// ── CSRF token ───────────────────────────────────────────────────────────────
 // Read the csrf_token cookie set by the server (not httpOnly, so JS can read
 // it) and return it as the X-CSRF-Token header for state-changing requests.
 // Native clients (API_BASE set) use Bearer tokens — they are CSRF-safe by
@@ -63,7 +62,6 @@ export async function nativeFetch(url: string, options: RequestInit = {}): Promi
   });
 }
 
-// ── 503 retry-with-backoff ───────────────────────────────────────────────────
 // When the server is under load it returns 503. We silently retry up to
 // MAX_503_RETRIES times with exponential back-off + ±20 % jitter before
 // surfacing the error to the caller. The Retry-After response header (seconds)
@@ -155,7 +153,6 @@ export async function apiRequest(
   return res;
 }
 
-// ── Fetch with timeout ─────────────────────────────────────────────────────
 // When Android Chrome suspends a tab (user switches apps), in-flight fetch
 // requests have their Promises frozen — they never resolve or reject.
 // On return, React Query stays in the `loading` state forever because the
@@ -191,7 +188,6 @@ function fetchWithTimeout(
   ).finally(() => clearTimeout(timeoutId));
 }
 
-// ── IDB cache helpers for default queryFn ────────────────────────────────
 // These patterns identify URLs that should NOT be cached in IDB:
 // - Auth endpoints (stale auth data causes login loops)
 // - Non-API keys like "auth-me"
@@ -287,7 +283,6 @@ export const queryClient = new QueryClient({
   },
 });
 
-// ── Visibility-change recovery ─────────────────────────────────────────────
 // Fires when the user returns to the tab after switching apps, locking the
 // screen, or receiving a notification tap on mobile.
 //
@@ -315,7 +310,6 @@ if (typeof document !== "undefined") {
   });
 }
 
-// ── Back/Forward Cache (bfcache) recovery ───────────────────────────────────
 // Android Chrome aggressively caches pages in the bfcache. When the user
 // navigates away (e.g. to a Google OAuth page) and then the OAuth flow
 // redirects back to the app domain, Chrome may RESTORE the frozen page from

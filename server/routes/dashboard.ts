@@ -9,7 +9,6 @@ import { getUserId, getActiveBranchId } from "../lib/route-utils";
 
 export function registerDashboardRoutes(app: Express): void {
 
-  // ── Dashboard stats ────────────────────────────────────────────────────────
   // Returns today's full sale objects + server-computed all-time aggregates.
   // Using SQL SUM/COUNT means no row-count cap regardless of sales volume.
   app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
@@ -75,7 +74,6 @@ export function registerDashboardRoutes(app: Express): void {
     res.json(payload);
   });
 
-  // ── Data backup export ─────────────────────────────────────────────────────
   // Streams the backup as newline-delimited JSON sections to avoid loading
   // all data into memory at once and crashing on large tenants.
   app.get("/api/backup/export", requireAuth, async (req, res) => {

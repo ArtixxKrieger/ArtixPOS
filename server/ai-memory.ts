@@ -26,7 +26,6 @@ const MAX_MEMORIES_INJECTED = Math.floor(TOKEN_BUDGET / WORDS_PER_MEMORY_EST);
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-// ─── Extraction ────────────────────────────────────────────────────────────────
 // Calls Groq with the SimpleMem-style prompt to extract atomic facts.
 // Returns null on any failure — memory is always best-effort.
 async function callGroqForExtraction(
@@ -87,7 +86,6 @@ Output ONLY valid JSON, no markdown fences:
   }
 }
 
-// ─── Extract and store memories after a session ────────────────────────────────
 export async function extractAndStore(opts: {
   tenantId: string;
   businessType: string | null;
@@ -153,7 +151,6 @@ export async function extractAndStore(opts: {
   console.log(`[ai-memory] stored ${facts.length} facts`);
 }
 
-// ─── Retrieve relevant memories for injection ──────────────────────────────────
 // Returns a compact string block ready to prepend to the system prompt.
 // Token-budgeted: max ~280 tokens of memory context.
 export async function getRelevantMemories(opts: {
@@ -214,7 +211,6 @@ export async function getRelevantMemories(opts: {
   }
 }
 
-// ─── Consolidation — merge duplicates, decay stale memories ───────────────────
 // Call this occasionally (triggered when a tenant hits 60+ memories).
 export async function consolidateIfNeeded(tenantId: string): Promise<void> {
   try {

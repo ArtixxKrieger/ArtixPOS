@@ -1,16 +1,13 @@
 import { openDB, type IDBPDatabase } from "idb";
 
-// ─── Schema ────────────────────────────────────────────────────────────────
 // v1: original schema
 // v2: added retryCount, permanentlyFailed, lastError to mutation-queue
 // v3: added nextRetryAt, offlineId to mutation-queue
 const DB_NAME    = "pos-offline-v1";
 const DB_VERSION = 3;
 
-// ─── BroadcastChannel name (shared with sync.ts / use-online-status.ts) ───
 export const SYNC_CHANNEL_NAME = "pos-sync";
 
-// ─── User session isolation ─────────────────────────────────────────────────
 // IDB api-cache keys are prefixed with the current user's ID so that cached
 // data from User A can never be served to User B, even if network fails.
 const LAST_USER_LS_KEY = "pos-last-uid";
@@ -59,7 +56,6 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
     // We MUST use the `transaction` parameter to access existing object stores —
     // calling db.createObjectStore() again on an already-existing store would throw.
     upgrade(db, oldVersion, _newVersion, transaction) {
-      // ── v1 setup ──
       if (oldVersion < 1) {
         db.createObjectStore("api-cache", { keyPath: "url" });
         const qs = db.createObjectStore("mutation-queue", {
@@ -69,7 +65,6 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
         qs.createIndex("by-timestamp", "timestamp");
       }
 
-      // ── v1 → v2 migration ──
       // Use transaction.objectStore() — this is the only correct way to access
       // an existing store during an IDB version upgrade with the `idb` library.
       if (oldVersion < 2) {
@@ -86,7 +81,6 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
         }
       }
 
-      // ── v2 → v3 migration ──
       // nextRetryAt and offlineId are new optional fields on existing records.
       // No index needed — we filter in JS (queue is always small < 100 items).
       // Existing records simply lack these fields and will be treated as
@@ -107,7 +101,6 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
   return _db;
 }
 
-// ─── Types ─────────────────────────────────────────────────────────────────
 export interface QueuedMutation {
   id?: number;
   method: string;
@@ -137,7 +130,6 @@ export interface QueuedMutation {
   offlineId?: string | number;
 }
 
-// ─── API cache ─────────────────────────────────────────────────────────────
 export async function getCached<T>(url: string): Promise<T | null> {
   // Never serve IDB data when the session isn't initialized yet.
   if (!_currentUserId) return null;
@@ -202,7 +194,6 @@ export async function pruneStaleCache(maxAgeMs: number): Promise<void> {
   } catch {}
 }
 
-// ─── Mutation queue ─────────────────────────────────────────────────────────
 export const MAX_RETRIES = 5;
 
 /** Exponential backoff per retry attempt (ms). Cap at 5 min. */
@@ -401,7 +392,6 @@ export async function discardAllFailedItems(): Promise<void> {
   } catch {}
 }
 
-// ─── Utilities ──────────────────────────────────────────────────────────────
 export function isNetworkError(err: unknown): boolean {
   if (err instanceof TypeError) return true;
   if (err instanceof DOMException && err.name === "AbortError") return true;

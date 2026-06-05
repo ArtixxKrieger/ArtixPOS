@@ -13,7 +13,6 @@ import {
 } from "./offline-db";
 import { queryClient, nativeFetch } from "./queryClient";
 
-// ─── BroadcastChannel ───────────────────────────────────────────────────────
 // Emits events to other open tabs so they can refresh their queue counts
 // and online status without triggering a duplicate sync of their own.
 export type SyncChannelMessage =
@@ -33,7 +32,6 @@ function broadcast(msg: SyncChannelMessage) {
   try { getChannel()?.postMessage(msg); } catch {}
 }
 
-// ─── Web Locks API — one-tab sync guard ────────────────────────────────────
 // Ensures only one browser tab runs syncOfflineData at any time.
 // Falls back gracefully when the Locks API is not available.
 async function withSyncLock<T>(fn: () => Promise<T>): Promise<T & { skipped?: boolean }> {
@@ -57,7 +55,6 @@ async function withSyncLock<T>(fn: () => Promise<T>): Promise<T & { skipped?: bo
   });
 }
 
-// ─── Types ─────────────────────────────────────────────────────────────────
 export interface SyncResult {
   synced: number;
   failed: number;
@@ -66,7 +63,6 @@ export interface SyncResult {
   skipped?: boolean;
 }
 
-// ─── Advanced queue folding ─────────────────────────────────────────────────
 // Collapses logically redundant mutations before sending them to the server.
 // All rules preserve intent: the final server state matches what the user did.
 //
@@ -96,7 +92,6 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
 
   const toRemove = new Set<number>();
 
-  // ── Pass 1: Duplicate DELETEs to same URL → keep first ──────────────────
   const seenDeleteUrls = new Set<string>();
   for (const item of queue) {
     if (item.method !== "DELETE") continue;
@@ -107,7 +102,6 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
     }
   }
 
-  // ── Pass 2: Multiple PUT/PATCH to same URL → keep last ──────────────────
   const putsByUrl = new Map<string, QueuedMutation[]>();
   for (const item of queue) {
     if (toRemove.has(item.id!)) continue;
@@ -139,7 +133,6 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
     }
   }
 
-  // ── Pass 4: POST + DELETE for same temp-ID entity → remove both ──────────
   for (const post of queue) {
     if (toRemove.has(post.id!)) continue;
     if (post.method !== "POST") continue;
@@ -179,7 +172,6 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
     }
   }
 
-  // ── Pass 5: POST + PUT/PATCH for same temp-ID entity → merge body ─────────
   // For any POST that survived pass 4, look for a later PUT/PATCH that targets
   // the same temp entity. Merge the PUT body into the POST body and remove PUT.
   // This means "create + immediately edit" becomes a single correct POST.
@@ -215,7 +207,6 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
   return queue.filter((q) => !toRemove.has(q.id!));
 }
 
-// ─── Error classification ───────────────────────────────────────────────────
 function isPermanentFailure(status: number): boolean {
   // 400/422 — bad request / validation error; data won't change on retry
   // 413      — payload too large; won't shrink on retry
@@ -229,7 +220,6 @@ function isPermanentFailure(status: number): boolean {
   return [400, 401, 413, 422].includes(status);
 }
 
-// ─── Process a single mutation ─────────────────────────────────────────────
 interface ProcessResult {
   /** For successful POSTs: the server-assigned ID, so we can remap the queue. */
   serverId?: string | number;
@@ -283,7 +273,6 @@ async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
   return {};
 }
 
-// ─── Derive query keys to invalidate from mutated URLs ─────────────────────
 // Instead of a fixed allow-list, we derive which collections were touched and
 // invalidate exactly those. Dashboard is always included (any mutation can
 // affect analytics totals).
@@ -306,7 +295,6 @@ function deriveInvalidationKeys(synced: QueuedMutation[]): string[][] {
   ];
 }
 
-// ─── Main sync function ─────────────────────────────────────────────────────
 export async function syncOfflineData(): Promise<SyncResult> {
   return withSyncLock(async () => {
     const rawQueue = await getQueue();
@@ -316,7 +304,6 @@ export async function syncOfflineData(): Promise<SyncResult> {
 
     broadcast({ type: "SYNC_START" });
 
-    // ── Fold redundant mutations before sending anything ──────────────────
     const folded = foldQueue(rawQueue);
 
     // Remove folded-out items from IDB
@@ -340,7 +327,6 @@ export async function syncOfflineData(): Promise<SyncResult> {
     const successfullySynced: QueuedMutation[] = [];
     const now = Date.now();
 
-    // ── Process in timestamp order (oldest first) ─────────────────────────
     for (const item of actionable) {
       // Per-item back-off: skip if we're not past the cooldown yet
       if (item.nextRetryAt && item.nextRetryAt > now) {
@@ -383,7 +369,6 @@ export async function syncOfflineData(): Promise<SyncResult> {
       }
     }
 
-    // ── Targeted cache invalidation ───────────────────────────────────────
     if (successfullySynced.length > 0) {
       const keys = deriveInvalidationKeys(successfullySynced);
       await Promise.all(

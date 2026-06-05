@@ -339,7 +339,7 @@ function UsbPrinterSection() {
     setTesting(printer.name);
     const storeName = (settings as any)?.storeName || "ArtixPOS";
     const receiptWidth: string = (settings as any)?.receiptWidth ?? "58mm";
-    const data = buildTestPrintEscPos(storeName, receiptWidth);
+    const data = buildTestPrintEscPos(storeName, receiptWidth) as Uint8Array<ArrayBuffer>;
     try {
       const dev = printer.device;
       if (!dev.opened) await dev.open();

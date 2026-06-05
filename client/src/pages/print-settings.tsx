@@ -298,7 +298,7 @@ export default function PrintSettings() {
 
   const testUsbPrint = async (printer: UsbPrinter) => {
     setTestingUsb(printer.name);
-    const data = buildTestPrintEscPos((settings as any)?.storeName || "ArtixPOS", (settings as any)?.receiptWidth);
+    const data = buildTestPrintEscPos((settings as any)?.storeName || "ArtixPOS", (settings as any)?.receiptWidth) as Uint8Array<ArrayBuffer>;
     try {
       const dev = printer.device;
       if (!dev.opened) await dev.open();

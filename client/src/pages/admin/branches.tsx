@@ -1125,7 +1125,7 @@ function BranchDetailDrawer({
                           <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                           <YAxis hide />
                           <Tooltip
-                            formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]}
+                            formatter={(v) => [`$${Number(v || 0).toFixed(2)}`, "Revenue"]}
                             contentStyle={{ fontSize: 11, borderRadius: 8 }}
                           />
                           <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>

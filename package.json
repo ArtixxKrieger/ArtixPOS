@@ -4,7 +4,7 @@
   "type": "module",
   "license": "UNLICENSED",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development npx tsx server/index.ts",
+    "dev": "NODE_ENV=development npx tsx server/index.ts",
     "build": "tsc && node script/build.js",
     "start": "cross-env NODE_ENV=production node dist/index.cjs",
     "check": "tsc",

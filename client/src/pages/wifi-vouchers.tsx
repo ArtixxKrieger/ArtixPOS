@@ -507,7 +507,7 @@ export default function WifiVouchersPage() {
 
   if (!isPro) {
     return (
-      <div className="max-w-lg mx-auto px-4 pt-6 pb-24 md:pb-8 space-y-3">
+      <div className="px-4 pt-6 pb-24 md:pb-8 space-y-3">
         <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm space-y-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">How it works</p>
           {[
@@ -556,7 +556,7 @@ export default function WifiVouchersPage() {
     <div className="min-h-screen pb-24 md:pb-8">
       {/* ── Header ────────────────────────────────────────────── */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border/20">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center shrink-0", enabled ? "bg-emerald-500/15" : "bg-muted/60")}>
               {enabled ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-muted-foreground" />}
@@ -574,7 +574,7 @@ export default function WifiVouchersPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="max-w-5xl mx-auto px-4 flex gap-0 border-t border-border/10">
+        <div className="px-4 flex gap-0 border-t border-border/10">
           {TABS.map(tab => (
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
               data-testid={`tab-${tab.id}`}
@@ -599,7 +599,7 @@ export default function WifiVouchersPage() {
 
       {/* ── Vouchers Tab ──────────────────────────────────────── */}
       {activeTab === "vouchers" && (
-        <div className="max-w-2xl mx-auto px-4 pt-5 space-y-4">
+        <div className="px-4 pt-5 space-y-4 max-w-3xl">
 
           {/* Issue new voucher */}
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
@@ -695,7 +695,7 @@ export default function WifiVouchersPage() {
 
       {/* ── Settings Tab ──────────────────────────────────────── */}
       {activeTab === "settings" && (
-        <div className="max-w-5xl mx-auto px-4 pt-5">
+        <div className="px-4 pt-5">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
 
             {/* Left: config */}
@@ -947,7 +947,7 @@ export default function WifiVouchersPage() {
 
       {/* ── Router Tab ────────────────────────────────────────── */}
       {activeTab === "router" && (
-        <div className="max-w-2xl mx-auto px-4 pt-5 space-y-4">
+        <div className="px-4 pt-5 space-y-4 max-w-3xl">
 
           {/* MikroTik card */}
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">

@@ -218,7 +218,7 @@ export default function TimeClockPage() {
   const isLoading = activeLoading || logsLoading;
 
   return (
-    <div className="space-y-5 max-w-2xl mx-auto pb-8">
+    <div className="space-y-5 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>

@@ -518,7 +518,7 @@ function UsbPrinterSection() {
 
 export default function HardwareSettings() {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="px-4 py-6 space-y-6">
       <PageHeader />
       <BarcodeScannerSection />
       <UsbPrinterSection />

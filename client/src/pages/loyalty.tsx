@@ -359,7 +359,7 @@ export default function LoyaltyPage() {
   ] as const;
 
   return (
-    <div className="space-y-4 page-enter max-w-4xl">
+    <div className="space-y-4 page-enter">
       {/* Header */}
       <div className="flex items-center gap-3 pb-1">
         <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

@@ -65,42 +65,6 @@ interface ReceiptModalProps {
   receipt: ReceiptData | null;
 }
 
-function buildReceiptHtml(
-  printableId: string,
-  settings: Partial<UserSetting> | null | undefined,
-): string | null {
-  const el = document.getElementById(printableId);
-  if (!el) return null;
-  const paperMm = (settings?.receiptWidth ?? "58mm") === "58mm" ? "58mm" : "80mm";
-  const fs = settings?.receiptFontSize ?? 25;
-  return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Receipt</title>
-    <style>
-      @page { size: ${paperMm} auto; margin: 0; }
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { font-family: 'Courier New', 'Lucida Console', monospace; font-size: ${fs}px; font-weight: 600; color: #000; background: #fff; width: ${paperMm}; padding: 3mm 2mm 8mm 2mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .center { text-align: center; }
-      .bold { font-weight: 800; }
-      .line { border-top: 1px dashed #000; margin: 6px 0; }
-      .row { display: flex; justify-content: space-between; margin: 2px 0; }
-      .item-name { flex: 1; margin-right: 8px; }
-      .total-row { font-weight: 800; font-size: ${fs + 2}px; }
-      .footer { text-align: center; margin-top: 8px; font-size: ${fs - 2}px; }
-      .muted { color: #555; }
-      .small { font-size: ${fs - 2}px; }
-      .green { color: #16a34a; }
-    </style>
-  </head>
-  <body>
-    ${el.innerHTML}
-    <script>window.onload = function() { window.print(); window.close(); }<\/script>
-  </body>
-</html>`;
-}
-
 export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const { data: settings } = useSettings();
   const { printer, print } = useBlePrinter();

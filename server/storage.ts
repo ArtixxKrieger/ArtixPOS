@@ -1,7 +1,7 @@
 import { db, pool } from "./db";
 import { runAsAdmin } from "./tenant-context";
 import { dbRead } from "./db-read";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import {
   products,
   pendingOrders,
@@ -2298,7 +2298,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWifiVoucher(userId: string, data: InsertWifiVoucher & { saleId?: number | null }): Promise<WifiVoucher> {
-    const code = (Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6)).toUpperCase();
+    const code = randomBytes(6).toString('hex').toUpperCase();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [created] = await db.insert(wifiVouchers).values({
       userId,

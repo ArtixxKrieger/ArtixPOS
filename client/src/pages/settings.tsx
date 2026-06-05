@@ -352,7 +352,7 @@ export default function Settings() {
     : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
 
   return (
-    <div className="max-w-lg page-enter space-y-0.5">
+    <div className="page-enter space-y-0.5">
 
       <SectionLabel icon={Palette}>Appearance</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">

@@ -75,10 +75,6 @@ const VercelAnalytics = lazy(() =>
   import("@vercel/analytics/react").then((m) => ({ default: m.Analytics }))
 );
 
-/**
- * Extract and store the JWT token from an OAuth deep-link URL.
- * com.artixpos.app://auth?token=<jwt>
- */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const part = token.split(".")[1];
@@ -105,8 +101,6 @@ function handleAuthDeepLink(url: string) {
 
   debugLog("deeplink", `token received (length=${token.length}) — storing`);
 
-  // If this login belongs to a DIFFERENT account than what was previously
-  // stored, wipe the offline cache so no data bleeds across accounts.
   const previousToken = localStorage.getItem(NATIVE_TOKEN_KEY);
   const previousPayload = previousToken ? decodeJwtPayload(previousToken) : null;
   const newPayload = decodeJwtPayload(token);
@@ -128,7 +122,6 @@ function handleAuthDeepLink(url: string) {
       avatar: newPayload.avatar ?? null,
       provider: newPayload.provider ?? "unknown",
     };
-    // Immediately set auth state from the JWT — no network round-trip needed
     queryClient.setQueryData(["auth-me"], user);
     debugLog("deeplink", `auth cache set immediately — user=${user.id}`);
   } else {
@@ -358,19 +351,8 @@ function LoadingScreen({ message }: { message?: string }) {
   return null;
 }
 
-// These routes are ALWAYS kept mounted after first visit and toggled via CSS.
-// Navigation between them is a pure style change — zero JS work, zero skeleton.
 const PINNED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics", "/products"]);
 
-/**
- * Mounts the children the first time the path is active, then keeps them
- * mounted forever. When inactive, the wrapper is hidden with display:none so
- * it consumes no layout budget and is invisible, but React does not unmount
- * it — all hooks, effects, and React Query subscriptions remain alive.
- *
- * This is the "tab caching" pattern: switching between pinned views is a
- * single CSS property change, not a React render cycle.
- */
 function PersistentRoute({
   path,
   currentPath,
@@ -456,9 +438,6 @@ const LoyaltyRoute          = () => <ProGuard url="/loyalty" component={LoyaltyP
 const WifiVouchersRoute     = () => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />;
 const PayrollRoute          = () => <ProGuard url="/payroll" component={PayrollPage} />;
 
-// Eagerly warm-up every lazy route in the background so the service worker
-// can cache their JS chunks. After one successful online session, all pages
-// will load instantly — including when the device is completely offline.
 const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/dashboard"),
   () => import("@/pages/pos"),
@@ -501,9 +480,7 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/admin/permissions"),
 ];
 
-// Critical routes the user is most likely to visit right after login.
-// Preloaded first so navigation feels instant.
-const PRIORITY_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(0, 5); // dashboard, pos, products, analytics, pending-orders
+const PRIORITY_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(0, 5);
 const DEFERRED_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(5);
 
 function useRoutePreloader() {
@@ -512,7 +489,6 @@ function useRoutePreloader() {
 
     const ric = window.requestIdleCallback;
 
-    // Batch 1 — priority routes, loaded during first idle window after paint
     const scheduleP = ric
       ? (cb: () => void) => ric(cb, { timeout: 3000 })
       : (cb: () => void) => setTimeout(cb, 1500);
@@ -521,13 +497,11 @@ function useRoutePreloader() {
       PRIORITY_LAZY_ROUTES.forEach((load) => load().catch(() => {}));
     });
 
-    // Batch 2 — remaining routes, staggered so they don't compete with Batch 1
     const timer = setTimeout(() => {
       const scheduleD = ric
         ? (cb: () => void) => ric(cb, { timeout: 10_000 })
         : (cb: () => void) => setTimeout(cb, 0);
 
-      // Spread across multiple idle callbacks so the main thread stays free
       const chunkSize = 5;
       DEFERRED_LAZY_ROUTES.forEach((load, i) => {
         const delay = Math.floor(i / chunkSize) * 800;
@@ -546,9 +520,7 @@ function AppRouter() {
   const { data: settings, isLoading: settingsLoading, isError: settingsError } = useSettings();
   const { user } = useAuth();
   const [location] = useLocation();
-  // Warm-up all lazy route chunks in the background so they're offline-ready
   useRoutePreloader();
-  // Apply the active branch's color as the app-wide primary theme color
   useBranchTheme();
 
   // We only want to show the boot splash ONCE — during the very first settings
@@ -577,10 +549,6 @@ function AppRouter() {
     return () => clearTimeout(t);
   }, [settingsLoading]);
 
-  // Scroll the main content pane to the top on every route change.
-  // Required because all persistent views share the same scroll container.
-  // IMPORTANT: must be declared BEFORE any conditional early returns so the
-  // hook call order is identical on every render (Rules of Hooks).
   useEffect(() => {
     document.getElementById("app-scroll")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);
@@ -640,10 +608,6 @@ function AppRouter() {
   return (
     <AppLayout>
       <AppTour />
-      {/* ── Persistent (tab-cached) views ─────────────────────────────────────
-           Mounted ONCE on first visit, then kept alive via CSS display:none.
-           Switching between these 5 routes is a pure style toggle — no React
-           unmount/remount, no skeleton, no data re-fetch. Sub-millisecond.   */}
       <PersistentRoute path="/" currentPath={location}>
         <Suspense fallback={pageFallback}><Dashboard /></Suspense>
       </PersistentRoute>
@@ -663,10 +627,6 @@ function AppRouter() {
         <Suspense fallback={pageFallback}><Products /></Suspense>
       </PersistentRoute>
 
-      {/* ── On-demand routes ───────────────────────────────────────────────────
-           Only rendered when not on a pinned path. First visit shows a brief
-           PageFallback while the JS chunk loads; subsequent visits are instant
-           because the chunk is cached by the browser / service worker.        */}
       {!PINNED_PATHS.has(location) && (
         <Suspense fallback={pageFallback}>
           <Switch>
@@ -711,7 +671,6 @@ function AppRouter() {
   );
 }
 
-// Restricts the entire app to POS only — no sidebar, no navigation elsewhere.
 function PinSessionApp() {
   const { user } = useAuth();
   const { data: settings } = useSettings();
@@ -719,11 +678,8 @@ function PinSessionApp() {
   const [clockingOut, setClockingOut] = useState(false);
   const storeName = (settings as any)?.storeName ?? "ArtixPOS";
 
-  // "staff" role = clock-in/out only employees — they never need POS access.
-  // Cashiers and managers who log in via PIN get the full POS.
   const isEmployeeOnly = user?.role === "staff";
 
-  // Lock navigation to the appropriate screen for this session type
   useEffect(() => {
     const target = isEmployeeOnly ? "/timeclock" : "/pos";
     if (location !== target) setLocation(target);
@@ -742,7 +698,6 @@ function PinSessionApp() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Minimal staff header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 bg-background shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shadow-sm">
@@ -764,9 +719,6 @@ function PinSessionApp() {
               </div>
             </div>
           )}
-          {/* For clock-in-only employees the timeclock page has its own Clock Out
-              button — showing a second one here would be confusing and could
-              cause a double-request. Only show this button for POS sessions. */}
           {!isEmployeeOnly && (
             <button
               onClick={handleClockOut}
@@ -779,7 +731,6 @@ function PinSessionApp() {
           )}
         </div>
       </div>
-      {/* Content: timeclock for clock-in-only employees, POS for cashiers/managers */}
       <div className={isEmployeeOnly ? "flex-1 min-h-0 overflow-auto" : "flex-1 min-h-0 overflow-hidden"}>
         <Suspense fallback={pageFallback}>
           {isEmployeeOnly ? <TimeClockPage /> : <POS />}
@@ -794,8 +745,6 @@ function ProtectedRouter() {
   const [location] = useLocation();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
 
-  // Track the previously-seen userId so we can detect an in-session account
-  // switch (e.g. native Google OAuth re-login without a full page reload).
   const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -889,9 +838,6 @@ function ProtectedRouter() {
     return <StaffPinLogin />;
   }
 
-  // PIN sessions for cashiers/managers/admins get the restricted kiosk-only view.
-  // Owners who authenticated via PIN still need the full dashboard (they use the
-  // kiosk just to clock in, then manage the store normally).
   if (user?.pinSession && user?.role !== "owner") {
     return <PinSessionApp />;
   }
@@ -915,8 +861,6 @@ function Router() {
 
 function useGlobalDarkMode() {
   useEffect(() => {
-    // Initial class is already set by the inline script in index.html before React mounts.
-    // This effect only corrects the class if AppLayout or anything else has drifted it.
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const stored = localStorage.getItem("theme");
     const isDark = stored === "dark" || (!stored && mq.matches);

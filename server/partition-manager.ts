@@ -48,7 +48,7 @@ async function existingPartitions(tableName: string): Promise<Set<string>> {
     WHERE  p.relname = $1
       AND  p.relnamespace = 'public'::regnamespace
   `, [tableName]);
-  return new Set(result.rows.map(r => r.relname));
+  return new Set(result.rows.map((r: any) => r.relname));
 }
 
 async function ensureMonthlyPartitions(tableName: string): Promise<number> {

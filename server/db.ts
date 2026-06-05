@@ -57,12 +57,12 @@ export const LOCK_TIMEOUT_MS      = parseInt(process.env.DB_LOCK_TIMEOUT_MS     
 // COMMIT / ROLLBACK.  For dbSystem (bypass) queries Supabase's own idle
 // timeouts provide a safety net.
 
-pool.on("error", (err) => {
+pool.on("error", (err: Error) => {
   console.error("[db] Unexpected pool client error:", err.message);
 });
 
 pool.connect()
-  .then((client) => { client.release(); })
+  .then((client: PoolClient) => { client.release(); })
   .catch(() => {});
 
 const _baseDb = drizzle(pool, { schema });

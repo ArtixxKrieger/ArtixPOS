@@ -23,7 +23,7 @@ if (READ_URL) {
     allowExitOnIdle: false,
   });
 
-  readPool.on("error", (err) => {
+  readPool.on("error", (err: Error) => {
     console.error("[db-read] Unexpected pool error:", err.message);
   });
 

@@ -3,17 +3,52 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { db, pool } from "./db";
 import { runAsAdmin } from "./tenant-context";
 import {
-  users, products, productSizes, productModifiers, sales, pendingOrders, userSettings,
-  customers, serviceStaff, serviceRooms, appointments,
-  membershipPlans, memberships, membershipCheckIns,
-  expenses, shifts, discountCodes, refunds, timeLogs,
-  tables, suppliers, purchaseOrders, purchaseOrderItems, supplierProducts,
-  userBranches, auditLogs,
-  ingredients, productRecipes, wifiVouchers, payrollPeriods, payrollEntries,
-  branches, tenants, rolePermissions, tenantSubscriptions, subscriptionPayments, aiMemories,
+  users,
+  products,
+  productSizes,
+  productModifiers,
+  sales,
+  pendingOrders,
+  userSettings,
+  customers,
+  serviceStaff,
+  serviceRooms,
+  appointments,
+  membershipPlans,
+  memberships,
+  membershipCheckIns,
+  expenses,
+  shifts,
+  discountCodes,
+  refunds,
+  timeLogs,
+  tables,
+  suppliers,
+  purchaseOrders,
+  purchaseOrderItems,
+  supplierProducts,
+  userBranches,
+  auditLogs,
+  ingredients,
+  productRecipes,
+  wifiVouchers,
+  payrollPeriods,
+  payrollEntries,
+  branches,
+  tenants,
+  rolePermissions,
+  tenantSubscriptions,
+  subscriptionPayments,
+  aiMemories,
   revokedTokens,
-  notifications, stockLogs, wasteLog, stockTransfers, stockTransferItems,
-  loyaltyTiers, loyaltyRewards, loyaltyPointsLog,
+  notifications,
+  stockLogs,
+  wasteLog,
+  stockTransfers,
+  stockTransferItems,
+  loyaltyTiers,
+  loyaltyRewards,
+  loyaltyPointsLog,
 } from "@shared/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
@@ -24,6 +59,7 @@ import { hashPassword, verifyPassword } from "./crypto";
 import { cache, settingsCacheKey } from "./cache";
 import { invalidateTenantCache } from "./storage";
 import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
+import { updateLastSeen } from "./admin-storage";
 
 function getClientIp(req: Request): string {
   return (
@@ -37,10 +73,30 @@ function getClientIp(req: Request): string {
 // Rules are intentionally mirrored in the client-side strength meter so the
 // UI and API stay in sync without a round-trip for every keystroke.
 const COMMON_PASSWORDS = new Set([
-  "password","password1","password123","12345678","123456789","1234567890",
-  "qwerty123","qwertyui","letmein1","welcome1","admin1234","iloveyou1",
-  "monkey123","dragon123","master123","sunshine1","princess1","shadow123",
-  "baseball","football","superman1","batman123","trustno1","starwars1",
+  "password",
+  "password1",
+  "password123",
+  "12345678",
+  "123456789",
+  "1234567890",
+  "qwerty123",
+  "qwertyui",
+  "letmein1",
+  "welcome1",
+  "admin1234",
+  "iloveyou1",
+  "monkey123",
+  "dragon123",
+  "master123",
+  "sunshine1",
+  "princess1",
+  "shadow123",
+  "baseball",
+  "football",
+  "superman1",
+  "batman123",
+  "trustno1",
+  "starwars1",
 ]);
 
 function validatePasswordStrength(password: string, email?: string): string | null {
@@ -48,10 +104,10 @@ function validatePasswordStrength(password: string, email?: string): string | nu
   if (password.length < 8) return "Password must be at least 8 characters.";
   if (password.length > 128) return "Password must be under 128 characters.";
 
-  const lower   = /[a-z]/.test(password);
-  const upper   = /[A-Z]/.test(password);
-  const digit   = /[0-9]/.test(password);
-  const symbol  = /[^a-zA-Z0-9]/.test(password);
+  const lower = /[a-z]/.test(password);
+  const upper = /[A-Z]/.test(password);
+  const digit = /[0-9]/.test(password);
+  const symbol = /[^a-zA-Z0-9]/.test(password);
   const classes = [lower, upper, digit, symbol].filter(Boolean).length;
 
   if (classes < 2) {
@@ -86,7 +142,7 @@ async function _loadRevokedTokens(): Promise<void> {
       .select({ jti: revokedTokens.jti })
       .from(revokedTokens)
       .where(sql`${revokedTokens.expiresAt} >= ${now}`);
-    rows.forEach(r => _revokedJtis.add(r.jti));
+    rows.forEach((r) => _revokedJtis.add(r.jti));
     if (rows.length > 0) {
       console.log(`[auth] Loaded ${rows.length} revoked token(s) into memory`);
     }
@@ -98,8 +154,18 @@ async function _loadRevokedTokens(): Promise<void> {
 async function _pruneRevokedTokens(): Promise<void> {
   try {
     const now = new Date().toISOString();
-    await db.delete(revokedTokens).where(sql`${revokedTokens.expiresAt} < ${now}`);
-  } catch { /* non-critical */ }
+    const { rows } = await db.execute(
+      sql`DELETE FROM revoked_tokens WHERE expires_at < ${now} RETURNING jti`,
+    );
+    if (rows.length > 0) {
+      for (const r of rows) {
+        _revokedJtis.delete((r as { jti: string }).jti);
+      }
+      console.log(`[auth] Pruned ${rows.length} expired revoked token(s) from memory + DB`);
+    }
+  } catch {
+    /* non-critical */
+  }
 }
 
 async function revokeToken(jti: string, userId: string, expiresAt: string): Promise<void> {
@@ -133,7 +199,9 @@ async function logAuthEvent(opts: {
       entity: "auth",
       metadata: opts.metadata,
     });
-  } catch { /* audit failures must never block auth */ }
+  } catch {
+    /* audit failures must never block auth */
+  }
 }
 
 let _ephemeralSecret: string | undefined;
@@ -146,7 +214,9 @@ export function getJwtSecret(): string {
     }
     if (!_ephemeralSecret) {
       _ephemeralSecret = crypto.randomBytes(32).toString("hex");
-      console.warn("[auth] WARNING: SESSION_SECRET is not set — using an ephemeral random secret. Sessions will be invalidated on restart.");
+      console.warn(
+        "[auth] WARNING: SESSION_SECRET is not set — using an ephemeral random secret. Sessions will be invalidated on restart.",
+      );
     }
     return _ephemeralSecret;
   }
@@ -159,7 +229,8 @@ export function getBaseUrl(): string {
   if (appUrl) return appUrl;
   // VERCEL_PROJECT_PRODUCTION_URL is the stable production/custom domain URL.
   // VERCEL_URL is deployment-specific (changes each deploy) — only use as fallback.
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
   if (domain) return `https://${domain}`;
@@ -234,7 +305,7 @@ export function signToken(user: TokenUser, rememberMe = false): string {
       activeBranchId: user.activeBranchId ?? null,
     },
     getJwtSecret(),
-    { expiresIn: rememberMe ? "90d" : "7d" }
+    { expiresIn: rememberMe ? "90d" : "7d" },
   );
 }
 
@@ -254,9 +325,7 @@ export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false
   const token = signToken(user, rememberMe);
   // rememberMe = false → session ends when browser closes (1 day max)
   // rememberMe = true  → cookie persists for 30 days
-  const maxAge = rememberMe
-    ? 90 * 24 * 60 * 60 * 1000
-    :  1 * 24 * 60 * 60 * 1000;
+  const maxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000;
   res.cookie(AUTH_COOKIE, token, {
     ...AUTH_COOKIE_OPTIONS,
     maxAge,
@@ -317,7 +386,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
       req.tokenJti = payload.jti ?? null;
       req.tokenExp = payload.exp ?? null;
       if (req.path.startsWith("/api/")) {
-        import("./admin-storage").then(m => m.updateLastSeen(payload.id)).catch(() => {});
+        updateLastSeen(payload.id).catch(() => {});
       }
     } catch {
       // invalid/expired token — ignore
@@ -327,8 +396,12 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
 }
 
 async function findOrCreateUser(data: {
-  id: string; email: string | null; name: string | null;
-  avatar: string | null; provider: string; providerId: string;
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+  provider: string;
+  providerId: string;
 }): Promise<import("@shared/schema").User> {
   // runAsAdmin issues SET LOCAL row_security = off inside its transaction, so
   // RLS on the `users` table (which has USING/WITH CHECK on tenant_id) cannot
@@ -358,7 +431,37 @@ async function findOrCreateUser(data: {
         // Link the provider ID: if they previously used a different provider,
         // update the record so future primary-lookup hits are instant.
         if (byEmail.id !== data.id) {
-          console.log(`[auth] findOrCreateUser: linked provider "${data.provider}" to existing account via email match (existing id=${byEmail.id})`);
+          console.log(
+            `[auth] findOrCreateUser: linking provider "${data.provider}" to existing account via email match (existing id=${byEmail.id})`,
+          );
+          // Update the existing row with the new provider's ID, provider string,
+          // avatar, and name so future primary-key lookups return instantly.
+          // The old email_<sha256> ID becomes a legacy alias; the new provider-
+          // prefixed ID becomes the canonical one for future logins.
+          try {
+            await adminDb
+              .update(users)
+              .set({
+                id: data.id,
+                provider: data.provider,
+                providerId: data.providerId,
+                ...(data.avatar ? { avatar: data.avatar } : {}),
+                ...(data.name ? { name: data.name } : {}),
+              } as any)
+              .where(eq(users.id, byEmail.id));
+            // Re-select with the newly-updated ID
+            const [relinked] = await adminDb
+              .select()
+              .from(users)
+              .where(eq(users.id, data.id))
+              .limit(1);
+            if (relinked) return relinked;
+          } catch (linkErr) {
+            console.warn(
+              "[auth] Failed to link provider — falling back to original account:",
+              (linkErr as Error)?.message ?? String(linkErr),
+            );
+          }
         }
         return byEmail;
       }
@@ -395,35 +498,50 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // a userId column directly (purchaseOrderItems, stockTransferItems, etc.)
   const userProductIds = (
     await db.select({ id: products.id }).from(products).where(inArray(products.userId, uids))
-  ).map(r => r.id);
+  ).map((r) => r.id);
 
   const userIngredientIds = (
-    await db.select({ id: ingredients.id }).from(ingredients).where(inArray(ingredients.userId, uids))
-  ).map(r => r.id);
+    await db
+      .select({ id: ingredients.id })
+      .from(ingredients)
+      .where(inArray(ingredients.userId, uids))
+  ).map((r) => r.id);
 
   const userSaleIds = (
     await db.select({ id: sales.id }).from(sales).where(inArray(sales.userId, uids))
-  ).map(r => r.id);
+  ).map((r) => r.id);
 
   const userPoIds = (
-    await db.select({ id: purchaseOrders.id }).from(purchaseOrders).where(inArray(purchaseOrders.userId, uids))
-  ).map(r => r.id);
+    await db
+      .select({ id: purchaseOrders.id })
+      .from(purchaseOrders)
+      .where(inArray(purchaseOrders.userId, uids))
+  ).map((r) => r.id);
 
   const userSupplierIds = (
     await db.select({ id: suppliers.id }).from(suppliers).where(inArray(suppliers.userId, uids))
-  ).map(r => r.id);
+  ).map((r) => r.id);
 
   const userMembershipIds = (
-    await db.select({ id: memberships.id }).from(memberships).where(inArray(memberships.userId, uids))
-  ).map(r => r.id);
+    await db
+      .select({ id: memberships.id })
+      .from(memberships)
+      .where(inArray(memberships.userId, uids))
+  ).map((r) => r.id);
 
   const userPayrollPeriodIds = (
-    await db.select({ id: payrollPeriods.id }).from(payrollPeriods).where(inArray(payrollPeriods.userId, uids))
-  ).map(r => r.id);
+    await db
+      .select({ id: payrollPeriods.id })
+      .from(payrollPeriods)
+      .where(inArray(payrollPeriods.userId, uids))
+  ).map((r) => r.id);
 
   const userStockTransferIds = (
-    await db.select({ id: stockTransfers.id }).from(stockTransfers).where(inArray(stockTransfers.userId, uids))
-  ).map(r => r.id);
+    await db
+      .select({ id: stockTransfers.id })
+      .from(stockTransfers)
+      .where(inArray(stockTransfers.userId, uids))
+  ).map((r) => r.id);
 
   // Rule: every table with a NOT NULL FK → another table being deleted must
   // be deleted BEFORE its parent. Soft-deletes (UPDATE) are NOT used here —
@@ -433,7 +551,9 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   // Step 1 — membership_check_ins
   //   refs: memberships.id NOT NULL, customers.id NOT NULL, users.id NOT NULL
   if (userMembershipIds.length > 0) {
-    await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.membershipId, userMembershipIds));
+    await db
+      .delete(membershipCheckIns)
+      .where(inArray(membershipCheckIns.membershipId, userMembershipIds));
   }
   await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.userId, uids));
 
@@ -449,7 +569,9 @@ async function deleteUsersData(uids: string[]): Promise<void> {
 
   // Step 4 — stock_transfer_items  (refs: stock_transfers.id NOT NULL, products.id NOT NULL)
   if (userStockTransferIds.length > 0) {
-    await db.delete(stockTransferItems).where(inArray(stockTransferItems.transferId, userStockTransferIds));
+    await db
+      .delete(stockTransferItems)
+      .where(inArray(stockTransferItems.transferId, userStockTransferIds));
   }
 
   // Step 5 — product_recipes  (refs: products.id NOT NULL, ingredients.id NOT NULL)
@@ -464,7 +586,9 @@ async function deleteUsersData(uids: string[]): Promise<void> {
 
   // Step 6 — purchase_order_items  (refs: purchase_orders.id NOT NULL)
   if (userPoIds.length > 0) {
-    await db.delete(purchaseOrderItems).where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
+    await db
+      .delete(purchaseOrderItems)
+      .where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
   }
 
   // Step 7 — supplier_products  (refs: suppliers.id NOT NULL, products.id NOT NULL)
@@ -570,8 +694,11 @@ async function deleteUsersData(uids: string[]): Promise<void> {
   await db.delete(expenses).where(inArray(expenses.userId, uids));
 
   // Step 35 — audit_logs (userId column has no FK constraint — just a text field; GDPR hygiene)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(auditLogs).set({ metadata: { deleted: true } } as any).where(inArray(auditLogs.userId, uids));
+
+  await db
+    .update(auditLogs)
+    .set({ metadata: { deleted: true } } as any)
+    .where(inArray(auditLogs.userId, uids));
 
   // Step 36 — user_settings  (refs: users.id NOT NULL UNIQUE)
   await db.delete(userSettings).where(inArray(userSettings.userId, uids));
@@ -597,16 +724,18 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
   // so that branches and the tenant row can be hard-deleted without FK violations.
   // (The user *rows* themselves are deleted by the caller right after this function.)
   await db.execute(
-    sql`UPDATE users SET active_branch_id = NULL, tenant_id = NULL WHERE tenant_id = ${tenantId}`
+    sql`UPDATE users SET active_branch_id = NULL, tenant_id = NULL WHERE tenant_id = ${tenantId}`,
   );
 
   // Step 2 — user_branches (refs: branches.id NOT NULL)
-  await db.delete(userBranches).where(
-    inArray(
-      userBranches.branchId,
-      db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId))
-    )
-  );
+  await db
+    .delete(userBranches)
+    .where(
+      inArray(
+        userBranches.branchId,
+        db.select({ id: branches.id }).from(branches).where(eq(branches.tenantId, tenantId)),
+      ),
+    );
 
   // Step 3 — hard-delete branches (tenantId NOT NULL FK → tenants; cleared above)
   await db.delete(branches).where(eq(branches.tenantId, tenantId));
@@ -616,8 +745,11 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
   await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
   await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
   await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(auditLogs).set({ metadata: { tenantDeleted: true } } as any).where(eq(auditLogs.tenantId, tenantId));
+
+  await db
+    .update(auditLogs)
+    .set({ metadata: { tenantDeleted: true } } as any)
+    .where(eq(auditLogs.tenantId, tenantId));
   // Step 5 — hard-delete the tenant row itself (no FK references remain)
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
@@ -628,7 +760,7 @@ function popupResultPage({ ok, error }: { ok: boolean; error?: string }): string
     : JSON.stringify({ type: "google-auth-error", error: error ?? "unknown" });
 
   const errorText = error
-    ? error.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    ? error.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     : "unknown";
 
   return `<!DOCTYPE html>
@@ -655,19 +787,25 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 </style>
 </head>
 <body>
-${ok ? `
+${
+  ok
+    ? `
 <div class="logo">A</div>
 <div class="app-name">ArtixPOS</div>
 <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
 <p class="msg">Signing you in\u2026</p>
-` : `
+`
+    : `
 <div class="err-icon">\u26A0\uFE0F</div>
 <p class="err-text">Sign-in failed${error ? `: ${errorText}` : ""}.<br>Close this window and try again.</p>
 <a href="/login" class="btn">Back to login</a>
-`}
+`
+}
 <script>
 (function(){
-  ${ok ? `
+  ${
+    ok
+      ? `
   // Try to send the result to the parent window (desktop popup flow).
   var sent = false;
   try {
@@ -693,7 +831,8 @@ ${ok ? `
     // React will pick up the auth cookie and land the user on the dashboard.
     window.location.replace("/");
   }
-  ` : `
+  `
+      : `
   // Error: try to notify opener, stay on error page if running standalone.
   try {
     if (window.opener && !window.opener.closed) {
@@ -701,7 +840,8 @@ ${ok ? `
       setTimeout(function(){ try { window.close(); } catch(e) {} }, 500);
     }
   } catch(e) {}
-  `}
+  `
+  }
 })();
 </script>
 </body>
@@ -722,8 +862,17 @@ export function setupAuth(app: Express) {
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           callbackURL: `${baseUrl}/auth/google/callback`,
           store: {
-            store: (_req: unknown, _state: unknown, _meta: unknown, cb: (err: unknown, code: string) => void) => cb(null, crypto.randomBytes(4).toString("hex")),
-            verify: (_req: unknown, _state: unknown, cb: (err: unknown, valid: boolean, meta: unknown) => void) => cb(null, true, {}),
+            store: (
+              _req: unknown,
+              _state: unknown,
+              _meta: unknown,
+              cb: (err: unknown, code: string) => void,
+            ) => cb(null, crypto.randomBytes(4).toString("hex")),
+            verify: (
+              _req: unknown,
+              _state: unknown,
+              cb: (err: unknown, valid: boolean, meta: unknown) => void,
+            ) => cb(null, true, {}),
           } as any,
         },
         async (_accessToken, _refreshToken, profile, done) => {
@@ -738,15 +887,20 @@ export function setupAuth(app: Express) {
             });
             return done(null, user as any);
           } catch (err: unknown) {
-            console.error("[auth] Google strategy error:", err instanceof Error ? err.message : String(err));
+            console.error(
+              "[auth] Google strategy error:",
+              err instanceof Error ? err.message : String(err),
+            );
             return done(err as Error);
           }
-        }
-      )
+        },
+      ),
     );
     console.log("[auth] Google OAuth strategy registered");
   } else {
-    console.log("[auth] Google OAuth not configured (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET missing)");
+    console.log(
+      "[auth] Google OAuth not configured (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET missing)",
+    );
   }
 
   app.get("/api/auth/config", (_req, res) => {
@@ -758,7 +912,7 @@ export function setupAuth(app: Express) {
 
   app.get("/auth/google", (req, res, next) => {
     const isNative = req.query.native === "1";
-    const isPopup  = req.query.popup  === "1";
+    const isPopup = req.query.popup === "1";
     if (!googleEnabled) {
       if (isPopup) return res.send(popupResultPage({ ok: false, error: "google_not_configured" }));
       return res.redirect("/login?error=google_not_configured");
@@ -766,9 +920,16 @@ export function setupAuth(app: Express) {
     try {
       const stateExtra = isNative ? "native" : isPopup ? "popup" : undefined;
       const state = generateState(stateExtra);
-      passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(req, res, next);
+      passport.authenticate("google", { scope: ["profile", "email"], state, session: false })(
+        req,
+        res,
+        next,
+      );
     } catch (err: unknown) {
-      console.error("[auth] Google initiation error:", err instanceof Error ? err.message : String(err));
+      console.error(
+        "[auth] Google initiation error:",
+        err instanceof Error ? err.message : String(err),
+      );
       if (isPopup) return res.send(popupResultPage({ ok: false, error: "google_init" }));
       res.redirect("/login?error=google_init");
     }
@@ -784,42 +945,46 @@ export function setupAuth(app: Express) {
       return res.redirect("/login?error=state_mismatch");
     }
     const isNative = extra === "native";
-    const isPopup  = extra === "popup";
+    const isPopup = extra === "popup";
 
-    passport.authenticate("google", { session: false }, (err: unknown, user: Express.User | false | null) => {
-      if (err) {
-        const msg = String(err instanceof Error ? err.message : err).slice(0, 120);
-        console.error("[auth] Google callback error:", msg);
-        if (isPopup) {
-          return res.send(popupResultPage({ ok: false, error: msg }));
+    passport.authenticate(
+      "google",
+      { session: false },
+      (err: unknown, user: Express.User | false | null) => {
+        if (err) {
+          const msg = String(err instanceof Error ? err.message : err).slice(0, 120);
+          console.error("[auth] Google callback error:", msg);
+          if (isPopup) {
+            return res.send(popupResultPage({ ok: false, error: msg }));
+          }
+          return res.redirect(`/login?error=google_cb&detail=${encodeURIComponent(msg)}`);
         }
-        return res.redirect(`/login?error=google_cb&detail=${encodeURIComponent(msg)}`);
-      }
-      if (!user) {
-        console.warn("[auth] Google callback: no user returned");
-        if (isPopup) {
-          return res.send(popupResultPage({ ok: false, error: "google_no_user" }));
+        if (!user) {
+          console.warn("[auth] Google callback: no user returned");
+          if (isPopup) {
+            return res.send(popupResultPage({ ok: false, error: "google_no_user" }));
+          }
+          return res.redirect("/login?error=google_no_user");
         }
-        return res.redirect("/login?error=google_no_user");
-      }
-      try {
-        // Google sign-in is always an explicit active choice — always persist for 30 days
-        // across all platforms: native deep-link, popup, and redirect flows.
-        if (isNative) {
-          const token = signToken(user, true);
-          return res.redirect(`${NATIVE_APP_SCHEME}://auth?token=${encodeURIComponent(token)}`);
-        }
-        if (isPopup) {
+        try {
+          // Google sign-in is always an explicit active choice — always persist for 30 days
+          // across all platforms: native deep-link, popup, and redirect flows.
+          if (isNative) {
+            const token = signToken(user, true);
+            return res.redirect(`${NATIVE_APP_SCHEME}://auth?token=${encodeURIComponent(token)}`);
+          }
+          if (isPopup) {
+            setAuthCookie(res, user, true);
+            return res.send(popupResultPage({ ok: true }));
+          }
           setAuthCookie(res, user, true);
-          return res.send(popupResultPage({ ok: true }));
+          return res.redirect("/");
+        } catch (cookieErr: any) {
+          console.error("[auth] Cookie error:", cookieErr?.message ?? cookieErr);
+          return res.redirect("/login?error=cookie");
         }
-        setAuthCookie(res, user, true);
-        return res.redirect("/");
-      } catch (cookieErr: any) {
-        console.error("[auth] Cookie error:", cookieErr?.message ?? cookieErr);
-        return res.redirect("/login?error=cookie");
-      }
-    })(req, res, next);
+      },
+    )(req, res, next);
   });
 
   app.post("/api/auth/google/native", async (req, res, next) => {
@@ -829,12 +994,12 @@ export function setupAuth(app: Express) {
     }
     try {
       const googleRes = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
       );
       if (!googleRes.ok) {
         return res.status(401).json({ message: "Invalid Google ID token" });
       }
-      const payload = await googleRes.json() as any;
+      const payload = (await googleRes.json()) as any;
       if (!payload.sub) {
         return res.status(401).json({ message: "Invalid token payload" });
       }
@@ -850,7 +1015,19 @@ export function setupAuth(app: Express) {
         providerId: payload.sub,
       });
       // Google sign-in is an explicit active choice — always persist for 30 days on native.
-      const token = signToken({ id: user.id, name: user.name, email: user.email, avatar: user.avatar, provider: user.provider, tenantId: user.tenantId, role: user.role ?? "owner", activeBranchId: (user as any).activeBranchId ?? null }, true);
+      const token = signToken(
+        {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          provider: user.provider,
+          tenantId: user.tenantId,
+          role: user.role ?? "owner",
+          activeBranchId: (user as any).activeBranchId ?? null,
+        },
+        true,
+      );
       res.json({ token });
     } catch (err) {
       next(err);
@@ -892,11 +1069,28 @@ export function setupAuth(app: Express) {
       });
 
       if (!created) {
-        return res.status(409).json({ message: "Unable to create account. Please try signing in, or use a different email address." });
+        return res.status(409).json({
+          message:
+            "Unable to create account. Please try signing in, or use a different email address.",
+        });
       }
 
-      setAuthCookie(res, { id: created.id, name: created.name ?? null, email: created.email ?? null, avatar: created.avatar ?? null, provider: created.provider, tenantId: (created as any).tenantId ?? null, role: created.role ?? "owner", activeBranchId: (created as any).activeBranchId ?? null });
-      logAuthEvent({ userId: created.id, tenantId: (created as any).tenantId ?? null, action: "register", metadata: { provider: "email" } });
+      setAuthCookie(res, {
+        id: created.id,
+        name: created.name ?? null,
+        email: created.email ?? null,
+        avatar: created.avatar ?? null,
+        provider: created.provider,
+        tenantId: (created as any).tenantId ?? null,
+        role: created.role ?? "owner",
+        activeBranchId: (created as any).activeBranchId ?? null,
+      });
+      logAuthEvent({
+        userId: created.id,
+        tenantId: (created as any).tenantId ?? null,
+        action: "register",
+        metadata: { provider: "email" },
+      });
       res.status(201).json({
         ok: true,
         user: {
@@ -942,19 +1136,33 @@ export function setupAuth(app: Express) {
       }
 
       if (user.isBanned) {
-        return res.status(403).json({ banned: true, message: "This account has been suspended for violating our Terms of Service. If you believe this is a mistake, please contact support." });
+        return res.status(403).json({
+          banned: true,
+          message:
+            "This account has been suspended for violating our Terms of Service. If you believe this is a mistake, please contact support.",
+        });
       }
 
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
         recordFailedAttempt(ip);
-        logAuthEvent({ userId: user.id, tenantId: user.tenantId ?? null, action: "login_failed", metadata: { ip, reason: "invalid_password" } });
+        logAuthEvent({
+          userId: user.id,
+          tenantId: user.tenantId ?? null,
+          action: "login_failed",
+          metadata: { ip, reason: "invalid_password" },
+        });
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
       recordSuccessfulLogin(ip);
       setAuthCookie(res, user as any, rememberMe === true);
-      logAuthEvent({ userId: user.id, tenantId: user.tenantId ?? null, action: "login", metadata: { provider: "email", ip } });
+      logAuthEvent({
+        userId: user.id,
+        tenantId: user.tenantId ?? null,
+        action: "login",
+        metadata: { provider: "email", ip },
+      });
       res.json({
         ok: true,
         user: {
@@ -994,7 +1202,11 @@ export function setupAuth(app: Express) {
   // sliding session window. The old token is revoked so it cannot be reused.
   app.post("/api/auth/refresh", async (req, res, _next) => {
     let token = (req as any).cookies?.[AUTH_COOKIE];
-    if (!token && typeof req.headers.authorization === "string" && req.headers.authorization.startsWith("Bearer ")) {
+    if (
+      !token &&
+      typeof req.headers.authorization === "string" &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
       token = req.headers.authorization.slice(7);
     }
     if (!token) return res.status(401).json({ message: "No token provided" });
@@ -1042,11 +1254,8 @@ export function setupAuth(app: Express) {
       // Owners get the whole team; everyone else gets just themselves.
       let userIds: string[] = [uid];
       if (isOwnerWithTenant) {
-        const tenantUsers = await db
-          .select()
-          .from(users)
-          .where(eq(users.tenantId, tenantId!));
-        userIds = Array.from(new Set([uid, ...tenantUsers.map(u => u.id)]));
+        const tenantUsers = await db.select().from(users).where(eq(users.tenantId, tenantId!));
+        userIds = Array.from(new Set([uid, ...tenantUsers.map((u) => u.id)]));
       }
 
       // Strip secrets out of user rows before exporting.
@@ -1055,21 +1264,40 @@ export function setupAuth(app: Express) {
         return safe;
       };
 
-      const teamUsers = (
-        await db.select().from(users).where(inArray(users.id, userIds))
-      ).map(sanitizeUser);
+      const teamUsers = (await db.select().from(users).where(inArray(users.id, userIds))).map(
+        sanitizeUser,
+      );
 
       // Fan out queries in parallel — large stores have a lot of rows.
       const [
-        productsRows, productSizesRows, productModifiersRows,
-        ingredientsRows, productRecipesRows,
-        salesRows, refundsRows, pendingOrdersRows,
-        customersRows, expensesRows, shiftsRows, discountCodesRows,
-        suppliersRows, purchaseOrdersRows, purchaseOrderItemsRows,
-        tablesRows, serviceStaffRows, serviceRoomsRows, appointmentsRows,
-        membershipPlansRows, membershipsRows, membershipCheckInsRows,
-        timeLogsRows, payrollPeriodsRows, payrollEntriesRows,
-        userSettingsRows, wifiVouchersRows, userBranchesRows,
+        productsRows,
+        productSizesRows,
+        productModifiersRows,
+        ingredientsRows,
+        productRecipesRows,
+        salesRows,
+        refundsRows,
+        pendingOrdersRows,
+        customersRows,
+        expensesRows,
+        shiftsRows,
+        discountCodesRows,
+        suppliersRows,
+        purchaseOrdersRows,
+        purchaseOrderItemsRows,
+        tablesRows,
+        serviceStaffRows,
+        serviceRoomsRows,
+        appointmentsRows,
+        membershipPlansRows,
+        membershipsRows,
+        membershipCheckInsRows,
+        timeLogsRows,
+        payrollPeriodsRows,
+        payrollEntriesRows,
+        userSettingsRows,
+        wifiVouchersRows,
+        userBranchesRows,
       ] = await Promise.all([
         db.select().from(products).where(inArray(products.userId, userIds)),
         db.select().from(productSizes),
@@ -1103,32 +1331,39 @@ export function setupAuth(app: Express) {
 
       // Filter the "global" child tables down to just the rows that reference
       // entities we own — this avoids leaking other tenants' data.
-      const productIdSet = new Set(productsRows.map(p => p.id));
-      const ingredientIdSet = new Set(ingredientsRows.map(i => i.id));
-      const purchaseOrderIdSet = new Set(purchaseOrdersRows.map(po => po.id));
+      const productIdSet = new Set(productsRows.map((p) => p.id));
+      const ingredientIdSet = new Set(ingredientsRows.map((i) => i.id));
+      const purchaseOrderIdSet = new Set(purchaseOrdersRows.map((po) => po.id));
 
-      const filteredSizes = productSizesRows.filter(r => productIdSet.has(r.productId));
-      const filteredModifiers = productModifiersRows.filter(r => productIdSet.has(r.productId));
+      const filteredSizes = productSizesRows.filter((r) => productIdSet.has(r.productId));
+      const filteredModifiers = productModifiersRows.filter((r) => productIdSet.has(r.productId));
       const filteredRecipes = productRecipesRows.filter(
-        r => productIdSet.has(r.productId) && ingredientIdSet.has(r.ingredientId)
+        (r) => productIdSet.has(r.productId) && ingredientIdSet.has(r.ingredientId),
       );
-      const filteredPoItems = purchaseOrderItemsRows.filter(r =>
-        purchaseOrderIdSet.has(r.purchaseOrderId)
+      const filteredPoItems = purchaseOrderItemsRows.filter((r) =>
+        purchaseOrderIdSet.has(r.purchaseOrderId),
       );
 
       // Tenant-scoped tables (only for owners with a tenant).
       let tenantData: Record<string, any> = {};
       if (isOwnerWithTenant) {
         const [
-          tenantRow, branchesRows, rolePermissionsRows,
-          tenantSubscriptionsRows, subscriptionPaymentsRows,
-          aiMemoriesRows, auditLogsRows,
+          tenantRow,
+          branchesRows,
+          rolePermissionsRows,
+          tenantSubscriptionsRows,
+          subscriptionPaymentsRows,
+          aiMemoriesRows,
+          auditLogsRows,
         ] = await Promise.all([
           db.select().from(tenants).where(eq(tenants.id, tenantId!)),
           db.select().from(branches).where(eq(branches.tenantId, tenantId!)),
           db.select().from(rolePermissions).where(eq(rolePermissions.tenantId, tenantId!)),
           db.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId!)),
-          db.select().from(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId!)),
+          db
+            .select()
+            .from(subscriptionPayments)
+            .where(eq(subscriptionPayments.tenantId, tenantId!)),
           db.select().from(aiMemories).where(eq(aiMemories.tenantId, tenantId!)),
           db.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId!)),
         ]);
@@ -1188,12 +1423,13 @@ export function setupAuth(app: Express) {
         wifiVouchers: wifiVouchersRows,
       };
 
-      const safeName = (liveUser.email || liveUser.id)
-        .toString()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 40) || "account";
+      const safeName =
+        (liveUser.email || liveUser.id)
+          .toString()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 40) || "account";
       const stamp = new Date().toISOString().slice(0, 10);
       const filename = `artixpos-export-${safeName}-${stamp}.json`;
 
@@ -1235,7 +1471,7 @@ export function setupAuth(app: Express) {
           .from(users)
           .where(eq(users.tenantId, tenantId!));
         if (tenantUsers.length > 0) {
-          userIdsToWipe = Array.from(new Set([uid, ...tenantUsers.map(u => u.id)]));
+          userIdsToWipe = Array.from(new Set([uid, ...tenantUsers.map((u) => u.id)]));
         }
       }
 
@@ -1272,7 +1508,10 @@ export function setupAuth(app: Express) {
 
   app.get("/api/auth/me", async (req, res) => {
     if (req.isBanned) {
-      return res.status(403).json({ banned: true, message: "Your account has been suspended for violating our Terms of Service." });
+      return res.status(403).json({
+        banned: true,
+        message: "Your account has been suspended for violating our Terms of Service.",
+      });
     }
     if (!req.user) return res.status(401).json({ user: null });
     const u = req.user;
@@ -1301,13 +1540,16 @@ export function setupAuth(app: Express) {
           })
           .from(users)
           .where(eq(users.id, u.id))
-          .limit(1)
+          .limit(1),
       );
       if (dbUser) {
         if (dbUser.isBanned) {
-          return res.status(403).json({ banned: true, message: "Your account has been suspended for violating our Terms of Service." });
+          return res.status(403).json({
+            banned: true,
+            message: "Your account has been suspended for violating our Terms of Service.",
+          });
         }
-        liveRole     = (dbUser.role as string) ?? liveRole;
+        liveRole = (dbUser.role as string) ?? liveRole;
         liveTenantId = (dbUser.tenantId as string | null) ?? liveTenantId;
       }
     } catch (err) {
@@ -1319,7 +1561,12 @@ export function setupAuth(app: Express) {
     // can adapt navigation, terminology, and quick actions on a per-branch
     // basis (e.g. show "Tables" only on a cafe branch, "Bookings" only on a
     // salon branch). Falls back silently when the branch is missing.
-    let activeBranch: { id: number; name: string; businessType: string | null; businessSubType: string | null } | null = null;
+    let activeBranch: {
+      id: number;
+      name: string;
+      businessType: string | null;
+      businessSubType: string | null;
+    } | null = null;
     try {
       if (liveActiveBranchId && liveTenantId) {
         const { branches } = await import("@shared/schema");
@@ -1332,7 +1579,9 @@ export function setupAuth(app: Express) {
             businessSubType: branches.businessSubType,
           })
           .from(branches)
-          .where(and(eqLocal(branches.id, liveActiveBranchId), eqLocal(branches.tenantId, liveTenantId)))
+          .where(
+            and(eqLocal(branches.id, liveActiveBranchId), eqLocal(branches.tenantId, liveTenantId)),
+          )
           .limit(1);
         if (b) activeBranch = b;
       }
@@ -1352,7 +1601,7 @@ export function setupAuth(app: Express) {
         role: liveRole,
         activeBranchId: liveActiveBranchId,
         activeBranch,
-      }
+      },
     });
   });
 
@@ -1383,7 +1632,8 @@ export function setupAuth(app: Express) {
         const token = crypto.randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
-        await db.update(users)
+        await db
+          .update(users)
           .set({ resetToken: token, resetTokenExpires: expires } as any)
           .where(eq(users.id, user.id));
 
@@ -1393,7 +1643,9 @@ export function setupAuth(app: Express) {
         const sent = await sendPasswordResetEmail(user.email!, resetUrl);
 
         if (!sent) {
-          console.log(`[auth] Password reset requested for user ${user.id} — SMTP not configured, token not delivered.`);
+          console.log(
+            `[auth] Password reset requested for user ${user.id} — SMTP not configured, token not delivered.`,
+          );
         }
       }
 
@@ -1413,23 +1665,22 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Password must be at least 8 characters." });
       }
 
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.resetToken, token))
-        .limit(1);
+      const [user] = await db.select().from(users).where(eq(users.resetToken, token)).limit(1);
 
       if (!user || !user.resetTokenExpires) {
         return res.status(400).json({ message: "Invalid or expired reset link." });
       }
 
       if (new Date(user.resetTokenExpires) < new Date()) {
-        return res.status(400).json({ message: "Reset link has expired. Please request a new one." });
+        return res
+          .status(400)
+          .json({ message: "Reset link has expired. Please request a new one." });
       }
 
       const passwordHash = await hashPassword(password);
 
-      await db.update(users)
+      await db
+        .update(users)
         .set({ passwordHash, resetToken: null, resetTokenExpires: null } as any)
         .where(eq(users.id, user.id));
 

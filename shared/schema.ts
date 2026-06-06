@@ -24,20 +24,23 @@ export type OpeningHours = {
 export type PosFeatures = {
   setupComplete: boolean;
   // ── Free features ──────────────────────────────────────────────────────────
-  takeout: boolean;          // Takeout / to-go order type in POS
-  delivery: boolean;         // Delivery order type + address field
-  barcodeScanning: boolean;  // Scan barcodes to add items
-  receiptName: boolean;      // Name on receipt (Starbucks-style)
+  takeout: boolean; // Takeout / to-go order type in POS
+  delivery: boolean; // Delivery order type + address field
+  barcodeScanning: boolean; // Scan barcodes to add items
+  receiptName: boolean; // Name on receipt (Starbucks-style)
   customerAccounts: boolean; // Link sales to customer profiles
   // ── Pro features ───────────────────────────────────────────────────────────
-  tables: boolean;           // Table management & floor map
-  kitchenDisplay: boolean;   // Send orders to kitchen/bar screen
-  splitBill: boolean;        // Split bill across multiple guests
-  loyalty: boolean;          // Earn & redeem loyalty points
+  tables: boolean; // Table management & floor map
+  kitchenDisplay: boolean; // Send orders to kitchen/bar screen
+  splitBill: boolean; // Split bill across multiple guests
+  loyalty: boolean; // Earn & redeem loyalty points
 };
 
 export const PRO_POS_FEATURE_KEYS: (keyof PosFeatures)[] = [
-  "tables", "kitchenDisplay", "splitBill", "loyalty",
+  "tables",
+  "kitchenDisplay",
+  "splitBill",
+  "loyalty",
 ];
 
 export const DEFAULT_POS_FEATURES: PosFeatures = {
@@ -55,7 +58,9 @@ export const DEFAULT_POS_FEATURES: PosFeatures = {
 
 export const branches = pgTable("branches", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
   name: text("name").notNull(),
   address: text("address"),
   phone: text("phone"),
@@ -97,9 +102,9 @@ export const users = pgTable("users", {
   wageType: text("wage_type").default("none"), // none | hourly | monthly | commission
   wageRate: text("wage_rate").default("0"),
   commissionPercent: text("commission_percent").default("0"),
-  staffGroup: text("staff_group"),  // e.g. "Kitchen", "Floor", "Management"
+  staffGroup: text("staff_group"), // e.g. "Kitchen", "Floor", "Management"
   // PIN clock-in (staff only — owners/managers use full login)
-  staffPin: text("staff_pin"),           // scrypt-hashed 4-6 digit PIN
+  staffPin: text("staff_pin"), // scrypt-hashed 4-6 digit PIN
   pinLockedUntil: text("pin_locked_until"), // ISO timestamp — set after repeated failures
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -108,7 +113,9 @@ export const users = pgTable("users", {
 
 export const inviteTokens = pgTable("invite_tokens", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
   token: text("token").notNull().unique(),
   email: text("email"),
   role: text("role").default("cashier"), // owner | manager | admin | cashier | staff
@@ -117,7 +124,10 @@ export const inviteTokens = pgTable("invite_tokens", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({ id: true, createdAt: true });
+export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({
+  id: true,
+  createdAt: true,
+});
 export type InviteToken = typeof inviteTokens.$inferSelect;
 export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
 
@@ -125,8 +135,12 @@ export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
 
 export const userBranches = pgTable("user_branches", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
-  branchId: integer("branch_id").notNull().references(() => branches.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  branchId: integer("branch_id")
+    .notNull()
+    .references(() => branches.id),
 });
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
@@ -149,7 +163,9 @@ export const auditLogs = pgTable("audit_logs", {
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   price: text("price").notNull().default("0"),
@@ -191,7 +207,9 @@ export const productModifiers = pgTable("product_modifiers", {
 
 export const tables = pgTable("tables", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   seats: integer("seats").default(4),
@@ -204,7 +222,9 @@ export const tables = pgTable("tables", {
 
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   name: text("name").notNull(),
   contactPerson: text("contact_person"),
   phone: text("phone"),
@@ -219,7 +239,9 @@ export const suppliers = pgTable("suppliers", {
 
 export const purchaseOrders = pgTable("purchase_orders", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   status: text("status").notNull().default("pending"), // pending | received | cancelled
   paymentStatus: text("payment_status").notNull().default("unpaid"), // unpaid | partial | paid
@@ -233,7 +255,9 @@ export const purchaseOrders = pgTable("purchase_orders", {
 
 export const purchaseOrderItems = pgTable("purchase_order_items", {
   id: serial("id").primaryKey(),
-  purchaseOrderId: integer("purchase_order_id").notNull().references(() => purchaseOrders.id),
+  purchaseOrderId: integer("purchase_order_id")
+    .notNull()
+    .references(() => purchaseOrders.id),
   productId: integer("product_id").references(() => products.id),
   productName: text("product_name").notNull(),
   quantity: integer("quantity").notNull().default(1),
@@ -244,8 +268,12 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 // ─── Supplier Products (catalog of products each supplier carries) ─────────────
 export const supplierProducts = pgTable("supplier_products", {
   id: serial("id").primaryKey(),
-  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
-  productId: integer("product_id").notNull().references(() => products.id),
+  supplierId: integer("supplier_id")
+    .notNull()
+    .references(() => suppliers.id),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
   unitCost: text("unit_cost").notNull().default("0"),
   minOrderQty: integer("min_order_qty").notNull().default(1),
   leadDays: integer("lead_days"),
@@ -256,7 +284,9 @@ export const supplierProducts = pgTable("supplier_products", {
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   name: text("name").notNull(),
   phone: text("phone"),
   email: text("email"),
@@ -277,7 +307,9 @@ export const customers = pgTable("customers", {
 
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   category: text("category").notNull().default("General"),
   description: text("description").notNull(),
@@ -290,7 +322,9 @@ export const expenses = pgTable("expenses", {
 
 export const shifts = pgTable("shifts", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   status: text("status").notNull().default("open"), // open | closed
   openingBalance: text("opening_balance").notNull().default("0"),
@@ -314,7 +348,9 @@ export const shifts = pgTable("shifts", {
 
 export const discountCodes = pgTable("discount_codes", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   code: text("code").notNull(),
   type: text("type").notNull().default("percentage"), // percentage | fixed
   value: text("value").notNull(),
@@ -340,7 +376,9 @@ export const orSequences = pgTable("or_sequences", {
 
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   tenantId: text("tenant_id").references(() => tenants.id),
   branchId: integer("branch_id").references(() => branches.id),
   cashierId: text("cashier_id"), // user.id of cashier who rang up the sale (for commission/tips)
@@ -385,8 +423,12 @@ export const sales = pgTable("sales", {
 
 export const refunds = pgTable("refunds", {
   id: serial("id").primaryKey(),
-  saleId: integer("sale_id").notNull().references(() => sales.id),
-  userId: text("user_id").notNull().references(() => users.id),
+  saleId: integer("sale_id")
+    .notNull()
+    .references(() => sales.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   items: jsonb("items").$type<any[]>(),
   amount: text("amount").notNull(),
@@ -398,7 +440,9 @@ export const refunds = pgTable("refunds", {
 
 export const pendingOrders = pgTable("pending_orders", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   cashierId: text("cashier_id"),
   customerId: integer("customer_id").references(() => customers.id),
@@ -430,7 +474,10 @@ export const pendingOrders = pgTable("pending_orders", {
 
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id),
   storeName: text("store_name"),
   currency: text("currency"),
   taxRate: text("tax_rate"),
@@ -450,7 +497,8 @@ export const userSettings = pgTable("user_settings", {
   businessSubType: text("business_sub_type"),
   onboardingComplete: integer("onboarding_complete").default(0),
   tourSeen: integer("tour_seen").default(0),
-  paymentMethods: jsonb("payment_methods").$type<{ id: string; label: string; isCash: boolean }[]>(),
+  paymentMethods:
+    jsonb("payment_methods").$type<{ id: string; label: string; isCash: boolean }[]>(),
   monthlyRevenueGoal: text("monthly_revenue_goal"),
   receiptWidth: text("receipt_width").default("58mm"),
   receiptTitle: text("receipt_title").default("OFFICIAL RECEIPT"),
@@ -471,7 +519,13 @@ export const userSettings = pgTable("user_settings", {
   wifiPassword: text("wifi_password"),
   wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
   wifiAutoIssue: integer("wifi_auto_issue").default(0),
-  // MikroTik router integration
+  // Universal router integration (replaces old MikroTik-only fields)
+  // JSONB shape: { type, enabled, host, port, username, password, useSsl, ...vendorExtras }
+  routerConfig: jsonb("router_config"),
+
+  // ── Legacy MikroTik fields (DEPRECATED — migrated to router_config) ──────
+  // These columns are kept temporarily for the migration script.
+  // After migration is verified in production they should be dropped.
   mikrotikEnabled: integer("mikrotik_enabled").default(0),
   mikrotikHost: text("mikrotik_host"),
   mikrotikPort: text("mikrotik_port").default("80"),
@@ -494,7 +548,9 @@ export const userSettings = pgTable("user_settings", {
 
 export const serviceStaff = pgTable("service_staff", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   specialty: text("specialty"),
@@ -511,7 +567,9 @@ export const serviceStaff = pgTable("service_staff", {
 
 export const serviceRooms = pgTable("service_rooms", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   type: text("type").default("room"), // room | chair | station | court | lane
@@ -525,7 +583,9 @@ export const serviceRooms = pgTable("service_rooms", {
 
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   customerId: integer("customer_id").references(() => customers.id),
   staffId: integer("staff_id").references(() => serviceStaff.id),
@@ -549,7 +609,9 @@ export const appointments = pgTable("appointments", {
 
 export const membershipPlans = pgTable("membership_plans", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   name: text("name").notNull(),
   description: text("description"),
   price: text("price").notNull().default("0"),
@@ -566,8 +628,12 @@ export const membershipPlans = pgTable("membership_plans", {
 
 export const memberships = pgTable("memberships", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
-  customerId: integer("customer_id").notNull().references(() => customers.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id),
   planId: integer("plan_id").references(() => membershipPlans.id),
   planName: text("plan_name").notNull(),
   startDate: text("start_date").notNull(),
@@ -584,9 +650,15 @@ export const memberships = pgTable("memberships", {
 
 export const membershipCheckIns = pgTable("membership_check_ins", {
   id: serial("id").primaryKey(),
-  membershipId: integer("membership_id").notNull().references(() => memberships.id),
-  customerId: integer("customer_id").notNull().references(() => customers.id),
-  userId: text("user_id").notNull().references(() => users.id),
+  membershipId: integer("membership_id")
+    .notNull()
+    .references(() => memberships.id),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   notes: text("notes"),
   checkedInAt: text("checked_in_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -595,13 +667,15 @@ export const membershipCheckIns = pgTable("membership_check_ins", {
 
 export const timeLogs = pgTable("time_logs", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   clockIn: text("clock_in").notNull(),
   clockOut: text("clock_out"),
   notes: text("notes"),
   clockOutNotes: text("clock_out_notes"),
-  breakStart: text("break_start"),   // ISO timestamp when current break started
+  breakStart: text("break_start"), // ISO timestamp when current break started
   breakMinutes: integer("break_minutes").default(0), // total accumulated break minutes
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
@@ -611,7 +685,9 @@ export const timeLogs = pgTable("time_logs", {
 
 export const rolePermissions = pgTable("role_permissions", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
   role: text("role").notNull(), // manager | cashier
   maxDiscountPercent: integer("max_discount_percent").default(100),
   canRefund: boolean("can_refund").default(true),
@@ -626,7 +702,10 @@ export type RolePermission = typeof rolePermissions.$inferSelect;
 
 export const tenantSubscriptions = pgTable("tenant_subscriptions", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().unique().references(() => tenants.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .unique()
+    .references(() => tenants.id),
   plan: text("plan").notNull().default("free"), // free | pro
   billingCycle: text("billing_cycle"), // monthly | annual
   status: text("status").notNull().default("active"), // active | cancelled | expired
@@ -639,7 +718,9 @@ export const tenantSubscriptions = pgTable("tenant_subscriptions", {
 
 export const subscriptionPayments = pgTable("subscription_payments", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
   plan: text("plan").notNull(),
   billingCycle: text("billing_cycle").notNull(),
   amount: integer("amount").notNull(),
@@ -677,7 +758,9 @@ export type AiMemory = typeof aiMemories.$inferSelect;
 
 export const ingredients = pgTable("ingredients", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   unit: text("unit").notNull().default("pcs"), // g | ml | pcs | kg | l
@@ -693,8 +776,12 @@ export const ingredients = pgTable("ingredients", {
 
 export const productRecipes = pgTable("product_recipes", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").notNull().references(() => products.id),
-  ingredientId: integer("ingredient_id").notNull().references(() => ingredients.id),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
+  ingredientId: integer("ingredient_id")
+    .notNull()
+    .references(() => ingredients.id),
   quantity: text("quantity").notNull().default("0"), // amount of ingredient (in its unit) used per 1 product
 });
 
@@ -702,7 +789,9 @@ export const productRecipes = pgTable("product_recipes", {
 
 export const wifiVouchers = pgTable("wifi_vouchers", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   code: text("code").notNull(),
   durationMinutes: integer("duration_minutes").notNull().default(60),
@@ -720,7 +809,9 @@ export const wifiVouchers = pgTable("wifi_vouchers", {
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   type: text("type").notNull(), // "restock" | "low_stock"
   title: text("title").notNull(),
   message: text("message"),
@@ -735,8 +826,12 @@ export type Notification = typeof notifications.$inferSelect;
 
 export const stockLogs = pgTable("stock_logs", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").notNull().references(() => products.id),
-  userId: text("user_id").notNull().references(() => users.id),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   previousStock: integer("previous_stock").notNull(),
   newStock: integer("new_stock").notNull(),
   delta: integer("delta").notNull(),
@@ -751,7 +846,9 @@ export type StockLog = typeof stockLogs.$inferSelect;
 
 export const wasteLog = pgTable("waste_log", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   productId: integer("product_id").references(() => products.id),
   ingredientId: integer("ingredient_id").references(() => ingredients.id),
@@ -770,7 +867,9 @@ export type WasteLogEntry = typeof wasteLog.$inferSelect;
 
 export const stockTransfers = pgTable("stock_transfers", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   fromBranchId: integer("from_branch_id").references(() => branches.id),
   toBranchId: integer("to_branch_id").references(() => branches.id),
   status: text("status").notNull().default("pending"), // pending | in_transit | received | rejected
@@ -781,8 +880,12 @@ export const stockTransfers = pgTable("stock_transfers", {
 
 export const stockTransferItems = pgTable("stock_transfer_items", {
   id: serial("id").primaryKey(),
-  transferId: integer("transfer_id").notNull().references(() => stockTransfers.id),
-  productId: integer("product_id").notNull().references(() => products.id),
+  transferId: integer("transfer_id")
+    .notNull()
+    .references(() => stockTransfers.id),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
   productName: text("product_name").notNull(),
   quantity: integer("quantity").notNull().default(1),
   note: text("note"),
@@ -795,7 +898,9 @@ export type StockTransferItem = typeof stockTransferItems.$inferSelect;
 
 export const loyaltyTiers = pgTable("loyalty_tiers", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   name: text("name").notNull(), // e.g. "Bronze", "Silver"
   minLifetimePoints: integer("min_lifetime_points").notNull().default(0),
   multiplier: text("multiplier").notNull().default("1"), // point earning multiplier
@@ -811,7 +916,9 @@ export type LoyaltyTier = typeof loyaltyTiers.$inferSelect;
 
 export const loyaltyRewards = pgTable("loyalty_rewards", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull().default("discount_fixed"),
@@ -834,8 +941,12 @@ export type LoyaltyReward = typeof loyaltyRewards.$inferSelect;
 
 export const loyaltyPointsLog = pgTable("loyalty_points_log", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
-  customerId: integer("customer_id").notNull().references(() => customers.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id),
   delta: integer("delta").notNull(), // positive = earn, negative = spend
   balance: integer("balance").notNull().default(0), // points balance after this change
   reason: text("reason").notNull().default("purchase"),
@@ -853,8 +964,12 @@ export type LoyaltyPointsLog = typeof loyaltyPointsLog.$inferSelect;
 
 export const payrollPeriods = pgTable("payroll_periods", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
-  userId: text("user_id").notNull().references(() => users.id), // owner who created it
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id), // owner who created it
   name: text("name").notNull(),
   startDate: text("start_date").notNull(),
   endDate: text("end_date").notNull(),
@@ -873,8 +988,12 @@ export const payrollPeriods = pgTable("payroll_periods", {
 
 export const payrollEntries = pgTable("payroll_entries", {
   id: serial("id").primaryKey(),
-  periodId: integer("period_id").notNull().references(() => payrollPeriods.id),
-  employeeUserId: text("employee_user_id").notNull().references(() => users.id),
+  periodId: integer("period_id")
+    .notNull()
+    .references(() => payrollPeriods.id),
+  employeeUserId: text("employee_user_id")
+    .notNull()
+    .references(() => users.id),
   employeeName: text("employee_name").notNull(),
   wageType: text("wage_type").notNull().default("hourly"),
   wageRate: text("wage_rate").notNull().default("0"),
@@ -896,7 +1015,9 @@ export type WifiVoucher = typeof wifiVouchers.$inferSelect;
 
 export const payrollAuditLog = pgTable("payroll_audit_log", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
   action: text("action").notNull(), // "quick_pay" | "mark_paid" | "finalize" | "delete"
   periodId: integer("period_id"),
   periodName: text("period_name").notNull(),
@@ -953,8 +1074,14 @@ export const insertProductSchema = z.object({
   lowStockThreshold: z.number().optional().nullable(),
   hasSizes: z.boolean().optional().nullable(),
   hasModifiers: z.boolean().optional().nullable(),
-  sizes: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
-  modifiers: z.array(z.object({ name: z.string(), price: z.string() })).optional().nullable(),
+  sizes: z
+    .array(z.object({ name: z.string(), price: z.string() }))
+    .optional()
+    .nullable(),
+  modifiers: z
+    .array(z.object({ name: z.string(), price: z.string() }))
+    .optional()
+    .nullable(),
   branchId: z.number().optional().nullable(),
   expiryDate: z.string().optional().nullable(),
   batchNumber: z.string().optional().nullable(),
@@ -1056,7 +1183,10 @@ export const insertUserSettingSchema = z.object({
   businessSubType: z.string().optional().nullable(),
   onboardingComplete: z.number().optional(),
   tourSeen: z.number().optional(),
-  paymentMethods: z.array(z.object({ id: z.string(), label: z.string(), isCash: z.boolean() })).optional().nullable(),
+  paymentMethods: z
+    .array(z.object({ id: z.string(), label: z.string(), isCash: z.boolean() }))
+    .optional()
+    .nullable(),
   monthlyRevenueGoal: z.string().optional().nullable(),
   receiptWidth: z.string().optional().nullable(),
   receiptTitle: z.string().optional().nullable(),
@@ -1082,20 +1212,24 @@ export const insertUserSettingSchema = z.object({
   mikrotikUser: z.string().optional().nullable(),
   mikrotikPassword: z.string().optional().nullable(),
   mikrotikHotspotProfile: z.string().optional().nullable(),
+  routerConfig: z.any().optional().nullable(),
   mikrotikUseSsl: z.number().optional().nullable(),
   country: z.string().optional().nullable(),
-  posFeatures: z.object({
-    setupComplete: z.boolean(),
-    takeout: z.boolean(),
-    delivery: z.boolean(),
-    barcodeScanning: z.boolean(),
-    receiptName: z.boolean(),
-    customerAccounts: z.boolean(),
-    tables: z.boolean(),
-    kitchenDisplay: z.boolean(),
-    splitBill: z.boolean(),
-    loyalty: z.boolean(),
-  }).optional().nullable(),
+  posFeatures: z
+    .object({
+      setupComplete: z.boolean(),
+      takeout: z.boolean(),
+      delivery: z.boolean(),
+      barcodeScanning: z.boolean(),
+      receiptName: z.boolean(),
+      customerAccounts: z.boolean(),
+      tables: z.boolean(),
+      kitchenDisplay: z.boolean(),
+      splitBill: z.boolean(),
+      loyalty: z.boolean(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export const insertDiscountCodeSchema = z.object({
@@ -1131,13 +1265,17 @@ export const insertPurchaseOrderSchema = z.object({
   paymentStatus: z.string().optional(),
   notes: z.string().optional().nullable(),
   expectedDeliveryAt: z.string().optional().nullable(),
-  items: z.array(z.object({
-    productId: z.number().optional().nullable(),
-    productName: z.string(),
-    quantity: z.number(),
-    unitCost: z.string(),
-    totalCost: z.string(),
-  })).optional(),
+  items: z
+    .array(
+      z.object({
+        productId: z.number().optional().nullable(),
+        productName: z.string(),
+        quantity: z.number(),
+        unitCost: z.string(),
+        totalCost: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const insertSupplierProductSchema = z.object({
@@ -1326,10 +1464,12 @@ export const insertIngredientSchema = z.object({
 
 export const upsertProductRecipeSchema = z.object({
   productId: z.number(),
-  items: z.array(z.object({
-    ingredientId: z.number(),
-    quantity: z.string(),
-  })),
+  items: z.array(
+    z.object({
+      ingredientId: z.number(),
+      quantity: z.string(),
+    }),
+  ),
 });
 
 export const insertWifiVoucherSchema = z.object({
@@ -1416,7 +1556,9 @@ export type RevokedToken = typeof revokedTokens.$inferSelect;
 
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   endpoint: text("endpoint").notNull(),
   p256dh: text("p256dh").notNull(),
   auth: text("auth").notNull(),

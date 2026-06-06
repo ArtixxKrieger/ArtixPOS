@@ -29,7 +29,7 @@ import { pool } from "./db";
 import { startCleanupScheduler } from "./cleanup";
 import { ensurePartitions } from "./partition-manager";
 import { storage } from "./storage";
-import { removeHotspotUser, type MikrotikConfig } from "./mikrotik";
+import { getAdapter, parseRouterConfig } from "./routers/factory";
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,8 +39,8 @@ const httpServer = createServer(app);
 // uses 75 s) so the LB never closes a connection that the server still holds.
 // headersTimeout > keepAliveTimeout to avoid a race condition in Node ≥ 18
 // where the headers parser gives up before keep-alive finishes.
-httpServer.keepAliveTimeout = 90_000;   // 90 s
-httpServer.headersTimeout    = 95_000;  // must be > keepAliveTimeout
+httpServer.keepAliveTimeout = 90_000; // 90 s
+httpServer.headersTimeout = 95_000; // must be > keepAliveTimeout
 // Hard ceiling on how long any single request can take end-to-end.
 // AI streaming routes override this per-response as needed.
 httpServer.timeout = parseInt(process.env.SERVER_TIMEOUT_MS ?? "120000", 10);
@@ -59,7 +59,13 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 //   Production  — compiled bundles use only hashed file URLs; inline scripts and eval are
 //                 NOT needed and would be an XSS vector, so both are omitted.
 const scriptSrc: string[] = isDevelopment
-  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
+  ? [
+      "'self'",
+      "'unsafe-inline'",
+      "'unsafe-eval'",
+      "https://accounts.google.com",
+      "https://*.google.com",
+    ]
   : ["'self'", "https://accounts.google.com", "https://*.google.com"];
 
 const cspDirectives = {
@@ -73,12 +79,32 @@ const cspDirectives = {
   // Restrict images: blob/data for local POS images; restrict arbitrary https in production.
   imgSrc: isDevelopment
     ? ["'self'", "data:", "https:", "blob:"]
-    : ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com", "https://graph.facebook.com"],
+    : [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://lh3.googleusercontent.com",
+        "https://graph.facebook.com",
+      ],
   // Production connect-src explicitly enumerates every allowed external
   // endpoint. Sentry DSN is included so error reports are not blocked.
   connectSrc: isDevelopment
-    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io"]
-    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io"],
+    ? [
+        "'self'",
+        "ws:",
+        "wss:",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com",
+        "https://*.sentry.io",
+        "https://*.ingest.sentry.io",
+      ]
+    : [
+        "'self'",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com",
+        "https://*.sentry.io",
+        "https://*.ingest.sentry.io",
+      ],
   frameSrc: ["https://accounts.google.com"],
   frameAncestors: isDevelopment
     ? ["'self'", "https://replit.com", "https://*.replit.com"]
@@ -105,7 +131,7 @@ app.use(
     },
     crossOriginEmbedderPolicy: false,
     frameguard: isDevelopment ? false : { action: "sameorigin" },
-  })
+  }),
 );
 
 // ── Security headers beyond Helmet defaults ───────────────────────────────
@@ -170,7 +196,11 @@ app.get("/api/health", async (req, res) => {
       await redisClient.ping();
       redis = { status: "ok", latencyMs: t() - redisStart };
     } catch (err: any) {
-      redis = { status: "error", latencyMs: t() - redisStart, error: err?.message ?? "unreachable" };
+      redis = {
+        status: "error",
+        latencyMs: t() - redisStart,
+        error: err?.message ?? "unreachable",
+      };
     }
   }
 
@@ -178,7 +208,7 @@ app.get("/api/health", async (req, res) => {
   // "ok"       — all configured services healthy
   // "degraded" — Redis down but DB ok (app still works, cache misses to DB)
   // "down"     — database unreachable (critical, app non-functional)
-  const dbOk    = supabase.status === "ok";
+  const dbOk = supabase.status === "ok";
   const redisOk = redis.status === "ok" || redis.status === "not_configured";
   const overall = !dbOk ? "down" : !redisOk ? "degraded" : "ok";
 
@@ -186,10 +216,8 @@ app.get("/api/health", async (req, res) => {
   // This prevents leaking service names, latency data, and error messages to
   // unauthenticated scanners / attackers while still serving uptime monitors.
   const metricsToken = process.env.METRICS_TOKEN;
-  const authHeader   = req.headers.authorization ?? "";
-  const isAuthed     = metricsToken
-    ? authHeader === `Bearer ${metricsToken}`
-    : false;
+  const authHeader = req.headers.authorization ?? "";
+  const isAuthed = metricsToken ? authHeader === `Bearer ${metricsToken}` : false;
 
   res.setHeader("Cache-Control", "no-store");
 
@@ -214,9 +242,7 @@ app.get("/api/geo", (req, res) => {
     (req.headers["cf-ipcountry"] as string) ||
     (req.headers["x-country-code"] as string) ||
     null;
-  const clean = country && /^[A-Z]{2}$/.test(country.toUpperCase())
-    ? country.toUpperCase()
-    : null;
+  const clean = country && /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : null;
   res.setHeader("Cache-Control", "no-store");
   res.json({ countryCode: clean });
 });
@@ -229,7 +255,9 @@ app.get("/api/geo", (req, res) => {
 app.get("/api/metrics", (req, res) => {
   const token = process.env.METRICS_TOKEN;
   if (!token) {
-    return res.status(403).json({ message: "Metrics endpoint is disabled. Set METRICS_TOKEN to enable." });
+    return res
+      .status(403)
+      .json({ message: "Metrics endpoint is disabled. Set METRICS_TOKEN to enable." });
   }
   const auth = req.headers.authorization ?? "";
   if (auth !== `Bearer ${token}`) {
@@ -285,9 +313,7 @@ function makeRedisRateLimiter(
       res.setHeader("X-RateLimit-Remaining", remaining);
       res.setHeader("X-RateLimit-Reset", reset);
       if (!success) {
-        return res
-          .status(429)
-          .json({ message: "Too many requests, please try again later." });
+        return res.status(429).json({ message: "Too many requests, please try again later." });
       }
       next();
     } catch {
@@ -298,7 +324,7 @@ function makeRedisRateLimiter(
 }
 
 const authLimiter = makeRedisRateLimiter(getAuthRatelimit, authLimiterFallback);
-const apiLimiter  = makeRedisRateLimiter(getApiRatelimit,  apiLimiterFallback);
+const apiLimiter = makeRedisRateLimiter(getApiRatelimit, apiLimiterFallback);
 
 // OAuth callback routes are exempt — they're already protected by HMAC state
 // verification and must not be blocked mid-flow when users retry sign-in.
@@ -309,7 +335,7 @@ app.use("/auth", (req, res, next) => {
   return authLimiter(req, res, next);
 });
 app.use("/api/auth", authLimiter);
-app.use("/api",      apiLimiter);
+app.use("/api", apiLimiter);
 
 // ── CORS for native (Capacitor) clients ──────────────────────────────────────
 // Web clients hit the same origin so they never trigger CORS.
@@ -326,8 +352,7 @@ const NATIVE_ORIGINS = [
 app.use((req, res, next) => {
   const origin = req.headers.origin ?? "";
   const isNativeOrigin =
-    NATIVE_ORIGINS.includes(origin) ||
-    /^http:\/\/localhost(:\d+)?$/.test(origin);
+    NATIVE_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
 
   if (isNativeOrigin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -366,7 +391,7 @@ app.use(csrfCookieMiddleware);
 // upstream proxies (Replit, Vercel, load balancers) are preserved.
 app.use((req: Request, res: Response, next: NextFunction) => {
   const existing = req.headers["x-request-id"];
-  const id = Array.isArray(existing) ? existing[0] : existing ?? randomUUID();
+  const id = Array.isArray(existing) ? existing[0] : (existing ?? randomUUID());
   req.requestId = id;
   res.setHeader("X-Request-ID", id);
   next();
@@ -425,17 +450,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     if (path.startsWith("/api") || path.startsWith("/auth")) {
       recordRequest(duration, res.statusCode);
       const rid = req.requestId?.slice(0, 8);
-      logger.info({
-        source: "express",
-        method: req.method,
-        path,
-        status: res.statusCode,
-        duration,
-        requestId: rid,
-        ...(capturedJsonResponse && res.statusCode >= 400
-          ? { response: JSON.stringify(capturedJsonResponse).slice(0, 300) }
-          : {}),
-      }, `${req.method} ${path} ${res.statusCode} in ${duration}ms`);
+      logger.info(
+        {
+          source: "express",
+          method: req.method,
+          path,
+          status: res.statusCode,
+          duration,
+          requestId: rid,
+          ...(capturedJsonResponse && res.statusCode >= 400
+            ? { response: JSON.stringify(capturedJsonResponse).slice(0, 300) }
+            : {}),
+        },
+        `${req.method} ${path} ${res.statusCode} in ${duration}ms`,
+      );
     }
   });
 
@@ -514,9 +542,7 @@ async function _doInit() {
     setupSwagger(app);
 
     // Start Ollama in background (non-blocking — doesn't delay server start)
-    initOllama().catch((err) =>
-      console.warn("[ai-router][ollama] init error:", err.message)
-    );
+    initOllama().catch((err) => console.warn("[ai-router][ollama] init error:", err.message));
 
     await applySentryErrorHandler(app);
 
@@ -634,7 +660,7 @@ if (process.env.VERCEL !== "1") {
 
   // ── Periodic WiFi voucher expiry ─────────────────────────────────────────────
   // Marks overdue "active" vouchers as "expired" every 5 minutes and removes the
-  // corresponding hotspot users from connected MikroTik routers.
+  // corresponding hotspot users from the connected router (multi-vendor).
   setInterval(async () => {
     try {
       const expired = await storage.expireOverdueVouchers();
@@ -643,17 +669,17 @@ if (process.env.VERCEL !== "1") {
       for (const v of expired) (byUser[v.userId] ??= []).push(v);
       for (const [userId, vouchers] of Object.entries(byUser)) {
         const settings = await storage.getSettings(userId);
-        if (!settings?.mikrotikEnabled || !(settings as any).mikrotikHost) continue;
-        const cfg: MikrotikConfig = {
-          host: (settings as any).mikrotikHost,
-          port: (settings as any).mikrotikPort || "80",
-          user: (settings as any).mikrotikUser || "admin",
-          password: (settings as any).mikrotikPassword || "",
-          hotspotProfile: (settings as any).mikrotikHotspotProfile || "default",
-          useSsl: !!(settings as any).mikrotikUseSsl,
-        };
-        for (const v of vouchers) {
-          if (v.mikrotikUserId) removeHotspotUser(cfg, v.mikrotikUserId).catch(() => {});
+        const routerConfig = parseRouterConfig(settings?.routerConfig);
+        if (!routerConfig || !routerConfig.enabled || !routerConfig.host) continue;
+        try {
+          const adapter = await getAdapter(routerConfig.type);
+          for (const v of vouchers) {
+            if (v.mikrotikUserId) {
+              adapter.removeUser(routerConfig, v.mikrotikUserId).catch(() => {});
+            }
+          }
+        } catch {
+          // Adapter not loaded or router unreachable — skip this user's batch
         }
       }
       console.log(`[voucher-expiry] expired=${expired.length}`);
@@ -670,7 +696,7 @@ if (process.env.VERCEL !== "1") {
     const mb = (n: number) => Math.round(n / 1_048_576);
     console.log(
       `[health] heap ${mb(h.heapUsed)}/${mb(h.heapTotal)}MB  rss=${mb(h.rss)}MB  ` +
-      `cache=${cache.size()} entries`
+        `cache=${cache.size()} entries`,
     );
   }, 60_000).unref();
 }

@@ -14,6 +14,7 @@ import { getBusinessFeatures, type BusinessTerminology } from "@/lib/business-fe
 export function useBranchBusiness(): {
   businessType: string | null;
   businessSubType: string | null;
+  showBarcode: boolean;
 } {
   const { user } = useAuth();
   const { data: settings } = useSettings();
@@ -21,15 +22,15 @@ export function useBranchBusiness(): {
   const branchType = user?.activeBranch?.businessType ?? null;
   const branchSub = user?.activeBranch?.businessSubType ?? null;
 
-  if (branchType) {
-    return { businessType: branchType, businessSubType: branchSub };
-  }
+  const effectiveType = branchType ?? (settings as any)?.businessType ?? null;
+  const effectiveSub = branchSub ?? (settings as any)?.businessSubType ?? null;
 
-  type SettingsShape = { businessType?: string | null; businessSubType?: string | null };
-  const s = settings as SettingsShape | null | undefined;
+  const features = getBusinessFeatures(effectiveType, effectiveSub);
+
   return {
-    businessType: s?.businessType ?? null,
-    businessSubType: s?.businessSubType ?? null,
+    businessType: effectiveType,
+    businessSubType: effectiveSub,
+    showBarcode: features.showBarcode,
   };
 }
 

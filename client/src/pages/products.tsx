@@ -1,63 +1,131 @@
 import { useState, useRef, useEffect } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
+import {
+  useProducts,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+} from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness, useBusinessTerminology } from "@/hooks/use-branch-business";
 import { formatCurrency } from "@/lib/format";
 import { type InsertProduct, type Product, type StockLog } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit2, Trash2, Search, Package, X, AlertTriangle, Boxes, Check, History, TrendingUp, TrendingDown, Download, Upload, FileText, AlertCircle, CheckCircle2, CalendarClock, Pill, FlaskConical, ScanBarcode, Camera } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
+  Package,
+  X,
+  AlertTriangle,
+  Boxes,
+  Check,
+  History,
+  TrendingUp,
+  TrendingDown,
+  Download,
+  Upload,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  CalendarClock,
+  Pill,
+  FlaskConical,
+  ScanBarcode,
+  Camera,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CameraScannerModal } from "@/components/camera-scanner-modal";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
 
-interface SizeItem { name: string; price: string; }
-
-interface CsvRow {
-  name: string; category?: string; price?: string; sku?: string; barcode?: string;
-  taxRate?: string; trackStock?: boolean; stock?: number; lowStockThreshold?: number;
+interface SizeItem {
+  name: string;
+  price: string;
 }
 
-interface ImportResult { created: number; updated: number; errors: number; errorList: string[]; }
+interface CsvRow {
+  name: string;
+  category?: string;
+  price?: string;
+  sku?: string;
+  barcode?: string;
+  taxRate?: string;
+  trackStock?: boolean;
+  stock?: number;
+  lowStockThreshold?: number;
+}
+
+interface ImportResult {
+  created: number;
+  updated: number;
+  errors: number;
+  errorList: string[];
+}
 
 function parseCsv(text: string): CsvRow[] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
   if (lines.length < 2) return [];
   const parseRow = (line: string): string[] => {
     const cells: string[] = [];
-    let cur = "", inQ = false;
+    let cur = "",
+      inQ = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') {
-        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQ = !inQ;
-      } else if (ch === "," && !inQ) { cells.push(cur); cur = ""; }
-      else cur += ch;
+        if (inQ && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQ = !inQ;
+      } else if (ch === "," && !inQ) {
+        cells.push(cur);
+        cur = "";
+      } else cur += ch;
     }
     cells.push(cur);
     return cells;
   };
-  const headers = parseRow(lines[0]).map(h => h.trim().toLowerCase());
-  return lines.slice(1).map(line => {
-    const vals = parseRow(line);
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => { obj[h] = (vals[i] ?? "").trim(); });
-    const row: CsvRow = { name: obj.name || "" };
-    if (obj.category) row.category = obj.category;
-    if (obj.price) row.price = obj.price;
-    if (obj.sku) row.sku = obj.sku;
-    if (obj.barcode) row.barcode = obj.barcode;
-    if (obj.taxrate) row.taxRate = obj.taxrate;
-    row.trackStock = obj.trackstock === "true" || obj.trackstock === "1" || obj.trackstock === "yes";
-    if (obj.stock !== "") row.stock = parseInt(obj.stock) || 0;
-    if (obj.lowstockthreshold !== "") row.lowStockThreshold = parseInt(obj.lowstockthreshold) || 5;
-    return row;
-  }).filter(r => r.name);
+  const headers = parseRow(lines[0]).map((h) => h.trim().toLowerCase());
+  return lines
+    .slice(1)
+    .map((line) => {
+      const vals = parseRow(line);
+      const obj: Record<string, string> = {};
+      headers.forEach((h, i) => {
+        obj[h] = (vals[i] ?? "").trim();
+      });
+      const row: CsvRow = { name: obj.name || "" };
+      if (obj.category) row.category = obj.category;
+      if (obj.price) row.price = obj.price;
+      if (obj.sku) row.sku = obj.sku;
+      if (obj.barcode) row.barcode = obj.barcode;
+      if (obj.taxrate) row.taxRate = obj.taxrate;
+      row.trackStock =
+        obj.trackstock === "true" || obj.trackstock === "1" || obj.trackstock === "yes";
+      if (obj.stock !== "") row.stock = parseInt(obj.stock) || 0;
+      if (obj.lowstockthreshold !== "")
+        row.lowStockThreshold = parseInt(obj.lowstockthreshold) || 5;
+      return row;
+    })
+    .filter((r) => r.name);
 }
 
 interface ProductFormData {
@@ -77,7 +145,9 @@ interface ProductFormData {
   genericName: string;
 }
 
-function getExpiryStatus(expiryDate: string | null | undefined): { label: string; color: string; days: number } | null {
+function getExpiryStatus(
+  expiryDate: string | null | undefined,
+): { label: string; color: string; days: number } | null {
   if (!expiryDate) return null;
   try {
     const parsed = parseISO(expiryDate);
@@ -102,8 +172,13 @@ export default function Products() {
   const { toast } = useToast();
 
   const { productPlural } = useBusinessTerminology();
+  const { businessType, showBarcode: showInven } = useBranchBusiness();
   const isPharmacy = businessSubType === "pharmacy" || businessSubType === "drugstore";
-  const isPerishable = isPharmacy || businessSubType === "perishable_goods" || businessSubType === "grocery" || businessSubType === "grocery_enhanced";
+  const isPerishable =
+    isPharmacy ||
+    businessSubType === "perishable_goods" ||
+    businessSubType === "grocery" ||
+    businessSubType === "grocery_enhanced";
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
@@ -122,15 +197,32 @@ export default function Products() {
 
   // Handle a barcode scanned from the camera on the catalog page
   const handleCatalogScan = (barcode: string) => {
-    const match = products.find(p => p.barcode === barcode);
+    const match = products.find((p) => p.barcode === barcode);
     if (match) {
       openEdit(match);
     } else {
       // Open create dialog with barcode pre-filled
       setEditingId(null);
-      form.reset({ name: "", price: "", category: "General", sku: "", barcode, taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [], expiryDate: "", batchNumber: "", requiresPrescription: false, genericName: "" });
+      form.reset({
+        name: "",
+        price: "",
+        category: "General",
+        sku: "",
+        barcode,
+        taxRate: "",
+        trackStock: false,
+        stock: null,
+        lowStockThreshold: null,
+        sizes: [],
+        expiryDate: "",
+        batchNumber: "",
+        requiresPrescription: false,
+        genericName: "",
+      });
       setIsDialogOpen(true);
-      toast({ title: `Barcode ${barcode} not found — fill in the details to create a new product` });
+      toast({
+        title: `Barcode ${barcode} not found — fill in the details to create a new product`,
+      });
     }
   };
 
@@ -186,7 +278,9 @@ export default function Products() {
     queryKey: ["/api/products", stockHistoryProduct?.id, "stock-logs"],
     queryFn: async () => {
       if (!stockHistoryProduct) return [];
-      const res = await fetch(`/api/products/${stockHistoryProduct.id}/stock-logs`, { credentials: "include" });
+      const res = await fetch(`/api/products/${stockHistoryProduct.id}/stock-logs`, {
+        credentials: "include",
+      });
       if (!res.ok) return [];
       return res.json();
     },
@@ -203,18 +297,39 @@ export default function Products() {
     setPendingDeleteId(null);
     deleteProduct.mutate(id, {
       onSuccess: () => toast({ title: "Product deleted" }),
-      onError: (err) => toast({ title: "Failed to delete", description: err.message, variant: "destructive" }),
+      onError: (err) =>
+        toast({ title: "Failed to delete", description: err.message, variant: "destructive" }),
     });
   };
 
   const currency = settings?.currency || "₱";
 
   const form = useForm<ProductFormData>({
-    defaultValues: { name: "", price: "", category: "General", sku: "", barcode: "", taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [], expiryDate: "", batchNumber: "", requiresPrescription: false, genericName: "" }
+    defaultValues: {
+      name: "",
+      price: "",
+      category: "General",
+      sku: "",
+      barcode: "",
+      taxRate: "",
+      trackStock: false,
+      stock: null,
+      lowStockThreshold: null,
+      sizes: [],
+      expiryDate: "",
+      batchNumber: "",
+      requiresPrescription: false,
+      genericName: "",
+    },
   });
 
-  const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({
-    control: form.control, name: "sizes"
+  const {
+    fields: sizeFields,
+    append: appendSize,
+    remove: removeSize,
+  } = useFieldArray({
+    control: form.control,
+    name: "sizes",
   });
 
   const [scanningBarcode, setScanningBarcode] = useState(false);
@@ -234,10 +349,24 @@ export default function Products() {
       if (isTerminator) {
         if (buf.length >= 4) {
           let s = buf;
-          for (const pfx of ["]C1","]C0","]E0","]E2","]Q1","]A0","]I1","]d1","]G0","]F1"]) {
-            if (s.startsWith(pfx)) { s = s.slice(pfx.length); break; }
+          for (const pfx of [
+            "]C1",
+            "]C0",
+            "]E0",
+            "]E2",
+            "]Q1",
+            "]A0",
+            "]I1",
+            "]d1",
+            "]G0",
+            "]F1",
+          ]) {
+            if (s.startsWith(pfx)) {
+              s = s.slice(pfx.length);
+              break;
+            }
           }
-          // eslint-disable-next-line no-control-regex
+
           s = s.replace(/[\x00-\x1F\x7F]/g, "").trim();
           if (s.length >= 4) {
             form.setValue("barcode", s, { shouldDirty: true });
@@ -246,10 +375,15 @@ export default function Products() {
             e.preventDefault();
           }
         }
-        buf = ""; lastAt = 0;
+        buf = "";
+        lastAt = 0;
         return;
       }
-      if (e.key === "Escape") { setScanningBarcode(false); buf = ""; return; }
+      if (e.key === "Escape") {
+        setScanningBarcode(false);
+        buf = "";
+        return;
+      }
       if (e.key.length !== 1) return;
       if (gap > 100 && buf.length > 0) buf = "";
       buf += e.key;
@@ -265,17 +399,25 @@ export default function Products() {
     };
   }, [scanningBarcode, isDialogOpen, form]);
 
-  const filtered = products.filter(p =>
-    p.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ?? false
+  const filtered = products.filter(
+    (p) => p.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ?? false,
   );
 
   const onSubmit = (data: ProductFormData) => {
     if (!data.name?.trim()) {
-      toast({ title: "Name required", description: "Please enter a product name.", variant: "destructive" });
+      toast({
+        title: "Name required",
+        description: "Please enter a product name.",
+        variant: "destructive",
+      });
       return;
     }
     if (!data.price?.toString().trim() || isNaN(parseFloat(data.price.toString()))) {
-      toast({ title: "Valid price required", description: "Please enter a valid price (e.g. 0.00).", variant: "destructive" });
+      toast({
+        title: "Valid price required",
+        description: "Please enter a valid price (e.g. 0.00).",
+        variant: "destructive",
+      });
       return;
     }
     const payload: InsertProduct = {
@@ -298,17 +440,20 @@ export default function Products() {
       genericName: data.genericName || null,
     };
     if (editingId) {
-      updateProduct.mutate({ id: editingId, ...payload }, {
-        onSuccess: () => {
-          setIsDialogOpen(false);
-          setEditingId(null);
-          form.reset();
-          toast({ title: "Product updated" });
+      updateProduct.mutate(
+        { id: editingId, ...payload },
+        {
+          onSuccess: () => {
+            setIsDialogOpen(false);
+            setEditingId(null);
+            form.reset();
+            toast({ title: "Product updated" });
+          },
+          onError: (err) => {
+            toast({ title: "Failed to update", description: err.message, variant: "destructive" });
+          },
         },
-        onError: (err) => {
-          toast({ title: "Failed to update", description: err.message, variant: "destructive" });
-        }
-      });
+      );
     } else {
       createProduct.mutate(payload, {
         onSuccess: () => {
@@ -317,8 +462,12 @@ export default function Products() {
           toast({ title: "Product added" });
         },
         onError: (err) => {
-          toast({ title: "Failed to add product", description: err.message, variant: "destructive" });
-        }
+          toast({
+            title: "Failed to add product",
+            description: err.message,
+            variant: "destructive",
+          });
+        },
       });
     }
   };
@@ -346,18 +495,36 @@ export default function Products() {
 
   const openCreate = () => {
     setEditingId(null);
-    form.reset({ name: "", price: "", category: "General", sku: "", barcode: "", taxRate: "", trackStock: false, stock: null, lowStockThreshold: null, sizes: [], expiryDate: "", batchNumber: "", requiresPrescription: false, genericName: "" });
+    form.reset({
+      name: "",
+      price: "",
+      category: "General",
+      sku: "",
+      barcode: "",
+      taxRate: "",
+      trackStock: false,
+      stock: null,
+      lowStockThreshold: null,
+      sizes: [],
+      expiryDate: "",
+      batchNumber: "",
+      requiresPrescription: false,
+      genericName: "",
+    });
     setIsDialogOpen(true);
   };
 
   return (
     <div className="space-y-4 page-enter">
-
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl font-black tracking-tight">{productPlural}</h2>
           <p className="text-xs text-muted-foreground font-medium mt-0.5">
-            {products.length} {products.length !== 1 ? productPlural.toLowerCase() : productPlural.toLowerCase().replace(/s$/, "")} in catalog
+            {products.length}{" "}
+            {products.length !== 1
+              ? productPlural.toLowerCase()
+              : productPlural.toLowerCase().replace(/s$/, "")}{" "}
+            in catalog
           </p>
         </div>
 
@@ -403,7 +570,10 @@ export default function Products() {
           </button>
 
           <button
-            onClick={() => { resetImport(); setImportOpen(true); }}
+            onClick={() => {
+              resetImport();
+              setImportOpen(true);
+            }}
             className="h-10 px-3 rounded-2xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5 text-sm font-medium shadow-sm shrink-0"
             data-testid="button-open-import"
             title="Import from CSV"
@@ -412,7 +582,13 @@ export default function Products() {
             <span className="hidden sm:inline">Import</span>
           </button>
 
-          <Dialog open={isDialogOpen} onOpenChange={(v) => { setIsDialogOpen(v); if (!v) setScanningBarcode(false); }}>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(v) => {
+              setIsDialogOpen(v);
+              if (!v) setScanningBarcode(false);
+            }}
+          >
             <DialogTrigger asChild>
               <Button
                 onClick={openCreate}
@@ -433,170 +609,270 @@ export default function Products() {
 
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
-
-                  <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-semibold text-sm">Product Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ""} className="h-11 rounded-xl bg-secondary border-none" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold text-sm">Product Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value || ""}
+                            className="h-11 rounded-xl bg-secondary border-none"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="price" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-sm">Base Price ({currency})</FormLabel>
-                        <FormControl>
-                          <Input type="text" inputMode="decimal" {...field} value={field.value ?? ""} placeholder="0.00" className="h-11 rounded-xl bg-secondary border-none" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="price"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-sm">
+                            Base Price ({currency})
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              {...field}
+                              value={field.value ?? ""}
+                              placeholder="0.00"
+                              className="h-11 rounded-xl bg-secondary border-none"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                    <FormField control={form.control} name="category" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-sm">Category</FormLabel>
-                        <FormControl>
-                          <Input {...field} className="h-11 rounded-xl bg-secondary border-none" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-sm">Category</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              className="h-11 rounded-xl bg-secondary border-none"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="sku" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-sm">SKU <span className="text-muted-foreground font-normal">(opt.)</span></FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value ?? ""} placeholder="PROD-001" className="h-11 rounded-xl bg-secondary border-none font-mono" data-testid="input-product-sku" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="barcode" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-sm">
-                          Barcode <span className="text-muted-foreground font-normal">(opt.)</span>
-                        </FormLabel>
-                        <FormControl>
-                          <div className="relative">
+                    <FormField
+                      control={form.control}
+                      name="sku"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-sm">
+                            SKU <span className="text-muted-foreground font-normal">(opt.)</span>
+                          </FormLabel>
+                          <FormControl>
                             <Input
                               {...field}
                               value={field.value ?? ""}
-                              placeholder={scanningBarcode ? "Aim scanner and scan now…" : "e.g. 4006381333931"}
-                              readOnly={scanningBarcode}
-                              className={[
-                                "h-11 rounded-xl bg-secondary border-none font-mono pr-10 transition-all",
-                                scanningBarcode ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 placeholder:text-emerald-600 dark:placeholder:text-emerald-400 placeholder:font-sans placeholder:text-xs" : "",
-                              ].join(" ")}
-                              data-testid="input-product-barcode"
+                              placeholder="PROD-001"
+                              className="h-11 rounded-xl bg-secondary border-none font-mono"
+                              data-testid="input-product-sku"
                             />
-                            <button
-                              type="button"
-                              title={scanningBarcode ? "Cancel scan (Esc)" : "Scan barcode with scanner"}
-                              onClick={() => setScanningBarcode(v => !v)}
-                              data-testid="button-scan-barcode"
-                              className={[
-                                "absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 transition-all",
-                                scanningBarcode
-                                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 animate-pulse"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                              ].join(" ")}
-                            >
-                              <ScanBarcode className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </FormControl>
-                        {scanningBarcode && (
-                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Listening for scanner — press Esc to cancel
-                          </p>
-                        )}
-                      </FormItem>
-                    )} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="barcode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-sm">
+                            Barcode{" "}
+                            <span className="text-muted-foreground font-normal">(opt.)</span>
+                          </FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                {...field}
+                                value={field.value ?? ""}
+                                placeholder={
+                                  scanningBarcode
+                                    ? "Aim scanner and scan now…"
+                                    : "e.g. 4006381333931"
+                                }
+                                readOnly={scanningBarcode}
+                                className={[
+                                  "h-11 rounded-xl bg-secondary border-none font-mono pr-10 transition-all",
+                                  scanningBarcode
+                                    ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 placeholder:text-emerald-600 dark:placeholder:text-emerald-400 placeholder:font-sans placeholder:text-xs"
+                                    : "",
+                                ].join(" ")}
+                                data-testid="input-product-barcode"
+                              />
+                              <button
+                                type="button"
+                                title={
+                                  scanningBarcode
+                                    ? "Cancel scan (Esc)"
+                                    : "Scan barcode with scanner"
+                                }
+                                onClick={() => setScanningBarcode((v) => !v)}
+                                data-testid="button-scan-barcode"
+                                className={[
+                                  "absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 transition-all",
+                                  scanningBarcode
+                                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 animate-pulse"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                                ].join(" ")}
+                              >
+                                <ScanBarcode className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </FormControl>
+                          {scanningBarcode && (
+                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Listening for scanner — press Esc to cancel
+                            </p>
+                          )}
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
-                  <FormField control={form.control} name="taxRate" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-semibold text-sm">
-                        Tax Rate % <span className="text-muted-foreground font-normal">(optional — overrides global rate)</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value ?? ""} type="number" min={0} max={100} step="0.01" placeholder="Leave blank to use global rate" className="h-11 rounded-xl bg-secondary border-none" data-testid="input-product-tax-rate" />
-                      </FormControl>
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="taxRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold text-sm">
+                          Tax Rate %{" "}
+                          <span className="text-muted-foreground font-normal">
+                            (optional — overrides global rate)
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value ?? ""}
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.01"
+                            placeholder="Leave blank to use global rate"
+                            className="h-11 rounded-xl bg-secondary border-none"
+                            data-testid="input-product-tax-rate"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
 
                   {/* Stock Tracking */}
                   <div className="space-y-3">
-                    <FormField control={form.control} name="trackStock" render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3">
-                          <div>
-                            <FormLabel className="font-semibold text-sm cursor-pointer">Track Inventory</FormLabel>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">Monitor stock levels for this product</p>
+                    <FormField
+                      control={form.control}
+                      name="trackStock"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3">
+                            <div>
+                              <FormLabel className="font-semibold text-sm cursor-pointer">
+                                Track Inventory
+                              </FormLabel>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Monitor stock levels for this product
+                              </p>
+                            </div>
+                            <FormControl>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={field.value}
+                                data-testid="toggle-track-stock"
+                                onClick={() => field.onChange(!field.value)}
+                                className={[
+                                  "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
+                                  field.value ? "bg-primary" : "bg-secondary border border-border",
+                                ].join(" ")}
+                              >
+                                <span
+                                  className={[
+                                    "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
+                                    field.value ? "left-5" : "left-0.5",
+                                  ].join(" ")}
+                                />
+                              </button>
+                            </FormControl>
                           </div>
-                          <FormControl>
-                            <button
-                              type="button"
-                              role="switch"
-                              aria-checked={field.value}
-                              data-testid="toggle-track-stock"
-                              onClick={() => field.onChange(!field.value)}
-                              className={[
-                                "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
-                                field.value ? "bg-primary" : "bg-secondary border border-border",
-                              ].join(" ")}
-                            >
-                              <span className={[
-                                "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
-                                field.value ? "left-5" : "left-0.5",
-                              ].join(" ")} />
-                            </button>
-                          </FormControl>
-                        </div>
-                      </FormItem>
-                    )} />
+                        </FormItem>
+                      )}
+                    />
 
                     {form.watch("trackStock") && (
                       <div className="grid grid-cols-2 gap-3">
-                        <FormField control={form.control} name="stock" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-semibold text-sm">Current Stock</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                value={field.value ?? ""}
-                                onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                                placeholder="0"
-                                className="h-11 rounded-xl bg-secondary border-none"
-                                data-testid="input-product-stock"
-                              />
-                            </FormControl>
-                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Set your actual count — sales will deduct from this number</p>
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="lowStockThreshold" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-semibold text-sm">Low Stock Threshold</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                value={field.value ?? ""}
-                                onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                                placeholder="5"
-                                className="h-11 rounded-xl bg-secondary border-none"
-                                data-testid="input-product-threshold"
-                              />
-                            </FormControl>
-                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Get alerts when stock reaches this number. Will appear on the dashboard.</p>
-                          </FormItem>
-                        )} />
+                        <FormField
+                          control={form.control}
+                          name="stock"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="font-semibold text-sm">Current Stock</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  value={field.value ?? ""}
+                                  onChange={(e) =>
+                                    field.onChange(e.target.value ? Number(e.target.value) : null)
+                                  }
+                                  placeholder="0"
+                                  className="h-11 rounded-xl bg-secondary border-none"
+                                  data-testid="input-product-stock"
+                                />
+                              </FormControl>
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                                Set your actual count — sales will deduct from this number
+                              </p>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="lowStockThreshold"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="font-semibold text-sm">
+                                Low Stock Threshold
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  value={field.value ?? ""}
+                                  onChange={(e) =>
+                                    field.onChange(e.target.value ? Number(e.target.value) : null)
+                                  }
+                                  placeholder="5"
+                                  className="h-11 rounded-xl bg-secondary border-none"
+                                  data-testid="input-product-threshold"
+                                />
+                              </FormControl>
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                                Get alerts when stock reaches this number. Will appear on the
+                                dashboard.
+                              </p>
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     )}
                   </div>
@@ -604,7 +880,9 @@ export default function Products() {
                   {/* Sizes */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <FormLabel className="font-semibold text-sm">Sizes <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                      <FormLabel className="font-semibold text-sm">
+                        Sizes <span className="text-muted-foreground font-normal">(optional)</span>
+                      </FormLabel>
                       <Button
                         type="button"
                         variant="outline"
@@ -617,21 +895,44 @@ export default function Products() {
                     </div>
                     {sizeFields.map((field, index) => (
                       <div key={field.id} className="flex gap-2 items-center">
-                        <FormField control={form.control} name={`sizes.${index}.name`} render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input {...field} value={field.value || ""} placeholder="Size name" className="rounded-xl bg-secondary border-none h-9 text-sm" />
-                            </FormControl>
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name={`sizes.${index}.price`} render={({ field }) => (
-                          <FormItem className="w-24">
-                            <FormControl>
-                              <Input type="text" inputMode="decimal" {...field} placeholder="Price" className="rounded-xl bg-secondary border-none h-9 text-sm" />
-                            </FormControl>
-                          </FormItem>
-                        )} />
-                        <button type="button" onClick={() => removeSize(index)} className="h-9 w-9 flex items-center justify-center text-destructive/60 hover:text-destructive rounded-xl hover:bg-destructive/10 transition-colors">
+                        <FormField
+                          control={form.control}
+                          name={`sizes.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  value={field.value || ""}
+                                  placeholder="Size name"
+                                  className="rounded-xl bg-secondary border-none h-9 text-sm"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`sizes.${index}.price`}
+                          render={({ field }) => (
+                            <FormItem className="w-24">
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  {...field}
+                                  placeholder="Price"
+                                  className="rounded-xl bg-secondary border-none h-9 text-sm"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeSize(index)}
+                          className="h-9 w-9 flex items-center justify-center text-destructive/60 hover:text-destructive rounded-xl hover:bg-destructive/10 transition-colors"
+                        >
                           <X className="h-4 w-4" />
                         </button>
                       </div>
@@ -647,23 +948,46 @@ export default function Products() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <FormField control={form.control} name="expiryDate" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-semibold text-sm">Expiry Date</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} value={field.value ?? ""} className="h-11 rounded-xl bg-secondary border-none" data-testid="input-expiry-date" />
-                            </FormControl>
-                          </FormItem>
-                        )} />
+                        <FormField
+                          control={form.control}
+                          name="expiryDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="font-semibold text-sm">Expiry Date</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  {...field}
+                                  value={field.value ?? ""}
+                                  className="h-11 rounded-xl bg-secondary border-none"
+                                  data-testid="input-expiry-date"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <FormField control={form.control} name="batchNumber" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-semibold text-sm">Lot / Batch No. <span className="text-muted-foreground font-normal">(opt.)</span></FormLabel>
-                            <FormControl>
-                              <Input {...field} value={field.value ?? ""} placeholder="e.g. LOT-2024-01" className="h-11 rounded-xl bg-secondary border-none font-mono" data-testid="input-batch-number" />
-                            </FormControl>
-                          </FormItem>
-                        )} />
+                        <FormField
+                          control={form.control}
+                          name="batchNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="font-semibold text-sm">
+                                Lot / Batch No.{" "}
+                                <span className="text-muted-foreground font-normal">(opt.)</span>
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  value={field.value ?? ""}
+                                  placeholder="e.g. LOT-2024-01"
+                                  className="h-11 rounded-xl bg-secondary border-none font-mono"
+                                  data-testid="input-batch-number"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     </div>
                   )}
@@ -671,43 +995,68 @@ export default function Products() {
                   {/* Pharmacy-only fields */}
                   {isPharmacy && (
                     <div className="space-y-3">
-                      <FormField control={form.control} name="genericName" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-semibold text-sm">Generic Name <span className="text-muted-foreground font-normal">(opt.)</span></FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value ?? ""} placeholder="e.g. Paracetamol" className="h-11 rounded-xl bg-secondary border-none" data-testid="input-generic-name" />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-
-                      <FormField control={form.control} name="requiresPrescription" render={({ field }) => (
-                        <FormItem>
-                          <div className="flex items-center justify-between bg-violet-500/10 rounded-xl px-4 py-3">
-                            <div>
-                              <FormLabel className="font-semibold text-sm cursor-pointer text-violet-700 dark:text-violet-300">Requires Prescription (Rx)</FormLabel>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">Mark if this item needs a valid prescription</p>
-                            </div>
+                      <FormField
+                        control={form.control}
+                        name="genericName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="font-semibold text-sm">
+                              Generic Name{" "}
+                              <span className="text-muted-foreground font-normal">(opt.)</span>
+                            </FormLabel>
                             <FormControl>
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={field.value}
-                                data-testid="toggle-requires-prescription"
-                                onClick={() => field.onChange(!field.value)}
-                                className={[
-                                  "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
-                                  field.value ? "bg-violet-600" : "bg-secondary border border-border",
-                                ].join(" ")}
-                              >
-                                <span className={[
-                                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
-                                  field.value ? "left-5" : "left-0.5",
-                                ].join(" ")} />
-                              </button>
+                              <Input
+                                {...field}
+                                value={field.value ?? ""}
+                                placeholder="e.g. Paracetamol"
+                                className="h-11 rounded-xl bg-secondary border-none"
+                                data-testid="input-generic-name"
+                              />
                             </FormControl>
-                          </div>
-                        </FormItem>
-                      )} />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="requiresPrescription"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-center justify-between bg-violet-500/10 rounded-xl px-4 py-3">
+                              <div>
+                                <FormLabel className="font-semibold text-sm cursor-pointer text-violet-700 dark:text-violet-300">
+                                  Requires Prescription (Rx)
+                                </FormLabel>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  Mark if this item needs a valid prescription
+                                </p>
+                              </div>
+                              <FormControl>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={field.value}
+                                  data-testid="toggle-requires-prescription"
+                                  onClick={() => field.onChange(!field.value)}
+                                  className={[
+                                    "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
+                                    field.value
+                                      ? "bg-violet-600"
+                                      : "bg-secondary border border-border",
+                                  ].join(" ")}
+                                >
+                                  <span
+                                    className={[
+                                      "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
+                                      field.value ? "left-5" : "left-0.5",
+                                    ].join(" ")}
+                                  />
+                                </button>
+                              </FormControl>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
                     </div>
                   )}
 
@@ -756,7 +1105,9 @@ export default function Products() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="font-bold text-sm leading-tight truncate">{product.name || ""}</p>
                   {(product as any).requiresPrescription && (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 shrink-0">Rx</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 shrink-0">
+                      Rx
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -777,7 +1128,12 @@ export default function Products() {
                     const status = getExpiryStatus((product as any).expiryDate);
                     if (!status) return null;
                     return (
-                      <span className={["text-[10px] font-bold flex items-center gap-0.5", status.color].join(" ")}>
+                      <span
+                        className={[
+                          "text-[10px] font-bold flex items-center gap-0.5",
+                          status.color,
+                        ].join(" ")}
+                      >
                         <CalendarClock className="h-3 w-3" />
                         {status.label}
                       </span>
@@ -787,16 +1143,23 @@ export default function Products() {
                 {product.trackStock && (
                   <div className="flex items-center gap-1 mt-1">
                     <Boxes className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                    <span className={[
-                      "text-[10px] font-semibold",
-                      (product.stock ?? 0) === 0
-                        ? "text-rose-500"
-                        : typeof product.stock === "number" && typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-muted-foreground/60",
-                    ].join(" ")}>
+                    <span
+                      className={[
+                        "text-[10px] font-semibold",
+                        (product.stock ?? 0) === 0
+                          ? "text-rose-500"
+                          : typeof product.stock === "number" &&
+                              typeof product.lowStockThreshold === "number" &&
+                              product.stock <= product.lowStockThreshold
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-muted-foreground/60",
+                      ].join(" ")}
+                    >
                       {product.stock ?? 0} in stock
-                      {typeof product.stock === "number" && typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold && product.stock > 0
+                      {typeof product.stock === "number" &&
+                      typeof product.lowStockThreshold === "number" &&
+                      product.stock <= product.lowStockThreshold &&
+                      product.stock > 0
                         ? " · Low"
                         : (product.stock ?? 0) === 0
                           ? " · Out of stock"
@@ -814,9 +1177,17 @@ export default function Products() {
                 {(product.sizes as any[])?.length > 0 && (
                   <p className="text-[10px] text-muted-foreground font-medium">base</p>
                 )}
-                {product.trackStock && typeof product.stock === "number" && typeof product.lowStockThreshold === "number" && product.stock <= product.lowStockThreshold && (
-                  <AlertTriangle className={["h-3.5 w-3.5 mt-1 mx-auto", product.stock === 0 ? "text-rose-500" : "text-amber-500"].join(" ")} />
-                )}
+                {product.trackStock &&
+                  typeof product.stock === "number" &&
+                  typeof product.lowStockThreshold === "number" &&
+                  product.stock <= product.lowStockThreshold && (
+                    <AlertTriangle
+                      className={[
+                        "h-3.5 w-3.5 mt-1 mx-auto",
+                        product.stock === 0 ? "text-rose-500" : "text-amber-500",
+                      ].join(" ")}
+                    />
+                  )}
               </div>
 
               {/* Actions */}
@@ -875,7 +1246,13 @@ export default function Products() {
       )}
 
       {/* CSV Import Dialog */}
-      <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) resetImport(); }}>
+      <Dialog
+        open={importOpen}
+        onOpenChange={(v) => {
+          setImportOpen(v);
+          if (!v) resetImport();
+        }}
+      >
         <DialogContent className="max-w-lg rounded-3xl max-h-[90dvh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -889,16 +1266,43 @@ export default function Products() {
             <div className="flex-1 space-y-4 py-2">
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-500/10 rounded-2xl p-3 text-center">
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{importResult.created}</p>
-                  <p className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Created</p>
+                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                    {importResult.created}
+                  </p>
+                  <p className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
+                    Created
+                  </p>
                 </div>
                 <div className="bg-blue-500/10 rounded-2xl p-3 text-center">
-                  <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{importResult.updated}</p>
-                  <p className="text-[10px] font-semibold text-blue-600/70 dark:text-blue-400/70 mt-0.5">Updated</p>
+                  <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                    {importResult.updated}
+                  </p>
+                  <p className="text-[10px] font-semibold text-blue-600/70 dark:text-blue-400/70 mt-0.5">
+                    Updated
+                  </p>
                 </div>
-                <div className={["rounded-2xl p-3 text-center", importResult.errors > 0 ? "bg-rose-500/10" : "bg-muted/40"].join(" ")}>
-                  <p className={["text-2xl font-black", importResult.errors > 0 ? "text-rose-500" : "text-muted-foreground"].join(" ")}>{importResult.errors}</p>
-                  <p className={["text-[10px] font-semibold mt-0.5", importResult.errors > 0 ? "text-rose-500/70" : "text-muted-foreground/60"].join(" ")}>Errors</p>
+                <div
+                  className={[
+                    "rounded-2xl p-3 text-center",
+                    importResult.errors > 0 ? "bg-rose-500/10" : "bg-muted/40",
+                  ].join(" ")}
+                >
+                  <p
+                    className={[
+                      "text-2xl font-black",
+                      importResult.errors > 0 ? "text-rose-500" : "text-muted-foreground",
+                    ].join(" ")}
+                  >
+                    {importResult.errors}
+                  </p>
+                  <p
+                    className={[
+                      "text-[10px] font-semibold mt-0.5",
+                      importResult.errors > 0 ? "text-rose-500/70" : "text-muted-foreground/60",
+                    ].join(" ")}
+                  >
+                    Errors
+                  </p>
                 </div>
               </div>
 
@@ -908,7 +1312,9 @@ export default function Products() {
                     <AlertCircle className="h-3.5 w-3.5" /> Errors
                   </p>
                   {importResult.errorList.map((e, i) => (
-                    <p key={i} className="text-[11px] text-rose-500/80">{e}</p>
+                    <p key={i} className="text-[11px] text-rose-500/80">
+                      {e}
+                    </p>
                   ))}
                 </div>
               )}
@@ -922,7 +1328,10 @@ export default function Products() {
 
               <Button
                 className="w-full rounded-2xl"
-                onClick={() => { setImportOpen(false); resetImport(); }}
+                onClick={() => {
+                  setImportOpen(false);
+                  resetImport();
+                }}
                 data-testid="button-import-done"
               >
                 Done
@@ -942,13 +1351,19 @@ export default function Products() {
                   <>
                     <FileText className="h-8 w-8 text-primary/60" />
                     <p className="text-sm font-semibold text-foreground">{importFileName}</p>
-                    <p className="text-xs text-muted-foreground">{importRows.length} row{importRows.length !== 1 ? "s" : ""} detected · Click to change</p>
+                    <p className="text-xs text-muted-foreground">
+                      {importRows.length} row{importRows.length !== 1 ? "s" : ""} detected · Click
+                      to change
+                    </p>
                   </>
                 ) : (
                   <>
                     <Upload className="h-8 w-8 text-muted-foreground/40" />
                     <p className="text-sm font-semibold">Choose a CSV file</p>
-                    <p className="text-xs text-muted-foreground/60">Columns: name, category, price, sku, barcode, taxRate, trackStock, stock, lowStockThreshold</p>
+                    <p className="text-xs text-muted-foreground/60">
+                      Columns: name, category, price, sku, barcode, taxRate, trackStock, stock,
+                      lowStockThreshold
+                    </p>
                   </>
                 )}
               </button>
@@ -959,20 +1374,36 @@ export default function Products() {
                   <table className="w-full text-[11px]">
                     <thead className="sticky top-0 bg-muted/60 backdrop-blur-sm">
                       <tr>
-                        {["Name", "Category", "Price", "SKU", "Track Stock"].map(h => (
-                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                        {["Name", "Category", "Price", "SKU", "Track Stock"].map((h) => (
+                          <th
+                            key={h}
+                            className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap"
+                          >
+                            {h}
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {importRows.slice(0, 50).map((row, i) => (
                         <tr key={i} className="border-t border-border/20 hover:bg-muted/20">
-                          <td className="px-3 py-2 font-medium max-w-[120px] truncate">{row.name}</td>
+                          <td className="px-3 py-2 font-medium max-w-[120px] truncate">
+                            {row.name}
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground">{row.category || "—"}</td>
                           <td className="px-3 py-2 tabular-nums">{row.price || "—"}</td>
-                          <td className="px-3 py-2 font-mono text-muted-foreground">{row.sku || "—"}</td>
+                          <td className="px-3 py-2 font-mono text-muted-foreground">
+                            {row.sku || "—"}
+                          </td>
                           <td className="px-3 py-2">
-                            <span className={["px-1.5 py-0.5 rounded-md text-[10px] font-semibold", row.trackStock ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"].join(" ")}>
+                            <span
+                              className={[
+                                "px-1.5 py-0.5 rounded-md text-[10px] font-semibold",
+                                row.trackStock
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-muted text-muted-foreground",
+                              ].join(" ")}
+                            >
                               {row.trackStock ? "Yes" : "No"}
                             </span>
                           </td>
@@ -981,7 +1412,9 @@ export default function Products() {
                     </tbody>
                   </table>
                   {importRows.length > 50 && (
-                    <p className="text-center text-[11px] text-muted-foreground/50 py-2">+ {importRows.length - 50} more rows</p>
+                    <p className="text-center text-[11px] text-muted-foreground/50 py-2">
+                      + {importRows.length - 50} more rows
+                    </p>
                   )}
                 </div>
               )}
@@ -1000,7 +1433,10 @@ export default function Products() {
                 <Button
                   variant="outline"
                   className="flex-1 rounded-2xl"
-                  onClick={() => { setImportOpen(false); resetImport(); }}
+                  onClick={() => {
+                    setImportOpen(false);
+                    resetImport();
+                  }}
                 >
                   Cancel
                 </Button>
@@ -1010,7 +1446,9 @@ export default function Products() {
                   onClick={() => importMutation.mutate(importRows)}
                   data-testid="button-confirm-import"
                 >
-                  {importMutation.isPending ? "Importing…" : `Import ${importRows.length} product${importRows.length !== 1 ? "s" : ""}`}
+                  {importMutation.isPending
+                    ? "Importing…"
+                    : `Import ${importRows.length} product${importRows.length !== 1 ? "s" : ""}`}
                 </Button>
               </div>
             </div>
@@ -1033,7 +1471,9 @@ export default function Products() {
               <div className="py-10 text-center text-muted-foreground">
                 <History className="h-8 w-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm font-medium">No stock changes yet</p>
-                <p className="text-xs mt-1 opacity-70">Stock changes will appear here after restocks or adjustments</p>
+                <p className="text-xs mt-1 opacity-70">
+                  Stock changes will appear here after restocks or adjustments
+                </p>
               </div>
             ) : (
               stockLogs.map((log) => {
@@ -1051,23 +1491,38 @@ export default function Products() {
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/30 transition-colors"
                     data-testid={`stock-log-${log.id}`}
                   >
-                    <div className={[
-                      "h-8 w-8 rounded-xl flex items-center justify-center shrink-0",
-                      isIncrease ? "bg-emerald-500/10" : isDecrease ? "bg-rose-500/10" : "bg-muted",
-                    ].join(" ")}>
-                      {isIncrease
-                        ? <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                        : isDecrease
-                          ? <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
-                          : <Boxes className="h-3.5 w-3.5 text-muted-foreground" />}
+                    <div
+                      className={[
+                        "h-8 w-8 rounded-xl flex items-center justify-center shrink-0",
+                        isIncrease
+                          ? "bg-emerald-500/10"
+                          : isDecrease
+                            ? "bg-rose-500/10"
+                            : "bg-muted",
+                      ].join(" ")}
+                    >
+                      {isIncrease ? (
+                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      ) : isDecrease ? (
+                        <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
+                      ) : (
+                        <Boxes className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className={[
-                          "text-sm font-bold tabular-nums",
-                          isIncrease ? "text-emerald-600 dark:text-emerald-400" : isDecrease ? "text-rose-500" : "text-foreground",
-                        ].join(" ")}>
-                          {isIncrease ? "+" : ""}{log.delta}
+                        <span
+                          className={[
+                            "text-sm font-bold tabular-nums",
+                            isIncrease
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : isDecrease
+                                ? "text-rose-500"
+                                : "text-foreground",
+                          ].join(" ")}
+                        >
+                          {isIncrease ? "+" : ""}
+                          {log.delta}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {log.previousStock} → {log.newStock}

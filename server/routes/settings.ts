@@ -14,7 +14,6 @@ import { invalidateTenantCache } from "../storage";
 import { getUserId, getTenantId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerSettingsRoutes(app: Express): void {
-
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const cacheKey = settingsCacheKey(uid);
@@ -68,18 +67,21 @@ export function registerSettingsRoutes(app: Express): void {
     if (settingsBusinessType) {
       const tenantIdForHeal = getTenantId(req);
       if (tenantIdForHeal) {
-        getBranches(tenantIdForHeal).then(async (branchList: any[]) => {
-          const mainBranch = branchList.find((b: any) => b.isMain) ?? branchList[0];
-          if (mainBranch && (
-            mainBranch.businessType !== settingsBusinessType ||
-            mainBranch.businessSubType !== settingsBusinessSubType
-          )) {
-            await updateBranch(mainBranch.id, tenantIdForHeal, {
-              businessType: settingsBusinessType,
-              businessSubType: settingsBusinessSubType ?? null,
-            });
-          }
-        }).catch(() => {});
+        getBranches(tenantIdForHeal)
+          .then(async (branchList: any[]) => {
+            const mainBranch = branchList.find((b: any) => b.isMain) ?? branchList[0];
+            if (
+              mainBranch &&
+              (mainBranch.businessType !== settingsBusinessType ||
+                mainBranch.businessSubType !== settingsBusinessSubType)
+            ) {
+              await updateBranch(mainBranch.id, tenantIdForHeal, {
+                businessType: settingsBusinessType,
+                businessSubType: settingsBusinessSubType ?? null,
+              });
+            }
+          })
+          .catch(() => {});
       }
     }
 
@@ -107,7 +109,11 @@ export function registerSettingsRoutes(app: Express): void {
       // so a missing row means the account was deleted — do NOT recreate it or a
       // deleted account can be brought back by replaying a stale JWT.
       try {
-        const [existingUser] = await dbSystem.select({ id: users.id }).from(users).where(eq(users.id, uid)).limit(1);
+        const [existingUser] = await dbSystem
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, uid))
+          .limit(1);
         if (!existingUser) {
           const u = req.user!;
           const isEmailUser = !u.provider || u.provider === "email";
@@ -115,16 +121,21 @@ export function registerSettingsRoutes(app: Express): void {
             // Email users are hard-deleted — do not resurrect from a stale JWT.
             return res.status(401).json({ message: "Account not found. Please log in again." });
           }
-          console.warn(`[settings] User row missing for ${u.id} (${u.provider}) — auto-creating from JWT`);
-          await dbSystem.insert(users).values({
-            id: u.id,
-            email: u.email ?? null,
-            name: u.name ?? null,
-            avatar: u.avatar ?? null,
-            provider: u.provider ?? "email",
-            providerId: u.email ?? u.id,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any).onConflictDoNothing();
+          console.warn(
+            `[settings] User row missing for ${u.id} (${u.provider}) — auto-creating from JWT`,
+          );
+          await dbSystem
+            .insert(users)
+            .values({
+              id: u.id,
+              email: u.email ?? null,
+              name: u.name ?? null,
+              avatar: u.avatar ?? null,
+              provider: u.provider ?? "email",
+              providerId: u.email ?? u.id,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any)
+            .onConflictDoNothing();
         }
       } catch (userCheckErr: unknown) {
         console.error("[settings] Failed to ensure user row:", userCheckErr);
@@ -138,11 +149,25 @@ export function registerSettingsRoutes(app: Express): void {
           const sub = await getSubscription(tenantIdForProCheck);
           if (!isProSubscription(sub)) {
             const proOnlyWifiFields = [
-              "wifiEnabled", "wifiSsid", "wifiPassword", "wifiDurationMinutes",
-              "wifiSecurityType", "wifiVoucherTitle", "wifiSpeedLabel", "wifiVoucherNote",
-              "wifiShowQr", "wifiNetworkProfiles", "wifiActiveProfileId",
-              "mikrotikEnabled", "mikrotikHost", "mikrotikPort", "mikrotikUser",
-              "mikrotikPassword", "mikrotikHotspotProfile", "mikrotikUseSsl",
+              "wifiEnabled",
+              "wifiSsid",
+              "wifiPassword",
+              "wifiDurationMinutes",
+              "wifiSecurityType",
+              "wifiVoucherTitle",
+              "wifiSpeedLabel",
+              "wifiVoucherNote",
+              "wifiShowQr",
+              "wifiNetworkProfiles",
+              "wifiActiveProfileId",
+              "mikrotikEnabled",
+              "mikrotikHost",
+              "mikrotikPort",
+              "mikrotikUser",
+              "mikrotikPassword",
+              "mikrotikHotspotProfile",
+              "mikrotikUseSsl",
+              "routerConfig",
             ];
             for (const field of proOnlyWifiFields) {
               delete (input as any)[field];
@@ -155,7 +180,10 @@ export function registerSettingsRoutes(app: Express): void {
             }
           }
         } catch (proCheckErr) {
-          console.warn("[settings] Pro check failed — allowing save without WiFi fields:", proCheckErr);
+          console.warn(
+            "[settings] Pro check failed — allowing save without WiFi fields:",
+            proCheckErr,
+          );
         }
       }
 
@@ -164,16 +192,23 @@ export function registerSettingsRoutes(app: Express): void {
         settings = await storage.updateSettings(uid, input);
       } catch (settingsErr: any) {
         const pgDetail = {
-          code:       settingsErr?.code       ?? null,
-          message:    settingsErr?.message    ?? String(settingsErr),
-          detail:     settingsErr?.detail     ?? null,
-          hint:       settingsErr?.hint       ?? null,
-          table:      settingsErr?.table      ?? null,
-          column:     settingsErr?.column     ?? null,
+          code: settingsErr?.code ?? null,
+          message: settingsErr?.message ?? String(settingsErr),
+          detail: settingsErr?.detail ?? null,
+          hint: settingsErr?.hint ?? null,
+          table: settingsErr?.table ?? null,
+          column: settingsErr?.column ?? null,
           constraint: settingsErr?.constraint ?? null,
-          schema:     settingsErr?.schema     ?? null,
+          schema: settingsErr?.schema ?? null,
         };
-        console.error("[settings] updateSettings failed — userId:", uid, "pgDetail:", pgDetail, "full:", settingsErr);
+        console.error(
+          "[settings] updateSettings failed — userId:",
+          uid,
+          "pgDetail:",
+          pgDetail,
+          "full:",
+          settingsErr,
+        );
         return res.status(500).json({
           message: pgDetail.message,
           error: pgDetail,
@@ -184,7 +219,8 @@ export function registerSettingsRoutes(app: Express): void {
       if (input.onboardingComplete === 1) {
         try {
           const user = req.user!;
-          const branchName = (input.storeName as string | undefined) || settings.storeName || "Main Branch";
+          const branchName =
+            (input.storeName as string | undefined) || settings.storeName || "Main Branch";
 
           // Always re-read the user row from the DB instead of trusting the JWT's
           // tenantId. The JWT is stale right after registration, and a double-clicked
@@ -197,7 +233,7 @@ export function registerSettingsRoutes(app: Express): void {
           if (!currentTenantId) {
             const newTenant = await createTenant(branchName);
             const claim = await db.execute(
-              sql`UPDATE users SET tenant_id = ${newTenant.id} WHERE id = ${uid} AND tenant_id IS NULL`
+              sql`UPDATE users SET tenant_id = ${newTenant.id} WHERE id = ${uid} AND tenant_id IS NULL`,
             );
             const claimed = (claim as any).rowCount === 1 || (claim as any).rowsAffected === 1;
             if (claimed) {
@@ -207,13 +243,17 @@ export function registerSettingsRoutes(app: Express): void {
               // created and use the one already linked.
               const [refreshed] = await db.select().from(users).where(eq(users.id, uid));
               currentTenantId = refreshed?.tenantId ?? null;
-              try { await db.delete(tenants).where(eq(tenants.id, newTenant.id)); } catch {}
+              try {
+                await db.delete(tenants).where(eq(tenants.id, newTenant.id));
+              } catch {}
             }
             invalidateTenantCache(uid);
 
             if (currentTenantId) {
               const updatedUser = { ...user, tenantId: currentTenantId };
-              try { setAuthCookie(res, updatedUser); } catch (cookieErr) {
+              try {
+                setAuthCookie(res, updatedUser);
+              } catch (cookieErr) {
                 console.error("[onboarding] Failed to re-issue auth cookie:", cookieErr);
               }
             }
@@ -230,8 +270,14 @@ export function registerSettingsRoutes(app: Express): void {
                 phone: (input.phone as string | undefined) || settings.phone || null,
                 isMain: true,
                 isActive: true,
-                businessType: (input.businessType as string | undefined) || (settings as any).businessType || null,
-                businessSubType: (input.businessSubType as string | undefined) || (settings as any).businessSubType || null,
+                businessType:
+                  (input.businessType as string | undefined) ||
+                  (settings as any).businessType ||
+                  null,
+                businessSubType:
+                  (input.businessSubType as string | undefined) ||
+                  (settings as any).businessSubType ||
+                  null,
               });
             }
           }
@@ -255,14 +301,19 @@ export function registerSettingsRoutes(app: Express): void {
           if (mainBranch) {
             const patch: Record<string, string | null> = {};
             if (input.storeName !== undefined) patch.name = input.storeName as string;
-            if (input.businessType !== undefined) patch.businessType = (input.businessType as string) ?? null;
-            if (input.businessSubType !== undefined) patch.businessSubType = (input.businessSubType as string) ?? null;
+            if (input.businessType !== undefined)
+              patch.businessType = (input.businessType as string) ?? null;
+            if (input.businessSubType !== undefined)
+              patch.businessSubType = (input.businessSubType as string) ?? null;
             if (Object.keys(patch).length > 0) {
               await updateBranch(mainBranch.id, tenantId, patch);
             }
           }
         } catch (branchSyncErr) {
-          console.warn("[settings] Failed to sync storeName/businessType to main branch:", branchSyncErr);
+          console.warn(
+            "[settings] Failed to sync storeName/businessType to main branch:",
+            branchSyncErr,
+          );
         }
       }
 
@@ -270,8 +321,10 @@ export function registerSettingsRoutes(app: Express): void {
       if (input.onboardingComplete !== 1 && tenantId) {
         const changed: Record<string, unknown> = {};
         if (input.taxRate !== undefined) changed.taxRate = input.taxRate;
-        if (input.loyaltyPointsPerUnit !== undefined) changed.loyaltyPointsPerUnit = input.loyaltyPointsPerUnit;
-        if (input.loyaltyRedemptionRate !== undefined) changed.loyaltyRedemptionRate = input.loyaltyRedemptionRate;
+        if (input.loyaltyPointsPerUnit !== undefined)
+          changed.loyaltyPointsPerUnit = input.loyaltyPointsPerUnit;
+        if (input.loyaltyRedemptionRate !== undefined)
+          changed.loyaltyRedemptionRate = input.loyaltyRedemptionRate;
         if (input.storeName !== undefined) changed.storeName = input.storeName;
         if (input.currency !== undefined) changed.currency = input.currency;
         if (Object.keys(changed).length > 0) {
@@ -283,18 +336,22 @@ export function registerSettingsRoutes(app: Express): void {
     } catch (err: any) {
       if (handleZodError(err, res)) return;
       const pgDetail = {
-        code:       err?.code       ?? null,
-        message:    err?.message    ?? String(err),
-        detail:     err?.detail     ?? null,
-        hint:       err?.hint       ?? null,
-        table:      err?.table      ?? null,
-        column:     err?.column     ?? null,
+        code: err?.code ?? null,
+        message: err?.message ?? String(err),
+        detail: err?.detail ?? null,
+        hint: err?.hint ?? null,
+        table: err?.table ?? null,
+        column: err?.column ?? null,
         constraint: err?.constraint ?? null,
-        schema:     err?.schema     ?? null,
+        schema: err?.schema ?? null,
       };
-      console.error("[settings] Unhandled error in PUT /api/settings — pgDetail:", pgDetail, "full:", err);
+      console.error(
+        "[settings] Unhandled error in PUT /api/settings — pgDetail:",
+        pgDetail,
+        "full:",
+        err,
+      );
       res.status(500).json({ message: pgDetail.message, error: pgDetail });
     }
   });
-
 }

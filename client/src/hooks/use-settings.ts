@@ -15,12 +15,14 @@ const SETTINGS_URL = api.settings.get.path;
 let _prewarmedSettings: unknown = undefined;
 let _prewarmDone = false;
 
-getCached(SETTINGS_URL).then((data) => {
-  _prewarmedSettings = data;
-  _prewarmDone = true;
-}).catch(() => {
-  _prewarmDone = true;
-});
+getCached(SETTINGS_URL)
+  .then((data) => {
+    _prewarmedSettings = data;
+    _prewarmDone = true;
+  })
+  .catch(() => {
+    _prewarmDone = true;
+  });
 
 /**
  * Clears the in-memory settings prewarm cache and the IDB entry.
@@ -33,12 +35,15 @@ export async function clearSettingsPrewarm(): Promise<void> {
   _prewarmDone = false;
   try {
     await setCached(SETTINGS_URL, null as any);
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }
 
 function isNetworkOrTimeoutError(err: unknown): boolean {
   if (err instanceof TypeError) return true;
-  if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) return true;
+  if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError"))
+    return true;
   return false;
 }
 
@@ -55,10 +60,14 @@ async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown |
       clearTimeout(timeoutId);
       controller.abort(signal.reason);
     } else {
-      signal.addEventListener("abort", () => {
-        clearTimeout(timeoutId);
-        controller.abort(signal.reason);
-      }, { once: true });
+      signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timeoutId);
+          controller.abort(signal.reason);
+        },
+        { once: true },
+      );
     }
   }
 
@@ -89,11 +98,15 @@ export function useSettings() {
     // CRITICAL: only use a cached value as placeholder — never return null/undefined,
     // which would be misread as "settings loaded but empty" and trigger false
     // onboarding redirects for returning users on a cold start.
-    placeholderData: () => (_prewarmDone && _prewarmedSettings != null ? _prewarmedSettings : undefined) as any,
+    placeholderData: () =>
+      (_prewarmDone && _prewarmedSettings != null ? _prewarmedSettings : undefined) as any,
     queryFn: async ({ signal }) => {
       // If definitely offline, skip network entirely and return IDB immediately.
       if (!navigator.onLine) {
-        const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
+        const cached =
+          await getCached<ReturnType<(typeof api.settings.get.responses)[200]["parse"]>>(
+            SETTINGS_URL,
+          );
         // No cache + offline → throw so React Query retries when reconnected
         if (cached == null) throw new Error("Offline and no cached settings");
         return cached;
@@ -104,7 +117,10 @@ export function useSettings() {
 
       // undefined = network/timeout error → fall back to IDB
       if (result === undefined) {
-        const cached = await getCached<ReturnType<typeof api.settings.get.responses[200]["parse"]>>(SETTINGS_URL);
+        const cached =
+          await getCached<ReturnType<(typeof api.settings.get.responses)[200]["parse"]>>(
+            SETTINGS_URL,
+          );
         // IDB has a prior session's data → use it; React Query will refetch next time
         if (cached != null) return cached;
         // Both network failed AND IDB is empty → throw so React Query retries
@@ -113,7 +129,7 @@ export function useSettings() {
         throw new Error("Settings fetch timed out");
       }
 
-      return result as ReturnType<typeof api.settings.get.responses[200]["parse"]> | null;
+      return result as ReturnType<(typeof api.settings.get.responses)[200]["parse"]> | null;
     },
   });
 
@@ -139,10 +155,14 @@ export function useSettings() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     })
-      .then(r => r.json())
-      .then(updated => {
+      .then((r) => r.json())
+      .then((updated) => {
         setCached(SETTINGS_URL, updated);
-        queryClient.setQueryData([SETTINGS_URL], updated);
+        // Don't call queryClient.setQueryData here —
+        // auto-sync only patches timezone/currency,
+        // and the server's response may include auto-healed
+        // onboardingComplete=1 which triggers a second render
+        // (perceived as a "reload").
       })
       .catch(() => {});
   }, [query.data, queryClient]);
@@ -182,9 +202,10 @@ export function useUpdateSettings() {
       // as "offline" mutations. Optimistic update is already applied above, so the
       // user never waits for this timer.
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(
-        new DOMException("Settings save timeout", "TimeoutError")
-      ), 30_000);
+      const timer = setTimeout(
+        () => controller.abort(new DOMException("Settings save timeout", "TimeoutError")),
+        30_000,
+      );
 
       try {
         const res = await nativeFetch(api.settings.update.path, {
@@ -201,7 +222,9 @@ export function useUpdateSettings() {
           try {
             rawText = await res.text();
             body = JSON.parse(rawText);
-          } catch { body = { message: rawText || res.statusText }; }
+          } catch {
+            body = { message: rawText || res.statusText };
+          }
 
           // For permanent server errors (4xx), revert the optimistic update
           if (res.status >= 400 && res.status < 500) {
@@ -212,7 +235,9 @@ export function useUpdateSettings() {
             await queueMutation("PUT", api.settings.update.path, data);
           }
 
-          const err = new Error(body?.message || body?.error || rawText || res.statusText || "Unknown error") as any;
+          const err = new Error(
+            body?.message || body?.error || rawText || res.statusText || "Unknown error",
+          ) as any;
           err.status = res.status;
           err.pgError = body?.error ?? null;
           throw err;

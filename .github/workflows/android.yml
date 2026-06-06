@@ -102,7 +102,7 @@ jobs:
 
       # ── 7. Patch deep-link intent filter in AndroidManifest.xml ──────────
       - name: Patch OAuth deep-link
-        run: node script/setup-deeplink.js
+        run: node script/setup-deeplink.cjs
 
       # ── 8. Sync web assets + Capacitor plugins into the native project ────
       #       Pass OAuth credentials so capacitor.config.ts bakes them in.

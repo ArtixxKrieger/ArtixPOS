@@ -192,8 +192,11 @@ export const unifiAdapter: RouterAdapter = {
       }
 
       const data: any = await res.json().catch(() => ({}));
-      // UniFi returns a voucher code in the response
-      const voucherId = data?.data?.[0]?.code ?? data?.data?.code;
+      // UniFi returns the voucher with both _id (MongoDB ObjectId) and code.
+      // We return _id so removeUser / sync can reliably delete by internal reference.
+      // Fall back to code if _id isn't present (some older UniFi versions).
+      const voucherId =
+        data?.data?.[0]?._id ?? data?.data?._id ?? data?.data?.[0]?.code ?? data?.data?.code;
       return voucherId ? String(voucherId) : code;
     } catch (err: any) {
       console.warn("[unifi] createUser error:", err?.message);
@@ -257,7 +260,8 @@ export const unifiAdapter: RouterAdapter = {
       if (!Array.isArray(vouchers) || vouchers.length === 0) return;
 
       const voucher = vouchers.find((v: any) => v.code === name || v.note === "ArtixPOS");
-      const voucherId = voucher?.code ?? voucher?._id;
+      // The revoke-voucher command requires the internal _id, not the code.
+      const voucherId = voucher?._id ?? voucher?.code;
       if (voucherId) await unifiAdapter.removeUser(config, String(voucherId));
     } catch (err: any) {
       console.warn("[unifi] removeUserByName error:", err?.message);

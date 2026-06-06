@@ -228,9 +228,10 @@ export const omadaAdapter: RouterAdapter = {
       const siteId = getSiteId(config);
       const baseUrl = getBaseUrl(config);
 
-      // Search for the user by name
+      // List all hotspot users (Omada doesn't support a name search param,
+      // so we paginate/fetch all and filter client-side)
       const listRes = await fetch(
-        `${baseUrl}/api/v2/sites/${encodeURIComponent(siteId)}/setting/hotspot/users?searchKey=${encodeURIComponent(name)}`,
+        `${baseUrl}/api/v2/sites/${encodeURIComponent(siteId)}/setting/hotspot/users?currentPage=1&currentPageSize=500`,
         {
           headers: { Cookie: cookie },
           signal: AbortSignal.timeout(8000),
@@ -244,7 +245,8 @@ export const omadaAdapter: RouterAdapter = {
 
       if (!Array.isArray(data) || data.length === 0) return;
 
-      const user = data.find((u: any) => u.name === name);
+      // Match by name (the voucher code)
+      const user = data.find((u: any) => u.name === name || u.userName === name);
       const userId = user?.id ?? user?._id;
       if (userId) await omadaAdapter.removeUser(config, String(userId));
     } catch (err: any) {

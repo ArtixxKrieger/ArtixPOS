@@ -8,9 +8,9 @@ import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
 import {
   Package, Trash2, ArrowRightLeft, ShoppingCart, Plus, CheckCircle2,
-  XCircle, AlertTriangle, TrendingDown, TrendingUp, ChevronRight,
-  Flame, Clock, AlertCircle, Zap, BarChart3, Box, Edit2, Calendar,
-  FlaskConical, ShieldAlert, Ban, Beaker, ChefHat,
+  XCircle, AlertTriangle, TrendingDown, ChevronRight,
+  Flame, Clock, AlertCircle, Zap, BarChart3, Box,
+  ShieldAlert, Ban, FlaskConical, ChefHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,14 +67,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   rejected: { label: "Rejected", color: "bg-red-500/10 text-red-600 dark:text-red-400" },
 };
 
-type Tab = "overview" | "waste" | "transfers" | "reorder" | "ingredients";
+type Tab = "overview" | "waste" | "transfers" | "reorder";
 
 export default function InventoryHub() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [showWasteForm, setShowWasteForm] = useState(false);
   const [showTransferForm, setShowTransferForm] = useState(false);
-  const [showAddIngredient, setShowAddIngredient] = useState(false);
-  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
   const { toast } = useToast();
   const { data: settings } = useSettings();
   const { businessType } = useBranchBusiness();
@@ -86,8 +84,6 @@ export default function InventoryHub() {
   const { data: wasteLogs = [], isLoading: wasteLoading } = useQuery<WasteEntry[]>({ queryKey: ["/api/waste-log"] });
   const { data: transfers = [], isLoading: transferLoading } = useQuery<Transfer[]>({ queryKey: ["/api/stock-transfers"] });
 
-  // For food_beverage: fetch ingredient-based reorder suggestions
-  // For retail: fetch product-based reorder suggestions
   const reorderQueryKey = isFoodBeverage
     ? ["/api/inventory/ingredient-reorder-suggestions"]
     : ["/api/inventory/reorder-suggestions"];
@@ -103,19 +99,12 @@ export default function InventoryHub() {
   const totalWasteCost = wasteLogs.reduce((s, e) => s + Number(e.costImpact || 0), 0);
   const pendingTransfers = transfers.filter(t => t.status === "pending" || t.status === "in_transit").length;
 
-  const TABS: { id: Tab; label: string; icon: typeof Package; badge?: number }[] = isFoodBeverage
-    ? [
-        { id: "overview", label: "Overview", icon: BarChart3 },
-        { id: "waste", label: "Waste Log", icon: Trash2, badge: wasteLogs.length },
-        { id: "transfers", label: "Transfers", icon: ArrowRightLeft, badge: pendingTransfers || undefined },
-        { id: "ingredients", label: "Ingredients", icon: Package, badge: lowStockCount || undefined },
-      ]
-    : [
-        { id: "overview", label: "Overview", icon: BarChart3 },
-        { id: "waste", label: "Waste Log", icon: Trash2, badge: wasteLogs.length },
-        { id: "transfers", label: "Transfers", icon: ArrowRightLeft, badge: pendingTransfers || undefined },
-        { id: "reorder", label: "Reorder", icon: ShoppingCart, badge: reorderSuggestions.length || undefined },
-      ];
+  const TABS: { id: Tab; label: string; icon: typeof Package; badge?: number }[] = [
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "waste", label: "Waste Log", icon: Trash2, badge: wasteLogs.length },
+    { id: "transfers", label: "Transfers", icon: ArrowRightLeft, badge: pendingTransfers || undefined },
+    { id: "reorder", label: "Reorder", icon: ShoppingCart, badge: reorderSuggestions.length || undefined },
+  ];
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
@@ -134,7 +123,7 @@ export default function InventoryHub() {
           </div>
         </div>
 
-        {/* Tabs — horizontally scrollable on mobile */}
+        {/* Tabs */}
         <div className="overflow-x-auto -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 scrollbar-none">
           <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit min-w-full sm:min-w-0">
             {TABS.map(tab => {
@@ -186,7 +175,6 @@ export default function InventoryHub() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {/* Stock List — ingredients for food_beverage, products for retail */}
               <div className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-sm flex items-center gap-1.5">
@@ -199,7 +187,7 @@ export default function InventoryHub() {
 
                 {isFoodBeverage ? (
                   <>
-                    {ingredients.slice(0, isFoodBeverage ? 20 : 6).map(i => {
+                    {ingredients.slice(0, 20).map(i => {
                       const stock = Number(i.stockQty || "0");
                       const thresh = Number(i.lowStockThreshold || "0");
                       const isLow = thresh > 0 && stock <= thresh;
@@ -279,9 +267,6 @@ export default function InventoryHub() {
         {activeTab === "waste" && (
           <WasteTab
             logs={wasteLogs}
-            isLoading={wasteLoading}
-            products={products}
-            ingredients={ingredients}
             currency={currency}
             onAdd={() => setShowWasteForm(true)}
           />
@@ -296,87 +281,8 @@ export default function InventoryHub() {
           />
         )}
 
-        {/* ── INGREDIENTS TAB (food_beverage only) — with reorder embedded */}
-        {activeTab === "ingredients" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm text-muted-foreground">
-                {ingredients.length} ingredient{ingredients.length !== 1 ? "s" : ""} · {lowStockCount} low, {outOfStockCount} out
-              </p>
-              <Button
-                onClick={() => setShowAddIngredient(true)}
-                size="sm"
-                className="shrink-0"
-                data-testid="button-add-ingredient-tab"
-              >
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
-            </div>
-
-            {/* Full ingredient list with quick adjust */}
-            <div className="space-y-1.5">
-              {ingredients.length === 0 && (
-                <div className="glass-card rounded-2xl p-8 text-center">
-                  <Package className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No ingredients yet. Tap Add to start tracking your stock.</p>
-                </div>
-              )}
-              {ingredients.map(i => {
-                const stock = Number(i.stockQty || "0");
-                const thresh = Number(i.lowStockThreshold || "0");
-                const isLow = thresh > 0 && stock <= thresh;
-                const isOut = stock === 0;
-                return (
-                  <div key={i.id} className="bg-card rounded-xl border border-border/30 px-3.5 py-3 flex items-center gap-3 shadow-sm">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-sm truncate">{i.name}</span>
-                        {(isOut || isLow) && (
-                          <span className={["text-[10px] font-bold shrink-0", isOut ? "text-rose-500" : "text-amber-500"].join(" ")}>
-                            {isOut ? "OUT" : "LOW"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">{i.unit}</span>
-                        {Number(i.costPerUnit || "0") > 0 && (
-                          <span className="text-[10px] text-muted-foreground/60">
-                            {formatCurrency(i.costPerUnit, currency)}/{i.unit}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditingIngredient(i); }}
-                        className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground transition-colors border border-border/50"
-                        title="Edit ingredient"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Reorder suggestions embedded */}
-            {reorderSuggestions.length > 0 && (
-              <div className="pt-4">
-                <h3 className="font-semibold text-sm flex items-center gap-1.5 mb-3 text-muted-foreground">
-                  <ShoppingCart className="h-4 w-4 text-primary" />
-                  Reorder Suggestions
-                  <span className="ml-auto text-xs font-normal text-muted-foreground/60">based on 30-day consumption</span>
-                </h3>
-                <ReorderTab suggestions={reorderSuggestions} isLoading={reorderLoading} currency={currency} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── REORDER TAB (retail only) ── */}
-        {activeTab === "reorder" && !isFoodBeverage && (
+        {/* ── REORDER TAB ── */}
+        {activeTab === "reorder" && (
           <ReorderTab
             suggestions={reorderSuggestions}
             isLoading={reorderLoading}
@@ -415,52 +321,6 @@ export default function InventoryHub() {
           }}
         />
       )}
-
-      {/* Add Ingredient Dialog */}
-      {showAddIngredient && (
-        <Dialog open onOpenChange={() => setShowAddIngredient(false)}>
-          <DialogContent className="sm:max-w-[460px] max-w-[calc(100vw-24px)] rounded-3xl border-none shadow-2xl">
-            <DialogHeader className="pb-2">
-              <DialogTitle className="text-xl font-black flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                Quick Add Ingredient
-              </DialogTitle>
-            </DialogHeader>
-            <QuickIngredientForm
-              onClose={() => setShowAddIngredient(false)}
-              onSuccess={() => {
-                setShowAddIngredient(false);
-                queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
-                toast({ title: "Ingredient added", description: "Stock tracking started." });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Edit Ingredient Dialog */}
-      {editingIngredient && (
-        <Dialog open onOpenChange={() => setEditingIngredient(null)}>
-          <DialogContent className="sm:max-w-[460px] max-w-[calc(100vw-24px)] rounded-3xl border-none shadow-2xl">
-            <DialogHeader className="pb-2">
-              <DialogTitle className="text-xl font-black flex items-center gap-2">
-                <Edit2 className="h-5 w-5 text-primary" />
-                Edit {editingIngredient.name}
-              </DialogTitle>
-            </DialogHeader>
-            <IngredientEditForm
-              ingredient={editingIngredient}
-              currency={currency}
-              onClose={() => setEditingIngredient(null)}
-              onSuccess={() => {
-                setEditingIngredient(null);
-                queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
-                toast({ title: "Ingredient updated" });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
@@ -485,8 +345,8 @@ function KpiCard({ icon: Icon, label, value, color, urgent }: {
   );
 }
 
-function WasteTab({ logs, isLoading, products, ingredients, currency, onAdd }: {
-  logs: WasteEntry[]; isLoading: boolean; products: Product[]; ingredients: Ingredient[];
+function WasteTab({ logs, currency, onAdd }: {
+  logs: WasteEntry[];
   currency: string; onAdd: () => void;
 }) {
   const totalCost = logs.reduce((s, e) => s + Number(e.costImpact || 0), 0);
@@ -587,7 +447,6 @@ function TransfersTab({ transfers, isLoading, onAdd }: {
                 </div>
               </div>
 
-              {/* Action buttons — full width on mobile so they never overflow */}
               {(t.status === "pending" || t.status === "in_transit") && (
                 <div className="flex gap-2">
                   {t.status === "pending" && (
@@ -687,7 +546,6 @@ function ReorderTab({ suggestions, isLoading, currency }: {
 
   return (
     <div className="space-y-4">
-      {/* Header — stacks on mobile, side-by-side on tablet+ */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {suggestions.length} item{suggestions.length !== 1 ? "s" : ""} need restocking
@@ -728,7 +586,6 @@ function ReorderTab({ suggestions, isLoading, currency }: {
               selected.has(s.productId) ? "ring-2 ring-primary ring-inset" : "hover:bg-muted/30",
             ].join(" ")}
           >
-            {/* Top row: checkbox + name + supplier tag + urgency + qty */}
             <div className="flex items-center gap-2 sm:gap-3">
               <input type="checkbox" checked={selected.has(s.productId)} onChange={() => toggle(s.productId)}
                 className="h-4 w-4 rounded accent-primary shrink-0" onClick={e => e.stopPropagation()} />
@@ -744,7 +601,6 @@ function ReorderTab({ suggestions, isLoading, currency }: {
                 </div>
               </div>
 
-              {/* Right side: urgency + suggested qty — always visible, never pushed off */}
               <div className="flex items-center gap-2 shrink-0">
                 <div className={["text-center px-2 py-1 rounded-lg text-xs font-bold min-w-[40px]", urgencyBg(s.daysOfStockLeft), urgencyColor(s.daysOfStockLeft)].join(" ")}>
                   <Clock className="h-3 w-3 mx-auto mb-0.5" />
@@ -757,7 +613,6 @@ function ReorderTab({ suggestions, isLoading, currency }: {
               </div>
             </div>
 
-            {/* Stats row — wraps naturally */}
             <div className="flex items-center gap-x-3 gap-y-1 mt-1.5 ml-6 flex-wrap">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Box className="h-3 w-3 shrink-0" /> {s.currentStock} in stock
@@ -917,12 +772,9 @@ function WasteLogForm({ products, ingredients, currency, isFoodBeverage, onClose
             <Select value={form.reason} onValueChange={v => set("reason", v)}>
               <SelectTrigger className="mt-1" data-testid="select-waste-reason"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {WASTE_REASONS.map(r => {
-                  const ReasonIcon = REASON_ICONS_COMPONENT[r.value] ?? Trash2;
-                  return (
+                {WASTE_REASONS.map(r => (
                   <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                  );
-                })}
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -949,174 +801,6 @@ function WasteLogForm({ products, ingredients, currency, isFoodBeverage, onClose
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function QuickIngredientForm({ onClose, onSuccess }: {
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [unit, setUnit] = useState("kg");
-  const [stockQty, setStockQty] = useState("0");
-  const [threshold, setThreshold] = useState("0");
-  const [cost, setCost] = useState("0");
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      apiRequest("POST", "/api/ingredients", {
-        name: name.trim(),
-        unit,
-        stockQty: stockQty || "0",
-        lowStockThreshold: threshold || "0",
-        costPerUnit: cost || "0",
-      }),
-    onSuccess,
-    onError: () => toast({ title: "Failed to add ingredient", variant: "destructive" }),
-  });
-
-  return (
-    <div className="space-y-4 pt-2">
-      <div>
-        <label className="text-xs font-medium text-muted-foreground">Ingredient Name</label>
-        <Input
-          className="mt-1 h-11 rounded-xl bg-secondary border-none"
-          placeholder="e.g. Coffee Beans, Whole Milk"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Unit</label>
-          <Select value={unit} onValueChange={setUnit}>
-            <SelectTrigger className="mt-1 h-11 rounded-xl bg-secondary border-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["g", "kg", "ml", "l", "pcs", "cup", "tbsp", "tsp", "oz", "lb", "box", "bag", "bottle", "pack"].map(u => (
-                <SelectItem key={u} value={u}>{u}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Cost/Unit</label>
-          <Input
-            className="mt-1 h-11 rounded-xl bg-secondary border-none"
-            type="number" min="0" step="0.01" placeholder="0.00"
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
-          <Input
-            className="mt-1 h-11 rounded-xl bg-secondary border-none"
-            type="number" min="0" step="0.01" placeholder="0"
-            value={stockQty}
-            onChange={(e) => setStockQty(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Low Stock Alert At</label>
-          <Input
-            className="mt-1 h-11 rounded-xl bg-secondary border-none"
-            type="number" min="0" step="0.01" placeholder="0"
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-2 pt-1">
-        <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-        <Button className="flex-1" onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
-          {mutation.isPending ? "Adding..." : "Add Ingredient"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function IngredientEditForm({ ingredient, currency, onClose, onSuccess }: {
-  ingredient: Ingredient;
-  currency: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { toast } = useToast();
-  const [name, setName] = useState(ingredient.name);
-  const [unit, setUnit] = useState(ingredient.unit);
-  const [stockQty, setStockQty] = useState(ingredient.stockQty);
-  const [threshold, setThreshold] = useState(ingredient.lowStockThreshold || "0");
-  const [cost, setCost] = useState(ingredient.costPerUnit || "0");
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      apiRequest("PUT", `/api/ingredients/${ingredient.id}`, {
-        name: name.trim(),
-        unit,
-        stockQty: stockQty || "0",
-        lowStockThreshold: threshold || "0",
-        costPerUnit: cost || "0",
-      }),
-    onSuccess,
-    onError: () => toast({ title: "Failed to update ingredient", variant: "destructive" }),
-  });
-
-  return (
-    <div className="space-y-4 pt-2">
-      <div>
-        <label className="text-xs font-medium text-muted-foreground">Ingredient Name</label>
-        <Input
-          className="mt-1 h-11 rounded-xl bg-secondary border-none"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Unit</label>
-          <Select value={unit} onValueChange={setUnit}>
-            <SelectTrigger className="mt-1 h-11 rounded-xl bg-secondary border-none"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {["g", "kg", "ml", "l", "pcs", "cup", "tbsp", "tsp", "oz", "lb", "box", "bag", "bottle", "pack"].map(u => (
-                <SelectItem key={u} value={u}>{u}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Cost/Unit ({currency})</label>
-          <Input className="mt-1 h-11 rounded-xl bg-secondary border-none" type="number" min="0" step="0.01"
-            value={cost} onChange={(e) => setCost(e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
-          <Input className="mt-1 h-11 rounded-xl bg-secondary border-none" type="number" min="0" step="0.01"
-            value={stockQty} onChange={(e) => setStockQty(e.target.value)} />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Low Stock Alert At</label>
-          <Input className="mt-1 h-11 rounded-xl bg-secondary border-none" type="number" min="0" step="0.01"
-            value={threshold} onChange={(e) => setThreshold(e.target.value)} />
-        </div>
-      </div>
-      <div className="flex gap-2 pt-1">
-        <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-        <Button className="flex-1" onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
-          {mutation.isPending ? "Saving..." : "Save Changes"}
-        </Button>
-      </div>
-    </div>
   );
 }
 

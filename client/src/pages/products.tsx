@@ -128,6 +128,11 @@ function parseCsv(text: string): CsvRow[] {
     .filter((r) => r.name);
 }
 
+interface RecipeItem {
+  ingredientId: number;
+  quantity: string;
+}
+
 interface ProductFormData {
   name: string;
   price: string;
@@ -139,6 +144,7 @@ interface ProductFormData {
   stock: number | null;
   lowStockThreshold: number | null;
   sizes: SizeItem[];
+  recipeItems: RecipeItem[];
   expiryDate: string;
   batchNumber: string;
   requiresPrescription: boolean;
@@ -180,6 +186,11 @@ export default function Products() {
     businessSubType === "perishable_goods" ||
     businessSubType === "grocery" ||
     businessSubType === "grocery_enhanced";
+
+  const { data: ingredients = [] } = useQuery<{ id: number; name: string; unit: string; stockQty: string }[]>({
+    queryKey: ["/api/ingredients"],
+    enabled: isFoodBeverage,
+  });
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);

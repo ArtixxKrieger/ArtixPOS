@@ -16,6 +16,8 @@ export const APP_PAGES: NavPage[] = [
   { label: "Rooms", url: "/rooms", location: "more", description: "Room management (hotels/hospitality)" },
   { label: "Memberships", url: "/memberships", location: "more", description: "Customer membership plans and management" },
   { label: "Products", url: "/products", location: "more", description: "Add, edit, or delete products and menu items" },
+  { label: "Ingredients", url: "/ingredients", location: "more", description: "Track raw ingredients stock (cafés, restaurants, bakeries — Pro)" },
+  { label: "Inventory Hub", url: "/inventory", location: "more", description: "Stock overview, waste tracking, transfers & reorder suggestions (Pro)" },
   { label: "Customers", url: "/customers", location: "more", description: "View and manage customer profiles" },
   { label: "Transactions", url: "/transactions", location: "more", description: "Sales history, receipts, and refunds" },
   { label: "Analytics", url: "/analytics", location: "more", description: "Revenue charts, top products, category breakdowns, date-range comparisons" },

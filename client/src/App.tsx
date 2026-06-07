@@ -71,6 +71,7 @@ const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
 const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
 const FeaturesPage = lazy(() => import("@/pages/features"));
 const InventoryHubPage = lazy(() => import("@/pages/inventory-hub"));
+const IngredientsPage = lazy(() => import("@/pages/ingredients"));
 const VercelAnalytics = lazy(() =>
   import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
 );
@@ -738,6 +739,7 @@ function AppRouter() {
             <Route path="/bir-audit-log" component={BIRAuditLogRoute} />
             <Route path="/expiry" component={ExpiryRoute} />
             <Route path="/inventory" component={InventoryRoute} />
+            <Route path="/ingredients" component={() => <ProGuard url="/ingredients" component={IngredientsPage} />} />
             <Route path="/billing" component={BillingRoute} />
             <Route path="/features" component={FeaturesRoute} />
             <Route component={NotFound} />

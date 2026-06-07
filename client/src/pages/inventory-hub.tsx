@@ -74,6 +74,7 @@ export default function InventoryHub() {
   const [showWasteForm, setShowWasteForm] = useState(false);
   const [showTransferForm, setShowTransferForm] = useState(false);
   const [showAddIngredient, setShowAddIngredient] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
   const { toast } = useToast();
   const { data: settings } = useSettings();
   const { businessType } = useBranchBusiness();
@@ -368,7 +369,14 @@ export default function InventoryHub() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingIngredient(i); }}
+                        className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground/60 transition-colors"
+                        title="Edit ingredient"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={() => adjustStockMutation.mutate({ id: i.id, delta: -1 })}
                         className="h-7 w-7 rounded-lg hover:bg-rose-500/10 hover:text-rose-500 flex items-center justify-center text-muted-foreground/60 transition-colors"
@@ -465,6 +473,30 @@ export default function InventoryHub() {
                 setShowAddIngredient(false);
                 queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
                 toast({ title: "Ingredient added", description: "Stock tracking started." });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Ingredient Dialog */}
+      {editingIngredient && (
+        <Dialog open onOpenChange={() => setEditingIngredient(null)}>
+          <DialogContent className="sm:max-w-[460px] max-w-[calc(100vw-24px)] rounded-3xl border-none shadow-2xl">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-xl font-black flex items-center gap-2">
+                <Edit2 className="h-5 w-5 text-primary" />
+                Edit {editingIngredient.name}
+              </DialogTitle>
+            </DialogHeader>
+            <IngredientEditForm
+              ingredient={editingIngredient}
+              currency={currency}
+              onClose={() => setEditingIngredient(null)}
+              onSuccess={() => {
+                setEditingIngredient(null);
+                queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
+                toast({ title: "Ingredient updated" });
               }}
             />
           </DialogContent>
@@ -1047,6 +1079,82 @@ function QuickIngredientForm({ onClose, onSuccess }: {
         <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
         <Button className="flex-1" onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
           {mutation.isPending ? "Adding..." : "Add Ingredient"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function IngredientEditForm({ ingredient, currency, onClose, onSuccess }: {
+  ingredient: Ingredient;
+  currency: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState(ingredient.name);
+  const [unit, setUnit] = useState(ingredient.unit);
+  const [stockQty, setStockQty] = useState(ingredient.stockQty);
+  const [threshold, setThreshold] = useState(ingredient.lowStockThreshold || "0");
+  const [cost, setCost] = useState(ingredient.costPerUnit || "0");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      apiRequest("PUT", `/api/ingredients/${ingredient.id}`, {
+        name: name.trim(),
+        unit,
+        stockQty: stockQty || "0",
+        lowStockThreshold: threshold || "0",
+        costPerUnit: cost || "0",
+      }),
+    onSuccess,
+    onError: () => toast({ title: "Failed to update ingredient", variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div>
+        <label className="text-xs font-medium text-muted-foreground">Ingredient Name</label>
+        <Input
+          className="mt-1 h-11 rounded-xl bg-secondary border-none"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Unit</label>
+          <Select value={unit} onValueChange={setUnit}>
+            <SelectTrigger className="mt-1 h-11 rounded-xl bg-secondary border-none"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {["g", "kg", "ml", "l", "pcs", "cup", "tbsp", "tsp", "oz", "lb", "box", "bag", "bottle", "pack"].map(u => (
+                <SelectItem key={u} value={u}>{u}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Cost/Unit ({currency})</label>
+          <Input className="mt-1 h-11 rounded-xl bg-secondary border-none" type="number" min="0" step="0.01"
+            value={cost} onChange={(e) => setCost(e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
+          <Input className="mt-1 h-11 rounded-xl bg-secondary border-none" type="number" min="0" step="0.01"
+            value={stockQty} onChange={(e) => setStockQty(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Low Stock Alert At</label>
+          <Input className="mt-1 h-11 rounded-xl bg-secondary border-none" type="number" min="0" step="0.01"
+            value={threshold} onChange={(e) => setThreshold(e.target.value)} />
+        </div>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+        <Button className="flex-1" onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
+          {mutation.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>
     </div>

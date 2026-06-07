@@ -9,7 +9,8 @@ import { format } from "date-fns";
 import {
   Package, Trash2, ArrowRightLeft, ShoppingCart, Plus, CheckCircle2,
   XCircle, AlertTriangle, TrendingDown, TrendingUp, ChevronRight,
-  Flame, Clock, AlertCircle, Zap, BarChart3, Box,
+  Flame, Clock, AlertCircle, Zap, BarChart3, Box, Edit2, Calendar,
+  FlaskConical, ShieldAlert, Ban, Beaker, ChefHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,8 +51,13 @@ const WASTE_REASONS = [
   { value: "other", label: "Other", color: "text-gray-500" },
 ];
 
-const REASON_ICONS: Record<string, string> = {
-  expired: "⏰", damaged: "💥", theft: "🔓", sample: "🧪", cooking_loss: "🍳", other: "📋",
+const REASON_ICONS_COMPONENT: Record<string, typeof Clock> = {
+  expired: Clock,
+  damaged: ShieldAlert,
+  theft: Ban,
+  sample: FlaskConical,
+  cooking_loss: ChefHat,
+  other: Trash2,
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -101,10 +107,21 @@ export default function InventoryHub() {
   const adjustStockMutation = useMutation({
     mutationFn: ({ id, delta }: { id: number; delta: number }) =>
       apiRequest("POST", `/api/ingredients/${id}/stock`, { delta }),
-    onSuccess: () => {
+    onMutate: async ({ id, delta }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/ingredients"] });
+      const previous = queryClient.getQueryData<Ingredient[]>(["/api/ingredients"]);
+      queryClient.setQueryData<Ingredient[]>(["/api/ingredients"], (old) =>
+        old?.map(i => i.id === id ? { ...i, stockQty: String(Number(i.stockQty || "0") + delta) } : i)
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(["/api/ingredients"], context.previous);
+      toast({ title: "Failed to adjust stock", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
     },
-    onError: () => toast({ title: "Failed to adjust stock", variant: "destructive" }),
   });
 
   const TABS: { id: Tab; label: string; icon: typeof Package; badge?: number }[] = isFoodBeverage
@@ -258,16 +275,19 @@ export default function InventoryHub() {
                     View All <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
-                {wasteLogs.slice(0, 5).map(e => (
+                {wasteLogs.slice(0, 5).map(e => {
+                  const ReasonIcon = REASON_ICONS_COMPONENT[e.reason] ?? Trash2;
+                  return (
                   <div key={e.id} className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0">
-                    <span className="text-base shrink-0">{REASON_ICONS[e.reason] ?? "📋"}</span>
+                    <span className="text-base shrink-0"><ReasonIcon className="h-4 w-4 text-muted-foreground/60" /></span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{e.itemName}</p>
                       <p className="text-xs text-muted-foreground">{e.quantity} {e.unit} · {e.reason}</p>
                     </div>
                     <span className="text-sm font-mono text-rose-500 shrink-0">-{formatCurrency(e.costImpact, currency)}</span>
                   </div>
-                ))}
+                  );
+                })}
                 {wasteLogs.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">No waste logged yet</p>
                 )}
@@ -498,9 +518,11 @@ function WasteTab({ logs, isLoading, products, ingredients, currency, onAdd }: {
             <p className="text-xs text-muted-foreground/60 mt-1">Log expired, damaged, or spoiled items to track shrinkage costs.</p>
           </div>
         )}
-        {logs.map(entry => (
+        {logs.map(entry => {
+          const ReasonIcon = REASON_ICONS_COMPONENT[entry.reason] ?? Trash2;
+          return (
           <div key={entry.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
-            <span className="text-xl shrink-0">{REASON_ICONS[entry.reason] ?? "📋"}</span>
+            <span className="text-xl shrink-0"><ReasonIcon className="h-5 w-5 text-muted-foreground/60" /></span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-sm">{entry.itemName}</p>
@@ -517,7 +539,8 @@ function WasteTab({ logs, isLoading, products, ingredients, currency, onAdd }: {
               <p className="text-sm font-bold text-rose-500">-{formatCurrency(entry.costImpact, currency)}</p>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -903,9 +926,12 @@ function WasteLogForm({ products, ingredients, currency, isFoodBeverage, onClose
             <Select value={form.reason} onValueChange={v => set("reason", v)}>
               <SelectTrigger className="mt-1" data-testid="select-waste-reason"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {WASTE_REASONS.map(r => (
-                  <SelectItem key={r.value} value={r.value}>{REASON_ICONS[r.value]} {r.label}</SelectItem>
-                ))}
+                {WASTE_REASONS.map(r => {
+                  const ReasonIcon = REASON_ICONS_COMPONENT[r.value] ?? Trash2;
+                  return (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

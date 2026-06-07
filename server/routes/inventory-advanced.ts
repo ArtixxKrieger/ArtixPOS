@@ -1,126 +1,270 @@
 import type { Express } from "express";
-import { z } from "zod";
 import { storage } from "../storage";
-import { requireAuth, requireManagerOrAbove, requirePro } from "../middleware";
-import { getUserId, getActiveBranchId, resolveBranchId } from "../lib/route-utils";
+import { requireAuth, requirePro, requireManagerOrAbove } from "../middleware";
+import { getUserId, getActiveBranchId } from "../lib/route-utils";
+import { db } from "../db";
+import { products, sales, ingredients, productRecipes, suppliers, supplierProducts } from "@shared/schema";
+import { eq, and, isNull, inArray, sql } from "drizzle-orm";
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
-
-  // ── Waste Log ──────────────────────────────────────────────────────────────
-
-  app.get("/api/waste-log", requireAuth, requirePro, async (req, res, next) => {
-    try {
-      const uid = getUserId(req);
-      const branch = getActiveBranchId(req);
-      const logs = await storage.getWasteLogs(uid, branch);
-      res.json(logs);
-    } catch (err) { next(err); }
+  
+  // ── Product-based reorder suggestions (retail/pharmacy) ─────────────────
+  app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res) => {
+    const uid = getUserId(req);
+    const branchId = getActiveBranchId(req);
+    const suggestions = await storage.getReorderSuggestions(uid, branchId);
+    res.json(suggestions);
   });
 
-  app.post("/api/waste-log", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
-    try {
-      const schema = z.object({
-        productId: z.number().int().positive().optional().nullable(),
-        ingredientId: z.number().int().positive().optional().nullable(),
-        itemName: z.string().min(1),
-        quantity: z.string().min(1),
-        unit: z.string().optional(),
-        reason: z.enum(["expired", "damaged", "theft", "sample", "cooking_loss", "other"]),
-        costImpact: z.string().default("0"),
-        note: z.string().optional(),
-      });
-      const data = schema.parse(req.body);
-      const uid = getUserId(req);
-      const branchId = await resolveBranchId(req);
-      const entry = await storage.createWasteLog(uid, { ...data, branchId });
-      res.status(201).json(entry);
-    } catch (err) { next(err); }
-  });
-
-  // ── Stock Transfers ────────────────────────────────────────────────────────
-
-  app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res, next) => {
+  // ── Ingredient-based reorder suggestions (cafe/restaurant) ──────────────
+  app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
-      const branch = getActiveBranchId(req);
-      const transfers = await storage.getStockTransfers(uid, branch);
-      res.json(transfers);
-    } catch (err) { next(err); }
-  });
+      const branchId = getActiveBranchId(req);
+      
+      const userIds = await (storage as any).getTenantUserIds(uid);
+      
+      // Get all ingredients with low stock
+      const lowStockIngredients = await db.select()
+        .from(ingredients)
+        .where(and(
+          inArray(ingredients.userId, userIds),
+          sql`CAST(stock_qty AS NUMERIC) <= CAST(low_stock_threshold AS NUMERIC)`,
+          isNull(ingredients.deletedAt)
+        ));
 
-  app.post("/api/stock-transfers", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
-    try {
-      const schema = z.object({
-        fromBranchId: z.number().int().positive().optional().nullable(),
-        toBranchId: z.number().int().positive().optional().nullable(),
-        notes: z.string().optional(),
-        items: z.array(z.object({
-          productId: z.number().int().positive(),
-          productName: z.string().min(1),
-          quantity: z.number().int().positive(),
-          note: z.string().optional(),
-        })).min(1),
-      });
-      const data = schema.parse(req.body);
-      const uid = getUserId(req);
-      const transfer = await storage.createStockTransfer(uid, data);
-      res.status(201).json(transfer);
-    } catch (err) { next(err); }
-  });
+      if (lowStockIngredients.length === 0) {
+        return res.json([]);
+      }
 
-  app.patch("/api/stock-transfers/:id/status", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
-    try {
-      const id = Number(req.params.id);
-      const { status } = z.object({
-        status: z.enum(["in_transit", "received", "rejected"]),
-      }).parse(req.body);
-      const uid = getUserId(req);
-      await storage.updateStockTransferStatus(id, uid, status);
-      res.json({ success: true });
-    } catch (err) { next(err); }
-  });
+      // Get sales from last 30 days to calculate consumption
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const recentSales = await db.select({ id: sales.id, items: sales.items, createdAt: sales.createdAt })
+        .from(sales)
+        .where(and(
+          inArray(sales.userId, userIds),
+          sql`${sales.createdAt} >= ${thirtyDaysAgo}`,
+          isNull(sales.deletedAt)
+        ));
 
-  // ── Reorder Suggestions ────────────────────────────────────────────────────
+      // Count products sold (for recipe calculation)
+      const productSoldMap = new Map<number, number>();
+      for (const sale of recentSales) {
+        const items = (sale.items ?? []) as { productId?: number; id?: number; quantity?: number }[];
+        for (const item of items) {
+          const pid = Number(item.productId ?? item.id);
+          if (!Number.isFinite(pid)) continue;
+          productSoldMap.set(pid, (productSoldMap.get(pid) ?? 0) + Number(item.quantity ?? 1));
+        }
+      }
 
-  app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res, next) => {
-    try {
-      const uid = getUserId(req);
-      const branch = getActiveBranchId(req);
-      const suggestions = await storage.getReorderSuggestions(uid, branch);
+      // Get all recipes
+      const allRecipes = await db.select()
+        .from(productRecipes)
+        .where(inArray(productRecipes.ingredientId, lowStockIngredients.map(i => i.id)));
+
+      // Calculate ingredient consumption based on products sold × recipe qty
+      const ingredientConsumedMap = new Map<number, number>();
+      for (const recipe of allRecipes) {
+        const productsSold = productSoldMap.get(recipe.productId) ?? 0;
+        const qtyPerUnit = parseFloat(recipe.quantity || "0");
+        const consumed = productsSold * qtyPerUnit;
+        ingredientConsumedMap.set(
+          recipe.ingredientId,
+          (ingredientConsumedMap.get(recipe.ingredientId) ?? 0) + consumed
+        );
+      }
+
+      // Get supplier info for ingredients — scoped to tenant via supplier.userId
+      const ingredientIds = lowStockIngredients.map(i => i.id);
+      const supplierProds = ingredientIds.length > 0
+        ? await db.select({
+            ingredientId: sql`${supplierProducts.productId}`.as('ingredientId'),
+            supplierId: supplierProducts.supplierId,
+            unitCost: supplierProducts.unitCost
+          })
+          .from(supplierProducts)
+          .where(inArray(supplierProducts.productId, ingredientIds))
+        : [];
+
+      const supplierMap = new Map<number, { supplierId: number; unitCost: string }>();
+      for (const sp of supplierProds) {
+        const ingId = Number((sp as any).ingredientId);
+        if (!supplierMap.has(ingId)) {
+          supplierMap.set(ingId, { supplierId: sp.supplierId, unitCost: sp.unitCost });
+        }
+      }
+
+      const supplierIdSet = new Set<number>();
+      for (const sv of supplierMap.values()) supplierIdSet.add(sv.supplierId);
+      const supplierIds = [...supplierIdSet];
+      const supplierNames = supplierIds.length > 0
+        ? await db.select({ id: suppliers.id, name: suppliers.name })
+            .from(suppliers)
+            .where(and(inArray(suppliers.id, supplierIds as number[]), inArray(suppliers.userId, userIds)))
+        : [];
+      const supplierNameMap = new Map(supplierNames.map(s => [s.id, s.name]));
+
+      // Build suggestions
+      const suggestions = lowStockIngredients.map(ing => {
+        const consumed30 = ingredientConsumedMap.get(ing.id) ?? 0;
+        const avgDaily = consumed30 / 30;
+        const current = parseFloat(ing.stockQty || "0");
+        const threshold = parseFloat(ing.lowStockThreshold || "0");
+        const daysLeft = avgDaily > 0 ? Math.floor(current / avgDaily) : 999;
+        
+        // Suggest 14 days worth + 20% safety margin, or at least threshold amount
+        const reorderDays = 14;
+        const suggested = Math.max(threshold, Math.ceil(avgDaily * reorderDays * 1.2));
+        
+        const sp = supplierMap.get(ing.id);
+        
+        return {
+          ingredientId: ing.id,
+          ingredientName: ing.name,
+          unit: ing.unit,
+          currentStock: current,
+          lowStockThreshold: threshold,
+          consumedLast30Days: Math.round(consumed30 * 100) / 100,
+          avgDailyConsumption: Math.round(avgDaily * 100) / 100,
+          daysOfStockLeft: daysLeft,
+          suggestedOrderQty: suggested,
+          preferredSupplierId: sp?.supplierId ?? null,
+          preferredSupplierName: sp ? (supplierNameMap.get(sp.supplierId) ?? null) : null,
+          unitCost: sp?.unitCost ?? ing.costPerUnit ?? null,
+        };
+      }).sort((a, b) => a.daysOfStockLeft - b.daysOfStockLeft);
+
       res.json(suggestions);
-    } catch (err) { next(err); }
+    } catch (error) {
+      console.error("Error fetching ingredient reorder suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch ingredient reorder suggestions" });
+    }
   });
 
-  app.post("/api/inventory/generate-reorder-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res, next) => {
+  // ── Generate ingredient-based purchase order ─────────────────────────────
+  app.post("/api/inventory/generate-ingredient-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
-      const { items, supplierId, notes } = z.object({
-        supplierId: z.number().int().positive().optional().nullable(),
-        notes: z.string().optional(),
-        items: z.array(z.object({
-          productId: z.number().int().positive(),
-          productName: z.string(),
-          quantity: z.number().int().positive(),
-          unitCost: z.string().default("0"),
-        })).min(1),
-      }).parse(req.body);
       const uid = getUserId(req);
-      const totalAmount = items.reduce((s, i) => s + Number(i.unitCost) * i.quantity, 0);
+      const { supplierId, items } = req.body;
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      const totalAmount = items.reduce((sum: number, item: any) => {
+        return sum + (parseFloat(item.unitCost || "0") * item.quantity);
+      }, 0).toFixed(2);
+
       const po = await storage.createPurchaseOrder(uid, {
-        supplierId: supplierId ?? null,
+        supplierId: supplierId || null,
         status: "pending",
+        totalAmount,
         paymentStatus: "unpaid",
-        totalAmount: String(totalAmount.toFixed(2)),
-        notes: notes ?? "Auto-generated from Reorder Suggestions",
-        expectedDeliveryAt: null,
-        items: items.map(i => ({
-          productId: i.productId,
-          productName: i.productName,
-          quantity: i.quantity,
-          unitCost: i.unitCost,
-          totalCost: String((Number(i.unitCost) * i.quantity).toFixed(2)),
+        notes: `Auto-generated ingredient reorder for ${items.length} ingredient(s)`,
+        items: items.map((item: any) => ({
+          productId: item.ingredientId, // Using productId field for ingredient ID
+          productName: item.ingredientName,
+          quantity: item.quantity,
+          unitCost: item.unitCost || "0",
+          totalCost: (parseFloat(item.unitCost || "0") * item.quantity).toFixed(2),
         })),
-      } as Parameters<typeof storage.createPurchaseOrder>[1]);
+      });
+
       res.status(201).json(po);
-    } catch (err) { next(err); }
+    } catch (error) {
+      console.error("Error generating ingredient PO:", error);
+      res.status(500).json({ message: "Failed to generate purchase order" });
+    }
+  });
+
+  // ── Generate product-based purchase order (existing) ─────────────────────
+  app.post("/api/inventory/generate-reorder-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const uid = getUserId(req);
+      const { supplierId, items } = req.body;
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      const totalAmount = items.reduce((sum: number, item: any) => {
+        return sum + (parseFloat(item.unitCost || "0") * item.quantity);
+      }, 0).toFixed(2);
+
+      const po = await storage.createPurchaseOrder(uid, {
+        supplierId: supplierId || null,
+        status: "pending",
+        totalAmount,
+        paymentStatus: "unpaid",
+        notes: `Auto-generated reorder for ${items.length} product(s)`,
+        items: items.map((item: any) => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitCost: item.unitCost || "0",
+          totalCost: (parseFloat(item.unitCost || "0") * item.quantity).toFixed(2),
+        })),
+      });
+
+      res.status(201).json(po);
+    } catch (error) {
+      console.error("Error generating PO:", error);
+      res.status(500).json({ message: "Failed to generate purchase order" });
+    }
+  });
+
+  // ── Waste log ──────────────────────────────────────────────────────────
+  app.get("/api/waste-log", requireAuth, requirePro, async (req, res) => {
+    const uid = getUserId(req);
+    const branchId = getActiveBranchId(req);
+    const logs = await storage.getWasteLogs(uid, branchId);
+    res.json(logs);
+  });
+
+  app.post("/api/waste-log", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const uid = getUserId(req);
+      const branchId = getActiveBranchId(req);
+      const entry = await storage.createWasteLog(uid, { ...req.body, branchId });
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating waste log:", error);
+      res.status(500).json({ message: "Failed to log waste" });
+    }
+  });
+
+  // ── Stock transfers ────────────────────────────────────────────────────
+  app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res) => {
+    const uid = getUserId(req);
+    const branchId = getActiveBranchId(req);
+    const transfers = await storage.getStockTransfers(uid, branchId);
+    res.json(transfers);
+  });
+
+  app.post("/api/stock-transfers", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const uid = getUserId(req);
+      const transfer = await storage.createStockTransfer(uid, req.body);
+      res.status(201).json(transfer);
+    } catch (error) {
+      console.error("Error creating stock transfer:", error);
+      res.status(500).json({ message: "Failed to create transfer" });
+    }
+  });
+
+  app.patch("/api/stock-transfers/:id/status", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    try {
+      const uid = getUserId(req);
+      const { status } = req.body;
+      if (!["in_transit", "received", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      await storage.updateStockTransferStatus(Number(req.params.id), uid, status);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error updating transfer status:", error);
+      res.status(500).json({ message: "Failed to update transfer" });
+    }
   });
 }

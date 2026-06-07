@@ -173,6 +173,7 @@ export default function Products() {
 
   const { productPlural } = useBusinessTerminology();
   const { businessType, showBarcode: showInven } = useBranchBusiness();
+  const isFoodBeverage = businessType === "food_beverage";
   const isPharmacy = businessSubType === "pharmacy" || businessSubType === "drugstore";
   const isPerishable =
     isPharmacy ||
@@ -777,105 +778,107 @@ export default function Products() {
                     )}
                   />
 
-                  {/* Stock Tracking */}
-                  <div className="space-y-3">
-                    <FormField
-                      control={form.control}
-                      name="trackStock"
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3">
-                            <div>
-                              <FormLabel className="font-semibold text-sm cursor-pointer">
-                                Track Inventory
-                              </FormLabel>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                Monitor stock levels for this product
-                              </p>
-                            </div>
-                            <FormControl>
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={field.value}
-                                data-testid="toggle-track-stock"
-                                onClick={() => field.onChange(!field.value)}
-                                className={[
-                                  "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
-                                  field.value ? "bg-primary" : "bg-secondary border border-border",
-                                ].join(" ")}
-                              >
-                                <span
+                  {/* Stock Tracking — hidden for food_beverage since they track ingredients instead */}
+                  {!isFoodBeverage && (
+                    <div className="space-y-3">
+                      <FormField
+                        control={form.control}
+                        name="trackStock"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3">
+                              <div>
+                                <FormLabel className="font-semibold text-sm cursor-pointer">
+                                  Track Inventory
+                                </FormLabel>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  Monitor stock levels for this product
+                                </p>
+                              </div>
+                              <FormControl>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={field.value}
+                                  data-testid="toggle-track-stock"
+                                  onClick={() => field.onChange(!field.value)}
                                   className={[
-                                    "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
-                                    field.value ? "left-5" : "left-0.5",
+                                    "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
+                                    field.value ? "bg-primary" : "bg-secondary border border-border",
                                   ].join(" ")}
-                                />
-                              </button>
-                            </FormControl>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
+                                >
+                                  <span
+                                    className={[
+                                      "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200",
+                                      field.value ? "left-5" : "left-0.5",
+                                    ].join(" ")}
+                                  />
+                                </button>
+                              </FormControl>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
 
-                    {form.watch("trackStock") && (
-                      <div className="grid grid-cols-2 gap-3">
-                        <FormField
-                          control={form.control}
-                          name="stock"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="font-semibold text-sm">Current Stock</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  {...field}
-                                  value={field.value ?? ""}
-                                  onChange={(e) =>
-                                    field.onChange(e.target.value ? Number(e.target.value) : null)
-                                  }
-                                  placeholder="0"
-                                  className="h-11 rounded-xl bg-secondary border-none"
-                                  data-testid="input-product-stock"
-                                />
-                              </FormControl>
-                              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                                Set your actual count — sales will deduct from this number
-                              </p>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="lowStockThreshold"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="font-semibold text-sm">
-                                Low Stock Threshold
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  {...field}
-                                  value={field.value ?? ""}
-                                  onChange={(e) =>
-                                    field.onChange(e.target.value ? Number(e.target.value) : null)
-                                  }
-                                  placeholder="5"
-                                  className="h-11 rounded-xl bg-secondary border-none"
-                                  data-testid="input-product-threshold"
-                                />
-                              </FormControl>
-                              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                                Get alerts when stock reaches this number. Will appear on the
-                                dashboard.
-                              </p>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
+                      {form.watch("trackStock") && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <FormField
+                            control={form.control}
+                            name="stock"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="font-semibold text-sm">Current Stock</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    value={field.value ?? ""}
+                                    onChange={(e) =>
+                                      field.onChange(e.target.value ? Number(e.target.value) : null)
+                                    }
+                                    placeholder="0"
+                                    className="h-11 rounded-xl bg-secondary border-none"
+                                    data-testid="input-product-stock"
+                                  />
+                                </FormControl>
+                                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                                  Set your actual count — sales will deduct from this number
+                                </p>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="lowStockThreshold"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="font-semibold text-sm">
+                                  Low Stock Threshold
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    value={field.value ?? ""}
+                                    onChange={(e) =>
+                                      field.onChange(e.target.value ? Number(e.target.value) : null)
+                                    }
+                                    placeholder="5"
+                                    className="h-11 rounded-xl bg-secondary border-none"
+                                    data-testid="input-product-threshold"
+                                  />
+                                </FormControl>
+                                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                                  Get alerts when stock reaches this number. Will appear on the
+                                  dashboard.
+                                </p>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Sizes */}
                   <div className="space-y-3">

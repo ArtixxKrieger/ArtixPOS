@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
 import {
@@ -38,7 +39,7 @@ type ReorderSuggestion = {
 };
 
 type Product = { id: number; name: string; stock: number | null; trackStock: boolean; lowStockThreshold: number | null; price: string; };
-type Ingredient = { id: number; name: string; unit: string; stockQty: string; costPerUnit: string; };
+type Ingredient = { id: number; name: string; unit: string; stockQty: string; lowStockThreshold: string | null; costPerUnit: string; };
 
 const WASTE_REASONS = [
   { value: "expired", label: "Expired", color: "text-red-500" },
@@ -68,17 +69,29 @@ export default function InventoryHub() {
   const [showTransferForm, setShowTransferForm] = useState(false);
   const { toast } = useToast();
   const { data: settings } = useSettings();
+  const { businessType } = useBranchBusiness();
+  const isFoodBeverage = businessType === "food_beverage";
   const currency = (settings as { currency?: string })?.currency || "₱";
 
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
   const { data: ingredients = [] } = useQuery<Ingredient[]>({ queryKey: ["/api/ingredients"] });
   const { data: wasteLogs = [], isLoading: wasteLoading } = useQuery<WasteEntry[]>({ queryKey: ["/api/waste-log"] });
   const { data: transfers = [], isLoading: transferLoading } = useQuery<Transfer[]>({ queryKey: ["/api/stock-transfers"] });
-  const { data: reorderSuggestions = [], isLoading: reorderLoading } = useQuery<ReorderSuggestion[]>({ queryKey: ["/api/inventory/reorder-suggestions"] });
+
+  // For food_beverage: fetch ingredient-based reorder suggestions
+  // For retail: fetch product-based reorder suggestions
+  const reorderQueryKey = isFoodBeverage
+    ? ["/api/inventory/ingredient-reorder-suggestions"]
+    : ["/api/inventory/reorder-suggestions"];
+  const { data: reorderSuggestions = [], isLoading: reorderLoading } = useQuery<ReorderSuggestion[]>({ queryKey: reorderQueryKey });
 
   const trackedProducts = products.filter(p => p.trackStock);
-  const lowStockCount = trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).length;
-  const outOfStockCount = trackedProducts.filter(p => (p.stock ?? 0) === 0).length;
+  const lowStockCount = isFoodBeverage
+    ? ingredients.filter(i => Number(i.stockQty || "0") <= Number(i.lowStockThreshold || "0")).length
+    : trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).length;
+  const outOfStockCount = isFoodBeverage
+    ? ingredients.filter(i => Number(i.stockQty || "0") === 0).length
+    : trackedProducts.filter(p => (p.stock ?? 0) === 0).length;
   const totalWasteCost = wasteLogs.reduce((s, e) => s + Number(e.costImpact || 0), 0);
   const pendingTransfers = transfers.filter(t => t.status === "pending" || t.status === "in_transit").length;
 
@@ -140,10 +153,21 @@ export default function InventoryHub() {
         {activeTab === "overview" && (
           <div className="space-y-4 sm:space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              <KpiCard icon={Package} label="Tracked Items" value={String(trackedProducts.length)} color="blue" />
-              <KpiCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} color="amber" urgent={lowStockCount > 0} />
-              <KpiCard icon={XCircle} label="Out of Stock" value={String(outOfStockCount)} color="red" urgent={outOfStockCount > 0} />
-              <KpiCard icon={Trash2} label="Waste Cost" value={formatCurrency(totalWasteCost, currency)} color="orange" />
+              {isFoodBeverage ? (
+                <>
+                  <KpiCard icon={Package} label="Ingredients" value={String(ingredients.length)} color="blue" />
+                  <KpiCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} color="amber" urgent={lowStockCount > 0} />
+                  <KpiCard icon={XCircle} label="Out of Stock" value={String(outOfStockCount)} color="red" urgent={outOfStockCount > 0} />
+                  <KpiCard icon={Trash2} label="Waste Cost" value={formatCurrency(totalWasteCost, currency)} color="orange" />
+                </>
+              ) : (
+                <>
+                  <KpiCard icon={Package} label="Tracked Items" value={String(trackedProducts.length)} color="blue" />
+                  <KpiCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} color="amber" urgent={lowStockCount > 0} />
+                  <KpiCard icon={XCircle} label="Out of Stock" value={String(outOfStockCount)} color="red" urgent={outOfStockCount > 0} />
+                  <KpiCard icon={Trash2} label="Waste Cost" value={formatCurrency(totalWasteCost, currency)} color="orange" />
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -151,22 +175,42 @@ export default function InventoryHub() {
               <div className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-sm flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /> Low Stock Items
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /> {isFoodBeverage ? "Low Stock Ingredients" : "Low Stock Items"}
                   </h3>
                   <button onClick={() => setActiveTab("reorder")} className="text-xs text-primary flex items-center gap-0.5 hover:underline shrink-0">
                     Reorder <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
-                {trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).slice(0, 6).map(p => (
-                  <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0 gap-2">
-                    <span className="text-sm truncate flex-1 min-w-0">{p.name}</span>
-                    <span className={["text-xs font-mono font-bold tabular-nums shrink-0", (p.stock ?? 0) === 0 ? "text-red-500" : "text-amber-500"].join(" ")}>
-                      {p.stock ?? 0} left
-                    </span>
-                  </div>
-                ))}
-                {trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">All items adequately stocked</p>
+
+                {isFoodBeverage ? (
+                  <>
+                    {ingredients.filter(i => Number(i.stockQty || "0") <= Number(i.lowStockThreshold || "0")).slice(0, 6).map(i => (
+                      <div key={i.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0 gap-2">
+                        <span className="text-sm truncate flex-1 min-w-0">{i.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0 mr-1">{i.unit}</span>
+                        <span className={["text-xs font-mono font-bold tabular-nums shrink-0", Number(i.stockQty || "0") === 0 ? "text-red-500" : "text-amber-500"].join(" ")}>
+                          {i.stockQty} left
+                        </span>
+                      </div>
+                    ))}
+                    {ingredients.filter(i => Number(i.stockQty || "0") <= Number(i.lowStockThreshold || "0")).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">All ingredients adequately stocked</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).slice(0, 6).map(p => (
+                      <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0 gap-2">
+                        <span className="text-sm truncate flex-1 min-w-0">{p.name}</span>
+                        <span className={["text-xs font-mono font-bold tabular-nums shrink-0", (p.stock ?? 0) === 0 ? "text-red-500" : "text-amber-500"].join(" ")}>
+                          {p.stock ?? 0} left
+                        </span>
+                      </div>
+                    ))}
+                    {trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">All items adequately stocked</p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -234,6 +278,7 @@ export default function InventoryHub() {
           products={products}
           ingredients={ingredients}
           currency={currency}
+          isFoodBeverage={isFoodBeverage}
           onClose={() => setShowWasteForm(false)}
           onSuccess={() => {
             setShowWasteForm(false);
@@ -579,18 +624,19 @@ function ReorderTab({ suggestions, isLoading, currency }: {
   );
 }
 
-function WasteLogForm({ products, ingredients, currency, onClose, onSuccess }: {
+function WasteLogForm({ products, ingredients, currency, isFoodBeverage, onClose, onSuccess }: {
   products: Product[]; ingredients: Ingredient[]; currency: string;
+  isFoodBeverage?: boolean;
   onClose: () => void; onSuccess: () => void;
 }) {
   const [form, setForm] = useState({
-    type: "product" as "product" | "ingredient" | "manual",
+    type: (isFoodBeverage ? "ingredient" : "product") as "product" | "ingredient" | "manual",
     productId: "",
     ingredientId: "",
     itemName: "",
     quantity: "",
-    unit: "pcs",
-    reason: "expired",
+    unit: isFoodBeverage ? "kg" : "pcs",
+    reason: isFoodBeverage ? "cooking_loss" : "expired",
     costImpact: "",
     note: "",
   });

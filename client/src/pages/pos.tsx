@@ -33,9 +33,8 @@ import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { DEFAULT_PAYMENT_METHODS, CAFE_STYLE_BUSINESS_SUBTYPES } from "@/constants/pos";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { playCheckout, playAddItem, playMilestone, playError } from "@/lib/sounds";
-import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
-import { ConfettiBurst } from "@/components/confetti";
+import { playCheckout, playAddItem, playError } from "@/lib/sounds";
+import { hapticLight, hapticSuccess } from "@/lib/haptics";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 import { BillSplitDialog, type SplitPortion } from "@/components/bill-split-dialog";
 

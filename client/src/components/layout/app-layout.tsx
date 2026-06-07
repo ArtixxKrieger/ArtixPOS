@@ -115,6 +115,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/timeclock": "nav.timeclock",
   "/payroll": "nav.payroll",
   "/products": "nav.products",
+  "/ingredients": "",
   "/expiry": "nav.expiry",
   "/customers": "nav.customers",
   "/transactions": "nav.transactions",

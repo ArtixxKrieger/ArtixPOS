@@ -29,7 +29,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/rooms": "nav.rooms",
   "/memberships": "nav.memberships",
   "/products": "nav.products",
-  "/ingredients": "nav.ingredients",
+  "/ingredients": "",
   "/inventory": "nav.inventory",
   "/expiry": "nav.expiry",
   "/customers": "nav.customers",

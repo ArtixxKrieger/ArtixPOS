@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
 import {
   Package, Trash2, ArrowRightLeft, ShoppingCart, Plus, CheckCircle2,
-  XCircle, AlertTriangle, TrendingDown, ChevronRight,
+  XCircle, AlertTriangle, TrendingDown, TrendingUp, ChevronRight,
   Flame, Clock, AlertCircle, Zap, BarChart3, Box,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   rejected: { label: "Rejected", color: "bg-red-500/10 text-red-600 dark:text-red-400" },
 };
 
-type Tab = "overview" | "waste" | "transfers" | "reorder";
+type Tab = "overview" | "waste" | "transfers" | "reorder" | "ingredients";
 
 export default function InventoryHub() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -96,12 +96,30 @@ export default function InventoryHub() {
   const totalWasteCost = wasteLogs.reduce((s, e) => s + Number(e.costImpact || 0), 0);
   const pendingTransfers = transfers.filter(t => t.status === "pending" || t.status === "in_transit").length;
 
-  const TABS: { id: Tab; label: string; icon: typeof Package; badge?: number }[] = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "waste", label: "Waste Log", icon: Trash2, badge: wasteLogs.length },
-    { id: "transfers", label: "Transfers", icon: ArrowRightLeft, badge: pendingTransfers || undefined },
-    { id: "reorder", label: "Reorder", icon: ShoppingCart, badge: reorderSuggestions.length || undefined },
-  ];
+  // For food_beverage: tabs are Overview, Waste Log, Transfers, Ingredients (with reorder inside)
+  // For retail: tabs are Overview, Waste Log, Transfers, Reorder
+  const adjustStockMutation = useMutation({
+    mutationFn: ({ id, delta }: { id: number; delta: number }) =>
+      apiRequest("POST", `/api/ingredients/${id}/stock`, { delta }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
+    },
+    onError: () => toast({ title: "Failed to adjust stock", variant: "destructive" }),
+  });
+
+  const TABS: { id: Tab; label: string; icon: typeof Package; badge?: number }[] = isFoodBeverage
+    ? [
+        { id: "overview", label: "Overview", icon: BarChart3 },
+        { id: "waste", label: "Waste Log", icon: Trash2, badge: wasteLogs.length },
+        { id: "transfers", label: "Transfers", icon: ArrowRightLeft, badge: pendingTransfers || undefined },
+        { id: "ingredients", label: "Ingredients", icon: Package, badge: lowStockCount || undefined },
+      ]
+    : [
+        { id: "overview", label: "Overview", icon: BarChart3 },
+        { id: "waste", label: "Waste Log", icon: Trash2, badge: wasteLogs.length },
+        { id: "transfers", label: "Transfers", icon: ArrowRightLeft, badge: pendingTransfers || undefined },
+        { id: "reorder", label: "Reorder", icon: ShoppingCart, badge: reorderSuggestions.length || undefined },
+      ];
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
@@ -118,16 +136,6 @@ export default function InventoryHub() {
               Stock management, waste tracking &amp; smart reordering
             </p>
           </div>
-          {isFoodBeverage && (
-            <Button
-              onClick={() => setShowAddIngredient(true)}
-              size="sm"
-              className="shrink-0"
-              data-testid="button-add-ingredient-hub"
-            >
-              <Plus className="h-4 w-4 mr-1" /> Add Ingredient
-            </Button>
-          )}
         </div>
 
         {/* Tabs — horizontally scrollable on mobile */}
@@ -289,8 +297,99 @@ export default function InventoryHub() {
           />
         )}
 
-        {/* ── REORDER TAB ── */}
-        {activeTab === "reorder" && (
+        {/* ── INGREDIENTS TAB (food_beverage only) — with reorder embedded */}
+        {activeTab === "ingredients" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {ingredients.length} ingredient{ingredients.length !== 1 ? "s" : ""} · {lowStockCount} low, {outOfStockCount} out
+              </p>
+              <Button
+                onClick={() => setShowAddIngredient(true)}
+                size="sm"
+                className="shrink-0"
+                data-testid="button-add-ingredient-tab"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+
+            {/* Full ingredient list with quick adjust */}
+            <div className="space-y-1.5">
+              {ingredients.length === 0 && (
+                <div className="glass-card rounded-2xl p-8 text-center">
+                  <Package className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No ingredients yet. Tap Add to start tracking your stock.</p>
+                </div>
+              )}
+              {ingredients.map(i => {
+                const stock = Number(i.stockQty || "0");
+                const thresh = Number(i.lowStockThreshold || "0");
+                const isLow = thresh > 0 && stock <= thresh;
+                const isOut = stock === 0;
+                return (
+                  <div key={i.id} className="bg-card rounded-xl border border-border/30 px-3.5 py-3 flex items-center gap-3 shadow-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-sm truncate">{i.name}</span>
+                        {(isOut || isLow) && (
+                          <span className={["text-[10px] font-bold shrink-0", isOut ? "text-rose-500" : "text-amber-500"].join(" ")}>
+                            {isOut ? "OUT" : "LOW"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-muted-foreground">{i.unit}</span>
+                        {Number(i.costPerUnit || "0") > 0 && (
+                          <span className="text-[10px] text-muted-foreground/60">
+                            {formatCurrency(i.costPerUnit, currency)}/{i.unit}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => adjustStockMutation.mutate({ id: i.id, delta: -1 })}
+                        className="h-7 w-7 rounded-lg hover:bg-rose-500/10 hover:text-rose-500 flex items-center justify-center text-muted-foreground/60 transition-colors"
+                        title="Deduct 1"
+                      >
+                        <TrendingDown className="h-3 w-3" />
+                      </button>
+                      <div className="text-center min-w-[36px]">
+                        <span className={["text-sm font-bold tabular-nums", isOut ? "text-rose-500" : isLow ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"].join(" ")}>
+                          {i.stockQty}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => adjustStockMutation.mutate({ id: i.id, delta: 1 })}
+                        className="h-7 w-7 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-600 flex items-center justify-center text-muted-foreground/60 transition-colors"
+                        title="Add 1"
+                      >
+                        <TrendingUp className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Reorder suggestions embedded */}
+            {reorderSuggestions.length > 0 && (
+              <div className="pt-4">
+                <h3 className="font-semibold text-sm flex items-center gap-1.5 mb-3 text-muted-foreground">
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  Reorder Suggestions
+                  <span className="ml-auto text-xs font-normal text-muted-foreground/60">based on 30-day consumption</span>
+                </h3>
+                <ReorderTab suggestions={reorderSuggestions} isLoading={reorderLoading} currency={currency} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── REORDER TAB (retail only) ── */}
+        {activeTab === "reorder" && !isFoodBeverage && (
           <ReorderTab
             suggestions={reorderSuggestions}
             isLoading={reorderLoading}

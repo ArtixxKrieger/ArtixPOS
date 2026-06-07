@@ -708,8 +708,7 @@ export default function Login() {
         setFormError(data.message ?? "Something went wrong.");
         return;
       }
-      sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
-      window.location.href = "/";
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     } catch {
       setFormError("Network error. Please try again.");
     } finally {

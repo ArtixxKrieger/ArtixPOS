@@ -103,7 +103,7 @@ export function useAuth() {
   const { data: user, isLoading, isFetching } = useQuery<AuthUser | null>({
     queryKey: ["auth-me"],
     queryFn: fetchMe,
-    retry: false,
+    retry: 2,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

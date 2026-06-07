@@ -67,6 +67,7 @@ export default function InventoryHub() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [showWasteForm, setShowWasteForm] = useState(false);
   const [showTransferForm, setShowTransferForm] = useState(false);
+  const [showAddIngredient, setShowAddIngredient] = useState(false);
   const { toast } = useToast();
   const { data: settings } = useSettings();
   const { businessType } = useBranchBusiness();
@@ -117,6 +118,16 @@ export default function InventoryHub() {
               Stock management, waste tracking &amp; smart reordering
             </p>
           </div>
+          {isFoodBeverage && (
+            <Button
+              onClick={() => setShowAddIngredient(true)}
+              size="sm"
+              className="shrink-0"
+              data-testid="button-add-ingredient-hub"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Ingredient
+            </Button>
+          )}
         </div>
 
         {/* Tabs — horizontally scrollable on mobile */}
@@ -171,11 +182,11 @@ export default function InventoryHub() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {/* Low stock snapshot */}
+              {/* Stock List — ingredients for food_beverage, products for retail */}
               <div className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-sm flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /> {isFoodBeverage ? "Low Stock Ingredients" : "Low Stock Items"}
+                    <Package className="h-4 w-4 text-primary shrink-0" /> {isFoodBeverage ? "All Ingredients" : "Low Stock Items"}
                   </h3>
                   <button onClick={() => setActiveTab("reorder")} className="text-xs text-primary flex items-center gap-0.5 hover:underline shrink-0">
                     Reorder <ChevronRight className="h-3 w-3" />
@@ -184,17 +195,32 @@ export default function InventoryHub() {
 
                 {isFoodBeverage ? (
                   <>
-                    {ingredients.filter(i => Number(i.stockQty || "0") <= Number(i.lowStockThreshold || "0")).slice(0, 6).map(i => (
-                      <div key={i.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0 gap-2">
-                        <span className="text-sm truncate flex-1 min-w-0">{i.name}</span>
-                        <span className="text-xs text-muted-foreground shrink-0 mr-1">{i.unit}</span>
-                        <span className={["text-xs font-mono font-bold tabular-nums shrink-0", Number(i.stockQty || "0") === 0 ? "text-red-500" : "text-amber-500"].join(" ")}>
-                          {i.stockQty} left
-                        </span>
-                      </div>
-                    ))}
-                    {ingredients.filter(i => Number(i.stockQty || "0") <= Number(i.lowStockThreshold || "0")).length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">All ingredients adequately stocked</p>
+                    {ingredients.slice(0, isFoodBeverage ? 20 : 6).map(i => {
+                      const stock = Number(i.stockQty || "0");
+                      const thresh = Number(i.lowStockThreshold || "0");
+                      const isLow = thresh > 0 && stock <= thresh;
+                      const isOut = stock === 0;
+                      return (
+                        <div key={i.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0 gap-2">
+                          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                            <span className="text-sm truncate">{i.name}</span>
+                            {(isOut || isLow) && (
+                              <span className={["text-[10px] font-bold shrink-0", isOut ? "text-rose-500" : "text-amber-500"].join(" ")}>
+                                {isOut ? "OUT" : "LOW"}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0 mr-1">{i.unit}</span>
+                          <span className={["text-xs font-mono font-bold tabular-nums shrink-0 min-w-[30px] text-right", isOut ? "text-rose-500" : isLow ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"].join(" ")}>
+                            {i.stockQty}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {ingredients.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No ingredients yet. Add them from More → Ingredients.
+                      </p>
                     )}
                   </>
                 ) : (
@@ -302,6 +328,28 @@ export default function InventoryHub() {
             toast({ title: "Transfer created", description: "Stock deducted from source branch." });
           }}
         />
+      )}
+
+      {/* Add Ingredient Dialog */}
+      {showAddIngredient && (
+        <Dialog open onOpenChange={() => setShowAddIngredient(false)}>
+          <DialogContent className="sm:max-w-[460px] max-w-[calc(100vw-24px)] rounded-3xl border-none shadow-2xl">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-xl font-black flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                Quick Add Ingredient
+              </DialogTitle>
+            </DialogHeader>
+            <QuickIngredientForm
+              onClose={() => setShowAddIngredient(false)}
+              onSuccess={() => {
+                setShowAddIngredient(false);
+                queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
+                toast({ title: "Ingredient added", description: "Stock tracking started." });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -785,6 +833,98 @@ function WasteLogForm({ products, ingredients, currency, isFoodBeverage, onClose
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function QuickIngredientForm({ onClose, onSuccess }: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState("kg");
+  const [stockQty, setStockQty] = useState("0");
+  const [threshold, setThreshold] = useState("0");
+  const [cost, setCost] = useState("0");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/ingredients", {
+        name: name.trim(),
+        unit,
+        stockQty: stockQty || "0",
+        lowStockThreshold: threshold || "0",
+        costPerUnit: cost || "0",
+      }),
+    onSuccess,
+    onError: () => toast({ title: "Failed to add ingredient", variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div>
+        <label className="text-xs font-medium text-muted-foreground">Ingredient Name</label>
+        <Input
+          className="mt-1 h-11 rounded-xl bg-secondary border-none"
+          placeholder="e.g. Coffee Beans, Whole Milk"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Unit</label>
+          <Select value={unit} onValueChange={setUnit}>
+            <SelectTrigger className="mt-1 h-11 rounded-xl bg-secondary border-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["g", "kg", "ml", "l", "pcs", "cup", "tbsp", "tsp", "oz", "lb", "box", "bag", "bottle", "pack"].map(u => (
+                <SelectItem key={u} value={u}>{u}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Cost/Unit</label>
+          <Input
+            className="mt-1 h-11 rounded-xl bg-secondary border-none"
+            type="number" min="0" step="0.01" placeholder="0.00"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
+          <Input
+            className="mt-1 h-11 rounded-xl bg-secondary border-none"
+            type="number" min="0" step="0.01" placeholder="0"
+            value={stockQty}
+            onChange={(e) => setStockQty(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Low Stock Alert At</label>
+          <Input
+            className="mt-1 h-11 rounded-xl bg-secondary border-none"
+            type="number" min="0" step="0.01" placeholder="0"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+        <Button className="flex-1" onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
+          {mutation.isPending ? "Adding..." : "Add Ingredient"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

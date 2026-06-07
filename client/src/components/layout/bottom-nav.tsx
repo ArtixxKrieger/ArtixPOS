@@ -7,6 +7,7 @@ import {
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
   ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi, Maximize, Minimize,
+  FlaskConical,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -28,6 +29,7 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/rooms": "nav.rooms",
   "/memberships": "nav.memberships",
   "/products": "nav.products",
+  "/ingredients": "nav.ingredients",
   "/inventory": "nav.inventory",
   "/expiry": "nav.expiry",
   "/customers": "nav.customers",
@@ -63,6 +65,7 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/rooms": { defaultLabel: "Rooms", icon: DoorOpen },
   "/memberships": { defaultLabel: "Memberships", icon: BadgeCheck },
   "/products": { defaultLabel: "Products", icon: Package },
+  "/ingredients": { defaultLabel: "Ingredients", icon: FlaskConical },
   "/inventory": { defaultLabel: "Inventory", icon: Warehouse },
   "/expiry": { defaultLabel: "Expiry", icon: CalendarClock },
   "/customers": { defaultLabel: "Customers", icon: UserCircle2 },
@@ -115,6 +118,7 @@ const MORE_NAV_FULL: MoreNavItem[] = [
   { url: "/payroll",          category: "operations", cashierHidden: true, ownerOnly: true, proOnly: true },
   // ── Management ───────────────────────────────────────────────────────────────
   { url: "/products",         category: "management", cashierHidden: true },
+  { url: "/ingredients",      category: "management", cashierHidden: true },
   { url: "/inventory",        category: "management", cashierHidden: true },
   { url: "/expiry",           category: "management", cashierHidden: true },
   { url: "/customers",        category: "management", cashierHidden: true, proOnly: true },

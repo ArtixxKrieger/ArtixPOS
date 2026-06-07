@@ -6,7 +6,6 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import {
   Plus,
-  Package,
   Trash2,
   Edit2,
   Search,
@@ -16,9 +15,6 @@ import {
   Check,
   X,
   FlaskConical,
-  Scale,
-  DollarSign,
-  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +58,6 @@ export default function Ingredients() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const deleteTimerRef = useState<ReturnType<typeof setTimeout> | null>(null);
   const [deleteTimer, setDeleteTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   // Form state
@@ -73,7 +68,7 @@ export default function Ingredients() {
   const [formCostPerUnit, setFormCostPerUnit] = useState("0");
   const [formNotes, setFormNotes] = useState("");
 
-  const { data: ingredients = [], isLoading } = useQuery<Ingredient[]>({
+  const { data: ingredients = [] } = useQuery<Ingredient[]>({
     queryKey: ["/api/ingredients"],
   });
 

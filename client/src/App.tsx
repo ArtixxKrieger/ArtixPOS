@@ -59,7 +59,7 @@ const StaffPage = lazy(() => import("@/pages/staff"));
 const RoomsPage = lazy(() => import("@/pages/rooms"));
 const MembershipsPage = lazy(() => import("@/pages/memberships"));
 const BillingPage = lazy(() => import("@/pages/billing"));
-const TermsPage   = lazy(() => import("@/pages/terms"));
+const TermsPage = lazy(() => import("@/pages/terms"));
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
 const PrintSettings = lazy(() => import("@/pages/print-settings"));
 const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
@@ -72,7 +72,7 @@ const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
 const FeaturesPage = lazy(() => import("@/pages/features"));
 const InventoryHubPage = lazy(() => import("@/pages/inventory-hub"));
 const VercelAnalytics = lazy(() =>
-  import("@vercel/analytics/react").then((m) => ({ default: m.Analytics }))
+  import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
 );
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -104,10 +104,16 @@ function handleAuthDeepLink(url: string) {
   const previousToken = localStorage.getItem(NATIVE_TOKEN_KEY);
   const previousPayload = previousToken ? decodeJwtPayload(previousToken) : null;
   const newPayload = decodeJwtPayload(token);
-  debugLog("deeplink", `jwt payload: id=${newPayload?.id ?? "null"} exp=${newPayload?.exp ?? "null"}`);
+  debugLog(
+    "deeplink",
+    `jwt payload: id=${newPayload?.id ?? "null"} exp=${newPayload?.exp ?? "null"}`,
+  );
 
   if (previousPayload?.id && newPayload?.id && previousPayload.id !== newPayload.id) {
-    debugLog("deeplink", `account switch detected (${previousPayload.id} → ${newPayload.id}) — clearing cache`);
+    debugLog(
+      "deeplink",
+      `account switch detected (${previousPayload.id} → ${newPayload.id}) — clearing cache`,
+    );
     clearAllCache().catch(() => {});
     queryClient.clear();
   }
@@ -171,21 +177,27 @@ function useNativeDeepLink() {
         // Case 2: app was already running (backgrounded), brought to front
         const handle = await CapApp.addListener("appUrlOpen", async (data) => {
           debugLog("deeplink", `appUrlOpen fired: ${data.url}`);
-          try { await Browser.close(); } catch (e) {
+          try {
+            await Browser.close();
+          } catch (e) {
             debugLog("deeplink", `Browser.close error: ${e}`);
           }
           handleAuthDeepLink(data.url);
         });
 
         debugLog("deeplink", "listener registered OK");
-        cleanup = () => { handle.remove(); };
+        cleanup = () => {
+          handle.remove();
+        };
       } catch (err) {
         debugLog("deeplink", `setup error: ${err}`);
       }
     }
 
     setup();
-    return () => { cleanup?.(); };
+    return () => {
+      cleanup?.();
+    };
   }, []);
 }
 
@@ -193,16 +205,24 @@ function ProGuard({ component: Component, url }: { component: ComponentType; url
   const { isPro, isLoading } = useSubscription();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   if (isLoading || settingsLoading) return null;
-  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
+  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType))
+    return <Redirect to="/billing?reason=pro_required" />;
   return <Component />;
 }
 
-function ProAndCashierGuard({ component: Component, url }: { component: ComponentType; url: string }) {
+function ProAndCashierGuard({
+  component: Component,
+  url,
+}: {
+  component: ComponentType;
+  url: string;
+}) {
   const { user } = useAuth();
   const { isPro, isLoading } = useSubscription();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   if (isLoading || settingsLoading) return null;
-  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType)) return <Redirect to="/billing?reason=pro_required" />;
+  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType))
+    return <Redirect to="/billing?reason=pro_required" />;
   if (user?.role === "cashier") return <Redirect to="/" />;
   return <Component />;
 }
@@ -285,7 +305,10 @@ function LoadingScreen({ message }: { message?: string }) {
     const slowId = setTimeout(() => {
       if (navigator.onLine) setSlowStall(true);
     }, 12_000);
-    return () => { clearTimeout(offlineId); clearTimeout(slowId); };
+    return () => {
+      clearTimeout(offlineId);
+      clearTimeout(slowId);
+    };
   }, []);
 
   if (offlineStall) {
@@ -293,9 +316,18 @@ function LoadingScreen({ message }: { message?: string }) {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810] px-6">
         <div className="max-w-xs w-full text-center space-y-4">
           <div className="w-14 h-14 mx-auto rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-            <svg className="w-7 h-7 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M18.364 5.636a9 9 0 010 12.728M5.636 5.636a9 9 0 000 12.728M12 8v4m0 4h.01" />
+            <svg
+              className="w-7 h-7 text-amber-600 dark:text-amber-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M18.364 5.636a9 9 0 010 12.728M5.636 5.636a9 9 0 000 12.728M12 8v4m0 4h.01"
+              />
             </svg>
           </div>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-white">You're offline</h2>
@@ -311,7 +343,10 @@ function LoadingScreen({ message }: { message?: string }) {
               Go back
             </button>
             <button
-              onClick={() => { setOfflineStall(false); window.location.reload(); }}
+              onClick={() => {
+                setOfflineStall(false);
+                window.location.reload();
+              }}
               className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
             >
               Retry
@@ -327,12 +362,23 @@ function LoadingScreen({ message }: { message?: string }) {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080810] px-6">
         <div className="max-w-xs w-full text-center space-y-4">
           <div className="w-14 h-14 mx-auto rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-            <svg className="w-7 h-7 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-7 h-7 text-violet-600 dark:text-violet-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Taking longer than expected</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+            Taking longer than expected
+          </h2>
           <p className="text-sm text-slate-500 dark:text-white/60">
             The server is taking a while to respond. This can happen on slow connections or after a
             period of inactivity.
@@ -367,76 +413,93 @@ function PersistentRoute({
   if (!activated.current) return null;
   const hidden = currentPath !== path;
   return (
-    <div
-      aria-hidden={hidden || undefined}
-      style={hidden ? { display: "none" } : undefined}
-    >
+    <div aria-hidden={hidden || undefined} style={hidden ? { display: "none" } : undefined}>
       {children}
     </div>
   );
 }
 
 const HardwareSettingsRoute = () => <HardwareSettings />;
-const BillingRoute          = () => <BillingPage />;
+const BillingRoute = () => <BillingPage />;
 
-const TransactionsRoute     = () => <CashierGuard component={Transactions} />;
-const StaffRoute            = () => <ProAndCashierGuard url="/staff" component={StaffPage} />;
-const ExpiryRoute           = () => <CashierGuard component={ExpiryTrackerPage} />;
-const InventoryRoute        = () => (
-  <ErrorBoundary fallback={(err, retry) => (
-    <div className="min-h-screen flex items-center justify-center bg-background px-6 py-12">
-      <div className="max-w-sm w-full text-center space-y-4">
-        <div className="w-12 h-12 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-          <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+const TransactionsRoute = () => <CashierGuard component={Transactions} />;
+const StaffRoute = () => <ProAndCashierGuard url="/staff" component={StaffPage} />;
+const ExpiryRoute = () => <CashierGuard component={ExpiryTrackerPage} />;
+const InventoryRoute = () => (
+  <ErrorBoundary
+    fallback={(err, retry) => (
+      <div className="min-h-screen flex items-center justify-center bg-background px-6 py-12">
+        <div className="max-w-sm w-full text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <svg
+              className="w-6 h-6 text-red-600 dark:text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-foreground">Failed to load Inventory</h2>
+          <p className="text-sm text-muted-foreground">
+            This might be a temporary network issue. Try again without leaving the page.
+          </p>
+          <button
+            onClick={retry}
+            className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+            data-testid="button-inventory-retry"
+          >
+            Try again
+          </button>
         </div>
-        <h2 className="text-lg font-semibold text-foreground">Failed to load Inventory</h2>
-        <p className="text-sm text-muted-foreground">This might be a temporary network issue. Try again without leaving the page.</p>
-        <button
-          onClick={retry}
-          className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
-          data-testid="button-inventory-retry"
-        >
-          Try again
-        </button>
       </div>
-    </div>
-  )}>
+    )}
+  >
     <CashierGuard component={InventoryHubPage} />
   </ErrorBoundary>
 );
 
-const AdminRoute            = () => <AdminGuard component={AdminIndex} />;
-const AdminBranchesRoute    = () => <AdminGuard component={AdminBranches} />;
-const AdminUsersRoute       = () => <AdminGuard component={AdminUsers} />;
-const AdminAnalyticsRoute   = () => <AdminGuard component={AdminAnalytics} />;
-const AdminAuditLogsRoute   = () => <AdminGuard component={AdminAuditLogs} />;
+const AdminRoute = () => <AdminGuard component={AdminIndex} />;
+const AdminBranchesRoute = () => <AdminGuard component={AdminBranches} />;
+const AdminUsersRoute = () => <AdminGuard component={AdminUsers} />;
+const AdminAnalyticsRoute = () => <AdminGuard component={AdminAnalytics} />;
+const AdminAuditLogsRoute = () => <AdminGuard component={AdminAuditLogs} />;
 const AdminPermissionsRoute = () => <AdminGuard component={AdminPermissions} />;
 
-const RefundsRoute          = () => <ManagerOrAboveGuard component={Refunds} />;
-const AiRoute               = () => <ProAndOwnerGuard component={AiPage} />;
-const PrintSettingsRoute    = () => <OwnerGuard component={PrintSettings} />;
-const BIRRoute              = () => <ProAndOwnerGuard component={BIRPage} />;
-const BIRAuditLogRoute      = () => <ProAndOwnerGuard component={BIRAuditLogPage} />;
+const RefundsRoute = () => <ManagerOrAboveGuard component={Refunds} />;
+const AiRoute = () => <ProAndOwnerGuard component={AiPage} />;
+const PrintSettingsRoute = () => <OwnerGuard component={PrintSettings} />;
+const BIRRoute = () => <ProAndOwnerGuard component={BIRPage} />;
+const BIRAuditLogRoute = () => <ProAndOwnerGuard component={BIRAuditLogPage} />;
 
-const CustomersRoute        = () => <ProAndCashierGuard url="/customers" component={Customers} />;
-const ExpensesRoute         = () => <ProAndCashierGuard url="/expenses" component={Expenses} />;
-const DiscountCodesRoute    = () => <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />;
-const SuppliersRoute        = () => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />;
-const PurchasesRoute        = () => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />;
+const CustomersRoute = () => <ProAndCashierGuard url="/customers" component={Customers} />;
+const ExpensesRoute = () => <ProAndCashierGuard url="/expenses" component={Expenses} />;
+const DiscountCodesRoute = () => (
+  <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />
+);
+const SuppliersRoute = () => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />;
+const PurchasesRoute = () => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />;
 
-const FeaturesRoute         = () => <Suspense fallback={null}><FeaturesPage /></Suspense>;
-const ShiftsRoute           = () => <ProGuard url="/shifts" component={Shifts} />;
-const TablesRoute           = () => <ProGuard url="/tables" component={TablesPage} />;
-const KitchenRoute          = () => <ProGuard url="/kitchen" component={KitchenPage} />;
-const TimeClockRoute        = () => <ProGuard url="/timeclock" component={TimeClockPage} />;
-const AppointmentsRoute     = () => <ProGuard url="/appointments" component={AppointmentsPage} />;
-const RoomsRoute            = () => <ProGuard url="/rooms" component={RoomsPage} />;
-const MembershipsRoute      = () => <ProGuard url="/memberships" component={MembershipsPage} />;
-const LoyaltyRoute          = () => <ProGuard url="/loyalty" component={LoyaltyPage} />;
-const WifiVouchersRoute     = () => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />;
-const PayrollRoute          = () => <ProGuard url="/payroll" component={PayrollPage} />;
+const FeaturesRoute = () => (
+  <Suspense fallback={null}>
+    <FeaturesPage />
+  </Suspense>
+);
+const ShiftsRoute = () => <ProGuard url="/shifts" component={Shifts} />;
+const TablesRoute = () => <ProGuard url="/tables" component={TablesPage} />;
+const KitchenRoute = () => <ProGuard url="/kitchen" component={KitchenPage} />;
+const TimeClockRoute = () => <ProGuard url="/timeclock" component={TimeClockPage} />;
+const AppointmentsRoute = () => <ProGuard url="/appointments" component={AppointmentsPage} />;
+const RoomsRoute = () => <ProGuard url="/rooms" component={RoomsPage} />;
+const MembershipsRoute = () => <ProGuard url="/memberships" component={MembershipsPage} />;
+const LoyaltyRoute = () => <ProGuard url="/loyalty" component={LoyaltyPage} />;
+const WifiVouchersRoute = () => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />;
+const PayrollRoute = () => <ProGuard url="/payroll" component={PayrollPage} />;
 
 const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/dashboard"),
@@ -550,7 +613,9 @@ function AppRouter() {
   }, [settingsLoading]);
 
   useEffect(() => {
-    document.getElementById("app-scroll")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    document
+      .getElementById("app-scroll")
+      ?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);
 
   if (!settingsEverLoaded.current && settingsLoading && !settingsTimedOut) {
@@ -609,22 +674,34 @@ function AppRouter() {
     <AppLayout>
       <AppTour />
       <PersistentRoute path="/" currentPath={location}>
-        <Suspense fallback={pageFallback}><Dashboard /></Suspense>
+        <Suspense fallback={pageFallback}>
+          <Dashboard />
+        </Suspense>
       </PersistentRoute>
       <PersistentRoute path="/pos" currentPath={location}>
-        <Suspense fallback={pageFallback}><POSWithSetupGuard /></Suspense>
+        <Suspense fallback={pageFallback}>
+          <POSWithSetupGuard />
+        </Suspense>
       </PersistentRoute>
       <PersistentRoute path="/pending" currentPath={location}>
-        <Suspense fallback={pageFallback}><PendingOrders /></Suspense>
+        <Suspense fallback={pageFallback}>
+          <PendingOrders />
+        </Suspense>
       </PersistentRoute>
       <PersistentRoute path="/settings" currentPath={location}>
-        <Suspense fallback={pageFallback}><Settings /></Suspense>
+        <Suspense fallback={pageFallback}>
+          <Settings />
+        </Suspense>
       </PersistentRoute>
       <PersistentRoute path="/analytics" currentPath={location}>
-        <Suspense fallback={pageFallback}><CashierGuard component={Analytics} /></Suspense>
+        <Suspense fallback={pageFallback}>
+          <CashierGuard component={Analytics} />
+        </Suspense>
       </PersistentRoute>
       <PersistentRoute path="/products" currentPath={location}>
-        <Suspense fallback={pageFallback}><Products /></Suspense>
+        <Suspense fallback={pageFallback}>
+          <Products />
+        </Suspense>
       </PersistentRoute>
 
       {!PINNED_PATHS.has(location) && (
@@ -689,9 +766,11 @@ function PinSessionApp() {
     setClockingOut(true);
     try {
       await apiRequest("POST", "/api/staff-pin/clockout");
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
     queryClient.cancelQueries();
-    queryClient.removeQueries({ predicate: q => (q.queryKey[0] as string) !== "auth-me" });
+    queryClient.removeQueries({ predicate: (q) => (q.queryKey[0] as string) !== "auth-me" });
     await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     setLocation("/staff-clock-in");
   }
@@ -731,10 +810,12 @@ function PinSessionApp() {
           )}
         </div>
       </div>
-      <div className={isEmployeeOnly ? "flex-1 min-h-0 overflow-auto" : "flex-1 min-h-0 overflow-hidden"}>
-        <Suspense fallback={pageFallback}>
-          {isEmployeeOnly ? <TimeClockPage /> : <POS />}
-        </Suspense>
+      <div
+        className={
+          isEmployeeOnly ? "flex-1 min-h-0 overflow-auto" : "flex-1 min-h-0 overflow-hidden"
+        }
+      >
+        <Suspense fallback={pageFallback}>{isEmployeeOnly ? <TimeClockPage /> : <POS />}</Suspense>
       </div>
     </div>
   );
@@ -768,9 +849,7 @@ function ProtectedRouter() {
 
   useEffect(() => {
     if (!isAuthenticated || !user?.tenantId) return;
-    initRevenueCat(user.tenantId).catch((e) =>
-      console.warn("[revenuecat] init error:", e)
-    );
+    initRevenueCat(user.tenantId).catch((e) => console.warn("[revenuecat] init error:", e));
   }, [isAuthenticated, user?.tenantId]);
 
   // On session expiry / 401, wipe in-memory + IDB so the next session starts clean.
@@ -809,7 +888,10 @@ function ProtectedRouter() {
           await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
           await queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
         } else {
-          sessionStorage.setItem("invite_error", data.message || "This invite link is invalid or has already been used.");
+          sessionStorage.setItem(
+            "invite_error",
+            data.message || "This invite link is invalid or has already been used.",
+          );
         }
       })
       .catch(() => {
@@ -818,9 +900,14 @@ function ProtectedRouter() {
       .finally(() => setRedeemingInvite(false));
   }, [isAuthenticated, isLoading]);
 
-  if (isLoading || redeemingInvite) {
-    return <LoadingScreen message={redeemingInvite ? "Joining your team…" : undefined} />;
+  // Don't show a LoadingScreen here — it causes a double-splash because
+  // AppRouter has its own settings-loading screen right after auth resolves.
+  // Returning null lets the fresh page-load flash once (at AppRouter level)
+  // instead of twice back-to-back.
+  if (redeemingInvite) {
+    return <LoadingScreen message="Joining your team…" />;
   }
+  if (isLoading) return null;
 
   if (!isAuthenticated) {
     return <Redirect to="/login" />;
@@ -849,8 +936,22 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      <Route path="/terms" component={() => <Suspense fallback={null}><TermsPage /></Suspense>} />
-      <Route path="/privacy" component={() => <Suspense fallback={null}><PrivacyPage /></Suspense>} />
+      <Route
+        path="/terms"
+        component={() => (
+          <Suspense fallback={null}>
+            <TermsPage />
+          </Suspense>
+        )}
+      />
+      <Route
+        path="/privacy"
+        component={() => (
+          <Suspense fallback={null}>
+            <PrivacyPage />
+          </Suspense>
+        )}
+      />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/b/:id" component={BranchPublicPage} />
       <Route path="/staff-clock-in" component={StaffPinLogin} />

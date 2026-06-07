@@ -103,28 +103,6 @@ export default function InventoryHub() {
   const totalWasteCost = wasteLogs.reduce((s, e) => s + Number(e.costImpact || 0), 0);
   const pendingTransfers = transfers.filter(t => t.status === "pending" || t.status === "in_transit").length;
 
-  // For food_beverage: tabs are Overview, Waste Log, Transfers, Ingredients (with reorder inside)
-  // For retail: tabs are Overview, Waste Log, Transfers, Reorder
-  const adjustStockMutation = useMutation({
-    mutationFn: ({ id, delta }: { id: number; delta: number }) =>
-      apiRequest("POST", `/api/ingredients/${id}/stock`, { delta }),
-    onMutate: async ({ id, delta }) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/ingredients"] });
-      const previous = queryClient.getQueryData<Ingredient[]>(["/api/ingredients"]);
-      queryClient.setQueryData<Ingredient[]>(["/api/ingredients"], (old) =>
-        old?.map(i => i.id === id ? { ...i, stockQty: String(Number(i.stockQty || "0") + delta) } : i)
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(["/api/ingredients"], context.previous);
-      toast({ title: "Failed to adjust stock", variant: "destructive" });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
-    },
-  });
-
   const TABS: { id: Tab; label: string; icon: typeof Package; badge?: number }[] = isFoodBeverage
     ? [
         { id: "overview", label: "Overview", icon: BarChart3 },
@@ -369,32 +347,13 @@ export default function InventoryHub() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-3 shrink-0">
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingIngredient(i); }}
-                        className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground/60 transition-colors"
+                        className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground transition-colors border border-border/50"
                         title="Edit ingredient"
                       >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => adjustStockMutation.mutate({ id: i.id, delta: -1 })}
-                        className="h-7 w-7 rounded-lg hover:bg-rose-500/10 hover:text-rose-500 flex items-center justify-center text-muted-foreground/60 transition-colors"
-                        title="Deduct 1"
-                      >
-                        <TrendingDown className="h-3 w-3" />
-                      </button>
-                      <div className="text-center min-w-[36px]">
-                        <span className={["text-sm font-bold tabular-nums", isOut ? "text-rose-500" : isLow ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"].join(" ")}>
-                          {i.stockQty}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => adjustStockMutation.mutate({ id: i.id, delta: 1 })}
-                        className="h-7 w-7 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-600 flex items-center justify-center text-muted-foreground/60 transition-colors"
-                        title="Add 1"
-                      >
-                        <TrendingUp className="h-3 w-3" />
+                        <Edit2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>

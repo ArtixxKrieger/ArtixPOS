@@ -3,8 +3,8 @@ import { storage } from "../storage";
 import { requireAuth, requirePro, requireManagerOrAbove } from "../middleware";
 import { getUserId, getActiveBranchId } from "../lib/route-utils";
 import { db } from "../db";
-import { products, sales, ingredients, productRecipes, suppliers, supplierProducts } from "@shared/schema";
-import { eq, and, isNull, inArray, sql } from "drizzle-orm";
+import { sales, ingredients, productRecipes, suppliers, supplierProducts } from "@shared/schema";
+import { and, isNull, inArray, sql } from "drizzle-orm";
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
   
@@ -20,7 +20,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
   app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
-      const branchId = getActiveBranchId(req);
+      const _branchId = getActiveBranchId(req);
       
       const userIds = await (storage as any).getTenantUserIds(uid);
       

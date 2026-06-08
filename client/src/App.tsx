@@ -739,7 +739,10 @@ function AppRouter() {
             <Route path="/bir-audit-log" component={BIRAuditLogRoute} />
             <Route path="/expiry" component={ExpiryRoute} />
             <Route path="/inventory" component={InventoryRoute} />
-            <Route path="/ingredients" component={() => <ProGuard url="/ingredients" component={IngredientsPage} />} />
+            <Route
+              path="/ingredients"
+              component={() => <ProGuard url="/ingredients" component={IngredientsPage} />}
+            />
             <Route path="/billing" component={BillingRoute} />
             <Route path="/features" component={FeaturesRoute} />
             <Route component={NotFound} />

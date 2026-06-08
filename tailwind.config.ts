@@ -4,6 +4,9 @@ export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
+    screens: {
+      xs: "475px",
+    },
     extend: {
       borderRadius: {
         "2xl": "1rem",
@@ -74,7 +77,7 @@ export default {
         "sidebar-accent": {
           DEFAULT: "hsl(var(--sidebar-accent) / <alpha-value>)",
           foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
-          border: "var(--sidebar-accent-border)"
+          border: "var(--sidebar-accent-border)",
         },
         status: {
           online: "rgb(34 197 94)",
@@ -105,7 +108,7 @@ export default {
       boxShadow: {
         "glow-primary": "0 0 20px rgba(0, 195, 255, 0.35)",
         "glow-sm": "0 0 10px rgba(0, 195, 255, 0.22)",
-        "card": "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
+        card: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
         "card-hover": "0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08)",
       },
     },

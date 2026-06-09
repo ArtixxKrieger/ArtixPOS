@@ -3198,7 +3198,7 @@ export default function Login() {
           borderTop: "1px solid rgba(20,184,232,0.07)",
         }}
       >
-        <div style={{ maxWidth: 820, margin: "0 auto", padding: "80px 32px", textAlign: "center" }}>
+        <div style={{ maxWidth: 1060, margin: "0 auto", padding: "80px 32px", textAlign: "center" }}>
           <div
             className="sr"
             style={{
@@ -3223,70 +3223,60 @@ export default function Login() {
             style={{
               fontSize: 14.5,
               color: "rgba(255,255,255,0.38)",
-              maxWidth: 380,
+              maxWidth: 420,
               margin: "0 auto 44px",
               lineHeight: 1.65,
             }}
           >
-            Core POS is free. Advanced features unlock on Pro.
+            Core POS is always free. Unlock more with Pro or Business.
           </p>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 18,
-              maxWidth: 680,
+              gridTemplateColumns: "repeat(3,1fr)",
+              gap: 16,
               margin: "0 auto",
             }}
           >
+            {/* ── FREE ── */}
             <div
               className="price-card sr sr-left sr-d2"
               style={{
-                padding: "28px 26px",
+                padding: "28px 24px",
                 borderRadius: 18,
                 background: CARD,
                 border: "1px solid rgba(20,184,232,0.14)",
                 textAlign: "left",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "rgba(255,255,255,0.45)",
-                  marginBottom: 6,
-                }}
-              >
-                FREE
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.40)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
+                Free
               </div>
-              <div style={{ fontSize: 34, fontWeight: 900, color: "#fff", marginBottom: 4 }}>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 3 }}>
                 Free{" "}
-                <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>
-                  /mo
-                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span>
               </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", marginBottom: 22 }}>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", marginBottom: 20 }}>
                 No credit card. No expiry.
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                 {[
-                  "Full POS",
-                  "Products & inventory",
-                  "Basic analytics",
+                  "Full POS — cash, card, split pay",
+                  "Unlimited products & categories",
+                  "Basic daily analytics",
                   "Single branch",
                   "Transaction history",
+                  "Receipt printing",
+                  "Offline mode",
+                  "Up to 3 staff accounts",
                 ].map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none">
-                      <path
-                        d="M2 6.5l3 3 6-6"
-                        stroke="#34d399"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
+                      <path d="M2 6.5l3 3 6-6" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.55)" }}>{f}</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.52)", lineHeight: 1.4 }}>{f}</span>
                   </div>
                 ))}
               </div>
@@ -3310,15 +3300,19 @@ export default function Login() {
                 Get started free
               </button>
             </div>
+
+            {/* ── PRO ── */}
             <div
-              className="price-card sr sr-right sr-d2"
+              className="price-card sr sr-d2"
               style={{
-                padding: "28px 26px",
+                padding: "28px 24px",
                 borderRadius: 18,
                 background: "rgba(20,184,232,0.05)",
-                border: `1.5px solid rgba(20,184,232,0.35)`,
+                border: "1.5px solid rgba(20,184,232,0.35)",
                 textAlign: "left",
                 position: "relative",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div
@@ -3336,53 +3330,46 @@ export default function Login() {
               >
                 POPULAR
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: NEON, marginBottom: 6 }}>PRO</div>
-              <div style={{ fontSize: 34, fontWeight: 900, color: "#fff", marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: NEON, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Pro</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 3 }}>
                 {(() => {
                   const locale = detectLocale();
                   const p = getPricingByCurrency(locale.currency);
                   return (
                     <>
                       {formatPrice(p.proMonthly, p.symbol)}
-                      <span
-                        style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}
-                      >
-                        /mo
-                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span>
                     </>
                   );
                 })()}
               </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", marginBottom: 22 }}>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.30)", marginBottom: 20 }}>
                 {(() => {
                   const locale = detectLocale();
                   const p = getPricingByCurrency(locale.currency);
                   return `${formatPrice(p.proAnnual, p.symbol)}/yr · ${p.proSavingsText}`;
                 })()}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                 {[
                   "Everything in Free",
-                  "Multi-branch",
-                  "Staff & payroll",
-                  "AI assistant",
-                  "Appointments & rooms",
-                  "Loyalty & memberships",
-                  "WiFi vouchers",
-                  "Advanced analytics",
+                  "Unlimited staff & role permissions",
+                  "Multi-branch management",
+                  "Staff time clock & payroll",
+                  "AI business assistant",
+                  "Appointments & room booking",
+                  "Customer loyalty & memberships",
+                  "WiFi voucher management",
+                  "Advanced analytics & exports",
+                  "Inventory hub & expiry tracker",
+                  "Discount codes & promotions",
                   "Priority support",
                 ].map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none">
-                      <path
-                        d="M2 6.5l3 3 6-6"
-                        stroke={NEON}
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
+                      <path d="M2 6.5l3 3 6-6" stroke={NEON} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.60)" }}>{f}</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.58)", lineHeight: 1.4 }}>{f}</span>
                   </div>
                 ))}
               </div>
@@ -3407,7 +3394,105 @@ export default function Login() {
                 Start free, upgrade anytime
               </button>
             </div>
+
+            {/* ── BUSINESS ── */}
+            <div
+              className="price-card sr sr-right sr-d2"
+              style={{
+                padding: "28px 24px",
+                borderRadius: 18,
+                background: "rgba(124,58,237,0.06)",
+                border: "1.5px solid rgba(124,58,237,0.32)",
+                textAlign: "left",
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  right: 14,
+                  padding: "3px 10px",
+                  borderRadius: 20,
+                  background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#fff",
+                }}
+              >
+                SCALE
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Business</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 3 }}>
+                {(() => {
+                  const locale = detectLocale();
+                  const p = getPricingByCurrency(locale.currency);
+                  return (
+                    <>
+                      {formatPrice(p.businessMonthly, p.symbol)}
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span>
+                    </>
+                  );
+                })()}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.30)", marginBottom: 20 }}>
+                {(() => {
+                  const locale = detectLocale();
+                  const p = getPricingByCurrency(locale.currency);
+                  return `${formatPrice(p.businessAnnual, p.symbol)}/yr · ${p.businessSavingsText}`;
+                })()}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                {[
+                  "Everything in Pro",
+                  "Unlimited branches",
+                  "Supplier & purchase orders",
+                  "Full expense tracking",
+                  "BIR compliance & audit logs",
+                  "Advanced role permissions",
+                  "Custom business type configs",
+                  "Kitchen display system",
+                  "Table management",
+                  "Dedicated onboarding call",
+                  "SLA-backed priority support",
+                ].map((f, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
+                      <path d="M2 6.5l3 3 6-6" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.58)", lineHeight: 1.4 }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => openPanel("register")}
+                style={{
+                  marginTop: 22,
+                  width: "100%",
+                  padding: "11px 0",
+                  borderRadius: 11,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                  border: "none",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  boxShadow: "0 4px 16px rgba(124,58,237,0.28)",
+                  transition: "opacity 0.15s",
+                }}
+              >
+                Start free, upgrade anytime
+              </button>
+            </div>
           </div>
+
+          {/* Billing note */}
+          <p className="sr sr-d3" style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)" }}>
+            Annual billing saves up to 17% · All plans start with a free account · No credit card required
+          </p>
         </div>
       </section>
 

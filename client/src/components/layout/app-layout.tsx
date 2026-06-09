@@ -262,7 +262,8 @@ function getInitialSidebarCollapsed(): boolean {
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const { data: settings } = useSettings();
-  const { data: pendingOrders = [] } = usePendingOrders();
+  const { data: pendingOrdersRaw } = usePendingOrders();
+  const pendingOrders = pendingOrdersRaw ?? [];
   const [isDark, setIsDark] = useState(getInitialDark);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
   const onlineStatus = useOnlineStatus();

@@ -8,6 +8,7 @@ import {
 import {
   syncOfflineData,
   retryFailedMutations,
+  refreshAllData,
   type SyncResult,
   type SyncChannelMessage,
 } from "@/lib/sync";
@@ -155,6 +156,12 @@ export function useOnlineStatus(): OnlineStatus {
           await doSync();
           registerBackgroundSync();
         }
+
+        // Always refresh all data when coming back online so that stale or
+        // errored queries (dashboard stats, sales, products…) recover
+        // immediately — even when there is nothing in the offline queue.
+        // Fire-and-forget so it never blocks the online status update.
+        refreshAllData().catch(() => {});
       }
     } finally {
       if (!ac.signal.aborted) isCheckingRef.current = false;

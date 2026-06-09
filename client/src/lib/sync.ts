@@ -274,10 +274,14 @@ async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
 }
 
 // Instead of a fixed allow-list, we derive which collections were touched and
-// invalidate exactly those. Dashboard is always included (any mutation can
-// affect analytics totals).
+// invalidate exactly those. Dashboard/analytics/reports are always included
+// because any mutation (sale, expense, refund) can affect their totals.
+//
+// IMPORTANT: use the exact string that each page passes as queryKey[0].
+// TanStack Query prefix-matching works at the ARRAY element level, so
+// ["/api/dashboard"] does NOT invalidate queryKey: ["/api/dashboard/stats"].
 const ALWAYS_INVALIDATE = [
-  ["/api/dashboard"],
+  ["/api/dashboard/stats"],
   ["/api/analytics"],
   ["/api/reports"],
 ];
@@ -387,8 +391,13 @@ export async function retryFailedMutations(): Promise<SyncResult> {
   return syncOfflineData();
 }
 
-/** Invalidate all tracked queries (use when coming back online without a pending queue). */
-async function refreshAllData(): Promise<void> {
+/**
+ * Invalidate all tracked queries.
+ * Called when coming back online (with or without a pending queue) so that
+ * stale/errored data is refreshed immediately.  Each key must exactly match
+ * the first element of the queryKey array used by the corresponding hook.
+ */
+export async function refreshAllData(): Promise<void> {
   const keys = [
     ...ALWAYS_INVALIDATE,
     ["/api/products"],

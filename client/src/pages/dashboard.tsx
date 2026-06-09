@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch } from "@/lib/queryClient";
+import { getCached, setCached } from "@/lib/offline-db";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
 
 type DashboardStats = {
@@ -52,12 +53,24 @@ export default function Dashboard() {
   const { t } = useTranslation();
   // Subscribe to real-time sale events — invalidates stats the instant a sale lands
   useDashboardSse();
+  const STATS_URL = "/api/dashboard/stats";
   const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
+    queryKey: [STATS_URL],
     queryFn: async () => {
-      const res = await nativeFetch("/api/dashboard/stats");
-      if (!res.ok) throw new Error("Failed to load dashboard");
-      return res.json();
+      try {
+        const res = await nativeFetch(STATS_URL);
+        if (!res.ok) throw new Error("Failed to load dashboard");
+        const data: DashboardStats = await res.json();
+        // Cache for offline fallback — fire-and-forget
+        setCached(STATS_URL, data).catch(() => {});
+        return data;
+      } catch (err) {
+        // Network/offline — serve last-known-good data from IDB so the
+        // dashboard still shows useful numbers instead of a blank/error state.
+        const cached = await getCached<DashboardStats>(STATS_URL);
+        if (cached !== null) return cached;
+        throw err;
+      }
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,

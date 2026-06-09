@@ -154,7 +154,8 @@ export function BottomNav() {
   };
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { data: pendingOrders = [] } = usePendingOrders();
+  const { data: pendingOrdersRaw } = usePendingOrders();
+  const pendingOrders = pendingOrdersRaw ?? [];
   const { user } = useAuth();
   const { data: _settings } = useSettings();
   const { isFree } = useSubscription();

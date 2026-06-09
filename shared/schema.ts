@@ -692,9 +692,7 @@ export const timeLogs = pgTable("time_logs", {
 
 export const staffSchedules = pgTable("staff_schedules", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id")
-    .notNull()
-    .references(() => tenants.id),
+  tenantId: text("tenant_id").notNull(), // no FK — mirrors payrollPeriods / loyaltyTiers pattern
   userId: text("user_id")
     .notNull()
     .references(() => users.id),

@@ -1,34 +1,15 @@
-/**
- * Country-specific pricing for ArtixPOS subscriptions.
- *
- * Prices are defined per country code (ISO 3166-1 alpha-2), with USD as the
- * universal fallback when a country isn't explicitly listed.
- *
- * Add new countries below — no other files need changes.
- */
 export interface CountryPricing {
-  /** Currency symbol shown in UI (e.g. "$", "₱", "€") */
   symbol: string;
-  /** Pro monthly price */
   proMonthly: number;
-  /** Pro annual price */
   proAnnual: number;
-  /** Pro monthly equivalent when billed annually (shown as "{price}/mo") */
   proMonthlyEq: number;
-  /** Business monthly price */
   businessMonthly: number;
-  /** Business annual price */
   businessAnnual: number;
-  /** Business monthly equivalent when billed annually */
   businessMonthlyEq: number;
-  /** Savings text for pro annual (e.g. "Save $149/yr") */
   proSavingsText: string;
-  /** Savings text for business annual */
   businessSavingsText: string;
 }
 
-// ── Pricing table by country code ──────────────────────────────────────────
-// Each country specifies prices in its local currency. Unlisted countries get USD.
 const PRICING_BY_COUNTRY: Record<string, CountryPricing> = {
   PH: {
     symbol: "₱",
@@ -173,7 +154,6 @@ const PRICING_BY_COUNTRY: Record<string, CountryPricing> = {
     proSavingsText: "Save ₹999/yr",
     businessSavingsText: "Save ₹1,999/yr",
   },
-  // EU — EUR zone (DE covers all € timezones)
   DE: {
     symbol: "€",
     proMonthly: 9,
@@ -187,7 +167,6 @@ const PRICING_BY_COUNTRY: Record<string, CountryPricing> = {
   },
 };
 
-// ── USD default pricing ────────────────────────────────────────────────────
 const USD_PRICING: CountryPricing = {
   symbol: "$",
   proMonthly: 9,
@@ -200,36 +179,14 @@ const USD_PRICING: CountryPricing = {
   businessSavingsText: "Save $39/yr",
 };
 
-/**
- * Get pricing for a country code.
- * Falls back to USD if the country is not in the pricing table.
- */
-export function getPricing(countryCode?: string | null): CountryPricing {
-  if (countryCode && PRICING_BY_COUNTRY[countryCode]) {
-    return PRICING_BY_COUNTRY[countryCode];
-  }
-  return USD_PRICING;
-}
-
-/**
- * Get pricing using a currency symbol directly (for when we don't know the country code,
- * like when only the currency symbol is available from user settings).
- * Falls back to USD if the currency symbol doesn't match any known country.
- */
 export function getPricingByCurrency(currencySymbol?: string): CountryPricing {
   if (currencySymbol) {
-    // Find a country that uses this currency symbol
     const match = Object.values(PRICING_BY_COUNTRY).find((p) => p.symbol === currencySymbol);
     if (match) return match;
   }
   return USD_PRICING;
 }
 
-/**
- * Format a price with the pricing symbol.
- * Ensures whole-number prices don't show decimals (e.g. "₱499" not "₱499.00").
- * Non-whole prices always show 2 decimals.
- */
 export function formatPrice(amount: number, symbol: string): string {
   const isWhole = Number.isInteger(amount);
   const formatted = amount.toLocaleString("en-US", {

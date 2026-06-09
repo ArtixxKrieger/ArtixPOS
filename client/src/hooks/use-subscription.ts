@@ -21,10 +21,6 @@ export const FREE_LIMITS = {
   staff: 2,
 };
 
-export const PRO_LIMITS = {
-  branches: 1,
-  staff: 15,
-};
 
 export const PRO_FEATURES = [
   "1 branch — all modules fully unlocked",

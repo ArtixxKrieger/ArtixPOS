@@ -2257,6 +2257,24 @@ export class DatabaseStorage implements IStorage {
     return rows as any;
   }
 
+  async getProductsUsingIngredient(ingredientId: number, userId: string): Promise<{ id: number; name: string; quantity: string }[]> {
+    const userIds = await this.getTenantUserIds(userId);
+    const rows = await db.select({
+      id: products.id,
+      name: products.name,
+      quantity: productRecipes.quantity,
+    }).from(productRecipes)
+      .innerJoin(products, eq(products.id, productRecipes.productId))
+      .where(
+        and(
+          eq(productRecipes.ingredientId, ingredientId),
+          inArray(products.userId, userIds),
+        )
+      )
+      .orderBy(products.name);
+    return rows;
+  }
+
   async setRecipeForProduct(productId: number, userId: string, items: { ingredientId: number; quantity: string }[]): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const [prod] = await db.select().from(products).where(

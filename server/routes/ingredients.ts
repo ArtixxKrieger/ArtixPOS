@@ -74,6 +74,20 @@ export function registerIngredientRoutes(app: Express): void {
     },
   );
 
+  // ── Products that use this ingredient ─────────────────────────────────────
+  app.get(
+    "/api/ingredients/:id/products",
+    requireAuth,
+    requirePro,
+    async (req, res) => {
+      const rows = await storage.getProductsUsingIngredient(
+        Number(req.params.id),
+        getUserId(req),
+      );
+      res.json(rows);
+    },
+  );
+
   // ── Adjust ingredient stock ────────────────────────────────────────────────
   app.post(
     "/api/ingredients/:id/stock",

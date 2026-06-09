@@ -989,7 +989,7 @@ function App() {
           </BlePrinterProvider>
         </TooltipProvider>
       </QueryClientProvider>
-      <PwaInstallBanner />
+      {/* PwaInstallBanner removed */}
       {import.meta.env.PROD && (
         <Suspense fallback={null}>
           <VercelAnalytics />

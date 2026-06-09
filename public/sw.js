@@ -1,18 +1,17 @@
-// ArtixPOS Service Worker v9
+// ArtixPOS Service Worker v10
 // Caching strategies:
 //   HTML/navigation   → network-first, cache fallback, offline page last
 //   Hashed assets     → cache-first, immutable
 //   Fonts             → cache-first
 //   Images            → stale-while-revalidate
+//   Flag CDN images   → stale-while-revalidate (flagcdn.com, works offline)
 //   API calls         → network-only
 //
-// v9 changes:
-//   skipWaiting() on install — new SW activates immediately so a stale/broken
-//   SW can never trap users in an infinite loading loop. Previously the page
-//   JS had to send SKIP_WAITING; if the page was stuck (e.g. the old loop bug)
-//   that message was never sent and the broken SW stayed in control forever.
+// v10 changes:
+//   Flag CDN (flagcdn.com) images are now cached with stale-while-revalidate
+//   so language picker flags load correctly when the device is offline.
 
-const CACHE_VERSION = "v9";
+const CACHE_VERSION = "v10";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;
@@ -207,7 +206,24 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4. Images — stale-while-revalidate
+  // 4a. Flag CDN images (flagcdn.com) — stale-while-revalidate, cached offline
+  if (url.hostname === "flagcdn.com" && isImage(url)) {
+    event.respondWith(
+      caches.open(IMAGE_CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        const networkPromise = fetch(req)
+          .then((res) => {
+            if (res.ok) cache.put(req, res.clone());
+            return res;
+          })
+          .catch(() => null);
+        return cached ?? networkPromise ?? new Response("", { status: 503 });
+      })
+    );
+    return;
+  }
+
+  // 4b. Same-origin images — stale-while-revalidate
   if (isSameOrigin(req.url) && isImage(url)) {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(async (cache) => {

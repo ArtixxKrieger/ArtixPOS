@@ -11,14 +11,12 @@ import {
   Search,
   AlertTriangle,
   TrendingUp,
-  TrendingDown,
   Check,
   X,
   FlaskConical,
   Package,
   Download,
   ArrowUpDown,
-  ChevronDown,
   ShoppingBag,
   DollarSign,
   TriangleAlert,
@@ -244,13 +242,6 @@ export default function Ingredients() {
       setAdjustAmt("");
       toast({ title: "Stock updated" });
     },
-    onError: () => toast({ title: "Failed to adjust stock", variant: "destructive" }),
-  });
-
-  const updateMutationDirect = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Ingredient> }) =>
-      apiRequest("PUT", `/api/ingredients/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] }),
     onError: () => toast({ title: "Failed to adjust stock", variant: "destructive" }),
   });
 

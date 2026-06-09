@@ -2259,6 +2259,11 @@ export class DatabaseStorage implements IStorage {
 
   async getProductsUsingIngredient(ingredientId: number, userId: string): Promise<{ id: number; name: string; quantity: string }[]> {
     const userIds = await this.getTenantUserIds(userId);
+    // First verify the ingredient belongs to this tenant (prevents IDOR probing of other tenants' ingredient IDs)
+    const [ing] = await db.select({ id: ingredients.id })
+      .from(ingredients)
+      .where(and(eq(ingredients.id, ingredientId), inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt)));
+    if (!ing) return [];
     const rows = await db.select({
       id: products.id,
       name: products.name,

@@ -1412,11 +1412,14 @@ export default function POS() {
 
       {/* Mobile: Floating cart bar */}
       {cart.length > 0 && (
-        <div className="md:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] left-3 right-3 z-40">
+        <div
+          className="md:hidden fixed bottom-0 left-3 right-3 z-40 pointer-events-none"
+          style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), 6px) + 57px)" }}
+        >
           <button
             data-testid="button-open-cart"
             onClick={() => setCartOpen(true)}
-            className="w-full glass-cart-bar rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] transition-all"
+            className="w-full pointer-events-auto glass-cart-bar rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] transition-all"
           >
             <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md shadow-primary/30 relative">
               <ShoppingCart className="h-4 w-4 text-white" />

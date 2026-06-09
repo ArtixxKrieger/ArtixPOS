@@ -353,7 +353,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="h-screen w-full bg-background flex overflow-hidden">
+    <div className="h-dvh w-full bg-background flex overflow-hidden">
       <Toaster
         position="top-left"
         theme={isDark ? "dark" : "light"}
@@ -552,7 +552,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <div
         id="app-scroll"
         className={[
-          "flex-1 flex flex-col min-w-0 overflow-y-auto transition-[margin-left] duration-200 ease-in-out",
+          "flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden transition-[margin-left] duration-200 ease-in-out",
           sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[220px]",
         ].join(" ")}
         style={{ overscrollBehavior: "none" }}

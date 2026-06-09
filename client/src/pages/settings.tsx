@@ -117,11 +117,11 @@ function SettingRow({ label, hint, icon: Icon, iconColor, children }: {
   );
 }
 
-const LANG_FLAGS: Record<string, string> = {
-  en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪", pt: "🇧🇷",
-  it: "🇮🇹", nl: "🇳🇱", ru: "🇷🇺", tr: "🇹🇷", ar: "🇸🇦",
-  hi: "🇮🇳", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", th: "🇹🇭",
-  vi: "🇻🇳", id: "🇮🇩", ms: "🇲🇾", tl: "🇵🇭",
+const LANG_COUNTRY: Record<string, string> = {
+  en: "gb", es: "es", fr: "fr", de: "de", pt: "br",
+  it: "it", nl: "nl", ru: "ru", tr: "tr", ar: "sa",
+  hi: "in", zh: "cn", ja: "jp", ko: "kr", th: "th",
+  vi: "vn", id: "id", ms: "my", tl: "ph",
 };
 
 export default function Settings() {
@@ -403,8 +403,11 @@ export default function Settings() {
             </div>
             <div className="text-left">
               <p className="text-sm font-medium text-foreground leading-none">{t("settings.chooseLanguage")}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {LANG_FLAGS[currentLang]} {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName}
+              <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                {LANG_COUNTRY[currentLang] && (
+                  <span className={`fi fi-${LANG_COUNTRY[currentLang]} rounded-sm`} style={{ width: "16px", height: "12px", display: "inline-block" }} />
+                )}
+                {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName}
               </p>
             </div>
           </div>
@@ -461,7 +464,10 @@ export default function Settings() {
                         : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
                     ].join(" ")}
                   >
-                    <span className="text-2xl leading-none shrink-0">{LANG_FLAGS[lang.code]}</span>
+                    <span
+                      className={`fi fi-${LANG_COUNTRY[lang.code] ?? "un"} rounded shrink-0`}
+                      style={{ width: "24px", height: "18px", display: "inline-block" }}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
                         {lang.nativeName}
@@ -927,16 +933,11 @@ export default function Settings() {
               <p className="text-sm font-semibold truncate leading-none">{user.name ?? "User"}</p>
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user.email ?? `via ${user.provider}`}</p>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-col items-end gap-0.5 shrink-0">
               {isPro && (
-                <div className="flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
-                  <Star className="h-2.5 w-2.5 text-violet-500 fill-violet-500" />
-                  <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400">PRO</span>
-                </div>
+                <span className="text-[9px] font-semibold tracking-wider uppercase text-violet-500 dark:text-violet-400">Pro</span>
               )}
-              <span className="text-[10px] font-bold text-muted-foreground capitalize bg-muted px-2.5 py-1 rounded-full border border-border/30">
-                {user.role}
-              </span>
+              <span className="text-[10px] font-medium text-muted-foreground capitalize">{user.role}</span>
             </div>
           </div>
         )}

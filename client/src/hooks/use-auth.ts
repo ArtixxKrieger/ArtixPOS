@@ -7,15 +7,6 @@ import type { UserRole } from "@shared/schema";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
-// ── Auth pre-warm ─────────────────────────────────────────────────────────────
-// Store the last successful auth response in localStorage so that on hard
-// refresh, the user object (including activeBranch.color) is available as
-// placeholderData before /api/auth/me finishes loading. This eliminates the
-// "default blue theme" flash on every page reload — the branch color is applied
-// the instant the React tree mounts, not after the network round-trip.
-//
-// We store only non-sensitive profile data (id, name, role, activeBranch).
-// The actual JWT lives in an httpOnly cookie and is never touched here.
 const AUTH_CACHE_LS_KEY = "artixpos_auth_me_v1";
 
 function loadCachedAuthUser(): AuthUser | null {
@@ -56,26 +47,13 @@ export interface AuthUser {
   pinSession?: boolean;
 }
 
-// fetchMe is a proper React Query queryFn — it receives the QueryFunctionContext
-// so it can (a) honour the query's AbortSignal (fired by cancelQueries on tab
-// resume / unmount) and (b) enforce its own 20-second hard timeout.
-// Without the signal/timeout, a frozen fetch caused by Android tab suspension
-// would leave isLoading=true forever because cancelQueries can't abort a raw
-// fetch that has no associated AbortController.
 async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthUser | null> {
   const token = localStorage.getItem(NATIVE_TOKEN_KEY);
-  // Only send a Bearer token for native (Capacitor) clients where API_BASE is set.
-  // Web clients authenticate via httpOnly cookie — never trust a localStorage token
-  // for web sessions, as any JS on the page could read or forge it.
   const isNative = !!API_BASE;
   const headers: Record<string, string> =
     isNative && token ? { Authorization: `Bearer ${token}` } : {};
   const credentials: RequestCredentials = isNative ? "omit" : "include";
 
-  // Hard 20-second timeout — prevents indefinite hang when:
-  //  · Vercel cold start is slow (setupRLS / ensureIndexes running)
-  //  · Android Chrome suspends the tab mid-fetch (Promise freezes until resume)
-  // The outer AbortController merges the query signal with the timeout signal.
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(new DOMException("fetchMe timeout", "TimeoutError")), 20_000);
   if (signal) {
@@ -96,7 +74,6 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — status=${res.status}`);
     if (res.status === 401) {
-      // If we used a stale localStorage token on native, clear it and return null.
       if (isNative && token) {
         debugLog("auth", "fetchMe — stale native token detected, clearing");
         clearNativeToken();
@@ -116,15 +93,10 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     const data = await res.json();
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
     const authUser: AuthUser | null = data.user ?? null;
-    // Persist to localStorage so the next hard-refresh can use it as
-    // placeholderData and apply the branch theme color immediately.
     saveCachedAuthUser(authUser);
     return authUser;
   } catch (err) {
     clearTimeout(timeoutId);
-    // Network error, timeout, or abort — always return null and require re-auth.
-    // Never decode the JWT locally; the signature cannot be verified in the browser
-    // and a forged token could grant attacker-controlled role/permissions.
     debugLog("auth", `fetchMe — NETWORK ERROR / TIMEOUT: ${err}`);
     return null;
   }
@@ -136,15 +108,8 @@ export function useAuth() {
   const { data: user, isLoading, isFetching } = useQuery<AuthUser | null>({
     queryKey: ["auth-me"],
     queryFn: fetchMe,
-    // Seed from the last known auth state so branch color and user data are
-    // available the instant the component tree mounts — before /api/auth/me
-    // even fires. The real fetch still runs in the background and replaces
-    // this placeholder with fresh data.
     placeholderData: loadCachedAuthUser(),
     retry: 2,
-    // Auth state changes only on login, logout, and branch-switch — all of
-    // which explicitly invalidate ["auth-me"]. staleTime: Infinity prevents
-    // the periodic silent re-fetch that served no purpose and added latency.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -152,9 +117,6 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Always use credentials:"include" so the server's Set-Cookie: expires=past
-      // header is honoured by the browser and the httpOnly cookie is cleared.
-      // Also send Bearer token so native clients are invalidated server-side.
       const token = localStorage.getItem(NATIVE_TOKEN_KEY);
       try {
         await fetch(resolveUrl("/auth/logout"), {
@@ -166,30 +128,15 @@ export function useAuth() {
           },
         });
       } catch {
-        // Offline or network error — still proceed with local-only logout.
       }
       clearNativeToken();
-      // Clear auth pre-warm so the next user doesn't briefly see this user's
-      // branch color / identity on their first page load.
       saveCachedAuthUser(null);
-      // Clear the settings in-memory prewarm and IDB entry synchronously
-      // (best-effort) BEFORE the page navigation.  clearAllCache() below is
-      // fire-and-forget and may not finish before window.location.replace()
-      // triggers a navigation.  If IDB still holds the previous user's settings,
-      // the next session's pre-warm shows the wrong store name on first render.
       await clearSettingsPrewarm().catch(() => {});
-      // Fire-and-forget full IDB clear — covers all other offline caches.
       clearAllCache().catch(() => {});
     },
     onSuccess: () => {
-      // Synchronously kill all in-flight queries and wipe the cache BEFORE
-      // navigating. The async cancelQueries().finally() pattern had a race:
-      // queries could resolve between clear() and the navigation, repopulating
-      // the cache with the previous user's data.
       queryClient.cancelQueries();
       queryClient.clear();
-      // replace() removes this entry from history so the back button can never
-      // restore the pre-logout app page from the browser's bfcache.
       window.location.replace("/login");
     },
     onError: () => {

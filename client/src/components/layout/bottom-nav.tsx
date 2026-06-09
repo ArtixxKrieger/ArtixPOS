@@ -90,9 +90,6 @@ const URL_NAV_CONFIG: Record<string, { defaultLabel: string; icon: React.Compone
   "/settings": { defaultLabel: "Settings", icon: Settings },
 };
 
-// ─── Category definitions ─────────────────────────────────────────────────────
-// Each item now carries a category so the More sheet can render grouped sections.
-
 type MoreCategory = "service" | "operations" | "management" | "finance" | "tools";
 
 interface MoreNavItem {
@@ -105,41 +102,36 @@ interface MoreNavItem {
 }
 
 const MORE_NAV_FULL: MoreNavItem[] = [
-  // ── Service ──────────────────────────────────────────────────────────────────
-  { url: "/kitchen",          category: "service",    cashierHidden: false, proOnly: true },
-  { url: "/tables",           category: "service",    cashierHidden: false, proOnly: true },
-  { url: "/appointments",     category: "service",    cashierHidden: false, proOnly: true },
-  // ── Operations ───────────────────────────────────────────────────────────────
-  { url: "/staff",            category: "operations", cashierHidden: true },
-  { url: "/rooms",            category: "operations", cashierHidden: false, proOnly: true },
-  { url: "/memberships",      category: "operations", cashierHidden: false, proOnly: true },
-  { url: "/shifts",           category: "operations", cashierHidden: false, proOnly: true },
-  { url: "/timeclock",        category: "operations", cashierHidden: false, proOnly: true },
-  { url: "/payroll",          category: "operations", cashierHidden: true, ownerOnly: true, proOnly: true },
-  // ── Management ───────────────────────────────────────────────────────────────
-  { url: "/products",         category: "management", cashierHidden: true },
-  { url: "/ingredients",      category: "management", cashierHidden: true },
-  { url: "/inventory",        category: "management", cashierHidden: true },
-  { url: "/expiry",           category: "management", cashierHidden: true },
-  { url: "/customers",        category: "management", cashierHidden: true, proOnly: true },
-  { url: "/transactions",     category: "management", cashierHidden: true },
-  { url: "/discount-codes",   category: "management", cashierHidden: true, proOnly: true },
-  { url: "/loyalty",          category: "management", cashierHidden: true, proOnly: true },
-  { url: "/wifi-vouchers",    category: "management", cashierHidden: true, proOnly: true },
-  { url: "/refunds",          category: "management", cashierHidden: true, managerOnly: true },
-  // ── Finance & Analytics ───────────────────────────────────────────────────────
-  { url: "/analytics",        category: "finance",    cashierHidden: true },
-  { url: "/expenses",         category: "finance",    cashierHidden: true, proOnly: true },
-  { url: "/suppliers",        category: "finance",    cashierHidden: true, proOnly: true },
-  { url: "/purchases",        category: "finance",    cashierHidden: true, proOnly: true },
-  { url: "/bir",              category: "finance",    cashierHidden: true, ownerOnly: true, proOnly: true },
-  { url: "/bir-audit-log",    category: "finance",    cashierHidden: true, ownerOnly: true, proOnly: true },
-  // ── Tools ─────────────────────────────────────────────────────────────────────
-  { url: "/ai",               category: "tools",      cashierHidden: false, proOnly: true },
-  { url: "/hardware-settings",category: "tools",      cashierHidden: false },
-  { url: "/print-settings",   category: "tools",      cashierHidden: true, ownerOnly: true },
-  { url: "/billing",          category: "tools",      cashierHidden: true, ownerOnly: true },
-  { url: "/settings",         category: "tools",      cashierHidden: false },
+  { url: "/kitchen",           category: "service",    cashierHidden: false, proOnly: true },
+  { url: "/tables",            category: "service",    cashierHidden: false, proOnly: true },
+  { url: "/appointments",      category: "service",    cashierHidden: false, proOnly: true },
+  { url: "/staff",             category: "operations", cashierHidden: true },
+  { url: "/rooms",             category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/memberships",       category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/shifts",            category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/timeclock",         category: "operations", cashierHidden: false, proOnly: true },
+  { url: "/payroll",           category: "operations", cashierHidden: true, ownerOnly: true, proOnly: true },
+  { url: "/products",          category: "management", cashierHidden: true },
+  { url: "/ingredients",       category: "management", cashierHidden: true },
+  { url: "/inventory",         category: "management", cashierHidden: true },
+  { url: "/expiry",            category: "management", cashierHidden: true },
+  { url: "/customers",         category: "management", cashierHidden: true, proOnly: true },
+  { url: "/transactions",      category: "management", cashierHidden: true },
+  { url: "/discount-codes",    category: "management", cashierHidden: true, proOnly: true },
+  { url: "/loyalty",           category: "management", cashierHidden: true, proOnly: true },
+  { url: "/wifi-vouchers",     category: "management", cashierHidden: true, proOnly: true },
+  { url: "/refunds",           category: "management", cashierHidden: true, managerOnly: true },
+  { url: "/analytics",         category: "finance",    cashierHidden: true },
+  { url: "/expenses",          category: "finance",    cashierHidden: true, proOnly: true },
+  { url: "/suppliers",         category: "finance",    cashierHidden: true, proOnly: true },
+  { url: "/purchases",         category: "finance",    cashierHidden: true, proOnly: true },
+  { url: "/bir",               category: "finance",    cashierHidden: true, ownerOnly: true, proOnly: true },
+  { url: "/bir-audit-log",     category: "finance",    cashierHidden: true, ownerOnly: true, proOnly: true },
+  { url: "/ai",                category: "tools",      cashierHidden: false, proOnly: true },
+  { url: "/hardware-settings", category: "tools",      cashierHidden: false },
+  { url: "/print-settings",    category: "tools",      cashierHidden: true, ownerOnly: true },
+  { url: "/billing",           category: "tools",      cashierHidden: true, ownerOnly: true },
+  { url: "/settings",          category: "tools",      cashierHidden: false },
 ];
 
 const CATEGORY_ORDER: MoreCategory[] = ["service", "operations", "management", "finance", "tools"];
@@ -206,7 +198,6 @@ export function BottomNav() {
 
   const primaryNavUrlSet = new Set(primaryNavItems.map((i) => i.url));
 
-  // Filter items by role/subscription, then group by category
   const filteredMoreItems = MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
     if (isFree && i.proOnly && !essentialUrls.has(i.url)) return false;
@@ -227,7 +218,6 @@ export function BottomNav() {
     };
   });
 
-  // Group into ordered sections, skipping empty ones
   const grouped = CATEGORY_ORDER
     .map(cat => ({
       category: cat,
@@ -266,7 +256,6 @@ export function BottomNav() {
           className="pointer-events-auto glass-nav mx-3 mb-1.5 rounded-[24px] px-1 py-1 flex items-center w-full relative"
           style={{ maxWidth: "480px" }}
         >
-          {/* Sliding active pill */}
           <div
             className="absolute inset-y-1 pointer-events-none z-0 transition-all duration-300 ease-in-out"
             style={{
@@ -344,7 +333,6 @@ export function BottomNav() {
         </div>
       </nav>
 
-      {/* More Sheet */}
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
@@ -362,9 +350,7 @@ export function BottomNav() {
 
           <div className="overflow-y-auto" style={{ maxHeight: "calc(72dvh - env(safe-area-inset-bottom, 0px))" }}>
 
-            {/* Fullscreen + Lock buttons */}
             <div className="px-4 pt-3 pb-1 flex gap-2">
-              {/* Fullscreen — always visible */}
               <button
                 onClick={() => {
                   setMoreOpen(false);
@@ -381,10 +367,8 @@ export function BottomNav() {
                   {isFullscreen ? "Exit Full" : "Fullscreen"}
                 </span>
               </button>
-
             </div>
 
-            {/* Categorised nav sections */}
             {grouped.map((group) => (
               <div key={group.category} className="px-4 pt-4 pb-1">
                 <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-2">
@@ -415,7 +399,6 @@ export function BottomNav() {
               </div>
             ))}
 
-            {/* Admin section */}
             {isAdminOrAbove && (
               <div className="px-4 pt-4 pb-1">
                 <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-1 mb-2">

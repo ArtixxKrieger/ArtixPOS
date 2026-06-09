@@ -188,11 +188,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/audit-logs": "Audit Log",
 };
 
-// ── Stable module-level NavItem ──────────────────────────────────────────────
-// MUST be defined outside AppLayout. If defined inside the component body,
-// React sees a new function reference on every render (location change) and
-// fully unmounts + remounts every nav button — causing a visible flash and
-// wasting layout/paint work on every navigation.
 interface NavItemProps {
   url: string;
   icon: LucideIcon;
@@ -312,7 +307,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const storeName = activeBranchName ?? tenantStoreName;
   const storeInitial = storeName[0].toUpperCase();
 
-
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
@@ -334,7 +328,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  // ── Per-page document title ───────────────────────────────────────────────
   useEffect(() => {
     const pageTitle = businessLabels[location] ?? PAGE_TITLES[location];
     document.title = pageTitle ? `${pageTitle} — ${storeName}` : storeName;
@@ -361,7 +354,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         options={{ duration: 3500, roundness: 16 }}
       />
 
-      {/* ── Desktop Sidebar ──────────────────────────────────── */}
       <aside
         className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 glass-sidebar overflow-hidden transition-[width] duration-200 ease-in-out"
         style={{
@@ -369,7 +361,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           paddingTop: "env(safe-area-inset-top, 0px)",
         }}
       >
-        {/* Brand */}
         <div className={["border-b border-border/50 flex-shrink-0", sidebarCollapsed ? "px-2 pt-4 pb-3" : "px-4 pt-5 pb-3"].join(" ")}>
           <div className={["flex items-center", sidebarCollapsed ? "justify-center" : "gap-2.5"].join(" ")}>
             <div
@@ -395,7 +386,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        {/* Nav */}
         <nav className={["flex-1 py-2 overflow-y-auto space-y-0 scrollbar-hide", sidebarCollapsed ? "px-1.5" : "px-2.5"].join(" ")}>
           {NAV_SECTIONS.map((section) => {
             const visibleItems = section.items.filter(item => shouldShowNavItem(item));
@@ -467,7 +457,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </nav>
 
-        {/* User profile footer */}
         <div className={["pb-4 pt-2 border-t border-border/50 flex-shrink-0", sidebarCollapsed ? "px-1.5" : "px-2.5"].join(" ")}>
           {user && (
             sidebarCollapsed ? (
@@ -548,7 +537,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* ── Main area ─────────────────────────────────────────── */}
       <div
         id="app-scroll"
         className={[
@@ -557,8 +545,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         ].join(" ")}
         style={{ overscrollBehavior: "none" }}
       >
-
-        {/* Mobile header — theme toggle here only (no sidebar on mobile) */}
         <header
           className="md:hidden sticky top-0 z-[1000] glass-header"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
@@ -577,14 +563,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </p>
             </div>
 
-            <OfflineSyncBanner
-              status={onlineStatus}
-              lastPrefetch={lastPrefetch}
-              isPrefetching={isPrefetching}
-              onPrefetch={prefetchNow}
-              onOpenConflicts={() => setConflictDrawerOpen(true)}
-            />
-
             <button
               onClick={toggleFullscreen}
               data-testid="btn-fullscreen-header"
@@ -594,12 +572,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
 
-
             <NotificationBell />
           </div>
         </header>
 
-        {/* Desktop top bar — NO theme toggle here (it's in sidebar) */}
         <header className="hidden md:flex sticky top-0 z-30 glass-header">
           <div className="w-full px-4 flex items-center gap-3" style={{ height: "52px" }}>
             <button
@@ -626,7 +602,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Main content */}
         <main className="pb-[calc(104px+env(safe-area-inset-bottom,0px))] md:pb-10">
           <div className="max-w-7xl mx-auto px-4 lg:px-6 py-5">
             {children}
@@ -635,6 +610,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       <BottomNav />
+
+      <div
+        className="md:hidden fixed left-0 right-0 z-[60] flex justify-center items-end pointer-events-none"
+        style={{ bottom: "calc(64px + max(env(safe-area-inset-bottom, 0px), 6px))" }}
+      >
+        <div className="pointer-events-auto">
+          <OfflineSyncBanner
+            status={onlineStatus}
+            lastPrefetch={lastPrefetch}
+            isPrefetching={isPrefetching}
+            onPrefetch={prefetchNow}
+            onOpenConflicts={() => setConflictDrawerOpen(true)}
+          />
+        </div>
+      </div>
+
       {isOwner && <AiFloatButton />}
 
       <SyncConflictDrawer

@@ -12,7 +12,6 @@ interface OfflineSyncBannerProps {
 
 function formatAge(date: Date): string {
   const ms = Date.now() - date.getTime();
-  // Guard: Invalid Date (malformed localStorage value) or clock skew
   if (!Number.isFinite(ms) || ms < 0) return "unknown";
   const mins = Math.floor(ms / 60_000);
   if (mins < 1) return "just now";
@@ -44,7 +43,6 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
     triggerRetryFailed,
   } = status;
 
-  // Tick every minute so the "cached Xm ago" label stays fresh
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 60_000);
@@ -95,9 +93,8 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
       setPillState("hidden");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]); // pillState intentionally omitted — read-only peek to avoid reset loop
+  }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]);
 
-  // Animate in/out
   useEffect(() => {
     if (visTimerRef.current) clearTimeout(visTimerRef.current);
     if (pillState !== "hidden") {
@@ -221,7 +218,6 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
     );
   }
 
-  // When online and actively refreshing cached data in the background
   if (isPrefetching) {
     return (
       <div
@@ -235,7 +231,6 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
     );
   }
 
-  // When online and there's cached data — show a subtle "refresh data" button
   if (isOnline && lastPrefetch && onPrefetch && pillState === "hidden") {
     return (
       <button

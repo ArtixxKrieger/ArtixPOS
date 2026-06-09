@@ -57,10 +57,6 @@ export function useSubscription() {
   const { data, isLoading, refetch } = useQuery<TenantSubscription>({
     queryKey: ["/api/subscription"],
     enabled: !!user,
-    // Subscription changes only on billing mutations — all of which already call
-    // queryClient.invalidateQueries(["/api/subscription"]) explicitly.
-    // staleTime: Infinity prevents pointless background refetches that would fire
-    // every 5 minutes and are never acted on by any component.
     staleTime: Infinity,
   });
 

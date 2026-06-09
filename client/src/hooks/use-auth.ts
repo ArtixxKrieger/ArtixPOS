@@ -7,9 +7,38 @@ import type { UserRole } from "@shared/schema";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
+// ── Auth pre-warm ─────────────────────────────────────────────────────────────
+// Store the last successful auth response in localStorage so that on hard
+// refresh, the user object (including activeBranch.color) is available as
+// placeholderData before /api/auth/me finishes loading. This eliminates the
+// "default blue theme" flash on every page reload — the branch color is applied
+// the instant the React tree mounts, not after the network round-trip.
+//
+// We store only non-sensitive profile data (id, name, role, activeBranch).
+// The actual JWT lives in an httpOnly cookie and is never touched here.
+const AUTH_CACHE_LS_KEY = "artixpos_auth_me_v1";
+
+function loadCachedAuthUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(AUTH_CACHE_LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedAuthUser(user: AuthUser | null): void {
+  try {
+    if (user) localStorage.setItem(AUTH_CACHE_LS_KEY, JSON.stringify(user));
+    else localStorage.removeItem(AUTH_CACHE_LS_KEY);
+  } catch {}
+}
+
 export interface ActiveBranchInfo {
   id: number;
   name: string;
+  color: string | null;
   businessType: string | null;
   businessSubType: string | null;
 }
@@ -86,7 +115,11 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     }
     const data = await res.json();
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
-    return data.user ?? null;
+    const authUser: AuthUser | null = data.user ?? null;
+    // Persist to localStorage so the next hard-refresh can use it as
+    // placeholderData and apply the branch theme color immediately.
+    saveCachedAuthUser(authUser);
+    return authUser;
   } catch (err) {
     clearTimeout(timeoutId);
     // Network error, timeout, or abort — always return null and require re-auth.
@@ -103,6 +136,11 @@ export function useAuth() {
   const { data: user, isLoading, isFetching } = useQuery<AuthUser | null>({
     queryKey: ["auth-me"],
     queryFn: fetchMe,
+    // Seed from the last known auth state so branch color and user data are
+    // available the instant the component tree mounts — before /api/auth/me
+    // even fires. The real fetch still runs in the background and replaces
+    // this placeholder with fresh data.
+    placeholderData: loadCachedAuthUser(),
     retry: 2,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
@@ -128,6 +166,9 @@ export function useAuth() {
         // Offline or network error — still proceed with local-only logout.
       }
       clearNativeToken();
+      // Clear auth pre-warm so the next user doesn't briefly see this user's
+      // branch color / identity on their first page load.
+      saveCachedAuthUser(null);
       // Clear the settings in-memory prewarm and IDB entry synchronously
       // (best-effort) BEFORE the page navigation.  clearAllCache() below is
       // fire-and-forget and may not finish before window.location.replace()

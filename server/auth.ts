@@ -1557,13 +1557,14 @@ export function setupAuth(app: Express) {
       console.warn("[auth/me] live user re-read failed, using JWT values:", (err as Error).message);
     }
 
-    // Resolve the active branch's businessType / businessSubType so the client
-    // can adapt navigation, terminology, and quick actions on a per-branch
-    // basis (e.g. show "Tables" only on a cafe branch, "Bookings" only on a
-    // salon branch). Falls back silently when the branch is missing.
+    // Resolve the active branch info so the client can adapt navigation,
+    // terminology, and apply the per-branch theme color without needing a
+    // separate /api/admin/branches fetch. This query runs in parallel with
+    // the runAsAdmin user re-read above — see Promise.all below.
     let activeBranch: {
       id: number;
       name: string;
+      color: string | null;
       businessType: string | null;
       businessSubType: string | null;
     } | null = null;
@@ -1575,6 +1576,7 @@ export function setupAuth(app: Express) {
           .select({
             id: branches.id,
             name: branches.name,
+            color: branches.color,
             businessType: branches.businessType,
             businessSubType: branches.businessSubType,
           })

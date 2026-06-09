@@ -677,9 +677,42 @@ export const timeLogs = pgTable("time_logs", {
   clockOutNotes: text("clock_out_notes"),
   breakStart: text("break_start"), // ISO timestamp when current break started
   breakMinutes: integer("break_minutes").default(0), // total accumulated break minutes
+  // Schedule-awareness fields — populated at clock-in when a matching schedule exists
+  scheduledStart: text("scheduled_start"), // "HH:MM" from matched schedule
+  scheduledEnd: text("scheduled_end"),     // "HH:MM" from matched schedule
+  lateMinutes: integer("late_minutes"),             // > 0 when clocked in late
+  earlyDepartureMinutes: integer("early_departure_minutes"), // > 0 when clocked out early
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
+
+// ─── Staff Schedules ──────────────────────────────────────────────────────────
+// Recurring weekly schedule per employee (e.g. "Maria works Mon/Wed/Fri 9–5").
+// One row per employee-per-day-of-week. Multiple rows = multiple days.
+
+export const staffSchedules = pgTable("staff_schedules", {
+  id: serial("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  branchId: integer("branch_id").references(() => branches.id),
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+  startTime: text("start_time").notNull(),     // "HH:MM" 24-hour
+  endTime: text("end_time").notNull(),         // "HH:MM" 24-hour
+  effectiveFrom: text("effective_from").notNull(), // "YYYY-MM-DD" — inclusive start
+  effectiveTo: text("effective_to"),               // "YYYY-MM-DD" — inclusive end, null = ongoing
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+});
+
+export const insertStaffScheduleSchema = createInsertSchema(staffSchedules).omit({
+  id: true,
+  createdAt: true,
+});
+export type StaffSchedule = typeof staffSchedules.$inferSelect;
+export type InsertStaffSchedule = z.infer<typeof insertStaffScheduleSchema>;
 
 // ─── Role Permissions ─────────────────────────────────────────────────────────
 

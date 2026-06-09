@@ -67,6 +67,7 @@ const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
 const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
 const WifiVouchersPage = lazy(() => import("@/pages/wifi-vouchers"));
 const PayrollPage = lazy(() => import("@/pages/payroll"));
+const SchedulesPage = lazy(() => import("@/pages/schedules"));
 const BIRPage = lazy(() => import("@/pages/bir"));
 const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
 const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
@@ -502,6 +503,7 @@ const MembershipsRoute = () => <ProGuard url="/memberships" component={Membershi
 const LoyaltyRoute = () => <ProGuard url="/loyalty" component={LoyaltyPage} />;
 const WifiVouchersRoute = () => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />;
 const PayrollRoute = () => <ProGuard url="/payroll" component={PayrollPage} />;
+const SchedulesRoute = () => <ProGuard url="/schedules" component={SchedulesPage} />;
 
 const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/dashboard"),
@@ -736,6 +738,7 @@ function AppRouter() {
             <Route path="/loyalty" component={LoyaltyRoute} />
             <Route path="/wifi-vouchers" component={WifiVouchersRoute} />
             <Route path="/payroll" component={PayrollRoute} />
+            <Route path="/schedules" component={SchedulesRoute} />
             <Route path="/bir" component={BIRRoute} />
             <Route path="/bir-audit-log" component={BIRAuditLogRoute} />
             <Route path="/expiry" component={ExpiryRoute} />

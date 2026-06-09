@@ -18,6 +18,9 @@ import {
   purchaseOrders,
   purchaseOrderItems,
   timeLogs,
+  staffSchedules,
+  type StaffSchedule,
+  type InsertStaffSchedule,
   serviceStaff,
   serviceRooms,
   appointments,
@@ -98,7 +101,13 @@ import {
   loyaltyPointsLog,
   type LoyaltyPointsLog,
 } from "@shared/schema";
-import { eq, and, isNull, isNotNull, inArray, desc, sql, lt, type SQL } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, inArray, desc, sql, lt, lte, gte, or, type SQL } from "drizzle-orm";
+
+const SCHEDULE_GRACE_MINS = 5;
+function _timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
 
 export interface IStorage {
   // Products
@@ -241,6 +250,13 @@ export interface IStorage {
   editTimeLog(managerId: string, logId: number, data: { clockIn?: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog | undefined>;
   deleteTimeLog(managerId: string, logId: number): Promise<boolean>;
   createManualTimeLog(managerId: string, data: { userId: string; branchId?: number; clockIn: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog>;
+
+  // Staff Schedules
+  getStaffSchedules(managerId: string, targetUserId?: string): Promise<(StaffSchedule & { userName: string | null; userEmail: string | null })[]>;
+  getScheduleEmployees(managerId: string): Promise<{ id: string; name: string | null; email: string | null; role: string | null }[]>;
+  createStaffSchedule(managerId: string, data: Omit<InsertStaffSchedule, "tenantId">): Promise<StaffSchedule>;
+  updateStaffSchedule(id: number, managerId: string, data: Partial<InsertStaffSchedule>): Promise<StaffSchedule | undefined>;
+  deleteStaffSchedule(id: number, managerId: string): Promise<boolean>;
 
   // Product barcode lookup
   getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
@@ -1619,10 +1635,39 @@ export class DatabaseStorage implements IStorage {
 
   async clockIn(userId: string, notes?: string): Promise<TimeLog> {
     try {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const today = now.toISOString().slice(0, 10);
+
+      const [schedule] = await db.select().from(staffSchedules).where(
+        and(
+          eq(staffSchedules.userId, userId),
+          eq(staffSchedules.dayOfWeek, dayOfWeek),
+          lte(staffSchedules.effectiveFrom, today),
+          or(isNull(staffSchedules.effectiveTo), gte(staffSchedules.effectiveTo, today))
+        )
+      ).limit(1);
+
+      let scheduledStart: string | null = null;
+      let scheduledEnd: string | null = null;
+      let lateMinutes: number | null = null;
+
+      if (schedule) {
+        scheduledStart = schedule.startTime;
+        scheduledEnd = schedule.endTime;
+        const scheduledStartMins = _timeToMinutes(schedule.startTime);
+        const clockInMins = now.getHours() * 60 + now.getMinutes();
+        const late = clockInMins - scheduledStartMins - SCHEDULE_GRACE_MINS;
+        lateMinutes = late > 0 ? late : 0;
+      }
+
       const [created] = await db.insert(timeLogs).values({
         userId,
-        clockIn: new Date().toISOString(),
+        clockIn: now.toISOString(),
         notes: notes ?? null,
+        scheduledStart,
+        scheduledEnd,
+        lateMinutes,
       } as any).returning();
       return created;
     } catch (error) {
@@ -1635,18 +1680,28 @@ export class DatabaseStorage implements IStorage {
     try {
       const active = await this.getActiveTimeLog(userId);
       if (!active) return undefined;
-      // If the employee is mid-break, accumulate break minutes before closing
       const now = new Date();
       let finalBreakMinutes = active.breakMinutes ?? 0;
       if (active.breakStart) {
         const breakMs = now.getTime() - new Date(active.breakStart).getTime();
         finalBreakMinutes += Math.max(0, Math.floor(breakMs / 60000));
       }
+
+      let earlyDepartureMinutes: number | null = null;
+      const scheduledEnd = (active as any).scheduledEnd as string | null;
+      if (scheduledEnd) {
+        const scheduledEndMins = _timeToMinutes(scheduledEnd);
+        const clockOutMins = now.getHours() * 60 + now.getMinutes();
+        const early = scheduledEndMins - SCHEDULE_GRACE_MINS - clockOutMins;
+        earlyDepartureMinutes = early > 0 ? early : 0;
+      }
+
       const [updated] = await db.update(timeLogs).set({
         clockOut: now.toISOString(),
         clockOutNotes: notes ?? null,
         breakStart: null,
         breakMinutes: finalBreakMinutes,
+        earlyDepartureMinutes,
       } as any).where(eq(timeLogs.id, active.id)).returning();
       return updated;
     } catch (error) {
@@ -1778,6 +1833,102 @@ export class DatabaseStorage implements IStorage {
       clockOutNotes: data.clockOutNotes ?? null,
     } as any).returning();
     return created;
+  }
+
+  // ─── Staff Schedules ───────────────────────────────────────────────────────
+
+  async getStaffSchedules(managerId: string, targetUserId?: string): Promise<(StaffSchedule & { userName: string | null; userEmail: string | null })[]> {
+    try {
+      const userIds = await this.getTenantUserIds(managerId);
+      if (userIds.length === 0) return [];
+      const baseCondition = userIds.length === 1
+        ? eq(staffSchedules.userId, userIds[0])
+        : inArray(staffSchedules.userId, userIds);
+      const condition = targetUserId
+        ? and(baseCondition, eq(staffSchedules.userId, targetUserId))
+        : baseCondition;
+      const rows = await db.select({
+        id: staffSchedules.id,
+        tenantId: staffSchedules.tenantId,
+        userId: staffSchedules.userId,
+        branchId: staffSchedules.branchId,
+        dayOfWeek: staffSchedules.dayOfWeek,
+        startTime: staffSchedules.startTime,
+        endTime: staffSchedules.endTime,
+        effectiveFrom: staffSchedules.effectiveFrom,
+        effectiveTo: staffSchedules.effectiveTo,
+        createdAt: staffSchedules.createdAt,
+        userName: users.name,
+        userEmail: users.email,
+      }).from(staffSchedules)
+        .leftJoin(users, eq(staffSchedules.userId, users.id))
+        .where(condition)
+        .orderBy(staffSchedules.userId, staffSchedules.dayOfWeek);
+      return rows as any;
+    } catch (error) {
+      console.error("Error fetching staff schedules:", error);
+      return [];
+    }
+  }
+
+  async getScheduleEmployees(managerId: string): Promise<{ id: string; name: string | null; email: string | null; role: string | null }[]> {
+    try {
+      const userIds = await this.getTenantUserIds(managerId);
+      if (userIds.length === 0) return [];
+      const cond = userIds.length === 1
+        ? eq(users.id, userIds[0])
+        : inArray(users.id, userIds);
+      return await db.select({ id: users.id, name: users.name, email: users.email, role: users.role })
+        .from(users)
+        .where(cond)
+        .orderBy(users.name);
+    } catch (error) {
+      console.error("Error fetching schedule employees:", error);
+      return [];
+    }
+  }
+
+  async createStaffSchedule(managerId: string, data: Omit<InsertStaffSchedule, "tenantId">): Promise<StaffSchedule> {
+    const userIds = await this.getTenantUserIds(managerId);
+    if (!userIds.includes(data.userId)) throw new Error("User not in tenant");
+    const [managerRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, managerId));
+    const tenantId = managerRow?.tenantId ?? managerId;
+    const [created] = await db.insert(staffSchedules).values({ ...data, tenantId } as any).returning();
+    return created;
+  }
+
+  async updateStaffSchedule(id: number, managerId: string, data: Partial<InsertStaffSchedule>): Promise<StaffSchedule | undefined> {
+    try {
+      const userIds = await this.getTenantUserIds(managerId);
+      if (userIds.length === 0) return undefined;
+      const cond = userIds.length === 1
+        ? and(eq(staffSchedules.id, id), eq(staffSchedules.userId, userIds[0]))
+        : and(eq(staffSchedules.id, id), inArray(staffSchedules.userId, userIds));
+      const [existing] = await db.select({ id: staffSchedules.id }).from(staffSchedules).where(cond);
+      if (!existing) return undefined;
+      const [updated] = await db.update(staffSchedules).set(data as any).where(eq(staffSchedules.id, id)).returning();
+      return updated;
+    } catch (error) {
+      console.error("Error updating staff schedule:", error);
+      return undefined;
+    }
+  }
+
+  async deleteStaffSchedule(id: number, managerId: string): Promise<boolean> {
+    try {
+      const userIds = await this.getTenantUserIds(managerId);
+      if (userIds.length === 0) return false;
+      const cond = userIds.length === 1
+        ? and(eq(staffSchedules.id, id), eq(staffSchedules.userId, userIds[0]))
+        : and(eq(staffSchedules.id, id), inArray(staffSchedules.userId, userIds));
+      const [existing] = await db.select({ id: staffSchedules.id }).from(staffSchedules).where(cond);
+      if (!existing) return false;
+      await db.delete(staffSchedules).where(eq(staffSchedules.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting staff schedule:", error);
+      return false;
+    }
   }
 
   // ─── Product barcode lookup ────────────────────────────────────────────────

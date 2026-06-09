@@ -48,6 +48,7 @@ const NAV_SECTIONS = [
       { label: "Memberships", url: "/memberships", icon: BadgeCheck, proOnly: true },
       { label: "Shifts", url: "/shifts", icon: AlarmClock, proOnly: true },
       { label: "Time Clock", url: "/timeclock", icon: Timer, proOnly: true },
+      { label: "Schedules", url: "/schedules", icon: CalendarDays, managerOnly: true, proOnly: true },
       { label: "Staff Kiosk", url: "/staff-clock-in", icon: KeyRound, managerOnly: true, proOnly: true },
       { label: "Payroll", url: "/payroll", icon: Banknote, ownerOnly: true, proOnly: true },
     ],

@@ -18,6 +18,14 @@ import type { TimeLog } from "@shared/schema";
 const OT_THRESHOLD_MINS = 480;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function fmt12(hhmm: string | null | undefined): string {
+  if (!hhmm) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, "0")}${ampm}`;
+}
+
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -576,6 +584,21 @@ export default function TimeClockPage() {
                                       <Coffee className="h-2.5 w-2.5" /> {brkMins}m break
                                     </span>
                                   )}
+                                  {(log as any).scheduledStart && (
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                      <Calendar className="h-2.5 w-2.5" /> sched {fmt12((log as any).scheduledStart)}–{fmt12((log as any).scheduledEnd)}
+                                    </span>
+                                  )}
+                                  {((log as any).lateMinutes ?? 0) > 0 && (
+                                    <span className="text-[10px] text-red-600 dark:text-red-400 flex items-center gap-0.5 font-semibold">
+                                      <AlertTriangle className="h-2.5 w-2.5" /> Late {fmtMins((log as any).lateMinutes)}
+                                    </span>
+                                  )}
+                                  {log.clockOut && ((log as any).earlyDepartureMinutes ?? 0) > 0 && (
+                                    <span className="text-[10px] text-orange-600 dark:text-orange-400 flex items-center gap-0.5 font-semibold">
+                                      <AlertTriangle className="h-2.5 w-2.5" /> Left early {fmtMins((log as any).earlyDepartureMinutes)}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -732,6 +755,16 @@ export default function TimeClockPage() {
                                       )}
                                       {log.notes && (
                                         <span className="text-[10px] text-muted-foreground italic truncate max-w-[14rem]">{log.notes}</span>
+                                      )}
+                                      {((log as any).lateMinutes ?? 0) > 0 && (
+                                        <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-0.5">
+                                          <AlertTriangle className="h-2.5 w-2.5" /> Late {fmtMins((log as any).lateMinutes)}
+                                        </span>
+                                      )}
+                                      {log.clockOut && ((log as any).earlyDepartureMinutes ?? 0) > 0 && (
+                                        <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold flex items-center gap-0.5">
+                                          <AlertTriangle className="h-2.5 w-2.5" /> Left early {fmtMins((log as any).earlyDepartureMinutes)}
+                                        </span>
                                       )}
                                     </div>
                                   </div>

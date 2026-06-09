@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Tag, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag, Camera, Truck, Scissors } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag, Camera, Truck, Scissors } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
@@ -194,7 +194,6 @@ export default function POS() {
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [cartOpen, setCartOpen] = useState(false);
   const [receiptName, setReceiptName] = useState<string>("");
-  const [tip, setTip] = useState<number>(0);
   const [issueWifi, setIssueWifi] = useState<boolean>(false);
   const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">("dine_in");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
@@ -255,7 +254,7 @@ export default function POS() {
     effectiveDiscount,
     discountedSubtotal,
     scPwdDiscount,
-  } = useCartTotals({ cart, discount, loyaltyDiscount, tip, globalTaxRate, isScPwd });
+  } = useCartTotals({ cart, discount, loyaltyDiscount, tip: 0, globalTaxRate, isScPwd });
 
   const maxRedeemablePoints = selectedCustomer
     ? Math.min(selectedCustomer.loyaltyPoints ?? 0, Math.floor(subtotal * loyaltyRedemptionRate))
@@ -477,7 +476,7 @@ export default function POS() {
       discount:             effectiveDiscount.toString(),
       discountCode:         isScPwd ? null : (appliedCode?.code ?? null),
       loyaltyDiscount:      loyaltyDiscount.toString(),
-      tip:                  tip.toString(),
+      tip:                  "0",
       total:                actualTotal.toString(),
       paymentAmount:        numericPayment.toString(),
       changeAmount:         changeAmount.toString(),
@@ -502,7 +501,6 @@ export default function POS() {
     const snapshotCart                  = [...cart];
     const snapshotCustomer              = selectedCustomer;
     const snapshotName                  = !selectedCustomer && receiptName.trim() ? receiptName.trim() : undefined;
-    const snapshotTip                   = tip;
     const snapshotIssueWifi             = issueWifi;
     const snapshotDiscount              = discount;
     const snapshotAppliedCode           = appliedCode;
@@ -520,7 +518,7 @@ export default function POS() {
       tax,
       discount:            effectiveDiscount,
       loyaltyDiscount,
-      tip:                 snapshotTip,
+      tip:                 0,
       total:               actualTotal,
       paymentMethod,
       paymentAmount:       numericPayment,
@@ -556,7 +554,6 @@ export default function POS() {
     setLoyaltyPointsToRedeem(0);
     setPaymentAmount("");
     setReceiptName("");
-    setTip(0);
     setIssueWifi(false);
     setScPwdType("none");
     setScPwdId("");
@@ -640,7 +637,6 @@ export default function POS() {
         setAppliedCode(snapshotAppliedCode);
         setSelectedCustomer(snapshotCustomer ?? null);
         setLoyaltyPointsToRedeem(snapshotLoyaltyPointsToRedeem);
-        setTip(snapshotTip);
         setIssueWifi(snapshotIssueWifi);
         setScPwdType(snapshotScPwdType);
         setScPwdId(snapshotScPwdId);
@@ -655,7 +651,7 @@ export default function POS() {
     });
   }, [
     cart, total, isCashPayment, numericPayment, currency, settings, subtotal, tax,
-    effectiveDiscount, loyaltyDiscount, tip, appliedCode, loyaltyPointsToRedeem,
+    effectiveDiscount, loyaltyDiscount, appliedCode, loyaltyPointsToRedeem,
     isScPwd, scPwdType, scPwdId, discountedSubtotal, globalTaxRate, changeAmount,
     paymentMethod, selectedCustomer, receiptName, issueWifi, discount, isFoodBeverage,
     orderType, deliveryAddress, clearCart, replaceCart, createPending, toast, loyaltyRedemptionRate,
@@ -969,28 +965,13 @@ export default function POS() {
                   value={scPwdId}
                   onChange={e => setScPwdId(e.target.value)}
                   placeholder={`${scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} ${t("pos.scPwdId")}`}
-                  className="h-8 rounded-xl bg-amber-500/8 border border-amber-500/20 text-xs"
+                  className="h-8 rounded-xl bg-secondary/60 border border-border/40 text-xs"
                   data-testid="input-scpwd-id"
                 />
               )}
             </div>
           )}
 
-          {/* Manual discount — hidden when SC/PWD active */}
-          {!appliedCode && !isScPwd && (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium flex items-center gap-1 text-muted-foreground shrink-0">
-                <Tag className="h-3 w-3 text-primary" /> {t("pos.discount")}
-              </span>
-              <Input
-                type="number"
-                className="w-20 h-7 text-right bg-secondary/60 border-none rounded-xl text-xs font-semibold"
-                value={discount || ""}
-                onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                placeholder="0"
-              />
-            </div>
-          )}
 
           {isScPwd && (
             <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
@@ -1041,45 +1022,6 @@ export default function POS() {
             </div>
           )}
 
-          {/* Tip selector */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground shrink-0">{t("pos.tip")}</span>
-            {[0.05, 0.10, 0.15].map(pct => (
-              <button
-                key={pct}
-                onClick={() => setTip(
-                  tip === parseFloat((discountedSubtotal * pct).toFixed(2))
-                    ? 0
-                    : parseFloat((discountedSubtotal * pct).toFixed(2)),
-                )}
-                className={[
-                  "flex-1 h-7 rounded-xl border text-[10px] font-bold transition-all active:scale-95",
-                  tip > 0 && Math.abs(tip - discountedSubtotal * pct) < 0.01
-                    ? "bg-primary/15 border-primary/30 text-primary"
-                    : "bg-secondary/80 border-border/40 hover:bg-secondary",
-                ].join(" ")}
-                data-testid={`button-tip-${Math.round(pct * 100)}`}
-              >
-                {Math.round(pct * 100)}%
-              </button>
-            ))}
-            <button
-              onClick={() => setTip(0)}
-              className="flex-1 h-7 rounded-xl bg-secondary/40 border border-border/40 text-[10px] font-medium hover:bg-secondary transition-all active:scale-95"
-              data-testid="button-tip-clear"
-            >
-              {t("pos.none")}
-            </button>
-            <Input
-              type="number"
-              min={0}
-              className="w-16 h-7 text-right bg-secondary/60 border-none rounded-xl text-xs font-semibold shrink-0"
-              value={tip || ""}
-              onChange={(e) => setTip(Math.max(0, Number(e.target.value) || 0))}
-              placeholder="0"
-              data-testid="input-tip-amount"
-            />
-          </div>
 
           {/* WiFi voucher toggle */}
           {((settings as any)?.wifiSsid || (settings as any)?.wifiPassword) && (
@@ -1473,7 +1415,7 @@ export default function POS() {
 
       {/* Mobile: Floating cart bar */}
       {cart.length > 0 && (
-        <div className="md:hidden fixed bottom-[calc(64px+env(safe-area-inset-bottom,0px))] left-3 right-3 z-40">
+        <div className="md:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] left-3 right-3 z-40">
           <button
             data-testid="button-open-cart"
             onClick={() => setCartOpen(true)}

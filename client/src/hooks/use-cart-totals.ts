@@ -1,7 +1,7 @@
 /**
  * useCartTotals — pure financial calculations for the POS cart.
  *
- * Derived from the subtotal + discount + tax + tip logic that previously lived
+ * Derived from the subtotal + discount + tax logic that previously lived
  * inline in pos.tsx.  Keeping it here makes the formulas easy to unit-test in
  * isolation and prevents the 1 500-line component from growing further.
  */
@@ -15,7 +15,7 @@ interface TotalsInput {
   discount: number;
   /** Loyalty-points discount amount in currency units. */
   loyaltyDiscount: number;
-  /** Tip amount. */
+  /** tip kept for API compatibility — always pass 0 */
   tip: number;
   /** Global tax rate from settings (e.g. 12 for 12%). */
   globalTaxRate: number;
@@ -27,7 +27,6 @@ export function useCartTotals({
   cart,
   discount,
   loyaltyDiscount,
-  tip,
   globalTaxRate,
   isScPwd,
 }: TotalsInput) {
@@ -70,7 +69,7 @@ export function useCartTotals({
         }, 0);
 
     // ── Grand total ───────────────────────────────────────────────────────────
-    const total = discountedSubtotal + tax - loyaltyDiscount + tip;
+    const total = discountedSubtotal + tax - loyaltyDiscount;
 
     // ── BIR breakdowns ────────────────────────────────────────────────────────
     const vatableSales = isScPwd ? 0 : discountedSubtotal;
@@ -88,5 +87,5 @@ export function useCartTotals({
       vatableSales,
       vatExemptSales,
     };
-  }, [cart, discount, loyaltyDiscount, tip, globalTaxRate, isScPwd]);
+  }, [cart, discount, loyaltyDiscount, globalTaxRate, isScPwd]);
 }

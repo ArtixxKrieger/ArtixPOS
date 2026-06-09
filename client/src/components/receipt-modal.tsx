@@ -112,8 +112,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   const isCash = receipt.paymentMethod === "cash";
   const hasDiscount = receipt.discount > 0;
 
-  const hasTip = (receipt.tip ?? 0) > 0;
-
   const handlePrint = () => {
     if (printer.connected) {
       // Close immediately so cashier can start next sale
@@ -280,7 +278,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     <div class="row muted"><span>Subtotal</span><span class="price">${fmt(receipt.subtotal)}</span></div>
     ${hasDiscount && isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} Discount (20%)</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasDiscount && !isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${escHtml(receipt.discountCode)})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
-    ${hasTip ? `<div class="row muted"><span>Tip</span><span class="price">${fmt(receipt.tip ?? 0)}</span></div>` : ""}
     <div class="line"></div>
     ${vatRegistered ? `
     <div class="row muted" style="font-size:${fs - 2}px"><span>VATable Sales</span><span class="price">${fmt(vatableSales)}</span></div>
@@ -451,12 +448,6 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 <div className="flex justify-between text-rose-500 text-[12px]">
                   <span>Discount {receipt.discountCode ? `(${receipt.discountCode})` : ""}</span>
                   <span className="tabular-nums">-{formatCurrency(receipt.discount, currency)}</span>
-                </div>
-              )}
-              {hasTip && (
-                <div className="flex justify-between text-muted-foreground text-[12px]">
-                  <span>Tip</span>
-                  <span className="tabular-nums" data-testid="text-receipt-tip">{formatCurrency(receipt.tip ?? 0, currency)}</span>
                 </div>
               )}
               {vatRegistered && (

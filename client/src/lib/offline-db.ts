@@ -342,13 +342,16 @@ export async function getQueueCount(): Promise<number> {
   }
 }
 
-/** Count of queued sale mutations that are NOT permanently failed. */
+/** Count of queued sale / pending-order mutations that are NOT permanently failed.
+ *  Counts both "sale" (useCreateSale) and "pending-order" (useCreatePendingOrder / POS checkout). */
 export async function getSalesQueueCount(): Promise<number> {
   try {
     const db = await getDB();
     const all = await db.getAll("mutation-queue");
     return all.filter(
-      (item) => item.category === "sale" && !item.permanentlyFailed
+      (item) =>
+        (item.category === "sale" || item.category === "pending-order") &&
+        !item.permanentlyFailed,
     ).length;
   } catch {
     return 0;
@@ -394,7 +397,7 @@ export async function discardAllFailedItems(): Promise<void> {
 
 export function isNetworkError(err: unknown): boolean {
   if (err instanceof TypeError) return true;
-  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) return true;
   return false;
 }
 

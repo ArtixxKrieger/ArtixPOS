@@ -30,23 +30,43 @@ export function usePendingOrders() {
   });
 }
 
+// How long the live-checkout request is allowed to take before we give up and
+// queue the mutation offline.  Mirrors the 15 s budget used by processMutation
+// in sync.ts but is slightly shorter (10 s) so the offline path is taken while
+// the user is still looking at the receipt loading state.
+const CHECKOUT_TIMEOUT_MS = 10_000;
+
 export function useCreatePendingOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: InsertPendingOrder) => {
       let res: Response;
+
+      // Abort after CHECKOUT_TIMEOUT_MS — on slow / patchy connections a TCP
+      // handshake can succeed (preventing a TypeError) while the server takes
+      // many seconds to respond.  Without a timeout the fetch hangs indefinitely,
+      // the offline queue never fills, and the cashier is left staring at a
+      // pending receipt.
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(new DOMException("Checkout request timed out", "TimeoutError")),
+        CHECKOUT_TIMEOUT_MS,
+      );
+
       try {
         res = await nativeFetch(api.pendingOrders.create.path, {
           method: api.pendingOrders.create.method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
+          signal: controller.signal,
         });
       } catch {
-        // Offline — generate a stable temp ID first so both the queue item
-        // (offlineId) and the optimistic cache entry reference the same value.
-        // foldQueue uses offlineId to collapse a subsequent DELETE into a no-op,
-        // and syncOfflineData uses it to remap any subsequent PUT after the real
-        // server ID is assigned.
+        clearTimeout(timer);
+        // Offline or timed out — generate a stable temp ID first so both the
+        // queue item (offlineId) and the optimistic cache entry reference the
+        // same value.  foldQueue uses offlineId to collapse a subsequent DELETE
+        // into a no-op, and syncOfflineData uses it to remap any subsequent PUT
+        // after the real server ID is assigned.
         const tempId = makeOfflineId();
         await queueMutation(
           "POST",
@@ -59,11 +79,26 @@ export function useCreatePendingOrder() {
         await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), optimistic as unknown as PendingOrder]);
         return optimistic as unknown as PendingOrder;
       }
+      clearTimeout(timer);
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
-      const result = api.pendingOrders.create.responses[201].parse(await res.json());
+
+      // Guard against a truncated response body (network drop after server
+      // wrote the headers but before the body arrived).  The sale IS already on
+      // the server — we must NOT throw here or pos.tsx's onError would restore
+      // the cart and the cashier would think the sale failed.
+      let result: PendingOrder;
+      try {
+        result = api.pendingOrders.create.responses[201].parse(await res.json());
+      } catch {
+        // Body unreadable — return a minimal stand-in so onSuccess fires and
+        // the receipt stays open.  The sale is confirmed server-side.
+        result = { ...data, id: 0, createdAt: new Date().toISOString() } as unknown as PendingOrder;
+      }
+
       await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), result]);
       return result;
     },

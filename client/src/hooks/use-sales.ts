@@ -60,20 +60,32 @@ export function useSales(params?: SalesQueryParams) {
   });
 }
 
+// Same budget as useCreatePendingOrder — 10 s before falling to offline queue.
+const SALE_TIMEOUT_MS = 10_000;
+
 export function useCreateSale() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: InsertSale) => {
       let res: Response;
+
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(new DOMException("Sale request timed out", "TimeoutError")),
+        SALE_TIMEOUT_MS,
+      );
+
       try {
         res = await nativeFetch(api.sales.create.path, {
           method: api.sales.create.method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
+          signal: controller.signal,
         });
       } catch {
-        // Offline — pin the temp ID before async work so the queue item and
-        // the optimistic cache entry share the exact same value.
+        clearTimeout(timer);
+        // Offline or timed out — pin the temp ID before async work so the
+        // queue item and the optimistic cache entry share the exact same value.
         // offlineId lets foldQueue cancel the sale if it's voided offline too.
         const tempId = makeOfflineId();
         await queueMutation(
@@ -87,11 +99,20 @@ export function useCreateSale() {
         await patchCached(BASE_URL, (prev: any[]) => [...(Array.isArray(prev) ? prev : []), optimistic]);
         return optimistic as any;
       }
+      clearTimeout(timer);
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as any)?.message ?? `Server error ${res.status}`);
       }
-      const result = api.sales.create.responses[201].parse(await res.json());
+
+      // Guard against truncated response body — sale is already on the server.
+      let result: ReturnType<typeof api.sales.create.responses[201]["parse"]>;
+      try {
+        result = api.sales.create.responses[201].parse(await res.json());
+      } catch {
+        result = { ...data, id: 0, createdAt: new Date().toISOString() } as any;
+      }
       return result;
     },
     onSuccess: (result) => {

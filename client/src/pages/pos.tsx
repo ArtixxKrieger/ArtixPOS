@@ -193,6 +193,15 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [cartOpen, setCartOpen] = useState(false);
+  const [pillBouncing, setPillBouncing] = useState(false);
+  const prevCartCountRef = useRef(0);
+  useEffect(() => {
+    if (cartCount > prevCartCountRef.current) {
+      setPillBouncing(false);
+      requestAnimationFrame(() => setPillBouncing(true));
+    }
+    prevCartCountRef.current = cartCount;
+  }, [cartCount]);
   const [receiptName, setReceiptName] = useState<string>("");
   const [issueWifi, setIssueWifi] = useState<boolean>(false);
   const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">("dine_in");
@@ -1419,7 +1428,8 @@ export default function POS() {
           <button
             data-testid="button-open-cart"
             onClick={() => setCartOpen(true)}
-            className="w-full pointer-events-auto glass-cart-bar rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] transition-all"
+            onAnimationEnd={() => setPillBouncing(false)}
+            className={`w-full pointer-events-auto glass-cart-bar rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] transition-all${pillBouncing ? " animate-cart-pill-bounce" : ""}`}
           >
             <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md shadow-primary/30 relative">
               <ShoppingCart className="h-4 w-4 text-white" />

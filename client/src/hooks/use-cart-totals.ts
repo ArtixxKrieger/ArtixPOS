@@ -11,15 +11,9 @@ import type { CartItem } from "./use-cart";
 
 interface TotalsInput {
   cart: CartItem[];
-  /** Effective discount amount (₱ or $).  SC/PWD replaces manual discount. */
   discount: number;
-  /** Loyalty-points discount amount in currency units. */
   loyaltyDiscount: number;
-  /** tip kept for API compatibility — always pass 0 */
-  tip: number;
-  /** Global tax rate from settings (e.g. 12 for 12%). */
   globalTaxRate: number;
-  /** Whether SC/PWD (VAT-exempt) mode is active. */
   isScPwd: boolean;
 }
 

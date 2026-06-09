@@ -254,7 +254,7 @@ export default function POS() {
     effectiveDiscount,
     discountedSubtotal,
     scPwdDiscount,
-  } = useCartTotals({ cart, discount, loyaltyDiscount, tip: 0, globalTaxRate, isScPwd });
+  } = useCartTotals({ cart, discount, loyaltyDiscount, globalTaxRate, isScPwd });
 
   const maxRedeemablePoints = selectedCustomer
     ? Math.min(selectedCustomer.loyaltyPoints ?? 0, Math.floor(subtotal * loyaltyRedemptionRate))
@@ -476,7 +476,6 @@ export default function POS() {
       discount:             effectiveDiscount.toString(),
       discountCode:         isScPwd ? null : (appliedCode?.code ?? null),
       loyaltyDiscount:      loyaltyDiscount.toString(),
-      tip:                  "0",
       total:                actualTotal.toString(),
       paymentAmount:        numericPayment.toString(),
       changeAmount:         changeAmount.toString(),
@@ -518,7 +517,6 @@ export default function POS() {
       tax,
       discount:            effectiveDiscount,
       loyaltyDiscount,
-      tip:                 0,
       total:               actualTotal,
       paymentMethod,
       paymentAmount:       numericPayment,
@@ -680,7 +678,6 @@ export default function POS() {
           changeAmount: "0",
           discount: "0",
           loyaltyDiscount: "0",
-          tip: "0",
           status: "paid",
           paymentMethod,
           orderType: isFoodBeverage ? orderType : null,

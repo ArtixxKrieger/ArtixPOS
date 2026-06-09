@@ -36,7 +36,6 @@ export interface ReceiptData {
   taxRate?: number;
   discount: number;
   loyaltyDiscount: number;
-  tip?: number;
   total: number;
   paymentMethod: string;
   paymentAmount: number;

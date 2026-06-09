@@ -207,13 +207,20 @@ self.addEventListener("fetch", (event) => {
   }
 
   // 4a. Flag CDN images (flagcdn.com) — stale-while-revalidate, cached offline
+  //
+  // <img> tags make no-cors requests, so the SW receives an opaque response
+  // (type="opaque", status=0, ok=false). We must check res.type instead of
+  // res.ok, otherwise the caching branch is never taken and flags won't work
+  // offline.
   if (url.hostname === "flagcdn.com" && isImage(url)) {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
         const networkPromise = fetch(req)
           .then((res) => {
-            if (res.ok) cache.put(req, res.clone());
+            // Cache both normal (ok=true) and opaque (type="opaque") responses.
+            // Opaque responses have status=0 but the browser can still render them.
+            if (res.ok || res.type === "opaque") cache.put(req, res.clone());
             return res;
           })
           .catch(() => null);

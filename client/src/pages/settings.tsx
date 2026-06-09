@@ -131,7 +131,7 @@ export default function Settings() {
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user, logout, isLoggingOut } = useAuth();
-  const { isPro } = useSubscription();
+  const { isPro, isBusiness } = useSubscription();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
@@ -740,8 +740,8 @@ export default function Settings() {
                   <Star className="h-4 w-4 text-white fill-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">Pro Plan Active</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">All features unlocked</p>
+                  <p className="text-sm font-semibold">{isBusiness ? "Business Suite Active" : "Pro Plan Active"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{isBusiness ? "All features unlocked · up to 10 branches" : "All features unlocked"}</p>
                 </div>
                 <span className="text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 px-2.5 py-1 rounded-full">ACTIVE</span>
               </div>
@@ -942,11 +942,13 @@ export default function Settings() {
               <p className="text-sm font-semibold truncate leading-none">{user.name ?? "User"}</p>
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user.email ?? `via ${user.provider}`}</p>
             </div>
-            <div className="flex flex-col items-end gap-0.5 shrink-0">
-              {isPro && (
-                <span className="text-[9px] font-semibold tracking-wider uppercase text-violet-500 dark:text-violet-400">Pro</span>
-              )}
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[10px] font-medium text-muted-foreground capitalize">{user.role}</span>
+              {isPro && (
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-500 dark:text-violet-400 whitespace-nowrap">
+                  {isBusiness ? "Business" : "Pro"}
+                </span>
+              )}
             </div>
           </div>
         )}

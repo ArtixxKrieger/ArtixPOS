@@ -4,10 +4,10 @@ export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
-    screens: {
-      xs: "475px",
-    },
     extend: {
+      screens: {
+        xs: "475px",
+      },
       borderRadius: {
         "2xl": "1rem",
         xl: "0.75rem",

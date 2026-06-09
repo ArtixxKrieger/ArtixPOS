@@ -94,12 +94,12 @@ function getPasswordStrength(pwd: string): { score: 0 | 1 | 2 | 3; label: string
   return { score: 3, label: "Very strong", color: "#16a34a" };
 }
 
-const BLUE = "#14b8e8";
-const BLUE2 = "#0284c7";
-const NEON = "#38d9f5";
-const DARK = "#0C1420";
-const DARK2 = "#0a1220";
-const CARD = "rgba(15,30,48,0.92)";
+const BLUE = "#3b82f6";
+const BLUE2 = "#2563eb";
+const NEON = "#60a5fa";
+const DARK = "#09090b";
+const DARK2 = "#111111";
+const CARD = "rgba(17,17,17,0.92)";
 
 // ── Scroll-reveal hook ───────────────────────────────────────────────────────
 function useScrollReveal() {
@@ -776,7 +776,7 @@ export default function Login() {
     outline: "none",
     transition: "border-color 0.2s, box-shadow 0.2s",
     background: isDark ? "rgba(255,255,255,0.05)" : "#ffffff",
-    border: `1.5px solid ${isDark ? "rgba(20,184,232,0.15)" : "rgba(0,0,0,0.10)"}`,
+    border: `1.5px solid ${isDark ? "rgba(59,130,246,0.15)" : "rgba(0,0,0,0.10)"}`,
     color: isDark ? "rgba(255,255,255,0.92)" : "#1a1a1a",
     boxSizing: "border-box",
     fontFamily: "inherit",
@@ -792,7 +792,7 @@ export default function Login() {
         @keyframes rise        { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spin        { to{transform:rotate(360deg)} }
         @keyframes slide-in-right { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes glow-pulse  { 0%,100%{box-shadow:0 6px 24px rgba(20,184,232,0.38)} 50%{box-shadow:0 6px 38px rgba(20,184,232,0.62)} }
+        @keyframes glow-pulse  { 0%,100%{box-shadow:0 6px 24px rgba(59,130,246,0.38)} 50%{box-shadow:0 6px 38px rgba(59,130,246,0.62)} }
         @keyframes float-slow  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes pulse-dot   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.45;transform:scale(0.75)} }
         @keyframes orb-a       { 0%,100%{transform:translate(0,0)} 40%{transform:translate(30px,-22px)} 70%{transform:translate(-18px,14px)} }
@@ -827,11 +827,11 @@ export default function Login() {
         .btn-blue {
           width:100%;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;
           cursor:pointer;border:none;font-family:inherit;
-          background:linear-gradient(135deg,#14b8e8 0%,#0284c7 100%);
-          color:#fff;box-shadow:0 4px 18px rgba(20,184,232,0.30);
+          background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);
+          color:#fff;box-shadow:0 4px 18px rgba(59,130,246,0.30);
           transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s;
         }
-        .btn-blue:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 26px rgba(20,184,232,0.46); }
+        .btn-blue:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 26px rgba(59,130,246,0.46); }
         .btn-blue:active:not(:disabled){ transform:scale(0.98) }
         .btn-blue:disabled { opacity:0.55;cursor:not-allowed }
         .btn-social {
@@ -843,7 +843,7 @@ export default function Login() {
         .btn-social:hover  { transform:translateY(-1px) }
         .btn-social:active { transform:scale(0.97) }
         .btn-social:disabled { opacity:0.6;cursor:not-allowed;transform:none }
-        .finput:focus { border-color:rgba(20,184,232,0.55)!important; box-shadow:0 0 0 3px rgba(20,184,232,0.13)!important; }
+        .finput:focus { border-color:rgba(59,130,246,0.55)!important; box-shadow:0 0 0 3px rgba(59,130,246,0.13)!important; }
 
         /* ── Nav link ── */
         .nav-link {
@@ -854,7 +854,7 @@ export default function Login() {
         }
         .nav-link::after {
           content:'';position:absolute;bottom:-3px;left:0;right:0;height:1.5px;
-          background:linear-gradient(90deg,#14b8e8,#38d9f5);
+          background:linear-gradient(90deg,#3b82f6,#60a5fa);
           transform:scaleX(0);transform-origin:left;
           transition:transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
@@ -864,41 +864,41 @@ export default function Login() {
         /* ── Header buttons ── */
         .hdr-login {
           padding:8px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
-          background:transparent;border:1px solid rgba(20,184,232,0.28);color:#38d9f5;
+          background:transparent;border:1px solid rgba(59,130,246,0.28);color:#60a5fa;
           cursor:pointer;font-family:inherit;
           transition:background 0.2s,border-color 0.2s,transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .hdr-login:hover { background:rgba(20,184,232,0.10);border-color:rgba(56,217,245,0.52);transform:translateY(-1px); }
+        .hdr-login:hover { background:rgba(59,130,246,0.10);border-color:rgba(96,165,250,0.52);transform:translateY(-1px); }
         .hdr-cta {
           padding:8px 20px;border-radius:10px;font-size:13.5px;font-weight:700;
-          background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
+          background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
-          box-shadow:0 3px 14px rgba(20,184,232,0.30);
+          box-shadow:0 3px 14px rgba(59,130,246,0.30);
           transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s;
         }
-        .hdr-cta:hover { transform:translateY(-1px) scale(1.03); box-shadow:0 6px 22px rgba(20,184,232,0.46); }
+        .hdr-cta:hover { transform:translateY(-1px) scale(1.03); box-shadow:0 6px 22px rgba(59,130,246,0.46); }
 
         /* ── Hero CTA ── */
         .hero-primary {
           padding:15px 34px;border-radius:14px;font-size:16px;font-weight:800;
-          background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
+          background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
-          box-shadow:0 6px 24px rgba(20,184,232,0.38);
+          box-shadow:0 6px 24px rgba(59,130,246,0.38);
           transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.25s;
           animation:glow-pulse 3.5s ease-in-out infinite;
         }
-        .hero-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 14px 42px rgba(20,184,232,0.58); animation:none; }
+        .hero-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 14px 42px rgba(59,130,246,0.58); animation:none; }
         .hero-primary:active { transform:scale(0.97); animation:none; }
 
         /* ── Section CTA ── */
         .cta-primary {
           padding:15px 38px;border-radius:14px;font-size:16px;font-weight:800;
-          background:linear-gradient(135deg,#14b8e8,#0284c7);border:none;color:#fff;
+          background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;
           cursor:pointer;font-family:inherit;
-          box-shadow:0 6px 24px rgba(20,184,232,0.38);
+          box-shadow:0 6px 24px rgba(59,130,246,0.38);
           transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.25s;
         }
-        .cta-primary:hover { transform:translateY(-3px) scale(1.025); box-shadow:0 14px 42px rgba(20,184,232,0.54); }
+        .cta-primary:hover { transform:translateY(-3px) scale(1.025); box-shadow:0 14px 42px rgba(59,130,246,0.54); }
         .cta-primary:active { transform:scale(0.97); }
 
         /* ── Feature cards ── */
@@ -906,14 +906,14 @@ export default function Login() {
           transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
           cursor:default;
         }
-        .fcard:hover { border-color:rgba(20,184,232,0.42)!important; transform:translateY(-6px) scale(1.015)!important; box-shadow:0 20px 52px rgba(0,0,0,0.45), 0 0 0 1px rgba(20,184,232,0.16)!important; }
+        .fcard:hover { border-color:rgba(59,130,246,0.42)!important; transform:translateY(-6px) scale(1.015)!important; box-shadow:0 20px 52px rgba(0,0,0,0.45), 0 0 0 1px rgba(59,130,246,0.16)!important; }
 
         /* ── Device mini-cards ── */
         .dcard {
           transition:border-color 0.26s ease, transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
           cursor:default;
         }
-        .dcard:hover { border-color:rgba(20,184,232,0.42)!important; transform:translateY(-4px) scale(1.04)!important; }
+        .dcard:hover { border-color:rgba(59,130,246,0.42)!important; transform:translateY(-4px) scale(1.04)!important; }
 
         /* ── How it works steps ── */
         .lp-step { transition:transform 0.32s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
@@ -926,15 +926,15 @@ export default function Login() {
         /* ── Security cards ── */
         .sec-card-pink { border-radius:22px;overflow:hidden; border:1px solid rgba(244,114,182,0.22);background:rgba(244,114,182,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
         .sec-card-pink:hover { border-color:rgba(244,114,182,0.55)!important; transform:translateY(-6px)!important; }
-        .sec-card-blue { border-radius:22px;overflow:hidden; border:1px solid rgba(14,165,233,0.22);background:rgba(14,165,233,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
-        .sec-card-blue:hover { border-color:rgba(14,165,233,0.55)!important; transform:translateY(-6px)!important; }
+        .sec-card-blue { border-radius:22px;overflow:hidden; border:1px solid rgba(59,130,246,0.22);background:rgba(59,130,246,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
+        .sec-card-blue:hover { border-color:rgba(59,130,246,0.55)!important; transform:translateY(-6px)!important; }
 
         /* ── Pricing cards ── */
         .price-card {
           transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
           cursor:default;
         }
-        .price-card:hover { transform:translateY(-6px) scale(1.012); box-shadow:0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(20,184,232,0.22); border-color:rgba(20,184,232,0.42)!important; }
+        .price-card:hover { transform:translateY(-6px) scale(1.012); box-shadow:0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.22); border-color:rgba(59,130,246,0.42)!important; }
 
         /* ── Ambient orbs — very gentle, GPU-only ── */
         .lp-orb   { animation:orb-a 28s ease-in-out infinite; }
@@ -943,7 +943,7 @@ export default function Login() {
         /* ── Misc ── */
         .float-mockup { animation:float-slow 9s ease-in-out infinite; }
         .pdot { animation:pulse-dot 2.2s ease-in-out infinite; }
-        .stat-num { background:linear-gradient(90deg,#38d9f5,#14b8e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+        .stat-num { background:linear-gradient(90deg,#60a5fa,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
         .scroll-section { scroll-margin-top:72px; }
         .lp-section-lazy { content-visibility:auto; contain-intrinsic-size:0 600px; }
       `}</style>
@@ -957,7 +957,7 @@ export default function Login() {
               height: 34,
               borderRadius: 10,
               background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
-              boxShadow: `0 4px 14px rgba(20,184,232,0.35)`,
+              boxShadow: `0 4px 14px rgba(59,130,246,0.35)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -972,7 +972,7 @@ export default function Login() {
               fontWeight: 800,
               letterSpacing: "0.10em",
               textTransform: "uppercase",
-              color: isDark ? "rgba(56,217,245,0.8)" : "rgba(2,132,199,0.8)",
+              color: isDark ? "rgba(96,165,250,0.8)" : "rgba(2,132,199,0.8)",
             }}
           >
             ArtixPOS
@@ -1009,7 +1009,7 @@ export default function Login() {
           padding: 3,
           borderRadius: 11,
           marginBottom: 20,
-          background: isDark ? "rgba(20,184,232,0.07)" : "rgba(0,0,0,0.05)",
+          background: isDark ? "rgba(59,130,246,0.07)" : "rgba(0,0,0,0.05)",
         }}
       >
         {(["signin", "register"] as AuthMode[]).map((m) => (
@@ -1027,7 +1027,7 @@ export default function Login() {
               cursor: "pointer",
               fontFamily: "inherit",
               transition: "background 0.2s,color 0.2s,box-shadow 0.2s",
-              background: mode === m ? (isDark ? "rgba(20,184,232,0.2)" : "#fff") : "transparent",
+              background: mode === m ? (isDark ? "rgba(59,130,246,0.2)" : "#fff") : "transparent",
               color:
                 mode === m
                   ? isDark
@@ -1079,8 +1079,8 @@ export default function Login() {
             fontSize: 13,
             textAlign: "center",
             marginBottom: 14,
-            background: "rgba(20,184,232,0.10)",
-            border: `1px solid rgba(56,217,245,0.25)`,
+            background: "rgba(59,130,246,0.10)",
+            border: `1px solid rgba(96,165,250,0.25)`,
             color: NEON,
           }}
         >
@@ -1145,7 +1145,7 @@ export default function Login() {
             isDark
               ? {
                   background: "rgba(255,255,255,0.06)",
-                  border: "1.5px solid rgba(20,184,232,0.15)",
+                  border: "1.5px solid rgba(59,130,246,0.15)",
                   color: "rgba(255,255,255,0.88)",
                   boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
                 }
@@ -1204,7 +1204,7 @@ export default function Login() {
           style={{
             flex: 1,
             height: 1,
-            background: isDark ? "rgba(20,184,232,0.10)" : "rgba(0,0,0,0.08)",
+            background: isDark ? "rgba(59,130,246,0.10)" : "rgba(0,0,0,0.08)",
           }}
         />
         <span
@@ -1221,7 +1221,7 @@ export default function Login() {
           style={{
             flex: 1,
             height: 1,
-            background: isDark ? "rgba(20,184,232,0.10)" : "rgba(0,0,0,0.08)",
+            background: isDark ? "rgba(59,130,246,0.10)" : "rgba(0,0,0,0.08)",
           }}
         />
       </div>
@@ -1463,7 +1463,7 @@ export default function Login() {
                 fontSize: 12,
                 fontWeight: 600,
                 fontFamily: "inherit",
-                color: isDark ? "rgba(56,217,245,0.8)" : BLUE2,
+                color: isDark ? "rgba(96,165,250,0.8)" : BLUE2,
                 padding: 0,
                 transition: "color 0.15s",
               }}
@@ -1533,7 +1533,7 @@ export default function Login() {
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            color: isDark ? "rgba(56,217,245,0.65)" : BLUE2,
+            color: isDark ? "rgba(96,165,250,0.65)" : BLUE2,
             textDecoration: "none",
             borderBottom: `1px solid currentColor`,
             opacity: 0.9,
@@ -1547,7 +1547,7 @@ export default function Login() {
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            color: isDark ? "rgba(56,217,245,0.65)" : BLUE2,
+            color: isDark ? "rgba(96,165,250,0.65)" : BLUE2,
             textDecoration: "none",
             borderBottom: `1px solid currentColor`,
             opacity: 0.9,
@@ -1592,9 +1592,9 @@ export default function Login() {
       style={{
         borderRadius: 18,
         overflow: "hidden",
-        border: "1px solid rgba(20,184,232,0.22)",
-        background: "rgba(10,18,32,0.96)",
-        boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(20,184,232,0.07)",
+        border: "1px solid rgba(59,130,246,0.20)",
+        background: "rgba(17,17,17,0.96)",
+        boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(59,130,246,0.06)",
         backdropFilter: "blur(20px)",
         transformStyle: "preserve-3d",
         willChange: "transform",
@@ -1603,8 +1603,8 @@ export default function Login() {
       <div
         style={{
           padding: "10px 16px",
-          background: "rgba(20,184,232,0.06)",
-          borderBottom: "1px solid rgba(20,184,232,0.10)",
+          background: "rgba(59,130,246,0.06)",
+          borderBottom: "1px solid rgba(59,130,246,0.10)",
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -1680,7 +1680,7 @@ export default function Login() {
                 flex: 1,
                 borderRadius: 3,
                 height: `${h}%`,
-                background: `rgba(20,184,232,${0.15 + (h / 100) * 0.55})`,
+                background: `rgba(59,130,246,${0.15 + (h / 100) * 0.55})`,
               }}
             />
           ))}
@@ -1750,7 +1750,7 @@ export default function Login() {
             width: 1000,
             height: 1000,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(20,184,232,0.07) 0%, transparent 58%)",
+            background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 58%)",
             top: -380,
             left: -280,
           }}
@@ -1762,7 +1762,7 @@ export default function Login() {
             width: 660,
             height: 660,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(56,217,245,0.04) 0%, transparent 60%)",
+            background: "radial-gradient(circle, rgba(96,165,250,0.04) 0%, transparent 60%)",
             bottom: -100,
             right: -140,
           }}
@@ -1785,9 +1785,9 @@ export default function Login() {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          borderBottom: "1px solid rgba(20,184,232,0.09)",
+          borderBottom: "1px solid rgba(39,39,42,0.80)",
           backdropFilter: "blur(24px)",
-          background: "rgba(12,20,32,0.82)",
+          background: "rgba(9,9,11,0.82)",
           WebkitBackdropFilter: "blur(24px)",
         }}
       >
@@ -1808,7 +1808,7 @@ export default function Login() {
                 height: 34,
                 borderRadius: 10,
                 background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
-                boxShadow: `0 0 20px rgba(20,184,232,0.45)`,
+                boxShadow: `0 0 20px rgba(59,130,246,0.45)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1871,8 +1871,8 @@ export default function Login() {
               gap: 7,
               padding: "5px 13px",
               borderRadius: 20,
-              background: "rgba(20,184,232,0.10)",
-              border: "1px solid rgba(20,184,232,0.22)",
+              background: "rgba(59,130,246,0.10)",
+              border: "1px solid rgba(59,130,246,0.22)",
               marginBottom: 26,
             }}
           >
@@ -1987,7 +1987,7 @@ export default function Login() {
               position: "absolute",
               inset: -60,
               background:
-                "radial-gradient(ellipse at center, rgba(20,184,232,0.12) 0%, transparent 65%)",
+                "radial-gradient(ellipse at center, rgba(59,130,246,0.12) 0%, transparent 65%)",
               pointerEvents: "none",
             }}
           />
@@ -2001,8 +2001,8 @@ export default function Login() {
         style={{
           position: "relative",
           zIndex: 1,
-          borderTop: "1px solid rgba(20,184,232,0.07)",
-          borderBottom: "1px solid rgba(20,184,232,0.07)",
+          borderTop: "1px solid rgba(59,130,246,0.07)",
+          borderBottom: "1px solid rgba(59,130,246,0.07)",
           background: "rgba(255,255,255,0.015)",
         }}
       >
@@ -2442,7 +2442,7 @@ export default function Login() {
                       padding: "24px 22px",
                       borderRadius: 16,
                       background: CARD,
-                      border: "1px solid rgba(20,184,232,0.10)",
+                      border: "1px solid rgba(59,130,246,0.10)",
                       display: "flex",
                       flexDirection: "column",
                       gap: 14,
@@ -2507,8 +2507,8 @@ export default function Login() {
           position: "relative",
           zIndex: 1,
           background: "rgba(255,255,255,0.018)",
-          borderTop: "1px solid rgba(20,184,232,0.07)",
-          borderBottom: "1px solid rgba(20,184,232,0.07)",
+          borderTop: "1px solid rgba(59,130,246,0.07)",
+          borderBottom: "1px solid rgba(59,130,246,0.07)",
         }}
       >
         <div
@@ -2655,8 +2655,8 @@ export default function Login() {
                       width: 42,
                       height: 42,
                       borderRadius: 13,
-                      background: "rgba(20,184,232,0.09)",
-                      border: "1px solid rgba(20,184,232,0.18)",
+                      background: "rgba(59,130,246,0.09)",
+                      border: "1px solid rgba(59,130,246,0.18)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -2706,7 +2706,7 @@ export default function Login() {
                   padding: "20px",
                   borderRadius: 14,
                   background: CARD,
-                  border: "1px solid rgba(20,184,232,0.11)",
+                  border: "1px solid rgba(59,130,246,0.11)",
                 }}
               >
                 <div
@@ -2734,7 +2734,7 @@ export default function Login() {
       {/* ── HOW IT WORKS ── */}
       <section
         className="scroll-section lp-section-lazy"
-        style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(20,184,232,0.07)" }}
+        style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(59,130,246,0.07)" }}
       >
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "80px 32px" }}>
           <div className="sr" style={{ textAlign: "center", marginBottom: 56 }}>
@@ -2791,7 +2791,7 @@ export default function Login() {
                 right: "12.5%",
                 height: 1,
                 background:
-                  "linear-gradient(90deg, transparent, rgba(20,184,232,0.20), rgba(20,184,232,0.20), transparent)",
+                  "linear-gradient(90deg, transparent, rgba(59,130,246,0.20), rgba(59,130,246,0.20), transparent)",
                 zIndex: 0,
               }}
             />
@@ -2904,7 +2904,7 @@ export default function Login() {
                     width: 72,
                     height: 72,
                     borderRadius: "50%",
-                    background: "rgba(15,30,48,0.95)",
+                    background: "rgba(24,24,27,0.95)",
                     border: `1.5px solid ${item.color}40`,
                     display: "flex",
                     alignItems: "center",
@@ -2930,7 +2930,7 @@ export default function Login() {
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: 10, fontWeight: 900, color: "#0C1420" }}>
+                    <span style={{ fontSize: 10, fontWeight: 900, color: "#09090b" }}>
                       {item.step}
                     </span>
                   </div>
@@ -2967,8 +2967,8 @@ export default function Login() {
         style={{
           position: "relative",
           zIndex: 1,
-          borderTop: "1px solid rgba(20,184,232,0.07)",
-          borderBottom: "1px solid rgba(20,184,232,0.07)",
+          borderTop: "1px solid rgba(59,130,246,0.07)",
+          borderBottom: "1px solid rgba(59,130,246,0.07)",
         }}
       >
         <div
@@ -3195,7 +3195,7 @@ export default function Login() {
           position: "relative",
           zIndex: 1,
           background: "rgba(255,255,255,0.015)",
-          borderTop: "1px solid rgba(20,184,232,0.07)",
+          borderTop: "1px solid rgba(59,130,246,0.07)",
         }}
       >
         <div
@@ -3247,7 +3247,7 @@ export default function Login() {
                 padding: "28px 24px",
                 borderRadius: 18,
                 background: CARD,
-                border: "1px solid rgba(20,184,232,0.14)",
+                border: "1px solid rgba(59,130,246,0.14)",
                 textAlign: "left",
                 display: "flex",
                 flexDirection: "column",
@@ -3318,8 +3318,8 @@ export default function Login() {
                   borderRadius: 11,
                   fontSize: 13,
                   fontWeight: 700,
-                  background: "rgba(20,184,232,0.10)",
-                  border: "1px solid rgba(20,184,232,0.26)",
+                  background: "rgba(59,130,246,0.10)",
+                  border: "1px solid rgba(59,130,246,0.26)",
                   color: NEON,
                   cursor: "pointer",
                   fontFamily: "inherit",
@@ -3336,8 +3336,8 @@ export default function Login() {
               style={{
                 padding: "28px 24px",
                 borderRadius: 18,
-                background: "rgba(20,184,232,0.05)",
-                border: "1.5px solid rgba(20,184,232,0.35)",
+                background: "rgba(59,130,246,0.05)",
+                border: "1.5px solid rgba(59,130,246,0.35)",
                 textAlign: "left",
                 position: "relative",
                 display: "flex",
@@ -3447,7 +3447,7 @@ export default function Login() {
                   color: "#fff",
                   cursor: "pointer",
                   fontFamily: "inherit",
-                  boxShadow: "0 4px 16px rgba(20,184,232,0.28)",
+                  boxShadow: "0 4px 16px rgba(59,130,246,0.28)",
                   transition: "opacity 0.15s",
                 }}
               >
@@ -3476,7 +3476,7 @@ export default function Login() {
                   right: 14,
                   padding: "3px 10px",
                   borderRadius: 20,
-                  background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                  background: "linear-gradient(135deg,#3b82f6,#2563eb)",
                   fontSize: 10,
                   fontWeight: 700,
                   color: "#fff",
@@ -3566,12 +3566,12 @@ export default function Login() {
                   borderRadius: 11,
                   fontSize: 13,
                   fontWeight: 700,
-                  background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                  background: "linear-gradient(135deg,#3b82f6,#2563eb)",
                   border: "none",
                   color: "#fff",
                   cursor: "pointer",
                   fontFamily: "inherit",
-                  boxShadow: "0 4px 16px rgba(124,58,237,0.28)",
+                  boxShadow: "0 4px 16px rgba(59,130,246,0.28)",
                   transition: "opacity 0.15s",
                 }}
               >
@@ -3598,7 +3598,7 @@ export default function Login() {
           zIndex: 1,
           textAlign: "center",
           padding: "88px 32px",
-          borderTop: "1px solid rgba(20,184,232,0.07)",
+          borderTop: "1px solid rgba(59,130,246,0.07)",
         }}
       >
         <h2
@@ -3705,7 +3705,7 @@ export default function Login() {
               maxWidth: 460,
               overflowY: "auto",
               background: DARK2,
-              borderLeft: "1px solid rgba(20,184,232,0.15)",
+              borderLeft: "1px solid rgba(59,130,246,0.15)",
               boxShadow: "-32px 0 100px rgba(0,0,0,0.75)",
               animation: "slide-in-right 0.35s cubic-bezier(0.16,1,0.3,1) both",
               display: "flex",
@@ -3790,7 +3790,7 @@ export default function Login() {
           borderRadius: 22,
           padding: "34px 30px",
           background: DARK2,
-          border: "1px solid rgba(20,184,232,0.15)",
+          border: "1px solid rgba(59,130,246,0.15)",
           boxShadow: "0 40px 120px rgba(0,0,0,0.9)",
         }}
       >
@@ -3802,7 +3802,7 @@ export default function Login() {
                 height: 52,
                 borderRadius: "50%",
                 margin: "0 auto 16px",
-                background: "rgba(20,184,232,0.12)",
+                background: "rgba(59,130,246,0.12)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -3951,7 +3951,7 @@ export default function Login() {
                   opacity: forgotLoading ? 0.7 : 1,
                   background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
                   color: "#fff",
-                  boxShadow: "0 4px 18px rgba(20,184,232,0.30)",
+                  boxShadow: "0 4px 18px rgba(59,130,246,0.30)",
                 }}
               >
                 {forgotLoading ? "Sending…" : "Send reset link"}
@@ -3978,7 +3978,7 @@ export default function Login() {
           display: "flex",
           flexDirection: "column",
           background: "#060f18",
-          borderTop: "1px solid rgba(20,184,232,0.2)",
+          borderTop: "1px solid rgba(59,130,246,0.2)",
           zIndex: 9999,
           fontFamily: "monospace",
           fontSize: 11,
@@ -4099,9 +4099,9 @@ export default function Login() {
             padding: "32px 26px",
             borderRadius: 22,
             background: isDark ? "rgba(255,255,255,0.033)" : "rgba(255,255,255,0.90)",
-            border: `1px solid ${isDark ? "rgba(20,184,232,0.12)" : "rgba(0,0,0,0.06)"}`,
+            border: `1px solid ${isDark ? "rgba(59,130,246,0.12)" : "rgba(0,0,0,0.06)"}`,
             boxShadow: isDark
-              ? "0 0 0 1px rgba(20,184,232,0.05), 0 32px 80px rgba(0,0,0,0.65)"
+              ? "0 0 0 1px rgba(59,130,246,0.05), 0 32px 80px rgba(0,0,0,0.65)"
               : "0 8px 48px rgba(0,0,0,0.09)",
           }}
         >

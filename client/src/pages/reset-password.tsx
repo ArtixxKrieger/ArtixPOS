@@ -148,8 +148,8 @@ export default function ResetPassword() {
               style={{
                 width: "100%", padding: "13px 0", borderRadius: 12, fontSize: 14, fontWeight: 700,
                 border: "none", cursor: "pointer", fontFamily: "inherit",
-                background: "linear-gradient(135deg,#7c3aed,#6d28d9)", color: "#fff",
-                boxShadow: "0 4px 16px rgba(109,40,217,0.3)",
+                background: "linear-gradient(135deg,#3b82f6,#2563eb)", color: "#fff",
+                boxShadow: "0 4px 16px rgba(59,130,246,0.30)",
               }}
             >
               Sign in
@@ -254,8 +254,8 @@ export default function ResetPassword() {
                   padding: "13px 0", borderRadius: 12, fontSize: 14, fontWeight: 700,
                   border: "none", cursor: loading || !token ? "not-allowed" : "pointer",
                   fontFamily: "inherit", opacity: loading || !token ? 0.7 : 1, marginTop: 4,
-                  background: "linear-gradient(135deg,#7c3aed,#6d28d9)", color: "#fff",
-                  boxShadow: "0 4px 16px rgba(109,40,217,0.3)",
+                  background: "linear-gradient(135deg,#3b82f6,#2563eb)", color: "#fff",
+                  boxShadow: "0 4px 16px rgba(59,130,246,0.30)",
                 }}
               >
                 {loading ? "Updating password…" : "Update password"}

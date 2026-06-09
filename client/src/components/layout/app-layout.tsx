@@ -374,8 +374,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div
               className="h-8 w-8 shrink-0 rounded-xl flex items-center justify-center"
               style={{
-                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-                boxShadow: "0 0 16px rgba(124,58,237,0.4)",
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                boxShadow: "0 0 16px rgba(59,130,246,0.30)",
               }}
             >
               <span className="text-white text-sm font-black">{storeInitial}</span>
@@ -476,7 +476,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 ) : (
                   <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
                     title={user.name ?? ""}
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                    style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}>
                     {(user.name ?? "?")[0].toUpperCase()}
                   </div>
                 )}
@@ -519,7 +519,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <img src={user.avatar} alt={user.name ?? ""} className="h-7 w-7 rounded-full shrink-0 object-cover" />
                   ) : (
                     <div className="h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                      style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}>
                       {(user.name ?? "?")[0].toUpperCase()}
                     </div>
                   )}
@@ -565,7 +565,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="px-4 flex items-center gap-3" style={{ height: "52px" }}>
             <div
               className="h-7 w-7 shrink-0 rounded-lg flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", boxShadow: "0 0 12px rgba(124,58,237,0.35)" }}
+              style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 0 12px rgba(59,130,246,0.28)" }}
             >
               <span className="text-white text-xs font-black">{storeInitial}</span>
             </div>

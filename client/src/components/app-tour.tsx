@@ -731,7 +731,7 @@ function TourCard({
                 fontSize: 12,
                 fontWeight: 600,
                 color: "white",
-                background: "#7c3aed",
+                background: "#3b82f6",
                 border: "none",
                 borderRadius: 99,
                 padding: "6px 14px",

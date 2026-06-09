@@ -12,9 +12,9 @@ function useIsMobile() {
   return isMobile;
 }
 
-const BLUE = "#14b8e8";
-const DARK = "#0C1420";
-const SURFACE = "#111827";
+const BLUE = "#3b82f6";
+const DARK = "#09090b";
+const SURFACE = "#18181b";
 const BORDER = "rgba(255,255,255,0.07)";
 
 const SECTIONS = [
@@ -138,7 +138,7 @@ export default function TermsOfService() {
               width: 26,
               height: 26,
               borderRadius: 7,
-              background: `linear-gradient(135deg,${BLUE},#0284c7)`,
+              background: `linear-gradient(135deg,${BLUE},#2563eb)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -247,7 +247,7 @@ export default function TermsOfService() {
                 key={s.id}
                 onClick={() => scrollTo(s.id)}
                 style={{
-                  background: activeSection === s.id ? "rgba(20,184,232,0.08)" : "none",
+                  background: activeSection === s.id ? "rgba(59,130,246,0.08)" : "none",
                   border: "none",
                   borderLeft: `2px solid ${activeSection === s.id ? BLUE : "transparent"}`,
                   color: activeSection === s.id ? BLUE : "rgba(255,255,255,0.38)",
@@ -284,8 +284,8 @@ export default function TermsOfService() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: "rgba(20,184,232,0.08)",
-                border: "1px solid rgba(20,184,232,0.15)",
+                background: "rgba(59,130,246,0.08)",
+                border: "1px solid rgba(59,130,246,0.15)",
                 borderRadius: 20,
                 padding: "4px 12px",
                 marginBottom: 20,
@@ -721,7 +721,7 @@ export default function TermsOfService() {
                   style={{
                     color: BLUE,
                     textDecoration: "none",
-                    borderBottom: `1px solid rgba(20,184,232,0.3)`,
+                    borderBottom: `1px solid rgba(59,130,246,0.3)`,
                   }}
                 >
                   /privacy
@@ -1098,7 +1098,7 @@ export default function TermsOfService() {
             fontFamily: "inherit",
             cursor: "pointer",
             zIndex: 40,
-            boxShadow: "0 4px 24px rgba(20,184,232,0.40)",
+            boxShadow: "0 4px 24px rgba(59,130,246,0.40)",
           }}
         >
           <svg
@@ -1151,7 +1151,7 @@ export default function TermsOfService() {
             right: 0,
             bottom: 0,
             zIndex: 49,
-            background: "#111827",
+            background: "#18181b",
             borderRadius: "20px 20px 0 0",
             border: `1px solid ${BORDER}`,
             borderBottom: "none",
@@ -1245,7 +1245,7 @@ export default function TermsOfService() {
                   setTocOpen(false);
                 }}
                 style={{
-                  background: activeSection === s.id ? "rgba(20,184,232,0.08)" : "none",
+                  background: activeSection === s.id ? "rgba(59,130,246,0.08)" : "none",
                   border: "none",
                   borderLeft: `2px solid ${activeSection === s.id ? BLUE : "transparent"}`,
                   color: activeSection === s.id ? BLUE : "rgba(255,255,255,0.55)",

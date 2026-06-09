@@ -1413,8 +1413,8 @@ export default function POS() {
       {/* Mobile: Floating cart bar */}
       {cart.length > 0 && (
         <div
-          className="md:hidden fixed bottom-0 left-3 right-3 z-40 pointer-events-none"
-          style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), 6px) + 57px)" }}
+          className="md:hidden fixed left-3 right-3 z-40 pointer-events-none"
+          style={{ bottom: "calc(max(env(safe-area-inset-bottom, 0px), 6px) + 63px)" }}
         >
           <button
             data-testid="button-open-cart"

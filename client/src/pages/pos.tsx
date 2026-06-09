@@ -1473,7 +1473,7 @@ export default function POS() {
 
       {/* Mobile: Floating cart bar */}
       {cart.length > 0 && (
-        <div className="md:hidden fixed bottom-[calc(72px+env(safe-area-inset-bottom,0px))] left-4 right-4 z-40">
+        <div className="md:hidden fixed bottom-[calc(64px+env(safe-area-inset-bottom,0px))] left-3 right-3 z-40">
           <button
             data-testid="button-open-cart"
             onClick={() => setCartOpen(true)}
@@ -1503,6 +1503,7 @@ export default function POS() {
           side="bottom"
           className="h-[92dvh] border-t-0 p-0 flex flex-col rounded-t-[2rem] overflow-hidden"
           data-testid="sheet-cart"
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="flex justify-center pt-3 pb-1 shrink-0">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
@@ -1528,7 +1529,7 @@ export default function POS() {
         open={!!selectedProduct}
         onOpenChange={(open) => { if (!open) { setSelectedProduct(null); setTempNote(""); } }}
       >
-        <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader className="p-6 pb-5 bg-primary text-white">
             <DialogTitle className="text-xl font-black">{selectedProduct?.name}</DialogTitle>
             <p className="text-white/65 text-xs font-medium mt-1">{t("pos.customizeOrder")}</p>

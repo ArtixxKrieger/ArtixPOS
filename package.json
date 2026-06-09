@@ -7,7 +7,7 @@
     "node": "24.x"
   },
   "scripts": {
-    "dev": "NODE_ENV=development npx tsx server/index.ts",
+    "dev": "NODE_ENV=development node_modules/.bin/tsx server/index.ts",
     "build": "tsc && node script/build.js",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",

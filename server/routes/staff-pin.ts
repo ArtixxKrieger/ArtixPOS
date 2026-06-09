@@ -264,9 +264,10 @@ export function registerStaffPinRoutes(app: Express): void {
         .limit(1);
 
       if (log) {
+        const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
         await db
           .update(timeLogs)
-          .set({ clockOut: new Date().toISOString() })
+          .set({ clockOut: new Date().toISOString(), clockOutNotes: notes ?? null })
           .where(eq(timeLogs.id, log.id));
       }
 

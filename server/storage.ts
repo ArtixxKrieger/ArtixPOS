@@ -238,6 +238,9 @@ export interface IStorage {
     userName: string | null;
     userEmail: string | null;
   }[]>;
+  editTimeLog(managerId: string, logId: number, data: { clockIn?: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog | undefined>;
+  deleteTimeLog(managerId: string, logId: number): Promise<boolean>;
+  createManualTimeLog(managerId: string, data: { userId: string; branchId?: number; clockIn: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog>;
 
   // Product barcode lookup
   getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
@@ -1597,7 +1600,7 @@ export class DatabaseStorage implements IStorage {
 
   async getTimeLogs(userId: string): Promise<TimeLog[]> {
     try {
-      return await db.select().from(timeLogs).where(eq(timeLogs.userId, userId)).orderBy(desc(timeLogs.clockIn)).limit(200);
+      return await db.select().from(timeLogs).where(and(eq(timeLogs.userId, userId), isNull(timeLogs.deletedAt))).orderBy(desc(timeLogs.clockIn)).limit(200);
     } catch (error) {
       console.error("Error fetching time logs:", error);
       return [];
@@ -1606,7 +1609,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveTimeLog(userId: string): Promise<TimeLog | undefined> {
     try {
-      const [log] = await db.select().from(timeLogs).where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut)));
+      const [log] = await db.select().from(timeLogs).where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)));
       return log;
     } catch (error) {
       console.error("Error fetching active time log:", error);
@@ -1634,7 +1637,7 @@ export class DatabaseStorage implements IStorage {
       if (!active) return undefined;
       const [updated] = await db.update(timeLogs).set({
         clockOut: new Date().toISOString(),
-        notes: notes ?? active.notes,
+        clockOutNotes: notes ?? null,
       } as any).where(eq(timeLogs.id, active.id)).returning();
       return updated;
     } catch (error) {
@@ -1717,6 +1720,55 @@ export class DatabaseStorage implements IStorage {
       console.error("Error fetching team time logs:", error);
       return [];
     }
+  }
+
+  async editTimeLog(managerId: string, logId: number, data: { clockIn?: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog | undefined> {
+    try {
+      const userIds = await this.getTenantUserIds(managerId);
+      if (userIds.length === 0) return undefined;
+      const condition = userIds.length === 1
+        ? and(eq(timeLogs.id, logId), eq(timeLogs.userId, userIds[0]), isNull(timeLogs.deletedAt))
+        : and(eq(timeLogs.id, logId), inArray(timeLogs.userId, userIds), isNull(timeLogs.deletedAt));
+      const [existing] = await db.select({ id: timeLogs.id }).from(timeLogs).where(condition);
+      if (!existing) return undefined;
+      const [updated] = await db.update(timeLogs).set(data as any).where(eq(timeLogs.id, logId)).returning();
+      return updated;
+    } catch (error) {
+      console.error("Error editing time log:", error);
+      return undefined;
+    }
+  }
+
+  async deleteTimeLog(managerId: string, logId: number): Promise<boolean> {
+    try {
+      const userIds = await this.getTenantUserIds(managerId);
+      if (userIds.length === 0) return false;
+      const condition = userIds.length === 1
+        ? and(eq(timeLogs.id, logId), eq(timeLogs.userId, userIds[0]), isNull(timeLogs.deletedAt))
+        : and(eq(timeLogs.id, logId), inArray(timeLogs.userId, userIds), isNull(timeLogs.deletedAt));
+      const [existing] = await db.select({ id: timeLogs.id }).from(timeLogs).where(condition);
+      if (!existing) return false;
+      await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(eq(timeLogs.id, logId));
+      return true;
+    } catch (error) {
+      console.error("Error deleting time log:", error);
+      return false;
+    }
+  }
+
+  async createManualTimeLog(managerId: string, data: { userId: string; branchId?: number; clockIn: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog> {
+    const userIds = await this.getTenantUserIds(managerId);
+    if (!userIds.includes(data.userId)) throw new Error("User not in tenant");
+    const [created] = await db.insert(timeLogs).values({
+      userId: data.userId,
+      branchId: data.branchId ?? null,
+      clockIn: data.clockIn,
+      clockOut: data.clockOut ?? null,
+      breakMinutes: data.breakMinutes ?? 0,
+      notes: data.notes ?? null,
+      clockOutNotes: data.clockOutNotes ?? null,
+    } as any).returning();
+    return created;
   }
 
   // ─── Product barcode lookup ────────────────────────────────────────────────

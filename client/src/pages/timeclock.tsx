@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound, Lock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound, Lock, Pencil, Trash2, Plus, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -43,6 +46,11 @@ function getNetMins(log: TimeLog): number {
   const gross = Math.floor((new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) / 60000);
   return Math.max(0, gross - (log.breakMinutes ?? 0));
 }
+function isoToLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function TimeClockPage() {
   const { toast } = useToast();
@@ -55,6 +63,14 @@ export default function TimeClockPage() {
   const [showClockOut, setShowClockOut] = useState(false);
   const [clockInNotes, setClockInNotes] = useState("");
   const [clockOutNotes, setClockOutNotes] = useState("");
+
+  // Manager editing state
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
+  const [editingLog, setEditingLog] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ clockIn: "", clockOut: "", breakMinutes: 0, notes: "", clockOutNotes: "" });
+  const [deletingLog, setDeletingLog] = useState<any | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualForm, setManualForm] = useState({ userId: "", clockIn: "", clockOut: "", breakMinutes: 0, notes: "" });
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -69,7 +85,7 @@ export default function TimeClockPage() {
     refetchInterval: 30000,
   });
   const canSeeTeam = isManagerOrAbove || isAdminOrAbove;
-  const { data: teamLogs = [], isLoading: teamLoading } = useQuery<any[]>({
+  const { data: teamLogs = [] } = useQuery<any[]>({
     queryKey: ["/api/time-logs/team"],
     enabled: canSeeTeam,
   });
@@ -87,20 +103,12 @@ export default function TimeClockPage() {
   });
   const clockOutMutation = useMutation({
     mutationFn: async (notes: string) => {
-      if (isPinSession) {
-        // For PIN sessions: the staff-pin clockout endpoint closes the time log
-        // AND revokes the JWT in one call, then we redirect to the kiosk screen.
-        return apiRequest("POST", "/api/staff-pin/clockout", { notes });
-      }
+      if (isPinSession) return apiRequest("POST", "/api/staff-pin/clockout", { notes });
       return apiRequest("POST", "/api/time-logs/clock-out", { notes });
     },
     onSuccess: () => {
       setShowClockOut(false);
       setClockOutNotes("");
-      // All sessions (owner, manager, cashier, PIN) return to the kiosk after
-      // clock-out so the next person can log in.  For PIN sessions the JWT was
-      // already revoked server-side; for regular sessions the cache is cleared
-      // here and the kiosk roster still loads from its localStorage fallback.
       toast({ title: "Clocked out — great work! See you next shift." });
       queryClient.cancelQueries();
       queryClient.clear();
@@ -113,12 +121,7 @@ export default function TimeClockPage() {
     onSuccess: async () => {
       toast({ title: "Break started — enjoy your rest!" });
       if (isPinSession) {
-        // Lock the screen: revoke the PIN session JWT without closing the time log.
-        // When the employee returns and enters their PIN, the system finds the open
-        // log (with breakStart set) and lets them end the break.
-        try {
-          await apiRequest("POST", "/api/staff-pin/lock-screen", {});
-        } catch { /* best-effort */ }
+        try { await apiRequest("POST", "/api/staff-pin/lock-screen", {}); } catch { /* best-effort */ }
         queryClient.cancelQueries();
         queryClient.clear();
         window.location.replace("/staff-clock-in");
@@ -128,14 +131,9 @@ export default function TimeClockPage() {
     },
     onError: () => toast({ title: "Could not start break", variant: "destructive" }),
   });
-
   const lockScreenMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/staff-pin/lock-screen", {}),
-    onSuccess: () => {
-      queryClient.cancelQueries();
-      queryClient.clear();
-      window.location.replace("/staff-clock-in");
-    },
+    onSuccess: () => { queryClient.cancelQueries(); queryClient.clear(); window.location.replace("/staff-clock-in"); },
     onError: () => toast({ title: "Could not lock screen", variant: "destructive" }),
   });
   const breakEndMutation = useMutation({
@@ -143,6 +141,74 @@ export default function TimeClockPage() {
     onSuccess: () => { invalidateLogs(); toast({ title: "Break ended — welcome back!" }); },
     onError: () => toast({ title: "Could not end break", variant: "destructive" }),
   });
+
+  // Manager mutations
+  const editLogMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PUT", `/api/time-logs/${id}`, data),
+    onSuccess: () => { invalidateLogs(); toast({ title: "Time log updated" }); setEditingLog(null); },
+    onError: (e: any) => toast({ title: e?.message ?? "Failed to update log", variant: "destructive" }),
+  });
+  const deleteLogMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/time-logs/${id}`, {}),
+    onSuccess: () => { invalidateLogs(); toast({ title: "Time log deleted" }); setDeletingLog(null); },
+    onError: () => toast({ title: "Failed to delete log", variant: "destructive" }),
+  });
+  const manualEntryMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/time-logs/manual", data),
+    onSuccess: () => {
+      invalidateLogs();
+      toast({ title: "Manual entry added" });
+      setShowManualEntry(false);
+      setManualForm({ userId: "", clockIn: "", clockOut: "", breakMinutes: 0, notes: "" });
+    },
+    onError: (e: any) => toast({ title: e?.message ?? "Failed to add entry", variant: "destructive" }),
+  });
+
+  function openEdit(log: any) {
+    setEditForm({
+      clockIn: isoToLocal(log.clockIn),
+      clockOut: log.clockOut ? isoToLocal(log.clockOut) : "",
+      breakMinutes: log.breakMinutes ?? 0,
+      notes: log.notes ?? "",
+      clockOutNotes: log.clockOutNotes ?? "",
+    });
+    setEditingLog(log);
+  }
+
+  function submitEdit() {
+    if (!editingLog) return;
+    const clockOut = editForm.clockOut ? new Date(editForm.clockOut).toISOString() : null;
+    editLogMutation.mutate({
+      id: editingLog.id,
+      data: {
+        clockIn: new Date(editForm.clockIn).toISOString(),
+        clockOut,
+        breakMinutes: Number(editForm.breakMinutes),
+        notes: editForm.notes || null,
+        clockOutNotes: editForm.clockOutNotes || null,
+      },
+    });
+  }
+
+  function submitManualEntry() {
+    if (!manualForm.userId || !manualForm.clockIn) return;
+    manualEntryMutation.mutate({
+      userId: manualForm.userId,
+      clockIn: new Date(manualForm.clockIn).toISOString(),
+      clockOut: manualForm.clockOut ? new Date(manualForm.clockOut).toISOString() : null,
+      breakMinutes: Number(manualForm.breakMinutes),
+      notes: manualForm.notes || null,
+    });
+  }
+
+  function toggleMemberExpand(userId: string) {
+    setExpandedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
 
   const isClockedIn = !!activeLog;
   const isOnBreak = !!(activeLog?.breakStart);
@@ -176,15 +242,14 @@ export default function TimeClockPage() {
   }, [logs]);
 
   const teamByUser = useMemo(() => {
-    const map = new Map<string, { name: string; email: string; logs: any[] }>();
+    const map = new Map<string, { userId: string; name: string; email: string; logs: any[] }>();
     for (const log of teamLogs) {
-      if (!map.has(log.userId)) map.set(log.userId, { name: log.userName || "Unknown", email: log.userEmail || "", logs: [] });
+      if (!map.has(log.userId)) map.set(log.userId, { userId: log.userId, name: log.userName || "Unknown", email: log.userEmail || "", logs: [] });
       map.get(log.userId)!.logs.push(log);
     }
     return Array.from(map.values());
   }, [teamLogs]);
 
-  // Count of team members currently in overtime (active shift > 8 h)
   const teamOtCount = teamByUser.reduce((count, member) => {
     const active = member.logs.find((l: any) => !l.clockOut);
     if (!active) return count;
@@ -234,7 +299,6 @@ export default function TimeClockPage() {
               onClick={() => lockScreenMutation.mutate()}
               disabled={lockScreenMutation.isPending}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-muted/60 hover:bg-muted text-muted-foreground border border-border/40 transition-colors disabled:opacity-50"
-              title="Lock screen — return to PIN login"
             >
               <Lock className="h-3.5 w-3.5" /> Lock Screen
             </button>
@@ -249,7 +313,7 @@ export default function TimeClockPage() {
         </div>
       </div>
 
-      {/* Kiosk launch banner — shown to managers when not in a PIN session */}
+      {/* Kiosk launch banner */}
       {!isPinSession && isManagerOrAbove && (
         <button
           data-testid="button-launch-kiosk-banner"
@@ -303,7 +367,6 @@ export default function TimeClockPage() {
               </p>
             </div>
 
-            {/* Status badge */}
             {isOnBreak ? (
               <div className="flex flex-col items-center gap-1.5">
                 <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20 border text-sm px-4 py-1.5">
@@ -343,7 +406,6 @@ export default function TimeClockPage() {
               </Badge>
             )}
 
-            {/* Action buttons */}
             {!isLoading && (
               isClockedIn ? (
                 <div className="flex flex-col gap-2.5 w-full max-w-xs">
@@ -537,87 +599,187 @@ export default function TimeClockPage() {
 
       {/* ─── TEAM TAB ─── */}
       {tab === "team" && canSeeTeam && (
-        <div className="space-y-3">
-          {teamByUser.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-9 w-9 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No team activity yet</p>
-            </div>
-          ) : (
-            teamByUser.map(member => {
-              const memberTodayLogs = member.logs.filter((l: any) => new Date(l.clockIn).toDateString() === today);
-              const memberActive = member.logs.find((l: any) => !l.clockOut);
-              const memberActiveTodayMins = memberActive && new Date(memberActive.clockIn).toDateString() === today
-                ? Math.max(0, Math.floor((now.getTime() - new Date(memberActive.clockIn).getTime()) / 60000) - (memberActive.breakMinutes ?? 0))
-                : 0;
-              const memberTodayNet = memberTodayLogs
-                .filter((l: any) => l.clockOut)
-                .reduce((s: number, l: any) => {
-                  const gross = Math.floor((new Date(l.clockOut).getTime() - new Date(l.clockIn).getTime()) / 60000);
-                  return s + Math.max(0, gross - (l.breakMinutes ?? 0));
-                }, 0) + memberActiveTodayMins;
-              const memberOnBreak = !!(memberActive?.breakStart);
-              const memberIsOt = memberActiveTodayMins > OT_THRESHOLD_MINS;
-              return (
-                <div key={member.name} className={cn(
-                  "bg-card border rounded-2xl p-4 transition-colors",
-                  memberIsOt ? "border-orange-400/40" : "border-border"
-                )}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={cn(
-                        "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
-                        memberOnBreak ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                          : memberIsOt ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
-                          : memberActive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                          : "bg-secondary text-muted-foreground"
-                      )}>
-                        {(member.name || "?")[0].toUpperCase()}
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              {teamByUser.length} member{teamByUser.length !== 1 ? "s" : ""}
+            </p>
+            <button
+              data-testid="button-add-manual-entry"
+              onClick={() => {
+                setManualForm({ userId: "", clockIn: isoToLocal(new Date().toISOString()), clockOut: "", breakMinutes: 0, notes: "" });
+                setShowManualEntry(true);
+              }}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Manual Entry
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {teamByUser.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="h-9 w-9 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No team activity yet</p>
+              </div>
+            ) : (
+              teamByUser.map(member => {
+                const memberTodayLogs = member.logs.filter((l: any) => new Date(l.clockIn).toDateString() === today);
+                const memberActive = member.logs.find((l: any) => !l.clockOut);
+                const memberActiveTodayMins = memberActive && new Date(memberActive.clockIn).toDateString() === today
+                  ? Math.max(0, Math.floor((now.getTime() - new Date(memberActive.clockIn).getTime()) / 60000) - (memberActive.breakMinutes ?? 0))
+                  : 0;
+                const memberTodayNet = memberTodayLogs
+                  .filter((l: any) => l.clockOut)
+                  .reduce((s: number, l: any) => {
+                    const gross = Math.floor((new Date(l.clockOut).getTime() - new Date(l.clockIn).getTime()) / 60000);
+                    return s + Math.max(0, gross - (l.breakMinutes ?? 0));
+                  }, 0) + memberActiveTodayMins;
+                const memberOnBreak = !!(memberActive?.breakStart);
+                const memberIsOt = memberActiveTodayMins > OT_THRESHOLD_MINS;
+                const isExpanded = expandedMembers.has(member.userId);
+                const recentLogs = member.logs.slice(0, 15);
+
+                return (
+                  <div key={member.userId} className={cn(
+                    "bg-card border rounded-2xl overflow-hidden transition-colors",
+                    memberIsOt ? "border-orange-400/40" : "border-border"
+                  )}>
+                    {/* Member header row */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={cn(
+                            "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                            memberOnBreak ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                              : memberIsOt ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
+                              : memberActive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                              : "bg-secondary text-muted-foreground"
+                          )}>
+                            {(member.name || "?")[0].toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">{member.name}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{member.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {memberIsOt && (
+                            <Badge className="text-[10px] px-2 py-0.5 border bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-400/30">
+                              <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                              OT +{fmtMins(memberActiveTodayMins - OT_THRESHOLD_MINS)}
+                            </Badge>
+                          )}
+                          <Badge className={cn("text-[10px] px-2.5 py-0.5 border",
+                            memberOnBreak ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30"
+                              : memberActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30"
+                              : "bg-secondary text-muted-foreground border-border"
+                          )}>
+                            {memberOnBreak ? "On Break" : memberActive ? "Active" : "Off Duty"}
+                          </Badge>
+                          <button
+                            onClick={() => toggleMemberExpand(member.userId)}
+                            className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors text-muted-foreground"
+                            title={isExpanded ? "Collapse" : "View timecards"}
+                          >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{member.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{member.email}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-2.5 text-xs text-muted-foreground">
+                        <span>
+                          <span className="font-semibold text-foreground">{fmtMins(memberTodayNet)}</span> today
+                        </span>
+                        {memberActive && (
+                          <span>
+                            since <span className="font-semibold text-foreground">{fmtTime(memberActive.clockIn)}</span>
+                          </span>
+                        )}
+                        {memberOnBreak && memberActive?.breakStart && (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            break since <span className="font-semibold">{fmtTime(memberActive.breakStart)}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {memberIsOt && (
-                        <Badge className="text-[10px] px-2 py-0.5 border bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-400/30">
-                          <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
-                          OT +{fmtMins(memberActiveTodayMins - OT_THRESHOLD_MINS)}
-                        </Badge>
-                      )}
-                      <Badge className={cn("text-[10px] px-2.5 py-0.5 border",
-                        memberOnBreak ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30"
-                          : memberActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30"
-                          : "bg-secondary text-muted-foreground border-border"
-                      )}>
-                        {memberOnBreak ? "On Break" : memberActive ? "Active" : "Off Duty"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-2.5 text-xs text-muted-foreground">
-                    <span>
-                      <span className="font-semibold text-foreground">{fmtMins(memberTodayNet)}</span> today
-                    </span>
-                    {memberActive && (
-                      <span>
-                        since <span className="font-semibold text-foreground">{fmtTime(memberActive.clockIn)}</span>
-                      </span>
+
+                    {/* Expanded timecard entries */}
+                    {isExpanded && (
+                      <div className="border-t border-border/60">
+                        {recentLogs.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">No entries yet</p>
+                        ) : (
+                          <div className="divide-y divide-border/40">
+                            {recentLogs.map((log: any) => {
+                              const grossMins = log.clockOut
+                                ? Math.floor((new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) / 60000)
+                                : 0;
+                              const netMins = Math.max(0, grossMins - (log.breakMinutes ?? 0));
+                              return (
+                                <div key={log.id} className="flex items-center gap-3 px-4 py-2.5">
+                                  <div className={cn("h-1.5 w-1.5 rounded-full shrink-0",
+                                    log.clockOut ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                                  )} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold">
+                                      {fmtDate(log.clockIn)} · {fmtTime(log.clockIn)} → {log.clockOut ? fmtTime(log.clockOut) : "Active"}
+                                    </p>
+                                    <div className="flex flex-wrap gap-x-3 mt-0.5">
+                                      {log.clockOut && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {fmtMins(netMins)} net{log.breakMinutes ? `, ${log.breakMinutes}m break` : ""}
+                                        </span>
+                                      )}
+                                      {log.notes && (
+                                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[14rem]">{log.notes}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      data-testid={`button-edit-log-${log.id}`}
+                                      onClick={() => openEdit(log)}
+                                      className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                                      title="Edit entry"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      data-testid={`button-delete-log-${log.id}`}
+                                      onClick={() => setDeletingLog(log)}
+                                      className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                                      title="Delete entry"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <div className="px-4 py-2.5 border-t border-border/40">
+                          <button
+                            onClick={() => {
+                              setManualForm({ userId: member.userId, clockIn: isoToLocal(new Date().toISOString()), clockOut: "", breakMinutes: 0, notes: "" });
+                              setShowManualEntry(true);
+                            }}
+                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                          >
+                            <Plus className="h-3 w-3" /> Add entry for {member.name.split(" ")[0]}
+                          </button>
+                        </div>
+                      </div>
                     )}
-                    {memberOnBreak && memberActive?.breakStart && (
-                      <span className="text-amber-600 dark:text-amber-400">
-                        break since <span className="font-semibold">{fmtTime(memberActive.breakStart)}</span>
-                      </span>
-                    )}
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        </>
       )}
 
-      {/* Clock In dialog */}
+      {/* ── Clock In Dialog ── */}
       <Dialog open={showClockIn} onOpenChange={setShowClockIn}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -644,7 +806,7 @@ export default function TimeClockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Clock Out dialog */}
+      {/* ── Clock Out Dialog ── */}
       <Dialog open={showClockOut} onOpenChange={setShowClockOut}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -687,6 +849,183 @@ export default function TimeClockPage() {
               disabled={clockOutMutation.isPending}
             >
               <LogOut className="h-4 w-4 mr-2" /> Confirm Clock Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Log Dialog (manager) ── */}
+      <Dialog open={!!editingLog} onOpenChange={open => { if (!open) setEditingLog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Edit Time Entry
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clock In</Label>
+              <Input
+                type="datetime-local"
+                value={editForm.clockIn}
+                onChange={e => setEditForm(f => ({ ...f, clockIn: e.target.value }))}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clock Out <span className="font-normal text-muted-foreground">(leave blank if still active)</span></Label>
+              <Input
+                type="datetime-local"
+                value={editForm.clockOut}
+                onChange={e => setEditForm(f => ({ ...f, clockOut: e.target.value }))}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Break (minutes)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={editForm.breakMinutes}
+                onChange={e => setEditForm(f => ({ ...f, breakMinutes: Number(e.target.value) }))}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clock-In Notes</Label>
+              <Textarea
+                rows={2}
+                value={editForm.notes}
+                onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                className="resize-none rounded-xl text-sm"
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clock-Out Notes</Label>
+              <Textarea
+                rows={2}
+                value={editForm.clockOutNotes}
+                onChange={e => setEditForm(f => ({ ...f, clockOutNotes: e.target.value }))}
+                className="resize-none rounded-xl text-sm"
+                placeholder="Optional"
+              />
+            </div>
+            <Button
+              className="w-full rounded-xl"
+              onClick={submitEdit}
+              disabled={editLogMutation.isPending || !editForm.clockIn}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirm Dialog (manager) ── */}
+      <Dialog open={!!deletingLog} onOpenChange={open => { if (!open) setDeletingLog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Delete Time Entry?
+            </DialogTitle>
+          </DialogHeader>
+          {deletingLog && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This will permanently remove the entry for{" "}
+                <span className="font-semibold text-foreground">
+                  {fmtDate(deletingLog.clockIn)} {fmtTime(deletingLog.clockIn)}
+                  {deletingLog.clockOut ? ` → ${fmtTime(deletingLog.clockOut)}` : " (active)"}
+                </span>.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeletingLog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 rounded-xl"
+                  onClick={() => deleteLogMutation.mutate(deletingLog.id)}
+                  disabled={deleteLogMutation.isPending}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Manual Entry Dialog (manager) ── */}
+      <Dialog open={showManualEntry} onOpenChange={open => { if (!open) setShowManualEntry(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Add Manual Time Entry
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Employee</Label>
+              <Select
+                value={manualForm.userId}
+                onValueChange={v => setManualForm(f => ({ ...f, userId: v }))}
+              >
+                <SelectTrigger className="rounded-xl text-sm">
+                  <SelectValue placeholder="Select employee…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamByUser.map(m => (
+                    <SelectItem key={m.userId} value={m.userId}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clock In</Label>
+              <Input
+                type="datetime-local"
+                value={manualForm.clockIn}
+                onChange={e => setManualForm(f => ({ ...f, clockIn: e.target.value }))}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clock Out <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input
+                type="datetime-local"
+                value={manualForm.clockOut}
+                onChange={e => setManualForm(f => ({ ...f, clockOut: e.target.value }))}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Break (minutes)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={manualForm.breakMinutes}
+                onChange={e => setManualForm(f => ({ ...f, breakMinutes: Number(e.target.value) }))}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Notes</Label>
+              <Textarea
+                rows={2}
+                value={manualForm.notes}
+                onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))}
+                className="resize-none rounded-xl text-sm"
+                placeholder="Reason for manual entry (optional)"
+              />
+            </div>
+            <Button
+              className="w-full rounded-xl"
+              onClick={submitManualEntry}
+              disabled={manualEntryMutation.isPending || !manualForm.userId || !manualForm.clockIn}
+            >
+              Add Entry
             </Button>
           </div>
         </DialogContent>

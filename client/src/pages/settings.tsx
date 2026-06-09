@@ -405,7 +405,13 @@ export default function Settings() {
               <p className="text-sm font-medium text-foreground leading-none">{t("settings.chooseLanguage")}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                 {LANG_COUNTRY[currentLang] && (
-                  <span className={`fi fi-${LANG_COUNTRY[currentLang]} rounded-sm`} style={{ width: "16px", height: "12px", display: "inline-block" }} />
+                  <img
+                    src={`https://flagcdn.com/w20/${LANG_COUNTRY[currentLang]}.png`}
+                    srcSet={`https://flagcdn.com/w40/${LANG_COUNTRY[currentLang]}.png 2x`}
+                    alt=""
+                    className="rounded-sm object-cover shrink-0"
+                    style={{ width: "16px", height: "12px" }}
+                  />
                 )}
                 {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName}
               </p>
@@ -464,9 +470,12 @@ export default function Settings() {
                         : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
                     ].join(" ")}
                   >
-                    <span
-                      className={`fi fi-${LANG_COUNTRY[lang.code] ?? "un"} rounded shrink-0`}
-                      style={{ width: "24px", height: "18px", display: "inline-block" }}
+                    <img
+                      src={`https://flagcdn.com/w20/${LANG_COUNTRY[lang.code] ?? "un"}.png`}
+                      srcSet={`https://flagcdn.com/w40/${LANG_COUNTRY[lang.code] ?? "un"}.png 2x`}
+                      alt=""
+                      className="rounded-sm object-cover shrink-0"
+                      style={{ width: "24px", height: "18px" }}
                     />
                     <div className="flex-1 min-w-0">
                       <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>

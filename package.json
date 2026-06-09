@@ -83,7 +83,6 @@
     "exceljs": "^3.4.0",
     "express": "^5.0.1",
     "express-rate-limit": "^8.3.1",
-    "flag-icons": "^7.5.0",
     "framer-motion": "^12.38.0",
     "gsap": "^3.15.0",
     "helmet": "^8.1.0",

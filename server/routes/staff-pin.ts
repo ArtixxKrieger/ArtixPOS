@@ -196,7 +196,7 @@ export function registerStaffPinRoutes(app: Express): void {
       const [existingLog] = await db
         .select()
         .from(timeLogs)
-        .where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut)))
+        .where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
         .limit(1);
 
       let timeLog = existingLog ?? null;
@@ -260,14 +260,21 @@ export function registerStaffPinRoutes(app: Express): void {
       const [log] = await db
         .select()
         .from(timeLogs)
-        .where(and(eq(timeLogs.userId, user.id), isNull(timeLogs.clockOut)))
+        .where(and(eq(timeLogs.userId, user.id), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
         .limit(1);
 
       if (log) {
         const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
+        const now = new Date();
+        // Accumulate any in-progress break before closing the log
+        let finalBreakMinutes = log.breakMinutes ?? 0;
+        if (log.breakStart) {
+          const breakMs = now.getTime() - new Date(log.breakStart).getTime();
+          finalBreakMinutes += Math.max(0, Math.floor(breakMs / 60000));
+        }
         await db
           .update(timeLogs)
-          .set({ clockOut: new Date().toISOString(), clockOutNotes: notes ?? null })
+          .set({ clockOut: now.toISOString(), clockOutNotes: notes ?? null, breakStart: null, breakMinutes: finalBreakMinutes })
           .where(eq(timeLogs.id, log.id));
       }
 
@@ -411,7 +418,7 @@ async function runAutoClockout() {
     const staleLogs = await db
       .select({ id: timeLogs.id, breakStart: timeLogs.breakStart, breakMinutes: timeLogs.breakMinutes })
       .from(timeLogs)
-      .where(and(isNull(timeLogs.clockOut), sql`${timeLogs.clockIn} < ${eightHoursAgo}`));
+      .where(and(isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt), sql`${timeLogs.clockIn} < ${eightHoursAgo}`));
 
     if (staleLogs.length > 0) {
       // Update each log individually so we can accumulate final break minutes correctly
@@ -428,7 +435,7 @@ async function runAutoClockout() {
             clockOut: now,
             breakStart: null,
             breakMinutes: finalBreakMinutes,
-            notes: "Auto clock-out: shift exceeded 8 hours",
+            clockOutNotes: "Auto clock-out: shift exceeded 8 hours",
           })
           .where(eq(timeLogs.id, log.id));
       }

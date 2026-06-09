@@ -1609,7 +1609,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveTimeLog(userId: string): Promise<TimeLog | undefined> {
     try {
-      const [log] = await db.select().from(timeLogs).where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)));
+      const [log] = await db.select().from(timeLogs).where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt))).limit(1);
       return log;
     } catch (error) {
       console.error("Error fetching active time log:", error);
@@ -1635,9 +1635,18 @@ export class DatabaseStorage implements IStorage {
     try {
       const active = await this.getActiveTimeLog(userId);
       if (!active) return undefined;
+      // If the employee is mid-break, accumulate break minutes before closing
+      const now = new Date();
+      let finalBreakMinutes = active.breakMinutes ?? 0;
+      if (active.breakStart) {
+        const breakMs = now.getTime() - new Date(active.breakStart).getTime();
+        finalBreakMinutes += Math.max(0, Math.floor(breakMs / 60000));
+      }
       const [updated] = await db.update(timeLogs).set({
-        clockOut: new Date().toISOString(),
+        clockOut: now.toISOString(),
         clockOutNotes: notes ?? null,
+        breakStart: null,
+        breakMinutes: finalBreakMinutes,
       } as any).where(eq(timeLogs.id, active.id)).returning();
       return updated;
     } catch (error) {

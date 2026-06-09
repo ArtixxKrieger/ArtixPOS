@@ -142,7 +142,10 @@ export function useAuth() {
     // this placeholder with fresh data.
     placeholderData: loadCachedAuthUser(),
     retry: 2,
-    staleTime: 1000 * 60 * 10,
+    // Auth state changes only on login, logout, and branch-switch — all of
+    // which explicitly invalidate ["auth-me"]. staleTime: Infinity prevents
+    // the periodic silent re-fetch that served no purpose and added latency.
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

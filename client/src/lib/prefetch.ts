@@ -44,7 +44,8 @@ export const ALL_PREFETCH_URLS: readonly string[] = [
   "/api/expenses",
   "/api/staff",
   "/api/suppliers",
-  "/api/branches",
+  // NOTE: must match the queryKey used by useBranches() in use-admin.ts
+  "/api/admin/branches",
   "/api/categories",
   "/api/memberships",
   "/api/loyalty-tiers",

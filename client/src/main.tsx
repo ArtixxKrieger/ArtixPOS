@@ -48,11 +48,17 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ── Service worker ────────────────────────────────────────────────────────
-// Register only in production. In development the SW caches Vite's dev
-// modules and causes stale-chunk white screens after HMR restarts.
-// Returning dev/preview users get any lingering SW proactively unregistered.
+// Register whenever the page is served from a real HTTPS domain (not localhost).
+// This covers production (artixpos.com), Replit preview (*.replit.dev), and
+// any other HTTPS host — enabling beforeinstallprompt to fire so the PWA
+// install banner works. Skip only on localhost where Vite HMR caching causes
+// stale-chunk white screens.
+const _swHost = window.location.hostname;
+const _isLocalhost = _swHost === "localhost" || _swHost === "127.0.0.1" || _swHost === "0.0.0.0";
+const _shouldRegisterSW = "serviceWorker" in navigator && !_isLocalhost;
+
 if ("serviceWorker" in navigator) {
-  if (import.meta.env.PROD) {
+  if (_shouldRegisterSW) {
     // ── SW_ASSET_404 handler ───────────────────────────────────────────────
     // When the SW detects that a hashed asset returned 404 (stale deployment),
     // it broadcasts SW_ASSET_404. We respond by wiping all caches and doing a
@@ -100,6 +106,7 @@ if ("serviceWorker" in navigator) {
         .catch(() => {});
     });
   } else {
+    // localhost only — unregister any lingering SW so Vite HMR stays clean
     navigator.serviceWorker
       .getRegistrations()
       .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))

@@ -12,9 +12,19 @@ declare global {
   }
 }
 
-const DISMISSED_KEY = "artix_pwa_install_dismissed";
-const DISMISSED_UNTIL_KEY = "artix_pwa_install_dismissed_until";
-const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+export type InstallPlatform = "chrome" | "safari-ios" | "safari-mac" | "firefox" | "edge" | "other";
+
+function detectPlatform(): InstallPlatform {
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  if (isIOS) return "safari-ios";
+  if (isSafari) return "safari-mac";
+  if (/edg\//i.test(ua)) return "edge";
+  if (/firefox/i.test(ua)) return "firefox";
+  if (/chrome/i.test(ua)) return "chrome";
+  return "other";
+}
 
 function isAlreadyInstalled() {
   return (
@@ -24,52 +34,59 @@ function isAlreadyInstalled() {
   );
 }
 
+const DISMISSED_KEY = "artix_pwa_install_dismissed";
+const DISMISSED_UNTIL_KEY = "artix_pwa_install_dismissed_until";
+const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;
+
 function wasDismissedForever() {
   try { return localStorage.getItem(DISMISSED_KEY) === "true"; } catch { return false; }
 }
-
 function isSnoozed() {
   try {
     const until = localStorage.getItem(DISMISSED_UNTIL_KEY);
-    if (!until) return false;
-    return Date.now() < parseInt(until, 10);
+    return until ? Date.now() < parseInt(until, 10) : false;
   } catch { return false; }
-}
-
-function getStoredPrompt(): BeforeInstallPromptEvent | null {
-  return (window as any).__pwaPrompt ?? null;
 }
 
 export function usePwaInstall() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [platform] = useState<InstallPlatform>(detectPlatform);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     if (isAlreadyInstalled() || wasDismissedForever() || isSnoozed()) return;
 
-    // Check if the event was already captured before React mounted
-    const stored = getStoredPrompt();
+    // Pick up event already captured in index.html before React mounted
+    const stored = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null;
     if (stored) {
       setPromptEvent(stored);
       setIsVisible(true);
       return;
     }
 
-    // Listen for the custom event fired by the early capture in index.html
+    // Listen for the relay event from the early capture
     const onReady = () => {
-      const e = getStoredPrompt();
-      if (e) {
-        setPromptEvent(e);
+      const e = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null;
+      if (e) { setPromptEvent(e); setIsVisible(true); }
+    };
+    window.addEventListener("pwa-prompt-ready", onReady);
+
+    // For Safari/Firefox/browsers that don't support beforeinstallprompt,
+    // show the instructions banner after a short delay anyway.
+    const fallbackTimer = setTimeout(() => {
+      if (!(window as any).__pwaPrompt) {
         setIsVisible(true);
       }
-    };
+    }, 4000);
 
-    window.addEventListener("pwa-prompt-ready", onReady);
-    return () => window.removeEventListener("pwa-prompt-ready", onReady);
+    return () => {
+      window.removeEventListener("pwa-prompt-ready", onReady);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   const install = useCallback(async () => {
-    if (!promptEvent) return;
+    if (!promptEvent) return false;
     try {
       await promptEvent.prompt();
       const { outcome } = await promptEvent.userChoice;
@@ -77,8 +94,10 @@ export function usePwaInstall() {
         setIsVisible(false);
         setPromptEvent(null);
         (window as any).__pwaPrompt = null;
+        return true;
       }
     } catch {}
+    return false;
   }, [promptEvent]);
 
   const dismiss = useCallback((forever = false) => {
@@ -92,7 +111,11 @@ export function usePwaInstall() {
     } catch {}
   }, []);
 
-  const canInstall = !!promptEvent && !isAlreadyInstalled();
-
-  return { isVisible, canInstall, install, dismiss, promptEvent };
+  return {
+    isVisible,
+    canInstall: !!promptEvent,
+    platform,
+    install,
+    dismiss,
+  };
 }

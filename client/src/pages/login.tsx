@@ -3198,7 +3198,9 @@ export default function Login() {
           borderTop: "1px solid rgba(20,184,232,0.07)",
         }}
       >
-        <div style={{ maxWidth: 1060, margin: "0 auto", padding: "80px 32px", textAlign: "center" }}>
+        <div
+          style={{ maxWidth: 1060, margin: "0 auto", padding: "80px 32px", textAlign: "center" }}
+        >
           <div
             className="sr"
             style={{
@@ -3251,12 +3253,23 @@ export default function Login() {
                 flexDirection: "column",
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.40)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.40)",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
                 Free
               </div>
               <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 3 }}>
                 Free{" "}
-                <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>
+                  /mo
+                </span>
               </div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", marginBottom: 20 }}>
                 No credit card. No expiry.
@@ -3273,10 +3286,26 @@ export default function Login() {
                   "Up to 3 staff accounts",
                 ].map((f, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
-                      <path d="M2 6.5l3 3 6-6" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      style={{ marginTop: 2, flexShrink: 0 }}
+                    >
+                      <path
+                        d="M2 6.5l3 3 6-6"
+                        stroke="#34d399"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.52)", lineHeight: 1.4 }}>{f}</span>
+                    <span
+                      style={{ fontSize: 12, color: "rgba(255,255,255,0.52)", lineHeight: 1.4 }}
+                    >
+                      {f}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -3330,7 +3359,18 @@ export default function Login() {
               >
                 POPULAR
               </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: NEON, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Pro</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: NEON,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                Pro
+              </div>
               <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 3 }}>
                 {(() => {
                   const locale = detectLocale();
@@ -3338,7 +3378,11 @@ export default function Login() {
                   return (
                     <>
                       {formatPrice(p.proMonthly, p.symbol)}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span>
+                      <span
+                        style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}
+                      >
+                        /mo
+                      </span>
                     </>
                   );
                 })()}
@@ -3366,10 +3410,26 @@ export default function Login() {
                   "Priority support",
                 ].map((f, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
-                      <path d="M2 6.5l3 3 6-6" stroke={NEON} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      style={{ marginTop: 2, flexShrink: 0 }}
+                    >
+                      <path
+                        d="M2 6.5l3 3 6-6"
+                        stroke={NEON}
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.58)", lineHeight: 1.4 }}>{f}</span>
+                    <span
+                      style={{ fontSize: 12, color: "rgba(255,255,255,0.58)", lineHeight: 1.4 }}
+                    >
+                      {f}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -3424,7 +3484,18 @@ export default function Login() {
               >
                 SCALE
               </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Business</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#a78bfa",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                Business
+              </div>
               <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 3 }}>
                 {(() => {
                   const locale = detectLocale();
@@ -3432,7 +3503,11 @@ export default function Login() {
                   return (
                     <>
                       {formatPrice(p.businessMonthly, p.symbol)}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}>/mo</span>
+                      <span
+                        style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)" }}
+                      >
+                        /mo
+                      </span>
                     </>
                   );
                 })()}
@@ -3459,10 +3534,26 @@ export default function Login() {
                   "SLA-backed priority support",
                 ].map((f, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                    <svg width="12" height="12" viewBox="0 0 13 13" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
-                      <path d="M2 6.5l3 3 6-6" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      style={{ marginTop: 2, flexShrink: 0 }}
+                    >
+                      <path
+                        d="M2 6.5l3 3 6-6"
+                        stroke="#a78bfa"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.58)", lineHeight: 1.4 }}>{f}</span>
+                    <span
+                      style={{ fontSize: 12, color: "rgba(255,255,255,0.58)", lineHeight: 1.4 }}
+                    >
+                      {f}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -3490,8 +3581,12 @@ export default function Login() {
           </div>
 
           {/* Billing note */}
-          <p className="sr sr-d3" style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)" }}>
-            Annual billing saves up to 17% · All plans start with a free account · No credit card required
+          <p
+            className="sr sr-d3"
+            style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)" }}
+          >
+            Annual billing saves up to 17% · All plans start with a free account · No credit card
+            required
           </p>
         </div>
       </section>

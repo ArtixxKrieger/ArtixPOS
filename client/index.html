@@ -297,6 +297,24 @@
     }
     </script>
 
+    <script>
+      // Capture beforeinstallprompt as early as possible — before React mounts.
+      // The event fires once and is gone; if the hook registers after it fires it
+      // will miss it. We stash it on window so the hook can pick it up whenever
+      // it mounts (even after the fact).
+      window.__pwaPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__pwaPrompt = e;
+        // Dispatch a custom event so any already-mounted listeners also hear it
+        window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+      });
+      // Track if the app was installed
+      window.addEventListener('appinstalled', function() {
+        window.__pwaPrompt = null;
+        window.__pwaInstalled = true;
+      });
+    </script>
     <script>window.__splashStart = Date.now();</script>
     <script>
       (function() {

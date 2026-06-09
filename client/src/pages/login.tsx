@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
@@ -340,6 +341,7 @@ export default function Login() {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
+  const { canInstall, install } = usePwaInstall();
   const [nativeError, setNativeError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
@@ -1837,11 +1839,42 @@ export default function Login() {
               Pricing
             </a>
           </nav>
+          {canInstall && (
+            <button
+              onClick={install}
+              data-testid="button-header-install"
+              style={{
+                marginLeft: "auto",
+                marginRight: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "rgba(99,102,241,0.15)",
+                border: "1px solid rgba(99,102,241,0.35)",
+                color: "#a5b4fc",
+                borderRadius: 8,
+                padding: "7px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                backdropFilter: "blur(8px)",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(99,102,241,0.28)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "rgba(99,102,241,0.15)")}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 16l-4-4h2.5V4h3v8H16l-4 4z"/>
+                <path d="M20 18H4v2h16v-2z"/>
+              </svg>
+              Install App
+            </button>
+          )}
           <button
             onClick={() => openPanel("signin")}
             className="hdr-cta"
             data-testid="button-header-login"
-            style={{ marginLeft: "auto" }}
+            style={{ marginLeft: canInstall ? 0 : "auto" }}
           >
             Log in
           </button>

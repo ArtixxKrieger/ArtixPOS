@@ -4,5 +4,10 @@ export const modules: ModuleMap = {
   "./components/mockups/landing-anim/Cinematic.tsx": () => import("../components/mockups/landing-anim/Cinematic.tsx"),
   "./components/mockups/landing-anim/Final.tsx": () => import("../components/mockups/landing-anim/Final.tsx"),
   "./components/mockups/landing-anim/Flow.tsx": () => import("../components/mockups/landing-anim/Flow.tsx"),
-  "./components/mockups/landing-anim/Glitch.tsx": () => import("../components/mockups/landing-anim/Glitch.tsx")
+  "./components/mockups/landing-anim/Glitch.tsx": () => import("../components/mockups/landing-anim/Glitch.tsx"),
+  "./components/mockups/pos-designs/AccessibleHighContrast.tsx": () => import("../components/mockups/pos-designs/AccessibleHighContrast.tsx"),
+  "./components/mockups/pos-designs/DarkEnterprise.tsx": () => import("../components/mockups/pos-designs/DarkEnterprise.tsx"),
+  "./components/mockups/pos-designs/MinimalistClean.tsx": () => import("../components/mockups/pos-designs/MinimalistClean.tsx"),
+  "./components/mockups/pos-designs/ModernColorful.tsx": () => import("../components/mockups/pos-designs/ModernColorful.tsx"),
+  "./components/mockups/pos-designs/RetailEnterprise.tsx": () => import("../components/mockups/pos-designs/RetailEnterprise.tsx")
 };

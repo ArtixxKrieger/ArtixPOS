@@ -18,6 +18,7 @@ import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
 import { AppTour } from "@/components/app-tour";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -988,6 +989,7 @@ function App() {
           </BlePrinterProvider>
         </TooltipProvider>
       </QueryClientProvider>
+      <PwaInstallBanner />
       {import.meta.env.PROD && (
         <Suspense fallback={null}>
           <VercelAnalytics />

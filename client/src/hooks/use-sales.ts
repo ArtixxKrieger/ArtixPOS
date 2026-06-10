@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { type InsertSale } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation, makeOfflineId } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
 const BASE_URL = api.sales.list.path;
@@ -95,8 +95,26 @@ export function useCreateSale() {
           "sale",
           tempId, // offlineId
         );
-        const optimistic = { ...data, id: tempId, createdAt: new Date().toISOString() };
-        await patchCached(BASE_URL, (prev: any[]) => [...(Array.isArray(prev) ? prev : []), optimistic]);
+        const optimistic = {
+          ...data,
+          id: tempId,
+          createdAt: new Date().toISOString(),
+          _pendingSync: true,
+        };
+        // Prepend to sales IDB cache (most-recent-first order)
+        await patchCached(BASE_URL, (prev: any[]) => [
+          optimistic,
+          ...(Array.isArray(prev) ? prev : []),
+        ]);
+        // Update dashboard stats IDB cache so the offline sale appears
+        // in today's revenue totals immediately.
+        getCached<any>("/api/dashboard/stats").then((prev) => {
+          if (!prev) return;
+          setCached("/api/dashboard/stats", {
+            ...prev,
+            todaySales: [optimistic, ...(Array.isArray(prev.todaySales) ? prev.todaySales : [])],
+          }).catch(() => {});
+        }).catch(() => {});
         return optimistic as any;
       }
       clearTimeout(timer);
@@ -123,6 +141,15 @@ export function useCreateSale() {
       ]);
       const fresh = queryClient.getQueryData<any[]>([BASE_URL]);
       if (fresh) setCached(BASE_URL, fresh);
+
+      // If this was an offline-queued sale, also update the dashboard stats
+      // TanStack cache so today's revenue counter reflects it immediately.
+      if (isOfflineId(String(result.id ?? ""))) {
+        queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
+          if (!old || !Array.isArray(old.todaySales)) return old;
+          return { ...old, todaySales: [result, ...old.todaySales] };
+        });
+      }
       // Deduct product stock in cache
       if (Array.isArray(result.items)) {
         const deductions = new Map<number, number>();

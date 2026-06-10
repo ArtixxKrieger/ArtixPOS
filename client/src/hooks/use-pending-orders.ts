@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type PendingOrder, type InsertPendingOrder, type Product } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation, makeOfflineId } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
 const LIST_URL = api.pendingOrders.list.path;
@@ -75,8 +75,35 @@ export function useCreatePendingOrder() {
           "pending-order",
           tempId, // offlineId
         );
-        const optimistic = { ...data, id: tempId, createdAt: new Date().toISOString() };
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), optimistic as unknown as PendingOrder]);
+        const optimistic = {
+          ...data,
+          id: tempId,
+          createdAt: new Date().toISOString(),
+          _pendingSync: true,
+        };
+
+        // Patch pending-orders IDB cache
+        await patchCached(LIST_URL, (prev: PendingOrder[]) => [
+          ...(Array.isArray(prev) ? prev : []),
+          optimistic as unknown as PendingOrder,
+        ]);
+
+        // Also patch the sales IDB cache so the Sales page shows this sale
+        // immediately while the device is offline.
+        await patchCached("/api/sales", (prev: any[]) => [
+          optimistic as any,
+          ...(Array.isArray(prev) ? prev : []),
+        ]);
+
+        // Update dashboard stats IDB cache so today's revenue is current offline.
+        getCached<any>("/api/dashboard/stats").then((prev) => {
+          if (!prev) return;
+          setCached("/api/dashboard/stats", {
+            ...prev,
+            todaySales: [optimistic, ...(Array.isArray(prev.todaySales) ? prev.todaySales : [])],
+          }).catch(() => {});
+        }).catch(() => {});
+
         return optimistic as unknown as PendingOrder;
       }
       clearTimeout(timer);
@@ -106,6 +133,27 @@ export function useCreatePendingOrder() {
       queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
         old ? [...old.filter((o) => o.id !== result.id), result] : [result]
       );
+
+      // When the checkout was queued offline, the mutationFn returns the
+      // optimistic entry (id = __offline__…).  Mirror it into the sales and
+      // dashboard TanStack caches immediately so those pages reflect the new
+      // sale without waiting for a sync/invalidation cycle.
+      if (isOfflineId(String(result.id ?? ""))) {
+        // Sales list cache — prepend so it appears at the top
+        queryClient.setQueryData<any[]>(["/api/sales"], (old) =>
+          Array.isArray(old) ? [result, ...old] : [result]
+        );
+
+        // Dashboard stats — add to todaySales so totals are correct offline
+        queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
+          if (!old || !Array.isArray(old.todaySales)) return old;
+          return {
+            ...old,
+            todaySales: [result, ...old.todaySales],
+          };
+        });
+      }
+
       // Deduct stock in products cache for paid orders
       if (result.status === "paid" && Array.isArray(result.items)) {
         const deductions = new Map<number, number>();

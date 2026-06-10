@@ -11,7 +11,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
-import { nativeFetch } from "@/lib/queryClient";
+import { nativeFetch, queryClient } from "@/lib/queryClient";
 import { getCached, setCached } from "@/lib/offline-db";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
 
@@ -57,18 +57,36 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: [STATS_URL],
     queryFn: async () => {
+      // ── Step 1: read IDB immediately (< 5 ms) ──────────────────────────
+      // If we have cached data return it instantly so the UI is never blank,
+      // then silently refresh from the network in the background.
+      const idbData = await getCached<DashboardStats>(STATS_URL);
+
+      if (idbData !== null) {
+        // Background network refresh — don't await it, just schedule it.
+        // Uses setQueryData so React re-renders once fresh data arrives.
+        nativeFetch(STATS_URL)
+          .then(async (res) => {
+            if (!res.ok) return;
+            const fresh: DashboardStats = await res.json();
+            setCached(STATS_URL, fresh).catch(() => {});
+            queryClient.setQueryData<DashboardStats>([STATS_URL], fresh);
+          })
+          .catch(() => {}); // still offline — cached data stays, no error shown
+        return idbData;
+      }
+
+      // ── Step 2: no IDB data — must wait for network ─────────────────────
       try {
         const res = await nativeFetch(STATS_URL);
         if (!res.ok) throw new Error("Failed to load dashboard");
         const data: DashboardStats = await res.json();
-        // Cache for offline fallback — fire-and-forget
         setCached(STATS_URL, data).catch(() => {});
         return data;
       } catch (err) {
-        // Network/offline — serve last-known-good data from IDB so the
-        // dashboard still shows useful numbers instead of a blank/error state.
-        const cached = await getCached<DashboardStats>(STATS_URL);
-        if (cached !== null) return cached;
+        // Retry IDB one more time in case initUserSession ran after the first read
+        const retry = await getCached<DashboardStats>(STATS_URL);
+        if (retry !== null) return retry;
         throw err;
       }
     },

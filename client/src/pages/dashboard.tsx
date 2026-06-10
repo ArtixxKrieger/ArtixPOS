@@ -12,7 +12,7 @@ import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch, queryClient } from "@/lib/queryClient";
-import { getCached, setCached } from "@/lib/offline-db";
+import { getCached, setCached, isOfflineId } from "@/lib/offline-db";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
 
 type DashboardStats = {
@@ -63,16 +63,45 @@ export default function Dashboard() {
       const idbData = await getCached<DashboardStats>(STATS_URL);
 
       if (idbData !== null) {
-        // Background network refresh — don't await it, just schedule it.
-        // Uses setQueryData so React re-renders once fresh data arrives.
-        nativeFetch(STATS_URL)
+        // Background network refresh: bounded by an 8 s timeout so a slow
+        // server never leaks a dangling connection.
+        // IMPORTANT: we MERGE rather than replace — if the device is mid-sync,
+        // the server doesn't have the queued offline sales yet.  Blindly
+        // replacing would clobber the optimistic entries and cause a flash
+        // where the user sees their offline sales disappear.
+        const bgCtrl = new AbortController();
+        const bgTimer = setTimeout(() => bgCtrl.abort(), 8_000);
+
+        nativeFetch(STATS_URL, { signal: bgCtrl.signal })
           .then(async (res) => {
+            clearTimeout(bgTimer);
             if (!res.ok) return;
             const fresh: DashboardStats = await res.json();
-            setCached(STATS_URL, fresh).catch(() => {});
-            queryClient.setQueryData<DashboardStats>([STATS_URL], fresh);
+
+            // Collect any optimistic (offline-ID) entries that are in the
+            // current TanStack cache but not yet acknowledged by the server.
+            const current = queryClient.getQueryData<DashboardStats>([STATS_URL]);
+            const freshIds = new Set(
+              (fresh.todaySales ?? []).map((s: any) => String(s.id))
+            );
+            const offlinePending = (current?.todaySales ?? []).filter(
+              (s: any) =>
+                isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id))
+            );
+
+            const merged: DashboardStats =
+              offlinePending.length > 0
+                ? { ...fresh, todaySales: [...offlinePending, ...fresh.todaySales] }
+                : fresh;
+
+            // Persist merged data so the next IDB-first load is also correct.
+            setCached(STATS_URL, merged).catch(() => {});
+            queryClient.setQueryData<DashboardStats>([STATS_URL], merged);
           })
-          .catch(() => {}); // still offline — cached data stays, no error shown
+          .catch(() => {
+            clearTimeout(bgTimer); // ensure timer is cleared on fetch error
+          });
+
         return idbData;
       }
 

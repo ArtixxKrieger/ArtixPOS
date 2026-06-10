@@ -8,7 +8,7 @@ import { useProducts } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
 import { useCreatePendingOrder } from "@/hooks/use-pending-orders";
 import { formatCurrency, parseNumeric } from "@/lib/format";
-import { queueMutation, isNetworkError } from "@/lib/offline-db";
+import { queueMutation, isNetworkError, isOfflineId } from "@/lib/offline-db";
 import { type Product, type Customer } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -581,8 +581,17 @@ export default function POS() {
           } : prev,
         );
 
-        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+        // For offline-queued sales (id = __offline__…) the hook's onSuccess
+        // already updated every active sales query via setQueriesData and patched
+        // the dashboard via setQueryData.  Calling invalidateQueries here would
+        // trigger a background refetch whose queryFn reads the IDB — and IDB for
+        // date-filtered queries (/api/sales?startDate=…) never has the optimistic
+        // entry — so the refetch result would OVERWRITE the optimistic update.
+        // Only invalidate when the sale was confirmed by the server (real ID).
+        if (!isOfflineId(String((result as any)?.id ?? ""))) {
+          queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+        }
 
         // Milestone tracking — accumulate daily total locally, check thresholds
         const newDailyTotal = addToTodayTotal(total);

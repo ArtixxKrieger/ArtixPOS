@@ -108,13 +108,15 @@ export function useCreateSale() {
         ]);
         // Update dashboard stats IDB cache so the offline sale appears
         // in today's revenue totals immediately.
-        getCached<any>("/api/dashboard/stats").then((prev) => {
-          if (!prev) return;
-          setCached("/api/dashboard/stats", {
-            ...prev,
-            todaySales: [optimistic, ...(Array.isArray(prev.todaySales) ? prev.todaySales : [])],
-          }).catch(() => {});
-        }).catch(() => {});
+        // MUST be awaited — see use-pending-orders.ts for the full explanation
+        // of why fire-and-forget causes the optimistic entry to be clobbered.
+        const statsPrev = await getCached<any>("/api/dashboard/stats");
+        if (statsPrev) {
+          await setCached("/api/dashboard/stats", {
+            ...statsPrev,
+            todaySales: [optimistic, ...(Array.isArray(statsPrev.todaySales) ? statsPrev.todaySales : [])],
+          });
+        }
         return optimistic as any;
       }
       clearTimeout(timer);

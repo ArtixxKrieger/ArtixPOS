@@ -96,13 +96,17 @@ export function useCreatePendingOrder() {
         ]);
 
         // Update dashboard stats IDB cache so today's revenue is current offline.
-        getCached<any>("/api/dashboard/stats").then((prev) => {
-          if (!prev) return;
-          setCached("/api/dashboard/stats", {
-            ...prev,
-            todaySales: [optimistic, ...(Array.isArray(prev.todaySales) ? prev.todaySales : [])],
-          }).catch(() => {});
-        }).catch(() => {});
+        // MUST be awaited — pos.tsx onSuccess calls invalidateQueries right after
+        // onSuccess fires, which re-runs the dashboard queryFn.  If this write is
+        // still in-flight when that queryFn reads IDB it will get the OLD data and
+        // clobber the optimistic setQueryData that fires a moment later.
+        const statsPrev = await getCached<any>("/api/dashboard/stats");
+        if (statsPrev) {
+          await setCached("/api/dashboard/stats", {
+            ...statsPrev,
+            todaySales: [optimistic, ...(Array.isArray(statsPrev.todaySales) ? statsPrev.todaySales : [])],
+          });
+        }
 
         return optimistic as unknown as PendingOrder;
       }
@@ -139,8 +143,12 @@ export function useCreatePendingOrder() {
       // dashboard TanStack caches immediately so those pages reflect the new
       // sale without waiting for a sync/invalidation cycle.
       if (isOfflineId(String(result.id ?? ""))) {
-        // Sales list cache — prepend so it appears at the top
-        queryClient.setQueryData<any[]>(["/api/sales"], (old) =>
+        // Sales list — use setQueriesData (prefix match) so ALL active sales
+        // queries are updated: the unfiltered ["/api/sales"] AND every date-
+        // filtered variant like ["/api/sales", "2024-06-01", "2024-06-30", …].
+        // setQueryData (exact match) only hits the no-params key and misses the
+        // "month" / "today" filtered queries on the Transactions page.
+        queryClient.setQueriesData<any[]>({ queryKey: ["/api/sales"] }, (old) =>
           Array.isArray(old) ? [result, ...old] : [result]
         );
 

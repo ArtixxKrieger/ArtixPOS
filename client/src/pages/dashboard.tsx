@@ -12,7 +12,7 @@ import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch, queryClient } from "@/lib/queryClient";
-import { getCached, setCached, isOfflineId } from "@/lib/offline-db";
+import { getCached, setCached, isOfflineId, getSalesQueueCount } from "@/lib/offline-db";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
 
 type DashboardStats = {
@@ -54,40 +54,58 @@ export default function Dashboard() {
   // Subscribe to real-time sale events — invalidates stats the instant a sale lands
   useDashboardSse();
   const STATS_URL = "/api/dashboard/stats";
+
+  // Build the URL for stats fetches.  We pass the client's local-midnight as a
+  // UTC ISO string so the server scopes "today" to the user's calendar day
+  // instead of the server's UTC day.  Without this, a Philippines user (UTC+8)
+  // loses sales made from midnight to 08:00 local time because their UTC
+  // createdAt timestamps fall on the *previous* UTC date.
+  function buildStatsUrl(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0); // local midnight
+    return `${STATS_URL}?startOfDay=${encodeURIComponent(d.toISOString())}`;
+  }
+
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: [STATS_URL],
     queryFn: async () => {
+      const statsUrl = buildStatsUrl();
+
       // ── Step 1: read IDB immediately (< 5 ms) ──────────────────────────
       // If we have cached data return it instantly so the UI is never blank,
       // then silently refresh from the network in the background.
+      // IDB is always keyed under the base STATS_URL (no params) so the cache
+      // is shared regardless of the startOfDay value.
       const idbData = await getCached<DashboardStats>(STATS_URL);
 
       if (idbData !== null) {
         // Background network refresh: bounded by an 8 s timeout so a slow
         // server never leaks a dangling connection.
-        // IMPORTANT: we MERGE rather than replace — if the device is mid-sync,
-        // the server doesn't have the queued offline sales yet.  Blindly
-        // replacing would clobber the optimistic entries and cause a flash
-        // where the user sees their offline sales disappear.
         const bgCtrl = new AbortController();
         const bgTimer = setTimeout(() => bgCtrl.abort(), 8_000);
 
-        nativeFetch(STATS_URL, { signal: bgCtrl.signal })
+        nativeFetch(statsUrl, { signal: bgCtrl.signal })
           .then(async (res) => {
             clearTimeout(bgTimer);
             if (!res.ok) return;
             const fresh: DashboardStats = await res.json();
 
-            // Collect any optimistic (offline-ID) entries that are in the
-            // current TanStack cache but not yet acknowledged by the server.
+            // Only carry forward optimistic (offline-ID) sales that are STILL
+            // queued for sync.  If the queue is empty every offline sale has
+            // already been written to the server and is present in `fresh` under
+            // its real numeric ID — keeping the old offline entry would double-
+            // count it on the dashboard.
+            const queueCount = await getSalesQueueCount().catch(() => 0);
             const current = queryClient.getQueryData<DashboardStats>([STATS_URL]);
             const freshIds = new Set(
               (fresh.todaySales ?? []).map((s: any) => String(s.id))
             );
-            const offlinePending = (current?.todaySales ?? []).filter(
-              (s: any) =>
-                isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id))
-            );
+            const offlinePending = queueCount > 0
+              ? (current?.todaySales ?? []).filter(
+                  (s: any) =>
+                    isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id))
+                )
+              : [];
 
             const merged: DashboardStats =
               offlinePending.length > 0
@@ -99,7 +117,7 @@ export default function Dashboard() {
             queryClient.setQueryData<DashboardStats>([STATS_URL], merged);
           })
           .catch(() => {
-            clearTimeout(bgTimer); // ensure timer is cleared on fetch error
+            clearTimeout(bgTimer);
           });
 
         return idbData;
@@ -107,7 +125,7 @@ export default function Dashboard() {
 
       // ── Step 2: no IDB data — must wait for network ─────────────────────
       try {
-        const res = await nativeFetch(STATS_URL);
+        const res = await nativeFetch(statsUrl);
         if (!res.ok) throw new Error("Failed to load dashboard");
         const data: DashboardStats = await res.json();
         setCached(STATS_URL, data).catch(() => {});

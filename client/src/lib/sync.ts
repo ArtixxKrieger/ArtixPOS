@@ -284,6 +284,10 @@ const ALWAYS_INVALIDATE = [
   ["/api/dashboard/stats"],
   ["/api/analytics"],
   ["/api/reports"],
+  // Pending-order mutations also create a sale record — invalidate the sales
+  // list so the Transactions page stays current after every sync, even when
+  // the SSE channel is closed or the dashboard tab is not open.
+  ["/api/sales"],
 ];
 
 function deriveInvalidationKeys(synced: QueuedMutation[]): string[][] {

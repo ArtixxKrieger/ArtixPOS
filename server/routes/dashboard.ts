@@ -25,6 +25,21 @@ export function registerDashboardRoutes(app: Express): void {
 
     const todayISO = new Date().toISOString().slice(0, 10);
 
+    // The client can pass its local-midnight as a UTC ISO string so that
+    // "today's" sales are scoped to the user's calendar day, not the server's
+    // UTC day.  Without this, a Philippines user (UTC+8) loses all sales made
+    // between midnight and 08:00 local time because their UTC createdAt falls
+    // on the previous UTC date.
+    //
+    // Accepted format: a full ISO-8601 timestamp, e.g. "2025-06-10T16:00:00.000Z"
+    // (what the client gets from `new Date(); d.setHours(0,0,0,0); d.toISOString()`).
+    // Anything that doesn't match is silently ignored and we fall back to the
+    // UTC-today string so existing callers / tests are unaffected.
+    const rawStartOfDay = typeof req.query.startOfDay === "string" ? req.query.startOfDay : "";
+    const todayStart = rawStartOfDay && /^\d{4}-\d{2}-\d{2}T[\d:.Z+\-]+$/.test(rawStartOfDay)
+      ? rawStartOfDay
+      : todayISO;
+
     // Resolve tenantId first (PK lookup — instant).
     const [userRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, uid));
     const tid = userRow?.tenantId ?? null;
@@ -45,7 +60,7 @@ export function registerDashboardRoutes(app: Express): void {
     const [todaySales, [agg]] = await Promise.all([
       storage.getSales(uid, {
         branchId: bid ?? undefined,
-        startDate: todayISO,
+        startDate: todayStart,
         limit: 1000,
       }),
       db

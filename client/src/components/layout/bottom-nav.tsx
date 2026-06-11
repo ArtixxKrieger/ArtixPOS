@@ -1,4 +1,4 @@
-import { useState, startTransition, useEffect, useMemo, useCallback } from "react";
+import { useState, startTransition, useEffect, useMemo, useCallback, memo } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import {
@@ -148,12 +148,21 @@ const ALL_SECONDARY_URLS = new Set([
   ...ADMIN_NAV.map((i) => i.url),
 ]);
 
+const MobilePendingBadge = memo(function MobilePendingBadge() {
+  const { data } = usePendingOrders();
+  const count = (data ?? []).length;
+  if (!count) return null;
+  return (
+    <span className="absolute -top-[6px] -right-[8px] bg-rose-500 text-white text-[8px] font-bold min-w-[13px] h-[13px] rounded-full flex items-center justify-center px-[2px] leading-none shadow-sm shadow-rose-500/40 animate-pulse tabular-nums">
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+});
+
 export function BottomNav() {
   const { t } = useTranslation();
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { data: pendingOrdersRaw } = usePendingOrders();
-  const pendingOrders = pendingOrdersRaw ?? [];
   const { user } = useAuth();
   const { data: _settings } = useSettings();
   const { isFree } = useSubscription();
@@ -237,8 +246,6 @@ export function BottomNav() {
     .filter(g => g.items.length > 0),
   [filteredMoreItems, CATEGORY_LABELS]);
 
-  const pendingCount = pendingOrders.length;
-
   const isMoreActive = ALL_SECONDARY_URLS.has(location) || location.startsWith("/admin");
   const primaryActiveIndex = primaryNavItems.findIndex((item) => item.url === location);
   const hasMore = filteredMoreItems.length > 0 || isAdminOrAbove;
@@ -277,7 +284,6 @@ export function BottomNav() {
           {primaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.url;
-            const badge = item.url === "/pending" && pendingCount > 0 ? pendingCount : null;
 
             return (
               <button
@@ -301,11 +307,7 @@ export function BottomNav() {
                       isActive ? "scale-110 stroke-[2.2px]" : "scale-100 stroke-[1.8px]",
                     ].join(" ")}
                   />
-                  {badge ? (
-                    <span className="absolute -top-[6px] -right-[8px] bg-rose-500 text-white text-[8px] font-bold w-[13px] h-[13px] rounded-full flex items-center justify-center leading-none shadow-sm shadow-rose-500/40 animate-pulse">
-                      {badge > 9 ? "9+" : badge}
-                    </span>
-                  ) : null}
+                  {item.url === "/pending" && <MobilePendingBadge />}
                 </div>
                 <span className="text-[8px] leading-none tracking-wide z-10 transition-all duration-200 font-medium">
                   {item.label}

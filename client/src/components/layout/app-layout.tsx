@@ -196,7 +196,7 @@ interface NavItemProps {
   label: string;
   isActive: boolean;
   displayLabel: string;
-  badge: number | null;
+  badgeSlot?: React.ReactNode;
   onNavigate: (url: string) => void;
   collapsed?: boolean;
 }
@@ -207,7 +207,7 @@ const NavItem = memo(function NavItem({
   label,
   isActive,
   displayLabel,
-  badge,
+  badgeSlot,
   onNavigate,
   collapsed,
 }: NavItemProps) {
@@ -235,17 +235,29 @@ const NavItem = memo(function NavItem({
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">{displayLabel}</span>
-          {badge ? (
-            <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
-              {badge > 9 ? "9+" : badge}
-            </span>
-          ) : null}
+          {badgeSlot}
         </>
       )}
-      {collapsed && badge ? (
-        <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-rose-500" />
-      ) : null}
+      {collapsed && badgeSlot}
     </button>
+  );
+});
+
+const PendingBadge = memo(function PendingBadge({ collapsed }: { collapsed: boolean }) {
+  const { data } = usePendingOrders();
+  const count = (data ?? []).filter((o: any) => o.status !== "paid").length;
+  if (!count) return null;
+  if (collapsed) {
+    return (
+      <span className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-[8px] font-bold min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-[3px] shadow-sm tabular-nums leading-none">
+        {count > 9 ? "9+" : count}
+      </span>
+    );
+  }
+  return (
+    <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm tabular-nums">
+      {count > 9 ? "9+" : count}
+    </span>
   );
 });
 
@@ -264,8 +276,6 @@ function getInitialSidebarCollapsed(): boolean {
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const { data: settings } = useSettings();
-  const { data: pendingOrdersRaw } = usePendingOrders();
-  const pendingOrders = pendingOrdersRaw ?? [];
   const [isDark, setIsDark] = useState(getInitialDark);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
   const onlineStatus = useOnlineStatus();
@@ -304,7 +314,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     [branchBusinessType, branchBusinessSubType],
   );
 
-  const pendingCount = pendingOrders.filter(o => o.status !== "paid").length;
   const tenantStoreName = settings?.storeName || "ArtixPOS";
   const activeBranchName = user?.activeBranch?.name ?? null;
   const storeName = activeBranchName ?? tenantStoreName;
@@ -423,7 +432,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       label={item.label}
                       isActive={location === item.url}
                       displayLabel={businessLabels[item.url] ?? translatedLabel}
-                      badge={item.url === "/pending" && pendingCount > 0 ? pendingCount : null}
+                      badgeSlot={item.url === "/pending" ? <PendingBadge collapsed={sidebarCollapsed} /> : undefined}
                       onNavigate={setLocation}
                       collapsed={sidebarCollapsed}
                     />

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { nativeFetch } from "@/lib/queryClient";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
@@ -79,7 +80,7 @@ export default function Refunds() {
   const { data: refunds = [], isLoading } = useQuery<RefundWithDetails[]>({
     queryKey: ["/api/refunds"],
     queryFn: async () => {
-      const res = await fetch("/api/refunds", { credentials: "include" });
+      const res = await nativeFetch("/api/refunds");
       if (!res.ok) return [];
       return res.json();
     },
@@ -124,11 +125,7 @@ export default function Refunds() {
   const totalRefunded = filtered.reduce((acc, r) => acc + parseNumeric(r.amount), 0);
 
   function downloadAuditCsv() {
-    const token = localStorage.getItem("cafebara_native_token") ?? "";
-    fetch("/api/bir/refund-trail/export", {
-      credentials: "include",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    nativeFetch("/api/bir/refund-trail/export")
       .then(r => {
         if (!r.ok) throw new Error("Export failed");
         return r.blob();

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
@@ -105,7 +105,7 @@ function UsedInBadge({ ingredientId }: { ingredientId: number }) {
   const { data: products = [] } = useQuery<ProductUsage[]>({
     queryKey: ["/api/ingredients", ingredientId, "products"],
     queryFn: () =>
-      fetch(`/api/ingredients/${ingredientId}/products`, { credentials: "include" })
+      nativeFetch(`/api/ingredients/${ingredientId}/products`)
         .then((r) => r.json()),
     staleTime: 60_000,
   });

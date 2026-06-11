@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { resolveUrl } from "@/lib/queryClient";
+import { nativeFetch } from "@/lib/queryClient";
 
 function getIsDark(): boolean {
   if (typeof window === "undefined") return false;
@@ -49,11 +49,10 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      const res = await fetch(resolveUrl("/api/auth/reset-password"), {
+      const res = await nativeFetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {

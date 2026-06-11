@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NATIVE_TOKEN_KEY } from "@/lib/queryClient";
+import { NATIVE_TOKEN_KEY, nativeFetch } from "@/lib/queryClient";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, addYears, differenceInDays, startOfMonth, subMonths } from "date-fns";
@@ -158,10 +158,7 @@ export default function BIRPage() {
   const { data: zReport, isLoading: zReportLoading } = useQuery<ZReportData>({
     queryKey: ["/api/shifts", zReportShiftId, "z-report"],
     enabled: !!zReportShiftId,
-    queryFn: () => fetch(`/api/shifts/${zReportShiftId}/z-report`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem(NATIVE_TOKEN_KEY) || ""}` },
-      credentials: "include",
-    }).then(r => r.json()),
+    queryFn: () => nativeFetch(`/api/shifts/${zReportShiftId}/z-report`).then(r => r.json()),
   });
 
   const { data: orGapData, isLoading: orGapLoading, refetch: refetchOrGaps } = useQuery<{
@@ -203,19 +200,15 @@ export default function BIRPage() {
 
   const { data: monthlySummary, isLoading: monthlyLoading } = useQuery<MonthlySummary>({
     queryKey: ["/api/bir/summary", selectedMonth],
-    queryFn: () => fetch(`/api/bir/summary?month=${selectedMonth}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem(NATIVE_TOKEN_KEY) || ""}` },
-      credentials: "include",
-    }).then(r => r.json()),
+    queryFn: () => nativeFetch(`/api/bir/summary?month=${selectedMonth}`).then(r => r.json()),
   });
 
   const complianceScore = [!!tin, !!ptuNumber, !!accreditationNumber, !!machineSerialNumber, vatRegistered].filter(Boolean).length;
   const complianceTotal = 5;
 
   function downloadEjournal() {
-    const token = localStorage.getItem(NATIVE_TOKEN_KEY) || "";
     const url = `/api/bir/ejournal?month=${selectedMonth}`;
-    fetch(url, { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    nativeFetch(url)
       .then(r => {
         if (!r.ok) throw new Error("Download failed");
         return r.blob();
@@ -242,7 +235,7 @@ export default function BIRPage() {
     if (token) a.href = url + `&_token=${encodeURIComponent(token)}`;
     a.download = `BIR-eSales-${selectedMonth}.csv`;
     document.body.appendChild(a);
-    fetch(url, { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    nativeFetch(url)
       .then(r => r.blob())
       .then(blob => {
         const objUrl = URL.createObjectURL(blob);

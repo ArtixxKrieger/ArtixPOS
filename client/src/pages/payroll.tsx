@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, nativeFetch, getCsrfHeaders } from "@/lib/queryClient";
+import { apiRequest, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
@@ -203,7 +203,7 @@ export default function PayrollPage() {
     mutationFn: async (v: { name: string; from: string; to: string; branchId?: number | null; paymentMethod?: string; paymentReference?: string; force?: boolean }) => {
       const res = await nativeFetch("/api/payroll/quick-pay", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getCsrfHeaders("POST") },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(v),
       });
       const data = await res.json();

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { nativeFetch } from "@/lib/queryClient";
 import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,11 +119,7 @@ export default function BirAuditLogPage() {
   const hasFilters = search || hashFilter !== "all" || dateFrom || dateTo;
 
   function downloadCsv() {
-    const token = localStorage.getItem("cafebara_native_token") ?? "";
-    fetch("/api/bir/void-trail/export", {
-      credentials: "include",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    nativeFetch("/api/bir/void-trail/export")
       .then(r => {
         if (!r.ok) throw new Error("Export failed");
         return r.blob();

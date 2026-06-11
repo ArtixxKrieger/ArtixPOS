@@ -9,8 +9,7 @@ import {
   apiRequest,
   setNativeToken,
   queryClient,
-  resolveUrl,
-  getCsrfHeaders,
+  nativeFetch,
 } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { detectLocale } from "@/lib/locale-detect";
@@ -534,11 +533,7 @@ export default function Login() {
     if (isAuthenticated) {
       (async () => {
         try {
-          await fetch("/auth/logout", {
-            method: "POST",
-            credentials: "include",
-            headers: getCsrfHeaders("POST"),
-          });
+          await nativeFetch("/auth/logout", { method: "POST" });
         } catch {}
         const { clearNativeToken } = await import("@/lib/queryClient");
         clearNativeToken();
@@ -560,11 +555,7 @@ export default function Login() {
       sessionStorage.removeItem("artix-logout-pending");
       (async () => {
         try {
-          await fetch("/auth/logout", {
-            method: "POST",
-            credentials: "include",
-            headers: getCsrfHeaders("POST"),
-          });
+          await nativeFetch("/auth/logout", { method: "POST" });
         } catch {}
         const { clearNativeToken } = await import("@/lib/queryClient");
         clearNativeToken();
@@ -594,7 +585,7 @@ export default function Login() {
   }, []);
   useEffect(() => {
     if (googleClientId) return;
-    fetch("/api/auth/config")
+    nativeFetch("/api/auth/config")
       .then((r) => r.json())
       .then((cfg: { googleClientId?: string | null }) => {
         if (cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
@@ -699,11 +690,10 @@ export default function Login() {
       const body: any = { email: formEmail, password: formPassword };
       if (mode === "register") body.name = formName;
       if (mode === "signin") body.rememberMe = rememberMe;
-      const res = await fetch(resolveUrl(endpoint), {
+      const res = await nativeFetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getCsrfHeaders("POST") },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -731,11 +721,10 @@ export default function Login() {
     setForgotError(null);
     setForgotLoading(true);
     try {
-      const res = await fetch(resolveUrl("/api/auth/forgot-password"), {
+      const res = await nativeFetch("/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getCsrfHeaders("POST") },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {

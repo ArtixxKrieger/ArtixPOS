@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest, nativeFetch, resolveUrl, getCsrfHeaders } from "@/lib/queryClient";
+import { apiRequest, nativeFetch } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
@@ -635,7 +635,7 @@ function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPay
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    fetch("/api/ai/staff-info", { credentials: "include" })
+    nativeFetch("/api/ai/staff-info")
       .then(r => r.json())
       .then(d => { setStaffData(d); setLoading(false); })
       .catch(() => setLoading(false));
@@ -649,12 +649,7 @@ function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPay
   const handleBan = async (userId: string, currentBanned: boolean) => {
     setActionLoading(userId);
     try {
-      await fetch(`/api/admin/users/${userId}/ban`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ ban: !currentBanned }),
-      });
+      await apiRequest("PATCH", `/api/admin/users/${userId}/ban`, { ban: !currentBanned });
       setActionResults(prev => ({ ...prev, [userId]: currentBanned ? "Access restored" : "Access revoked" }));
       setStaffData(prev => prev ? {
         ...prev,
@@ -1972,7 +1967,7 @@ export default function AiPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/ai/suggestions", { credentials: "include" });
+        const res = await nativeFetch("/api/ai/suggestions");
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && Array.isArray(data?.suggestions)) {
@@ -2090,7 +2085,7 @@ export default function AiPage() {
     setMessages([...newMessages, assistantMsg]);
 
     try {
-      const res = await nativeFetch(resolveUrl("/api/ai/chat"), {
+      const res = await nativeFetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, fileContent: fc ?? undefined }),
@@ -2171,7 +2166,7 @@ export default function AiPage() {
             } else if (parsed.type === "account_banned") {
               // Force logout after a short delay so the user sees the ban message
               setTimeout(async () => {
-                try { await fetch("/auth/logout", { method: "POST", credentials: "include", headers: getCsrfHeaders("POST") }); } catch {}
+                try { await nativeFetch("/auth/logout", { method: "POST" }); } catch {}
                 queryClient.setQueryData(["auth-me"], null);
                 queryClient.clear();
                 window.location.href = "/login?reason=banned";
@@ -2208,7 +2203,7 @@ export default function AiPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/ai/upload", { method: "POST", body: formData, credentials: "include", headers: getCsrfHeaders("POST") });
+      const res = await nativeFetch("/api/ai/upload", { method: "POST", body: formData });
       if (!res.ok) throw new Error((await res.json()).message || "Upload failed");
       const data = await res.json();
       setFileContent(data.content);

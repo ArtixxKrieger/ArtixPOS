@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { nativeFetch } from "@/lib/queryClient";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   useProducts,
@@ -240,9 +241,8 @@ export default function Products() {
 
   const importMutation = useMutation({
     mutationFn: async (rows: CsvRow[]) => {
-      const res = await fetch("/api/products/import", {
+      const res = await nativeFetch("/api/products/import", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows }),
       });
@@ -290,9 +290,7 @@ export default function Products() {
     queryKey: ["/api/products", stockHistoryProduct?.id, "stock-logs"],
     queryFn: async () => {
       if (!stockHistoryProduct) return [];
-      const res = await fetch(`/api/products/${stockHistoryProduct.id}/stock-logs`, {
-        credentials: "include",
-      });
+      const res = await nativeFetch(`/api/products/${stockHistoryProduct.id}/stock-logs`);
       if (!res.ok) return [];
       return res.json();
     },

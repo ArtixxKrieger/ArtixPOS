@@ -1,5 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { nativeFetch } from "@/lib/queryClient";
 import { MapPin, Phone, Mail, Globe, Clock, CheckCircle, XCircle, Building2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -83,7 +84,7 @@ export default function BranchPublicPage() {
   const { data: branch, isLoading, isError } = useQuery<PublicBranch>({
     queryKey: ["/api/public/branch", id],
     queryFn: async () => {
-      const res = await fetch(`/api/public/branch/${id}`);
+      const res = await nativeFetch(`/api/public/branch/${id}`);
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },

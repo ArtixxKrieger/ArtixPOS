@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, nativeFetch } from "@/lib/queryClient";
 
 const SUBSCRIBED_KEY = "artix_push_subscribed";
 
@@ -65,7 +65,7 @@ export function usePushNotifications(): UsePushNotifications {
       setPermission(perm as PushPermission);
       if (perm !== "granted") return;
 
-      const keyRes = await fetch("/api/push/vapid-key");
+      const keyRes = await nativeFetch("/api/push/vapid-key");
       if (!keyRes.ok) throw new Error("Push not configured on server");
       const { key } = await keyRes.json();
 

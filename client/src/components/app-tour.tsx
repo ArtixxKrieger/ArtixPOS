@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { ArrowRight, ArrowLeft, X } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface TourStep {
   target: string | null;
@@ -801,12 +802,7 @@ export function AppTour() {
   const dismiss = useCallback(() => {
     if (storageKey) localStorage.setItem(storageKey, "1");
     // Persist to DB so the tour doesn't re-appear on other devices / after cache clears
-    fetch("/api/settings", {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tourSeen: 1 }),
-    }).catch(() => {});
+    apiRequest("PATCH", "/api/settings", { tourSeen: 1 }).catch(() => {});
     setExiting(true);
     setTimeout(() => setVisible(false), 280);
   }, [storageKey]);

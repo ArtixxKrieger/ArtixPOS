@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, nativeFetch } from "@/lib/queryClient";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
@@ -151,7 +151,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
   const { data: pointsLog = [], isLoading: pointsLoading } = useQuery<LoyaltyPointsLog[]>({
     queryKey: ["/api/customers", customer.id, "loyalty-log"],
     queryFn: async () => {
-      const r = await fetch(`/api/customers/${customer.id}/loyalty-log`, { credentials: "include" });
+      const r = await nativeFetch(`/api/customers/${customer.id}/loyalty-log`);
       return r.ok ? r.json() : [];
     },
   });
@@ -161,7 +161,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
   const { data: sales = [], isLoading: salesLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customer.id, "sales"],
     queryFn: async () => {
-      const r = await fetch(`/api/customers/${customer.id}/sales`, { credentials: "include" });
+      const r = await nativeFetch(`/api/customers/${customer.id}/sales`);
       return r.ok ? r.json() : [];
     },
   });

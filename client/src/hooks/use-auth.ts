@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { resolveUrl, clearNativeToken, NATIVE_TOKEN_KEY, getCsrfHeaders } from "@/lib/queryClient";
+import { nativeFetch, clearNativeToken, NATIVE_TOKEN_KEY } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { clearSettingsPrewarm } from "@/hooks/use-settings";
@@ -50,9 +50,6 @@ export interface AuthUser {
 async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthUser | null> {
   const token = localStorage.getItem(NATIVE_TOKEN_KEY);
   const isNative = !!API_BASE;
-  const headers: Record<string, string> =
-    isNative && token ? { Authorization: `Bearer ${token}` } : {};
-  const credentials: RequestCredentials = isNative ? "omit" : "include";
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(new DOMException("fetchMe timeout", "TimeoutError")), 20_000);
@@ -69,8 +66,8 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
   }
 
   try {
-    debugLog("auth", `fetchMe — token=${token ? "YES" : "NO"} url=${resolveUrl("/api/auth/me")}`);
-    const res = await fetch(resolveUrl("/api/auth/me"), { credentials, headers, signal: controller.signal });
+    debugLog("auth", `fetchMe — token=${token ? "YES" : "NO"}`);
+    const res = await nativeFetch("/api/auth/me", { signal: controller.signal });
     clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — status=${res.status}`);
     if (res.status === 401) {
@@ -117,16 +114,8 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem(NATIVE_TOKEN_KEY);
       try {
-        await fetch(resolveUrl("/auth/logout"), {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            ...getCsrfHeaders("POST"),
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
+        await nativeFetch("/auth/logout", { method: "POST" });
       } catch {
       }
       clearNativeToken();

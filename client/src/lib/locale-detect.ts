@@ -1,3 +1,5 @@
+import { nativeFetch } from "@/lib/queryClient";
+
 export interface CountryData {
   code: string;
   name: string;
@@ -194,7 +196,7 @@ export function getCountryByCode(code: string): CountryData | null {
 export async function detectCountryByIP(): Promise<CountryData | null> {
   // 1. Own server — reads CF-IPCountry / x-vercel-ip-country header
   try {
-    const r = await fetch("/api/geo", { signal: AbortSignal.timeout(3000) });
+    const r = await nativeFetch("/api/geo", { signal: AbortSignal.timeout(3000) });
     if (r.ok) {
       const d = await r.json();
       const code = typeof d.countryCode === "string" ? d.countryCode : null;

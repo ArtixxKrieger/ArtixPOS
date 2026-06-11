@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { type InsertSale } from "@shared/schema";
 import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId } from "@/lib/offline-db";
-import { nativeFetch } from "@/lib/queryClient";
+import { nativeFetch, queryClient as qc } from "@/lib/queryClient";
 
 const BASE_URL = api.sales.list.path;
 
@@ -40,6 +40,36 @@ export function useSales(params?: SalesQueryParams) {
     queryKey: cacheKey,
     queryFn: async () => {
       const idbKey = buildCacheKey(url, params);
+
+      // ── IDB-first pattern ────────────────────────────────────────────────
+      // Return cached data immediately so the list isn't blank while the
+      // network request is in-flight or when offline.  Background-refresh
+      // from the server and merge, preserving any offline-queued sales that
+      // haven't been synced yet.
+      const idbData = await getCached<ReturnType<typeof api.sales.list.responses[200]["parse"]>>(idbKey);
+
+      if (idbData !== null) {
+        nativeFetch(url)
+          .then(async (res) => {
+            if (!res.ok) return;
+            const fresh = api.sales.list.responses[200].parse(await res.json());
+            // Keep offline-queued sales (temp IDs) not yet synced to the server.
+            const current = qc.getQueryData<any[]>(cacheKey);
+            const freshIds = new Set((fresh ?? []).map((s: any) => String(s.id)));
+            const offlinePending = (current ?? []).filter(
+              (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id))
+            );
+            const merged = offlinePending.length > 0
+              ? [...offlinePending, ...fresh]
+              : fresh;
+            setCached(idbKey, fresh).catch(() => {}); // IDB always gets server truth
+            qc.setQueryData(cacheKey, merged);
+          })
+          .catch(() => {});
+        return idbData;
+      }
+
+      // No IDB — must wait for network
       try {
         const res = await nativeFetch(url);
         if (!res.ok) throw new Error(`${res.status}`);

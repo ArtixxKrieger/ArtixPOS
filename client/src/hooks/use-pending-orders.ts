@@ -2,28 +2,61 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type PendingOrder, type InsertPendingOrder, type Product } from "@shared/schema";
 import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId } from "@/lib/offline-db";
-import { nativeFetch } from "@/lib/queryClient";
+import { nativeFetch, queryClient as qc } from "@/lib/queryClient";
 
 const LIST_URL = api.pendingOrders.list.path;
 
 export function usePendingOrders() {
   return useQuery({
     queryKey: [LIST_URL],
-    // Data stays fresh for 30 s — route changes within a session never trigger
-    // a background re-fetch.  All mutations call setQueryData directly so the
+    // Data stays fresh for 30 s — mutations call setQueryData directly so the
     // cache is always current without needing a stale-triggered refetch.
     staleTime: 30_000,
     queryFn: async () => {
+      // ── IDB-first pattern ────────────────────────────────────────────────
+      // Return any cached data immediately to avoid a blank screen while
+      // waiting for the network (or while offline).  Then background-refresh
+      // from the server and merge, preserving any optimistic (temp-ID) entries
+      // that are still in-flight or queued for sync.
+      const idbData = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
+
+      if (idbData !== null) {
+        nativeFetch(LIST_URL)
+          .then(async (res) => {
+            if (!res.ok) return;
+            const fresh = api.pendingOrders.list.responses[200].parse(await res.json());
+            // Keep any optimistic entries (temp offline IDs) that the server
+            // doesn't know about yet — e.g. a checkout that's mid-flight or
+            // queued offline.  Without this guard a fast background refresh
+            // would overwrite the onMutate optimistic entry and the order would
+            // flicker out of the list mid-request.
+            const current = qc.getQueryData<PendingOrder[]>([LIST_URL]);
+            const freshIds = new Set((fresh ?? []).map((o: any) => String(o.id)));
+            const optimisticPending = (current ?? []).filter(
+              (o: any) => isOfflineId(String(o.id ?? "")) && !freshIds.has(String(o.id))
+            );
+            const merged = optimisticPending.length > 0
+              ? [...optimisticPending, ...fresh]
+              : fresh;
+            setCached(LIST_URL, fresh).catch(() => {}); // IDB always stores server truth
+            qc.setQueryData([LIST_URL], merged);
+          })
+          .catch(() => {});
+        return idbData;
+      }
+
+      // No IDB data yet — must wait for network
       try {
         const res = await nativeFetch(LIST_URL);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.pendingOrders.list.responses[200].parse(await res.json());
-        // Fire-and-forget IDB write — resolve immediately without waiting for IDB.
         setCached(LIST_URL, data).catch(() => {});
         return data;
       } catch (err) {
-        const cached = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
-        if (cached !== null) return cached;
+        // One more IDB attempt — initUserSession may have populated it after
+        // the initial getCached returned null.
+        const retry = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
+        if (retry !== null) return retry;
         throw err;
       }
     },
@@ -39,6 +72,28 @@ const CHECKOUT_TIMEOUT_MS = 10_000;
 export function useCreatePendingOrder() {
   const queryClient = useQueryClient();
   return useMutation({
+    // ── Optimistic update: order appears INSTANTLY in the list ──────────────
+    // Without this, the UI is blank until the full server round-trip completes
+    // (~500 ms–2 s on a paid order with stock deductions and audit logging).
+    onMutate: async (data: InsertPendingOrder) => {
+      await queryClient.cancelQueries({ queryKey: [LIST_URL] });
+      const previous = queryClient.getQueryData<PendingOrder[]>([LIST_URL]);
+      const tempId = makeOfflineId(); // stable placeholder until server responds
+      const optimistic = {
+        ...data,
+        id: tempId as unknown as number,
+        createdAt: new Date().toISOString(),
+        _pendingSync: true,
+      } as unknown as PendingOrder;
+      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
+        Array.isArray(old) ? [...old, optimistic] : [optimistic]
+      );
+      return { previous, tempId };
+    },
+    onError: (_err: unknown, _vars: InsertPendingOrder, context: any) => {
+      if (context?.previous)
+        queryClient.setQueryData<PendingOrder[]>([LIST_URL], context.previous);
+    },
     mutationFn: async (data: InsertPendingOrder) => {
       let res: Response;
 
@@ -133,10 +188,19 @@ export function useCreatePendingOrder() {
       await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), result]);
       return result;
     },
-    onSuccess: (result) => {
-      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
-        old ? [...old.filter((o) => o.id !== result.id), result] : [result]
-      );
+    onSuccess: (result, _vars, context: any) => {
+      // Replace the onMutate placeholder (tempId) with the confirmed result.
+      // We remove both `tempId` (from onMutate) and `result.id` (dedup guard)
+      // before appending the final entry, so there are never duplicate rows.
+      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) => {
+        if (!old) return [result];
+        const filtered = old.filter(
+          (o: any) =>
+            String(o.id) !== String(context?.tempId) &&
+            String(o.id) !== String(result.id)
+        );
+        return [...filtered, result];
+      });
 
       // When the checkout was queued offline, the mutationFn returns the
       // optimistic entry (id = __offline__…).  Mirror it into the sales and

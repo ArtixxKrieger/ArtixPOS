@@ -68,11 +68,14 @@ export function registerPendingOrderRoutes(app: Express): void {
       let saleReceiptNumber: string | null = null;
       let saleId: number | null = null;
 
+      // Resolve tenant ID early — needed both for kitchen SSE and the
+      // background stats-update ping added below.
+      const tid = getTenantId(req);
+
       if (input.status === "paid") {
         try {
-          // Create the sale FIRST. Only after it succeeds do we increment the
-          // discount-code usage — otherwise a failed sale would leave the
-          // discount counter inflated and rob the merchant of legitimate uses.
+          // Create the sale record synchronously — we need the OR / receipt
+          // numbers for the receipt the cashier is about to print.
           const rawBody = req.body as any;
           const sale = await storage.createSale(uid, {
             items: input.items,
@@ -104,29 +107,59 @@ export function registerPendingOrderRoutes(app: Express): void {
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
-          try {
-            await storage.deductProductStockForSale(uid, input.items as any[]);
-          } catch (stockErr) {
-            // Log prominently — stock is now inconsistent and needs manual review.
-            console.error("[CRITICAL] Stock deduction failed for sale", sale.id, "— inventory may be inconsistent:", stockErr);
-          }
-
-          if (input.discountCode) {
-            try {
-              const dc = await storage.getDiscountCodeByCode(input.discountCode, uid);
-              if (dc) await storage.incrementDiscountCodeUsage(dc.id);
-            } catch (dcErr) {
-              // Don't fail the whole flow if the counter bump fails — the sale
-              // and order are already recorded correctly.
-              console.error("Failed to increment discount code usage:", dcErr);
+          // ── Non-blocking background work ──────────────────────────────────
+          // Stock deduction, discount-code counter, audit log, and the
+          // dashboard stats-update SSE ping are all fire-and-forget.
+          // Keeping them in the hot path was adding 300-800 ms of visible
+          // latency on every POS checkout.
+          const capturedSale   = sale;
+          const capturedUid    = uid;
+          const capturedInput  = input;
+          const capturedTid    = tid;
+          const capturedReq    = req;
+          setImmediate(async () => {
+            // Stock deduction — with 3 retries, matching the direct-sale route
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                await storage.deductProductStockForSale(capturedUid, capturedInput.items as any[]);
+                break;
+              } catch (stockErr) {
+                if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
+                else console.error(`[CRITICAL] Stock deduction failed for sale ${capturedSale.id} — inventory may be inconsistent:`, stockErr);
+              }
             }
-          }
 
-          await auditLog(req, "create", "sale", String(sale.id), {
-            total: sale.total,
-            itemCount: Array.isArray(sale.items) ? sale.items.length : 0,
-            paymentMethod: sale.paymentMethod,
-            source: "pos",
+            // Discount-code usage counter
+            if (capturedInput.discountCode) {
+              try {
+                const dc = await storage.getDiscountCodeByCode(capturedInput.discountCode, capturedUid);
+                if (dc) await storage.incrementDiscountCodeUsage(dc.id);
+              } catch (dcErr) {
+                console.error("Failed to increment discount code usage:", dcErr);
+              }
+            }
+
+            // Audit log
+            try {
+              await auditLog(capturedReq, "create", "sale", String(capturedSale.id), {
+                total: capturedSale.total,
+                itemCount: Array.isArray(capturedSale.items) ? capturedSale.items.length : 0,
+                paymentMethod: capturedSale.paymentMethod,
+                source: "pos",
+              });
+            } catch {}
+
+            // Stats-update SSE — notify all open dashboard tabs so they refresh
+            // in real time.  This was the missing link: /api/pending-orders
+            // creates the sale but never emitted stats-update, so the dashboard
+            // SSE was completely silent for every POS checkout.
+            if (capturedTid) {
+              emitTenantEvent(capturedTid, {
+                type: "stats-update",
+                saleId: capturedSale.id,
+                total: capturedSale.total,
+              });
+            }
           });
         } catch (saleErr) {
           // Sale creation failure is non-fatal — the order is already saved.
@@ -134,9 +167,8 @@ export function registerPendingOrderRoutes(app: Express): void {
         }
       }
 
-      // Emit for ALL orders regardless of payment status — quick-pay F&B
-      // orders (paid at counter, prepared in kitchen) must also reach the display.
-      const tid = getTenantId(req);
+      // Emit kitchen-new-order for ALL orders (paid at counter or tab-style)
+      // so the kitchen display lights up instantly.
       if (tid) {
         emitTenantEvent(tid, {
           type: "kitchen-new-order",

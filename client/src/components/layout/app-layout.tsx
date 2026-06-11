@@ -1,4 +1,4 @@
-import { ReactNode, memo, useEffect, useState, startTransition } from "react";
+import { ReactNode, memo, useEffect, useState, startTransition, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { AiFloatButton } from "@/components/ai-float-button";
@@ -149,6 +149,8 @@ const SECTION_ID_TO_I18N_KEY: Record<string, string> = {
   tools: "nav.sections.tools",
 };
 
+const TOASTER_OPTIONS = { duration: 3500, roundness: 16 } as const;
+
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
   "/pos": "Point of Sale",
@@ -297,9 +299,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isManagerOrAbove = role === "owner" || role === "manager";
 
   const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();
-  const { hiddenUrls: businessHiddenUrls, essentialUrls: businessEssentialUrls, labels: businessLabels } = getBusinessFeatures(
-    branchBusinessType,
-    branchBusinessSubType,
+  const { hiddenUrls: businessHiddenUrls, essentialUrls: businessEssentialUrls, labels: businessLabels } = useMemo(
+    () => getBusinessFeatures(branchBusinessType, branchBusinessSubType),
+    [branchBusinessType, branchBusinessSubType],
   );
 
   const pendingCount = pendingOrders.filter(o => o.status !== "paid").length;
@@ -334,17 +336,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
     document.title = pageTitle ? `${pageTitle} — ${storeName}` : storeName;
   }, [location, storeName, businessLabels]);
 
-  function shouldShowNavItem(item: { url: string; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean }) {
-    if (businessHiddenUrls.has(item.url)) return false;
-    if (item.proOnly && isFree && !businessEssentialUrls.has(item.url)) return false;
-    if (isCashier) {
-      const cashierUrls = ["/", "/pos", "/pending", "/settings", ...businessEssentialUrls];
-      return cashierUrls.includes(item.url);
-    }
-    if (item.managerOnly && !isManagerOrAbove) return false;
-    if (item.ownerOnly && !isOwner) return false;
-    return true;
-  }
+  const shouldShowNavItem = useCallback(
+    (item: { url: string; managerOnly?: boolean; ownerOnly?: boolean; proOnly?: boolean }) => {
+      if (businessHiddenUrls.has(item.url)) return false;
+      if (item.proOnly && isFree && !businessEssentialUrls.has(item.url)) return false;
+      if (isCashier) {
+        const cashierUrls = ["/", "/pos", "/pending", "/settings", ...businessEssentialUrls];
+        return cashierUrls.includes(item.url);
+      }
+      if (item.managerOnly && !isManagerOrAbove) return false;
+      if (item.ownerOnly && !isOwner) return false;
+      return true;
+    },
+    [businessHiddenUrls, businessEssentialUrls, isFree, isCashier, isManagerOrAbove, isOwner],
+  );
+
+  const visibleNavSections = useMemo(() =>
+    NAV_SECTIONS.map((section) => {
+      const visibleItems = section.items.filter(item => shouldShowNavItem(item));
+      const sectionI18nKey = SECTION_ID_TO_I18N_KEY[section.id];
+      const sectionLabel = sectionI18nKey ? t(sectionI18nKey) : section.label;
+      return { ...section, visibleItems, sectionLabel };
+    }).filter(s => s.visibleItems.length > 0),
+    [shouldShowNavItem, t],
+  );
 
   return (
     <div className="h-dvh w-full bg-background flex overflow-hidden">
@@ -352,7 +367,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         position="top-left"
         theme={isDark ? "dark" : "light"}
         offset={{ top: 16, left: 16 }}
-        options={{ duration: 3500, roundness: 16 }}
+        options={TOASTER_OPTIONS}
       />
 
       <aside
@@ -388,41 +403,35 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className={["flex-1 py-2 overflow-y-auto space-y-0 scrollbar-hide", sidebarCollapsed ? "px-1.5" : "px-2.5"].join(" ")}>
-          {NAV_SECTIONS.map((section) => {
-            const visibleItems = section.items.filter(item => shouldShowNavItem(item));
-            if (visibleItems.length === 0) return null;
-            const sectionI18nKey = SECTION_ID_TO_I18N_KEY[section.id];
-            const sectionLabel = sectionI18nKey ? t(sectionI18nKey) : section.label;
-            return (
-              <div key={section.id}>
-                {section.label && !sidebarCollapsed && (
-                  <p className="nav-section-label">{sectionLabel}</p>
-                )}
-                {section.label && sidebarCollapsed && (
-                  <div className="h-px bg-border/40 my-1.5 mx-1" />
-                )}
-                <div className="space-y-0.5">
-                  {visibleItems.map((item) => {
-                    const i18nKey = URL_TO_I18N_KEY[item.url];
-                    const translatedLabel = i18nKey ? t(i18nKey) : item.label;
-                    return (
-                      <NavItem
-                        key={item.url}
-                        url={item.url}
-                        icon={item.icon}
-                        label={item.label}
-                        isActive={location === item.url}
-                        displayLabel={businessLabels[item.url] ?? translatedLabel}
-                        badge={item.url === "/pending" && pendingCount > 0 ? pendingCount : null}
-                        onNavigate={setLocation}
-                        collapsed={sidebarCollapsed}
-                      />
-                    );
-                  })}
-                </div>
+          {visibleNavSections.map((section) => (
+            <div key={section.id}>
+              {section.label && !sidebarCollapsed && (
+                <p className="nav-section-label">{section.sectionLabel}</p>
+              )}
+              {section.label && sidebarCollapsed && (
+                <div className="h-px bg-border/40 my-1.5 mx-1" />
+              )}
+              <div className="space-y-0.5">
+                {section.visibleItems.map((item) => {
+                  const i18nKey = URL_TO_I18N_KEY[item.url];
+                  const translatedLabel = i18nKey ? t(i18nKey) : item.label;
+                  return (
+                    <NavItem
+                      key={item.url}
+                      url={item.url}
+                      icon={item.icon}
+                      label={item.label}
+                      isActive={location === item.url}
+                      displayLabel={businessLabels[item.url] ?? translatedLabel}
+                      badge={item.url === "/pending" && pendingCount > 0 ? pendingCount : null}
+                      onNavigate={setLocation}
+                      collapsed={sidebarCollapsed}
+                    />
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
 
           {isAdminOrAbove && (
             <div>

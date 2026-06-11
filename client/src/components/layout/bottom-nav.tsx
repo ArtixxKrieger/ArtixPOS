@@ -1,4 +1,4 @@
-import { useState, startTransition, useEffect } from "react";
+import { useState, startTransition, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import {
@@ -143,15 +143,13 @@ const ADMIN_NAV = [
   { label: "Analytics", url: "/admin/analytics", icon: BarChart3, i18nKey: "nav.admin.analytics" },
 ] as const;
 
+const ALL_SECONDARY_URLS = new Set([
+  ...MORE_NAV_FULL.map((i) => i.url),
+  ...ADMIN_NAV.map((i) => i.url),
+]);
+
 export function BottomNav() {
   const { t } = useTranslation();
-  const CATEGORY_LABELS: Record<MoreCategory, string> = {
-    service:    t("nav.sections.service"),
-    operations: t("nav.sections.operations"),
-    management: t("nav.sections.management"),
-    finance:    t("nav.sections.financeAnalytics"),
-    tools:      t("nav.sections.tools"),
-  };
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingOrdersRaw } = usePendingOrders();
@@ -177,12 +175,20 @@ export function BottomNav() {
   const isOwner = role === "owner";
 
   const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();
-  const { hiddenUrls, essentialUrls, primaryNavUrls, labels } = getBusinessFeatures(
-    branchBusinessType,
-    branchBusinessSubType,
+  const { hiddenUrls, essentialUrls, primaryNavUrls, labels } = useMemo(
+    () => getBusinessFeatures(branchBusinessType, branchBusinessSubType),
+    [branchBusinessType, branchBusinessSubType],
   );
 
-  const primaryNavItems = [
+  const CATEGORY_LABELS = useMemo<Record<MoreCategory, string>>(() => ({
+    service:    t("nav.sections.service"),
+    operations: t("nav.sections.operations"),
+    management: t("nav.sections.management"),
+    finance:    t("nav.sections.financeAnalytics"),
+    tools:      t("nav.sections.tools"),
+  }), [t]);
+
+  const primaryNavItems = useMemo(() => [
     { url: "/" as string },
     { url: primaryNavUrls[0] as string },
     { url: primaryNavUrls[1] as string },
@@ -195,11 +201,14 @@ export function BottomNav() {
       label: labels[item.url] ?? translatedLabel,
       icon: config.icon,
     };
-  });
+  }), [t, primaryNavUrls, labels]);
 
-  const primaryNavUrlSet = new Set(primaryNavItems.map((i) => i.url));
+  const primaryNavUrlSet = useMemo(
+    () => new Set(primaryNavItems.map((i) => i.url)),
+    [primaryNavItems],
+  );
 
-  const filteredMoreItems = MORE_NAV_FULL.filter((i) => {
+  const filteredMoreItems = useMemo(() => MORE_NAV_FULL.filter((i) => {
     if (primaryNavUrlSet.has(i.url)) return false;
     if (isFree && i.proOnly && !essentialUrls.has(i.url)) return false;
     if (isCashier && i.cashierHidden) return false;
@@ -217,23 +226,20 @@ export function BottomNav() {
       label: labels[item.url] ?? translatedLabel,
       icon: config.icon,
     };
-  });
+  }), [primaryNavUrlSet, isFree, essentialUrls, isCashier, isManagerOrAbove, isOwner, hiddenUrls, labels, t]);
 
-  const grouped = CATEGORY_ORDER
+  const grouped = useMemo(() => CATEGORY_ORDER
     .map(cat => ({
       category: cat,
       label: CATEGORY_LABELS[cat],
       items: filteredMoreItems.filter(i => i.category === cat),
     }))
-    .filter(g => g.items.length > 0);
+    .filter(g => g.items.length > 0),
+  [filteredMoreItems, CATEGORY_LABELS]);
 
   const pendingCount = pendingOrders.length;
 
-  const allSecondaryUrls = new Set([
-    ...MORE_NAV_FULL.map((i) => i.url),
-    ...ADMIN_NAV.map((i) => i.url),
-  ]);
-  const isMoreActive = allSecondaryUrls.has(location) || location.startsWith("/admin");
+  const isMoreActive = ALL_SECONDARY_URLS.has(location) || location.startsWith("/admin");
   const primaryActiveIndex = primaryNavItems.findIndex((item) => item.url === location);
   const hasMore = filteredMoreItems.length > 0 || isAdminOrAbove;
   const pillIndex = primaryActiveIndex !== -1
@@ -242,10 +248,10 @@ export function BottomNav() {
       ? primaryNavItems.length
       : -1;
 
-  const navigate = (url: string) => {
+  const navigate = useCallback((url: string) => {
     startTransition(() => setLocation(url));
     setMoreOpen(false);
-  };
+  }, [setLocation]);
 
   return (
     <>

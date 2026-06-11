@@ -7,7 +7,7 @@ import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, isToday } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3, ArrowRight, AlertTriangle, Package, PieChart, Clock3, Percent, ShoppingCart } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
@@ -49,22 +49,17 @@ function Counter({ value, prefix = "" }: { value: number; prefix?: string }) {
   );
 }
 
+const STATS_URL = "/api/dashboard/stats";
+
+function buildStatsUrl(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return `${STATS_URL}?startOfDay=${encodeURIComponent(d.toISOString())}`;
+}
+
 export default function Dashboard() {
   const { t } = useTranslation();
-  // Subscribe to real-time sale events — invalidates stats the instant a sale lands
   useDashboardSse();
-  const STATS_URL = "/api/dashboard/stats";
-
-  // Build the URL for stats fetches.  We pass the client's local-midnight as a
-  // UTC ISO string so the server scopes "today" to the user's calendar day
-  // instead of the server's UTC day.  Without this, a Philippines user (UTC+8)
-  // loses sales made from midnight to 08:00 local time because their UTC
-  // createdAt timestamps fall on the *previous* UTC date.
-  function buildStatsUrl(): string {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0); // local midnight
-    return `${STATS_URL}?startOfDay=${encodeURIComponent(d.toISOString())}`;
-  }
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: [STATS_URL],
@@ -227,11 +222,11 @@ export default function Dashboard() {
     { label: t("dashboard.payments"), value: paymentBreakdown.length ? paymentBreakdown[0].method : t("dashboard.noPaymentData"), icon: PieChart },
   ];
 
-  const CurrencyIcon = ({ className }: { className?: string }) => (
+  const CurrencyIcon = useCallback(({ className }: { className?: string }) => (
     <span className="font-black text-sm leading-none flex items-center justify-center w-4 h-4 shrink-0">
       {currency}
     </span>
-  );
+  ), [currency]);
 
   return (
     <div className="space-y-4 page-enter">

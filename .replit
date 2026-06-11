@@ -79,3 +79,7 @@ VAPID_EMAIL = "mailto:admin@artixpos.com"
 [agent]
 expertMode = true
 stack = "FULLSTACK_JS"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000

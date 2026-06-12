@@ -28,7 +28,6 @@ export const APP_PAGES: NavPage[] = [
   { label: "Time Clock", url: "/timeclock", location: "more", description: "Staff time tracking and attendance" },
   { label: "Discount Codes", url: "/discount-codes", location: "more", description: "Create and manage promotional discount codes" },
   { label: "Refunds", url: "/refunds", location: "more", description: "Process and view refunds (managers and above)" },
-  { label: "AI Assistant", url: "/ai", location: "more", description: "AI-powered business assistant" },
   { label: "Hardware Settings", url: "/hardware-settings", location: "more", description: "Test barcode scanners and connect USB thermal printers (plug-and-play, no drivers needed)" },
   { label: "Print Settings", url: "/print-settings", location: "more", description: "Configure receipt paper size, title, store info, and other print options (owner only)" },
   { label: "Loyalty Program", url: "/loyalty", location: "more", description: "Configure loyalty points: how customers earn and redeem points for discounts (Pro)" },

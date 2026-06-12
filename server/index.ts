@@ -11,7 +11,6 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, jwtAuthMiddleware } from "./auth";
 import { ensureIndexes } from "./indexes";
-import { initOllama, stopOllama } from "./ai-router";
 import { db as _healthDb } from "./db";
 import { sql as _healthSql } from "drizzle-orm";
 import { logger } from "./logger";
@@ -383,8 +382,6 @@ async function _doInit() {
     console.log("[init] step 6/8 — setupSwagger");
     setupSwagger(app);
 
-    initOllama().catch((err) => console.warn("[ai-router][ollama] init error:", err.message));
-
     await applySentryErrorHandler(app);
 
     app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
@@ -461,7 +458,6 @@ if (process.env.VERCEL !== "1") {
 
   process.on("SIGTERM", () => {
     console.log("[shutdown] SIGTERM — draining in-flight requests (15s max)");
-    stopOllama();
     const killTimer = setTimeout(() => {
       console.warn("[shutdown] Force exit — requests still in flight after 15s");
       process.exit(0);

@@ -142,7 +142,6 @@ export async function setupRLS(): Promise<void> {
       "role_permissions",
       "tenant_subscriptions",
       "subscription_payments",
-      "ai_memories",
     ];
 
     for (const t of tenantIdTables) {

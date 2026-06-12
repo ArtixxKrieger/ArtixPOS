@@ -71,7 +71,6 @@ const DEFAULT_SIDEBAR_ORDER = [
   "/discount-codes",
   "/loyalty",
   "/refunds",
-  "/ai",
   "/settings",
 ];
 
@@ -172,7 +171,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -242,7 +240,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -303,7 +300,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -362,7 +358,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -421,7 +416,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -479,7 +473,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -540,7 +533,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -603,7 +595,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -661,7 +652,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -717,7 +707,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -773,7 +762,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -829,7 +817,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -877,7 +864,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         break;
@@ -917,7 +903,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -985,7 +970,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1051,7 +1035,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1117,7 +1100,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1184,7 +1166,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1250,7 +1231,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1318,7 +1298,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1385,7 +1364,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1451,7 +1429,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1515,7 +1492,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1584,7 +1560,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1648,7 +1623,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1713,7 +1687,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1778,7 +1751,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1843,7 +1815,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = {
@@ -1900,7 +1871,6 @@ export function getBusinessFeatures(
           "/timeclock",
           "/discount-codes",
           "/refunds",
-          "/ai",
           "/settings",
         ];
         terminology = DEFAULT_TERMINOLOGY;

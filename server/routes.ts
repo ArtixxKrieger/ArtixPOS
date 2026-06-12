@@ -15,7 +15,6 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { rateLimit } from "express-rate-limit";
 import { registerAdminRoutes } from "./admin-routes";
-import { registerAiRoutes } from "./ai-routes";
 import { registerSubscriptionRoutes, registerPaymentWebhookRoutes, registerRevenueCatWebhookRoutes } from "./subscription-routes";
 import { registerPayrollRoutes } from "./payroll-routes";
 import { db } from "./db";
@@ -65,7 +64,6 @@ export async function registerRoutes(
 ): Promise<Server> {
   // ── Third-party / special-purpose route registrars ─────────────────────────
   registerAdminRoutes(app);
-  registerAiRoutes(app);
   registerSubscriptionRoutes(app);
   registerPaymentWebhookRoutes(app);
   registerRevenueCatWebhookRoutes(app);

@@ -4,7 +4,6 @@ const REQUIRED: Record<string, string> = {
 };
 
 const RECOMMENDED: Record<string, string> = {
-  GROQ_API_KEY: "Groq AI API key (AI assistant)",
   SMTP_HOST: "SMTP server for password reset emails",
   SENTRY_DSN: "Sentry DSN for production error tracking",
 };

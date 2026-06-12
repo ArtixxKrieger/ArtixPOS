@@ -39,7 +39,6 @@ import {
   rolePermissions,
   tenantSubscriptions,
   subscriptionPayments,
-  aiMemories,
   revokedTokens,
   notifications,
   stockLogs,
@@ -744,7 +743,6 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
   await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
   await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
   await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
-  await db.delete(aiMemories).where(eq(aiMemories.tenantId, tenantId));
 
   await db
     .update(auditLogs)
@@ -1353,7 +1351,6 @@ export function setupAuth(app: Express) {
           rolePermissionsRows,
           tenantSubscriptionsRows,
           subscriptionPaymentsRows,
-          aiMemoriesRows,
           auditLogsRows,
         ] = await Promise.all([
           db.select().from(tenants).where(eq(tenants.id, tenantId!)),
@@ -1364,7 +1361,6 @@ export function setupAuth(app: Express) {
             .select()
             .from(subscriptionPayments)
             .where(eq(subscriptionPayments.tenantId, tenantId!)),
-          db.select().from(aiMemories).where(eq(aiMemories.tenantId, tenantId!)),
           db.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId!)),
         ]);
         tenantData = {
@@ -1373,7 +1369,6 @@ export function setupAuth(app: Express) {
           rolePermissions: rolePermissionsRows,
           tenantSubscriptions: tenantSubscriptionsRows,
           subscriptionPayments: subscriptionPaymentsRows,
-          aiMemories: aiMemoriesRows,
           auditLogs: auditLogsRows,
         };
       }

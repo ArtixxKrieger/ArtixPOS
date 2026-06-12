@@ -693,7 +693,6 @@ export default function TermsOfService() {
                 items={[
                   "PayMongo — for payment processing and subscription management",
                   "Google — for optional OAuth authentication",
-                  "Groq, Cerebras, and Mistral — for AI assistant features",
                 ]}
               />
               <Body>

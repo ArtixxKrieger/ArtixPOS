@@ -20,7 +20,7 @@ import {
   BadgeCheck, Bell, BellOff, Search, PlayCircle, Zap,
   HelpCircle, ShoppingCart, LayoutDashboard, Package, Boxes, Users, Gift,
   IdCard, Calendar, UserCheck, Clock, Wallet, Receipt, TrendingUp, Tag,
-  RotateCcw, LayoutGrid, ChefHat, Truck, ClipboardList, FileBarChart, Bot,
+  RotateCcw, LayoutGrid, ChefHat, Truck, ClipboardList, FileBarChart,
   Building2, AlarmClock, Wifi, ChevronDown,
 } from "lucide-react";
 import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
@@ -1384,21 +1384,6 @@ export default function Settings() {
                     "The Monthly Summary aggregates all transactions for the selected month.",
                     "Export the eSales CSV to submit your sales file to the BIR.",
                     "The E-Journal is an electronic record of every transaction, which you are required to keep.",
-                  ],
-                },
-                {
-                  id: "ai",
-                  icon: Bot,
-                  color: "bg-fuchsia-500/15 text-fuchsia-500",
-                  title: "AI Assistant",
-                  tagline: "Ask business questions in plain language and get instant answers",
-                  steps: [
-                    "Go to AI Assistant from the navigation.",
-                    "Type your question in the chat box. For example: What were my top 5 products last week?",
-                    "The assistant reads your sales, inventory, and customer data to answer.",
-                    "You can ask about trends, comparisons, and recommendations.",
-                    "Try questions like: Which hours are slowest? or What is my profit margin this month?",
-                    "The assistant remembers the context within a conversation so you can follow up.",
                   ],
                 },
                 {

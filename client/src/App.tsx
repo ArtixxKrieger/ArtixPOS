@@ -46,7 +46,6 @@ const Expenses = lazy(() => import("@/pages/expenses"));
 const Shifts = lazy(() => import("@/pages/shifts"));
 const DiscountCodes = lazy(() => import("@/pages/discount-codes"));
 const Refunds = lazy(() => import("@/pages/refunds"));
-const AiPage = lazy(() => import("@/pages/ai"));
 const TablesPage = lazy(() => import("@/pages/tables"));
 const KitchenPage = lazy(() => import("@/pages/kitchen"));
 const KitchenDisplayPage = lazy(() => import("@/pages/kitchen-display"));
@@ -474,7 +473,6 @@ const AdminAuditLogsRoute = () => <AdminGuard component={AdminAuditLogs} />;
 const AdminPermissionsRoute = () => <AdminGuard component={AdminPermissions} />;
 
 const RefundsRoute = () => <ManagerOrAboveGuard component={Refunds} />;
-const AiRoute = () => <ProAndOwnerGuard component={AiPage} />;
 const PrintSettingsRoute = () => <OwnerGuard component={PrintSettings} />;
 const BIRRoute = () => <ProAndOwnerGuard component={BIRPage} />;
 const BIRAuditLogRoute = () => <ProAndOwnerGuard component={BIRAuditLogPage} />;
@@ -517,7 +515,6 @@ const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
   () => import("@/pages/shifts"),
   () => import("@/pages/discount-codes"),
   () => import("@/pages/refunds"),
-  () => import("@/pages/ai"),
   () => import("@/pages/tables"),
   () => import("@/pages/kitchen"),
   () => import("@/pages/kitchen-display"),
@@ -722,7 +719,6 @@ function AppRouter() {
             <Route path="/shifts" component={ShiftsRoute} />
             <Route path="/discount-codes" component={DiscountCodesRoute} />
             <Route path="/refunds" component={RefundsRoute} />
-            <Route path="/ai" component={AiRoute} />
             <Route path="/tables" component={TablesRoute} />
             <Route path="/kitchen" component={KitchenRoute} />
             <Route path="/suppliers" component={SuppliersRoute} />

@@ -1,12 +1,11 @@
 import { ReactNode, memo, useEffect, useState, startTransition, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { AiFloatButton } from "@/components/ai-float-button";
 import {
   type LucideIcon,
   Home, ShoppingCart, Clock, Package,
   Settings, BarChart3, ScrollText, LogOut,
-  ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw, Sparkles,
+  ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi, KeyRound, FlaskConical,
   PanelLeftClose, PanelLeftOpen, Maximize, Minimize,
@@ -85,7 +84,6 @@ const NAV_SECTIONS = [
     id: "tools",
     label: "Tools",
     items: [
-      { label: "AI Assistant", url: "/ai", icon: Sparkles, proOnly: true },
       { label: "Hardware", url: "/hardware-settings", icon: Cpu },
       { label: "Print Settings", url: "/print-settings", icon: ReceiptText, ownerOnly: true },
       { label: "Billing", url: "/billing", icon: CreditCard, ownerOnly: true },
@@ -130,7 +128,6 @@ const URL_TO_I18N_KEY: Record<string, string> = {
   "/purchases": "nav.purchases",
   "/bir": "nav.bir",
   "/bir-audit-log": "nav.birAuditLog",
-  "/ai": "nav.ai",
   "/hardware-settings": "nav.hardwareSettings",
   "/print-settings": "nav.printSettings",
   "/billing": "nav.billing",
@@ -173,7 +170,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/staff-clock-in": "Staff Kiosk",
   "/discount-codes": "Discount Codes",
   "/refunds": "Refunds",
-  "/ai": "AI Assistant",
   "/print-settings": "Print Settings",
   "/loyalty": "Loyalty Program",
   "/wifi-vouchers": "WiFi Vouchers",
@@ -645,7 +641,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {isOwner && <AiFloatButton />}
 
       <SyncConflictDrawer
         open={conflictDrawerOpen}

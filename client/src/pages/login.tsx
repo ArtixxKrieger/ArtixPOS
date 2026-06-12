@@ -321,6 +321,14 @@ function useLandingAnimations(
   }, []);
 }
 
+const POS_DEMO = [
+  { e:"☕", name:"Espresso", price:80 },
+  { e:"🍵", name:"Matcha Latte", price:120 },
+  { e:"☕", name:"Espresso", price:80 },
+  { e:"🥐", name:"Croissant", price:65 },
+  { e:"🥤", name:"Frappe", price:150 },
+];
+
 export default function Login() {
   const { t } = useTranslation();
   const { isAuthenticated, isLoading } = useAuth();
@@ -396,6 +404,9 @@ export default function Login() {
   const mockSectionRef = useRef<HTMLDivElement>(null);
   const [mockVisible, setMockVisible] = useState(false);
   const [activeMockTab, setActiveMockTab] = useState("Dashboard");
+  const [posCart, setPosCart] = useState<Array<{e:string;name:string;price:number;qty:number}>>([]);
+  const [posHighlight, setPosHighlight] = useState(-1);
+  const [posCharging, setPosCharging] = useState(false);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -459,6 +470,33 @@ export default function Login() {
     io.observe(mockSectionRef.current);
     return () => io.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (activeMockTab !== "POS") { setPosCart([]); setPosCharging(false); setPosHighlight(-1); return; }
+    let step = 0;
+    setPosCart([]);
+    setPosCharging(false);
+    const run = () => {
+      if (step < POS_DEMO.length) {
+        const p = POS_DEMO[step];
+        setPosHighlight(step % 3 + (step >= 3 ? 0 : 0));
+        const prodIdx = [0,1,0,3,2][step] ?? step;
+        setPosHighlight(prodIdx);
+        setPosCart(prev => {
+          const idx = prev.findIndex(i => i.name === p.name);
+          if (idx >= 0) return prev.map((i,ei) => ei===idx ? {...i, qty:i.qty+1} : i);
+          return [...prev, {...p, qty:1}];
+        });
+        setTimeout(() => setPosHighlight(-1), 380);
+        step++;
+      } else {
+        setPosCharging(true);
+        setTimeout(() => { setPosCart([]); setPosCharging(false); step = 0; }, 2200);
+      }
+    };
+    const t = setInterval(run, 1700);
+    return () => clearInterval(t);
+  }, [activeMockTab]);
 
   const oauthPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(
@@ -720,7 +758,6 @@ export default function Login() {
   const loginForm = (
     <div style={{ width: "100%", maxWidth: 400 }}>
       <style>{`
-        /* ── Keyframes ── */
         @keyframes rise        { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spin        { to{transform:rotate(360deg)} }
         @keyframes slide-in-right { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
@@ -732,7 +769,7 @@ export default function Login() {
         @keyframes lp-marquee  { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes lp-aurora   { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.55} 50%{transform:translate(-50%,-50%) scale(1.15);opacity:0.85} }
         @keyframes mock-fade   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .lp-marquee-track      { animation:lp-marquee 36s linear infinite }
+        .lp-marquee-track      { animation:lp-marquee 36s linear infinite;will-change:transform }
         .mock-tab-content      { animation:mock-fade 0.25s cubic-bezier(0.16,1,0.3,1) both }
         .lp-aurora-orb         { animation:lp-aurora 9s ease-in-out infinite alternate }
         .lp-bg-grid {
@@ -743,11 +780,11 @@ export default function Login() {
           mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.6) 20%,rgba(0,0,0,0.6) 80%,transparent 100%);
           -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.6) 20%,rgba(0,0,0,0.6) 80%,transparent 100%);
         }
+        .lp-section-lazy { content-visibility:auto; contain-intrinsic-size:0 700px; }
 
         .rise { animation:rise 0.45s cubic-bezier(0.16,1,0.3,1) both }
         .d1{ animation-delay:0.03s } .d2{ animation-delay:0.10s } .d3{ animation-delay:0.17s } .d4{ animation-delay:0.24s }
 
-        /* ── Scroll-reveal — smooth fade+translate, GPU-only ── */
         .sr {
           opacity:0;
           transform:translateY(24px);
@@ -757,16 +794,14 @@ export default function Login() {
         .sr.sr-left  { transform:translateX(-24px); }
         .sr.sr-right { transform:translateX(24px); }
         .sr.sr-scale { transform:scale(0.94); }
-        .sr.sr-visible {
-          opacity:1 !important;
-          transform:none !important;
-        }
+        .sr.sr-visible { opacity:1 !important; transform:none !important; will-change:auto; }
         .sr-d1 { transition-delay:0.05s } .sr-d2 { transition-delay:0.11s } .sr-d3 { transition-delay:0.17s }
         .sr-d4 { transition-delay:0.23s } .sr-d5 { transition-delay:0.29s } .sr-d6 { transition-delay:0.35s }
 
         @media (prefers-reduced-motion: reduce) {
           .sr,.sr.sr-left,.sr.sr-right,.sr.sr-scale { opacity:1!important;transform:none!important;transition:none!important; }
-          .float-mockup,.lp-orb,.lp-orb-b { animation:none!important; }
+          .float-mockup,.lp-orb,.lp-orb-b,.lp-marquee-track,.lp-aurora-orb,.hero-primary,.mock-tab-content { animation:none!important; }
+          .lp-section-lazy { content-visibility:visible; }
         }
 
         /* ── Form elements ── */
@@ -1998,19 +2033,6 @@ export default function Login() {
               <p style={{ fontSize: 15, color: "rgba(255,255,255,0.40)", maxWidth: 440, margin: "0 auto", lineHeight: 1.65 }}>
                 Sales, inventory, staff, and analytics — all in one beautifully unified view.
               </p>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20, flexWrap: "wrap" as const }}>
-                {(["Dashboard","POS","Orders","Products","Staff","Reports"] as const).map((tab) => (
-                  <button key={tab} onClick={() => setActiveMockTab(tab)} style={{
-                    padding: "5px 16px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    background: activeMockTab === tab ? `rgba(59,130,246,0.20)` : "rgba(255,255,255,0.05)",
-                    color: activeMockTab === tab ? NEON : "rgba(255,255,255,0.38)",
-                    border: activeMockTab === tab ? `1px solid rgba(59,130,246,0.40)` : "1px solid rgba(255,255,255,0.08)",
-                    transition: "all 0.2s ease", fontFamily: "inherit",
-                  }}>
-                    {tab}
-                  </button>
-                ))}
-              </div>
             </div>
           }
         >

@@ -100,15 +100,24 @@ api.interceptors.response.use(
 // When any API call returns 401, clear the stored token and redirect to /login.
 // Skipped for the /api/auth/me probe (that 401 is handled by useAuth itself)
 // and for requests already targeting auth routes, to avoid redirect loops.
-const AUTH_PROBE_URLS = new Set(["/api/auth/me", "/api/auth/login", "/api/auth/logout"]);
+// URL namespaces that intentionally return 401 and handle it themselves —
+// do NOT redirect to /login for these.
+//   /api/auth/*      — useAuth handles unauthenticated state
+//   /api/staff-pin/* — wrong/missing PIN should show an error, not redirect
+const NO_REDIRECT_401 = ["/api/auth/", "/api/staff-pin/"];
 
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
     if (err.response?.status === 401) {
       const url = err.config?.url ?? "";
-      const isProbe = AUTH_PROBE_URLS.has(url) || url.includes("/api/auth/");
-      if (!isProbe && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      const isSelfHandled = NO_REDIRECT_401.some((prefix) => url.includes(prefix));
+      if (
+        !isSelfHandled &&
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login") &&
+        !window.location.pathname.startsWith("/staff-clock-in")
+      ) {
         clearNativeToken();
         window.location.replace("/login");
       }

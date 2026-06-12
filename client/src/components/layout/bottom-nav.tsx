@@ -260,6 +260,58 @@ export function BottomNav() {
 
   return (
     <>
+      {/* SVG filter for liquid glass pill */}
+      <svg style={{ display: "none" }} aria-hidden="true">
+        <filter
+          id="liquid-glass-distortion"
+          x="0%"
+          y="0%"
+          width="100%"
+          height="100%"
+          filterUnits="objectBoundingBox"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.001 0.005"
+            numOctaves="1"
+            seed="17"
+            result="turbulence"
+          />
+          <feComponentTransfer in="turbulence" result="mapped">
+            <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+            <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+            <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+          </feComponentTransfer>
+          <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+          <feSpecularLighting
+            in="softMap"
+            surfaceScale="5"
+            specularConstant="1"
+            specularExponent="100"
+            lightingColor="white"
+            result="specLight"
+          >
+            <fePointLight x="-200" y="-200" z="300" />
+          </feSpecularLighting>
+          <feComposite
+            in="specLight"
+            operator="arithmetic"
+            k1="0"
+            k2="1"
+            k3="1"
+            k4="0"
+            result="litImage"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="softMap"
+            scale="120"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
+
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
         style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 6px)" }}
@@ -276,7 +328,31 @@ export function BottomNav() {
               opacity: pillIndex === -1 ? 0 : 1,
             }}
           >
-            <div className="w-full h-full rounded-[18px] bg-primary/10 dark:bg-primary/15 glass-btn" />
+            <div className="w-full h-full rounded-[18px] relative overflow-hidden"
+            style={{ boxShadow: "0 4px 8px rgba(0,0,0,0.12), 0 0 16px rgba(0,0,0,0.06)" }}
+          >
+            {/* Layer 1 — backdrop blur + SVG distortion */}
+            <div
+              className="absolute inset-0 rounded-[18px] overflow-hidden"
+              style={{
+                backdropFilter: "blur(4px)",
+                WebkitBackdropFilter: "blur(4px)",
+                filter: "url(#liquid-glass-distortion)",
+                isolation: "isolate",
+              }}
+            />
+            {/* Layer 2 — translucent tint (lighter in dark mode) */}
+            <div
+              className="absolute inset-0 rounded-[18px] dark:bg-white/10 bg-white/40"
+            />
+            {/* Layer 3 — inner edge highlight */}
+            <div
+              className="absolute inset-0 rounded-[18px]"
+              style={{
+                boxShadow: "inset 1.5px 1.5px 1px rgba(255,255,255,0.65), inset -1px -1px 1px rgba(255,255,255,0.3)",
+              }}
+            />
+          </div>
           </div>
 
           {primaryNavItems.map((item) => {

@@ -351,8 +351,17 @@ async function _doInit() {
 
     if (process.env.VERCEL !== "1") {
       console.log("[init] step 3/8 — ensureIndexes");
-      await ensureIndexes();
-      await ensurePartitions();
+      try {
+        await Promise.race([
+          (async () => { await ensureIndexes(); await ensurePartitions(); })(),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error("ensureIndexes timed out after 15s (pooler may not support DDL)")), 15_000)
+          ),
+        ]);
+      } catch (idxErr: unknown) {
+        const msg = idxErr instanceof Error ? idxErr.message : String(idxErr);
+        console.warn("[indexes] ⚠  skipped:", msg);
+      }
     } else {
       console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
     }
@@ -362,10 +371,15 @@ async function _doInit() {
       console.log("[rls] skipped on Vercel — applied via build step & GitHub Actions");
     } else {
       try {
-        await setupRLS();
+        await Promise.race([
+          setupRLS(),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error("setupRLS timed out after 10s (pooler may not support DDL)")), 10_000)
+          ),
+        ]);
       } catch (rlsErr: unknown) {
         const msg = rlsErr instanceof Error ? rlsErr.message : String(rlsErr);
-        console.warn("[rls] ⚠  setupRLS skipped (no DB or tables not yet created):", msg);
+        console.warn("[rls] ⚠  setupRLS skipped:", msg);
       }
     }
 

@@ -199,6 +199,8 @@ const COLUMN_MIGRATIONS = [
   `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS variance text`,
   // POS feature flags — per-tenant JSONB, null until the owner completes setup wizard
   `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS pos_features jsonb`,
+  // Soft-delete support on users
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at text`,
 ];
 
 export async function ensureIndexes(): Promise<void> {

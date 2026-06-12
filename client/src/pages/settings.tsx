@@ -14,10 +14,10 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight, Ticket,
+  Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight,
   Globe, Check, Sun, Moon, Monitor, Store,
   Phone, Mail, MapPin, DollarSign, Palette, Shield,
-  Sparkles, BadgeCheck, Star, Bell, BellOff, Search, PlayCircle, Zap,
+  BadgeCheck, Bell, BellOff, Search, PlayCircle, Zap,
   HelpCircle, ShoppingCart, LayoutDashboard, Package, Boxes, Users, Gift,
   IdCard, Calendar, UserCheck, Clock, Wallet, Receipt, TrendingUp, Tag,
   RotateCcw, LayoutGrid, ChefHat, Truck, ClipboardList, FileBarChart, Bot,
@@ -732,18 +732,18 @@ export default function Settings() {
 
       {isOwner && (
         <>
-          <SectionLabel icon={Sparkles}>Subscription</SectionLabel>
+          <SectionLabel icon={Tag}>Subscription</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
             {isPro ? (
               <div className="flex items-center gap-3 px-4 py-3.5">
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0">
-                  <Star className="h-4 w-4 text-white fill-white" />
+                <div className="h-7 w-7 rounded-md bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <Check className="h-3.5 w-3.5 text-violet-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">{isBusiness ? "Business Suite Active" : "Pro Plan Active"}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{isBusiness ? "All features unlocked · up to 10 branches" : "All features unlocked"}</p>
                 </div>
-                <span className="text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 px-2.5 py-1 rounded-full">ACTIVE</span>
+                <span className="text-[10px] font-medium border border-violet-500/35 text-violet-500 dark:text-violet-400 px-2 py-0.5 rounded tracking-widest">ACTIVE</span>
               </div>
             ) : (
               <button
@@ -751,8 +751,8 @@ export default function Settings() {
                 onClick={() => setLocation("/billing?reason=pro_required")}
                 className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/30 transition-colors text-left"
               >
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0">
-                  <Sparkles className="h-4 w-4 text-white" />
+                <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">Upgrade to Pro</p>
@@ -764,7 +764,7 @@ export default function Settings() {
 
             <div className="border-t border-border/20 px-4 py-3 space-y-2.5">
               <div className="flex items-center gap-2">
-                <Ticket className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                <span className="block h-px w-3 bg-muted-foreground/30 shrink-0" />
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Redeem Voucher Code</p>
               </div>
               <div className="flex gap-2">

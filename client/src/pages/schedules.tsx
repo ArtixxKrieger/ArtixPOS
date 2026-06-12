@@ -129,7 +129,7 @@ export default function SchedulesPage() {
   function toggleExpand(uid: string) {
     setExpandedEmployees(prev => {
       const n = new Set(prev);
-      n.has(uid) ? n.delete(uid) : n.add(uid);
+      if (n.has(uid)) { n.delete(uid); } else { n.add(uid); }
       return n;
     });
   }

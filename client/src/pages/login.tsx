@@ -417,47 +417,6 @@ export default function Login() {
   const [statsVisible, setStatsVisible] = useState(false);
   const lpScrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll the landing page — pauses when user interacts, resumes after 3 s idle
-  useEffect(() => {
-    const el = lpScrollRef.current;
-    if (!el) return;
-    let paused = false;
-    let resumeTimer: ReturnType<typeof setTimeout> | null = null;
-    let rafId: number;
-    const SPEED = 0.6; // px per frame — slow enough to feel ambient
-
-    const pause = () => {
-      paused = true;
-      if (resumeTimer) clearTimeout(resumeTimer);
-      resumeTimer = setTimeout(() => {
-        paused = false;
-      }, 3000);
-    };
-
-    el.addEventListener("wheel", pause, { passive: true });
-    el.addEventListener("touchstart", pause, { passive: true });
-    el.addEventListener("mousedown", pause, { passive: true });
-
-    const tick = () => {
-      if (!paused) {
-        const maxScroll = el.scrollHeight - el.clientHeight;
-        if (el.scrollTop < maxScroll) {
-          el.scrollTop += SPEED;
-        }
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-
-    rafId = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      if (resumeTimer) clearTimeout(resumeTimer);
-      el.removeEventListener("wheel", pause);
-      el.removeEventListener("touchstart", pause);
-      el.removeEventListener("mousedown", pause);
-    };
-  }, []);
 
   // ── Unlock body scroll — index.html sets html,body{overflow:hidden} globally ──
   // We override inline so it wins regardless of screen width or desktop-mode emulation.

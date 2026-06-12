@@ -348,12 +348,17 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
     }, delay);
   }, []);
 
+  const disconnectHandlerRef = useRef<(() => void) | null>(null);
+
   const attachDisconnectListener = useCallback((device: BluetoothDevice) => {
+    if (disconnectHandlerRef.current) {
+      device.removeEventListener("gattserverdisconnected", disconnectHandlerRef.current as EventListener);
+    }
     const handler = () => {
       setPrinter(prev => ({ ...prev, connected: false }));
       scheduleReconnect(device);
     };
-    device.removeEventListener("gattserverdisconnected", handler as EventListener);
+    disconnectHandlerRef.current = handler;
     device.addEventListener("gattserverdisconnected", handler as EventListener);
   }, [scheduleReconnect]);
 

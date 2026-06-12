@@ -14,6 +14,7 @@ import {
   getUserByEmail, verifyPassword, hashPassword,
   banUser, unbanUser,
   getRolePermissions, upsertRolePermission, getRolePermissionForRole,
+  getDeletedUsers, restoreDeletedUser,
 } from "./admin-storage";
 import { bannedUserIds } from "./auth";
 import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
@@ -684,6 +685,33 @@ export function registerAdminRoutes(app: Express) {
       bannedUserIds.delete(targetId);
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "delete", entity: "user", entityId: targetId, metadata: { name: target.name } });
       res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
+  app.get("/api/admin/users/deleted", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const sub = await getSubscription(user.tenantId!);
+      if (!isBusinessSubscription(sub)) {
+        return res.status(403).json({ message: "Restoring deleted staff is a Business Suite feature.", code: "UPGRADE_REQUIRED" });
+      }
+      const deleted = await getDeletedUsers(user.tenantId!);
+      res.json(deleted.map(u => ({ ...u, passwordHash: undefined, staffPin: undefined })));
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/admin/users/:id/restore", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const sub = await getSubscription(user.tenantId!);
+      if (!isBusinessSubscription(sub)) {
+        return res.status(403).json({ message: "Restoring deleted staff is a Business Suite feature.", code: "UPGRADE_REQUIRED" });
+      }
+      const targetId = req.params.id as string;
+      const restored = await restoreDeletedUser(targetId, user.tenantId!);
+      if (!restored) return res.status(404).json({ message: "User not found" });
+      await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "restore", entity: "user", entityId: targetId, metadata: { name: restored.name } });
+      res.json({ ...restored, passwordHash: undefined, staffPin: undefined });
     } catch (err) { next(err); }
   });
 

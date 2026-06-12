@@ -8,6 +8,7 @@ import {
   Users, Trash2, ShieldCheck, User2, CreditCard,
   Building2, Check, Clock, UserPlus,
   ShieldOff, ShieldAlert, Wifi, WifiOff, KeyRound, Unlock,
+  RotateCcw, AlertTriangle, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -20,9 +21,11 @@ import {
   useTenantUsers, useDeleteUser, useUpdateUserRole,
   useAssignBranch, useRemoveBranch, useBranches,
   useEnsureTenant, useRevokeAccess, useRestoreAccess, useCreateStaffUser,
+  useDeletedUsers, useRestoreDeletedUser,
   type TenantUser,
 } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
+import { useSubscription, FREE_LIMITS } from "@/hooks/use-subscription";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -432,12 +435,15 @@ function PinManageDialog({ user, open, onClose }: { user: TenantUser; open: bool
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
+  const { isPro, isBusiness } = useSubscription();
   const { data: tenantUsers = [], isLoading: _isLoading } = useTenantUsers();
+  const { data: deletedUsers = [] } = useDeletedUsers(isBusiness);
   const { data: branches = [] } = useBranches();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
   const revokeAccess = useRevokeAccess();
   const restoreAccess = useRestoreAccess();
+  const restoreDeleted = useRestoreDeletedUser();
   const ensureTenant = useEnsureTenant();
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -446,6 +452,10 @@ export default function UsersPage() {
   const [pinManageUser, setPinManageUser] = useState<TenantUser | null>(null);
   const isOwner = currentUser?.role === "owner";
   const { toast } = useToast();
+
+  const staffLimit = isBusiness ? Infinity : isPro ? 15 : FREE_LIMITS.staff;
+  const nonOwnerCount = tenantUsers.filter(u => u.role !== "owner").length;
+  const atLimit = isFinite(staffLimit) && nonOwnerCount >= staffLimit;
 
   useEffect(() => {
     if (currentUser && !currentUser.tenantId) {
@@ -488,7 +498,19 @@ export default function UsersPage() {
     <div className="space-y-5 page-enter pb-6">
 
       {isOwner && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {nonOwnerCount}
+              {isFinite(staffLimit) ? ` / ${staffLimit}` : ""} staff
+            </span>
+            {atLimit && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-300/30">
+                <Lock className="h-2.5 w-2.5" />
+                Limit reached
+              </span>
+            )}
+          </div>
           <button
             data-testid="button-add-staff"
             onClick={() => setAddStaffOpen(true)}
@@ -744,18 +766,41 @@ export default function UsersPage() {
       {/* Delete confirmation */}
       <AlertDialog open={!!deletingUserId} onOpenChange={() => setDeletingUserId(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove this user from your organization. They will lose all access.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {(() => {
+            const target = tenantUsers.find(u => u.id === deletingUserId);
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    Remove {target?.name ?? "Team Member"}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>
+                        {target?.name ?? "This person"} will lose access immediately.
+                        {isBusiness
+                          ? " As a Business subscriber, you can restore them from the Recently Deleted section below for up to 30 days."
+                          : " This is permanent and cannot be undone."
+                        }
+                      </p>
+                      {!isBusiness && (
+                        <p className="text-xs text-muted-foreground/70">
+                          Deleting frees up a staff slot. Upgrade to Business to get a 30-day restore window.
+                        </p>
+                      )}
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Remove
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
         </AlertDialogContent>
       </AlertDialog>
 
@@ -769,11 +814,20 @@ export default function UsersPage() {
               <>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{isBanned ? "Restore Access" : "Revoke Access"}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isBanned
-                      ? `${target?.name ?? "This user"} will be able to log in and use the system again.`
-                      : `${target?.name ?? "This user"} will be immediately logged out and unable to access the system. Their data will be preserved.`
-                    }
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>
+                        {isBanned
+                          ? `${target?.name ?? "This person"} will be able to log in and use the system again.`
+                          : `${target?.name ?? "This person"} will be blocked from logging in immediately.`
+                        }
+                      </p>
+                      {!isBanned && (
+                        <p className="text-xs text-muted-foreground/70">
+                          They'll still appear in your team list and count toward your staff limit. Use <strong>Delete</strong> instead if you want to free up a slot permanently.
+                        </p>
+                      )}
+                    </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -793,6 +847,56 @@ export default function UsersPage() {
           })()}
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Recently Deleted — Business plan only */}
+      {isBusiness && deletedUsers.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold text-muted-foreground">Recently Deleted</h3>
+            <span className="text-xs text-muted-foreground/60">· restored within 30 days</span>
+          </div>
+          <div className="space-y-2">
+            {deletedUsers.map(u => (
+              <div
+                key={u.id}
+                data-testid={`card-deleted-user-${u.id}`}
+                className="glass-card rounded-2xl p-4 opacity-60 border-dashed"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-muted-foreground">
+                      {(u.name ?? "?")[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{u.name ?? "Unnamed"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Deleted {u.deletedAt ? formatDistanceToNow(new Date(u.deletedAt), { addSuffix: true }) : "recently"}
+                    </p>
+                  </div>
+                  <button
+                    data-testid={`button-restore-deleted-${u.id}`}
+                    onClick={async () => {
+                      try {
+                        await restoreDeleted.mutateAsync(u.id);
+                        toast({ title: "Staff member restored", description: `${u.name ?? "User"} has been restored to your team.` });
+                      } catch {
+                        toast({ title: "Failed to restore", variant: "destructive" });
+                      }
+                    }}
+                    disabled={restoreDeleted.isPending}
+                    className="h-8 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-300/30 transition-colors shrink-0 disabled:opacity-50"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Restore
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

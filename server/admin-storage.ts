@@ -4,7 +4,7 @@ import {
   timeLogs,
   type Tenant, type Branch, type User, type AuditLog, type UserBranch, type RolePermission,
 } from "@shared/schema";
-import { eq, and, desc, inArray, isNull, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, isNotNull, sql, gte, lte } from "drizzle-orm";
 import { invalidateTenantCache } from "./storage";
 import crypto from "crypto";
 
@@ -135,6 +135,22 @@ export async function updateUserRole(userId: string, tenantId: string, role: "ow
 export async function deleteUser(userId: string, tenantId: string): Promise<void> {
   await db.update(timeLogs).set({ deletedAt: new Date().toISOString() } as any).where(eq(timeLogs.userId, userId));
   await db.update(users).set({ deletedAt: new Date().toISOString(), isBanned: true } as any).where(and(eq(users.id, userId), eq(users.tenantId, tenantId)));
+}
+
+export async function getDeletedUsers(tenantId: string): Promise<(User & { branches: number[] })[]> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const deletedUsers = await db.select().from(users).where(
+    and(eq(users.tenantId, tenantId), isNotNull(users.deletedAt), gte(users.deletedAt as any, thirtyDaysAgo))
+  );
+  return deletedUsers.map(u => ({ ...u, branches: [] }));
+}
+
+export async function restoreDeletedUser(userId: string, tenantId: string): Promise<User | undefined> {
+  const [user] = await (db.update(users) as any)
+    .set({ deletedAt: null, isBanned: false, bannedAt: null })
+    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+    .returning();
+  return user;
 }
 
 export async function banUser(userId: string, tenantId: string, reason?: string): Promise<User | undefined> {

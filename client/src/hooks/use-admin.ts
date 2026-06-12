@@ -401,6 +401,24 @@ export function useUpdateRolePermission() {
   });
 }
 
+export function useDeletedUsers(enabled = true) {
+  return useQuery<TenantUser[]>({
+    queryKey: ["/api/admin/users/deleted"],
+    enabled,
+  });
+}
+
+export function useRestoreDeletedUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/admin/users/${id}/restore`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/users/deleted"] });
+    },
+  });
+}
+
 export function useMyPermissions() {
   return useQuery<{ role: string; maxDiscountPercent: number; canRefund: boolean; canDeleteSale: boolean; canVoidOrder: boolean }>({
     queryKey: ["/api/my-permissions"],

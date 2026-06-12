@@ -96,6 +96,27 @@ api.interceptors.response.use(
   },
 );
 
+// ── 401 interceptor ───────────────────────────────────────────────────────────
+// When any API call returns 401, clear the stored token and redirect to /login.
+// Skipped for the /api/auth/me probe (that 401 is handled by useAuth itself)
+// and for requests already targeting auth routes, to avoid redirect loops.
+const AUTH_PROBE_URLS = new Set(["/api/auth/me", "/api/auth/login", "/api/auth/logout"]);
+
+api.interceptors.response.use(
+  (res) => res,
+  (err: AxiosError) => {
+    if (err.response?.status === 401) {
+      const url = err.config?.url ?? "";
+      const isProbe = AUTH_PROBE_URLS.has(url) || url.includes("/api/auth/");
+      if (!isProbe && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        clearNativeToken();
+        window.location.replace("/login");
+      }
+    }
+    return Promise.reject(err);
+  },
+);
+
 // ── Error normaliser ──────────────────────────────────────────────────────────
 // Converts AxiosError into a plain Error with a readable message from the
 // response body. Callers never need to import AxiosError themselves.

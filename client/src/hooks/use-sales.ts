@@ -237,6 +237,7 @@ export function useDeleteSale() {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useDeletedSales() {
   return useQuery({
     queryKey: ["/api/sales/deleted"],

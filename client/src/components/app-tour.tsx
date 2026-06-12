@@ -542,6 +542,7 @@ function TourCard({
   const [measuredH, setMeasuredH] = useState(240);
   const cardRef = useCallback((node: HTMLDivElement | null) => {
     if (node) setMeasuredH(node.offsetHeight);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIndex]);
 
   const cardH = measuredH;
@@ -776,6 +777,7 @@ export function AppTour() {
     if (!settings?.onboardingComplete) return;
     const timer = setTimeout(() => setVisible(true), 1000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, settings?.onboardingComplete, (settings as any)?.tourSeen]);
 
   useEffect(() => {
@@ -837,6 +839,7 @@ export function AppTour() {
     if (stepIndex === 0) {
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {

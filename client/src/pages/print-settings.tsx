@@ -3,7 +3,7 @@ import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, CheckCircle2, WifiOff, Info } from "lucide-react";
+import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, WifiOff, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
@@ -186,7 +186,7 @@ type UsbPrinter = {
 };
 
 export default function PrintSettings() {
-  const { data: settings, isLoading } = useSettings();
+  const { data: settings, isLoading: _isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -212,6 +212,7 @@ export default function PrintSettings() {
 
   useEffect(() => {
     loadPairedDevices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleScanBluetooth = async () => {
@@ -411,6 +412,7 @@ export default function PrintSettings() {
       title: `Paper width set to ${detectedWidth}`,
       description: `Auto-detected from ${name}`,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blePrinter.detectedWidth, blePrinter.name]);
 
   const handleSave = async () => {

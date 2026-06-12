@@ -151,7 +151,7 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
 
 export default function StaffPinLogin() {
   const { user: ownerUser } = useAuth();
-  const { toast } = useToast();
+  const { toast: _toast } = useToast();
   const [, setLocation] = useLocation();
 
   const [phase, setPhase] = useState<"roster" | "pin" | "success">("roster");

@@ -30,7 +30,7 @@ export default function TablesPage() {
   const [form, setForm] = useState<TableForm>(DEFAULT_FORM);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
-  const { data: tables = [], isLoading } = useQuery<Table[]>({ queryKey: ["/api/tables"] });
+  const { data: tables = [], isLoading: _isLoading } = useQuery<Table[]>({ queryKey: ["/api/tables"] });
 
   const createMutation = useMutation({
     mutationFn: (data: TableForm) => apiRequest("POST", "/api/tables", data),

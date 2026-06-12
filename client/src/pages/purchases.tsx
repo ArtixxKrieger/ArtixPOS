@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, ShoppingBag, Trash2, ChevronDown, ChevronUp, CheckCircle, XCircle,
-  Package, TrendingUp, AlertTriangle, Clock, Calendar,
+  Package, TrendingUp, AlertTriangle,
   CreditCard, Search, BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -96,7 +96,7 @@ export default function PurchasesPage() {
   const [filterPayment, setFilterPayment] = useState<string>("all");
   const [search, setSearch] = useState("");
 
-  const { data: pos = [], isLoading } = useQuery<PO[]>({ queryKey: ["/api/purchase-orders"] });
+  const { data: pos = [], isLoading: _isLoading } = useQuery<PO[]>({ queryKey: ["/api/purchase-orders"] });
   const { data: suppliers = [] } = useQuery<Supplier[]>({ queryKey: ["/api/suppliers"] });
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 

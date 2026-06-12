@@ -18,7 +18,6 @@ import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
 import { AppTour } from "@/components/app-tour";
-import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -293,7 +292,7 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
 
 const pageFallback = null;
 
-function LoadingScreen({ message }: { message?: string }) {
+function LoadingScreen({ message: _message }: { message?: string }) {
   // After 4 s offline → show the "no cached chunk" error screen.
   // After 12 s online  → show a "taking too long" banner with a Retry button.
   // Without the online timer, a poor mobile connection after an OAuth redirect

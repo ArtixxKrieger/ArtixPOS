@@ -8,7 +8,7 @@ import {
 import { usePosFeatures } from "@/hooks/use-pos-features";
 import { useSettings } from "@/hooks/use-settings";
 import type { PosFeatures } from "@shared/schema";
-import { DEFAULT_POS_FEATURES, PRO_POS_FEATURE_KEYS } from "@shared/schema";
+import { DEFAULT_POS_FEATURES } from "@shared/schema";
 
 // ── Feature definitions ───────────────────────────────────────────────────────
 

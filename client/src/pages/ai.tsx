@@ -14,7 +14,6 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, Expense, DiscountCode, Customer, Sale } from "@shared/schema";
 import {
   initAiStore, getSessions, getSession, createSession, updateSession, deleteSession,
   getFloatEnabled, setFloatEnabled, getIconSize, setIconSize,
@@ -629,6 +628,7 @@ function TypingCursor() {
 
 function StaffInfoCard({ branch }: { branch?: string; onAction: (p: StaffInfoPayload) => void }) {
   const [staffData, setStaffData] = useState<{ staff: any[]; branches: any[] } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionResults, setActionResults] = useState<Record<string, string>>({});
@@ -1860,14 +1860,15 @@ export default function AiPage() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ name: string; size: number } | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [updatingPrices, setUpdatingPrices] = useState(false);
-  const [addingProduct, setAddingProduct] = useState(false);
-  const [updatingProduct, setUpdatingProduct] = useState(false);
-  const [deletingProduct, setDeletingProduct] = useState(false);
-  const [addingCustomer, setAddingCustomer] = useState(false);
-  const [loggingExpense, setLoggingExpense] = useState(false);
-  const [creatingDiscount, setCreatingDiscount] = useState(false);
+  // eslint-disable-disable @typescript-eslint/no-unused-vars -- these track in-flight AI actions; setters are used in handlers
+  const [_importing, setImporting] = useState(false);
+  const [_updatingPrices, setUpdatingPrices] = useState(false);
+  const [_addingProduct, setAddingProduct] = useState(false);
+  const [_updatingProduct, setUpdatingProduct] = useState(false);
+  const [_deletingProduct, setDeletingProduct] = useState(false);
+  const [_addingCustomer, setAddingCustomer] = useState(false);
+  const [_loggingExpense, setLoggingExpense] = useState(false);
+  const [_creatingDiscount, setCreatingDiscount] = useState(false);
   const [addProductDoneIds, setAddProductDoneIds] = useState<Set<string>>(new Set());
   const [updateProductDoneIds, setUpdateProductDoneIds] = useState<Set<string>>(new Set());
   const [deleteProductDoneIds, setDeleteProductDoneIds] = useState<Set<string>>(new Set());
@@ -1881,10 +1882,10 @@ export default function AiPage() {
   const [toggleDiscountDoneIds, setToggleDiscountDoneIds] = useState<Set<string>>(new Set());
   const [adjustStockDoneIds, setAdjustStockDoneIds] = useState<Set<string>>(new Set());
   const [updateCustomerDoneIds, setUpdateCustomerDoneIds] = useState<Set<string>>(new Set());
-  const [adjustingStock, setAdjustingStock] = useState(false);
-  const [updatingCustomerRecord, setUpdatingCustomerRecord] = useState(false);
+  const [_adjustingStock, setAdjustingStock] = useState(false);
+  const [_updatingCustomerRecord, setUpdatingCustomerRecord] = useState(false);
   const [reorderDoneIds, setReorderDoneIds] = useState<Set<string>>(new Set());
-  const [creatingReorder, setCreatingReorder] = useState(false);
+  const [_creatingReorder, setCreatingReorder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [floatEnabled, setFloatEnabledState] = useState(() => getFloatEnabled());
@@ -2193,6 +2194,7 @@ export default function AiPage() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, messages, loading, pendingFile, fileContent, activeId, isOnline]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

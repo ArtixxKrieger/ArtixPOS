@@ -140,7 +140,7 @@ function CodeForm({
 }
 
 export default function DiscountCodes() {
-  const { data: codes = [], isLoading } = useQuery<DiscountCode[]>({ queryKey: ["/api/discount-codes"] });
+  const { data: codes = [], isLoading: _isLoading } = useQuery<DiscountCode[]>({ queryKey: ["/api/discount-codes"] });
   const { data: settings } = useSettings();
   const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";

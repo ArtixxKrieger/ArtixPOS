@@ -1,7 +1,7 @@
 import { useRef, useCallback } from "react";
 
 const MILESTONE_THRESHOLDS = [
-  { threshold: 0.01,   label: (c: string) => `First sale of the day!`,              emoji: "🎉" },
+  { threshold: 0.01,   label: (_c: string) => `First sale of the day!`,             emoji: "🎉" },
   { threshold: 1000,   label: (c: string) => `${c}1,000 reached!`,                  emoji: "🔥" },
   { threshold: 5000,   label: (c: string) => `${c}5,000 — amazing!`,                emoji: "⚡" },
   { threshold: 10000,  label: (c: string) => `${c}10,000 today!`,                   emoji: "🏆" },

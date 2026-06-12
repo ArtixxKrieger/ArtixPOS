@@ -9,6 +9,7 @@ import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 import { cn } from "@/lib/utils";
 import type { PendingOrder } from "@shared/schema";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const KITCHEN_STATUSES = ["pending", "preparing", "ready"] as const;
 type KitchenStatus = typeof KITCHEN_STATUSES[number];
 
@@ -62,11 +63,11 @@ function LiveDot({ connected }: { connected: boolean }) {
 
 export default function KitchenPage() {
   const { toast } = useToast();
-  const [tick, setTick] = useState(0);
+  const [_tick, setTick] = useState(0);
 
   const { connected } = useKitchenSse();
 
-  const { data: orders = [], isLoading } = useQuery<PendingOrder[]>({
+  const { data: orders = [], isLoading: _isLoading } = useQuery<PendingOrder[]>({
     queryKey: ["/api/pending-orders"],
     refetchInterval: connected ? false : 30_000,
   });

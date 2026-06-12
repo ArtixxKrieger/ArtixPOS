@@ -153,6 +153,7 @@ export default function BillingPage() {
     } else if (status === "cancel") {
       navigate("/billing", { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkoutMutation = useMutation({

@@ -184,7 +184,7 @@ export default function RoomsPage() {
   const pageTitle = subType === "salon" ? "Chairs & Stations" : subType === "gym" ? "Stations & Courts" : "Rooms & Stations";
   const pageDesc = subType === "salon" ? "Manage styling chairs and workstations" : subType === "gym" ? "Manage courts, lanes, and equipment areas" : "Manage treatment rooms and service stations";
 
-  const { data: rooms = [], isLoading } = useQuery<ServiceRoom[]>({ queryKey: ["/api/service-rooms"] });
+  const { data: rooms = [], isLoading: _isLoading } = useQuery<ServiceRoom[]>({ queryKey: ["/api/service-rooms"] });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>

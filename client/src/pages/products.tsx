@@ -48,8 +48,6 @@ import {
   AlertCircle,
   CheckCircle2,
   CalendarClock,
-  Pill,
-  FlaskConical,
   ScanBarcode,
   Camera,
 } from "lucide-react";
@@ -170,7 +168,7 @@ function getExpiryStatus(
 }
 
 export default function Products() {
-  const { data: products = [], isLoading } = useProducts();
+  const { data: products = [], isLoading: _isLoading } = useProducts();
   const { data: settings } = useSettings();
   const { businessSubType } = useBranchBusiness();
   const createProduct = useCreateProduct();
@@ -179,7 +177,7 @@ export default function Products() {
   const { toast } = useToast();
 
   const { productPlural } = useBusinessTerminology();
-  const { businessType, showBarcode: showInven } = useBranchBusiness();
+  const { businessType, showBarcode: _showInven } = useBranchBusiness();
   const isFoodBeverage = businessType === "food_beverage";
   const isPharmacy = businessSubType === "pharmacy" || businessSubType === "drugstore";
   const isPerishable =
@@ -188,7 +186,7 @@ export default function Products() {
     businessSubType === "grocery" ||
     businessSubType === "grocery_enhanced";
 
-  const { data: ingredients = [] } = useQuery<{ id: number; name: string; unit: string; stockQty: string }[]>({
+  const { data: _ingredients = [] } = useQuery<{ id: number; name: string; unit: string; stockQty: string }[]>({
     queryKey: ["/api/ingredients"],
     enabled: isFoodBeverage,
   });
@@ -286,7 +284,7 @@ export default function Products() {
     setImportFileName("");
   };
 
-  const { data: stockLogs = [], isLoading: stockLogsLoading } = useQuery<StockLog[]>({
+  const { data: stockLogs = [], isLoading: _stockLogsLoading } = useQuery<StockLog[]>({
     queryKey: ["/api/products", stockHistoryProduct?.id, "stock-logs"],
     queryFn: async () => {
       if (!stockHistoryProduct) return [];

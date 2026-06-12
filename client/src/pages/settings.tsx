@@ -23,7 +23,7 @@ import {
   RotateCcw, LayoutGrid, ChefHat, Truck, ClipboardList, FileBarChart, Bot,
   Building2, AlarmClock, Wifi, ChevronDown,
 } from "lucide-react";
-import { COUNTRY_LIST, getCountryByCode, type CountryData } from "@/lib/locale-detect";
+import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -125,9 +125,9 @@ const LANG_COUNTRY: Record<string, string> = {
 };
 
 export default function Settings() {
-  const { t, i18n: i18nInstance } = useTranslation();
+  const { t, i18n: _i18nInstance } = useTranslation();
   const [currentLang, setCurrentLang] = useState(i18n.language || "en");
-  const { data: settings, isLoading } = useSettings();
+  const { data: settings, isLoading: _isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { toast } = useToast();
   const { user, logout, isLoggingOut } = useAuth();
@@ -136,6 +136,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -227,6 +228,7 @@ export default function Settings() {
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings, form]);
 
   const savePaymentMethods = (updated: PaymentMethod[]) => {

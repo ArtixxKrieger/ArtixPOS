@@ -5,7 +5,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, parseISO, isAfter, isBefore } from "date-fns";
+import { format, parseISO, isBefore } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,11 +19,11 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import {
   insertMembershipPlanSchema, insertMembershipSchema,
-  type MembershipPlan, type Membership, type Customer, type MembershipCheckIn
+  type MembershipPlan, type Membership, type Customer
 } from "@shared/schema";
 import {
   BadgeCheck, Plus, Edit, Trash2, Search, Users, CreditCard,
-  Calendar, CheckCircle2, QrCode, ChevronRight, Clock, Star
+  Calendar, CheckCircle2, QrCode, Clock
 } from "lucide-react";
 
 const BILLING_LABELS: Record<string, string> = {
@@ -400,8 +400,8 @@ export default function MembershipsPage() {
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "plan" | "member"; id: number; name: string } | undefined>();
 
-  const { data: plans = [], isLoading: plansLoading } = useQuery<MembershipPlan[]>({ queryKey: ["/api/membership-plans"] });
-  const { data: members = [], isLoading: membersLoading } = useQuery<MemberWithCustomer[]>({ queryKey: ["/api/memberships"] });
+  const { data: plans = [], isLoading: _plansLoading } = useQuery<MembershipPlan[]>({ queryKey: ["/api/membership-plans"] });
+  const { data: members = [], isLoading: _membersLoading } = useQuery<MemberWithCustomer[]>({ queryKey: ["/api/memberships"] });
 
   const deletePlanMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/membership-plans/${id}`),

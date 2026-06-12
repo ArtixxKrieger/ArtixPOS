@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { ChefHat, Clock, Maximize2, Minimize2, CheckCircle2, Wifi, WifiOff } fro
 import type { PendingOrder } from "@shared/schema";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const KITCHEN_STATUSES = ["pending", "preparing", "ready"] as const;
 type KitchenStatus = typeof KITCHEN_STATUSES[number];
 

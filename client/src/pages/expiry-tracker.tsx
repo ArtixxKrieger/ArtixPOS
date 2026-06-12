@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useProducts } from "@/hooks/use-products";
-import { useSettings } from "@/hooks/use-settings";
 import { differenceInDays, parseISO, isValid, format } from "date-fns";
 import { CalendarClock, AlertTriangle, CheckCircle2, Clock, Package, FlaskConical } from "lucide-react";
 import { Link } from "wouter";

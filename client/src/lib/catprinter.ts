@@ -163,6 +163,7 @@ export function buildCatPrinterPackets(
 }
 
 /** Test print – no receipt data needed */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58mm"): number[][] {
   const width = receiptWidth === "58mm" ? 32 : 42;
   const dash  = "-".repeat(width);

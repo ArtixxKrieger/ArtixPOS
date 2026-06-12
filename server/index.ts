@@ -42,6 +42,7 @@ app.set("trust proxy", 1);
 app.use(compression());
 
 const isDevelopment = process.env.NODE_ENV !== "production";
+const isServerless = !!process.env.VERCEL;
 
 const scriptSrc: string[] = isDevelopment
   ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
@@ -485,7 +486,7 @@ if (process.env.VERCEL !== "1") {
     }
   });
 
-  setInterval(async () => {
+  if (!isServerless) setInterval(async () => {
     try {
       const expired = await storage.expireOverdueVouchers();
       if (!expired.length) return;
@@ -512,7 +513,7 @@ if (process.env.VERCEL !== "1") {
     }
   }, 5 * 60_000).unref();
 
-  setInterval(() => {
+  if (!isServerless) setInterval(() => {
     const h = process.memoryUsage();
     const mb = (n: number) => Math.round(n / 1_048_576);
     console.log(

@@ -18,7 +18,7 @@ import {
   Banknote, Clock, TrendingUp, Users, Pencil, Save, Calendar,
   FileDown, Printer, Search, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, Trash2, Plus, AlertCircle,
-  Receipt, Tag, Building2, Zap, Lock,
+  Receipt, Tag, Building2, Zap,
   BarChart2, Trophy, UserPlus, TrendingDown,
   CreditCard, Wallet, type LucideIcon,
 } from "lucide-react";
@@ -46,6 +46,7 @@ const startOfMonth = () => { const d = new Date(); return new Date(d.getFullYear
 const startOfLastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10); };
 const endOfLastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10); };
 const fmtShort = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fmtMed = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 function downloadCSV(filename: string, rows: Record<string, any>[]) {
@@ -425,7 +426,7 @@ export default function PayrollPage() {
           { label: t("payroll.stats.totalHours"), value: `${totals.totalHours.toFixed(1)} ${t("payroll.staff.hrs")}`, icon: Clock },
           { label: t("payroll.stats.commissionSales"), value: formatCurrency(totals.totalCommissionable, currency), icon: TrendingUp },
           { label: t("payroll.stats.staffCount"), value: `${totals.staffCount} ${t("payroll.stats.onPayroll")}`, icon: Users },
-        ].map(({ label, value, icon: Icon }) => (
+        ].map(({ label, value, icon: _Icon }) => (
           <div key={label} className="rounded-xl bg-muted/40 border border-border/40 px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
             <p className="text-xs font-bold truncate">{value}</p>

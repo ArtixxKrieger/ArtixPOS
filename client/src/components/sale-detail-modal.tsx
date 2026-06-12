@@ -89,7 +89,7 @@ const PAYMENT_COLORS: Record<string, string> = {
 };
 
 export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
-  const { data: settings, isLoading: settingsLoading } = useSettings();
+  const { data: settings, isLoading: _settingsLoading } = useSettings();
   const currency = settings?.currency || "₱";
   const { toast } = useToast();
   const { isManagerOrAbove } = useAuth();

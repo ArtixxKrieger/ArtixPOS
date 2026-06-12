@@ -3,7 +3,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
-  CartesianGrid, PieChart, Pie, Cell, Legend,
+  CartesianGrid, PieChart, Pie, Cell,
 } from "recharts";
 import {
   Building2, TrendingUp, ShoppingBag, ArrowUpRight, ArrowDownRight,
@@ -33,6 +33,7 @@ function Counter({ value, prefix = "", decimals }: { value: number; prefix?: str
 }
 
 /* ── Growth Badge ─────────────────────────────────── */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function GrowthBadge({ pct }: { pct: number }) {
   const up = pct >= 0;
   if (pct === 0) return <span className="text-[10px] text-muted-foreground/50 mt-1 flex items-center gap-0.5"><Minus className="h-2.5 w-2.5" /> No change</span>;
@@ -97,7 +98,7 @@ function ToggleGroup<T extends string>({ value, onChange, options }: {
 type BranchMetric = "revenue" | "orders";
 
 export default function AdminAnalytics() {
-  const { data: analyticsData = [], isLoading } = useBranchAnalytics();
+  const { data: analyticsData = [], isLoading: _isLoading } = useBranchAnalytics();
   const { data: settings } = useSettings();
   const currency = (settings as any)?.currency || "₱";
 
@@ -122,7 +123,7 @@ export default function AdminAnalytics() {
     orders: a.totalOrders,
   }));
 
-  const todayRevPct = totalRevenue > 0 && analyticsData.length > 0
+  const _todayRevPct = totalRevenue > 0 && analyticsData.length > 0
     ? ((todayRevenue / analyticsData.length) / (totalRevenue / Math.max(analyticsData.reduce((s, a) => s + (a.totalOrders > 0 ? 1 : 0), 0), 1))) * 100 - 100
     : 0;
 

@@ -11,7 +11,7 @@ import { Link } from "wouter";
 import {
   CheckCircle2, XCircle, AlertTriangle, FileText, Download,
   Printer, Receipt, CreditCard, Banknote, Smartphone,
-  Hash, BarChart3, Tag, ShieldCheck, ExternalLink,
+  Hash, BarChart3, ShieldCheck, ExternalLink,
   RefreshCw, Clock, TrendingUp, Users, Archive, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -161,7 +161,7 @@ export default function BIRPage() {
     queryFn: () => nativeFetch(`/api/shifts/${zReportShiftId}/z-report`).then(r => r.json()),
   });
 
-  const { data: orGapData, isLoading: orGapLoading, refetch: refetchOrGaps } = useQuery<{
+  const { data: orGapData, isLoading: _orGapLoading, refetch: refetchOrGaps } = useQuery<{
     gaps: { from: number; to: number; count: number }[];
     totalChecked: number;
     gapCount: number;

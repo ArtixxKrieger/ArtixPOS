@@ -65,13 +65,13 @@ function SupplierDetailSheet({
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addForm, setAddForm] = useState({ productId: "", unitCost: "", minOrderQty: "1", leadDays: "" });
 
-  const { data: stats, isLoading: statsLoading } = useQuery<SupplierStats>({
+  const { data: stats, isLoading: _statsLoading } = useQuery<SupplierStats>({
     queryKey: ["/api/suppliers", supplier.id, "stats"],
     queryFn: () => apiRequest("GET", `/api/suppliers/${supplier.id}/stats`).then(r => r.json()),
     enabled: open,
   });
 
-  const { data: spRows = [], isLoading: spLoading } = useQuery<SupplierProductRow[]>({
+  const { data: spRows = [], isLoading: _spLoading } = useQuery<SupplierProductRow[]>({
     queryKey: ["/api/suppliers", supplier.id, "products"],
     queryFn: () => apiRequest("GET", `/api/suppliers/${supplier.id}/products`).then(r => r.json()),
     enabled: open,
@@ -446,7 +446,7 @@ export default function SuppliersPage() {
   const [newOrderForSupplier, setNewOrderForSupplier] = useState<Supplier | null>(null);
   const debouncedSearch = useDebounce(search);
 
-  const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({ queryKey: ["/api/suppliers"] });
+  const { data: suppliers = [], isLoading: _isLoading } = useQuery<Supplier[]>({ queryKey: ["/api/suppliers"] });
   const { data: allPOs = [] } = useQuery<any[]>({ queryKey: ["/api/purchase-orders"] });
 
   const createMutation = useMutation({

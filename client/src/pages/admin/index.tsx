@@ -74,7 +74,7 @@ function describeActivity(action: string, entity: string, actor: string | null, 
 export default function AdminIndex() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const { data: tenant } = useTenant();
+  const { data: _tenant } = useTenant();
   const { data: branches = [] } = useBranches();
   const { data: tenantUsers = [] } = useTenantUsers();
   const { data: analytics = [] } = useBranchAnalytics();
@@ -93,6 +93,7 @@ export default function AdminIndex() {
     if (user && !user.tenantId) {
       ensureTenant.mutate();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.tenantId]);
 
   if (!user?.tenantId && ensureTenant.isPending) return null;

@@ -2,7 +2,6 @@ import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch } from "@/lib/queryClient";
 import { MapPin, Phone, Mail, Globe, Clock, CheckCircle, XCircle, Building2, Calendar } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 interface PublicBranch {

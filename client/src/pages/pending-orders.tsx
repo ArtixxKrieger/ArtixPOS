@@ -44,6 +44,7 @@ function elapsedMin(createdAt: string | null | undefined) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function makeDummyOrders(count: number): PendingOrder[] {
   return [...Array(count)].map((_, i) => ({
     id: i,
@@ -61,7 +62,7 @@ function makeDummyOrders(count: number): PendingOrder[] {
 }
 
 export default function PendingOrders() {
-  const { data: orders = [], isLoading } = usePendingOrders();
+  const { data: orders = [], isLoading: _isLoading } = usePendingOrders();
   // Each order card is ~220px tall + 16px gap
   const displayOrders = orders as PendingOrder[];
   const { data: settings } = useSettings();

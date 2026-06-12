@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import {
-  Coffee, UtensilsCrossed, Cake, Wine, Truck, ChevronRight,
+  Coffee, UtensilsCrossed, Wine, Truck, ChevronRight,
   ChevronLeft, ShoppingBag, Cpu, ShoppingCart, BookOpen,
   Scissors, Dumbbell, Sparkles, Store, Users, CheckCircle2,
   Shirt, Car, Stethoscope,
   PawPrint, Camera, Wrench, GraduationCap, Home, AlertCircle,
-  Search, Globe, PartyPopper, Zap, BarChart2, Shield,
+  Search, PartyPopper, BarChart2,
   Package, WifiOff, UserCheck, Receipt, Smartphone, Check,
   Languages, LogOut,
 } from "lucide-react";
@@ -22,7 +22,6 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useUpdateSettings } from "@/hooks/use-settings";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";

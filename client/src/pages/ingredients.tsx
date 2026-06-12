@@ -40,7 +40,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,7 +120,7 @@ function UsedInBadge({ ingredientId }: { ingredientId: number }) {
   );
 }
 
-function exportToCSV(ingredients: Ingredient[], currency: string) {
+function exportToCSV(ingredients: Ingredient[], _currency: string = "") {
   const rows = [
     ["Name", "Unit", "Stock Qty", "Cost / Unit", "Total Value", "Low Stock Threshold", "Status", "Notes"],
     ...ingredients.map((ing) => {

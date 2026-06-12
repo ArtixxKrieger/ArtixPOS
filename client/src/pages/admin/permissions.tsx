@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldCheck, User2, CreditCard, ChevronRight, Info } from "lucide-react";
+import { User2, CreditCard, Info } from "lucide-react";
 import { useRolePermissions, useUpdateRolePermission, type RolePermission } from "@/hooks/use-admin";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -152,7 +152,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
 }
 
 export default function PermissionsPage() {
-  const { data: perms = [], isLoading } = useRolePermissions();
+  const { data: perms = [], isLoading: _isLoading } = useRolePermissions();
 
   function getPermForRole(role: string) {
     return perms.find(p => p.role === role);

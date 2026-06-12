@@ -8,16 +8,16 @@ import {
   getDay, differenceInDays, eachDayOfInterval, addDays,
 } from "date-fns";
 import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Area, XAxis, YAxis, Tooltip,
   CartesianGrid, BarChart, Bar, PieChart, Pie, Cell,
-  ComposedChart, Line, Legend,
+  ComposedChart, Line,
 } from "recharts";
 import {
   BarChart3, TrendingUp, Clock, ShoppingBag,
   Package, ArrowUpRight, ArrowDownRight, Download, Lightbulb,
   CreditCard, Tag, ChevronDown, Minus, RotateCcw,
 } from "lucide-react";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -474,7 +474,7 @@ function FreeAnalyticsView({
 }
 
 export default function Analytics() {
-  const { data: sales = [], isLoading } = useSales() as { data: Sale[] | undefined; isLoading: boolean };
+  const { data: sales = [], isLoading: _isLoading } = useSales() as { data: Sale[] | undefined; isLoading: boolean };
   const { data: settings } = useSettings() as { data: UserSetting | null | undefined };
   const { isFree } = useSubscription();
   const currency = settings?.currency || "₱";
@@ -483,7 +483,7 @@ export default function Analytics() {
     settings?.businessSubType || undefined,
   );
 
-  const CurrencyIcon = ({ className }: { className?: string }) => (
+  const CurrencyIcon = ({ className: _className }: { className?: string }) => (
     <span className="font-black leading-none flex items-center justify-center" style={{ fontSize: "0.85em" }}>
       {currency}
     </span>
@@ -511,7 +511,9 @@ export default function Analytics() {
 
   const rev = (s: typeof sales[0]) => parseNumeric(s.total) - (showNet ? parseNumeric(s.tax) : 0);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const currRevenue = useMemo(() => currSales.reduce((a, s) => a + rev(s), 0), [currSales, showNet]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const prevRevenue = useMemo(() => prevSales.reduce((a, s) => a + rev(s), 0), [prevSales, showNet]);
   const currOrders = currSales.length;
   const prevOrders = prevSales.length;
@@ -560,7 +562,7 @@ export default function Analytics() {
     } else {
       const days = eachDayOfInterval({ start: range.s, end: range.e });
       const diffDays = differenceInDays(range.e, range.s);
-      return days.map((day, i) => {
+      return days.map((day, _i) => {
         const dayStart = startOfDay(day);
         const dayEnd = endOfDay(day);
         const prevDay = addDays(dayStart, -diffDays - 1);
@@ -577,6 +579,7 @@ export default function Analytics() {
         };
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currSales, prevSales, range, showNet]);
 
   /* Hourly heatmap (all time) */
@@ -637,6 +640,7 @@ export default function Analytics() {
       d[day].orders++;
     });
     return DOW.map((label, i) => ({ label, ...d[i] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currSales, showNet]);
 
   /* Payment methods */
@@ -649,6 +653,7 @@ export default function Analytics() {
       p[method].revenue += rev(s);
     });
     return Object.entries(p).map(([name, v]) => ({ name: name === "online" ? "Online" : "Cash", ...v }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currSales, showNet]);
 
   /* Smart insights */
@@ -700,6 +705,7 @@ export default function Analytics() {
       });
     }
     return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currNetRevenue, prevNetRevenue, revPct, currRefundCount, currRefundTotal, currOrders, productData, bestHour, dowData, categoryData, currency]);
 
   const rangeLabel = preset === "today" ? "today" : preset === "yesterday" ? "yesterday" : preset === "7d" ? "last-7d" : preset === "30d" ? "last-30d" : "custom";

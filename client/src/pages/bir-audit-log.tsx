@@ -75,6 +75,7 @@ export default function BirAuditLogPage() {
     staleTime: 60_000,
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const entries = data?.entries ?? [];
 
   const filtered = useMemo(() => {

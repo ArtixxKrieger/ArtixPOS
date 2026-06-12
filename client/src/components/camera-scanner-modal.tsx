@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, CameraOff, ScanLine, ImageIcon, RefreshCw } from "lucide-react";
+import { Camera, CameraOff, ScanLine, ImageIcon } from "lucide-react";
 
 interface CameraScannerModalProps {
   open: boolean;

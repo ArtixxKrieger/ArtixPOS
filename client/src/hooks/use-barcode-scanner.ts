@@ -74,7 +74,6 @@ function cleanBarcode(raw: string): string {
 
   // Remove any remaining ASCII control characters (incl. GS \x1D, STX \x02, ETX \x03, etc.)
   // but keep printable ASCII and common Unicode
-  // eslint-disable-next-line no-control-regex
   s = s.replace(/[\x00-\x1F\x7F]/g, "");
 
   return s.trim();

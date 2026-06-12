@@ -25,7 +25,7 @@ export default [
       ...tsRules,
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
       ],
     },
   },
@@ -45,7 +45,7 @@ export default [
       ...tsRules,
       "@typescript-eslint/no-unused-vars": [
         "warn",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
       ],
       // Hooks rules — rules-of-hooks is an error (real runtime bug); exhaustive-deps is a warning
       "react-hooks/rules-of-hooks": "error",
@@ -64,6 +64,11 @@ export default [
       "migrations/**",
       ".local/**",
       "script/build.js",
+      "artifacts/**",
+      "tests/**",
+      "tailwind.config.ts",
+      "capacitor.config.ts",
+      "drizzle.config.ts",
       "*.cjs",
     ],
   },

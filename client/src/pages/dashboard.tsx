@@ -4,7 +4,7 @@ import { useProducts } from "@/hooks/use-products";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency, parseNumeric } from "@/lib/format";
-import { format, isToday } from "date-fns";
+import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Receipt, TrendingUp, CreditCard, ArrowUpRight, Trophy, BarChart3, ArrowRight, AlertTriangle, Package, PieChart, Clock3, Percent, ShoppingCart } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -61,7 +61,7 @@ export default function Dashboard() {
   const { t } = useTranslation();
   useDashboardSse();
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: _isLoading } = useQuery<DashboardStats>({
     queryKey: [STATS_URL],
     queryFn: async () => {
       const statsUrl = buildStatsUrl();
@@ -152,11 +152,11 @@ export default function Dashboard() {
     );
   }, [products]);
 
-  const todaySales = stats?.todaySales ?? [];
+  const todaySales = useMemo(() => stats?.todaySales ?? [], [stats]);
   const allTime = stats?.allTime ?? { orderCount: 0, gross: 0, net: 0, refundTotal: 0 };
 
   const {
-    todayRefundedSales,
+    todayRefundedSales: _todayRefundedSales,
     todayRefundTotal,
     todayRefundCount,
     totalGrossRevenue,
@@ -222,7 +222,7 @@ export default function Dashboard() {
     { label: t("dashboard.payments"), value: paymentBreakdown.length ? paymentBreakdown[0].method : t("dashboard.noPaymentData"), icon: PieChart },
   ];
 
-  const CurrencyIcon = useCallback(({ className }: { className?: string }) => (
+  const CurrencyIcon = useCallback(({ className: _className }: { className?: string }) => (
     <span className="font-black text-sm leading-none flex items-center justify-center w-4 h-4 shrink-0">
       {currency}
     </span>

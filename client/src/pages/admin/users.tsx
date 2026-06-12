@@ -5,8 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  Users, Plus, Trash2, ShieldCheck, User2, CreditCard,
-  Building2, Copy, Check, Clock, RefreshCw, UserPlus, Eye, EyeOff,
+  Users, Trash2, ShieldCheck, User2, CreditCard,
+  Building2, Check, Clock, UserPlus,
   ShieldOff, ShieldAlert, Wifi, WifiOff, KeyRound, Unlock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -432,7 +432,7 @@ function PinManageDialog({ user, open, onClose }: { user: TenantUser; open: bool
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
-  const { data: tenantUsers = [], isLoading } = useTenantUsers();
+  const { data: tenantUsers = [], isLoading: _isLoading } = useTenantUsers();
   const { data: branches = [] } = useBranches();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
@@ -451,6 +451,7 @@ export default function UsersPage() {
     if (currentUser && !currentUser.tenantId) {
       ensureTenant.mutate();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.tenantId]);
 
   const branchName = (id: number) => branches.find(b => b.id === id)?.name ?? `Branch ${id}`;

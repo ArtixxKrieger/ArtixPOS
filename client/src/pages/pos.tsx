@@ -33,7 +33,7 @@ import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import { DEFAULT_PAYMENT_METHODS, CAFE_STYLE_BUSINESS_SUBTYPES } from "@/constants/pos";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { playCheckout, playAddItem, playError, playMilestone } from "@/lib/sounds";
+import { playCheckout, playAddItem, playMilestone } from "@/lib/sounds";
 import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 import { BillSplitDialog, type SplitPortion } from "@/components/bill-split-dialog";
@@ -132,7 +132,7 @@ function getQuickAmounts(total: number): number[] {
 }
 
 export default function POS() {
-  const { data: products = [], isLoading } = useProducts();
+  const { data: products = [], isLoading: _isLoading } = useProducts();
   const { data: settings } = useSettings();
   const createPending = useCreatePendingOrder();
   const { toast } = useToast();
@@ -391,6 +391,7 @@ export default function POS() {
     if (isCashPayment && isPaymentFocused && paymentInputRef.current) {
       paymentInputRef.current.focus({ preventScroll: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, discount, isCashPayment]);
 
   // The AI's "Reorder" button stashes a payload in sessionStorage then routes
@@ -670,7 +671,7 @@ export default function POS() {
     effectiveDiscount, loyaltyDiscount, appliedCode, loyaltyPointsToRedeem,
     isScPwd, scPwdType, scPwdId, discountedSubtotal, globalTaxRate, changeAmount,
     paymentMethod, selectedCustomer, receiptName, issueWifi, discount, isFoodBeverage,
-    orderType, deliveryAddress, clearCart, replaceCart, createPending, toast, loyaltyRedemptionRate,
+    orderType, deliveryAddress, clearCart, replaceCart, createPending, toast,
     checkMilestone,
   ]);
 

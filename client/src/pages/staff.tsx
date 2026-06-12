@@ -178,7 +178,7 @@ export default function StaffPage() {
   const [editing, setEditing] = useState<ServiceStaff | undefined>();
   const [confirmDelete, setConfirmDelete] = useState<ServiceStaff | undefined>();
 
-  const { data: staffList = [], isLoading } = useQuery<ServiceStaff[]>({ queryKey: ["/api/service-staff"] });
+  const { data: staffList = [], isLoading: _isLoading } = useQuery<ServiceStaff[]>({ queryKey: ["/api/service-staff"] });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/service-staff/${id}`),
@@ -192,6 +192,7 @@ export default function StaffPage() {
     onSuccess: () => { toast({ title: "Staff member removed" }); setConfirmDelete(undefined); },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) =>
       apiRequest("PUT", `/api/service-staff/${id}`, { isActive }),

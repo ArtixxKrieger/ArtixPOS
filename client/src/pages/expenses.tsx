@@ -94,7 +94,7 @@ function ExpenseForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: (
 type DateFilter = "all" | "today" | "week" | "month";
 
 export default function Expenses() {
-  const { data: expenses = [], isLoading } = useQuery<Expense[]>({ queryKey: ["/api/expenses"] });
+  const { data: expenses = [], isLoading: _isLoading } = useQuery<Expense[]>({ queryKey: ["/api/expenses"] });
   const { data: settings } = useSettings();
   const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";

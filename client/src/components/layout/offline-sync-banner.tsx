@@ -40,7 +40,6 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
     totalQueueCount,
     failedQueueCount,
     lastSync,
-    triggerRetryFailed,
   } = status;
 
   const [, setTick] = useState(0);

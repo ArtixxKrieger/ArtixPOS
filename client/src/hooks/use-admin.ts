@@ -98,6 +98,7 @@ export function useTenant() {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useUpdateTenant() {
   const qc = useQueryClient();
   return useMutation({

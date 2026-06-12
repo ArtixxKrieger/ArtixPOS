@@ -75,7 +75,7 @@ export function useOnlineStatus(): OnlineStatus {
   // state on first render, zero latency, no HTTP probe needed.
   const [isOnline, setIsOnline]               = useState(() => navigator.onLine);
   // FIX #4: isReady is true immediately — hardware state is available at once.
-  const [isReady, setIsReady]                 = useState(true);
+  const [isReady, _setIsReady]                = useState(true);
   const [isSyncing, setIsSyncing]             = useState(false);
   const [salesQueueCount, setSalesQueueCount] = useState(0);
   const [totalQueueCount, setTotalQueueCount] = useState(0);

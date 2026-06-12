@@ -68,7 +68,6 @@ function cleanBarcode(raw: string): string {
   for (const prefix of GS1_AIM_PREFIXES) {
     if (s.startsWith(prefix)) { s = s.slice(prefix.length); break; }
   }
-  // eslint-disable-next-line no-control-regex
   return s.replace(/[\x00-\x1F\x7F]/g, "").trim();
 }
 

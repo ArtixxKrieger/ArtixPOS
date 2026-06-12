@@ -39,6 +39,7 @@ export function useProducts() {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useProduct(id: number) {
   return useQuery({
     queryKey: [api.products.get.path, id],

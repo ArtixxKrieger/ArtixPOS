@@ -77,7 +77,7 @@ export default function Refunds() {
   const { t } = useTranslation();
   const currency = (settings as any)?.currency || "₱";
 
-  const { data: refunds = [], isLoading } = useQuery<RefundWithDetails[]>({
+  const { data: refunds = [], isLoading: _isLoading } = useQuery<RefundWithDetails[]>({
     queryKey: ["/api/refunds"],
     queryFn: async () => {
       const res = await nativeFetch("/api/refunds");

@@ -14,7 +14,7 @@ import {
   Clock, TrendingUp, Play, Square, Receipt, AlertCircle,
   ChevronLeft, ChevronRight, SlidersHorizontal, Printer,
   FileText, CreditCard, Banknote, Smartphone, Hash,
-  ShoppingBag, Tag, Users, BarChart3, X,
+  ShoppingBag, Tag, BarChart3, X,
   ArrowDownCircle, ArrowUpCircle, Coins, AlertTriangle,
   Plus, Minus, CheckCircle2,
 } from "lucide-react";
@@ -207,7 +207,7 @@ function VarianceBadge({ variance, currency }: { variance: number; currency: str
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Shifts() {
-  const { data: shifts = [], isLoading } = useShifts();
+  const { data: shifts = [], isLoading: _isLoading } = useShifts();
   const { data: openShift } = useOpenShift();
   const { data: settings } = useSettings();
   const { toast } = useToast();

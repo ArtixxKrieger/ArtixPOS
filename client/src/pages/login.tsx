@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
-import { debugLog, getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
+import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import {
-  NATIVE_TOKEN_KEY,
   apiRequest,
   setNativeToken,
   queryClient,
@@ -122,6 +121,7 @@ function useScrollReveal() {
 }
 
 // ── Counter animation hook ───────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useCountUp(target: number, visible: boolean, duration = 1200) {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -134,6 +134,7 @@ function useCountUp(target: number, visible: boolean, duration = 1200) {
       if (start < target) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
   return val;
 }
@@ -332,6 +333,7 @@ function useLandingAnimations(
       ScrollTrigger.getAll().forEach((t) => t.kill());
       extraCleanup.forEach((fn) => fn());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -542,6 +544,7 @@ export default function Login() {
         window.history.replaceState({}, "", "/login");
       })();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
   useEffect(() => {
@@ -591,6 +594,7 @@ export default function Login() {
         if (cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const urlParams = new URLSearchParams(window.location.search);

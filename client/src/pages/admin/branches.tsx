@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Sparkles, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, X, Info, Percent, Check, Search } from "lucide-react";
+import { Sparkles, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, Info, Percent, Check, Search } from "lucide-react";
 import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -514,6 +514,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       setBranchCountry(null);
       setCountrySearch("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, branch]);
 
   function handleClose() {
@@ -943,7 +944,7 @@ function BranchDetailDrawer({
   onClose: () => void;
   onEdit: () => void;
 }) {
-  const { data: stats, isLoading: statsLoading } = useBranchStats(open && branch ? branch.id : null);
+  const { data: stats, isLoading: _statsLoading } = useBranchStats(open && branch ? branch.id : null);
   const switchBranch = useSwitchBranch();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -958,12 +959,12 @@ function BranchDetailDrawer({
       toast({ title: `Switched to ${branch.name}` });
       onClose();
       setTimeout(() => window.location.reload(), 150);
-    } catch (err: any) {
+    } catch {
       toast({ title: "Could not switch branch", variant: "destructive" });
     }
   }
 
-  function handleCopyLink() {
+  function _handleCopyLink() {
     if (!branch) return;
     const url = `${window.location.origin}/b/${branch.id}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -1205,7 +1206,7 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
   const seedBranch = useSeedBranch();
   const { toast } = useToast();
   const [template, setTemplate] = useState<BranchSeedTemplate | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !branch) { setTemplate(null); return; }
@@ -1389,7 +1390,7 @@ function BranchCard({
     }
   }
 
-  function handleCopyLink() {
+  function _handleCopyLink() {
     const url = `${window.location.origin}/b/${branch.id}`;
     navigator.clipboard.writeText(url).then(() => {
       toast({ title: "Link copied!", description: url });
@@ -1628,7 +1629,7 @@ function BranchComparisonChart({ branches }: { branches: Branch[] }) {
 
 export default function Branches() {
   const { user } = useAuth();
-  const { data: branches = [], isLoading } = useBranches();
+  const { data: branches = [], isLoading: _isLoading } = useBranches();
   const deleteBranch = useDeleteBranch();
   const setMainBranch = useSetMainBranch();
   const duplicateBranch = useDuplicateBranch();

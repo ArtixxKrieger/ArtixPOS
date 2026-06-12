@@ -5,16 +5,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
-  Sparkles, Gift, TrendingUp, Users, Save, Star, Calculator, Crown,
+  Sparkles, Gift, Users, Save, Star, Calculator, Crown,
   Medal, Plus, Edit2, Trash2, Check, X, Tag, Percent, Package, Stamp,
-  Settings2, ChevronRight, Award, BarChart3, Coins,
+  Settings2, Award, BarChart3, Coins,
 } from "lucide-react";
 import type { Customer, LoyaltyTier, LoyaltyReward, Product } from "@shared/schema";
 
@@ -62,6 +60,7 @@ function TierFormDialog({ open, onClose, initial, onSave }: {
   useEffect(() => {
     if (initial) form.reset({ name: initial.name, minLifetimePoints: initial.minLifetimePoints, multiplier: initial.multiplier, color: initial.color, perks: initial.perks ?? "", sortOrder: initial.sortOrder });
     else form.reset({ name: "", minLifetimePoints: 0, multiplier: "1", color: "#CD7F32", perks: "", sortOrder: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, open]);
 
   return (
@@ -121,6 +120,7 @@ function RewardFormDialog({ open, onClose, initial, onSave, products }: {
   useEffect(() => {
     if (initial) form.reset({ name: initial.name, description: initial.description ?? "", type: initial.type, pointsCost: initial.pointsCost, value: initial.value, isActive: initial.isActive ?? true, maxRedemptions: initial.maxRedemptions?.toString() ?? "", expiresAt: initial.expiresAt ?? "" });
     else form.reset({ name: "", description: "", type: "discount_fixed", pointsCost: 100, value: "0", isActive: true, maxRedemptions: "", expiresAt: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, open]);
 
   const valueLabel: Record<string, string> = { discount_fixed: "Discount Amount", discount_percent: "Discount Percent (%)", free_product: "Product ID", stamp_card: "Stamps required", custom: "Reward Description" };
@@ -232,6 +232,7 @@ export default function LoyaltyPage() {
         loyaltyStampEnabled: !!settings.loyaltyStampEnabled,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
   const watchedSettings = settingsForm.watch();

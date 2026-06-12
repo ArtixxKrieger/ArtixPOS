@@ -15,9 +15,9 @@ import { insertCustomerSchema, type Customer, type LoyaltyPointsLog, type Loyalt
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Users, Plus, Search, Phone, Mail, Trash2, Edit, ShoppingBag, X, Star,
+  Users, Plus, Search, Phone, Mail, Edit, ShoppingBag, X, Star,
   TrendingUp, TrendingDown, Gift, History, Crown, Medal, Sparkles, Calendar,
-  Award, Check, ChevronRight, UserCircle2, Stamp,
+  ChevronRight,
 } from "lucide-react";
 
 // ─── Tier config ──────────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ function getTier(c: Customer) {
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = insertCustomerSchema.extend({
   name: z.string().min(1, "Name is required"),
   birthday: z.string().optional().nullable(),
@@ -53,7 +54,7 @@ type FormData = z.infer<typeof formSchema>;
 
 // ─── Customer Form ────────────────────────────────────────────────────────────
 
-function CustomerForm({ initial, onSuccess, onClose, customers }: {
+function CustomerForm({ initial, onSuccess, onClose, customers: _customers }: {
   initial?: Partial<Customer>;
   onSuccess: (c?: Customer) => void;
   onClose: () => void;
@@ -138,7 +139,7 @@ function CustomerForm({ initial, onSuccess, onClose, customers }: {
 
 // ─── Profile Dialog ───────────────────────────────────────────────────────────
 
-function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
+function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currency }: {
   customer: Customer; onClose: () => void; onEdit: () => void; currency: string;
 }) {
   const qc = useQueryClient();
@@ -148,7 +149,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
   const [manualDelta, setManualDelta] = useState("");
   const [manualNote, setManualNote] = useState("");
 
-  const { data: pointsLog = [], isLoading: pointsLoading } = useQuery<LoyaltyPointsLog[]>({
+  const { data: pointsLog = [], isLoading: _pointsLoading } = useQuery<LoyaltyPointsLog[]>({
     queryKey: ["/api/customers", customer.id, "loyalty-log"],
     queryFn: async () => {
       const r = await nativeFetch(`/api/customers/${customer.id}/loyalty-log`);
@@ -156,9 +157,9 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
     },
   });
 
-  const { data: rewards = [], isLoading: rewardsLoading } = useQuery<LoyaltyReward[]>({ queryKey: ["/api/loyalty/rewards"] });
+  const { data: rewards = [], isLoading: _rewardsLoading } = useQuery<LoyaltyReward[]>({ queryKey: ["/api/loyalty/rewards"] });
 
-  const { data: sales = [], isLoading: salesLoading } = useQuery<any[]>({
+  const { data: sales = [], isLoading: _salesLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customer.id, "sales"],
     queryFn: async () => {
       const r = await nativeFetch(`/api/customers/${customer.id}/sales`);
@@ -194,7 +195,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
   const TierIcon = tier.icon;
   const lifetimePts = (customer as any).lifetimePoints ?? 0;
   const birthday = (customer as any).birthday;
-  const stampCount = (customer as any).stampCount ?? 0;
+  const _stampCount = (customer as any).stampCount ?? 0;
   const activeRewards = rewards.filter(r => r.isActive);
 
   const TYPE_LABEL: Record<string, (r: LoyaltyReward) => string> = {
@@ -388,7 +389,7 @@ function CustomerProfile({ customer: initial, onClose, onEdit, currency }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Customers() {
-  const { data: customers = [], isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
+  const { data: customers = [], isLoading: _isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: settings } = useSettings();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -400,6 +401,7 @@ export default function Customers() {
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const [profileCustomer, setProfileCustomer] = useState<Customer | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/customers/${id}`),
     onMutate: async (id: number) => {

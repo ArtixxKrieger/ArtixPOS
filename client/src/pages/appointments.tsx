@@ -797,7 +797,7 @@ export default function AppointmentsPage() {
     (settings as any)?.businessSubType,
   );
 
-  const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
+  const { data: appointments = [], isLoading: _isLoading } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments", selectedDate],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/appointments?date=${selectedDate}`);

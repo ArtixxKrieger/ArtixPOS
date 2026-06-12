@@ -90,6 +90,7 @@ export function deleteSession(id: string) {
   save(load().filter(s => s.id !== id));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function clearAllSessions() {
   save([]);
 }
@@ -146,6 +147,7 @@ export function setFloatPosition(pos: FloatPosition) {
   localStorage.setItem(FLOAT_POSITION_KEY, JSON.stringify(pos));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function clearFloatPosition() {
   localStorage.removeItem(FLOAT_POSITION_KEY);
 }

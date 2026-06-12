@@ -128,7 +128,7 @@ function getServerParams(dateFilter: DateFilter, customFrom: string, customTo: s
 
 export default function Transactions() {
   const { data: settings } = useSettings();
-  const { transactionLabel, productPlural } = useBusinessTerminology();
+  const { transactionLabel: _transactionLabel, productPlural } = useBusinessTerminology();
   const currency = (settings as any)?.currency || "₱";
 
   const [selectedSale, setSelectedSale] = useState<any>(null);
@@ -145,7 +145,7 @@ export default function Transactions() {
     () => getServerParams(dateFilter, customFrom, customTo, includeVoided),
     [dateFilter, customFrom, customTo, includeVoided]
   );
-  const { data: sales = [], isLoading } = useSales(serverParams);
+  const { data: sales = [], isLoading: _isLoading } = useSales(serverParams);
 
   const toggleColumn = (key: ColumnKey) => {
     setVisibleColumns(prev => {

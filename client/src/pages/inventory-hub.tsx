@@ -81,7 +81,7 @@ export default function InventoryHub() {
 
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
   const { data: ingredients = [] } = useQuery<Ingredient[]>({ queryKey: ["/api/ingredients"] });
-  const { data: wasteLogs = [], isLoading: wasteLoading } = useQuery<WasteEntry[]>({ queryKey: ["/api/waste-log"] });
+  const { data: wasteLogs = [], isLoading: _wasteLoading } = useQuery<WasteEntry[]>({ queryKey: ["/api/waste-log"] });
   const { data: transfers = [], isLoading: transferLoading } = useQuery<Transfer[]>({ queryKey: ["/api/stock-transfers"] });
 
   const reorderQueryKey = isFoodBeverage
@@ -397,7 +397,7 @@ function WasteTab({ logs, currency, onAdd }: {
   );
 }
 
-function TransfersTab({ transfers, isLoading, onAdd }: {
+function TransfersTab({ transfers, isLoading: _isLoading, onAdd }: {
   transfers: Transfer[]; isLoading: boolean; onAdd: () => void;
 }) {
   const { toast } = useToast();
@@ -488,7 +488,7 @@ function TransfersTab({ transfers, isLoading, onAdd }: {
   );
 }
 
-function ReorderTab({ suggestions, isLoading, currency }: {
+function ReorderTab({ suggestions, isLoading: _isLoading, currency: _currency }: {
   suggestions: ReorderSuggestion[]; isLoading: boolean; currency: string;
 }) {
   const { toast } = useToast();

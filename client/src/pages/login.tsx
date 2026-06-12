@@ -752,6 +752,18 @@ export default function Login() {
         @keyframes pulse-dot   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.45;transform:scale(0.75)} }
         @keyframes orb-a       { 0%,100%{transform:translate(0,0)} 40%{transform:translate(30px,-22px)} 70%{transform:translate(-18px,14px)} }
         @keyframes orb-b       { 0%,100%{transform:translate(0,0)} 40%{transform:translate(-24px,18px)} 70%{transform:translate(18px,-10px)} }
+        @keyframes lp-marquee  { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes lp-aurora   { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.55} 50%{transform:translate(-50%,-50%) scale(1.15);opacity:0.85} }
+        .lp-marquee-track      { animation:lp-marquee 36s linear infinite }
+        .lp-aurora-orb         { animation:lp-aurora 9s ease-in-out infinite alternate }
+        .lp-bg-grid {
+          background-size:64px 64px;
+          background-image:
+            linear-gradient(to right,rgba(59,130,246,0.04) 1px,transparent 1px),
+            linear-gradient(to bottom,rgba(59,130,246,0.04) 1px,transparent 1px);
+          mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.6) 20%,rgba(0,0,0,0.6) 80%,transparent 100%);
+          -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.6) 20%,rgba(0,0,0,0.6) 80%,transparent 100%);
+        }
 
         .rise { animation:rise 0.45s cubic-bezier(0.16,1,0.3,1) both }
         .d1{ animation-delay:0.03s } .d2{ animation-delay:0.10s } .d3{ animation-delay:0.17s } .d4{ animation-delay:0.24s }
@@ -1981,56 +1993,34 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── STATS STRIP ── */}
-      <section
-        ref={statsRef}
-        style={{
-          position: "relative",
-          zIndex: 1,
-          borderTop: "1px solid rgba(59,130,246,0.07)",
-          borderBottom: "1px solid rgba(59,130,246,0.07)",
-          background: "rgba(255,255,255,0.015)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "32px 32px",
-            display: "flex",
-            justifyContent: "space-around",
-            flexWrap: "wrap",
-            gap: 24,
-          }}
-        >
-          {[
-            { n: "10+", label: "Built-in modules" },
-            { n: "Any device", label: "Phone · Tablet · Laptop" },
-            { n: "100%", label: "Works without internet" },
-            { n: "Live", label: "Real-time analytics" },
-            { n: "Multi", label: "Branch & team support" },
-          ].map((s, i) => (
-            <div key={i} className="sr sr-d1" style={{ textAlign: "center" }}>
-              <div
-                className={`stat-num${statsVisible ? " visible" : ""}`}
-                style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em" }}
-              >
-                {s.n}
-              </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.38)",
-                  fontWeight: 500,
-                  marginTop: 4,
-                }}
-              >
-                {s.label}
-              </div>
+      {/* ── MARQUEE STRIP ── */}
+      <div ref={statsRef} style={{ position: "relative", zIndex: 1, overflow: "hidden", padding: "18px 0", transform: "rotate(-1.5deg) scaleX(1.06)", background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(59,130,246,0.10)", borderBottom: "1px solid rgba(59,130,246,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }}>
+        <div className="lp-marquee-track" style={{ display: "flex", whiteSpace: "nowrap", width: "max-content" }}>
+          {[0, 1].map(copy => (
+            <div key={copy} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+              {[
+                "Full-stack POS",
+                "Works 100% Offline",
+                "Real-time Analytics",
+                "Multi-branch Ready",
+                "10+ Built-in Modules",
+                "Any Device",
+                "PWA + Native App",
+                "Live Inventory",
+                "Staff Scheduling",
+                "No Monthly Lock-in",
+              ].map((item, i) => (
+                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 28, padding: "0 28px" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.38)" }}>
+                    {item}
+                  </span>
+                  <span style={{ color: NEON, opacity: 0.5, fontSize: 10 }}>✦</span>
+                </span>
+              ))}
             </div>
           ))}
         </div>
-      </section>
+      </div>
 
       {/* ── GRADIENT FADE from stats to showcase ── */}
       <div style={{ height: 80, background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`, position: "relative", zIndex: 1, marginTop: -1 }} />
@@ -3822,19 +3812,62 @@ export default function Login() {
           position: "relative",
           zIndex: 1,
           textAlign: "center",
-          padding: "88px 32px",
+          padding: "108px 32px 96px",
           borderTop: "1px solid rgba(59,130,246,0.07)",
+          overflow: "hidden",
         }}
       >
+        {/* Aurora breathing glow */}
+        <div
+          className="lp-aurora-orb"
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: "70vw",
+            height: "60vh",
+            borderRadius: "50%",
+            background: `radial-gradient(circle at 50% 50%, rgba(59,130,246,0.12) 0%, rgba(96,165,250,0.06) 45%, transparent 70%)`,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+        {/* Giant background text */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: "-4vh",
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: "clamp(80px, 18vw, 22vw)",
+            fontWeight: 900,
+            letterSpacing: "-0.06em",
+            lineHeight: 0.82,
+            color: "transparent",
+            WebkitTextStroke: `1px rgba(59,130,246,0.08)`,
+            background: `linear-gradient(180deg, rgba(59,130,246,0.10) 0%, transparent 70%)`,
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            userSelect: "none",
+            zIndex: 0,
+          }}
+        >
+          ARTIXPOS
+        </div>
+        {/* Content on top */}
+        <div style={{ position: "relative", zIndex: 1 }}>
         <h2
           className="sr"
-          style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-0.04em", margin: "0 0 14px" }}
+          style={{ fontSize: 52, fontWeight: 900, letterSpacing: "-0.04em", margin: "0 0 14px", lineHeight: 1.05 }}
         >
           Ready to start?
         </h2>
         <p
           className="sr sr-d1"
-          style={{ fontSize: 16, color: "rgba(255,255,255,0.40)", marginBottom: 36 }}
+          style={{ fontSize: 16, color: "rgba(255,255,255,0.40)", marginBottom: 40 }}
         >
           Takes less than 2 minutes. Your first sale is free.
         </p>
@@ -3902,6 +3935,7 @@ export default function Login() {
             </a>
           </span>
         </div>
+        </div>{/* /content-on-top */}
       </section>
 
       {/* ── LOGIN PANEL (slide-over) ── */}

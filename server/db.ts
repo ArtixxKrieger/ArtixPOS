@@ -20,9 +20,9 @@ const EFFECTIVE_WORKERS   = CLUSTER_WORKERS_ENV > 0 ? CLUSTER_WORKERS_ENV
 const POOL_MAX = Math.max(2, Math.floor(TOTAL_POOL / EFFECTIVE_WORKERS));
 
 const connectionString =
-  process.env.DATABASE_URL ||
   process.env.SUPABASE_POOLER_URL ||
-  process.env.SUPABASE_DATABASE_URL;
+  process.env.SUPABASE_DATABASE_URL ||
+  process.env.DATABASE_URL;
 
 export const pool = new Pool({
   connectionString,

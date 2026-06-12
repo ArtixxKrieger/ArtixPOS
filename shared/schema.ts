@@ -107,6 +107,7 @@ export const users = pgTable("users", {
   staffPin: text("staff_pin"), // scrypt-hashed 4-6 digit PIN
   pinLockedUntil: text("pin_locked_until"), // ISO timestamp — set after repeated failures
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  deletedAt: text("deleted_at"),
 });
 
 // ─── Invite Tokens ────────────────────────────────────────────────────────────

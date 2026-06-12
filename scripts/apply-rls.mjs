@@ -70,7 +70,7 @@ async function run() {
     for (const t of [
       "branches", "audit_logs", "invite_tokens", "or_sequences",
       "sales", "role_permissions", "tenant_subscriptions",
-      "subscription_payments", "ai_memories",
+      "subscription_payments",
     ]) {
       await client.query(`
         ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY;

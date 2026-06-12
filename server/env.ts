@@ -25,9 +25,9 @@ export function validateEnv(): void {
 
   // Accept any of the supported DB connection string env var names
   const dbUrl =
-    process.env.DATABASE_URL ||
     process.env.SUPABASE_POOLER_URL ||
-    process.env.SUPABASE_DATABASE_URL;
+    process.env.SUPABASE_DATABASE_URL ||
+    process.env.DATABASE_URL;
   if (!dbUrl) {
     const msg =
       "[env] ✗ FATAL — No database connection string found.\n" +

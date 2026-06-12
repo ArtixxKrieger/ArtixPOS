@@ -5,9 +5,7 @@ export default defineConfig({
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL || process.env.SUPABASE_POOLER_URL!,
-    ssl: (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost"))
-      ? "allow"
-      : false,
+    url: process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL!,
+    ssl: "allow",
   },
 });

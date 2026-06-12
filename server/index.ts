@@ -349,18 +349,25 @@ async function _doInit() {
     console.log("[init] step 2/8 — initSentry");
     await initSentry();
 
+    // Transaction-mode poolers (Supabase port 6543) cannot run DDL statements
+    // like ALTER TABLE or CREATE ROLE — they hang indefinitely and leak pool
+    // connections.  Detect and skip gracefully; run migrations via the Supabase
+    // SQL Editor or a direct (non-pooler) connection instead.
+    const dbUrl = process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || "";
+    const isTransactionPooler = dbUrl.includes(":6543/") || (dbUrl.includes("pooler.supabase.com") && !dbUrl.includes(":5432/"));
+
     if (process.env.VERCEL !== "1") {
       console.log("[init] step 3/8 — ensureIndexes");
-      try {
-        await Promise.race([
-          (async () => { await ensureIndexes(); await ensurePartitions(); })(),
-          new Promise<void>((_, reject) =>
-            setTimeout(() => reject(new Error("ensureIndexes timed out after 15s (pooler may not support DDL)")), 15_000)
-          ),
-        ]);
-      } catch (idxErr: unknown) {
-        const msg = idxErr instanceof Error ? idxErr.message : String(idxErr);
-        console.warn("[indexes] ⚠  skipped:", msg);
+      if (isTransactionPooler) {
+        console.log("[indexes] ⚠  Skipped — transaction-mode pooler detected (run migrations via Supabase SQL Editor)");
+      } else {
+        try {
+          await ensureIndexes();
+          await ensurePartitions();
+        } catch (idxErr: unknown) {
+          const msg = idxErr instanceof Error ? idxErr.message : String(idxErr);
+          console.warn("[indexes] ⚠  skipped:", msg);
+        }
       }
     } else {
       console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
@@ -369,14 +376,11 @@ async function _doInit() {
     console.log("[init] step 3b/8 — setupRLS");
     if (process.env.VERCEL === "1") {
       console.log("[rls] skipped on Vercel — applied via build step & GitHub Actions");
+    } else if (isTransactionPooler) {
+      console.log("[rls] ⚠  Skipped — transaction-mode pooler detected (apply RLS via: npm run db:rls using a direct connection)");
     } else {
       try {
-        await Promise.race([
-          setupRLS(),
-          new Promise<void>((_, reject) =>
-            setTimeout(() => reject(new Error("setupRLS timed out after 10s (pooler may not support DDL)")), 10_000)
-          ),
-        ]);
+        await setupRLS();
       } catch (rlsErr: unknown) {
         const msg = rlsErr instanceof Error ? rlsErr.message : String(rlsErr);
         console.warn("[rls] ⚠  setupRLS skipped:", msg);

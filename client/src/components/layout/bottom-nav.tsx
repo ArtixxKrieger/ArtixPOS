@@ -7,7 +7,7 @@ import {
   UserCircle2, Wallet, AlarmClock, Tag, RotateCcw,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard,
   ReceiptText, Gift, Banknote, FileCheck, Cpu, Warehouse, CalendarClock, BookLock, Wifi, Maximize, Minimize,
-  FlaskConical,
+  FlaskConical, Lock,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
@@ -134,10 +134,11 @@ const MORE_NAV_FULL: MoreNavItem[] = [
 const CATEGORY_ORDER: MoreCategory[] = ["service", "operations", "management", "finance", "tools"];
 
 const ADMIN_NAV = [
-  { label: "Overview", url: "/admin", icon: ShieldCheck, i18nKey: "nav.admin.overview" },
-  { label: "Branches", url: "/admin/branches", icon: Building2, i18nKey: "nav.admin.branches" },
-  { label: "Team", url: "/admin/users", icon: Users, i18nKey: "nav.admin.team" },
-  { label: "Analytics", url: "/admin/analytics", icon: BarChart3, i18nKey: "nav.admin.analytics" },
+  { label: "Overview",  url: "/admin",            icon: ShieldCheck, i18nKey: "nav.admin.overview" },
+  { label: "Branches",  url: "/admin/branches",   icon: Building2,   i18nKey: "nav.admin.branches" },
+  { label: "Team",      url: "/admin/users",       icon: Users,       i18nKey: "nav.admin.team",      proOnly: true },
+  { label: "Analytics", url: "/admin/analytics",  icon: BarChart3,   i18nKey: "nav.admin.analytics", proOnly: true },
+  { label: "Audit Log", url: "/admin/audit-logs", icon: ScrollText,  i18nKey: "nav.admin.auditLog",  ownerOnly: true, businessOnly: true },
 ] as const;
 
 const ALL_SECONDARY_URLS = new Set([
@@ -162,7 +163,7 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const { user } = useAuth();
   const { data: _settings } = useSettings();
-  const { isFree } = useSubscription();
+  const { isFree, isPro, isBusiness } = useSubscription();
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -412,15 +413,18 @@ export function BottomNav() {
                 </p>
                 <div className="grid grid-cols-4 gap-2">
                   {ADMIN_NAV.map((item) => {
+                    if ('ownerOnly' in item && item.ownerOnly && !isOwner) return null;
                     const Icon = item.icon;
                     const isActive = location === item.url;
+                    const needsPro = ('proOnly' in item) && item.proOnly && !isPro;
+                    const needsBusiness = ('businessOnly' in item) && item.businessOnly && !isBusiness;
                     return (
                       <button
                         key={item.url}
                         onClick={() => navigate(item.url)}
                         aria-current={isActive ? "page" : undefined}
                         className={[
-                          "flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-200 active:scale-95 border h-[72px] w-full overflow-hidden",
+                          "relative flex flex-col items-center justify-center gap-1 rounded-2xl transition-all duration-200 active:scale-95 border h-[72px] w-full overflow-hidden",
                           isActive
                             ? "bg-primary/10 border-primary/20 text-primary"
                             : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -428,6 +432,16 @@ export function BottomNav() {
                       >
                         <Icon className="h-5 w-5 shrink-0" />
                         <span className="text-[10px] font-medium text-center leading-tight px-1 w-full line-clamp-2 break-words">{t(item.i18nKey)}</span>
+                        {(needsPro || needsBusiness) && (
+                          <span className={[
+                            "absolute top-1.5 right-1.5 text-[7px] font-bold px-1 py-[1px] rounded-full",
+                            needsBusiness
+                              ? "bg-violet-500/20 text-violet-600 dark:text-violet-400"
+                              : "bg-amber-500/20 text-amber-600 dark:text-amber-400",
+                          ].join(" ")}>
+                            {needsBusiness ? "BIZ" : "PRO"}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

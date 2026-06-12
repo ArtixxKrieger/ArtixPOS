@@ -8,7 +8,7 @@ import {
   ShieldCheck, Building2, Users, UserCircle2, Wallet, AlarmClock, Tag, RotateCcw,
   LayoutGrid, ChefHat, Truck, ShoppingBag, Timer, CalendarDays, UserCheck, BadgeCheck, DoorOpen, CreditCard, Warehouse,
   ReceiptText, Gift, Banknote, FileCheck, CalendarClock, BookLock, Cpu, Wifi, KeyRound, FlaskConical,
-  PanelLeftClose, PanelLeftOpen, Maximize, Minimize,
+  PanelLeftClose, PanelLeftOpen, Maximize, Minimize, Lock,
 } from "lucide-react";
 import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -93,11 +93,11 @@ const NAV_SECTIONS = [
 ];
 
 const ADMIN_NAV_ITEMS = [
-  { label: "Overview", url: "/admin", icon: ShieldCheck, i18nKey: "nav.admin.overview" },
-  { label: "Branches", url: "/admin/branches", icon: Building2, i18nKey: "nav.admin.branches" },
-  { label: "Team", url: "/admin/users", icon: Users, i18nKey: "nav.admin.team" },
-  { label: "Analytics", url: "/admin/analytics", icon: BarChart3, i18nKey: "nav.admin.analytics" },
-  { label: "Audit Log", url: "/admin/audit-logs", icon: ScrollText, ownerOnly: true, i18nKey: "nav.admin.auditLog" },
+  { label: "Overview",  url: "/admin",             icon: ShieldCheck, i18nKey: "nav.admin.overview" },
+  { label: "Branches",  url: "/admin/branches",    icon: Building2,   i18nKey: "nav.admin.branches" },
+  { label: "Team",      url: "/admin/users",        icon: Users,       i18nKey: "nav.admin.team",      proOnly: true },
+  { label: "Analytics", url: "/admin/analytics",   icon: BarChart3,   i18nKey: "nav.admin.analytics", proOnly: true },
+  { label: "Audit Log", url: "/admin/audit-logs",  icon: ScrollText,  i18nKey: "nav.admin.auditLog",  ownerOnly: true, businessOnly: true },
 ] as const;
 
 const URL_TO_I18N_KEY: Record<string, string> = {
@@ -279,7 +279,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [conflictDrawerOpen, setConflictDrawerOpen] = useState(false);
   const { t } = useTranslation();
   const { user, logout, isLoggingOut } = useAuth();
-  const { isFree } = useSubscription();
+  const { isFree, isPro, isBusiness } = useSubscription();
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -447,6 +447,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   if ('ownerOnly' in item && item.ownerOnly && !isOwner) return null;
                   const Icon = item.icon;
                   const isActive = location === item.url;
+                  const needsPro = ('proOnly' in item) && item.proOnly && !isPro;
+                  const needsBusiness = ('businessOnly' in item) && item.businessOnly && !isBusiness;
                   return (
                     <button
                       key={item.url}
@@ -463,7 +465,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       ].join(" ")}
                     >
                       <Icon className={["h-[15px] w-[15px] shrink-0", isActive ? "stroke-[2.3px]" : "stroke-[1.7px] opacity-70 group-hover:opacity-100"].join(" ")} />
-                      {!sidebarCollapsed && <span className="flex-1 text-left truncate">{t(item.i18nKey)}</span>}
+                      {!sidebarCollapsed && (
+                        <>
+                          <span className="flex-1 text-left truncate">{t(item.i18nKey)}</span>
+                          {needsPro && (
+                            <span className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                              <Lock className="h-[7px] w-[7px]" />PRO
+                            </span>
+                          )}
+                          {needsBusiness && (
+                            <span className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 shrink-0">
+                              <Lock className="h-[7px] w-[7px]" />BIZ
+                            </span>
+                          )}
+                        </>
+                      )}
                     </button>
                   );
                 })}

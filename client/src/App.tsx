@@ -282,6 +282,26 @@ function AdminGuard({ component: Component }: { component: ComponentType }) {
   return <Component />;
 }
 
+function AdminProGuard({ component: Component }: { component: ComponentType }) {
+  const { user } = useAuth();
+  const { isPro, isLoading } = useSubscription();
+  const role = user?.role;
+  if (!role || role === "cashier") return <Redirect to="/" />;
+  if (isLoading) return null;
+  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
+  return <Component />;
+}
+
+function AdminBusinessGuard({ component: Component }: { component: ComponentType }) {
+  const { user } = useAuth();
+  const { isBusiness, isLoading } = useSubscription();
+  const role = user?.role;
+  if (!role || role === "cashier") return <Redirect to="/" />;
+  if (isLoading) return null;
+  if (!isBusiness) return <Redirect to="/billing?reason=business_required" />;
+  return <Component />;
+}
+
 function ManagerOrAboveGuard({ component: Component }: { component: ComponentType }) {
   const { user } = useAuth();
   const role = user?.role;
@@ -467,9 +487,9 @@ const InventoryRoute = () => (
 
 const AdminRoute = () => <AdminGuard component={AdminIndex} />;
 const AdminBranchesRoute = () => <AdminGuard component={AdminBranches} />;
-const AdminUsersRoute = () => <AdminGuard component={AdminUsers} />;
-const AdminAnalyticsRoute = () => <AdminGuard component={AdminAnalytics} />;
-const AdminAuditLogsRoute = () => <AdminGuard component={AdminAuditLogs} />;
+const AdminUsersRoute = () => <AdminProGuard component={AdminUsers} />;
+const AdminAnalyticsRoute = () => <AdminProGuard component={AdminAnalytics} />;
+const AdminAuditLogsRoute = () => <AdminBusinessGuard component={AdminAuditLogs} />;
 const AdminPermissionsRoute = () => <AdminGuard component={AdminPermissions} />;
 
 const RefundsRoute = () => <ManagerOrAboveGuard component={Refunds} />;

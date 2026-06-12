@@ -63,6 +63,7 @@ const ACTION_CONFIG: Record<string, { label: string; bg: string; text: string; i
   shift_open:         { label: "Shift Open",   bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: Clock },
   shift_close:        { label: "Shift Close",  bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",       icon: Clock },
   cash_adjustment:    { label: "Cash Adjust",  bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",     icon: DollarSign },
+  restore:            { label: "Restored",     bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: UserPlus },
 };
 
 const PAYROLL_ACTION_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {

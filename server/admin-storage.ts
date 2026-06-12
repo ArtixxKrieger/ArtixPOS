@@ -77,7 +77,7 @@ export async function deleteBranch(id: number, tenantId: string): Promise<void> 
 }
 
 export async function getTenantUsers(tenantId: string): Promise<(User & { branches: number[] })[]> {
-  const tenantUsers = await db.select().from(users).where(eq(users.tenantId, tenantId));
+  const tenantUsers = await db.select().from(users).where(and(eq(users.tenantId, tenantId), isNull(users.deletedAt)));
   const userIds = tenantUsers.map(u => u.id);
   let ubRows: UserBranch[] = [];
   if (userIds.length > 0) {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -2029,6 +2030,76 @@ export default function Login() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ── PRODUCT SHOWCASE (scroll animation) ── */}
+      <section
+        style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}
+      >
+        <ContainerScroll
+          titleComponent={
+            <div style={{ marginBottom: 8 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: NEON,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  marginBottom: 14,
+                }}
+              >
+                See it in action
+              </div>
+              <h2
+                style={{
+                  fontSize: "clamp(28px, 5vw, 52px)",
+                  fontWeight: 900,
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.04em",
+                  color: "#fff",
+                  margin: "0 0 12px",
+                }}
+              >
+                One dashboard.{" "}
+                <span
+                  style={{
+                    background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 50%,#38bdf8 100%)`,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  Every insight.
+                </span>
+              </h2>
+              <p
+                style={{
+                  fontSize: 15,
+                  color: "rgba(255,255,255,0.40)",
+                  maxWidth: 440,
+                  margin: "0 auto",
+                  lineHeight: 1.65,
+                }}
+              >
+                Sales, inventory, staff, and analytics — all in one beautifully unified view.
+              </p>
+            </div>
+          }
+        >
+          <img
+            src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1400&q=80"
+            alt="ArtixPOS Dashboard"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "top",
+              borderRadius: 16,
+            }}
+            draggable={false}
+          />
+        </ContainerScroll>
       </section>
 
       {/* ── FEATURES CAROUSEL ── */}

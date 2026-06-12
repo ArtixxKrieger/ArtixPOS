@@ -157,7 +157,8 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown,
-): Promise<AxiosResponse & { json: () => Promise<unknown> }> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<AxiosResponse & { ok: true; json: () => Promise<any> }> {
   const m = method.toUpperCase();
   const resolved = resolveUrl(url);
 
@@ -185,7 +186,8 @@ export async function apiRequest(
     res = await exec();
   }
 
-  return Object.assign(res, { json: async () => res.data });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return Object.assign(res, { ok: true as const, json: async (): Promise<any> => res.data });
 }
 
 /**

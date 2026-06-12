@@ -17,7 +17,7 @@ export {
   NATIVE_TOKEN_KEY,
 } from "./api";
 
-import { apiGet, resolveUrl } from "./api";
+import { apiGet } from "./api";
 
 // These patterns identify URLs that should NOT be cached in IDB:
 // - Auth endpoints (stale auth data causes login loops)

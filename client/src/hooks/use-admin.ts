@@ -42,12 +42,13 @@ export interface TenantUser {
   email: string | null;
   avatar: string | null;
   provider: string;
-  role: "owner" | "manager" | "admin" | "cashier";
+  role: "owner" | "manager" | "admin" | "cashier" | "staff";
   tenantId: string | null;
   createdAt: string;
   branches: number[];
   isBanned: boolean;
   bannedAt: string | null;
+  deletedAt: string | null;
   lastSeenAt: string | null;
 }
 

@@ -143,8 +143,6 @@ export default function Settings() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showPaymentManager, setShowPaymentManager] = useState(false);
-  const [voucherCode, setVoucherCode] = useState("");
-  const [redeemingVoucher, setRedeemingVoucher] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [langSearch, setLangSearch] = useState("");
   const [showHelp, setShowHelp] = useState(false);
@@ -316,30 +314,6 @@ export default function Settings() {
     });
   };
 
-  const redeemVoucher = async () => {
-    const code = voucherCode.trim();
-    if (!code || redeemingVoucher) return;
-    setRedeemingVoucher(true);
-    try {
-      const res = await apiRequest("POST", "/api/subscription/redeem-voucher", { code });
-      const data = await res.json();
-      await queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/subscription/payments"] });
-      setVoucherCode("");
-      toast({
-        title: "Voucher applied",
-        description: data.periodEnd ? `Pro is active until ${new Date(data.periodEnd).toLocaleDateString()}.` : "Your Pro access has been activated.",
-      });
-    } catch (err: any) {
-      toast({
-        title: "Voucher not applied",
-        description: err?.message || "Please check the code and try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setRedeemingVoucher(false);
-    }
-  };
 
   const handleLanguageChange = (code: string) => {
     setCurrentLang(code);
@@ -764,31 +738,6 @@ export default function Settings() {
               </button>
             )}
 
-            <div className="border-t border-border/20 px-4 py-3 space-y-2.5">
-              <div className="flex items-center gap-2">
-                <span className="block h-px w-3 bg-muted-foreground/30 shrink-0" />
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Redeem Voucher Code</p>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={voucherCode}
-                  onChange={e => setVoucherCode(e.target.value.toUpperCase())}
-                  onKeyDown={e => e.key === "Enter" && redeemVoucher()}
-                  placeholder="ENTER CODE"
-                  className="h-9 text-sm rounded-xl bg-secondary/60 border-none uppercase tracking-wider font-mono"
-                  data-testid="input-voucher-code"
-                />
-                <Button
-                  type="button"
-                  onClick={redeemVoucher}
-                  disabled={!voucherCode.trim() || redeemingVoucher}
-                  className="h-9 rounded-xl px-4"
-                  data-testid="button-redeem-voucher"
-                >
-                  {redeemingVoucher ? "Applying…" : "Apply"}
-                </Button>
-              </div>
-            </div>
           </div>
 
           <SectionLabel icon={CreditCard}>Checkout</SectionLabel>

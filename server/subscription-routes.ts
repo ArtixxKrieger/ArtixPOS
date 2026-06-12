@@ -91,30 +91,6 @@ async function getOrCreateSubscription(tenantId: string) {
   return rows[0] ?? null;
 }
 
-function getVoucherDurationDays(code: string) {
-  const normalized = code.trim().toUpperCase();
-  if (!normalized) return null;
-
-  const rawCodes = [
-    process.env.PRO_VOUCHER_CODE,
-    process.env.PRO_VOUCHER_CODES,
-  ].filter(Boolean).join(",");
-
-  const entries = rawCodes
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  for (const entry of entries) {
-    const [rawCode, rawDays] = entry.split(":").map((part) => part.trim());
-    if (rawCode?.toUpperCase() === normalized) {
-      const days = Number(rawDays || 30);
-      return Number.isFinite(days) && days > 0 ? days : 30;
-    }
-  }
-
-  return null;
-}
 
 export function registerSubscriptionRoutes(app: Express) {
 
@@ -327,70 +303,6 @@ export function registerSubscriptionRoutes(app: Express) {
     } catch (err: unknown) {
       console.error("[subscription] verify error:", err);
       return res.status(500).json({ message: (err as Error).message ?? "Verification failed" });
-    }
-  });
-
-  // POST /api/subscription/redeem-voucher — activate Pro from a configured voucher code
-  app.post("/api/subscription/redeem-voucher", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const user = req.user;
-      const tenantId = user?.tenantId;
-      if (!tenantId) return res.status(400).json({ message: "No tenant found. Complete onboarding first." });
-
-      const code = String((req.body as any)?.code || "").trim();
-      const durationDays = getVoucherDurationDays(code);
-      if (!durationDays) {
-        return res.status(400).json({ message: "That voucher code is not valid or has not been enabled yet." });
-      }
-
-      const now = new Date();
-      const existing = await getOrCreateSubscription(tenantId);
-      const currentEnd = existing?.currentPeriodEnd ? new Date(existing.currentPeriodEnd) : null;
-      const startFrom = currentEnd && currentEnd > now ? currentEnd : now;
-      const periodEnd = new Date(startFrom);
-      periodEnd.setDate(periodEnd.getDate() + durationDays);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await db.insert(subscriptionPayments).values({
-        tenantId,
-        plan: "pro",
-        billingCycle: "voucher",
-        amount: 0,
-        status: "paid",
-        paymongoCheckoutId: `voucher-${code.toUpperCase()}`,
-        paidAt: now.toISOString(),
-      } as any);
-
-      if (existing) {
-        await db
-          .update(tenantSubscriptions)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .set({
-            plan: "pro",
-            billingCycle: "voucher",
-            status: "active",
-            currentPeriodStart: now.toISOString(),
-            currentPeriodEnd: periodEnd.toISOString(),
-            cancelAtPeriodEnd: false,
-            updatedAt: now.toISOString(),
-          } as any)
-          .where(eq(tenantSubscriptions.tenantId, tenantId));
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.insert(tenantSubscriptions).values({
-          tenantId,
-          plan: "pro",
-          billingCycle: "voucher",
-          status: "active",
-          currentPeriodStart: now.toISOString(),
-          currentPeriodEnd: periodEnd.toISOString(),
-        } as any);
-      }
-
-      return res.json({ success: true, plan: "pro", periodEnd: periodEnd.toISOString() });
-    } catch (err: unknown) {
-      console.error("[subscription] voucher error:", err);
-      return res.status(500).json({ message: "Failed to apply voucher code" });
     }
   });
 

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
-import dashboardImg from "@assets/image_1781269541971.png";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -833,37 +832,12 @@ export default function Login() {
         .cta-primary:hover { transform:translateY(-3px) scale(1.025); box-shadow:0 14px 42px rgba(59,130,246,0.54); }
         .cta-primary:active { transform:scale(0.97); }
 
-        /* ── Floating badge animations ── */
-        @keyframes float-badge-a { 0%,100%{transform:translateY(0) rotate(-1.2deg)} 50%{transform:translateY(-14px) rotate(1deg)} }
-        @keyframes float-badge-b { 0%,100%{transform:translateY(0) rotate(1deg)} 50%{transform:translateY(-10px) rotate(-1.5deg)} }
-        @keyframes float-badge-c { 0%,100%{transform:translateY(0) rotate(-0.5deg)} 50%{transform:translateY(-11px) rotate(0.5deg)} }
-        @keyframes badge-border-pulse { 0%,100%{box-shadow:0 8px 32px rgba(59,130,246,0.25),0 0 0 1px rgba(59,130,246,0.22)} 50%{box-shadow:0 12px 48px rgba(59,130,246,0.45),0 0 0 1px rgba(59,130,246,0.38)} }
-        @keyframes pulse-live { 0%{transform:scale(1);opacity:1} 100%{transform:scale(2.4);opacity:0} }
-        @keyframes green-badge-pulse { 0%,100%{box-shadow:0 8px 28px rgba(52,211,153,0.18),0 0 0 1px rgba(52,211,153,0.22)} 50%{box-shadow:0 8px 36px rgba(52,211,153,0.35),0 0 0 1px rgba(52,211,153,0.38)} }
-        .float-badge-a { animation:float-badge-a 4.2s ease-in-out infinite }
-        .float-badge-b { animation:float-badge-b 3.7s ease-in-out infinite 0.6s }
-        .float-badge-c { animation:float-badge-c 5.1s ease-in-out infinite 1.3s }
-        .badge-border-pulse { animation:badge-border-pulse 3s ease-in-out infinite }
-        .green-badge-pulse { animation:green-badge-pulse 3.5s ease-in-out infinite 0.4s }
-
         /* ── Feature cards ── */
         .fcard {
-          transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease, background 0.28s ease;
+          transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
           cursor:default;
         }
-        .fcard:hover {
-          border-color: color-mix(in srgb, var(--fcard-color, #3b82f6) 55%, transparent) !important;
-          transform:translateY(-8px) scale(1.02)!important;
-          box-shadow:0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px color-mix(in srgb, var(--fcard-color, #3b82f6) 22%, transparent), 0 0 40px color-mix(in srgb, var(--fcard-color, #3b82f6) 14%, transparent)!important;
-          background: color-mix(in srgb, var(--fcard-color, #3b82f6) 5%, rgba(17,17,17,0.92)) !important;
-        }
-        .fcard-icon {
-          transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
-        }
-        .fcard:hover .fcard-icon {
-          transform: scale(1.12) rotate(-4deg);
-          box-shadow: 0 0 20px color-mix(in srgb, var(--fcard-color, #3b82f6) 40%, transparent);
-        }
+        .fcard:hover { border-color:rgba(59,130,246,0.42)!important; transform:translateY(-6px) scale(1.015)!important; box-shadow:0 20px 52px rgba(0,0,0,0.45), 0 0 0 1px rgba(59,130,246,0.16)!important; }
 
         /* ── Device mini-cards ── */
         .dcard {
@@ -1539,154 +1513,142 @@ export default function Login() {
     </div>
   );
 
+  const bars = [40, 65, 50, 80, 55, 92, 68, 78, 50, 100, 72, 88];
   const dashMockup = (
     <div
       className="gsap-dash-card"
       style={{
-        position: "relative",
+        borderRadius: 18,
+        overflow: "hidden",
+        border: "1px solid rgba(59,130,246,0.20)",
+        background: "rgba(17,17,17,0.96)",
+        boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(59,130,246,0.06)",
+        backdropFilter: "blur(20px)",
         transformStyle: "preserve-3d",
         willChange: "transform",
       }}
     >
-      {/* Floating revenue badge — top right */}
       <div
-        className="float-badge-a badge-border-pulse"
         style={{
-          position: "absolute",
-          top: -28,
-          right: -28,
-          zIndex: 10,
-          background: "rgba(8,8,18,0.90)",
-          borderRadius: 16,
-          padding: "12px 18px",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 3,
-          minWidth: 148,
-          pointerEvents: "none",
-        }}
-      >
-        <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.38)", letterSpacing: "0.12em", textTransform: "uppercase" as const }}>Today's Revenue</span>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "-0.04em", lineHeight: 1 }}>₱24,850</span>
-          <span style={{ fontSize: 12, fontWeight: 800, color: "#34d399" }}>↑12.4%</span>
-        </div>
-      </div>
-
-      {/* Floating orders badge — bottom left */}
-      <div
-        className="float-badge-b green-badge-pulse"
-        style={{
-          position: "absolute",
-          bottom: -24,
-          left: -24,
-          zIndex: 10,
-          background: "rgba(8,8,18,0.90)",
-          borderRadius: 16,
-          padding: "11px 14px",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          display: "flex",
-          alignItems: "center",
-          gap: 11,
-          pointerEvents: "none",
-        }}
-      >
-        <div style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          background: "rgba(52,211,153,0.10)",
-          border: "1px solid rgba(52,211,153,0.28)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-          </svg>
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.36)", fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase" as const, marginBottom: 2 }}>Orders</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontSize: 19, fontWeight: 900, color: "#fff", letterSpacing: "-0.03em", lineHeight: 1 }}>137</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#34d399" }}>+8 today</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Floating live pulse badge — right side */}
-      <div
-        className="float-badge-c"
-        style={{
-          position: "absolute",
-          top: "42%",
-          right: -36,
-          zIndex: 10,
-          background: "rgba(8,8,18,0.90)",
-          border: "1px solid rgba(52,211,153,0.28)",
-          borderRadius: 24,
-          padding: "7px 14px",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          pointerEvents: "none",
-          boxShadow: "0 4px 20px rgba(52,211,153,0.14)",
-        }}
-      >
-        <div style={{ position: "relative", width: 9, height: 9, flexShrink: 0 }}>
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            background: "#34d399",
-            animation: "pulse-live 1.6s ease-out infinite",
-          }} />
-          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "#34d399" }} />
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.88)", whiteSpace: "nowrap" as const }}>POS Live</span>
-      </div>
-
-      {/* Actual dashboard screenshot in a device frame */}
-      <div style={{
-        borderRadius: 18,
-        overflow: "hidden",
-        border: "1px solid rgba(59,130,246,0.22)",
-        boxShadow: "0 32px 100px rgba(0,0,0,0.72), 0 0 0 1px rgba(59,130,246,0.07), 0 0 80px rgba(59,130,246,0.07)",
-        background: "#0a0a0d",
-      }}>
-        {/* macOS window chrome */}
-        <div style={{
           padding: "10px 16px",
-          background: "rgba(59,130,246,0.055)",
+          background: "rgba(59,130,246,0.06)",
           borderBottom: "1px solid rgba(59,130,246,0.10)",
           display: "flex",
           alignItems: "center",
-          gap: 7,
-        }}>
-          <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(239,68,68,0.60)" }} />
-          <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(251,191,36,0.60)" }} />
-          <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(34,197,94,0.50)" }} />
-          <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 5px #34d399" }} />
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.40)", fontWeight: 600 }}>Branch 1 · Main Store</span>
-          </div>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.20)", fontWeight: 500 }}>Dashboard · ArtixPOS</span>
-        </div>
-        {/* Screenshot */}
-        <img
-          src={dashboardImg}
-          alt="ArtixPOS Dashboard"
-          draggable={false}
-          style={{ width: "100%", display: "block", objectFit: "cover" }}
+          gap: 6,
+        }}
+      >
+        <div
+          style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(239,68,68,0.55)" }}
         />
+        <div
+          style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(251,191,36,0.55)" }}
+        />
+        <div
+          style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(34,197,94,0.45)" }}
+        />
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>
+          Dashboard · ArtixPOS
+        </span>
+      </div>
+      <div style={{ padding: "16px 18px" }}>
+        <div
+          className="gsap-d-l1"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3,1fr)",
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          {[
+            { l: "Today's Sales", v: "24,850", d: "+12%", c: NEON },
+            { l: "Orders", v: "137", d: "+8%", c: "#34d399" },
+            { l: "Active Staff", v: "9 / 12", d: "3 available", c: "#a78bfa" },
+          ].map((s, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "10px 11px",
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                transition: "background 0.2s",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 8,
+                  color: "rgba(255,255,255,0.35)",
+                  fontWeight: 600,
+                  marginBottom: 4,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {s.l}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 3 }}>
+                {s.v}
+              </div>
+              <div style={{ fontSize: 9, color: s.c, fontWeight: 700 }}>{s.d}</div>
+            </div>
+          ))}
+        </div>
+        <div
+          className="gsap-d-l2"
+          style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 34, marginBottom: 12 }}
+        >
+          {bars.map((h, i) => (
+            <div
+              key={i}
+              className="dash-bar"
+              style={{
+                flex: 1,
+                borderRadius: 3,
+                height: `${h}%`,
+                background: `rgba(59,130,246,${0.15 + (h / 100) * 0.55})`,
+              }}
+            />
+          ))}
+        </div>
+        <div className="gsap-d-l3" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {[
+            { l: "POS", v: "Live", c: NEON },
+            { l: "Offline", v: "Ready", c: "#34d399" },
+            { l: "AI", v: "Active", c: "#a78bfa" },
+            { l: "2 Branches", v: "Synced", c: "#f59e0b" },
+          ].map((p, i) => (
+            <div
+              key={i}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                borderRadius: 20,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                transition: "background 0.2s",
+              }}
+            >
+              <div
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: p.c,
+                  boxShadow: `0 0 6px ${p.c}`,
+                }}
+              />
+              <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>
+                {p.l}
+              </span>
+              <span style={{ fontSize: 9.5, color: "#fff", fontWeight: 700 }}>{p.v}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -2627,7 +2589,6 @@ export default function Login() {
                     key={i}
                     className="fcard"
                     style={{
-                      ["--fcard-color" as any]: color,
                       width: 300,
                       flexShrink: 0,
                       padding: "24px 22px",
@@ -2640,7 +2601,6 @@ export default function Login() {
                     }}
                   >
                     <div
-                      className="fcard-icon"
                       style={{
                         width: 42,
                         height: 42,

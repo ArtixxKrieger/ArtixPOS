@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  getSalesQueueCount,
-  getQueueCount,
-  getFailedQueueCount,
+  getQueueStats,
   SYNC_CHANNEL_NAME,
 } from "@/lib/offline-db";
 import {
@@ -82,21 +80,21 @@ export function useOnlineStatus(): OnlineStatus {
   const [failedQueueCount, setFailedQueueCount] = useState(0);
   const [lastSync, setLastSync]               = useState<SyncResult | null>(null);
 
-  const isSyncingRef   = useRef(false);
-  const isCheckingRef  = useRef(false);
-  const checkAbortRef  = useRef<AbortController | null>(null);
-  const mountedRef     = useRef(true);
+  const isSyncingRef        = useRef(false);
+  const isCheckingRef       = useRef(false);
+  const checkAbortRef       = useRef<AbortController | null>(null);
+  const mountedRef          = useRef(true);
   const pollIntervalRef     = useRef(BASE_POLL_MS);
   const consecutiveOnline   = useRef(0);
   const pollTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prevents firing a full confirmOnline + sync cycle on every rapid tab switch.
+  // 30s cooldown — the adaptive poller already covers longer-interval checks.
+  const lastVisibilityCheckRef = useRef(0);
 
   // ── Queue count refresh ────────────────────────────────────────────────
+  // Single IDB scan replaces 3 separate getAll calls.
   const refreshCounts = useCallback(async () => {
-    const [sales, total, failed] = await Promise.all([
-      getSalesQueueCount(),
-      getQueueCount(),
-      getFailedQueueCount(),
-    ]);
+    const { sales, total, failed } = await getQueueStats();
     if (!mountedRef.current) return total;
     setSalesQueueCount(sales);
     setTotalQueueCount(total);
@@ -257,6 +255,12 @@ export function useOnlineStatus(): OnlineStatus {
         if (mountedRef.current) setIsOnline(false);
         return;
       }
+      // Rate-limit: skip if we ran a check within the last 30 s.
+      // The adaptive poller already covers periodic re-checks; firing a full
+      // confirmOnline + sync cycle on every rapid tab switch is wasteful.
+      const now = Date.now();
+      if (now - lastVisibilityCheckRef.current < 30_000) return;
+      lastVisibilityCheckRef.current = now;
       handleCameOnline();
     };
 

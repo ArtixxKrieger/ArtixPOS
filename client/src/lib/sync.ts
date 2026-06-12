@@ -2,6 +2,7 @@ import {
   getQueue,
   removeQueueItem,
   updateQueueItemRetry,
+  updateQueueItemBody,
   resetFailedQueueItems,
   remapQueueItemUrls,
   calcNextRetryAt,
@@ -312,15 +313,35 @@ export async function syncOfflineData(): Promise<SyncResult> {
 
     broadcast({ type: "SYNC_START" });
 
+    // Snapshot bodies BEFORE folding so we can detect which items were modified
+    const originalBodies = new Map(rawQueue.map((q) => [q.id!, q.body]));
+
     const folded = foldQueue(rawQueue);
 
-    // Remove folded-out items from IDB
+    // foldQueue may merge a PUT body into a POST body (rule 5: POST+PUT→merged POST).
+    // The POST in IDB still has the OLD body — we must persist the merged body back
+    // to IDB NOW, BEFORE we delete the folded-out PUT below.
+    // If we skip this, a page reload after the PUT is removed but before the POST
+    // syncs leaves the POST with the pre-merge body forever.
     const foldedIds = new Set(folded.map((q) => q.id!));
-    await Promise.all(
-      rawQueue
+    const bodyPersistPromises: Promise<void>[] = [];
+    for (const item of folded) {
+      if (item.method === "POST" && item.id != null) {
+        const orig = originalBodies.get(item.id);
+        // JSON comparison is cheap here — queues are always small (<100 items)
+        if (JSON.stringify(orig) !== JSON.stringify(item.body)) {
+          bodyPersistPromises.push(updateQueueItemBody(item.id, item.body));
+        }
+      }
+    }
+
+    // Persist modified POST bodies and remove folded-out items in parallel
+    await Promise.all([
+      ...bodyPersistPromises,
+      ...rawQueue
         .filter((q) => !foldedIds.has(q.id!))
-        .map((q) => removeQueueItem(q.id!))
-    );
+        .map((q) => removeQueueItem(q.id!)),
+    ]);
 
     // Skip permanently-failed items (re-tried only via retryFailedMutations)
     const actionable = folded.filter((q) => !q.permanentlyFailed);

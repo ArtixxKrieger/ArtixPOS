@@ -250,6 +250,41 @@ export async function removeQueueItem(id: number): Promise<void> {
   } catch {}
 }
 
+/** Overwrite the body of a queued mutation without touching any other fields.
+ *  Used after foldQueue merges a POST+PUT so the persisted POST body is
+ *  up-to-date before the PUT is removed from IDB. */
+export async function updateQueueItemBody(id: number, body: unknown): Promise<void> {
+  try {
+    const db = await getDB();
+    const item = await db.get("mutation-queue", id);
+    if (!item) return;
+    await db.put("mutation-queue", { ...item, body });
+  } catch {}
+}
+
+/** Read all queue stats in a single IDB scan (replaces 3 separate getAll calls). */
+export async function getQueueStats(): Promise<{
+  sales: number;
+  total: number;
+  failed: number;
+}> {
+  try {
+    const db = await getDB();
+    const all = await db.getAll("mutation-queue");
+    return {
+      total: all.length,
+      failed: all.filter((i) => i.permanentlyFailed).length,
+      sales: all.filter(
+        (i) =>
+          (i.category === "sale" || i.category === "pending-order") &&
+          !i.permanentlyFailed,
+      ).length,
+    };
+  } catch {
+    return { sales: 0, total: 0, failed: 0 };
+  }
+}
+
 /** Update retry tracking fields on a queue item. */
 export async function updateQueueItemRetry(
   id: number,

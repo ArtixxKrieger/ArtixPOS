@@ -1,17 +1,20 @@
-// ArtixPOS Service Worker v10
+// ArtixPOS Service Worker v11
 // Caching strategies:
-//   HTML/navigation   → network-first, cache fallback, offline page last
+//   HTML/navigation   → stale-while-revalidate (instant from cache; updates background)
 //   Hashed assets     → cache-first, immutable
 //   Fonts             → cache-first
 //   Images            → stale-while-revalidate
 //   Flag CDN images   → stale-while-revalidate (flagcdn.com, works offline)
 //   API calls         → network-only
 //
-// v10 changes:
-//   Flag CDN (flagcdn.com) images are now cached with stale-while-revalidate
-//   so language picker flags load correctly when the device is offline.
+// v11 changes:
+//   Navigation strategy changed from network-first to stale-while-revalidate.
+//   App shell now loads INSTANTLY from cache on every visit while the cache
+//   is refreshed in the background.  The stale-deployment guard (SW_ASSET_404)
+//   ensures stale HTML that references removed hashed assets triggers a full
+//   cache wipe + reload automatically, so this is safe for Vite deployments.
 
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;
@@ -247,22 +250,45 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 5. Navigation requests — network-first, cache fallback
+  // 5. Navigation requests — stale-while-revalidate
+  //
+  // Return the cached app shell immediately so the app loads INSTANTLY on
+  // every visit after the first.  The cache is updated in the background so
+  // the next load always has a fresh copy.
+  //
+  // Safety: Vite hashes all JS/CSS asset filenames.  If a deployment changes
+  // those hashes the hashed-asset handler above fires SW_ASSET_404, which
+  // triggers a full cache-wipe + reload in every open tab — so serving stale
+  // HTML never leaves the app in a broken state.
   if (isNavigation(req) || (isSameOrigin(req.url) && url.pathname.endsWith(".html"))) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          cacheResponse(SHELL_CACHE, req, res);
-          return res;
-        })
-        .catch(async () => {
-          const fromCache =
-            (await caches.match(req, { cacheName: SHELL_CACHE })) ??
-            (await caches.match("/", { cacheName: SHELL_CACHE })) ??
-            (await caches.match("/index.html", { cacheName: SHELL_CACHE }));
-          if (fromCache) return fromCache;
-          return offlineFallbackResponse();
-        })
+      caches.open(SHELL_CACHE).then(async (cache) => {
+        // Try to find a cached shell entry (exact URL, root, or /index.html)
+        const cached =
+          (await cache.match(req)) ??
+          (await cache.match("/")) ??
+          (await cache.match("/index.html"));
+
+        // Kick off a background network fetch to keep the cache fresh
+        const networkFetch = fetch(req)
+          .then((res) => {
+            if (res.ok) cache.put(req, res.clone());
+            return res;
+          })
+          .catch(() => null);
+
+        if (cached) {
+          // Cache hit — return instantly, let network update run in background
+          return cached;
+        }
+
+        // No cache yet (first-ever load) — wait for the network
+        const res = await networkFetch;
+        if (res && res.ok) return res;
+
+        // Nothing in cache and network failed — show offline page
+        return offlineFallbackResponse();
+      })
     );
     return;
   }

@@ -254,8 +254,9 @@ export default function BillingPage() {
   const isOwner = user?.role === "owner";
   if (isLoading || verifying) return null;
 
-  const showProRequiredBanner =
-    new URLSearchParams(window.location.search).get("reason") === "pro_required" && !isPro;
+  const urlReason = new URLSearchParams(window.location.search).get("reason");
+  const showProRequiredBanner = urlReason === "pro_required" && !isPro;
+  const showBusinessRequiredBanner = urlReason === "business_required" && !isBusiness;
   const nativePrice = rc.monthlyPackage?.product?.priceString ?? null;
 
   return (
@@ -265,9 +266,21 @@ export default function BillingPage() {
         <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 px-4 py-4">
           <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
           <div>
-            <p className="font-medium text-sm">Upgrade required</p>
+            <p className="font-medium text-sm">Pro plan required</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              The page you tried to access requires a paid plan. Upgrade below to unlock it.
+              The page you tried to access requires a Pro or Business plan. Upgrade below to unlock it.
+            </p>
+          </div>
+        </div>
+      )}
+      {/* Business-required banner */}
+      {showBusinessRequiredBanner && (
+        <div className="flex items-start gap-3 rounded-xl border border-violet-400/30 bg-violet-500/5 px-4 py-4">
+          <Lock className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium text-sm">Business Suite required</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              The Audit Log is a Business Suite feature. Upgrade to Business to get full activity history, staff restore, and more.
             </p>
           </div>
         </div>

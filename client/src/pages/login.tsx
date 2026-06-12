@@ -393,6 +393,9 @@ export default function Login() {
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
   const lpScrollRef = useRef<HTMLDivElement>(null);
+  const mockSectionRef = useRef<HTMLDivElement>(null);
+  const [mockVisible, setMockVisible] = useState(false);
+  const [activeMockTab, setActiveMockTab] = useState("Dashboard");
 
   useEffect(() => {
     const html = document.documentElement;
@@ -444,6 +447,16 @@ export default function Login() {
       { threshold: 0.4 },
     );
     io.observe(statsRef.current);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!mockSectionRef.current) return;
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setMockVisible(true); },
+      { threshold: 0.1 }
+    );
+    io.observe(mockSectionRef.current);
     return () => io.disconnect();
   }, []);
 
@@ -718,7 +731,9 @@ export default function Login() {
         @keyframes orb-b       { 0%,100%{transform:translate(0,0)} 40%{transform:translate(-24px,18px)} 70%{transform:translate(18px,-10px)} }
         @keyframes lp-marquee  { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes lp-aurora   { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.55} 50%{transform:translate(-50%,-50%) scale(1.15);opacity:0.85} }
+        @keyframes mock-fade   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         .lp-marquee-track      { animation:lp-marquee 36s linear infinite }
+        .mock-tab-content      { animation:mock-fade 0.25s cubic-bezier(0.16,1,0.3,1) both }
         .lp-aurora-orb         { animation:lp-aurora 9s ease-in-out infinite alternate }
         .lp-bg-grid {
           background-size:64px 64px;
@@ -1983,27 +1998,45 @@ export default function Login() {
               <p style={{ fontSize: 15, color: "rgba(255,255,255,0.40)", maxWidth: 440, margin: "0 auto", lineHeight: 1.65 }}>
                 Sales, inventory, staff, and analytics — all in one beautifully unified view.
               </p>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20, flexWrap: "wrap" as const }}>
+                {(["Dashboard","POS","Orders","Products","Staff","Reports"] as const).map((tab) => (
+                  <button key={tab} onClick={() => setActiveMockTab(tab)} style={{
+                    padding: "5px 16px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    background: activeMockTab === tab ? `rgba(59,130,246,0.20)` : "rgba(255,255,255,0.05)",
+                    color: activeMockTab === tab ? NEON : "rgba(255,255,255,0.38)",
+                    border: activeMockTab === tab ? `1px solid rgba(59,130,246,0.40)` : "1px solid rgba(255,255,255,0.08)",
+                    transition: "all 0.2s ease", fontFamily: "inherit",
+                  }}>
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
           }
         >
           
-          <div style={{ width: "100%", height: "100%", background: "#0d0d0f", display: "flex", flexDirection: "row", fontFamily: "inherit", overflow: "hidden" }}>
+          <div ref={mockSectionRef} style={{ width: "100%", height: "100%", background: "#0d0d0f", display: "flex", flexDirection: "row", fontFamily: "inherit", overflow: "hidden" }}>
 
-            
+            {/* Sidebar */}
             <div style={{ width: 48, background: "#0a0a0c", borderRight: "1px solid rgba(59,130,246,0.08)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12, gap: 4, flexShrink: 0 }}>
-              
               <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
                 <span style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}>A</span>
               </div>
               {[
-                { icon: "▦", label: "Dashboard", active: true },
-                { icon: "⊡", label: "POS", active: false },
-                { icon: "⊟", label: "Orders", active: false },
-                { icon: "◫", label: "Products", active: false },
-                { icon: "⊞", label: "Staff", active: false },
-                { icon: "◈", label: "Reports", active: false },
+                { icon: "▦", label: "Dashboard" },
+                { icon: "⊡", label: "POS" },
+                { icon: "⊟", label: "Orders" },
+                { icon: "◫", label: "Products" },
+                { icon: "⊞", label: "Staff" },
+                { icon: "◈", label: "Reports" },
               ].map((item, i) => (
-                <div key={i} title={item.label} style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: item.active ? "rgba(59,130,246,0.18)" : "transparent", border: item.active ? `1px solid rgba(59,130,246,0.30)` : "1px solid transparent", cursor: "pointer", fontSize: 13, color: item.active ? NEON : "rgba(255,255,255,0.22)" }}>
+                <div key={i} title={item.label} onClick={() => setActiveMockTab(item.label)}
+                  style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: activeMockTab === item.label ? "rgba(59,130,246,0.18)" : "transparent",
+                    border: activeMockTab === item.label ? `1px solid rgba(59,130,246,0.30)` : "1px solid transparent",
+                    cursor: "pointer", fontSize: 13,
+                    color: activeMockTab === item.label ? NEON : "rgba(255,255,255,0.22)",
+                    transition: "all 0.18s ease" }}>
                   {item.icon}
                 </div>
               ))}
@@ -2011,14 +2044,15 @@ export default function Login() {
               <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg,#a78bfa,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, fontSize: 9, color: "#fff", fontWeight: 700 }}>JD</div>
             </div>
 
-            
+            {/* Main */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-              
+              {/* Top bar */}
               <div style={{ height: 38, borderBottom: "1px solid rgba(59,130,246,0.07)", display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0, background: "rgba(9,9,11,0.6)" }}>
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(239,68,68,0.55)" }} />
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(251,191,36,0.55)" }} />
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(34,197,94,0.45)" }} />
+                <span style={{ fontSize: 9, fontWeight: 700, color: NEON, marginLeft: 4 }}>{activeMockTab}</span>
                 <div style={{ flex: 1 }} />
                 <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
                   <div className="pdot" style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399" }} />
@@ -2027,171 +2061,356 @@ export default function Login() {
                 <div style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>Today · Jun 12, 2026</div>
               </div>
 
-              
-              <div style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
+              {/* Tab views */}
+              <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
 
-                
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Good morning, Juan 👋</div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginTop: 1 }}>Here's what's happening at your store today.</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {["Today","Week","Month"].map((t, i) => (
-                      <div key={i} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 8, fontWeight: 600, background: i === 0 ? `rgba(59,130,246,0.18)` : "rgba(255,255,255,0.04)", color: i === 0 ? NEON : "rgba(255,255,255,0.30)", border: i === 0 ? `1px solid rgba(59,130,246,0.30)` : "1px solid rgba(255,255,255,0.06)", cursor: "pointer" }}>{t}</div>
-                    ))}
-                  </div>
-                </div>
-
-                
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-                  {[
-                    { l: "Revenue", v: "₱24,850", d: "+12.4%", c: NEON, spark: [30,45,38,60,52,80,68,92,75,100] },
-                    { l: "Orders", v: "137", d: "+8 today", c: "#34d399", spark: [50,42,65,55,70,60,78,65,85,72] },
-                    { l: "Avg Order", v: "₱181", d: "+₱14 vs. avg", c: "#a78bfa", spark: [60,65,55,70,62,68,72,66,74,78] },
-                    { l: "Staff Active", v: "9 / 12", d: "3 on break", c: "#f59e0b", spark: [80,80,70,70,80,60,60,80,80,75] },
-                  ].map((s, i) => (
-                    <div key={i} style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: 4 }}>
-                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.30)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>{s.l}</div>
-                      <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{s.v}</div>
-                      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 8, color: s.c, fontWeight: 700 }}>{s.d}</span>
-                        
-                        <svg width="40" height="18" viewBox="0 0 40 18" style={{ opacity: 0.8 }}>
-                          <polyline
-                            fill="none"
-                            stroke={s.c}
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={s.spark.map((v, j) => `${(j / (s.spark.length - 1)) * 40},${18 - (v / 100) * 16}`).join(" ")}
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                
-                <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 0.9fr", gap: 8, flex: 1, minHeight: 0 }}>
-
-                  
-                  <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 14px", display: "flex", flexDirection: "column" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                {/* ── DASHBOARD ── */}
+                {activeMockTab === "Dashboard" && (
+                  <div key="dash" className="mock-tab-content" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, height: "100%", overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div>
-                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Revenue Trend</div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 1 }}>₱24,850</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Good morning, Juan 👋</div>
+                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginTop: 1 }}>Here's what's happening at your store today.</div>
                       </div>
-                      <div style={{ fontSize: 8, color: "#34d399", fontWeight: 700, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.20)", padding: "2px 7px", borderRadius: 20 }}>↑ 12.4%</div>
-                    </div>
-                    
-                    <div style={{ flex: 1, position: "relative" }}>
-                      <svg width="100%" height="100%" viewBox="0 0 200 70" preserveAspectRatio="none" style={{ overflow: "visible" }}>
-                        <defs>
-                          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={BLUE} stopOpacity="0.35" />
-                            <stop offset="100%" stopColor={BLUE} stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        
-                        {[0.25, 0.5, 0.75].map((y, i) => (
-                          <line key={i} x1="0" y1={y * 70} x2="200" y2={y * 70} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                      <div style={{ display: "flex", gap: 5 }}>
+                        {["Today","Week","Month"].map((t, i) => (
+                          <div key={i} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 8, fontWeight: 600, background: i === 0 ? `rgba(59,130,246,0.18)` : "rgba(255,255,255,0.04)", color: i === 0 ? NEON : "rgba(255,255,255,0.28)", border: i === 0 ? `1px solid rgba(59,130,246,0.30)` : "1px solid rgba(255,255,255,0.06)", cursor: "pointer" }}>{t}</div>
                         ))}
-                        
-                        <path
-                          d="M0,60 C10,55 20,45 35,38 C50,31 60,48 75,32 C90,16 105,28 120,20 C135,12 150,22 165,10 C175,4 190,8 200,5 L200,70 L0,70 Z"
-                          fill="url(#areaGrad)"
-                        />
-                        
-                        <path
-                          d="M0,60 C10,55 20,45 35,38 C50,31 60,48 75,32 C90,16 105,28 120,20 C135,12 150,22 165,10 C175,4 190,8 200,5"
-                          fill="none"
-                          stroke={NEON}
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                        
-                        <circle cx="200" cy="5" r="3" fill={NEON} />
-                        <circle cx="200" cy="5" r="5" fill={NEON} fillOpacity="0.20" />
-                      </svg>
-                    </div>
-                    
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                      {["6am","9am","12pm","3pm","6pm","9pm","Now"].map((d, i) => (
-                        <span key={i} style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", fontWeight: 500 }}>{d}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  
-                  <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 13px", display: "flex", flexDirection: "column" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Live Orders</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <div className="pdot" style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 5px #34d399" }} />
-                        <span style={{ fontSize: 7, color: "#34d399", fontWeight: 600 }}>Live</span>
                       </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5, overflow: "hidden", flex: 1 }}>
+                    {/* Stat cards */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
                       {[
-                        { id: "#4291", items: "Espresso ×2, Croissant", amt: "₱320", status: "Ready", sc: "#34d399" },
-                        { id: "#4290", items: "Matcha Latte, Sandwich", amt: "₱275", status: "Preparing", sc: "#f59e0b" },
-                        { id: "#4289", items: "Americano ×3", amt: "₱195", status: "Done", sc: "rgba(255,255,255,0.25)" },
-                        { id: "#4288", items: "Frappe, Cake slice", amt: "₱390", status: "Paid", sc: NEON },
-                        { id: "#4287", items: "Hot choco, Muffin", amt: "₱240", status: "Done", sc: "rgba(255,255,255,0.25)" },
-                      ].map((o, i) => (
-                        <div key={i} style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 7 }}>
-                          <div style={{ fontSize: 8, fontWeight: 700, color: NEON, minWidth: 30 }}>{o.id}</div>
+                        { l: "Revenue", v: "₱24,850", d: "+12.4%", c: NEON, spark: [30,45,38,60,52,80,68,92,75,100] },
+                        { l: "Orders", v: "137", d: "+8 today", c: "#34d399", spark: [50,42,65,55,70,60,78,65,85,72] },
+                        { l: "Avg Order", v: "₱181", d: "+₱14 vs avg", c: "#a78bfa", spark: [60,65,55,70,62,68,72,66,74,78] },
+                        { l: "Staff Active", v: "9 / 12", d: "3 on break", c: "#f59e0b", spark: [80,80,70,70,80,60,60,80,80,75] },
+                      ].map((s, si) => (
+                        <div key={si} style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: 4 }}>
+                          <div style={{ fontSize: 8, color: "rgba(255,255,255,0.30)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>{s.l}</div>
+                          <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{s.v}</div>
+                          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                            <span style={{ fontSize: 8, color: s.c, fontWeight: 700 }}>{s.d}</span>
+                            <svg width="40" height="18" viewBox="0 0 40 18">
+                              <polyline fill="none" stroke={s.c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                                strokeDasharray="200" strokeDashoffset={mockVisible ? 0 : 200}
+                                style={{ transition: `stroke-dashoffset 0.9s ease-out ${0.2 + si * 0.1}s` }}
+                                points={s.spark.map((v, j) => `${(j/(s.spark.length-1))*40},${18-(v/100)*16}`).join(" ")} />
+                            </svg>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Charts */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 0.9fr", gap: 8, flex: 1, minHeight: 0 }}>
+                      {/* Revenue area chart */}
+                      <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 14px", display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Revenue Trend</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 1 }}>₱24,850</div>
+                          </div>
+                          <div style={{ fontSize: 8, color: "#34d399", fontWeight: 700, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.20)", padding: "2px 7px", borderRadius: 20 }}>↑ 12.4%</div>
+                        </div>
+                        <div style={{ flex: 1, position: "relative" }}>
+                          <svg width="100%" height="100%" viewBox="0 0 200 70" preserveAspectRatio="none" style={{ overflow: "visible" }}>
+                            <defs>
+                              <linearGradient id="areaGrad2" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={BLUE} stopOpacity="0.35" />
+                                <stop offset="100%" stopColor={BLUE} stopOpacity="0" />
+                              </linearGradient>
+                            </defs>
+                            {[0.25,0.5,0.75].map((y, gi) => (
+                              <line key={gi} x1="0" y1={y*70} x2="200" y2={y*70} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                            ))}
+                            <path d="M0,60 C10,55 20,45 35,38 C50,31 60,48 75,32 C90,16 105,28 120,20 C135,12 150,22 165,10 C175,4 190,8 200,5 L200,70 L0,70 Z"
+                              fill="url(#areaGrad2)"
+                              style={{ opacity: mockVisible ? 1 : 0, transition: "opacity 1s ease-out 0.5s" }} />
+                            <path d="M0,60 C10,55 20,45 35,38 C50,31 60,48 75,32 C90,16 105,28 120,20 C135,12 150,22 165,10 C175,4 190,8 200,5"
+                              fill="none" stroke={NEON} strokeWidth="1.5" strokeLinecap="round"
+                              strokeDasharray="500" strokeDashoffset={mockVisible ? 0 : 500}
+                              style={{ transition: "stroke-dashoffset 1.4s ease-out 0.3s" }} />
+                            <circle cx="200" cy="5" r="3" fill={NEON} style={{ opacity: mockVisible ? 1 : 0, transition: "opacity 0.3s ease-out 1.6s" }} />
+                            <circle cx="200" cy="5" r="6" fill={NEON} fillOpacity="0.18" style={{ opacity: mockVisible ? 1 : 0, transition: "opacity 0.3s ease-out 1.6s" }} />
+                          </svg>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                          {["6am","9am","12pm","3pm","6pm","9pm","Now"].map((d, di) => (
+                            <span key={di} style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", fontWeight: 500 }}>{d}</span>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Live orders */}
+                      <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 13px", display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Live Orders</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <div className="pdot" style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 5px #34d399" }} />
+                            <span style={{ fontSize: 7, color: "#34d399", fontWeight: 600 }}>Live</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5, overflow: "hidden", flex: 1 }}>
+                          {[
+                            { id: "#4291", items: "Espresso ×2, Croissant", amt: "₱320", status: "Ready", sc: "#34d399" },
+                            { id: "#4290", items: "Matcha Latte, Sandwich", amt: "₱275", status: "Preparing", sc: "#f59e0b" },
+                            { id: "#4289", items: "Americano ×3", amt: "₱195", status: "Done", sc: "rgba(255,255,255,0.25)" },
+                            { id: "#4288", items: "Frappe, Cake slice", amt: "₱390", status: "Paid", sc: NEON },
+                            { id: "#4287", items: "Hot choco, Muffin", amt: "₱240", status: "Done", sc: "rgba(255,255,255,0.25)" },
+                          ].map((o, oi) => (
+                            <div key={oi} style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 7 }}>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: NEON, minWidth: 30 }}>{o.id}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.55)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.items}</div>
+                                <div style={{ fontSize: 9, fontWeight: 800, color: "#fff", marginTop: 1 }}>{o.amt}</div>
+                              </div>
+                              <div style={{ fontSize: 7, fontWeight: 700, color: o.sc, padding: "2px 6px", borderRadius: 20, background: `rgba(255,255,255,0.04)`, border: `1px solid ${o.sc}33`, whiteSpace: "nowrap" }}>{o.status}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Top items + payment */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "11px 13px", flex: 1 }}>
+                          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 9 }}>Top Items</div>
+                          {[
+                            { name: "Espresso", sold: 48, pct: 86, c: NEON },
+                            { name: "Matcha Latte", sold: 34, pct: 64, c: "#a78bfa" },
+                            { name: "Croissant", sold: 29, pct: 52, c: "#34d399" },
+                            { name: "Frappe", sold: 22, pct: 40, c: "#f59e0b" },
+                          ].map((p, pi) => (
+                            <div key={pi} style={{ marginBottom: 7 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.50)", fontWeight: 500 }}>{p.name}</span>
+                                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.30)", fontWeight: 500 }}>{p.sold}</span>
+                              </div>
+                              <div style={{ height: 3, borderRadius: 999, background: "rgba(255,255,255,0.06)" }}>
+                                <div style={{ height: "100%", borderRadius: 999, width: mockVisible ? `${p.pct}%` : "0%", background: `linear-gradient(90deg,${p.c}aa,${p.c})`, transition: `width 0.8s ease-out ${0.3 + pi * 0.12}s` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "11px 13px" }}>
+                          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Payment Mix</div>
+                          {[
+                            { method: "GCash", pct: 52, c: BLUE },
+                            { method: "Cash", pct: 31, c: "#34d399" },
+                            { method: "Card", pct: 17, c: "#a78bfa" },
+                          ].map((p, pi) => (
+                            <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.c, flexShrink: 0 }} />
+                              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.40)", fontWeight: 500, flex: 1 }}>{p.method}</span>
+                              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.55)", fontWeight: 700 }}>{p.pct}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── POS ── */}
+                {activeMockTab === "POS" && (
+                  <div key="pos" className="mock-tab-content" style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+                    <div style={{ flex: 1, padding: "12px", display: "flex", flexDirection: "column", gap: 8, overflow: "hidden" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {["All","Drinks","Food","Snacks"].map((c, ci) => (
+                          <div key={ci} style={{ padding: "3px 10px", borderRadius: 20, fontSize: 8, fontWeight: 600, background: ci === 0 ? `rgba(59,130,246,0.18)` : "rgba(255,255,255,0.04)", color: ci === 0 ? NEON : "rgba(255,255,255,0.30)", border: ci === 0 ? `1px solid rgba(59,130,246,0.25)` : "1px solid rgba(255,255,255,0.06)", cursor: "pointer" }}>{c}</div>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, flex: 1 }}>
+                        {[
+                          { e: "☕", name: "Espresso", price: "₱80" },
+                          { e: "🍵", name: "Matcha Latte", price: "₱120" },
+                          { e: "🥤", name: "Frappe", price: "₱150" },
+                          { e: "🥐", name: "Croissant", price: "₱65" },
+                          { e: "🍰", name: "Cake Slice", price: "₱95" },
+                          { e: "💧", name: "Water", price: "₱25" },
+                        ].map((p, pi) => (
+                          <div key={pi} style={{ borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: "10px 8px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                            <div style={{ fontSize: 22, lineHeight: 1 }}>{p.e}</div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,0.75)", textAlign: "center" as const, lineHeight: 1.2 }}>{p.name}</div>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: NEON }}>{p.price}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Cart */}
+                    <div style={{ width: 122, borderLeft: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)", display: "flex", flexDirection: "column", padding: "12px 10px", gap: 5 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 2 }}>Cart (3)</div>
+                      {[
+                        { name: "Espresso", qty: 2, price: "₱160" },
+                        { name: "Croissant", qty: 1, price: "₱65" },
+                        { name: "Frappe", qty: 1, price: "₱150" },
+                      ].map((item, ii) => (
+                        <div key={ii} style={{ borderRadius: 7, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", padding: "6px 7px" }}>
+                          <div style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,0.65)" }}>{item.name}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.28)" }}>×{item.qty}</span>
+                            <span style={{ fontSize: 8, fontWeight: 700, color: "#fff" }}>{item.price}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ flex: 1 }} />
+                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.28)" }}>Subtotal</span>
+                          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.50)" }}>₱375</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>Total</span>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: NEON }}>₱375</span>
+                        </div>
+                        <div style={{ background: `linear-gradient(135deg,${BLUE},${BLUE2})`, borderRadius: 8, padding: "7px 0", textAlign: "center" as const, fontSize: 9, fontWeight: 800, color: "#fff", cursor: "pointer", boxShadow: `0 4px 14px rgba(59,130,246,0.35)` }}>Charge ₱375</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── ORDERS ── */}
+                {activeMockTab === "Orders" && (
+                  <div key="orders" className="mock-tab-content" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, height: "100%", overflow: "hidden" }}>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      {[{ l:"All",n:12 },{ l:"Pending",n:4 },{ l:"Preparing",n:5 },{ l:"Ready",n:3 }].map((tab, ti) => (
+                        <div key={ti} style={{ padding: "3px 10px", borderRadius: 20, fontSize: 8, fontWeight: 600, background: ti === 0 ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.04)", color: ti === 0 ? NEON : "rgba(255,255,255,0.30)", border: ti === 0 ? "1px solid rgba(59,130,246,0.25)" : "1px solid rgba(255,255,255,0.06)", cursor: "pointer" }}>
+                          {tab.l} <span style={{ opacity: 0.55 }}>({tab.n})</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, overflow: "hidden", flex: 1 }}>
+                      {[
+                        { id:"#4295", table:"Table 4", items:"Espresso ×2, Matcha Latte", amt:"₱320", status:"Pending", sc:"#f59e0b", time:"2m ago" },
+                        { id:"#4294", table:"Table 2", items:"Frappe, Cake Slice, Water ×2", amt:"₱265", status:"Preparing", sc:BLUE, time:"5m ago" },
+                        { id:"#4293", table:"Takeaway", items:"Americano ×3, Croissant ×2", amt:"₱435", status:"Ready", sc:"#34d399", time:"8m ago" },
+                        { id:"#4292", table:"Table 7", items:"Hot Choco, Muffin", amt:"₱195", status:"Paid", sc:NEON, time:"12m ago" },
+                        { id:"#4291", table:"Table 1", items:"Espresso, Sandwich", amt:"₱245", status:"Done", sc:"rgba(255,255,255,0.22)", time:"18m ago" },
+                      ].map((o, oi) => (
+                        <div key={oi} style={{ padding: "8px 10px", borderRadius: 9, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ flexShrink: 0 }}>
+                            <div style={{ fontSize: 9, fontWeight: 800, color: NEON }}>{o.id}</div>
+                            <div style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", marginTop: 1 }}>{o.table}</div>
+                          </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.55)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.items}</div>
-                            <div style={{ fontSize: 9, fontWeight: 800, color: "#fff", marginTop: 1 }}>{o.amt}</div>
+                            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.items}</div>
                           </div>
-                          <div style={{ fontSize: 7, fontWeight: 700, color: o.sc, padding: "2px 6px", borderRadius: 20, background: `rgba(255,255,255,0.04)`, border: `1px solid ${o.sc}33`, whiteSpace: "nowrap" }}>{o.status}</div>
+                          <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: "#fff" }}>{o.amt}</div>
+                            <div style={{ fontSize: 7, color: "rgba(255,255,255,0.25)", marginTop: 1 }}>{o.time}</div>
+                          </div>
+                          <div style={{ fontSize: 7, fontWeight: 700, color: o.sc, padding: "2px 7px", borderRadius: 20, background: "rgba(255,255,255,0.04)", border: `1px solid ${o.sc}44`, whiteSpace: "nowrap", flexShrink: 0 }}>{o.status}</div>
                         </div>
                       ))}
                     </div>
                   </div>
+                )}
 
-                  
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    
-                    <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "11px 13px", flex: 1 }}>
-                      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 9 }}>Top Items</div>
-                      {[
-                        { name: "Espresso", sold: 48, pct: 86, c: NEON },
-                        { name: "Matcha Latte", sold: 34, pct: 64, c: "#a78bfa" },
-                        { name: "Croissant", sold: 29, pct: 52, c: "#34d399" },
-                        { name: "Frappe", sold: 22, pct: 40, c: "#f59e0b" },
-                      ].map((p, i) => (
-                        <div key={i} style={{ marginBottom: 7 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.50)", fontWeight: 500 }}>{p.name}</span>
-                            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.30)", fontWeight: 500 }}>{p.sold}</span>
-                          </div>
-                          <div style={{ height: 3, borderRadius: 999, background: "rgba(255,255,255,0.06)" }}>
-                            <div style={{ height: "100%", borderRadius: 999, width: `${p.pct}%`, background: `linear-gradient(90deg,${p.c}aa,${p.c})` }} />
-                          </div>
-                        </div>
-                      ))}
+                {/* ── PRODUCTS ── */}
+                {activeMockTab === "Products" && (
+                  <div key="products" className="mock-tab-content" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, height: "100%", overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>Products <span style={{ color: "rgba(255,255,255,0.28)", fontWeight: 500, fontSize: 9 }}>24 items</span></div>
+                      <div style={{ background: `linear-gradient(135deg,${BLUE},${BLUE2})`, borderRadius: 7, padding: "4px 10px", fontSize: 8, fontWeight: 700, color: "#fff", cursor: "pointer" }}>+ Add Product</div>
                     </div>
-                    
-                    <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "11px 13px" }}>
-                      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Payment</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, flex: 1 }}>
                       {[
-                        { method: "GCash", pct: 52, c: BLUE },
-                        { method: "Cash", pct: 31, c: "#34d399" },
-                        { method: "Card", pct: 17, c: "#a78bfa" },
-                      ].map((p, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.c, flexShrink: 0 }} />
-                          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.40)", fontWeight: 500, flex: 1 }}>{p.method}</span>
-                          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.55)", fontWeight: 700 }}>{p.pct}%</span>
+                        { e:"☕", name:"Espresso", cat:"Coffee", price:"₱80", stock:48, c:NEON },
+                        { e:"🍵", name:"Matcha Latte", cat:"Tea", price:"₱120", stock:34, c:"#34d399" },
+                        { e:"🥤", name:"Frappe", cat:"Blended", price:"₱150", stock:22, c:"#a78bfa" },
+                        { e:"🥐", name:"Croissant", cat:"Pastry", price:"₱65", stock:15, c:"#f59e0b" },
+                        { e:"🍰", name:"Cake Slice", cat:"Dessert", price:"₱95", stock:8, c:"#fb7185" },
+                        { e:"🧃", name:"Fresh Juice", cat:"Drinks", price:"₱45", stock:60, c:BLUE },
+                      ].map((p, pi) => (
+                        <div key={pi} style={{ borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: `${p.c}18`, border: `1px solid ${p.c}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{p.e}</div>
+                            <div>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>{p.name}</div>
+                              <div style={{ fontSize: 7, color: "rgba(255,255,255,0.28)" }}>{p.cat}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: p.c }}>{p.price}</span>
+                            <span style={{ fontSize: 7, color: "rgba(255,255,255,0.28)" }}>Stock: {p.stock}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
+                )}
 
-                </div>
+                {/* ── STAFF ── */}
+                {activeMockTab === "Staff" && (
+                  <div key="staff" className="mock-tab-content" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, height: "100%", overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>Staff <span style={{ color: "rgba(255,255,255,0.28)", fontWeight: 500, fontSize: 9 }}>9 clocked in · 3 on break</span></div>
+                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.28)" }}>Shift ends 10pm</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, overflow: "hidden", flex: 1 }}>
+                      {[
+                        { name:"Juan dela Cruz", role:"Manager", in:"8:00 AM", hrs:"4h 12m", status:"Active", c:"#34d399", av:"JD" },
+                        { name:"Maria Santos", role:"Cashier", in:"8:30 AM", hrs:"3h 42m", status:"Active", c:"#34d399", av:"MS" },
+                        { name:"Carlo Reyes", role:"Barista", in:"9:00 AM", hrs:"3h 12m", status:"On Break", c:"#f59e0b", av:"CR" },
+                        { name:"Ana Gomez", role:"Cashier", in:"10:00 AM", hrs:"2h 12m", status:"Active", c:"#34d399", av:"AG" },
+                        { name:"Ben Torres", role:"Kitchen", in:"—", hrs:"—", status:"Off", c:"rgba(255,255,255,0.20)", av:"BT" },
+                      ].map((s, si) => (
+                        <div key={si} style={{ padding: "8px 10px", borderRadius: 9, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg,${s.c}44,${s.c}18)`, border: `1px solid ${s.c}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: s.c, flexShrink: 0 }}>{s.av}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>{s.name}</div>
+                            <div style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", marginTop: 1 }}>{s.role}</div>
+                          </div>
+                          <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: s.c }}>{s.hrs}</div>
+                            <div style={{ fontSize: 7, color: "rgba(255,255,255,0.22)", marginTop: 1 }}>In: {s.in}</div>
+                          </div>
+                          <div style={{ fontSize: 7, fontWeight: 700, color: s.c, padding: "2px 7px", borderRadius: 20, background: `${s.c}18`, border: `1px solid ${s.c}33`, whiteSpace: "nowrap", flexShrink: 0 }}>{s.status}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── REPORTS ── */}
+                {activeMockTab === "Reports" && (
+                  <div key="reports" className="mock-tab-content" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10, height: "100%", overflow: "hidden" }}>
+                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                      {[
+                        { l:"This Week", v:"₱134,200", d:"+18% vs last week", c:NEON },
+                        { l:"Best Day", v:"Thursday", d:"₱28,500 revenue", c:"#a78bfa" },
+                        { l:"Daily Avg", v:"₱19,171", d:"7-day average", c:"#34d399" },
+                      ].map((m, mi) => (
+                        <div key={mi} style={{ flex: 1, borderRadius: 9, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: "9px 11px" }}>
+                          <div style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>{m.l}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: m.c, marginTop: 3 }}>{m.v}</div>
+                          <div style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", marginTop: 2 }}>{m.d}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: 1, borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 14px", display: "flex", flexDirection: "column" }}>
+                      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 10 }}>Daily Revenue — This Week</div>
+                      <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 6, overflow: "hidden" }}>
+                        {[
+                          { day:"Mon", val:58, c:BLUE },
+                          { day:"Tue", val:72, c:BLUE },
+                          { day:"Wed", val:65, c:BLUE },
+                          { day:"Thu", val:100, c:NEON },
+                          { day:"Fri", val:88, c:BLUE },
+                          { day:"Sat", val:79, c:BLUE },
+                          { day:"Sun", val:45, c:BLUE },
+                        ].map((b, bi) => (
+                          <div key={bi} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%", justifyContent: "flex-end" }}>
+                            <div style={{ width: "100%", borderRadius: "4px 4px 0 0",
+                              background: b.day === "Thu" ? `linear-gradient(to top,${NEON},${NEON}99)` : `linear-gradient(to top,${BLUE},${BLUE}77)`,
+                              height: mockVisible ? `${b.val}%` : "0%",
+                              transition: `height 0.7s ease-out ${0.1 + bi * 0.09}s`,
+                              minHeight: 0 }} />
+                            <span style={{ fontSize: 7, color: b.day === "Thu" ? NEON : "rgba(255,255,255,0.25)", fontWeight: b.day === "Thu" ? 700 : 500, flexShrink: 0 }}>{b.day}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>

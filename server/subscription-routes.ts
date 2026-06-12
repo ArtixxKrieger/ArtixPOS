@@ -9,7 +9,7 @@ const PAYMONGO_BASE = "https://api.paymongo.com/v1";
 
 const PLANS = {
   pro: {
-    monthly: { amount: 49900,  label: "ArtixPOS Pro — Monthly",      description: "Single-location powerhouse. All modules, AI assistant, loyalty & more." },
+    monthly: { amount: 49900,  label: "ArtixPOS Pro — Monthly",      description: "Single-location powerhouse. All modules, loyalty & more." },
     annual:  { amount: 499900, label: "ArtixPOS Pro — Annual",        description: "Single-location powerhouse, billed annually. Save 17%!" },
   },
   business: {

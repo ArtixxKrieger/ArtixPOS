@@ -2,14 +2,13 @@
 
 <div align="center">
 
-<a href="#"><img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=7C3AED&center=true&vCenter=true&random=false&width=600&height=40&lines=A+POS+that+actually+fits+your+business+%F0%9F%8E%AF;No+demo+call+needed+%E2%80%94+set+up+in+minutes+%E2%9A%A1;Works+offline%2C+on+any+device+%F0%9F%93%B1;AI+assistant+built+right+in+%F0%9F%A4%96;Multi-branch+%26+multi-staff+%F0%9F%8F%A2" alt="Typing SVG" /></a>
+<a href="#"><img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=7C3AED&center=true&vCenter=true&random=false&width=600&height=40&lines=A+POS+that+actually+fits+your+business+%F0%9F%8E%AF;No+demo+call+needed+%E2%80%94+set+up+in+minutes+%E2%9A%A1;Works+offline%2C+on+any+device+%F0%9F%93%B1;Multi-branch+%26+multi-staff+%F0%9F%8F%A2" alt="Typing SVG" /></a>
 
 <br /><br />
 
 <img src="https://img.shields.io/badge/Offline_Ready-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/Multi--Branch-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/Free_to_Start-%E2%9C%93-brightgreen?style=flat-square" />
-<img src="https://img.shields.io/badge/AI_Powered-%E2%9C%93-brightgreen?style=flat-square" />
 <img src="https://img.shields.io/badge/No_Demo_Required-%E2%9C%93-blue?style=flat-square" />
 <img src="https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square" />
 
@@ -179,15 +178,6 @@ It's free to start. No credit card. No lock-in.
     <td>
       <img src="https://img.shields.io/badge/Service_Worker-5A0FC8?style=flat-square&logo=pwa&logoColor=white" />
       <img src="https://img.shields.io/badge/IndexedDB-FF6B35?style=flat-square&logoColor=white" />
-    </td>
-  </tr>
-  <tr>
-    <td><b>AI</b></td>
-    <td>
-      <img src="https://img.shields.io/badge/Groq-F55036?style=flat-square&logoColor=white" />
-      <img src="https://img.shields.io/badge/Cerebras-1A1A2E?style=flat-square&logoColor=white" />
-      <img src="https://img.shields.io/badge/Mistral-FF7000?style=flat-square&logoColor=white" />
-      <img src="https://img.shields.io/badge/Ollama_(offline)-000000?style=flat-square&logoColor=white" />
     </td>
   </tr>
   <tr>

@@ -26,7 +26,6 @@
     "bir": "BIR Compliance",
     "birAuditLog": "Void Audit Log",
     "birRefundExport": "Refund Audit Export",
-    "ai": "AI Assistant",
     "printSettings": "Print Settings",
     "billing": "Billing",
     "settings": "Settings",
@@ -136,10 +135,9 @@
     "resetSent": "We sent a password reset link to",
     "heroTitle1": "Your store.",
     "heroTitle2": "Fully in control.",
-    "heroSubtitle": "Sales, inventory, staff, analytics, and AI — all in one place. Built for speed, designed for simplicity.",
+    "heroSubtitle": "Sales, inventory, staff, and analytics — all in one place. Built for speed, designed for simplicity.",
     "featurePOS": "Point of Sale with offline support",
     "featureAnalytics": "Real-time analytics & reports",
-    "featureAI": "Built-in AI business assistant",
     "featureMulti": "Multi-branch & team management"
   },
   "dashboard": {

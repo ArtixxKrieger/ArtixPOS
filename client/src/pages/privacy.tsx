@@ -485,7 +485,6 @@ export default function PrivacyPolicy() {
                   "Storing, syncing, and retrieving your business data across devices",
                   "Processing and displaying your transactions, reports, and analytics",
                   "Enabling multi-branch, multi-user collaboration features",
-                  "Delivering AI-powered insights and assistant responses",
                   "Sending transactional emails (receipts, password resets, billing notifications)",
                 ]}
               />

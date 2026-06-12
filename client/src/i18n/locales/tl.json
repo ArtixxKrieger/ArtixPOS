@@ -26,7 +26,6 @@
     "bir": "BIR Compliance",
     "birAuditLog": "Void Audit Log",
     "birRefundExport": "Refund Audit Export",
-    "ai": "AI Assistant",
     "printSettings": "Print Settings",
     "billing": "Billing",
     "settings": "Mga Setting",
@@ -135,10 +134,9 @@
     "resetSent": "Nagpadala kami ng reset link sa",
     "heroTitle1": "Ang iyong tindahan.",
     "heroTitle2": "Ganap na kontrolado.",
-    "heroSubtitle": "Benta, imbentaryo, kawani, analytics, at AI — lahat sa isang lugar.",
+    "heroSubtitle": "Benta, imbentaryo, kawani, at analytics — lahat sa isang lugar.",
     "featurePOS": "Point of Sale na may offline na suporta",
     "featureAnalytics": "Real-time na analytics at mga ulat",
-    "featureAI": "Built-in na AI business assistant",
     "featureMulti": "Multi-branch at team management"
   },
   "dashboard": {

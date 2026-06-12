@@ -25,7 +25,6 @@
     "purchases": "Mua hàng",
     "bir": "Tuân thủ BIR",
     "birAuditLog": "Nhật ký hủy",
-    "ai": "Trợ lý AI",
     "printSettings": "Cài đặt in",
     "billing": "Thanh toán",
     "settings": "Cài đặt",
@@ -134,10 +133,9 @@
     "resetSent": "Chúng tôi đã gửi liên kết đặt lại đến",
     "heroTitle1": "Cửa hàng của bạn.",
     "heroTitle2": "Hoàn toàn kiểm soát.",
-    "heroSubtitle": "Bán hàng, kho hàng, nhân viên, phân tích và AI — tất cả ở một nơi.",
+    "heroSubtitle": "Bán hàng, kho hàng, nhân viên, phân tích — tất cả ở một nơi.",
     "featurePOS": "Điểm bán hàng có hỗ trợ ngoại tuyến",
     "featureAnalytics": "Phân tích và báo cáo theo thời gian thực",
-    "featureAI": "Trợ lý AI kinh doanh tích hợp",
     "featureMulti": "Quản lý đa chi nhánh và nhóm"
   },
   "dashboard": {

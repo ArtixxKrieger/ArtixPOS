@@ -25,7 +25,6 @@
     "purchases": "仕入",
     "bir": "BIRコンプライアンス",
     "birAuditLog": "無効監査ログ",
-    "ai": "AIアシスタント",
     "printSettings": "印刷設定",
     "billing": "請求",
     "settings": "設定",
@@ -134,10 +133,9 @@
     "resetSent": "パスワードリセットリンクを送信しました：",
     "heroTitle1": "あなたのストア。",
     "heroTitle2": "完全なコントロール。",
-    "heroSubtitle": "売上、在庫、スタッフ、分析、AI — すべて一か所に。",
+    "heroSubtitle": "売上、在庫、スタッフ、分析 — すべて一か所に。",
     "featurePOS": "オフライン対応POSシステム",
     "featureAnalytics": "リアルタイム分析とレポート",
-    "featureAI": "内蔵AIビジネスアシスタント",
     "featureMulti": "多店舗・チーム管理"
   },
   "dashboard": {

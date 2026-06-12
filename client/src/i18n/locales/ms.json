@@ -25,7 +25,6 @@
     "purchases": "Pembelian",
     "bir": "Pematuhan BIR",
     "birAuditLog": "Log Audit Batal",
-    "ai": "Pembantu AI",
     "printSettings": "Tetapan Cetak",
     "billing": "Pengebilan",
     "settings": "Tetapan",
@@ -134,10 +133,9 @@
     "resetSent": "Kami telah menghantar pautan tetap semula ke",
     "heroTitle1": "Kedai anda.",
     "heroTitle2": "Sepenuhnya terkawal.",
-    "heroSubtitle": "Jualan, inventori, kakitangan, analitik dan AI — semua di satu tempat.",
+    "heroSubtitle": "Jualan, inventori, kakitangan, analitik — semua di satu tempat.",
     "featurePOS": "Titik jualan dengan sokongan luar talian",
     "featureAnalytics": "Analitik & laporan masa nyata",
-    "featureAI": "Pembantu AI perniagaan terbina dalam",
     "featureMulti": "Pengurusan pelbagai cawangan & pasukan"
   },
   "dashboard": {

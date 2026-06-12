@@ -25,7 +25,6 @@
     "purchases": "Compras",
     "bir": "Conformidade BIR",
     "birAuditLog": "Registro de Anulações",
-    "ai": "Assistente IA",
     "printSettings": "Config. de Impressão",
     "billing": "Faturamento",
     "settings": "Configurações",
@@ -134,10 +133,9 @@
     "resetSent": "Enviamos um link de redefinição para",
     "heroTitle1": "Sua loja.",
     "heroTitle2": "Totalmente sob controle.",
-    "heroSubtitle": "Vendas, estoque, equipe, análises e IA — tudo em um só lugar.",
+    "heroSubtitle": "Vendas, estoque, equipe, análises — tudo em um só lugar.",
     "featurePOS": "Ponto de venda com suporte offline",
     "featureAnalytics": "Análises e relatórios em tempo real",
-    "featureAI": "Assistente IA de negócios integrado",
     "featureMulti": "Gestão multifiliail e de equipes"
   },
   "dashboard": {

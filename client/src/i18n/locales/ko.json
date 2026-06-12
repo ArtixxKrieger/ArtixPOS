@@ -25,7 +25,6 @@
     "purchases": "구매",
     "bir": "BIR 준수",
     "birAuditLog": "무효 감사 로그",
-    "ai": "AI 어시스턴트",
     "printSettings": "인쇄 설정",
     "billing": "결제",
     "settings": "설정",
@@ -134,10 +133,9 @@
     "resetSent": "비밀번호 재설정 링크를 보냈습니다:",
     "heroTitle1": "당신의 매장.",
     "heroTitle2": "완전한 통제.",
-    "heroSubtitle": "판매, 재고, 직원, 분석, AI — 한 곳에서 모두.",
+    "heroSubtitle": "판매, 재고, 직원, 분석 — 한 곳에서 모두.",
     "featurePOS": "오프라인 지원 판매 시점",
     "featureAnalytics": "실시간 분석 및 리포트",
-    "featureAI": "내장 AI 비즈니스 어시스턴트",
     "featureMulti": "멀티 지점 및 팀 관리"
   },
   "dashboard": {

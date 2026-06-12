@@ -25,7 +25,6 @@
     "purchases": "Einkäufe",
     "bir": "BIR-Compliance",
     "birAuditLog": "Stornierungsprotokoll",
-    "ai": "KI-Assistent",
     "printSettings": "Druckeinstellungen",
     "billing": "Abrechnung",
     "settings": "Einstellungen",
@@ -134,10 +133,9 @@
     "resetSent": "Wir haben einen Link gesendet an",
     "heroTitle1": "Ihr Geschäft.",
     "heroTitle2": "Vollständig unter Kontrolle.",
-    "heroSubtitle": "Verkauf, Inventar, Personal, Analysen und KI — alles an einem Ort.",
+    "heroSubtitle": "Verkauf, Inventar, Personal, Analysen — alles an einem Ort.",
     "featurePOS": "Kassensystem mit Offline-Unterstützung",
     "featureAnalytics": "Echtzeit-Analysen und Berichte",
-    "featureAI": "Integrierter KI-Geschäftsassistent",
     "featureMulti": "Multi-Filial- und Teamverwaltung"
   },
   "dashboard": {

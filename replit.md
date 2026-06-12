@@ -14,7 +14,6 @@ A full-stack Point of Sale (POS) and business management platform built with Rea
 ArtixPOS is a comprehensive business management system offering:
 - Point of Sale with offline support (PWA/Service Worker)
 - Real-time analytics & reports
-- Built-in AI business assistant (multi-provider: Groq, Cerebras, Mistral)
 - Multi-branch & team management
 - Inventory, supplier & purchase order management
 - Customer & membership management
@@ -69,13 +68,6 @@ Server listens on port **5000** (webview).
 | `FACEBOOK_APP_ID` | Facebook OAuth app ID |
 | `FACEBOOK_APP_SECRET` | Facebook OAuth secret |
 
-### AI (optional — falls back to next provider in chain)
-| Variable | Description |
-|---|---|
-| `GROQ_API_KEY` | Groq AI API key (primary AI assistant) |
-| `CEREBRAS_API_KEY` | Cerebras AI API key (fallback) |
-| `MISTRAL_API_KEY` | Mistral AI API key (fallback) |
-
 ### Payments (optional — required to accept PayMongo payments)
 | Variable | Description |
 |---|---|
@@ -125,7 +117,6 @@ Server listens on port **5000** (webview).
 - `server/cache.ts` — Two-tier cache: L1 in-memory + L2 Redis
 - `server/metrics.ts` — Request counts, latency percentiles, cache hit rate
 - `server/indexes.ts` — 45+ DB indexes applied on startup
-- `server/ai-router.ts` — Multi-provider AI routing with circuit breakers
 - `shared/schema.ts` — Drizzle ORM schema (shared between client and server)
 - `client/src/App.tsx` — React app root, routing
 - `vite.config.ts` — Vite configuration

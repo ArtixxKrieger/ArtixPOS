@@ -387,7 +387,6 @@ export default function TermsOfService() {
                   "Appointment and booking management",
                   "Expense tracking and financial management tools",
                   "Multi-branch and multi-location management",
-                  "AI-powered business insights and assistant features",
                   "Offline functionality via Progressive Web App (PWA) technology",
                   "Application Programming Interfaces (APIs) for integration with third-party services",
                   "Mobile applications available on iOS and Android platforms",

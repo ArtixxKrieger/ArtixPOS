@@ -25,7 +25,6 @@
     "purchases": "Satın Almalar",
     "bir": "BIR Uyumu",
     "birAuditLog": "İptal Denetim Günlüğü",
-    "ai": "AI Asistan",
     "printSettings": "Yazdırma Ayarları",
     "billing": "Fatura",
     "settings": "Ayarlar",
@@ -134,10 +133,9 @@
     "resetSent": "Şifre sıfırlama bağlantısı gönderildi:",
     "heroTitle1": "Mağazanız.",
     "heroTitle2": "Tam kontrol altında.",
-    "heroSubtitle": "Satış, envanter, personel, analitik ve AI — hepsi tek bir yerde.",
+    "heroSubtitle": "Satış, envanter, personel, analitik — hepsi tek bir yerde.",
     "featurePOS": "Çevrimdışı destekli satış noktası",
     "featureAnalytics": "Gerçek zamanlı analitik ve raporlar",
-    "featureAI": "Yerleşik AI iş asistanı",
     "featureMulti": "Çok şubeli ve takım yönetimi"
   },
   "dashboard": {

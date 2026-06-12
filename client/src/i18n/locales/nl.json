@@ -25,7 +25,6 @@
     "purchases": "Inkopen",
     "bir": "BIR-naleving",
     "birAuditLog": "Annuleringslogboek",
-    "ai": "AI-assistent",
     "printSettings": "Afdrukinstellingen",
     "billing": "Facturering",
     "settings": "Instellingen",
@@ -134,10 +133,9 @@
     "resetSent": "We hebben een resetlink gestuurd naar",
     "heroTitle1": "Uw winkel.",
     "heroTitle2": "Volledig onder controle.",
-    "heroSubtitle": "Verkoop, inventaris, personeel, analyses en AI — alles op één plek.",
+    "heroSubtitle": "Verkoop, inventaris, personeel, analyses — alles op één plek.",
     "featurePOS": "Kassasysteem met offline ondersteuning",
     "featureAnalytics": "Realtime analyses en rapporten",
-    "featureAI": "Ingebouwde AI-bedrijfsassistent",
     "featureMulti": "Multi-vestiging en teambeheer"
   },
   "dashboard": {

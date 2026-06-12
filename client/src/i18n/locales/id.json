@@ -25,7 +25,6 @@
     "purchases": "Pembelian",
     "bir": "Kepatuhan BIR",
     "birAuditLog": "Log Audit Batal",
-    "ai": "Asisten AI",
     "printSettings": "Pengaturan Cetak",
     "billing": "Penagihan",
     "settings": "Pengaturan",
@@ -134,10 +133,9 @@
     "resetSent": "Kami telah mengirimkan tautan pengaturan ulang ke",
     "heroTitle1": "Toko Anda.",
     "heroTitle2": "Sepenuhnya terkendali.",
-    "heroSubtitle": "Penjualan, inventaris, staf, analitik, dan AI — semua dalam satu tempat.",
+    "heroSubtitle": "Penjualan, inventaris, staf, analitik — semua dalam satu tempat.",
     "featurePOS": "Titik penjualan dengan dukungan luring",
     "featureAnalytics": "Analitik & laporan real-time",
-    "featureAI": "Asisten bisnis AI bawaan",
     "featureMulti": "Manajemen multi-cabang & tim"
   },
   "dashboard": {

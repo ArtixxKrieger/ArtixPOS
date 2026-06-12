@@ -710,7 +710,7 @@ async function deleteUsersData(uids: string[]): Promise<void> {
 
 /**
  * Tear down a tenant once all its users' data has already been wiped:
- * branches, role permissions, subscriptions, AI memories, audit logs scoped
+ * branches, role permissions, subscriptions, audit logs scoped
  * to the tenant, and finally the tenant row itself.
  *
  * Without this, an owner could "delete their account" but their old store

@@ -25,7 +25,6 @@
     "purchases": "采购",
     "bir": "BIR合规",
     "birAuditLog": "作废审计日志",
-    "ai": "AI助手",
     "printSettings": "打印设置",
     "billing": "账单",
     "settings": "设置",
@@ -134,10 +133,9 @@
     "resetSent": "我们已发送密码重置链接至",
     "heroTitle1": "您的店铺。",
     "heroTitle2": "完全掌控。",
-    "heroSubtitle": "销售、库存、员工、分析和AI — 尽在一处。",
+    "heroSubtitle": "销售、库存、员工、分析 — 尽在一处。",
     "featurePOS": "支持离线的销售点系统",
     "featureAnalytics": "实时分析与报表",
-    "featureAI": "内置AI业务助手",
     "featureMulti": "多门店与团队管理"
   },
   "dashboard": {

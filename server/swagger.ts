@@ -56,7 +56,6 @@ const options: swaggerJsdoc.Options = {
       { name: "Staff", description: "Staff, shifts, and payroll" },
       { name: "Appointments", description: "Service appointments and rooms" },
       { name: "Analytics", description: "Reports and business analytics" },
-      { name: "AI", description: "AI business assistant" },
       { name: "Admin", description: "Tenant and subscription management" },
     ],
     paths: {

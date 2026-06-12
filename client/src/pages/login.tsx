@@ -2037,6 +2037,7 @@ export default function Login() {
         style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}
       >
         <ContainerScroll
+          scrollContainer={lpScrollRef}
           titleComponent={
             <div style={{ marginBottom: 8 }}>
               <div
@@ -2045,7 +2046,7 @@ export default function Login() {
                   fontWeight: 700,
                   color: NEON,
                   letterSpacing: "0.14em",
-                  textTransform: "uppercase",
+                  textTransform: "uppercase" as const,
                   marginBottom: 14,
                 }}
               >
@@ -2087,18 +2088,88 @@ export default function Login() {
             </div>
           }
         >
-          <img
-            src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1400&q=80"
-            alt="ArtixPOS Dashboard"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "top",
-              borderRadius: 16,
-            }}
-            draggable={false}
-          />
+          {/* Full-width dashboard mockup */}
+          <div style={{ width: "100%", height: "100%", background: "rgba(13,13,13,1)", display: "flex", flexDirection: "column" }}>
+            {/* Title bar */}
+            <div style={{ padding: "10px 20px", borderBottom: "1px solid rgba(59,130,246,0.10)", display: "flex", alignItems: "center", gap: 7, background: "rgba(59,130,246,0.04)", flexShrink: 0 }}>
+              <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(239,68,68,0.6)" }} />
+              <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(251,191,36,0.6)" }} />
+              <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(34,197,94,0.5)" }} />
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.20)", fontWeight: 500 }}>Dashboard · ArtixPOS</span>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, overflow: "hidden" }}>
+              {/* Stat cards row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+                {[
+                  { l: "Today's Sales", v: "₱24,850", d: "+12%", c: NEON },
+                  { l: "Orders", v: "137", d: "+8%", c: "#34d399" },
+                  { l: "Active Staff", v: "9 / 12", d: "3 available", c: "#a78bfa" },
+                  { l: "Inventory", v: "98%", d: "Stocked", c: "#f59e0b" },
+                ].map((s, i) => (
+                  <div key={i} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>{s.l}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 4 }}>{s.v}</div>
+                    <div style={{ fontSize: 10, color: s.c, fontWeight: 700 }}>{s.d}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Charts row */}
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, flex: 1, minHeight: 0 }}>
+                {/* Bar chart */}
+                <div style={{ borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", padding: "16px 18px", display: "flex", flexDirection: "column" }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", fontWeight: 600, marginBottom: 12, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Sales This Week</div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 4, flex: 1 }}>
+                    {bars.map((h, i) => (
+                      <div key={i} style={{ flex: 1, borderRadius: 4, height: `${h}%`, background: i === 9 ? `linear-gradient(180deg,${NEON},${BLUE})` : `rgba(59,130,246,${0.12 + (h / 100) * 0.45})`, transition: "height 0.4s" }} />
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                    {["Mon","Tue","Wed","Thu","Fri","Sat","Sun","Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                      <div key={i} style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", fontWeight: 500 }}>{d}</div>
+                    ))}
+                  </div>
+                </div>
+                {/* Right col */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", padding: "14px 16px", flex: 1 }}>
+                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.30)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 10 }}>Top Products</div>
+                    {[
+                      { name: "Espresso", pct: 82 },
+                      { name: "Matcha Latte", pct: 65 },
+                      { name: "Croissant", pct: 48 },
+                    ].map((p, i) => (
+                      <div key={i} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>{p.name}</span>
+                          <span style={{ fontSize: 9, color: NEON, fontWeight: 700 }}>{p.pct}%</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.06)" }}>
+                          <div style={{ height: "100%", borderRadius: 999, width: `${p.pct}%`, background: `linear-gradient(90deg,${BLUE},${NEON})` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 14px" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {[
+                        { l: "POS", v: "Live", c: NEON },
+                        { l: "Offline", v: "Ready", c: "#34d399" },
+                        { l: "AI", v: "Active", c: "#a78bfa" },
+                        { l: "2 Branches", v: "Synced", c: "#f59e0b" },
+                      ].map((p, i) => (
+                        <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: p.c, boxShadow: `0 0 6px ${p.c}` }} />
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>{p.l} · <span style={{ color: p.c }}>{p.v}</span></span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </ContainerScroll>
       </section>
 

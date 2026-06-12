@@ -77,7 +77,6 @@ const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 type AuthMode = "signin" | "register";
 
-// ── Password strength meter ───────────────────────────────────────────────────
 function getPasswordStrength(pwd: string): { score: 0 | 1 | 2 | 3; label: string; color: string } {
   if (!pwd || pwd.length < 8) return { score: 0, label: "Too short", color: "#ef4444" };
   const classes = [
@@ -101,7 +100,6 @@ const DARK = "#09090b";
 const DARK2 = "#111111";
 const CARD = "rgba(17,17,17,0.92)";
 
-// ── Scroll-reveal hook ───────────────────────────────────────────────────────
 function useScrollReveal() {
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -121,8 +119,6 @@ function useScrollReveal() {
   });
 }
 
-// ── Counter animation hook ───────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useCountUp(target: number, visible: boolean, duration = 1200) {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -135,17 +131,14 @@ function useCountUp(target: number, visible: boolean, duration = 1200) {
       if (start < target) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
   return val;
 }
 
-// ── Card tilt removed for performance on low-end devices ─────────────────────
 function useCardTilt() {
   /* noop */
 }
 
-// ── GSAP landing animations ───────────────────────────────────────────────────
 function useLandingAnimations(
   lpScrollRef: React.RefObject<HTMLDivElement | null>,
   dashWrapRef: React.RefObject<HTMLDivElement | null>,
@@ -158,8 +151,6 @@ function useLandingAnimations(
     const extraCleanup: Array<() => void> = [];
 
     const ctx = gsap.context(() => {
-      // ── Hero entrance ──────────────────────────────────────────────
-      gsap.set(".gsap-h-badge", { opacity: 0, y: 18, scale: 0.88 });
       gsap.set(".gsap-h-line > *", { y: "108%", opacity: 0 });
       gsap.set(".gsap-h-sub", { opacity: 0, y: 28, filter: "blur(8px)" });
       gsap.set(".gsap-h-ctas", { opacity: 0, y: 20, scale: 0.95 });
@@ -174,11 +165,10 @@ function useLandingAnimations(
 
       gsap
         .timeline({ defaults: { ease: "expo.out" }, delay: 0.05 })
-        .to(".gsap-h-badge", { opacity: 1, y: 0, scale: 1, duration: 0.75, ease: "back.out(2.2)" })
         .to(
           ".gsap-h-line > *",
           { y: "0%", opacity: 1, stagger: 0.11, duration: 0.78, ease: "back.out(1.5)" },
-          0.2,
+          0,
         )
         .to(".gsap-h-sub", { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.85 }, 0.55)
         .to(
@@ -197,7 +187,6 @@ function useLandingAnimations(
           0.3,
         );
 
-      // ── Dashboard 3D mouse tilt ────────────────────────────────────
       const dashWrap = dashWrapRef.current;
       const dashCard = dashWrap?.querySelector<HTMLElement>(".gsap-dash-card");
       if (dashWrap && dashCard) {
@@ -233,7 +222,6 @@ function useLandingAnimations(
         });
       }
 
-      // ── Magnetic CTA buttons ───────────────────────────────────────
       const addMagnetic = (selector: string) => {
         const btn = scroller.querySelector<HTMLElement>(selector);
         if (!btn) return;
@@ -258,7 +246,6 @@ function useLandingAnimations(
       addMagnetic(".hero-primary");
       addMagnetic(".cta-primary");
 
-      // ── How-it-works line draw ─────────────────────────────────────
       const hiwLine = scroller.querySelector<HTMLElement>(".gsap-hiw-line");
       if (hiwLine) {
         gsap.set(hiwLine, { scaleX: 0, transformOrigin: "left center" });
@@ -271,7 +258,6 @@ function useLandingAnimations(
         });
       }
 
-      // ── Step circles spring in ─────────────────────────────────────
       gsap.utils.toArray<HTMLElement>(".lp-step-circle").forEach((el, i) => {
         gsap.set(el, { scale: 0, rotation: -15 });
         ScrollTrigger.create({
@@ -290,7 +276,6 @@ function useLandingAnimations(
         });
       });
 
-      // ── Security cards perspective reveal ──────────────────────────
       const secPink = scroller.querySelector<HTMLElement>(".sec-card-pink");
       const secBlue = scroller.querySelector<HTMLElement>(".sec-card-blue");
       if (secPink) {
@@ -315,7 +300,6 @@ function useLandingAnimations(
         });
       }
 
-      // ── Pricing cards pop in ───────────────────────────────────────
       gsap.utils.toArray<HTMLElement>(".price-card").forEach((el, i) => {
         gsap.set(el, { y: 40, scale: 0.94 });
         ScrollTrigger.create({
@@ -334,7 +318,6 @@ function useLandingAnimations(
       ScrollTrigger.getAll().forEach((t) => t.kill());
       extraCleanup.forEach((fn) => fn());
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -369,8 +352,6 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Features marquee — momentum physics: velocity decays toward BASE_SPEED,
-  // touch/mouse drag sets velocity directly, hold to stop, fling for inertia
   const featTrackRef = useRef<HTMLDivElement>(null);
   const featHoveredRef = useRef(false); // mouse hover pauses auto-speed
   const featDraggingRef = useRef(false); // currently touch/mouse dragging
@@ -389,15 +370,11 @@ export default function Login() {
     const tick = () => {
       if (!featDraggingRef.current) {
         const target = featHoveredRef.current ? 0 : BASE;
-        // Apply friction first (for fling decay), then ease toward target
         const diff = target - featVelRef.current;
-        // If velocity is far from target, use friction-based decay
         if (Math.abs(featVelRef.current) > Math.abs(target) + 0.1) {
           featVelRef.current *= FRICTION;
-          // If overshooting toward zero, snap to target direction
           if (target > 0 && featVelRef.current < 0) featVelRef.current = 0;
         } else {
-          // Ease toward target
           featVelRef.current += diff * EASE;
         }
         const halfW = el.scrollWidth / 2;
@@ -413,14 +390,10 @@ export default function Login() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Stats counter visibility
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
   const lpScrollRef = useRef<HTMLDivElement>(null);
 
-
-  // ── Unlock body scroll — index.html sets html,body{overflow:hidden} globally ──
-  // We override inline so it wins regardless of screen width or desktop-mode emulation.
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -437,7 +410,6 @@ export default function Login() {
       body.style.setProperty("height", "auto", "important");
     };
     unlock();
-    // Also re-apply after any potential framework paint that might reset it
     const raf = requestAnimationFrame(unlock);
     return () => {
       cancelAnimationFrame(raf);
@@ -448,7 +420,6 @@ export default function Login() {
     };
   }, []);
 
-  // Lock body scroll while login panel is open, restore when closed
   useEffect(() => {
     const body = document.body;
     if (showLoginPanel) {
@@ -460,12 +431,10 @@ export default function Login() {
 
   const dashWrapRef = useRef<HTMLDivElement>(null);
 
-  // Scroll reveal + card tilt + GSAP animations
   useScrollReveal();
   useCardTilt();
   useLandingAnimations(lpScrollRef, dashWrapRef);
 
-  // Stats visibility observer
   useEffect(() => {
     if (!statsRef.current) return;
     const io = new IntersectionObserver(
@@ -504,7 +473,6 @@ export default function Login() {
         window.history.replaceState({}, "", "/login");
       })();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
   useEffect(() => {
@@ -554,7 +522,6 @@ export default function Login() {
         if (cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -737,9 +704,6 @@ export default function Login() {
     fontFamily: "inherit",
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // LOGIN FORM
-  // ─────────────────────────────────────────────────────────────────────────
   const loginForm = (
     <div style={{ width: "100%", maxWidth: 400 }}>
       <style>{`
@@ -915,7 +879,7 @@ export default function Login() {
         .lp-section-lazy { content-visibility:auto; contain-intrinsic-size:0 600px; }
       `}</style>
 
-      {/* Logo */}
+      
       <div className="rise d1" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
           <div
@@ -967,7 +931,7 @@ export default function Login() {
         </p>
       </div>
 
-      {/* Tabs */}
+      
       <div
         className="rise d1"
         style={{
@@ -1016,7 +980,7 @@ export default function Login() {
         ))}
       </div>
 
-      {/* Alerts */}
+      
       {reason === "banned" && (
         <div
           className="rise d1"
@@ -1100,7 +1064,7 @@ export default function Login() {
         </div>
       )}
 
-      {/* Google */}
+      
       <div className="rise d2">
         <button
           type="button"
@@ -1162,7 +1126,7 @@ export default function Login() {
         </button>
       </div>
 
-      {/* Divider */}
+      
       <div
         className="rise d2"
         style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}
@@ -1193,7 +1157,7 @@ export default function Login() {
         />
       </div>
 
-      {/* Form */}
+      
       <form
         onSubmit={handleEmailSubmit}
         className="rise d3"
@@ -1549,9 +1513,6 @@ export default function Login() {
     </div>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MINI DASHBOARD MOCKUP
-  // ─────────────────────────────────────────────────────────────────────────
   const bars = [40, 65, 50, 80, 55, 92, 68, 78, 50, 100, 72, 88];
   const dashMockup = (
     <div
@@ -1692,9 +1653,6 @@ export default function Login() {
     </div>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FULL LANDING PAGE
-  // ─────────────────────────────────────────────────────────────────────────
   const landingPage = (
     <div
       ref={lpScrollRef}
@@ -1708,7 +1666,7 @@ export default function Login() {
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
-      {/* Background */}
+      
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
         <div
           className="lp-orb"
@@ -1746,7 +1704,7 @@ export default function Login() {
         />
       </div>
 
-      {/* ── STICKY HEADER ── */}
+      
       <header
         style={{
           position: "sticky",
@@ -1791,18 +1749,27 @@ export default function Login() {
             </span>
           </div>
           <nav style={{ display: "flex", alignItems: "center", gap: 32, flex: 1 }}>
-            <a href="#features" className="nav-link">
-              Features
-            </a>
-            <a href="#devices" className="nav-link">
-              Devices
-            </a>
-            <a href="#security" className="nav-link">
-              Security
-            </a>
-            <a href="#pricing" className="nav-link">
-              Pricing
-            </a>
+            {[
+              { label: "Features", id: "features" },
+              { label: "Devices", id: "devices" },
+              { label: "Security", id: "security" },
+              { label: "Pricing", id: "pricing" },
+            ].map(({ label, id }) => (
+              <button
+                key={id}
+                className="nav-link"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, font: "inherit" }}
+                onClick={() => {
+                  const el = document.getElementById(id);
+                  const container = lpScrollRef.current;
+                  if (!el || !container) return;
+                  const offset = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
+                  container.scrollTo({ top: offset, behavior: "smooth" });
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </nav>
           {canInstall && (
             <button
@@ -1846,7 +1813,7 @@ export default function Login() {
         </div>
       </header>
 
-      {/* ── HERO ── */}
+      
       <section
         style={{
           position: "relative",
@@ -1861,33 +1828,6 @@ export default function Login() {
         }}
       >
         <div>
-          <div
-            className="gsap-h-badge"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "5px 13px",
-              borderRadius: 20,
-              background: "rgba(59,130,246,0.10)",
-              border: "1px solid rgba(59,130,246,0.22)",
-              marginBottom: 26,
-            }}
-          >
-            <div
-              className="pdot"
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: NEON,
-                boxShadow: `0 0 8px ${NEON}`,
-              }}
-            />
-            <span style={{ fontSize: 12, fontWeight: 600, color: NEON, letterSpacing: "0.04em" }}>
-              Full-stack POS · Works offline too
-            </span>
-          </div>
           <h1
             className="gsap-h-title"
             style={{
@@ -1993,7 +1933,7 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── MARQUEE STRIP ── */}
+      
       <div ref={statsRef} style={{ position: "relative", zIndex: 1, overflow: "hidden", padding: "18px 0", transform: "rotate(-1.5deg) scaleX(1.06)", background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(59,130,246,0.10)", borderBottom: "1px solid rgba(59,130,246,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }}>
         <div className="lp-marquee-track" style={{ display: "flex", whiteSpace: "nowrap", width: "max-content" }}>
           {[0, 1].map(copy => (
@@ -2022,10 +1962,10 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ── GRADIENT FADE from stats to showcase ── */}
-      <div style={{ height: 80, background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`, position: "relative", zIndex: 1, marginTop: -1 }} />
+      
+      <div style={{ height: 20, background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`, position: "relative", zIndex: 1, marginTop: -1 }} />
 
-      {/* ── PRODUCT SHOWCASE (scroll animation) ── */}
+      
       <section style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}>
         <ContainerScroll
           scrollContainer={lpScrollRef}
@@ -2046,12 +1986,12 @@ export default function Login() {
             </div>
           }
         >
-          {/* ── Rich app-shell dashboard mockup ── */}
+          
           <div style={{ width: "100%", height: "100%", background: "#0d0d0f", display: "flex", flexDirection: "row", fontFamily: "inherit", overflow: "hidden" }}>
 
-            {/* Sidebar */}
+            
             <div style={{ width: 48, background: "#0a0a0c", borderRight: "1px solid rgba(59,130,246,0.08)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12, gap: 4, flexShrink: 0 }}>
-              {/* Logo */}
+              
               <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
                 <span style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}>A</span>
               </div>
@@ -2071,10 +2011,10 @@ export default function Login() {
               <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg,#a78bfa,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, fontSize: 9, color: "#fff", fontWeight: 700 }}>JD</div>
             </div>
 
-            {/* Main area */}
+            
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-              {/* Top bar */}
+              
               <div style={{ height: 38, borderBottom: "1px solid rgba(59,130,246,0.07)", display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0, background: "rgba(9,9,11,0.6)" }}>
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(239,68,68,0.55)" }} />
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(251,191,36,0.55)" }} />
@@ -2087,10 +2027,10 @@ export default function Login() {
                 <div style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>Today · Jun 12, 2026</div>
               </div>
 
-              {/* Content */}
+              
               <div style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
 
-                {/* Page title row */}
+                
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Good morning, Juan 👋</div>
@@ -2103,7 +2043,7 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* KPI cards row */}
+                
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
                   {[
                     { l: "Revenue", v: "₱24,850", d: "+12.4%", c: NEON, spark: [30,45,38,60,52,80,68,92,75,100] },
@@ -2116,7 +2056,7 @@ export default function Login() {
                       <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{s.v}</div>
                       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
                         <span style={{ fontSize: 8, color: s.c, fontWeight: 700 }}>{s.d}</span>
-                        {/* Mini sparkline */}
+                        
                         <svg width="40" height="18" viewBox="0 0 40 18" style={{ opacity: 0.8 }}>
                           <polyline
                             fill="none"
@@ -2132,10 +2072,10 @@ export default function Login() {
                   ))}
                 </div>
 
-                {/* Main charts row */}
+                
                 <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 0.9fr", gap: 8, flex: 1, minHeight: 0 }}>
 
-                  {/* Revenue area chart */}
+                  
                   <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 14px", display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div>
@@ -2144,7 +2084,7 @@ export default function Login() {
                       </div>
                       <div style={{ fontSize: 8, color: "#34d399", fontWeight: 700, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.20)", padding: "2px 7px", borderRadius: 20 }}>↑ 12.4%</div>
                     </div>
-                    {/* SVG area chart */}
+                    
                     <div style={{ flex: 1, position: "relative" }}>
                       <svg width="100%" height="100%" viewBox="0 0 200 70" preserveAspectRatio="none" style={{ overflow: "visible" }}>
                         <defs>
@@ -2153,16 +2093,16 @@ export default function Login() {
                             <stop offset="100%" stopColor={BLUE} stopOpacity="0" />
                           </linearGradient>
                         </defs>
-                        {/* Grid lines */}
+                        
                         {[0.25, 0.5, 0.75].map((y, i) => (
                           <line key={i} x1="0" y1={y * 70} x2="200" y2={y * 70} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
                         ))}
-                        {/* Area fill */}
+                        
                         <path
                           d="M0,60 C10,55 20,45 35,38 C50,31 60,48 75,32 C90,16 105,28 120,20 C135,12 150,22 165,10 C175,4 190,8 200,5 L200,70 L0,70 Z"
                           fill="url(#areaGrad)"
                         />
-                        {/* Line */}
+                        
                         <path
                           d="M0,60 C10,55 20,45 35,38 C50,31 60,48 75,32 C90,16 105,28 120,20 C135,12 150,22 165,10 C175,4 190,8 200,5"
                           fill="none"
@@ -2170,12 +2110,12 @@ export default function Login() {
                           strokeWidth="1.5"
                           strokeLinecap="round"
                         />
-                        {/* Highlight dot */}
+                        
                         <circle cx="200" cy="5" r="3" fill={NEON} />
                         <circle cx="200" cy="5" r="5" fill={NEON} fillOpacity="0.20" />
                       </svg>
                     </div>
-                    {/* Day labels */}
+                    
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                       {["6am","9am","12pm","3pm","6pm","9pm","Now"].map((d, i) => (
                         <span key={i} style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", fontWeight: 500 }}>{d}</span>
@@ -2183,7 +2123,7 @@ export default function Login() {
                     </div>
                   </div>
 
-                  {/* Live orders feed */}
+                  
                   <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "12px 13px", display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Live Orders</div>
@@ -2212,9 +2152,9 @@ export default function Login() {
                     </div>
                   </div>
 
-                  {/* Right column: top items + payment methods */}
+                  
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {/* Top products */}
+                    
                     <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "11px 13px", flex: 1 }}>
                       <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 9 }}>Top Items</div>
                       {[
@@ -2234,7 +2174,7 @@ export default function Login() {
                         </div>
                       ))}
                     </div>
-                    {/* Payment breakdown */}
+                    
                     <div style={{ borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", padding: "11px 13px" }}>
                       <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Payment</div>
                       {[
@@ -2258,10 +2198,10 @@ export default function Login() {
         </ContainerScroll>
       </section>
 
-      {/* ── GRADIENT FADE from showcase to features ── */}
+      
       <div style={{ height: 80, background: `linear-gradient(to bottom, ${DARK}, rgba(255,255,255,0.015))`, position: "relative", zIndex: 1, marginBottom: -1 }} />
 
-      {/* ── FEATURES CAROUSEL ── */}
+      
       <section
         id="features"
         className="scroll-section lp-section-lazy"
@@ -2304,7 +2244,7 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Continuous marquee track — duplicated for seamless loop, swipe to pause/scrub */}
+        
         <div
           style={{ overflow: "hidden", position: "relative", cursor: "grab", userSelect: "none" }}
           onMouseEnter={() => {
@@ -2346,7 +2286,6 @@ export default function Login() {
             const currentX = e.touches[0].clientX;
             const delta = featLastXRef.current - currentX;
             featLastXRef.current = currentX;
-            // velocity = delta this frame (used for fling on release)
             featVelRef.current = delta;
             const halfW = el.scrollWidth / 2;
             featPosRef.current = (((featPosRef.current + delta) % halfW) + halfW) % halfW;
@@ -2354,11 +2293,9 @@ export default function Login() {
           }}
           onTouchEnd={() => {
             featDraggingRef.current = false;
-            // featVelRef.current already holds the last-frame delta as fling velocity
-            // rAF loop will decay it back toward BASE smoothly
           }}
         >
-          {/* Fade edges */}
+          
           <div
             style={{
               position: "absolute",
@@ -2388,7 +2325,7 @@ export default function Login() {
             ref={featTrackRef}
             style={{ display: "flex", gap: 18, padding: "4px 0 12px", willChange: "transform" }}
           >
-            {/* Cards rendered twice for seamless loop */}
+            
             {[0, 1].map((pass) => (
               <div key={pass} style={{ display: "flex", gap: 18, flexShrink: 0 }}>
                 {[
@@ -2714,7 +2651,7 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── DEVICES ── */}
+      
       <section
         id="devices"
         className="scroll-section"
@@ -2946,7 +2883,7 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ── */}
+      
       <section
         className="scroll-section lp-section-lazy"
         style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(59,130,246,0.07)" }}
@@ -3175,7 +3112,7 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── SECURITY ── */}
+      
       <section
         id="security"
         className="scroll-section lp-section-lazy"
@@ -3402,7 +3339,7 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── PRICING ── */}
+      
       <section
         id="pricing"
         className="scroll-section lp-section-lazy"
@@ -3455,7 +3392,7 @@ export default function Login() {
               margin: "0 auto",
             }}
           >
-            {/* ── FREE ── */}
+            
             <div
               className="price-card sr sr-left sr-d2"
               style={{
@@ -3545,7 +3482,7 @@ export default function Login() {
               </button>
             </div>
 
-            {/* ── PRO ── */}
+            
             <div
               className="price-card sr sr-d2"
               style={{
@@ -3670,7 +3607,7 @@ export default function Login() {
               </button>
             </div>
 
-            {/* ── BUSINESS ── */}
+            
             <div
               className="price-card sr sr-right sr-d2"
               style={{
@@ -3795,7 +3732,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Billing note */}
+          
           <p
             className="sr sr-d3"
             style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)" }}
@@ -3806,7 +3743,7 @@ export default function Login() {
         </div>
       </section>
 
-      {/* ── CTA FOOTER ── */}
+      
       <section
         style={{
           position: "relative",
@@ -3817,7 +3754,7 @@ export default function Login() {
           overflow: "hidden",
         }}
       >
-        {/* Aurora breathing glow */}
+        
         <div
           className="lp-aurora-orb"
           style={{
@@ -3832,7 +3769,7 @@ export default function Login() {
             zIndex: 0,
           }}
         />
-        {/* Giant background text */}
+        
         <div
           aria-hidden="true"
           style={{
@@ -3857,7 +3794,7 @@ export default function Login() {
         >
           ARTIXPOS
         </div>
-        {/* Content on top */}
+        
         <div style={{ position: "relative", zIndex: 1 }}>
         <h2
           className="sr"
@@ -3935,10 +3872,10 @@ export default function Login() {
             </a>
           </span>
         </div>
-        </div>{/* /content-on-top */}
+        </div>
       </section>
 
-      {/* ── LOGIN PANEL (slide-over) ── */}
+      
       {showLoginPanel && (
         <>
           <div
@@ -4025,9 +3962,6 @@ export default function Login() {
     </div>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FORGOT PASSWORD MODAL
-  // ─────────────────────────────────────────────────────────────────────────
   const forgotModal = showForgot ? (
     <div
       style={{
@@ -4222,9 +4156,6 @@ export default function Login() {
     </div>
   ) : null;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // DEBUG PANEL
-  // ─────────────────────────────────────────────────────────────────────────
   const debugPanel =
     isNativePlatform() && showDebug ? (
       <div
@@ -4336,9 +4267,6 @@ export default function Login() {
       </div>
     ) : null;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MOBILE CARD
-  // ─────────────────────────────────────────────────────────────────────────
   const mobileCard = (
     <div className="md:hidden">
       <div

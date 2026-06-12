@@ -1,4 +1,4 @@
-modules = ["python-3.12", "web", "nodejs-20"]
+modules = ["nodejs-20", "python-3.12", "web"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -48,7 +48,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node_modules/.bin/tsx server/index.ts"
+args = "npm run dev"
 waitForPort = 5000
 
 [[workflows.workflow]]

@@ -65,6 +65,7 @@ import {
   recordEmailSuccessfulLogin,
   checkEmailBlocked,
 } from "./brute-force";
+import { isDisposableEmail } from "./email-domain-validator";
 import { updateLastSeen } from "./admin-storage";
 
 function getClientIp(req: Request): string {
@@ -1053,6 +1054,11 @@ export function setupAuth(app: Express) {
     }
     if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ message: "A valid email address is required." });
+    }
+    if (isDisposableEmail(email)) {
+      return res.status(400).json({
+        message: "Temporary or disposable email addresses are not allowed. Please use a permanent email address (e.g. Gmail, Yahoo, Outlook).",
+      });
     }
     const pwError = validatePasswordStrength(password, email);
     if (pwError) return res.status(400).json({ message: pwError });

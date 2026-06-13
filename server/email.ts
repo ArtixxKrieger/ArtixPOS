@@ -160,7 +160,7 @@ function emailShell(bodyHtml: string, previewText = ""): string {
     body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
     table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
     img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}
-    body{margin:0;padding:0;background-color:#ede9ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;}
+    body{margin:0;padding:0;background-color:#eff6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;}
     .email-container{max-width:600px;margin:0 auto;}
     a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}
     @media only screen and (max-width:600px){
@@ -169,9 +169,9 @@ function emailShell(bodyHtml: string, previewText = ""): string {
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#ede9ff;">
+<body style="margin:0;padding:0;background-color:#eff6ff;">
   ${previewText ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escHtml(previewText)}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>` : ""}
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#ede9ff;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#eff6ff;">
     <tr>
       <td align="center" style="padding:40px 16px 48px;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="email-container" style="max-width:600px;">
@@ -185,17 +185,18 @@ function emailShell(bodyHtml: string, previewText = ""): string {
 }
 
 /** VML-safe CTA button — renders as a real rectangle in Outlook, proper button everywhere else. */
-function ctaButton(label: string, url: string, color = "#7c3aed"): string {
+function ctaButton(label: string, url: string, color = "#2563eb"): string {
+  const safeHref = escHtml(url);
   return `
   <!--[if mso]>
   <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
-    href="${url}" style="height:50px;v-text-anchor:middle;width:230px;" arcsize="16%" stroke="f" fillcolor="${color}">
+    href="${safeHref}" style="height:50px;v-text-anchor:middle;width:230px;" arcsize="16%" stroke="f" fillcolor="${color}">
     <w:anchorlock/>
     <center style="color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;font-weight:700;">${label}</center>
   </v:roundrect>
   <![endif]-->
   <!--[if !mso]><!-->
-  <a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;font-weight:700;letter-spacing:0.2px;line-height:1;padding:15px 40px;text-decoration:none;border-radius:10px;mso-hide:all;">${label}</a>
+  <a href="${safeHref}" style="display:inline-block;background-color:${color};color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;font-weight:700;letter-spacing:0.2px;line-height:1;padding:15px 40px;text-decoration:none;border-radius:10px;mso-hide:all;">${label}</a>
   <!--<![endif]-->`;
 }
 
@@ -203,9 +204,9 @@ function globalFooter(): string {
   return `
   <tr>
     <td align="center" style="padding:28px 0 0;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#6d28d9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:0.3px;">ArtixPOS</p>
-      <p style="margin:0;font-size:12px;color:#a78bfa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
-        Your industry. Your POS. &mdash; <a href="https://artixpos.com" style="color:#7c3aed;text-decoration:none;">artixpos.com</a>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1d4ed8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:0.3px;">ArtixPOS</p>
+      <p style="margin:0;font-size:12px;color:#60a5fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
+        Your industry. Your POS. &mdash; <a href="https://artixpos.com" style="color:#2563eb;text-decoration:none;">artixpos.com</a>
       </p>
     </td>
   </tr>`;
@@ -219,12 +220,12 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
   const safeUrl = escHtml(verifyUrl);
   const body = `
   <tr>
-    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(109,40,217,0.12);">
+    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(37,99,235,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 
         <!-- Purple hero -->
         <tr>
-          <td style="background-color:#7c3aed;padding:36px 40px 32px;" class="px-m">
+          <td style="background-color:#2563eb;padding:36px 40px 32px;" class="px-m">
             <!-- Logo -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
               <tr>
@@ -272,7 +273,7 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
             <!-- Info box -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
               <tr>
-                <td style="background-color:#faf8ff;border-left:3px solid #7c3aed;border-radius:0 10px 10px 0;padding:14px 18px;">
+                <td style="background-color:#f0f7ff;border-left:3px solid #2563eb;border-radius:0 10px 10px 0;padding:14px 18px;">
                   <p style="margin:0;font-size:13px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
                     &#128274;&nbsp; <strong style="color:#1f2937;">Security tip:</strong> If you didn't create an ArtixPOS account, you can safely ignore this email. No account will be created without confirmation.
                   </p>
@@ -283,7 +284,7 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
             <!-- Fallback URL -->
             <p style="margin:0;font-size:12px;color:#9ca3af;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;">
               Button not working? Copy and paste this URL into your browser:<br>
-              <a href="${verifyUrl}" style="color:#7c3aed;word-break:break-all;font-size:11px;">${safeUrl}</a>
+              <a href="${verifyUrl}" style="color:#2563eb;word-break:break-all;font-size:11px;">${safeUrl}</a>
             </p>
           </td>
         </tr>
@@ -299,7 +300,7 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
   const safeUrl = escHtml(resetUrl);
   const body = `
   <tr>
-    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(109,40,217,0.12);">
+    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(37,99,235,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 
         <!-- Dark header -->
@@ -307,11 +308,11 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
           <td style="background-color:#0f0a1e;padding:32px 40px 28px;" class="px-m">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
               <tr>
-                <td style="background-color:#7c3aed;border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
+                <td style="background-color:#2563eb;border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
                   <span style="font-size:20px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:42px;display:inline-block;width:42px;">A</span>
                 </td>
                 <td style="padding-left:10px;vertical-align:middle;">
-                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;">Artix<span style="color:#7c3aed;">POS</span></span>
+                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;">Artix<span style="color:#2563eb;">POS</span></span>
                 </td>
               </tr>
             </table>
@@ -353,19 +354,19 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                     <tr><td style="padding:5px 0;">
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                        <td style="width:24px;height:24px;background-color:#7c3aed;border-radius:50%;text-align:center;vertical-align:middle;font-size:11px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:24px;">1</td>
+                        <td style="width:24px;height:24px;background-color:#2563eb;border-radius:50%;text-align:center;vertical-align:middle;font-size:11px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:24px;">1</td>
                         <td style="padding-left:12px;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Click the button above within <strong>1 hour</strong></td>
                       </tr></table>
                     </td></tr>
                     <tr><td style="padding:5px 0;">
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                        <td style="width:24px;height:24px;background-color:#7c3aed;border-radius:50%;text-align:center;vertical-align:middle;font-size:11px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:24px;">2</td>
+                        <td style="width:24px;height:24px;background-color:#2563eb;border-radius:50%;text-align:center;vertical-align:middle;font-size:11px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:24px;">2</td>
                         <td style="padding-left:12px;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Enter and confirm your new password</td>
                       </tr></table>
                     </td></tr>
                     <tr><td style="padding:5px 0;">
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                        <td style="width:24px;height:24px;background-color:#7c3aed;border-radius:50%;text-align:center;vertical-align:middle;font-size:11px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:24px;">3</td>
+                        <td style="width:24px;height:24px;background-color:#2563eb;border-radius:50%;text-align:center;vertical-align:middle;font-size:11px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:24px;">3</td>
                         <td style="padding-left:12px;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Sign back in to your account</td>
                       </tr></table>
                     </td></tr>
@@ -377,7 +378,7 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
             <!-- Fallback URL -->
             <p style="margin:0 0 20px;font-size:12px;color:#9ca3af;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;">
               Button not working? Paste this URL into your browser:<br>
-              <a href="${resetUrl}" style="color:#7c3aed;word-break:break-all;font-size:11px;">${safeUrl}</a>
+              <a href="${resetUrl}" style="color:#2563eb;word-break:break-all;font-size:11px;">${safeUrl}</a>
             </p>
 
             <!-- Security note -->
@@ -385,7 +386,7 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
               <tr>
                 <td style="border-top:1px solid #f3f4f6;padding-top:20px;">
                   <p style="margin:0;font-size:12px;color:#9ca3af;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;">
-                    &#128274;&nbsp; Didn't request this? Ignore this email — your password won't change. Need help? <a href="mailto:support@artixpos.com" style="color:#7c3aed;">support@artixpos.com</a>
+                    &#128274;&nbsp; Didn't request this? Ignore this email — your password won't change. Need help? <a href="mailto:support@artixpos.com" style="color:#2563eb;">support@artixpos.com</a>
                   </p>
                 </td>
               </tr>
@@ -467,12 +468,12 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
 
   const body = `
   <tr>
-    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(109,40,217,0.12);">
+    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(37,99,235,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 
         <!-- Store header -->
         <tr>
-          <td align="center" style="background-color:#7c3aed;padding:32px 40px 28px;" class="px-m">
+          <td align="center" style="background-color:#2563eb;padding:32px 40px 28px;" class="px-m">
             <div style="display:inline-block;background-color:rgba(255,255,255,0.2);border-radius:16px;width:56px;height:56px;text-align:center;line-height:56px;font-size:26px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin-bottom:10px;">${storeInit}</div>
             <p style="margin:0 0 2px;font-size:22px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storeName}</p>
             ${storeAddr  ? `<p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128205;&nbsp;${storeAddr}</p>` : ""}
@@ -490,7 +491,7 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
                   ${customer ? `<p style="margin:5px 0 0;font-size:14px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Hello, <strong>${customer}</strong>! Thanks for your purchase.</p>` : ""}
                 </td>
                 <td style="text-align:right;vertical-align:top;">
-                  ${refNum ? `<p style="margin:0;font-size:10px;font-weight:700;color:#7c3aed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">Receipt</p><p style="margin:2px 0 0;font-size:14px;color:#0f0a1e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-weight:700;">#${refNum}</p>` : ""}
+                  ${refNum ? `<p style="margin:0;font-size:10px;font-weight:700;color:#2563eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">Receipt</p><p style="margin:2px 0 0;font-size:14px;color:#0f0a1e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-weight:700;">#${refNum}</p>` : ""}
                   <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${dateStr}</p>
                 </td>
               </tr>
@@ -539,18 +540,18 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
           <td style="padding:16px 40px 28px;" class="px-m">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td style="background-color:#faf8ff;border:1.5px solid #ddd6fe;border-radius:14px;padding:18px 24px;">
+                <td style="background-color:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:14px;padding:18px 24px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                     <tr>
                       <td style="vertical-align:middle;">
-                        <p style="margin:0;font-size:11px;font-weight:700;color:#7c3aed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">Total paid</p>
+                        <p style="margin:0;font-size:11px;font-weight:700;color:#2563eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">Total paid</p>
                       </td>
                       <td style="text-align:right;vertical-align:middle;">
-                        <p style="margin:0;font-size:28px;font-weight:900;color:#7c3aed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.5px;">${fmt(sale.total)}</p>
+                        <p style="margin:0;font-size:28px;font-weight:900;color:#2563eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.5px;">${fmt(sale.total)}</p>
                       </td>
                     </tr>
                     <tr>
-                      <td colspan="2" style="padding-top:10px;border-top:1px solid #ede9ff;">
+                      <td colspan="2" style="padding-top:10px;border-top:1px solid #eff6ff;">
                         <p style="margin:8px 0 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${pmIcon}&nbsp;Paid via <strong style="color:#374151;text-transform:capitalize;">${pm}</strong></p>
                       </td>
                     </tr>
@@ -571,8 +572,8 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
 
         <!-- Powered by -->
         <tr>
-          <td align="center" style="background-color:#faf8ff;border-top:1px solid #f3f4f6;padding:14px 24px;">
-            <p style="margin:0;font-size:12px;color:#c4b5fd;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Powered by <strong style="color:#7c3aed;">ArtixPOS</strong></p>
+          <td align="center" style="background-color:#f0f7ff;border-top:1px solid #f3f4f6;padding:14px 24px;">
+            <p style="margin:0;font-size:12px;color:#93c5fd;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Powered by <strong style="color:#2563eb;">ArtixPOS</strong></p>
           </td>
         </tr>
       </table>
@@ -644,12 +645,12 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
   const safeName = escHtml(name);
   const body = `
   <tr>
-    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(109,40,217,0.12);">
+    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(37,99,235,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 
         <!-- Purple hero -->
         <tr>
-          <td style="background-color:#7c3aed;padding:36px 40px 32px;" class="px-m">
+          <td style="background-color:#2563eb;padding:36px 40px 32px;" class="px-m">
             <!-- Logo -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
               <tr>
@@ -674,11 +675,11 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
             <!-- Status badge -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
               <tr>
-                <td style="background-color:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:50px;padding:8px 18px 8px 12px;">
+                <td style="background-color:#eff6ff;border:1.5px solid #93c5fd;border-radius:50px;padding:8px 18px 8px 12px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
                       <td style="font-size:16px;line-height:1;padding-right:8px;">&#127881;</td>
-                      <td style="font-size:13px;font-weight:600;color:#6d28d9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Account successfully created</td>
+                      <td style="font-size:13px;font-weight:600;color:#1d4ed8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Account successfully created</td>
                     </tr>
                   </table>
                 </td>
@@ -692,8 +693,8 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
             <!-- Feature list -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:32px;">
               <tr>
-                <td style="background-color:#faf8ff;border-radius:14px;padding:20px 24px;">
-                  <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#6d28d9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">What you can do with ArtixPOS</p>
+                <td style="background-color:#f0f7ff;border-radius:14px;padding:20px 24px;">
+                  <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#1d4ed8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">What you can do with ArtixPOS</p>
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                     <tr>
                       <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128176;&nbsp; <strong>Point of Sale</strong> — fast checkout with offline support</td>
@@ -723,9 +724,9 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
             <!-- Help box -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
               <tr>
-                <td style="background-color:#faf8ff;border-left:3px solid #7c3aed;border-radius:0 10px 10px 0;padding:14px 18px;">
+                <td style="background-color:#f0f7ff;border-left:3px solid #2563eb;border-radius:0 10px 10px 0;padding:14px 18px;">
                   <p style="margin:0;font-size:13px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
-                    &#128172;&nbsp; <strong style="color:#1f2937;">Need help getting started?</strong> Reply to this email or visit <a href="https://artixpos.com" style="color:#7c3aed;text-decoration:none;">artixpos.com</a> — we're here for you.
+                    &#128172;&nbsp; <strong style="color:#1f2937;">Need help getting started?</strong> Reply to this email or visit <a href="https://artixpos.com" style="color:#2563eb;text-decoration:none;">artixpos.com</a> — we're here for you.
                   </p>
                 </td>
               </tr>

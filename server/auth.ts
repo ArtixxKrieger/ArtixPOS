@@ -1157,7 +1157,14 @@ export function setupAuth(app: Express) {
   // ── Email verification ────────────────────────────────────────────────────────
 
   // Rate-limit resend requests: max 1 per 60 s per user (in-memory; good enough).
+  // Entries are pruned every 5 minutes to prevent unbounded memory growth.
   const resendCooldown = new Map<string, number>();
+  setInterval(() => {
+    const cutoff = Date.now() - 60_000;
+    for (const [uid, ts] of resendCooldown) {
+      if (ts < cutoff) resendCooldown.delete(uid);
+    }
+  }, 5 * 60_000).unref();
 
   app.get("/api/auth/verify-email", async (req, res, next) => {
     const token = req.query.token as string | undefined;
@@ -1804,7 +1811,6 @@ export function setupAuth(app: Express) {
 
         const baseUrl = getBaseUrl();
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-        console.log(`[auth/forgot-password] reset URL: ${resetUrl}`);
 
         const sent = await sendPasswordResetEmail(user.email!, resetUrl).catch((err) => {
           console.error("[auth] sendPasswordResetEmail threw:", err);

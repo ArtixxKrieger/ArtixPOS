@@ -956,7 +956,8 @@ function ProtectedRouter() {
 
   return (
     <>
-      {user && user.provider === "email" && user.emailVerified === false && (
+      {user && user.provider === "email" && user.emailVerified === false &&
+        location !== "/login" && location !== "/register" && (
         <EmailVerificationBanner email={user.email} />
       )}
       <AppRouter />

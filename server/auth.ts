@@ -312,18 +312,16 @@ export function signToken(user: TokenUser, rememberMe = false): string {
 // or browsers (especially Chrome on HTTPS) silently refuse to delete the cookie,
 // which is what made "logout" appear to do nothing on the first click.
 //
-// SameSite=None + Secure is required when the app runs inside a cross-site iframe
-// (e.g. Replit's webview preview is embedded in replit.com while the app lives at
-// *.replit.dev — different eTLD+1 — so SameSite=Lax blocks cookie delivery on every
-// XHR/fetch request, causing all post-login API calls to return 401).
-// We also apply SameSite=None in production since it is always served over HTTPS.
-const _isReplitEnv = !!(process.env.REPL_ID || process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN);
-const _useSecureCookie = process.env.NODE_ENV === "production" || _isReplitEnv;
-
+// SameSite=None; Secure is used unconditionally because:
+//   1. The app always runs behind an HTTPS endpoint (reverse proxy in dev, Vercel in prod).
+//   2. We have explicit CSRF token double-submit validation (csrfProtection middleware),
+//      so the CSRF protection that SameSite=Lax would otherwise provide is redundant.
+//   3. SameSite=None is required for the cookie to be delivered in any embedded context
+//      (iframes, OAuth pop-ups, etc.) regardless of the deployment environment.
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: _useSecureCookie,
-  sameSite: (_useSecureCookie ? "none" : "lax") as "none" | "lax",
+  secure: true,
+  sameSite: "none" as const,
   path: "/",
 };
 

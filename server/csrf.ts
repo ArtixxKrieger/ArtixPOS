@@ -6,16 +6,6 @@ export const CSRF_HEADER  = "x-csrf-token";
 
 const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-// Mirror the auth-cookie SameSite/Secure logic so both cookies travel together.
-// When the app runs inside Replit's cross-site preview iframe (replit.com embeds
-// *.replit.dev), SameSite=Strict blocks the CSRF cookie entirely, which means the
-// JS client can't read it and every state-changing request is rejected with 403.
-const _isReplitEnv = !!(process.env.REPL_ID || process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN);
-const _useSecureCsrf = process.env.NODE_ENV === "production" || _isReplitEnv;
-// Security note: SameSite=None does NOT weaken the double-submit protection — a
-// cross-origin attacker still cannot READ the cookie value from JS (browser
-// origin policy), so they cannot craft a matching X-CSRF-Token header.
-
 // Only these methods can modify server state — we enforce a token on them.
 const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
@@ -47,9 +37,9 @@ export function csrfCookieMiddleware(
   if (!req.cookies[CSRF_COOKIE]) {
     const token = generate();
     res.cookie(CSRF_COOKIE, token, {
-      httpOnly: false,                                 // JS must be able to read it
-      secure: _useSecureCsrf,
-      sameSite: (_useSecureCsrf ? "none" : "lax") as "none" | "lax",
+      httpOnly: false,   // JS must be able to read it to send the X-CSRF-Token header
+      secure: true,
+      sameSite: "none" as const,
       maxAge: COOKIE_MAX_AGE_MS,
       path: "/",
     });

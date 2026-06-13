@@ -50,6 +50,11 @@ NODE_ENV = "development"
 VAPID_PUBLIC_KEY = "BBxxHGXGSuGGPLr9kzBVK6flGNr2o4zWhg57sLhe6N9ayd_tz9ty18UTqkzPmfO1_iJxpzB9_BYoQXeQlo7fhWI"
 VAPID_PRIVATE_KEY = "QvCeKt8DcJRCzVneTnc8saxpcT-zGWW9vJ5CwiY9XSo"
 VAPID_EMAIL = "mailto:admin@artixpos.com"
+SMTP_HOST = "smtp.resend.com"
+SMTP_PORT = "465"
+SMTP_USER = "resend"
+SMTP_FROM = "ArtixPOS <noreply@artixpos.com>"
+APP_URL = "https://artixpos.com"
 
 [agent]
 expertMode = true

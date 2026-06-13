@@ -30,18 +30,22 @@ import { ensurePartitions } from "./partition-manager";
 import { storage } from "./storage";
 import { getAdapter, parseRouterConfig } from "./routers/factory";
 
+const isDevelopment = process.env.NODE_ENV !== "production";
+const isServerless = !!process.env.VERCEL;
+
 const app = express();
 const httpServer = createServer(app);
 
-httpServer.keepAliveTimeout = 90_000;
-httpServer.headersTimeout = 95_000;
-httpServer.timeout = parseInt(process.env.SERVER_TIMEOUT_MS ?? "120000", 10);
+if (!isServerless) {
+  httpServer.keepAliveTimeout = 90_000;
+  httpServer.headersTimeout = 95_000;
+  httpServer.timeout = parseInt(process.env.SERVER_TIMEOUT_MS ?? "120000", 10);
+}
 
 app.set("trust proxy", 1);
-app.use(compression());
-
-const isDevelopment = process.env.NODE_ENV !== "production";
-const isServerless = !!process.env.VERCEL;
+if (!isServerless) {
+  app.use(compression());
+}
 
 const scriptSrc: string[] = isDevelopment
   ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
@@ -273,21 +277,23 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? "30000", 10);
-app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.path.startsWith("/api/ai/stream") || req.path.startsWith("/api/ai/chat")) {
-    return next();
-  }
-  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
-    if (!res.headersSent) {
-      res.status(503).json({
-        message: "Request timed out. The server is under load — please retry.",
-        code: "REQUEST_TIMEOUT",
-      });
+if (!isServerless) {
+  const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? "30000", 10);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api/ai/stream") || req.path.startsWith("/api/ai/chat")) {
+      return next();
     }
+    res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      if (!res.headersSent) {
+        res.status(503).json({
+          message: "Request timed out. The server is under load — please retry.",
+          code: "REQUEST_TIMEOUT",
+        });
+      }
+    });
+    next();
   });
-  next();
-});
+}
 
 app.use(jwtAuthMiddleware);
 app.use(passport.initialize());
@@ -395,10 +401,16 @@ async function _doInit() {
     console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
     warmCache().catch(() => {});
-    startCleanupScheduler();
+    if (!isServerless) {
+      startCleanupScheduler();
+    }
 
-    console.log("[init] step 6/8 — setupSwagger");
-    setupSwagger(app);
+    if (!isServerless) {
+      console.log("[init] step 6/8 — setupSwagger");
+      setupSwagger(app);
+    } else {
+      console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
+    }
 
     await applySentryErrorHandler(app);
 

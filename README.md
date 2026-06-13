@@ -215,7 +215,8 @@ AI goes down?        →  Local model picks up the slack
 
 ## License
 
-Copyright 2025 ArtixPOS. All rights reserved.
+Copyright 2026
+ArtixPOS. All rights reserved.
 
 This repo is public for portfolio and reference purposes only. You may not copy, fork, or use any part of this in your own projects without written permission from the author.
 

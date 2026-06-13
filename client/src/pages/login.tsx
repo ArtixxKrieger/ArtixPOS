@@ -4149,7 +4149,7 @@ export default function Login() {
             <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>A</span>
           </div>
           <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>
-            © 2025 ArtixPOS
+            © 2026 ArtixPOS
             <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
             <a
               href="/terms"

@@ -115,9 +115,8 @@ async function redisRecordFailed(ip: string): Promise<void> {
         const blockSecs = Math.ceil(blockMs / 1000);
         // nx: false so a higher-severity block can overwrite a shorter one.
         await redis.set(blockKey(ip), blockSecs, { ex: blockSecs });
-        const maskedIp = ip.replace(/(\d+\.\d+)\.\d+\.\d+/, "$1.*.*").replace(/([0-9a-f:]{4,}):[\da-f:]+$/i, "$1:****");
         console.warn(
-          `[brute-force] Redis: IP ${maskedIp} blocked for ${blockMs / 60_000} min after ${count} failed attempts`,
+          `[brute-force] Redis: IP blocked for ${blockMs / 60_000} min after ${count} failed attempts`,
         );
         break;
       }

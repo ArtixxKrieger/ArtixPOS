@@ -77,7 +77,7 @@ export function registerPayrollRoutes(app: Express) {
       const csvEscapeField = (v: unknown): string => JSON.stringify(v ?? "");
       const csvRow = (r: Record<string, unknown>): string =>
         headers.map((h) => csvEscapeField(r[h])).join(",");
-      const lines = [headers.map(csvEscapeField).join(","), ...rows.map(csvRow)].join("\n");
+      const lines = [headers.join(","), ...rows.map(csvRow)].join("\n");
 
       const name = ((period as any).name || `period-${periodId}`).replace(/[^a-z0-9_\-]/gi, "_");
       res.setHeader("Content-Type", "text/csv");

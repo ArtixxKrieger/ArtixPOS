@@ -167,7 +167,12 @@ export function registerSubscriptionRoutes(app: Express) {
       // is allowed (PayMongo checkout sessions expire after 1 hour anyway).
       const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const recentPending = await db
-        .select({ id: subscriptionPayments.id, checkoutUrl: subscriptionPayments.checkoutUrl, createdAt: subscriptionPayments.createdAt })
+        .select({
+          id: subscriptionPayments.id,
+          checkoutUrl: subscriptionPayments.checkoutUrl,
+          paymongoCheckoutId: subscriptionPayments.paymongoCheckoutId,
+          createdAt: subscriptionPayments.createdAt,
+        })
         .from(subscriptionPayments)
         .where(and(
           eq(subscriptionPayments.tenantId, tenantId),
@@ -179,8 +184,10 @@ export function registerSubscriptionRoutes(app: Express) {
       );
       if (activePending.length > 0) {
         const newest = activePending.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
-        if (newest.checkoutUrl) {
-          return res.json({ checkoutUrl: newest.checkoutUrl, checkoutId: newest.id, reused: true });
+        // Return the PayMongo session ID (not the DB row ID) — the client
+        // sends this to /api/subscription/verify which matches on paymongoCheckoutId.
+        if (newest.checkoutUrl && newest.paymongoCheckoutId) {
+          return res.json({ checkoutUrl: newest.checkoutUrl, checkoutId: newest.paymongoCheckoutId, reused: true });
         }
       }
 
@@ -667,8 +674,25 @@ export function registerPaymentWebhookRoutes(app: Express) {
         const tenantId = claimed.tenantId!;
         const billingCycle = (claimed.billingCycle as "monthly" | "annual") ?? "monthly";
 
-        // Activate Pro subscription
-        const periodEnd = await activateProForTenant(tenantId, billingCycle);
+        // Activate Pro subscription.  If this throws we MUST revert the payment
+        // record back to 'pending' so PayMongo retries can reclaim it via the
+        // conditional UPDATE above.  Without the revert, the record is stuck in
+        // 'paid' but the subscription was never activated and all retries exit
+        // early as "Already processed".
+        let periodEnd: Date;
+        try {
+          periodEnd = await activateProForTenant(tenantId, billingCycle);
+        } catch (activateErr) {
+          console.error("[webhook/paymongo] activateProForTenant failed — reverting payment to pending for retry:", activateErr);
+          await db
+            .update(subscriptionPayments)
+            .set({ status: "pending", paidAt: null } as any)
+            .where(and(
+              eq(subscriptionPayments.paymongoCheckoutId, checkoutId),
+              eq(subscriptionPayments.status, "paid"),
+            ));
+          return res.status(500).json({ message: "Subscription activation failed — will retry" });
+        }
 
         console.log(`[webhook/paymongo] ✓ Tenant ${tenantId} upgraded to Pro until ${periodEnd.toISOString()}`);
         return res.status(200).json({ received: true, tenantId, plan: "pro", periodEnd: periodEnd.toISOString() });

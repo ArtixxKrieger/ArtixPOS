@@ -114,7 +114,6 @@
     "react-is": "^19.2.7",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^3.8.1",
-    "resend": "^6.12.4",
     "sileo": "^0.1.5",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",

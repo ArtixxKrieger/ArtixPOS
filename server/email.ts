@@ -1,11 +1,10 @@
 import nodemailer from "nodemailer";
-import { Resend } from "resend";
 
 // ─── Transport strategy ───────────────────────────────────────────────────────
 // Vercel serverless functions cannot reliably hold the multi-round-trip TCP
 // connection that SMTP requires. When a Resend API key is configured we use
-// Resend's HTTP API instead — it's a single HTTPS POST and works perfectly
-// in serverless environments.
+// Resend's HTTP API instead — a single HTTPS POST using Node's built-in fetch.
+// No extra npm package required, so no lockfile/registry issues on Vercel.
 //
 // Detection order:
 //   1. RESEND_API_KEY env var (explicit)
@@ -17,15 +16,6 @@ function getResendApiKey(): string | null {
   const smtpPass = process.env.SMTP_PASS;
   if (smtpPass?.startsWith("re_")) return smtpPass;
   return null;
-}
-
-let _resend: Resend | null | undefined = undefined;
-
-function getResendClient(): Resend | null {
-  if (_resend !== undefined) return _resend;
-  const key = getResendApiKey();
-  _resend = key ? new Resend(key) : null;
-  return _resend;
 }
 
 // SMTP fallback — only used when not using Resend HTTP API
@@ -51,11 +41,10 @@ function getTransporter(): nodemailer.Transporter | null {
 
 export function resetTransporter(): void {
   _transporter = undefined;
-  _resend = undefined;
 }
 
 // ─── Unified send helper ──────────────────────────────────────────────────────
-// Tries Resend HTTP API first; falls back to nodemailer SMTP.
+// Tries Resend HTTP API (via native fetch) first; falls back to nodemailer SMTP.
 // Returns true on success, false on any failure (never throws).
 async function sendEmail(opts: {
   to: string;
@@ -69,29 +58,39 @@ async function sendEmail(opts: {
     return addr.includes("<") ? addr : `ArtixPOS <${addr}>`;
   })();
 
-  const resend = getResendClient();
-  if (resend) {
+  const resendKey = getResendApiKey();
+  if (resendKey) {
+    // Use Resend's REST API directly — no npm package, no lockfile issues.
+    // A single HTTPS POST, works perfectly in Vercel serverless.
     try {
-      const { error } = await resend.emails.send({
-        from,
-        to: opts.to,
-        subject: opts.subject,
-        text: opts.text,
-        html: opts.html,
-        headers: opts.headers,
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to: [opts.to],
+          subject: opts.subject,
+          text: opts.text,
+          html: opts.html,
+          headers: opts.headers,
+        }),
       });
-      if (error) {
-        console.error("[email] Resend API error:", error);
+      if (!res.ok) {
+        const body = await res.text().catch(() => "(unreadable)");
+        console.error(`[email] Resend API error ${res.status}:`, body);
         return false;
       }
       return true;
     } catch (err) {
-      console.error("[email] Resend API threw:", err);
+      console.error("[email] Resend fetch failed:", err);
       return false;
     }
   }
 
-  // SMTP fallback
+  // SMTP fallback — for non-Resend providers
   const transporter = getTransporter();
   if (!transporter) {
     console.warn("[email] No email transport configured (SMTP_HOST/USER/PASS or RESEND_API_KEY missing)");

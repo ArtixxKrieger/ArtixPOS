@@ -50,6 +50,15 @@ try {
   const distDir = path.join(projectRoot, "dist");
   if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
 
+  // ── 0. Fix esbuild version mismatch in drizzle-kit ─────────────────────────
+  // drizzle-kit ships its own nested esbuild that conflicts with the project's
+  // version. Remove it so drizzle-kit uses the top-level one via hoisting.
+  const dkEsbuildDir = path.join(projectRoot, "node_modules/drizzle-kit/node_modules/esbuild");
+  if (fs.existsSync(dkEsbuildDir)) {
+    fs.rmSync(dkEsbuildDir, { recursive: true, force: true });
+    console.log("✓ drizzle-kit esbuild conflict resolved\n");
+  }
+
   // ── 0. Schema sync ──────────────────────────────────────────────────────────
   console.log("[0/4] Syncing database schema...");
   try {

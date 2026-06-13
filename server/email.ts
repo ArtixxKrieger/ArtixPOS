@@ -59,10 +59,11 @@ async function sendEmail(opts: {
   })();
 
   const resendKey = getResendApiKey();
+  console.log(`[email] transport=${resendKey ? "resend-api" : "smtp"} to=${opts.to} subject="${opts.subject}"`);
+
   if (resendKey) {
-    // Use Resend's REST API directly — no npm package, no lockfile issues.
-    // A single HTTPS POST, works perfectly in Vercel serverless.
     try {
+      console.log(`[email] calling Resend API from=${from}`);
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -78,14 +79,15 @@ async function sendEmail(opts: {
           headers: opts.headers,
         }),
       });
+      const body = await res.text().catch(() => "(unreadable)");
       if (!res.ok) {
-        const body = await res.text().catch(() => "(unreadable)");
         console.error(`[email] Resend API error ${res.status}:`, body);
         return false;
       }
+      console.log(`[email] Resend API success ${res.status}:`, body);
       return true;
     } catch (err) {
-      console.error("[email] Resend fetch failed:", err);
+      console.error("[email] Resend fetch threw:", err);
       return false;
     }
   }
@@ -93,7 +95,7 @@ async function sendEmail(opts: {
   // SMTP fallback — for non-Resend providers
   const transporter = getTransporter();
   if (!transporter) {
-    console.warn("[email] No email transport configured (SMTP_HOST/USER/PASS or RESEND_API_KEY missing)");
+    console.warn("[email] No transport configured — set RESEND_API_KEY or SMTP_HOST/USER/PASS");
     return false;
   }
   try {

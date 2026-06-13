@@ -1782,7 +1782,11 @@ export function setupAuth(app: Express) {
         return row ?? null;
       });
 
-      if (user) {
+      if (!user) {
+        console.log(`[auth/forgot-password] no user found for email: ${email.toLowerCase().trim()}`);
+      } else {
+        console.log(`[auth/forgot-password] user found id=${user.id}, sending reset email to ${user.email}`);
+
         const token = crypto.randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
@@ -1794,19 +1798,17 @@ export function setupAuth(app: Express) {
 
         const baseUrl = getBaseUrl();
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+        console.log(`[auth/forgot-password] reset URL: ${resetUrl}`);
 
-        // Catch SMTP errors here so they don't propagate as a 500 to the user.
-        // A mail failure is non-fatal — we log it and return the same ambiguous
-        // success message (avoids leaking whether the email exists in our DB).
         const sent = await sendPasswordResetEmail(user.email!, resetUrl).catch((err) => {
           console.error("[auth] sendPasswordResetEmail threw:", err);
           return false;
         });
 
+        console.log(`[auth/forgot-password] sendPasswordResetEmail result: ${sent}`);
+
         if (!sent) {
-          console.log(
-            `[auth] Password reset requested for user ${user.id} — SMTP not configured or delivery failed, token not sent.`,
-          );
+          console.warn(`[auth/forgot-password] email delivery failed for user ${user.id}`);
         }
       }
 

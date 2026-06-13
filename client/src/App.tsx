@@ -138,16 +138,6 @@ function handleAuthDeepLink(url: string) {
   }
 }
 
-/**
- * Handle OAuth deep links in both scenarios:
- *
- * 1. App was KILLED — OS launches it fresh via the deep link.
- *    Capacitor exposes the URL through getLaunchUrl(), not appUrlOpen.
- *    appUrlOpen fires only when the app is already running.
- *
- * 2. App was BACKGROUNDED — OS brings it to the foreground.
- *    Capacitor fires appUrlOpen with the URL.
- */
 function useNativeDeepLink() {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -168,16 +158,14 @@ function useNativeDeepLink() {
 
         debugLog("deeplink", "registering appUrlOpen listener");
 
-        // Case 1: app was cold-launched from the deep link
-        const launch = await CapApp.getLaunchUrl();
+const launch = await CapApp.getLaunchUrl();
         debugLog("deeplink", `getLaunchUrl=${JSON.stringify(launch)}`);
         if (launch?.url) {
           debugLog("deeplink", `cold-launch deep link: ${launch.url}`);
           handleAuthDeepLink(launch.url);
         }
 
-        // Case 2: app was already running (backgrounded), brought to front
-        const handle = await CapApp.addListener("appUrlOpen", async (data) => {
+const handle = await CapApp.addListener("appUrlOpen", async (data) => {
           debugLog("deeplink", `appUrlOpen fired: ${data.url}`);
           try {
             await Browser.close();
@@ -250,10 +238,6 @@ function CashierGuard({ component: Component }: { component: ComponentType }) {
   return <Component />;
 }
 
-// Redirects first-time POS users to the features setup wizard.
-// Only fires when the user is actually navigated to /pos and posFeatures
-// has never been configured (null). Existing users with a businessType set
-// are sent to the wizard pre-populated with sensible defaults.
 function POSWithSetupGuard() {
   const [location, setLocation] = useLocation();
   const { data: settings, isLoading } = useSettings();
@@ -262,18 +246,13 @@ function POSWithSetupGuard() {
   useEffect(() => {
     if (isLoading) return;
     if (location !== "/pos") return;
-    // Only redirect when settings loaded successfully (non-null) but posFeatures
-    // has never been configured. Avoids a redirect loop when settings fail to
-    // load (network error / 401) and settings itself is null.
-    if (settings != null && posFeatures == null) {
+
+if (settings != null && posFeatures == null) {
       setLocation("/features?setup=1");
     }
   }, [isLoading, settings, posFeatures, location, setLocation]);
 
-  // Render POS regardless — it stays mounted in the background via PersistentRoute.
-  // The effect above handles the redirect; the POS will be display:none while
-  // the user is on /features anyway.
-  return <POS />;
+return <POS />;
 }
 
 function AdminGuard({ component: Component }: { component: ComponentType }) {
@@ -313,11 +292,8 @@ function ManagerOrAboveGuard({ component: Component }: { component: ComponentTyp
 const pageFallback = null;
 
 function LoadingScreen({ message: _message }: { message?: string }) {
-  // After 4 s offline → show the "no cached chunk" error screen.
-  // After 12 s online  → show a "taking too long" banner with a Retry button.
-  // Without the online timer, a poor mobile connection after an OAuth redirect
-  // leaves the user staring at a spinner forever.
-  const [offlineStall, setOfflineStall] = useState(false);
+
+const [offlineStall, setOfflineStall] = useState(false);
   const [slowStall, setSlowStall] = useState(false);
 
   useEffect(() => {
@@ -607,26 +583,12 @@ function AppRouter() {
   useRoutePreloader();
   useBranchTheme();
 
-  // We only want to show the boot splash ONCE — during the very first settings
-  // fetch on a fresh page load. Every subsequent render (navigations, background
-  // refetches, or AppRouter remounts from /kitchen-display) will already have
-  // settings in the React Query cache, so settingsEverLoaded becomes true
-  // immediately and we skip the gate entirely.
-  //
-  // WHY a ref instead of state: changing this value must NOT trigger a re-render.
-  // It's a one-way latch (false → true, never back). State would cause an extra
-  // render cycle that defeats the purpose.
-  const settingsEverLoaded = useRef(settings !== undefined);
+const settingsEverLoaded = useRef(settings !== undefined);
   if (!settingsEverLoaded.current && settings !== undefined) {
     settingsEverLoaded.current = true;
   }
 
-  // 4-second bail-out: if settings hasn't arrived in 4 s on first load, render
-  // the app anyway (needsOnboarding will be false so the user lands on the
-  // dashboard; the onboarding redirect fires once settings eventually arrives).
-  // This effect is a guaranteed no-op after the first successful load because
-  // settingsEverLoaded.current will already be true.
-  const [settingsTimedOut, setSettingsTimedOut] = useState(false);
+const [settingsTimedOut, setSettingsTimedOut] = useState(false);
   useEffect(() => {
     if (settingsEverLoaded.current || !settingsLoading) return;
     const t = setTimeout(() => setSettingsTimedOut(true), 4_000);
@@ -643,31 +605,14 @@ function AppRouter() {
     return <LoadingScreen />;
   }
 
-  // Only redirect to onboarding when we have a CONFIRMED falsy onboardingComplete.
-  // settings === undefined → still loading (show splash/timeout instead)
-  // settings === null     → fetch failed or IDB empty; treat as "not yet known" to
-  //                         prevent false onboarding redirects for returning users
-  //                         on cold starts where the 15s fetch hasn't resolved yet.
-  //
-  // ADDITIONAL GUARD: localStorage flag per-userId prevents a false onboarding
-  // redirect if the server transiently returns onboardingComplete=0 (e.g. due to
-  // an RLS context issue on the first request after a cold start, or a race
-  // between the 4-second bail-out and the actual settings fetch).
-  // The flag is keyed by userId so it is specific to each account on the device.
-  const onboardedKey = user?.id ? `artix-onboarded-${user.id}` : null;
+const onboardedKey = user?.id ? `artix-onboarded-${user.id}` : null;
   const alreadyOnboarded = onboardedKey ? localStorage.getItem(onboardedKey) === "1" : false;
 
-  // Persist the flag the moment we confirm onboarding is complete.
-  if (onboardedKey && settings?.onboardingComplete) {
+if (onboardedKey && settings?.onboardingComplete) {
     localStorage.setItem(onboardedKey, "1");
   }
 
-  // A user who already belongs to a tenant has definitively completed onboarding
-  // at some point.  Guard against a transient RLS / cold-start race where the
-  // settings endpoint returns onboardingComplete=0 before the tenant context is
-  // fully established — without this guard such a race would force an existing
-  // owner back through the onboarding wizard and potentially create a second tenant.
-  const needsOnboarding =
+const needsOnboarding =
     !settingsError &&
     settings !== undefined &&
     settings !== null &&
@@ -792,7 +737,7 @@ function PinSessionApp() {
     try {
       await apiRequest("POST", "/api/staff-pin/clockout");
     } catch {
-      /* best-effort */
+
     }
     queryClient.cancelQueries();
     queryClient.removeQueries({ predicate: (q) => (q.queryKey[0] as string) !== "auth-me" });
@@ -856,11 +801,7 @@ function ProtectedRouter() {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
-    // If the user changed without a full page reload (e.g. native OAuth token swap),
-    // remove all non-auth cache entries. We deliberately skip auth-me — it already
-    // holds the new user's data, and removing it would make isAuthenticated briefly
-    // false, causing the session-expiry effect to fire and flashing the login page.
-    if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
+if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
       queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearPrefetchCache();
@@ -877,12 +818,7 @@ function ProtectedRouter() {
     initRevenueCat(user.tenantId).catch((e) => console.warn("[revenuecat] init error:", e));
   }, [isAuthenticated, user?.tenantId]);
 
-  // On session expiry / 401, wipe in-memory + IDB so the next session starts clean.
-  // IMPORTANT: do NOT call queryClient.clear() here — that removes auth-me from
-  // the cache too, which causes TanStack Query to re-fetch it, land on 401 again,
-  // and trigger this effect in an infinite loop. Instead, only remove non-auth
-  // queries so auth-me stays as null (unauthenticated) and the loop never starts.
-  useEffect(() => {
+useEffect(() => {
     if (!isAuthenticated && !isLoading) {
       queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
@@ -925,11 +861,7 @@ function ProtectedRouter() {
       .finally(() => setRedeemingInvite(false));
   }, [isAuthenticated, isLoading]);
 
-  // Don't show a LoadingScreen here — it causes a double-splash because
-  // AppRouter has its own settings-loading screen right after auth resolves.
-  // Returning null lets the fresh page-load flash once (at AppRouter level)
-  // instead of twice back-to-back.
-  if (redeemingInvite) {
+if (redeemingInvite) {
     return <LoadingScreen message="Joining your team…" />;
   }
   if (isLoading) return null;
@@ -1009,7 +941,7 @@ function App() {
           </BlePrinterProvider>
         </TooltipProvider>
       </QueryClientProvider>
-      {/* PwaInstallBanner removed */}
+      {}
       {import.meta.env.PROD && (
         <Suspense fallback={null}>
           <VercelAnalytics />

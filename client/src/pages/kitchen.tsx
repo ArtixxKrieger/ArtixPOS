@@ -9,7 +9,6 @@ import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 import { cn } from "@/lib/utils";
 import type { PendingOrder } from "@shared/schema";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const KITCHEN_STATUSES = ["pending", "preparing", "ready"] as const;
 type KitchenStatus = typeof KITCHEN_STATUSES[number];
 
@@ -102,7 +101,7 @@ export default function KitchenPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
@@ -138,7 +137,7 @@ export default function KitchenPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(["pending", "preparing", "ready"] as KitchenStatus[]).map(status => (
             <div key={status} className="space-y-2">
-              {/* Column header */}
+              {}
               <div className="flex items-center gap-2">
                 <Badge className={`${STATUS_CONFIG[status].class} border text-xs px-2.5 py-0.5`}>
                   {STATUS_CONFIG[status].label}
@@ -150,7 +149,7 @@ export default function KitchenPage() {
                 )}
               </div>
 
-              {/* Order cards */}
+              {}
               {grouped[status].length === 0 ? (
                 <div className="border border-dashed border-border/40 rounded-xl p-3 text-center text-muted-foreground/40 text-xs">
                   —
@@ -169,7 +168,7 @@ export default function KitchenPage() {
                         isUrgent ? "border-rose-500/40 bg-rose-500/[0.02]" : "border-border",
                       )}
                     >
-                      {/* Order header */}
+                      {}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                           <p className="font-bold text-sm leading-none">
@@ -203,7 +202,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
 
-                      {/* Items */}
+                      {}
                       <ul className="space-y-1">
                         {((order.items as any[]) ?? []).map((item, i) => {
                           const sizeName = item.size?.name ?? item.size ?? null;
@@ -233,7 +232,7 @@ export default function KitchenPage() {
                         </p>
                       )}
 
-                      {/* Action button */}
+                      {}
                       <button
                         onClick={() => handleStatusChange(order)}
                         disabled={updateMutation.isPending && updateMutation.variables?.id === order.id}

@@ -260,7 +260,7 @@ export function BottomNav() {
 
   return (
     <>
-      {/* SVG filter for liquid glass pill */}
+      {}
       <svg style={{ display: "none" }} aria-hidden="true">
         <filter
           id="liquid-glass-distortion"
@@ -331,7 +331,7 @@ export function BottomNav() {
             <div className="w-full h-full rounded-[18px] relative overflow-hidden"
             style={{ boxShadow: "0 4px 8px rgba(0,0,0,0.12), 0 0 16px rgba(0,0,0,0.06)" }}
           >
-            {/* Layer 1 — backdrop blur + SVG distortion */}
+            {}
             <div
               className="absolute inset-0 rounded-[18px] overflow-hidden"
               style={{
@@ -341,11 +341,11 @@ export function BottomNav() {
                 isolation: "isolate",
               }}
             />
-            {/* Layer 2 — translucent tint (lighter in dark mode) */}
+            {}
             <div
               className="absolute inset-0 rounded-[18px] dark:bg-white/10 bg-white/40"
             />
-            {/* Layer 3 — inner edge highlight */}
+            {}
             <div
               className="absolute inset-0 rounded-[18px]"
               style={{

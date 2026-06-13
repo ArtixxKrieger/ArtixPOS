@@ -24,8 +24,6 @@ import {
 } from "lucide-react";
 import { useBranches } from "@/hooks/use-admin";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 type WageType = "none" | "hourly" | "monthly" | "commission";
 type StaffWage = { id: string; name: string | null; email: string | null; role: string; wageType: WageType | null; wageRate: string | null; commissionPercent: string | null; staffGroup: string | null; branchId: number | null; branchName: string | null };
 type ComputedEntry = { userId: string; name: string | null; email: string | null; role: string; wageType: WageType; wageRate: number; commissionPercent: number; hoursWorked: number; salesAmount: number; payout: number; notes: string };
@@ -36,8 +34,6 @@ type AnalyticsPeriod = { id: number; name: string; startDate: string; endDate: s
 type AnalyticsData = { periods: AnalyticsPeriod[]; topEarners: { name: string; total: number; periods: number }[]; wageTypeBreakdown: { type: string; total: number }[] };
 type HistoryEntry = { entryId: number; periodId: number; periodName: string; startDate: string; endDate: string; status: string; paidAt: string | null; netAmount: string; hoursWorked: string; wageType: string };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const todayISO = (d = 0) => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
 const startOfWeek = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0, 10); };
 const startOfLastWeek = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay() - 7); return d.toISOString().slice(0, 10); };
@@ -46,7 +42,7 @@ const startOfMonth = () => { const d = new Date(); return new Date(d.getFullYear
 const startOfLastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10); };
 const endOfLastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10); };
 const fmtShort = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 const fmtMed = (iso: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 function downloadCSV(filename: string, rows: Record<string, any>[]) {
@@ -73,8 +69,6 @@ function PayMethodIcon({ method, className }: { method: string; className?: stri
 }
 function payMethodLabel(m: string) { return PAY_METHODS.find(x => x.id === m)?.label ?? m; }
 
-// ── Tiny components ───────────────────────────────────────────────────────────
-
 function Av({ name, id, sm }: { name: string; id: string; sm?: boolean }) {
   return (
     <div className={`${sm ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px]"} rounded-full ${avatarColor(id)} text-white flex items-center justify-center font-bold shrink-0`}>
@@ -97,8 +91,6 @@ function StatusDot({ status, t }: { status: string; t: any }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-
 export default function PayrollPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -108,8 +100,7 @@ export default function PayrollPage() {
   const currency = (settings as any)?.currency || "$";
   const isOwner = user?.role === "owner";
 
-  // ── State ────────────────────────────────────────────────────────────────────
-  const [from, setFrom] = useState(startOfMonth());
+const [from, setFrom] = useState(startOfMonth());
   const [to, setTo] = useState(todayISO());
   const [preset, setPreset] = useState("thisMonth");
   const [staffSearch, setStaffSearch] = useState("");
@@ -138,8 +129,7 @@ export default function PayrollPage() {
   const [addEntryOpen, setAddEntryOpen] = useState(false);
   const [addEntryForm, setAddEntryForm] = useState({ employeeUserId: "", baseAmount: "0", commissionAmount: "0", tipAmount: "0", bonusAmount: "0", deductionAmount: "0", advanceAmount: "0", hoursWorked: "0", notes: "" });
 
-  // ── Queries ──────────────────────────────────────────────────────────────────
-  const { data: branches = [] } = useBranches();
+const { data: branches = [] } = useBranches();
 
   const { data: staff = [], isFetching: staffFetching } = useQuery<StaffWage[]>({
     queryKey: ["/api/payroll/staff"],
@@ -180,8 +170,7 @@ export default function PayrollPage() {
     refetchOnWindowFocus: false,
   });
 
-
-  const staffHistoryId = paystubTarget?.staff.id ?? null;
+const staffHistoryId = paystubTarget?.staff.id ?? null;
   const { data: staffHistory = [] } = useQuery<HistoryEntry[]>({
     queryKey: ["/api/payroll/staff", staffHistoryId, "history"],
     queryFn: async () => {
@@ -193,8 +182,7 @@ export default function PayrollPage() {
     staleTime: 1000 * 60,
   });
 
-  // ── Mutations ────────────────────────────────────────────────────────────────
-  const updateWageMutation = useMutation({
+const updateWageMutation = useMutation({
     mutationFn: async (v: { id: string; data: typeof wageForm }) => (await apiRequest("PUT", `/api/payroll/staff/${v.id}`, v.data)).json(),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/staff"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/compute"] }); setEditingWage(null); toast({ title: t("payroll.wage.updated") }); },
     onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
@@ -306,16 +294,14 @@ export default function PayrollPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); if (expandedPeriod === confirmAction?.periodId) setExpandedPeriod(null); setConfirmAction(null); toast({ title: t("payroll.periods.deleted_toast") }); },
   });
 
-  // ── Derived ──────────────────────────────────────────────────────────────────
-  const entriesByUser = useMemo(() => { const m = new Map<string, ComputedEntry>(); payroll?.entries.forEach(e => m.set(e.userId, e)); return m; }, [payroll]);
+const entriesByUser = useMemo(() => { const m = new Map<string, ComputedEntry>(); payroll?.entries.forEach(e => m.set(e.userId, e)); return m; }, [payroll]);
   const filteredStaff = useMemo(() => staff.filter(s => { const q = staffSearch.toLowerCase(); return (!q || (s.name || s.email || "").toLowerCase().includes(q)) && (wageFilter === "all" || (s.wageType ?? "none") === wageFilter); }), [staff, staffSearch, wageFilter]);
   const totals = payroll?.totals ?? { totalPayout: 0, totalHours: 0, totalCommissionable: 0, staffCount: 0 };
   const filteredPeriods = useMemo(() => statusFilter === "all" ? periods : periods.filter(p => p.status === statusFilter), [periods, statusFilter]);
   const staffInPeriod = useMemo(() => new Set(periodEntries.map(e => e.employeeUserId)), [periodEntries]);
   const staffNotInPeriod = useMemo(() => staff.filter(s => !staffInPeriod.has(s.id)), [staff, staffInPeriod]);
 
-  // ── Staff groups: branch → department ────────────────────────────────────────
-  type BranchGroup = { branchId: number | null; branchName: string; departments: [string, StaffWage[]][] };
+type BranchGroup = { branchId: number | null; branchName: string; departments: [string, StaffWage[]][] };
   const staffGroups = useMemo((): BranchGroup[] => {
     const branchMap = new Map<number | -1, { branchName: string; depts: Map<string, StaffWage[]> }>();
     for (const s of filteredStaff) {
@@ -343,8 +329,7 @@ export default function PayrollPage() {
     return next;
   });
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-  function applyPreset(p: string) {
+function applyPreset(p: string) {
     setPreset(p);
     const map: Record<string, [string, string]> = { thisWeek: [startOfWeek(), todayISO()], lastWeek: [startOfLastWeek(), endOfLastWeek()], thisMonth: [startOfMonth(), todayISO()], lastMonth: [startOfLastMonth(), endOfLastMonth()], last30: [todayISO(-30), todayISO()] };
     if (map[p]) { setFrom(map[p][0]); setTo(map[p][1]); }
@@ -398,12 +383,10 @@ export default function PayrollPage() {
     );
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-
-  return (
+return (
     <div className="space-y-4 page-enter">
 
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-lg font-bold truncate">{t("payroll.title")}</h1>
@@ -420,7 +403,7 @@ export default function PayrollPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {}
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: t("payroll.stats.totalHours"), value: `${totals.totalHours.toFixed(1)} ${t("payroll.staff.hrs")}`, icon: Clock },
@@ -434,7 +417,7 @@ export default function PayrollPage() {
         ))}
       </div>
 
-      {/* Tabs */}
+      {}
       <Tabs defaultValue="compute">
         <TabsList className="w-full h-9 rounded-lg p-0.5 bg-muted/50 grid grid-cols-3">
           <TabsTrigger value="compute" className="h-8 rounded-md text-xs font-semibold px-1" data-testid="tab-quick-compute">
@@ -449,7 +432,7 @@ export default function PayrollPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ── QUICK COMPUTE ─────────────────────────────────────────────────── */}
+        {}
         <TabsContent value="compute" className="space-y-3 mt-3">
           <div className="rounded-xl bg-card border border-border/40 p-3 space-y-2.5">
             <div className="flex flex-wrap gap-1.5">
@@ -585,7 +568,7 @@ export default function PayrollPage() {
           </div>
         </TabsContent>
 
-        {/* ── PAY PERIODS ───────────────────────────────────────────────────── */}
+        {}
         <TabsContent value="periods" className="space-y-3 mt-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-muted-foreground">{t("payroll.periods.title")}</p>
@@ -594,7 +577,7 @@ export default function PayrollPage() {
             </Button>
           </div>
 
-          {/* Status filter pills */}
+          {}
           <div className="flex gap-1.5 flex-wrap">
             {(["all", "draft", "finalized", "paid"] as const).map(s => {
               const count = s === "all" ? periods.length : periods.filter(p => p.status === s).length;
@@ -651,7 +634,7 @@ export default function PayrollPage() {
 
                     {isExp && (
                       <div className="border-t border-border/20">
-                        {/* Actions bar */}
+                        {}
                         <div className="px-3.5 py-2 flex items-center gap-1.5 flex-wrap bg-muted/20 border-b border-border/15">
                           {period.status === "draft" && (
                             <>
@@ -685,7 +668,7 @@ export default function PayrollPage() {
                           )}
                         </div>
 
-                        {/* Entries */}
+                        {}
                         {periodEntries.length === 0 ? (
                           <p className="px-3.5 py-5 text-center text-xs text-muted-foreground">{t("payroll.entries.noEntries")}</p>
                         ) : (
@@ -724,7 +707,7 @@ export default function PayrollPage() {
                                 );
                               })}
                             </div>
-                            {/* Summary breakdown */}
+                            {}
                             {entrySummary && (
                               <div className="px-3.5 py-2 bg-muted/15 border-t border-border/15 flex flex-wrap gap-x-4 gap-y-0.5">
                                 <span className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-wider w-full mb-0.5">Breakdown</span>
@@ -748,7 +731,7 @@ export default function PayrollPage() {
           )}
         </TabsContent>
 
-        {/* ── ANALYTICS ─────────────────────────────────────────────────────── */}
+        {}
         <TabsContent value="analytics" className="space-y-3 mt-3">
           {!analytics || analytics.periods.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border py-12 text-center space-y-2">
@@ -758,7 +741,7 @@ export default function PayrollPage() {
             </div>
           ) : (
             <>
-              {/* Payout history bar chart */}
+              {}
               <div className="rounded-xl bg-card border border-border/40 p-3">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Payout History</p>
@@ -793,7 +776,7 @@ export default function PayrollPage() {
                 </div>
               </div>
 
-              {/* Period-over-period comparison */}
+              {}
               {analytics.periods.length >= 2 && (() => {
                 const last = analytics.periods[analytics.periods.length - 1];
                 const prev = analytics.periods[analytics.periods.length - 2];
@@ -827,7 +810,7 @@ export default function PayrollPage() {
                 );
               })()}
 
-              {/* Wage type breakdown */}
+              {}
               {analytics.wageTypeBreakdown.length > 0 && (
                 <div className="rounded-xl bg-card border border-border/40 p-3">
                   <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-3">Wage Type Breakdown</p>
@@ -854,7 +837,7 @@ export default function PayrollPage() {
                 </div>
               )}
 
-              {/* Top earners */}
+              {}
               {analytics.topEarners.length > 0 && (
                 <div className="rounded-xl bg-card border border-border/40 overflow-hidden">
                   <div className="px-3 py-2.5 border-b border-border/20 flex items-center gap-1.5">
@@ -893,7 +876,7 @@ export default function PayrollPage() {
 
       </Tabs>
 
-      {/* ── PAY STUB SHEET ────────────────────────────────────────────────────── */}
+      {}
       <Sheet open={!!paystubTarget} onOpenChange={o => !o && setPaystubTarget(null)}>
         <SheetContent className="w-full sm:max-w-xs overflow-y-auto">
           {paystubTarget && (() => {
@@ -938,7 +921,7 @@ export default function PayrollPage() {
                   </Button>
                 </div>
 
-                {/* Pay history */}
+                {}
                 {staffHistory.length > 0 && (
                   <div>
                     <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-2">Pay History</p>
@@ -964,7 +947,7 @@ export default function PayrollPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── EDIT WAGE DIALOG ──────────────────────────────────────────────────── */}
+      {}
       <Dialog open={!!editingWage} onOpenChange={o => !o && setEditingWage(null)}>
         <DialogContent className="max-w-xs">
           <DialogHeader><DialogTitle className="text-sm">{t("payroll.wage.settings")}</DialogTitle></DialogHeader>
@@ -1020,7 +1003,7 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── EDIT ENTRY DIALOG ─────────────────────────────────────────────────── */}
+      {}
       <Dialog open={!!editingEntry} onOpenChange={o => !o && setEditingEntry(null)}>
         <DialogContent className="max-w-xs">
           <DialogHeader><DialogTitle className="text-sm">{t("payroll.entries.editEntry")}</DialogTitle></DialogHeader>
@@ -1066,7 +1049,7 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── ADD EMPLOYEE TO PERIOD DIALOG ─────────────────────────────────────── */}
+      {}
       <Dialog open={addEntryOpen} onOpenChange={o => !o && setAddEntryOpen(false)}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
@@ -1149,7 +1132,7 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── PAY DAY DIALOG ────────────────────────────────────────────────────── */}
+      {}
       <Dialog open={quickPayOpen} onOpenChange={o => { if (!o) { setQuickPayOpen(false); setQuickPayDuplicate(null); setQuickPayForce(false); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1159,7 +1142,7 @@ export default function PayrollPage() {
           </DialogHeader>
           <div className="space-y-3">
 
-            {/* Pay period presets */}
+            {}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Pay Period</label>
               <div className="flex flex-wrap gap-1.5">
@@ -1173,7 +1156,7 @@ export default function PayrollPage() {
               </div>
             </div>
 
-            {/* Branch filter */}
+            {}
             {(branches as any[]).length > 1 && (
               <div>
                 <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Branch (optional)</label>
@@ -1187,7 +1170,7 @@ export default function PayrollPage() {
               </div>
             )}
 
-            {/* Payment method */}
+            {}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">How are you paying?</label>
               <div className="grid grid-cols-5 gap-1.5">
@@ -1205,7 +1188,7 @@ export default function PayrollPage() {
               </div>
             </div>
 
-            {/* Reference / note */}
+            {}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Reference / Note (optional)</label>
               <Input value={quickPayReference} onChange={e => setQuickPayReference(e.target.value)}
@@ -1213,7 +1196,7 @@ export default function PayrollPage() {
                 className="h-8 text-xs" data-testid="input-qp-reference" />
             </div>
 
-            {/* Per-employee payout preview */}
+            {}
             {(() => {
               const { from: qFrom, to: qTo } = quickPayDates(quickPayPreset);
               const days = Math.max(1, (new Date(qTo).getTime() - new Date(qFrom).getTime()) / 86400000 + 1);
@@ -1268,7 +1251,7 @@ export default function PayrollPage() {
               );
             })()}
 
-            {/* Duplicate warning */}
+            {}
             {quickPayDuplicate && !quickPayForce && (
               <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2.5 py-2">
                 <AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
@@ -1279,7 +1262,7 @@ export default function PayrollPage() {
               </div>
             )}
 
-            {/* Processed by */}
+            {}
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <CheckCircle2 className="h-3 w-3 shrink-0" />
               Processed by <span className="font-semibold text-foreground">{user?.name || user?.email}</span> · {new Date().toLocaleDateString()}
@@ -1299,7 +1282,7 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── MARK AS PAID DIALOG ───────────────────────────────────────────────── */}
+      {}
       <Dialog open={!!markPaidDialog} onOpenChange={o => !o && setMarkPaidDialog(null)}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
@@ -1315,7 +1298,7 @@ export default function PayrollPage() {
               )}.
             </p>
 
-            {/* Payment method */}
+            {}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">How are you paying?</label>
               <div className="grid grid-cols-5 gap-1.5">
@@ -1333,7 +1316,7 @@ export default function PayrollPage() {
               </div>
             </div>
 
-            {/* Reference */}
+            {}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Reference / Note (optional)</label>
               <Input value={markPaidRef} onChange={e => setMarkPaidRef(e.target.value)}
@@ -1341,7 +1324,7 @@ export default function PayrollPage() {
                 className="h-8 text-xs" data-testid="input-mp-reference" />
             </div>
 
-            {/* Processed by */}
+            {}
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <CheckCircle2 className="h-3 w-3 shrink-0" />
               Processed by <span className="font-semibold text-foreground">{user?.name || user?.email}</span>
@@ -1361,7 +1344,7 @@ export default function PayrollPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── CONFIRM ACTION DIALOG (finalize / delete only) ───────────────────── */}
+      {}
       <AlertDialog open={!!confirmAction} onOpenChange={o => !o && setConfirmAction(null)}>
         <AlertDialogContent className="max-w-xs">
           <AlertDialogHeader>
@@ -1385,7 +1368,7 @@ export default function PayrollPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── CREATE PERIOD DIALOG ──────────────────────────────────────────────── */}
+      {}
       <Dialog open={createPeriodOpen} onOpenChange={o => !o && setCreatePeriodOpen(false)}>
         <DialogContent className="max-w-xs">
           <DialogHeader><DialogTitle className="text-sm">{t("payroll.periods.newPeriod")}</DialogTitle></DialogHeader>

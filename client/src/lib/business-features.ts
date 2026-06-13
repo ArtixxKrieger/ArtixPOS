@@ -1,40 +1,33 @@
 import { getEssentialBusinessUrls } from "@shared/business-access";
 
-/**
- * Centralized feature-visibility rules based on business type and sub-type.
- * Controls: which pages are hidden, which items appear in the primary bottom nav,
- * custom labels per business context, sidebar ordering priority,
- * business-specific terminology, and quick service suggestions.
- */
-
 export type BusinessTerminology = {
-  page: string; // Page title e.g. "Bookings", "Sessions", "Patients"
-  entry: string; // Singular e.g. "Appointment", "Booking", "Job"
-  entryPlural: string; // Plural e.g. "Appointments", "Bookings", "Jobs"
-  service: string; // Field label e.g. "Service", "Treatment", "Procedure"
-  bookButton: string; // CTA e.g. "Book", "Schedule", "Add Job", "Queue"
-  emptyState: string; // Empty state message
+  page: string;
+  entry: string;
+  entryPlural: string;
+  service: string;
+  bookButton: string;
+  emptyState: string;
 
-  customer: string; // e.g. "Customer", "Client", "Patient", "Student"
-  staff: string; // e.g. "Staff", "Stylist", "Doctor", "Trainer"
-  room: string; // e.g. "Room", "Chair", "Station", "Court", "Studio"
+  customer: string;
+  staff: string;
+  room: string;
 
-  product: string; // "Product" | "Medicine" | "Menu Item" | "Item" | "Service"
-  productPlural: string; // "Products" | "Medicines" | "Menu Items" | "Items"
-  categoryLabel: string; // "Category" | "Drug Category" | "Menu Section" | "Department"
-  supplierLabel: string; // "Supplier" | "Drug Supplier" | "Distributor" | "Vendor"
+  product: string;
+  productPlural: string;
+  categoryLabel: string;
+  supplierLabel: string;
 
-  posAction: string; // Checkout CTA: "Process Sale" | "Dispense" | "Ring Up" | "Close Tab"
-  addToCartLabel: string; // "Add to Cart" | "Add to Prescription" | "Add to Order"
-  cartLabel: string; // "Cart" | "Prescription" | "Order Ticket" | "Basket" | "Tab"
+  posAction: string;
+  addToCartLabel: string;
+  cartLabel: string;
 
-  transactionLabel: string; // "Transaction" | "Dispensation" | "Visit" | "Order" | "Job"
-  transactionPlural: string; // "Transactions" | "Dispensations" | "Visits" | "Orders"
-  orderLabel: string; // (legacy compat) transaction unit e.g. "order", "booking"
+  transactionLabel: string;
+  transactionPlural: string;
+  orderLabel: string;
 
-  topItemsLabel: string; // "Top Products" | "Top Medicines" | "Top Services"
-  itemUnit: string; // "unit" | "booking" | "session" | "job" | "kg"
-  bestSellerLabel: string; // "Best Seller" | "Most Booked" | "Most Dispensed"
+  topItemsLabel: string;
+  itemUnit: string;
+  bestSellerLabel: string;
 };
 
 export type BusinessFeatures = {
@@ -1879,12 +1872,7 @@ export function getBusinessFeatures(
     }
   }
 
-  // Every business type defines its own sidebarOrder — the exact set of modules
-  // it needs. Anything not in that list is irrelevant and should be hidden.
-  // This replaces the old piecemeal hidden.add() calls for modules that were
-  // accidentally left visible (e.g. wifi-vouchers on a salon, payroll on a cafe,
-  // BIR compliance on a retail store that's not configured for it, etc.).
-  const ALL_FILTERABLE_URLS = [
+const ALL_FILTERABLE_URLS = [
     "/pending",
     "/kitchen",
     "/tables",
@@ -1905,11 +1893,8 @@ export function getBusinessFeatures(
     "/suppliers",
     "/purchases",
   ];
-  // NOTE: /bir, /bir-audit-log, and /wifi-vouchers are intentionally excluded
-  // from this whitelist. They are subscription-tier features, not business-type
-  // features. Their visibility is controlled entirely by the proOnly/ownerOnly
-  // flags in the nav and the corresponding route guards.
-  for (const url of ALL_FILTERABLE_URLS) {
+
+for (const url of ALL_FILTERABLE_URLS) {
     if (!sidebarOrder.includes(url)) {
       hidden.add(url);
     }

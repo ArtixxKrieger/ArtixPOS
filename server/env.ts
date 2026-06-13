@@ -23,8 +23,7 @@ export function validateEnv(): void {
     process.exit(1);
   }
 
-  // Accept any of the supported DB connection string env var names
-  const dbUrl =
+const dbUrl =
     process.env.SUPABASE_POOLER_URL ||
     process.env.SUPABASE_DATABASE_URL ||
     process.env.DATABASE_URL;

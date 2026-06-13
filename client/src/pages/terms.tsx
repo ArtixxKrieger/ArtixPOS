@@ -115,7 +115,7 @@ export default function TermsOfService() {
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
-      {/* Top bar */}
+      {}
       <header
         style={{
           position: "sticky",
@@ -217,7 +217,7 @@ export default function TermsOfService() {
           alignItems: "flex-start",
         }}
       >
-        {/* Sidebar TOC — hidden on mobile */}
+        {}
         <aside
           style={{
             width: 220,
@@ -275,9 +275,9 @@ export default function TermsOfService() {
           </nav>
         </aside>
 
-        {/* Main content */}
+        {}
         <main style={{ flex: 1, minWidth: 0 }}>
-          {/* Header */}
+          {}
           <div style={{ marginBottom: 52, paddingBottom: 36, borderBottom: `1px solid ${BORDER}` }}>
             <div
               style={{
@@ -335,7 +335,7 @@ export default function TermsOfService() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 52 }}>
-            {/* 1 */}
+            {}
             <section>
               <SectionAnchor id="acceptance" />
               <SectionHeader num="1" title="Acceptance of Terms" />
@@ -368,7 +368,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 2 */}
+            {}
             <section>
               <SectionAnchor id="description" />
               <SectionHeader num="2" title="Description of Service" />
@@ -398,7 +398,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 3 */}
+            {}
             <section>
               <SectionAnchor id="eligibility" />
               <SectionHeader num="3" title="Eligibility" />
@@ -423,7 +423,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 4 */}
+            {}
             <section>
               <SectionAnchor id="account" />
               <SectionHeader num="4" title="Account Registration & Security" />
@@ -469,7 +469,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 5 */}
+            {}
             <section>
               <SectionAnchor id="subscriptions" />
               <SectionHeader num="5" title="Subscriptions & Billing" />
@@ -564,7 +564,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 8 */}
+            {}
             <section>
               <SectionAnchor id="acceptable-use" />
               <SectionHeader num="8" title="Acceptable Use Policy" />
@@ -596,7 +596,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 9 */}
+            {}
             <section>
               <SectionAnchor id="intellectual-property" />
               <SectionHeader num="9" title="Intellectual Property" />
@@ -637,7 +637,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 10 */}
+            {}
             <section>
               <SectionAnchor id="user-content" />
               <SectionHeader num="10" title="User Content & Data" />
@@ -708,7 +708,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 12 */}
+            {}
             <section>
               <SectionAnchor id="privacy" />
               <SectionHeader num="12" title="Privacy" />
@@ -735,7 +735,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 13 */}
+            {}
             <section>
               <SectionAnchor id="confidentiality" />
               <SectionHeader num="13" title="Confidentiality" />
@@ -761,7 +761,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 14 */}
+            {}
             <section>
               <SectionAnchor id="warranties" />
               <SectionHeader num="14" title="Disclaimers & Warranties" />
@@ -794,7 +794,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 15 */}
+            {}
             <section>
               <SectionAnchor id="liability" />
               <SectionHeader num="15" title="Limitation of Liability" />
@@ -854,7 +854,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 17 */}
+            {}
             <section>
               <SectionAnchor id="termination" />
               <SectionHeader num="17" title="Termination" />
@@ -890,7 +890,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 18 */}
+            {}
             <section>
               <SectionAnchor id="modifications" />
               <SectionHeader num="18" title="Modifications to Service" />
@@ -964,7 +964,7 @@ export default function TermsOfService() {
               </Body>
             </section>
 
-            {/* 21 */}
+            {}
             <section>
               <SectionAnchor id="miscellaneous" />
               <SectionHeader num="21" title="Miscellaneous" />

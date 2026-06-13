@@ -93,7 +93,7 @@ export default function AdminIndex() {
     if (user && !user.tenantId) {
       ensureTenant.mutate();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [user?.tenantId]);
 
   if (!user?.tenantId && ensureTenant.isPending) return null;
@@ -146,7 +146,7 @@ export default function AdminIndex() {
   return (
     <div className="space-y-5 page-enter pb-6">
 
-      {/* No-branch warning */}
+      {}
       {branches.length === 0 && isOwner && (
         <div className="flex items-start gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
@@ -163,7 +163,7 @@ export default function AdminIndex() {
         </div>
       )}
 
-      {/* Revenue KPI cards */}
+      {}
       <div className="grid gap-3 grid-cols-2">
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-violet-500/10 to-transparent relative overflow-hidden">
           <div className="absolute top-2.5 right-2.5 opacity-[0.07]">

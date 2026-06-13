@@ -139,7 +139,7 @@ export default function Expenses() {
   return (
     <div className="space-y-4 page-enter">
 
-      {/* Summary Cards */}
+      {}
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-rose-500/8 to-transparent">
           <div className="flex items-center gap-2 mb-2">
@@ -161,9 +161,9 @@ export default function Expenses() {
         </div>
       </div>
 
-      {/* Filters + Add */}
+      {}
       <div className="flex flex-wrap gap-2 items-center">
-        {/* Date filter */}
+        {}
         <div className="relative">
           <select
             value={dateFilter}
@@ -179,7 +179,7 @@ export default function Expenses() {
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         </div>
 
-        {/* Category filter */}
+        {}
         <div className="relative">
           <select
             value={categoryFilter}
@@ -198,7 +198,7 @@ export default function Expenses() {
         </Button>
       </div>
 
-      {/* List */}
+      {}
       {filtered.length === 0 ? (
         <div className="glass-card rounded-2xl py-20 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2">

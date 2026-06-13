@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Denomination config ──────────────────────────────────────────────────────
 const BILLS = [1000, 500, 200, 100, 50, 20];
 const COINS = [10, 5, 1];
 const ALL_DENOMS = [...BILLS, ...COINS];
@@ -41,7 +40,6 @@ function parseAdjs(json: string | null | undefined): CashAdj[] {
 
 interface CashAdj { type: "in" | "out"; amount: string; reason: string; timestamp: string; }
 
-// ─── Denomination Counter component ──────────────────────────────────────────
 function DenomCounter({ value, onChange, currency }: { value: DenomMap; onChange: (v: DenomMap) => void; currency: string }) {
   const total = denomTotal(value);
   return (
@@ -90,7 +88,6 @@ function DenomRow({ denom, count, currency, onInc, onDec }: { denom: number; cou
   );
 }
 
-// ─── Denomination breakdown display (read-only) ───────────────────────────────
 function DenomBreakdown({ json, currency }: { json: string | null | undefined; currency: string }) {
   const d = parseDenoms(json);
   const entries = ALL_DENOMS.filter(v => (d[v] || 0) > 0);
@@ -107,7 +104,6 @@ function DenomBreakdown({ json, currency }: { json: string | null | undefined; c
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function useShifts() { return useQuery<Shift[]>({ queryKey: ["/api/shifts"] }); }
 function useOpenShift() { return useQuery<Shift | null>({ queryKey: ["/api/shifts/open"], refetchInterval: 60000 }); }
 
@@ -183,7 +179,6 @@ const DISCOUNT_LABEL: Record<string, string> = {
 };
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
-// ─── Variance badge ───────────────────────────────────────────────────────────
 function VarianceBadge({ variance, currency }: { variance: number; currency: string }) {
   if (Math.abs(variance) < 0.01) {
     return (
@@ -205,7 +200,6 @@ function VarianceBadge({ variance, currency }: { variance: number; currency: str
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export default function Shifts() {
   const { data: shifts = [], isLoading: _isLoading } = useShifts();
   const { data: openShift } = useOpenShift();
@@ -220,36 +214,31 @@ export default function Shifts() {
   const machineSerialNumber = (settings as any)?.machineSerialNumber || "";
   const taxRate = parseNumeric((settings as any)?.taxRate || 0);
 
-  // ── Open shift dialog state
-  const [showOpen, setShowOpen] = useState(false);
+const [showOpen, setShowOpen] = useState(false);
   const [openDenoms, setOpenDenoms] = useState<DenomMap>(emptyDenoms());
   const [useOpenDenoms, setUseOpenDenoms] = useState(true);
   const [openBalanceManual, setOpenBalanceManual] = useState("");
   const [openNotes, setOpenNotes] = useState("");
 
-  // ── Close shift dialog state
-  const [showClose, setShowClose] = useState(false);
+const [showClose, setShowClose] = useState(false);
   const [closeDenoms, setCloseDenoms] = useState<DenomMap>(emptyDenoms());
   const [useCloseDenoms, setUseCloseDenoms] = useState(true);
   const [closeBalanceManual, setCloseBalanceManual] = useState("");
   const [closeNotes, setCloseNotes] = useState("");
 
-  // ── Cash adjustment dialog state
-  const [showAdj, setShowAdj] = useState(false);
+const [showAdj, setShowAdj] = useState(false);
   const [adjType, setAdjType] = useState<"in" | "out">("in");
   const [adjAmount, setAdjAmount] = useState("");
   const [adjReason, setAdjReason] = useState("");
 
-  // ── History + Z-report state
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [zReportShiftId, setZReportShiftId] = useState<number | null>(null);
 
   const { data: zReport, isLoading: zReportLoading } = useZReport(zReportShiftId);
 
-  // ── Computed values for active shift
-  const openingNum = openShift ? parseNumeric(openShift.openingBalance) : 0;
+const openingNum = openShift ? parseNumeric(openShift.openingBalance) : 0;
   const totalSalesNum = openShift ? parseNumeric(openShift.totalSales ?? "0") : 0;
   const totalExpensesNum = openShift ? parseNumeric(openShift.totalExpenses ?? "0") : 0;
   const cashInNum = openShift ? parseNumeric((openShift as any).cashIn ?? "0") : 0;
@@ -257,8 +246,7 @@ export default function Shifts() {
   const expectedClosing = openingNum + totalSalesNum + cashInNum - cashOutNum - totalExpensesNum;
   const cashAdjs: CashAdj[] = openShift ? parseAdjs((openShift as any).cashAdjustments) : [];
 
-  // ── Derived closing amounts
-  const openingBalance = useOpenDenoms ? String(denomTotal(openDenoms)) : openBalanceManual;
+const openingBalance = useOpenDenoms ? String(denomTotal(openDenoms)) : openBalanceManual;
   const closingBalance = useCloseDenoms ? String(denomTotal(closeDenoms)) : closeBalanceManual;
   const closingNum = parseNumeric(closingBalance || "0");
   const variance = closingNum - expectedClosing;
@@ -322,8 +310,7 @@ export default function Shifts() {
     onError: () => toast({ title: "Error recording adjustment", variant: "destructive" }),
   });
 
-  // ── Shift history
-  const closedShifts = useMemo(() => shifts.filter(s => s.status === "closed"), [shifts]);
+const closedShifts = useMemo(() => shifts.filter(s => s.status === "closed"), [shifts]);
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
     closedShifts.forEach(s => { if (s.openedAt) set.add(format(new Date(s.openedAt), "yyyy-MM")); });
@@ -341,8 +328,7 @@ export default function Shifts() {
   function handleMonthChange(val: string) { setSelectedMonth(val); setPage(1); }
   function handlePageSizeChange(val: number) { setPageSize(val); setPage(1); }
 
-  // ── Z-Report print
-  function printZReportFromData(d: ZReportData) {
+function printZReportFromData(d: ZReportData) {
     const sh = d.shift;
     const dateStr = format(new Date(sh.openedAt!), "MMMM d, yyyy");
     const openTime = format(new Date(sh.openedAt!), "hh:mm a");
@@ -440,16 +426,15 @@ export default function Shifts() {
     if (win) { win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 400); }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  return (
+return (
     <div className="space-y-4 page-enter pb-6">
 
-      {/* ── Active shift card ── */}
+      {}
       {openShift ? (
         <div className="glass-card rounded-3xl p-5 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent border-emerald-500/20 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl -z-10" />
 
-          {/* Header row */}
+          {}
           <div className="flex items-center gap-2 mb-4">
             <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Shift Active</p>
@@ -459,7 +444,7 @@ export default function Shifts() {
             </span>
           </div>
 
-          {/* Stats grid */}
+          {}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
             <AmountCell label="Opening Cash" value={formatCurrency(openShift.openingBalance, currency)} />
             <AmountCell label="Sales" value={formatCurrency(totalSalesNum, currency)} color="text-emerald-600 dark:text-emerald-400" />
@@ -476,7 +461,7 @@ export default function Shifts() {
             )}
           </div>
 
-          {/* Expected closing (always show when there are adjustments) */}
+          {}
           {(cashInNum > 0 || cashOutNum > 0) && (
             <div className="bg-primary/8 border border-primary/15 rounded-xl px-3 py-2 flex items-center justify-between mb-3">
               <span className="text-xs text-muted-foreground">Expected Closing Balance</span>
@@ -484,7 +469,7 @@ export default function Shifts() {
             </div>
           )}
 
-          {/* Cash adjustments log */}
+          {}
           {cashAdjs.length > 0 && (
             <div className="mb-3 space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Cash Adjustments</p>
@@ -511,7 +496,7 @@ export default function Shifts() {
             </div>
           )}
 
-          {/* Action buttons */}
+          {}
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -556,7 +541,7 @@ export default function Shifts() {
         </div>
       )}
 
-      {/* ── Day-End Summary + History ── */}
+      {}
       {closedShifts.length > 0 && (
         <div className="glass-card rounded-2xl overflow-hidden">
           {mostRecentClosed && (
@@ -595,7 +580,7 @@ export default function Shifts() {
             </div>
           )}
 
-          {/* Filters */}
+          {}
           <div className="px-4 py-3 border-b border-border/40 space-y-2.5">
             <div className="flex items-center gap-2">
               <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -620,7 +605,7 @@ export default function Shifts() {
             </div>
           </div>
 
-          {/* Shift rows */}
+          {}
           {pagedShifts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Receipt className="h-10 w-10 text-muted-foreground/20 mb-3" strokeWidth={1.2} />
@@ -705,7 +690,7 @@ export default function Shifts() {
         </div>
       )}
 
-      {/* ── Open Shift Dialog ── */}
+      {}
       <Dialog open={showOpen} onOpenChange={setShowOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/40 shrink-0">
@@ -719,7 +704,7 @@ export default function Shifts() {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {/* Input mode toggle */}
+            {}
             <div className="flex gap-1 p-1 bg-secondary/40 rounded-xl">
               <button onClick={() => setUseOpenDenoms(true)}
                 className={cn("flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg transition-all",
@@ -773,7 +758,7 @@ export default function Shifts() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Close Shift Dialog ── */}
+      {}
       <Dialog open={showClose} onOpenChange={setShowClose}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/40 shrink-0">
@@ -787,7 +772,7 @@ export default function Shifts() {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {/* Expected closing summary */}
+            {}
             <div className="bg-secondary/40 rounded-xl p-3 space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Opening Cash</span>
@@ -821,7 +806,7 @@ export default function Shifts() {
               </div>
             </div>
 
-            {/* Input mode */}
+            {}
             <div className="flex gap-1 p-1 bg-secondary/40 rounded-xl">
               <button onClick={() => setUseCloseDenoms(true)}
                 className={cn("flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg transition-all",
@@ -851,7 +836,7 @@ export default function Shifts() {
               </div>
             )}
 
-            {/* Variance display */}
+            {}
             {(closingNum > 0 || (useCloseDenoms && denomTotal(closeDenoms) > 0)) && (
               <div className="space-y-2">
                 <div className="bg-secondary/40 rounded-xl p-3 flex items-center justify-between text-sm">
@@ -886,7 +871,7 @@ export default function Shifts() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Cash Adjustment Dialog ── */}
+      {}
       <Dialog open={showAdj} onOpenChange={setShowAdj}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -941,7 +926,7 @@ export default function Shifts() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Z-Report Dialog ── */}
+      {}
       <Dialog open={!!zReportShiftId} onOpenChange={open => { if (!open) setZReportShiftId(null); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/40 shrink-0">
@@ -986,7 +971,7 @@ export default function Shifts() {
               const shVariance = shAny.variance != null ? parseFloat(shAny.variance) : null;
               return (
                 <>
-                  {/* Store header */}
+                  {}
                   <div className="bg-secondary/30 rounded-xl p-3 text-center space-y-0.5">
                     <p className="font-bold text-sm">{storeName}</p>
                     {tin && <p className="text-[10px] text-muted-foreground">TIN: {tin}</p>}
@@ -995,7 +980,7 @@ export default function Shifts() {
                     {machineSerialNumber && <p className="text-[10px] text-muted-foreground">Machine S/N: {machineSerialNumber}</p>}
                   </div>
 
-                  {/* OR Range */}
+                  {}
                   {zReport.orFrom && (
                     <div className="bg-primary/8 border border-primary/20 rounded-xl p-3">
                       <SectionHeading icon={Hash} label="Official Receipt Range" />
@@ -1017,7 +1002,7 @@ export default function Shifts() {
                     </div>
                   )}
 
-                  {/* Sales Summary */}
+                  {}
                   <div>
                     <SectionHeading icon={BarChart3} label="Sales Summary" />
                     <div className="space-y-1.5">
@@ -1039,7 +1024,7 @@ export default function Shifts() {
                     </div>
                   </div>
 
-                  {/* Payment Breakdown */}
+                  {}
                   {Object.keys(zReport.paymentBreakdown).length > 0 && (
                     <div>
                       <SectionHeading icon={CreditCard} label="Payment Methods" />
@@ -1069,7 +1054,7 @@ export default function Shifts() {
                     </div>
                   )}
 
-                  {/* Discount Breakdown */}
+                  {}
                   {Object.keys(zReport.discountBreakdown).length > 0 && (
                     <div>
                       <SectionHeading icon={Tag} label="Discount Breakdown" />
@@ -1093,7 +1078,7 @@ export default function Shifts() {
                     </div>
                   )}
 
-                  {/* BIR VAT Breakdown */}
+                  {}
                   <div>
                     <SectionHeading icon={Receipt} label="BIR VAT Breakdown" />
                     <div className="bg-secondary/30 rounded-xl overflow-hidden divide-y divide-border/30">
@@ -1116,7 +1101,7 @@ export default function Shifts() {
                     </div>
                   </div>
 
-                  {/* Cash Adjustments */}
+                  {}
                   {adjList.length > 0 && (
                     <div>
                       <SectionHeading icon={Coins} label="Cash Adjustments" />
@@ -1157,7 +1142,7 @@ export default function Shifts() {
                     </div>
                   )}
 
-                  {/* Denomination Breakdown */}
+                  {}
                   {(shAny.denominationOpen || shAny.denominationClose) && (
                     <div>
                       <SectionHeading icon={Coins} label="Cash Denomination" />
@@ -1178,7 +1163,7 @@ export default function Shifts() {
                     </div>
                   )}
 
-                  {/* Variance */}
+                  {}
                   {shVariance !== null && (
                     <div>
                       <SectionHeading icon={AlertTriangle} label="Cash Variance" />
@@ -1186,7 +1171,7 @@ export default function Shifts() {
                     </div>
                   )}
 
-                  {/* Top Items */}
+                  {}
                   {zReport.topItems.length > 0 && (
                     <div>
                       <SectionHeading icon={ShoppingBag} label="Top Items This Shift" />

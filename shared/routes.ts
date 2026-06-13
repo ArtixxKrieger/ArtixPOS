@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { 
-  insertProductSchema, 
-  insertPendingOrderSchema, 
-  insertSaleSchema, 
+import {
+  insertProductSchema,
+  insertPendingOrderSchema,
+  insertSaleSchema,
   insertUserSettingSchema,
   products,
   pendingOrders,

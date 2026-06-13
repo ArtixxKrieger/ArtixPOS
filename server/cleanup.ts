@@ -1,16 +1,8 @@
-/**
- * Periodic maintenance tasks that prevent unbounded table growth.
- *
- * revoked_tokens  — checked on EVERY authenticated request via jwtAuthMiddleware.
- *                   Without cleanup the table grows forever and the index scan
- *                   becomes O(N) for the expiry-based pruning query.
- *
- * notifications   — read notifications older than 90 days serve no purpose and
- *                   bloat the table for no benefit.
- */
+
+
 import { pool } from "./db";
 
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1_000; // 1 hour
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1_000;
 
 async function pruneExpiredTokens(): Promise<void> {
   try {
@@ -43,7 +35,7 @@ async function pruneOldNotifications(): Promise<void> {
 }
 
 export function startCleanupScheduler(): void {
-  // Run once at startup to immediately clear any stale rows
+
   pruneExpiredTokens().catch(() => {});
   pruneOldNotifications().catch(() => {});
 
@@ -52,8 +44,7 @@ export function startCleanupScheduler(): void {
     pruneOldNotifications().catch(() => {});
   }, CLEANUP_INTERVAL_MS);
 
-  // Don't hold the event loop open — the server manages its own lifecycle
-  timer.unref();
+timer.unref();
 
   console.log("[cleanup] Scheduler started — expired tokens + old notifications pruned every 1h");
 }

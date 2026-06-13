@@ -73,7 +73,7 @@ interface PrintConfig {
   receiptFooter: string;
   currency: string;
   receiptFontSize: number;
-  // BIR Compliance
+
   tin: string;
   ptuNumber: string;
   accreditationNumber: string;
@@ -212,7 +212,7 @@ export default function PrintSettings() {
 
   useEffect(() => {
     loadPairedDevices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const handleScanBluetooth = async () => {
@@ -304,11 +304,11 @@ export default function PrintSettings() {
       const dev = printer.device;
       if (!dev.opened) await dev.open();
       if (dev.configuration === null) await dev.selectConfiguration(1);
-      // Claim all interfaces — some printers expose interface 1 instead of 0
+
       for (let iface = 0; iface <= 2; iface++) {
         try { await dev.claimInterface(iface); } catch {}
       }
-      // Try endpoints 1, 2, 3 — different printer models use different endpoint numbers
+
       let sent = false;
       for (const ep of [1, 2, 3]) {
         try {
@@ -396,23 +396,22 @@ export default function PrintSettings() {
   const set = <K extends keyof PrintConfig>(key: K, val: PrintConfig[K]) =>
     setCfg(prev => ({ ...prev, [key]: val }));
 
-  // Auto-apply paper width when a printer is paired whose name reveals its width
-  const autoWidthAppliedRef = useRef<string | null>(null);
+const autoWidthAppliedRef = useRef<string | null>(null);
   useEffect(() => {
     const { detectedWidth, name } = blePrinter;
     if (!detectedWidth || !name) return;
-    // Only fire once per printer name to avoid toast loops on reconnect
+
     if (autoWidthAppliedRef.current === name) return;
     autoWidthAppliedRef.current = name;
     if (detectedWidth === cfg.receiptWidth) return;
     set("receiptWidth", detectedWidth);
-    // Persist immediately so next print uses the right width
+
     updateSettings.mutate({ receiptWidth: detectedWidth } as any);
     toast({
       title: `Paper width set to ${detectedWidth}`,
       description: `Auto-detected from ${name}`,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [blePrinter.detectedWidth, blePrinter.name]);
 
   const handleSave = async () => {
@@ -470,11 +469,11 @@ export default function PrintSettings() {
         </div>
       </div>
 
-      {/* ── Thermal Printer ───────────────────────────────────────────────── */}
+      {}
       <SectionLabel>Thermal Printer</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm mb-2 overflow-hidden">
 
-        {/* BLE Printer */}
+        {}
         <div className="px-4 pt-4 pb-3 space-y-3">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -486,7 +485,7 @@ export default function PrintSettings() {
             </div>
           </div>
 
-          {/* How-to hint for first-time setup */}
+          {}
           {!blePrinter.name && (
             <div className="rounded-xl bg-primary/5 border border-primary/15 px-3 py-2.5 flex gap-2.5">
               <Info className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
@@ -500,7 +499,7 @@ export default function PrintSettings() {
             </div>
           )}
 
-          {/* Active connection */}
+          {}
           {blePrinter.name && (
             <div className="rounded-xl border border-border/30 bg-secondary/30 px-3 py-2.5 flex items-center gap-3">
               <div className={`h-2 w-2 rounded-full shrink-0 ${blePrinter.connected ? "bg-emerald-500" : "bg-amber-400"}`} />
@@ -538,7 +537,7 @@ export default function PrintSettings() {
             </div>
           )}
 
-          {/* Previously paired devices — quick reconnect without OS dialog */}
+          {}
           {pairedDevices.length > 0 && (
             <div className="space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 px-0.5">Previously paired</p>
@@ -608,7 +607,7 @@ export default function PrintSettings() {
 
         <div className="border-t border-border/20 mx-4" />
 
-        {/* USB Printer */}
+        {}
         <div className="px-4 pt-3 pb-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -668,7 +667,7 @@ export default function PrintSettings() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Settings Form */}
+        {}
         <div className="flex-1 space-y-1 min-w-0">
 
           <SectionLabel>BIR Compliance</SectionLabel>
@@ -768,8 +767,7 @@ export default function PrintSettings() {
               />
             </SettingRow>
 
-
-          </div>
+</div>
 
           <SectionLabel>Store Info on Receipt</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
@@ -847,7 +845,7 @@ export default function PrintSettings() {
           </Button>
         </div>
 
-        {/* Live Preview */}
+        {}
         <div className="lg:w-[320px] shrink-0">
           <SectionLabel>Live Preview</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 p-4 shadow-sm sticky top-4">

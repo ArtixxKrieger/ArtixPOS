@@ -40,8 +40,6 @@ const STATUS_COLORS: Record<string, string> = {
   paused: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400",
 };
 
-// ── Membership Plans ──────────────────────────────────────────────────────────
-
 const planFormSchema = insertMembershipPlanSchema.extend({
   name: z.string().min(1, "Plan name is required"),
   price: z.string().min(1, "Price is required"),
@@ -187,8 +185,6 @@ function PlanCard({ plan, onEdit, onDelete }: { plan: MembershipPlan; onEdit: ()
     </div>
   );
 }
-
-// ── Member Enrollment ─────────────────────────────────────────────────────────
 
 const memberFormSchema = insertMembershipSchema.extend({
   customerId: z.number({ required_error: "Customer is required" }),

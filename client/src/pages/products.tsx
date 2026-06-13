@@ -206,13 +206,12 @@ export default function Products() {
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const queryClient = useQueryClient();
 
-  // Handle a barcode scanned from the camera on the catalog page
-  const handleCatalogScan = (barcode: string) => {
+const handleCatalogScan = (barcode: string) => {
     const match = products.find((p) => p.barcode === barcode);
     if (match) {
       openEdit(match);
     } else {
-      // Open create dialog with barcode pre-filled
+
       setEditingId(null);
       form.reset({
         name: "",
@@ -785,7 +784,7 @@ export default function Products() {
                     )}
                   />
 
-                  {/* Stock Tracking — hidden for food_beverage since they track ingredients instead */}
+                  {}
                   {!isFoodBeverage && (
                     <div className="space-y-3">
                       <FormField
@@ -887,7 +886,7 @@ export default function Products() {
                     </div>
                   )}
 
-                  {/* Sizes */}
+                  {}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <FormLabel className="font-semibold text-sm">
@@ -949,7 +948,7 @@ export default function Products() {
                     ))}
                   </div>
 
-                  {/* Expiry & Batch — shown for perishable and pharmacy */}
+                  {}
                   {isPerishable && (
                     <div className="space-y-3 pt-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -1002,7 +1001,7 @@ export default function Products() {
                     </div>
                   )}
 
-                  {/* Pharmacy-only fields */}
+                  {}
                   {isPharmacy && (
                     <div className="space-y-3">
                       <FormField
@@ -1085,7 +1084,7 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Product List */}
+      {}
       {filtered.length === 0 ? (
         <div className="glass-card rounded-3xl py-16 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
@@ -1097,7 +1096,7 @@ export default function Products() {
           </p>
         </div>
       ) : (
-        /* Mobile-optimized card list */
+
         <div className="space-y-2.5 stagger-children">
           {filtered.map((product) => (
             <div
@@ -1105,12 +1104,12 @@ export default function Products() {
               data-testid={`product-row-${product.id}`}
               className="bg-card rounded-2xl border border-border/30 px-4 py-3.5 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow animate-fade-scale card-press"
             >
-              {/* Icon */}
+              {}
               <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                 <Package className="h-5 w-5 text-primary/60" strokeWidth={1.5} />
               </div>
 
-              {/* Info */}
+              {}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="font-bold text-sm leading-tight truncate">{product.name || ""}</p>
@@ -1179,7 +1178,7 @@ export default function Products() {
                 )}
               </div>
 
-              {/* Price */}
+              {}
               <div className="text-right shrink-0">
                 <p className="font-black text-base text-primary tabular-nums">
                   {formatCurrency(product.price || "0", currency)}
@@ -1200,7 +1199,7 @@ export default function Products() {
                   )}
               </div>
 
-              {/* Actions */}
+              {}
               <div className="flex items-center gap-1 shrink-0 ml-1">
                 {pendingDeleteId === product.id ? (
                   <>
@@ -1255,7 +1254,7 @@ export default function Products() {
         </div>
       )}
 
-      {/* CSV Import Dialog */}
+      {}
       <Dialog
         open={importOpen}
         onOpenChange={(v) => {
@@ -1272,7 +1271,7 @@ export default function Products() {
           </DialogHeader>
 
           {importResult ? (
-            /* Results view */
+
             <div className="flex-1 space-y-4 py-2">
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-500/10 rounded-2xl p-3 text-center">
@@ -1348,9 +1347,9 @@ export default function Products() {
               </Button>
             </div>
           ) : (
-            /* Upload + preview view */
+
             <div className="flex-1 flex flex-col gap-4 min-h-0">
-              {/* Drop zone */}
+              {}
               <button
                 type="button"
                 className="border-2 border-dashed border-border rounded-2xl p-6 text-center flex flex-col items-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
@@ -1378,7 +1377,7 @@ export default function Products() {
                 )}
               </button>
 
-              {/* Preview table */}
+              {}
               {importRows.length > 0 && (
                 <div className="flex-1 overflow-auto border border-border/40 rounded-2xl min-h-0">
                   <table className="w-full text-[11px]">
@@ -1429,7 +1428,7 @@ export default function Products() {
                 </div>
               )}
 
-              {/* Format hint */}
+              {}
               {!importFileName && (
                 <div className="bg-muted/40 rounded-2xl p-3 text-[11px] text-muted-foreground space-y-1">
                   <p className="font-semibold text-foreground/70">CSV tips</p>
@@ -1466,7 +1465,7 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
-      {/* Stock History Dialog */}
+      {}
       <Dialog open={!!stockHistoryProduct} onOpenChange={(v) => !v && setStockHistoryProduct(null)}>
         <DialogContent className="max-w-md rounded-3xl">
           <DialogHeader>
@@ -1561,7 +1560,7 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
-      {/* Camera barcode scanner for catalog page */}
+      {}
       <CameraScannerModal
         open={showCameraScanner}
         onClose={() => setShowCameraScanner(false)}

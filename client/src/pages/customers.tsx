@@ -20,8 +20,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-// ─── Tier config ──────────────────────────────────────────────────────────────
-
 const TIER_CFG: Record<string, { label: string; color: string; bg: string; icon: typeof Star }> = {
   none:     { label: "Member",   color: "text-muted-foreground",              bg: "bg-muted/50",            icon: Star },
   bronze:   { label: "Bronze",   color: "text-amber-700 dark:text-amber-500", bg: "bg-amber-500/10",        icon: Medal },
@@ -41,9 +39,6 @@ function getTier(c: Customer) {
   return TIER_CFG[key] ?? TIER_CFG.none;
 }
 
-// ─── Form schema ──────────────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = insertCustomerSchema.extend({
   name: z.string().min(1, "Name is required"),
   birthday: z.string().optional().nullable(),
@@ -51,8 +46,6 @@ const formSchema = insertCustomerSchema.extend({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
-// ─── Customer Form ────────────────────────────────────────────────────────────
 
 function CustomerForm({ initial, onSuccess, onClose, customers: _customers }: {
   initial?: Partial<Customer>;
@@ -137,8 +130,6 @@ function CustomerForm({ initial, onSuccess, onClose, customers: _customers }: {
   );
 }
 
-// ─── Profile Dialog ───────────────────────────────────────────────────────────
-
 function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currency }: {
   customer: Customer; onClose: () => void; onEdit: () => void; currency: string;
 }) {
@@ -208,7 +199,7 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
 
   return (
     <div className="flex flex-col max-h-[88dvh]">
-      {/* Hero */}
+      {}
       <div className="p-5 bg-gradient-to-br from-primary/10 to-primary/5 border-b border-border/20 shrink-0">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -245,7 +236,7 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
         </div>
       </div>
 
-      {/* Tabs */}
+      {}
       <div className="flex border-b border-border/30 shrink-0">
         {(["overview", "history", "rewards"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
@@ -255,7 +246,7 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
         ))}
       </div>
 
-      {/* Tab content */}
+      {}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
         {tab === "overview" && (
@@ -267,7 +258,7 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
               </div>
             )}
 
-            {/* Purchase history */}
+            {}
             <div className="bg-card rounded-2xl border border-border/30 overflow-hidden">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1.5">Recent Purchases</p>
               {sales.length === 0 ? (
@@ -283,7 +274,7 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
               ))}
             </div>
 
-            {/* Manual adjust */}
+            {}
             <div className="bg-card rounded-2xl border border-border/30 p-3 space-y-2">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Manual Points Adjustment</p>
               <div className="flex gap-2">
@@ -386,8 +377,6 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function Customers() {
   const { data: customers = [], isLoading: _isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: settings } = useSettings();
@@ -401,8 +390,7 @@ export default function Customers() {
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const [profileCustomer, setProfileCustomer] = useState<Customer | null>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const deleteMutation = useMutation({
+const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/customers/${id}`),
     onMutate: async (id: number) => {
       await qc.cancelQueries({ queryKey: ["/api/customers"] });
@@ -425,7 +413,7 @@ export default function Customers() {
 
   return (
     <div className="space-y-4 page-enter">
-      {/* Summary */}
+      {}
       <div className="grid grid-cols-3 gap-3">
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-primary/8 to-transparent">
           <div className="flex items-center gap-1.5 mb-2"><Users className="h-3.5 w-3.5 text-primary" /><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Members</p></div>
@@ -441,7 +429,7 @@ export default function Customers() {
         </div>
       </div>
 
-      {/* Search & Add */}
+      {}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -454,7 +442,7 @@ export default function Customers() {
         </Button>
       </div>
 
-      {/* List */}
+      {}
       {filtered.length === 0 ? (
         <div className="glass-card rounded-2xl py-20 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center mb-2"><Users className="h-8 w-8 text-muted-foreground/30" /></div>
@@ -503,7 +491,7 @@ export default function Customers() {
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
+      {}
       <Dialog open={showForm || !!editCustomer} onOpenChange={v => { if (!v) { setShowForm(false); setEditCustomer(null); } }}>
         <DialogContent className="max-w-md rounded-3xl">
           <DialogHeader><DialogTitle className="font-black">{editCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle></DialogHeader>
@@ -516,7 +504,7 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* Profile Dialog */}
+      {}
       <Dialog open={!!profileCustomer} onOpenChange={v => !v && setProfileCustomer(null)}>
         <DialogContent className="max-w-lg rounded-3xl p-0 overflow-hidden">
           <DialogHeader className="sr-only"><DialogTitle>Customer Profile</DialogTitle></DialogHeader>

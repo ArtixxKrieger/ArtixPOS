@@ -12,7 +12,6 @@ export function isSoundEnabled(): boolean {
   return localStorage.getItem("artix_sounds") !== "0";
 }
 
-
 function tone(
   freq: number,
   type: OscillatorType,

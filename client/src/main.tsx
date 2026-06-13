@@ -3,43 +3,30 @@ import App from "./App";
 import "./index.css";
 import "sileo/styles.css";
 import "./i18n";
-// ── Splash screen dismissal ───────────────────────────────────────────────
-// The #app-splash div is rendered in raw HTML and shows instantly before any
-// JS downloads. Once React has painted its first frame we fade it out and
-// remove it from the DOM so it no longer consumes memory or GPU layers.
+
 function dismissSplash() {
   const splash = document.getElementById("app-splash");
   if (!splash) return;
   splash.classList.add("sp-hiding");
   splash.addEventListener("animationend", () => { try { splash.remove(); } catch (_) {} }, { once: true });
-  // Safety fallback — remove even if animation doesn't fire (e.g. reduced motion)
+
   setTimeout(() => { try { splash.remove(); } catch (_) {} }, 3000);
 }
 
-// Force-remove the splash immediately (no animation) — used when returning
-// to a tab from the background where animation is irrelevant.
 function forceDismissSplash() {
   const splash = document.getElementById("app-splash");
   if (splash) { try { splash.remove(); } catch (_) {} }
 }
 
-// ── bfcache restore (Android Chrome tab switching) ────────────────────────
-// When the user leaves Chrome and comes back, Android may restore the page
-// from bfcache. The DOM is restored as-is (including a stuck splash if it
-// wasn't removed), but JS doesn't re-execute. The pageshow event fires
-// on restore — we use it to force-kill any lingering splash.
 window.addEventListener("pageshow", (event) => {
   if ((event as PageTransitionEvent).persisted) {
     forceDismissSplash();
   }
 });
 
-// ── Visibility change guard ───────────────────────────────────────────────
-// Extra safety net: if the user switches tabs and returns, make sure the
-// splash is not blocking the app.
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
-    // Only force-remove if React has already mounted (root has children).
+
     const root = document.getElementById("root");
     if (root && root.childElementCount > 0) {
       forceDismissSplash();
@@ -47,31 +34,19 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// ── Service worker ────────────────────────────────────────────────────────
-// Register whenever the page is served from a real HTTPS domain (not localhost).
-// This covers production (artixpos.com), Replit preview (*.replit.dev), and
-// any other HTTPS host — enabling beforeinstallprompt to fire so the PWA
-// install banner works. Skip only on localhost where Vite HMR caching causes
-// stale-chunk white screens.
 const _swHost = window.location.hostname;
 const _isLocalhost = _swHost === "localhost" || _swHost === "127.0.0.1" || _swHost === "0.0.0.0";
 const _shouldRegisterSW = "serviceWorker" in navigator && !_isLocalhost;
 
 if ("serviceWorker" in navigator) {
   if (_shouldRegisterSW) {
-    // ── SW_ASSET_404 handler ───────────────────────────────────────────────
-    // When the SW detects that a hashed asset returned 404 (stale deployment),
-    // it broadcasts SW_ASSET_404. We respond by wiping all caches and doing a
-    // hard reload so the user gets the fresh shell automatically — no manual
-    // "Clear cache & reload" button required.
-    // Loop guard: sessionStorage counter prevents infinite reload cycles if
-    // the new deployment itself somehow still has broken assets.
-    navigator.serviceWorker.addEventListener("message", (event) => {
+
+navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "SW_ASSET_404") {
         const STALE_KEY = "_artix_stale_reload";
         try {
           const attempts = Number(sessionStorage.getItem(STALE_KEY) ?? "0");
-          if (attempts >= 3) return; // give up after 3 auto-recoveries
+          if (attempts >= 3) return;
           sessionStorage.setItem(STALE_KEY, String(attempts + 1));
         } catch { return; }
         const doReload = () => window.location.reload();
@@ -90,7 +65,7 @@ if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((reg) => {
-          // Tell a waiting SW to activate immediately
+
           if (reg.waiting) reg.waiting.postMessage("SKIP_WAITING");
           reg.addEventListener("updatefound", () => {
             const installing = reg.installing;
@@ -106,7 +81,7 @@ if ("serviceWorker" in navigator) {
         .catch(() => {});
     });
   } else {
-    // localhost only — unregister any lingering SW so Vite HMR stays clean
+
     navigator.serviceWorker
       .getRegistrations()
       .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))
@@ -119,11 +94,6 @@ if ("serviceWorker" in navigator) {
   }
 }
 
-// ── Vite HMR ping interceptor (dev only) ─────────────────────────────────
-// Vite's HMR WebSocket drops when wifi is lost. On reconnect Vite polls
-// with a ping and, upon success, calls location.reload() — discarding any
-// offline-queued POS sales. We intercept that ping during the reconnect
-// window so Vite never triggers a reload.
 if (import.meta.env.DEV) {
   let blockPing = false;
   let unblockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -147,13 +117,9 @@ if (import.meta.env.DEV) {
   });
 }
 
-// ── Mount React ───────────────────────────────────────────────────────────
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
 
-// Dismiss the splash after React paints AND a minimum display window.
-// This ensures the particle animation is actually visible before the app
-// takes over — without blocking any real data fetching.
 const SPLASH_MIN_MS = 2000;
 const splashStart = (window as any).__splashStart ?? Date.now();
 requestAnimationFrame(() => {

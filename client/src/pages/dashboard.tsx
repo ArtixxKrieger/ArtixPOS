@@ -66,17 +66,11 @@ export default function Dashboard() {
     queryFn: async () => {
       const statsUrl = buildStatsUrl();
 
-      // ── Step 1: read IDB immediately (< 5 ms) ──────────────────────────
-      // If we have cached data return it instantly so the UI is never blank,
-      // then silently refresh from the network in the background.
-      // IDB is always keyed under the base STATS_URL (no params) so the cache
-      // is shared regardless of the startOfDay value.
-      const idbData = await getCached<DashboardStats>(STATS_URL);
+const idbData = await getCached<DashboardStats>(STATS_URL);
 
       if (idbData !== null) {
-        // Background network refresh: bounded by an 8 s timeout so a slow
-        // server never leaks a dangling connection.
-        const bgCtrl = new AbortController();
+
+const bgCtrl = new AbortController();
         const bgTimer = setTimeout(() => bgCtrl.abort(), 8_000);
 
         nativeFetch(statsUrl, { signal: bgCtrl.signal })
@@ -85,12 +79,7 @@ export default function Dashboard() {
             if (!res.ok) return;
             const fresh: DashboardStats = await res.json();
 
-            // Only carry forward optimistic (offline-ID) sales that are STILL
-            // queued for sync.  If the queue is empty every offline sale has
-            // already been written to the server and is present in `fresh` under
-            // its real numeric ID — keeping the old offline entry would double-
-            // count it on the dashboard.
-            const queueCount = await getSalesQueueCount().catch(() => 0);
+const queueCount = await getSalesQueueCount().catch(() => 0);
             const current = queryClient.getQueryData<DashboardStats>([STATS_URL]);
             const freshIds = new Set(
               (fresh.todaySales ?? []).map((s: any) => String(s.id))
@@ -107,8 +96,7 @@ export default function Dashboard() {
                 ? { ...fresh, todaySales: [...offlinePending, ...fresh.todaySales] }
                 : fresh;
 
-            // Persist merged data so the next IDB-first load is also correct.
-            setCached(STATS_URL, merged).catch(() => {});
+setCached(STATS_URL, merged).catch(() => {});
             queryClient.setQueryData<DashboardStats>([STATS_URL], merged);
           })
           .catch(() => {
@@ -118,15 +106,14 @@ export default function Dashboard() {
         return idbData;
       }
 
-      // ── Step 2: no IDB data — must wait for network ─────────────────────
-      try {
+try {
         const res = await nativeFetch(statsUrl);
         if (!res.ok) throw new Error("Failed to load dashboard");
         const data: DashboardStats = await res.json();
         setCached(STATS_URL, data).catch(() => {});
         return data;
       } catch (err) {
-        // Retry IDB one more time in case initUserSession ran after the first read
+
         const retry = await getCached<DashboardStats>(STATS_URL);
         if (retry !== null) return retry;
         throw err;

@@ -11,7 +11,6 @@ import { Plus, LayoutGrid, Pencil, Trash2, Users, Check, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import type { Table } from "@shared/schema";
 
-
 const STATUS_CONFIG = {
   available: { label: "Available", class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
   occupied:  { label: "Occupied",  class: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20" },
@@ -69,7 +68,7 @@ export default function TablesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -82,7 +81,7 @@ export default function TablesPage() {
         </Button>
       </div>
 
-      {/* Summary pills */}
+      {}
       <div className="flex flex-wrap gap-2">
         {(Object.keys(STATUS_CONFIG) as TableStatus[]).map(s => (
           <div key={s} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${STATUS_CONFIG[s].class}`}>
@@ -92,7 +91,7 @@ export default function TablesPage() {
         ))}
       </div>
 
-      {/* Grid */}
+      {}
       {tables.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <LayoutGrid className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -137,7 +136,7 @@ export default function TablesPage() {
                   <span>{table.seats ?? 4} seats</span>
                 </div>
                 <Badge className={`${cfg.class} border text-xs w-fit`}>{cfg.label}</Badge>
-                {/* Quick status change */}
+                {}
                 <div className="flex gap-1">
                   {(Object.keys(STATUS_CONFIG) as TableStatus[]).filter(s => s !== status).map(s => (
                     <button
@@ -156,7 +155,7 @@ export default function TablesPage() {
         </div>
       )}
 
-      {/* Dialog */}
+      {}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>

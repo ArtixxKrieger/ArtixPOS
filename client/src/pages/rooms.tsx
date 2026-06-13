@@ -226,7 +226,7 @@ export default function RoomsPage() {
         </Button>
       </div>
 
-      {/* Summary chips */}
+      {}
       {(rooms as ServiceRoom[]).length > 0 && (
         <div className="flex gap-2 flex-wrap">
           <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-xs font-semibold px-3 py-1.5 rounded-full">

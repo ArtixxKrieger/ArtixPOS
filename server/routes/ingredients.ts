@@ -7,7 +7,6 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 import { getAdapter, parseRouterConfig } from "../routers/factory";
 import type { RouterConfig } from "../routers/types";
 
-/** Read routerConfig from user settings and return typed + parsed */
 function getRouterConfigFromSettings(s: any): RouterConfig | null {
   const parsed = parseRouterConfig(s?.routerConfig);
   if (!parsed || !parsed.enabled || !parsed.host) return null;
@@ -15,14 +14,13 @@ function getRouterConfigFromSettings(s: any): RouterConfig | null {
 }
 
 export function registerIngredientRoutes(app: Express): void {
-  // ── List ingredients ───────────────────────────────────────────────────────
+
   app.get("/api/ingredients", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getIngredients(getUserId(req));
     res.json(list);
   });
 
-  // ── Create ingredient ──────────────────────────────────────────────────────
-  app.post("/api/ingredients", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.post("/api/ingredients", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const input = insertIngredientSchema.parse(req.body);
       const created = await storage.createIngredient(getUserId(req), input);
@@ -33,8 +31,7 @@ export function registerIngredientRoutes(app: Express): void {
     }
   });
 
-  // ── Update ingredient ──────────────────────────────────────────────────────
-  app.put(
+app.put(
     "/api/ingredients/:id",
     requireAuth,
     requirePro,
@@ -56,8 +53,7 @@ export function registerIngredientRoutes(app: Express): void {
     },
   );
 
-  // ── Delete ingredient ──────────────────────────────────────────────────────
-  app.delete(
+app.delete(
     "/api/ingredients/:id",
     requireAuth,
     requirePro,
@@ -74,8 +70,7 @@ export function registerIngredientRoutes(app: Express): void {
     },
   );
 
-  // ── Products that use this ingredient ─────────────────────────────────────
-  app.get(
+app.get(
     "/api/ingredients/:id/products",
     requireAuth,
     requirePro,
@@ -88,8 +83,7 @@ export function registerIngredientRoutes(app: Express): void {
     },
   );
 
-  // ── Adjust ingredient stock ────────────────────────────────────────────────
-  app.post(
+app.post(
     "/api/ingredients/:id/stock",
     requireAuth,
     requirePro,
@@ -110,14 +104,13 @@ export function registerIngredientRoutes(app: Express): void {
 }
 
 export function registerRecipeRoutes(app: Express): void {
-  // ── Get product recipe ─────────────────────────────────────────────────────
+
   app.get("/api/products/:id/recipe", requireAuth, requirePro, async (req, res) => {
     const items = await storage.getRecipeForProduct(Number(req.params.id), getUserId(req));
     res.json(items);
   });
 
-  // ── Set product recipe (replace all items) ─────────────────────────────────
-  app.put(
+app.put(
     "/api/products/:id/recipe",
     requireAuth,
     requirePro,
@@ -148,21 +141,19 @@ export function registerRecipeRoutes(app: Express): void {
 }
 
 export function registerWifiVoucherRoutes(app: Express): void {
-  // ── List WiFi vouchers ─────────────────────────────────────────────────────
+
   app.get("/api/wifi-vouchers", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getWifiVouchers(getUserId(req));
     res.json(list);
   });
 
-  // ── Create WiFi voucher ────────────────────────────────────────────────────
-  app.post("/api/wifi-vouchers", requireAuth, requirePro, async (req, res) => {
+app.post("/api/wifi-vouchers", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertWifiVoucherSchema.parse(req.body);
       const created = await storage.createWifiVoucher(getUserId(req), input);
       await auditLog(req, "create", "wifi_voucher", String(created.id), { code: created.code });
 
-      // Push to router if enabled — fire-and-forget so the response is instant
-      const settings = await storage.getSettings(getUserId(req));
+const settings = await storage.getSettings(getUserId(req));
       const routerConfig = getRouterConfigFromSettings(settings);
       if (routerConfig) {
         const adapter = await getAdapter(routerConfig.type);
@@ -180,8 +171,7 @@ export function registerWifiVoucherRoutes(app: Express): void {
     }
   });
 
-  // ── Redeem WiFi voucher ────────────────────────────────────────────────────
-  app.post("/api/wifi-vouchers/redeem", requireAuth, requirePro, async (req, res) => {
+app.post("/api/wifi-vouchers/redeem", requireAuth, requirePro, async (req, res) => {
     const code = String(req.body?.code || "").trim();
     if (!code) return res.status(400).json({ message: "code is required" });
     const v = await storage.redeemWifiVoucher(code, getUserId(req));
@@ -190,8 +180,7 @@ export function registerWifiVoucherRoutes(app: Express): void {
     res.json(v);
   });
 
-  // ── Test router connection (multi-vendor) ──────────────────────────────────
-  app.post("/api/router/test", requireAuth, requirePro, async (req, res) => {
+app.post("/api/router/test", requireAuth, requirePro, async (req, res) => {
     const { type, host, port, username, password, useSsl, ...vendorExtras } = req.body;
     if (!type || !host) {
       return res
@@ -217,8 +206,7 @@ export function registerWifiVoucherRoutes(app: Express): void {
     }
   });
 
-  // ── Expire overdue vouchers + remove from router ───────────────────────────
-  app.post("/api/router/sync", requireAuth, requirePro, async (req, res) => {
+app.post("/api/router/sync", requireAuth, requirePro, async (req, res) => {
     const expired = await storage.expireOverdueVouchers();
     const byUser: Record<string, typeof expired> = {};
     for (const v of expired) (byUser[v.userId] ??= []).push(v);

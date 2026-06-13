@@ -1,22 +1,11 @@
 import nodemailer from "nodemailer";
 import { getRedis, redisAvailable } from "./redis";
 
-// ─── Transport strategy ───────────────────────────────────────────────────────
-// Vercel serverless functions cannot reliably hold the multi-round-trip TCP
-// connection that SMTP requires. When a Resend API key is configured we use
-// Resend's HTTP API instead — a single HTTPS POST using Node's built-in fetch.
-// No extra npm package required, so no lockfile/registry issues on Vercel.
-//
-// Detection order:
-//   1. RESEND_API_KEY env var (explicit)
-//   2. SMTP_PASS that starts with "re_" (user already put their Resend key there)
-//   3. Fall back to nodemailer SMTP for any other provider
-
 function getResendApiKey(): string | null {
-  // Explicit dedicated variable — most reliable, no prefix-sniffing required
+
   const explicit = process.env.RESEND_API_KEY?.trim();
   if (explicit) return explicit;
-  // Fallback: detect Resend API key stored in SMTP_PASS (trim to tolerate spaces/quotes)
+
   const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, "");
   if (smtpPass?.startsWith("re_")) return smtpPass;
   return null;
@@ -66,17 +55,11 @@ export function resetTransporter(): void {
   _transporter = undefined;
 }
 
-// ─── Concurrency limiter ───────────────────────────────────────────────────────
-// Caps simultaneous outbound email calls so a burst of registrations/resets
-// cannot overwhelm the provider or trigger rate-limit bans.
-// Hard cap on queue depth: beyond MAX_QUEUED the call is rejected immediately
-// (returns false) rather than growing the queue without bound.
 const MAX_CONCURRENT_SENDS = 5;
-const MAX_QUEUED           = 500; // reject if more than this many are already waiting
+const MAX_QUEUED           = 500;
 let _activeCount = 0;
 const _waitQueue: Array<() => void> = [];
 
-/** Returns false when the queue is full (caller should treat as delivery failure). */
 function _acquireSlot(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     if (_activeCount < MAX_CONCURRENT_SENDS) {
@@ -97,27 +80,16 @@ function _releaseSlot(): void {
   if (next) next();
 }
 
-// ─── Dead-letter queue (Redis-backed persistent retry) ────────────────────────
-// When sendEmail exhausts all in-flight attempts due to a TRANSIENT failure
-// (network error, 429, 5xx), the job is serialised to a Redis sorted set.
-// A background poller re-attempts delivery on a schedule, up to DLQ_MAX_RETRIES
-// extra times.  Permanent failures (invalid address, bad API key) are never
-// enqueued — retrying them would just waste quota.
-//
-// Graceful degradation: if Redis is not configured, the DLQ is silently
-// disabled and the behaviour is identical to before (3 in-flight attempts,
-// then the email is lost).
-
 const DLQ_KEY          = "artixpos:email:dlq";
-const DLQ_MAX_RETRIES  = 3;                              // extra DLQ rounds
-const DLQ_MAX_AGE_MS   = 24 * 60 * 60 * 1000;           // discard after 24 h
-const DLQ_DELAYS_MS    = [5 * 60_000, 30 * 60_000, 2 * 60 * 60_000]; // 5 min, 30 min, 2 h
-const DLQ_POLL_MS      = 60_000;                         // poll every 60 s
+const DLQ_MAX_RETRIES  = 3;
+const DLQ_MAX_AGE_MS   = 24 * 60 * 60 * 1000;
+const DLQ_DELAYS_MS    = [5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
+const DLQ_POLL_MS      = 60_000;
 
 interface DlqContext {
   jobId: string;
-  dlqRetry: number;  // 0 = first DLQ attempt
-  queuedAt: number;  // original ms timestamp — for max-age check
+  dlqRetry: number;
+  queuedAt: number;
 }
 
 interface EmailJob {
@@ -131,8 +103,6 @@ interface EmailJob {
   queuedAt: number;
 }
 
-// Atomically claim AND remove up to N due jobs in a single round-trip.
-// Prevents double-processing when running in cluster mode (multiple workers).
 const _DLQ_CLAIM_SCRIPT = `
 local jobs = redis.call('ZRANGEBYSCORE', KEYS[1], '0', ARGV[1], 'LIMIT', '0', ARGV[2])
 if #jobs == 0 then return {} end
@@ -145,7 +115,7 @@ async function _enqueueToDlq(
   ctx?: DlqContext,
 ): Promise<void> {
   const redis = getRedis();
-  if (!redis) return; // Redis not configured — degrade silently
+  if (!redis) return;
 
   const dlqRetry  = ctx?.dlqRetry ?? 0;
   const jobId     = ctx?.jobId    ?? Math.random().toString(36).slice(2, 10);
@@ -172,7 +142,7 @@ async function _pollDlq(): Promise<void> {
 
   let claimed: string[] = [];
   try {
-    // Lua script atomically reads + removes up to 10 due jobs
+
     const raw = await redis.eval(
       _DLQ_CLAIM_SCRIPT,
       [DLQ_KEY],
@@ -192,8 +162,7 @@ async function _pollDlq(): Promise<void> {
     try { job = JSON.parse(serialised) as EmailJob; }
     catch { console.error("[email:dlq] Unparseable job — discarding:", serialised.slice(0, 120)); continue; }
 
-    // Drop jobs that are older than the max-age limit
-    if (Date.now() - job.queuedAt > DLQ_MAX_AGE_MS) {
+if (Date.now() - job.queuedAt > DLQ_MAX_AGE_MS) {
       console.error(`[email:dlq] Job ${job.jobId} expired (>24 h) — discarding to=${job.to}`);
       continue;
     }
@@ -201,34 +170,29 @@ async function _pollDlq(): Promise<void> {
     const ctx: DlqContext = { jobId: job.jobId, dlqRetry: job.dlqRetry, queuedAt: job.queuedAt };
     console.log(`[email:dlq] Retrying job=${job.jobId} dlqRetry=${job.dlqRetry} to=${job.to}`);
 
-    // sendEmail has its own 3-attempt in-flight retry; pass ctx so that on
-    // transient exhaustion it re-enqueues with an incremented dlqRetry count.
-    await sendEmail(
+await sendEmail(
       { to: job.to, subject: job.subject, text: job.text, html: job.html, headers: job.headers },
       ctx,
     );
   }
 }
 
-/** Start the background DLQ poller.  Call once at server startup. */
 export function startEmailDlqPoller(): void {
   if (!redisAvailable) {
     console.warn("[email:dlq] Redis not configured — DLQ disabled (transient failures will not be retried after exhaustion).");
     return;
   }
   const t = setInterval(_pollDlq, DLQ_POLL_MS);
-  t.unref(); // don't keep the process alive
+  t.unref();
   console.log(`[email:dlq] Poller started — checking every ${DLQ_POLL_MS / 1000}s`);
 }
 
-// ─── Per-attempt result type ──────────────────────────────────────────────────
 type AttemptResult =
   | { ok: true }
   | { ok: false; permanent: true }
   | { ok: false; permanent: false; retryAfterMs?: number };
 
-// ─── Single Resend HTTP attempt ───────────────────────────────────────────────
-const FETCH_TIMEOUT_MS = 10_000; // 10 s — abort if provider hangs
+const FETCH_TIMEOUT_MS = 10_000;
 
 async function _attemptResend(
   key: string,
@@ -257,7 +221,7 @@ async function _attemptResend(
       console.warn(`[email] Resend server error ${res.status}:`, body.slice(0, 200));
       return { ok: false, permanent: false };
     }
-    // 4xx (not 429) — bad request / invalid email — no point retrying
+
     console.error(`[email] Resend permanent error ${res.status}:`, body.slice(0, 200));
     return { ok: false, permanent: true };
   } catch (err: any) {
@@ -269,16 +233,8 @@ async function _attemptResend(
   }
 }
 
-// ─── Unified send helper ──────────────────────────────────────────────────────
-// • Queues through the concurrency limiter (max 5 concurrent, 500 queued)
-// • Up to 3 attempts with exponential back-off (1 s → 2 s → 4 s + jitter)
-// • Respects Retry-After header on 429: uses max(backoff, retryAfter) so the
-//   two delays are never added together (no double-sleeping)
-// • Returns true on success, false on permanent or exhausted failure (never throws)
 const MAX_ATTEMPTS = 3;
 
-// _dlqCtx is set when sendEmail is called by the DLQ poller so it can
-// re-enqueue with an incremented retry count on transient exhaustion.
 async function sendEmail(
   opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
   _dlqCtx?: DlqContext,
@@ -290,27 +246,25 @@ async function sendEmail(
 
   const resendKey = getResendApiKey();
   const transport = resendKey ? "resend-api" : "smtp";
-  // Log queue depth BEFORE pushing so the number is accurate
+
   console.log(`[email] queued transport=${transport} to=${opts.to} subject="${opts.subject}" active=${_activeCount} queue=${_waitQueue.length}`);
 
   const acquired = await _acquireSlot();
-  if (!acquired) return false; // queue full — already logged inside _acquireSlot
+  if (!acquired) return false;
 
   try {
-    // ── Resend HTTP API path ────────────────────────────────────────────────
+
     if (resendKey) {
-      // retryAfterOverrideMs: when Resend sends Retry-After, use that as the
-      // minimum delay for the NEXT iteration instead of adding it on top of
-      // the exponential backoff (which would cause double-sleeping).
-      let retryAfterOverrideMs = 0;
+
+let retryAfterOverrideMs = 0;
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         if (attempt > 1) {
           const jitter = Math.random() * 200;
-          const backoff = Math.min(1000 * 2 ** (attempt - 2) + jitter, 8000); // 1 s, 2 s, 4 s
-          // Use whichever is longer: our backoff or the provider's Retry-After
+          const backoff = Math.min(1000 * 2 ** (attempt - 2) + jitter, 8000);
+
           const delay = Math.max(backoff, retryAfterOverrideMs);
-          retryAfterOverrideMs = 0; // consumed — reset for next iteration
+          retryAfterOverrideMs = 0;
           console.warn(`[email] Resend retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`);
           await new Promise<void>((r) => setTimeout(r, delay));
         }
@@ -322,15 +276,14 @@ async function sendEmail(
           else console.log(`[email] Resend sent to=${opts.to}`);
           return true;
         }
-        if (result.permanent) return false; // e.g. invalid email address — no retry
+        if (result.permanent) return false;
 
-        // Store Retry-After so the NEXT iteration's pre-sleep uses it (not additive)
-        if (!result.permanent && result.retryAfterMs && result.retryAfterMs > 0) {
+if (!result.permanent && result.retryAfterMs && result.retryAfterMs > 0) {
           retryAfterOverrideMs = result.retryAfterMs;
         }
       }
       console.error(`[email] Resend gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);
-      // Transient exhaustion — persist to DLQ for a later retry if quota remains
+
       const _nextDlqRetry = (_dlqCtx?.dlqRetry ?? -1) + 1;
       if (_nextDlqRetry < DLQ_MAX_RETRIES) {
         _enqueueToDlq(opts, {
@@ -344,8 +297,7 @@ async function sendEmail(
       return false;
     }
 
-    // ── SMTP (nodemailer) path ──────────────────────────────────────────────
-    const transporter = getTransporter();
+const transporter = getTransporter();
     if (!transporter) {
       console.warn("[email] No transport configured — set RESEND_API_KEY or SMTP_HOST/USER/PASS");
       return false;
@@ -363,15 +315,15 @@ async function sendEmail(
         else console.log(`[email] SMTP sent to=${opts.to}`);
         return true;
       } catch (err: any) {
-        // SMTP 5xx = transient; 4xx = permanent (bad address, auth, etc.)
+
         const code: number = err?.responseCode ?? 0;
         const isPermanent = code >= 400 && code < 500;
         console.error(`[email] SMTP attempt ${attempt} failed (code=${code}):`, err?.message);
-        if (isPermanent) return false; // no retry
+        if (isPermanent) return false;
       }
     }
     console.error(`[email] SMTP gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);
-    // Transient exhaustion — persist to DLQ for a later retry if quota remains
+
     const _nextDlqRetry = (_dlqCtx?.dlqRetry ?? -1) + 1;
     if (_nextDlqRetry < DLQ_MAX_RETRIES) {
       _enqueueToDlq(opts, {
@@ -404,7 +356,7 @@ function escHtml(str: string | null | undefined): string {
 function emailShell(bodyHtml: string, previewText = ""): string {
   return `
 <!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -422,15 +374,15 @@ function emailShell(bodyHtml: string, previewText = ""): string {
     body{margin:0;padding:0;background-color:#eff6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;}
     .email-container{max-width:600px;margin:0 auto;}
     a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}
-    /* ── Mobile (≤600 px) ───────────────────────────────────────────────────── */
+
     @media only screen and (max-width:600px){
-      /* Container fills screen width */
+
       .email-container{width:100%!important;max-width:100%!important;}
-      /* Horizontal padding on hero + body sections */
+
       .px-m{padding-left:20px!important;padding-right:20px!important;}
-      /* Hero heading — slightly smaller on narrow screens */
+
       .hero-h{font-size:24px!important;letter-spacing:-0.3px!important;line-height:1.25!important;}
-      /* CTA button — full-width, easy tap target */
+
       .cta-btn{
         display:block!important;
         text-align:center!important;
@@ -731,8 +683,7 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
   const hasTax      = parseFloat(sale.tax ?? "0") > 0;
   const hasDiscount = parseFloat(sale.discount ?? "0") > 0;
 
-
-  const body = `
+const body = `
   <tr>
     <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(59,130,246,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">

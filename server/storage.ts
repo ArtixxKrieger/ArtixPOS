@@ -110,7 +110,7 @@ function _timeToMinutes(time: string): number {
 }
 
 export interface IStorage {
-  // Products
+
   getProducts(userId: string): Promise<Product[]>;
   getLowStockProducts(userId: string, branchId?: number | null): Promise<Product[]>;
   getProduct(id: number, userId: string): Promise<Product | undefined>;
@@ -121,21 +121,18 @@ export interface IStorage {
   setStock(id: number, userId: string, newStock: number): Promise<Product | undefined>;
   getStockLogs(productId: number, userId: string): Promise<StockLog[]>;
 
-  // Pending Orders
-  getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]>;
+getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]>;
   getPendingOrder(id: number, userId: string): Promise<PendingOrder | undefined>;
   createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder>;
   updatePendingOrder(id: number, userId: string, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined>;
   deletePendingOrder(id: number, userId: string): Promise<void>;
 
-  // Notifications
-  getNotifications(userId: string): Promise<Notification[]>;
+getNotifications(userId: string): Promise<Notification[]>;
   createNotification(userId: string, data: { type: string; title: string; message?: string; productId?: number }): Promise<void>;
   markNotificationRead(id: number, userId: string): Promise<void>;
   markAllNotificationsRead(userId: string): Promise<void>;
 
-  // Sales
-  getSales(userId: string, opts?: { limit?: number; offset?: number; beforeId?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean }): Promise<Sale[]>;
+getSales(userId: string, opts?: { limit?: number; offset?: number; beforeId?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean }): Promise<Sale[]>;
   getSaleById(id: number, userId: string): Promise<Sale | undefined>;
   createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale>;
   softDeleteSale(id: number, userId: string, deletedBy: string, reason?: string): Promise<boolean>;
@@ -143,92 +140,77 @@ export interface IStorage {
 
   deductIngredientsForSale(userId: string, items: { productId: number; quantity: number }[]): Promise<void>;
 
-  // Settings
-  getSettings(userId: string): Promise<UserSetting | undefined>;
+getSettings(userId: string): Promise<UserSetting | undefined>;
   updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting>;
 
-  // Customers
-  getCustomers(userId: string, opts?: { limit?: number; offset?: number; orderByTopSpenders?: boolean }): Promise<Customer[]>;
+getCustomers(userId: string, opts?: { limit?: number; offset?: number; orderByTopSpenders?: boolean }): Promise<Customer[]>;
   getCustomer(id: number, userId: string): Promise<Customer | undefined>;
   createCustomer(userId: string, customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: number, userId: string, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: number, userId: string): Promise<void>;
   updateCustomerStats(id: number, amount: number): Promise<void>;
 
-  // Loyalty Tiers
-  getLoyaltyTiers(userId: string): Promise<LoyaltyTier[]>;
+getLoyaltyTiers(userId: string): Promise<LoyaltyTier[]>;
   createLoyaltyTier(userId: string, tier: InsertLoyaltyTier): Promise<LoyaltyTier>;
   updateLoyaltyTier(id: number, userId: string, tier: Partial<InsertLoyaltyTier>): Promise<LoyaltyTier | undefined>;
   deleteLoyaltyTier(id: number, userId: string): Promise<void>;
 
-  // Loyalty Rewards
-  getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]>;
+getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]>;
   createLoyaltyReward(userId: string, reward: InsertLoyaltyReward): Promise<LoyaltyReward>;
   updateLoyaltyReward(id: number, userId: string, reward: Partial<InsertLoyaltyReward>): Promise<LoyaltyReward | undefined>;
   deleteLoyaltyReward(id: number, userId: string): Promise<void>;
   redeemLoyaltyReward(customerId: number, rewardId: number, userId: string): Promise<{ customer: Customer; reward: LoyaltyReward; log: LoyaltyPointsLog } | null>;
 
-  // Loyalty Points Log
-  getLoyaltyPointsLog(customerId: number, userId: string): Promise<LoyaltyPointsLog[]>;
+getLoyaltyPointsLog(customerId: number, userId: string): Promise<LoyaltyPointsLog[]>;
   addLoyaltyPointsLog(userId: string, customerId: number, delta: number, reason: string, opts?: { saleId?: number; rewardId?: number; note?: string; expiresAt?: string }): Promise<LoyaltyPointsLog>;
 
-  // Loyalty utility
-  recalcCustomerTier(customerId: number, tiers: LoyaltyTier[]): Promise<void>;
+recalcCustomerTier(customerId: number, tiers: LoyaltyTier[]): Promise<void>;
 
-  // Expenses
-  getExpenses(userId: string, branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number }): Promise<Expense[]>;
+getExpenses(userId: string, branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number }): Promise<Expense[]>;
   createExpense(userId: string, expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, userId: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number, userId: string): Promise<void>;
 
-  // Shifts
-  getShifts(userId: string, opts?: { limit?: number; offset?: number }): Promise<Shift[]>;
+getShifts(userId: string, opts?: { limit?: number; offset?: number }): Promise<Shift[]>;
   getOpenShift(userId: string): Promise<Shift | undefined>;
   openShift(userId: string, openingBalance: string, notes?: string, denominationOpen?: string): Promise<Shift>;
   closeShift(id: number, userId: string, closingBalance: string, notes?: string, denominationClose?: string, variance?: string): Promise<Shift | undefined>;
   addCashAdjustment(shiftId: number, userId: string, type: "in" | "out", amount: string, reason: string): Promise<Shift | undefined>;
 
-  // Discount Codes
-  getDiscountCodes(userId: string, opts?: { limit?: number; offset?: number }): Promise<DiscountCode[]>;
+getDiscountCodes(userId: string, opts?: { limit?: number; offset?: number }): Promise<DiscountCode[]>;
   getDiscountCodeByCode(code: string, userId: string): Promise<DiscountCode | undefined>;
   createDiscountCode(userId: string, code: InsertDiscountCode): Promise<DiscountCode>;
   updateDiscountCode(id: number, userId: string, code: Partial<InsertDiscountCode>): Promise<DiscountCode | undefined>;
   deleteDiscountCode(id: number, userId: string): Promise<void>;
   incrementDiscountCodeUsage(id: number): Promise<boolean>;
 
-  // Refunds
-  getRefunds(userId: string): Promise<RefundWithDetails[]>;
+getRefunds(userId: string): Promise<RefundWithDetails[]>;
   getRefundsBySale(saleId: number, userId: string): Promise<Refund[]>;
   createRefund(userId: string, refund: InsertRefund): Promise<Refund>;
 
-  // Tables
-  getTables(userId: string): Promise<Table[]>;
+getTables(userId: string): Promise<Table[]>;
   getTable(id: number, userId: string): Promise<Table | undefined>;
   createTable(userId: string, table: InsertTable): Promise<Table>;
   updateTable(id: number, userId: string, table: Partial<InsertTable>): Promise<Table | undefined>;
   deleteTable(id: number, userId: string): Promise<void>;
 
-  // Suppliers
-  getSuppliers(userId: string): Promise<Supplier[]>;
+getSuppliers(userId: string): Promise<Supplier[]>;
   createSupplier(userId: string, supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: number, userId: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: number, userId: string): Promise<void>;
   getSupplierStats(userId: string, supplierId: number): Promise<{ totalOrders: number; totalSpent: number; pendingAmount: number; lastOrderAt: string | null }>;
 
-  // Supplier Products
-  getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]>;
+getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]>;
   upsertSupplierProduct(supplierId: number, userId: string, data: InsertSupplierProduct): Promise<SupplierProduct>;
   deleteSupplierProduct(id: number, userId: string): Promise<void>;
 
-  // Purchase Orders
-  getPurchaseOrders(userId: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]>;
+getPurchaseOrders(userId: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]>;
   createPurchaseOrder(userId: string, po: InsertPurchaseOrder): Promise<PurchaseOrder & { items: PurchaseOrderItem[] }>;
   receivePurchaseOrder(id: number, userId: string): Promise<PurchaseOrder | undefined>;
   cancelPurchaseOrder(id: number, userId: string): Promise<PurchaseOrder | undefined>;
   updatePurchaseOrderPayment(id: number, userId: string, paymentStatus: string): Promise<PurchaseOrder | undefined>;
 
-  // Time Logs
-  getTimeLogs(userId: string): Promise<TimeLog[]>;
+getTimeLogs(userId: string): Promise<TimeLog[]>;
   getActiveTimeLog(userId: string): Promise<TimeLog | undefined>;
   clockIn(userId: string, notes?: string): Promise<TimeLog>;
   clockOut(userId: string, notes?: string): Promise<TimeLog | undefined>;
@@ -251,47 +233,39 @@ export interface IStorage {
   deleteTimeLog(managerId: string, logId: number): Promise<boolean>;
   createManualTimeLog(managerId: string, data: { userId: string; branchId?: number; clockIn: string; clockOut?: string | null; breakMinutes?: number; notes?: string | null; clockOutNotes?: string | null }): Promise<TimeLog>;
 
-  // Staff Schedules
-  getStaffSchedules(managerId: string, targetUserId?: string): Promise<(StaffSchedule & { userName: string | null; userEmail: string | null })[]>;
+getStaffSchedules(managerId: string, targetUserId?: string): Promise<(StaffSchedule & { userName: string | null; userEmail: string | null })[]>;
   getScheduleEmployees(managerId: string): Promise<{ id: string; name: string | null; email: string | null; role: string | null }[]>;
   createStaffSchedule(managerId: string, data: Omit<InsertStaffSchedule, "tenantId">): Promise<StaffSchedule>;
   updateStaffSchedule(id: number, managerId: string, data: Partial<InsertStaffSchedule>): Promise<StaffSchedule | undefined>;
   deleteStaffSchedule(id: number, managerId: string): Promise<boolean>;
 
-  // Product barcode lookup
-  getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
+getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
 
-  // Loyalty points
-  adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined>;
+adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined>;
 
-  // Service Staff
-  getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]>;
+getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]>;
   getServiceStaffMember(id: number, userId: string): Promise<ServiceStaff | undefined>;
   createServiceStaff(userId: string, staff: InsertServiceStaff): Promise<ServiceStaff>;
   updateServiceStaff(id: number, userId: string, staff: Partial<InsertServiceStaff>): Promise<ServiceStaff | undefined>;
   deleteServiceStaff(id: number, userId: string): Promise<void>;
 
-  // Service Rooms
-  getServiceRooms(userId: string, branchId?: number | null): Promise<ServiceRoom[]>;
+getServiceRooms(userId: string, branchId?: number | null): Promise<ServiceRoom[]>;
   createServiceRoom(userId: string, room: InsertServiceRoom): Promise<ServiceRoom>;
   updateServiceRoom(id: number, userId: string, room: Partial<InsertServiceRoom>): Promise<ServiceRoom | undefined>;
   deleteServiceRoom(id: number, userId: string): Promise<void>;
 
-  // Appointments
-  getAppointments(userId: string, opts?: { date?: string; staffId?: number; status?: string }): Promise<Appointment[]>;
+getAppointments(userId: string, opts?: { date?: string; staffId?: number; status?: string }): Promise<Appointment[]>;
   getAppointment(id: number, userId: string): Promise<Appointment | undefined>;
   createAppointment(userId: string, appt: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: number, userId: string, appt: Partial<InsertAppointment>): Promise<Appointment | undefined>;
   deleteAppointment(id: number, userId: string): Promise<void>;
 
-  // Membership Plans
-  getMembershipPlans(userId: string): Promise<MembershipPlan[]>;
+getMembershipPlans(userId: string): Promise<MembershipPlan[]>;
   createMembershipPlan(userId: string, plan: InsertMembershipPlan): Promise<MembershipPlan>;
   updateMembershipPlan(id: number, userId: string, plan: Partial<InsertMembershipPlan>): Promise<MembershipPlan | undefined>;
   deleteMembershipPlan(id: number, userId: string): Promise<void>;
 
-  // Memberships
-  getMemberships(userId: string): Promise<(Membership & { customerName: string | null; customerPhone: string | null })[]>;
+getMemberships(userId: string): Promise<(Membership & { customerName: string | null; customerPhone: string | null })[]>;
   getMembership(id: number, userId: string): Promise<Membership | undefined>;
   createMembership(userId: string, m: InsertMembership): Promise<Membership>;
   updateMembership(id: number, userId: string, m: Partial<InsertMembership>): Promise<Membership | undefined>;
@@ -300,9 +274,8 @@ export interface IStorage {
   getCheckIns(membershipId: number, userId: string): Promise<MembershipCheckIn[]>;
 }
 
-// 5-minute in-memory cache for tenant user ID lookups (2 DB queries per call without this)
 const _tenantUserCache = new Map<string, { ids: string[]; at: number }>();
-const TENANT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const TENANT_CACHE_TTL = 5 * 60 * 1000;
 
 export function invalidateTenantCache(userId: string): void {
   _tenantUserCache.delete(userId);
@@ -310,9 +283,7 @@ export function invalidateTenantCache(userId: string): void {
 
 export class DatabaseStorage implements IStorage {
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  private async getTenantUserIds(userId: string): Promise<string[]> {
+private async getTenantUserIds(userId: string): Promise<string[]> {
     const cached = _tenantUserCache.get(userId);
     if (cached && Date.now() - cached.at < TENANT_CACHE_TTL) return cached.ids;
     const [user] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
@@ -325,9 +296,7 @@ export class DatabaseStorage implements IStorage {
     return ids;
   }
 
-  // ─── Products ─────────────────────────────────────────────────────────────
-
-  async getProducts(
+async getProducts(
     userId: string,
     branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number },
   ): Promise<Product[]> {
@@ -387,7 +356,7 @@ export class DatabaseStorage implements IStorage {
 
   async createProduct(userId: string, product: Omit<InsertProduct, "userId">): Promise<Product> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [created] = await db.insert(products).values({ ...product, userId } as any).returning();
       return created;
     } catch (error) {
@@ -400,7 +369,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getProduct(id, userId);
       if (!existing) return undefined;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [updated] = await db.update(products)
         .set(product as any)
         .where(eq(products.id, id))
@@ -416,7 +385,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getProduct(id, userId);
       if (!existing) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await db.update(products).set({ deletedAt: new Date().toISOString() } as any).where(eq(products.id, id));
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -429,16 +398,14 @@ export class DatabaseStorage implements IStorage {
       const existing = await this.getProduct(id, userId);
       if (!existing) return undefined;
       const previousStock = existing.stock ?? 0;
-      // Use a SQL expression for the increment so concurrent stock adjustments
-      // can't race and overwrite each other (eliminates the read-modify-write gap).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [updated] = await db.update(products)
+
+const [updated] = await db.update(products)
         .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) + ${delta})` } as any)
         .where(eq(products.id, id))
         .returning();
       if (updated) {
         const newStock = updated.stock ?? 0;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         await db.insert(stockLogs).values({
           productId: id,
           userId,
@@ -461,13 +428,13 @@ export class DatabaseStorage implements IStorage {
       if (!existing) return undefined;
       const previousStock = existing.stock ?? 0;
       const clampedStock = Math.max(0, newStock);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [updated] = await db.update(products)
         .set({ stock: clampedStock } as any)
         .where(eq(products.id, id))
         .returning();
       if (updated) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         await db.insert(stockLogs).values({
           productId: id,
           userId,
@@ -498,9 +465,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Pending Orders ───────────────────────────────────────────────────────
-
-  async getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]> {
+async getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const conditions: SQL<unknown>[] = [];
@@ -530,7 +495,7 @@ export class DatabaseStorage implements IStorage {
 
   async createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [created] = await db.insert(pendingOrders).values({ ...order, userId } as any).returning();
       return created;
     } catch (error) {
@@ -543,7 +508,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getPendingOrder(id, userId);
       if (!existing) return undefined;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [updated] = await db.update(pendingOrders)
         .set(order as any)
         .where(eq(pendingOrders.id, id))
@@ -559,7 +524,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getPendingOrder(id, userId);
       if (!existing) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await db.update(pendingOrders).set({ deletedAt: new Date().toISOString() } as any).where(eq(pendingOrders.id, id));
     } catch (error) {
       console.error("Error deleting pending order:", error);
@@ -567,9 +532,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Sales ────────────────────────────────────────────────────────────────
-
-  async getSales(userId: string, opts: { limit?: number; offset?: number; beforeId?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean } = {}): Promise<Sale[]> {
+async getSales(userId: string, opts: { limit?: number; offset?: number; beforeId?: number; startDate?: string; endDate?: string; customerId?: number; branchId?: number | null; includeVoided?: boolean } = {}): Promise<Sale[]> {
     try {
       const { limit = 200, offset = 0, beforeId, startDate, endDate, customerId, branchId, includeVoided = false } = opts;
       const userIds = await this.getTenantUserIds(userId);
@@ -583,12 +546,7 @@ export class DatabaseStorage implements IStorage {
       if (customerId) conditions.push(eq(sales.customerId, customerId));
       if (branchId != null) conditions.push(eq(sales.branchId, branchId));
 
-      // Keyset (cursor) pagination: WHERE id < :beforeId is O(log N) via PK index
-      // regardless of how deep into the table the cursor is.
-      // OFFSET pagination degrades to O(N) at large offsets — at offset 50,000
-      // PostgreSQL reads and discards 50,000 rows just to skip them.
-      // When beforeId is provided, offset is ignored.
-      if (beforeId != null) {
+if (beforeId != null) {
         conditions.push(sql`${sales.id} < ${beforeId}`);
         return await dbRead.select().from(sales)
           .where(and(...conditions))
@@ -609,18 +567,13 @@ export class DatabaseStorage implements IStorage {
 
   async createSale(userId: string, sale: Omit<InsertSale, "userId">): Promise<Sale> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const saleInput = sale as any;
 
-      // ── Resolve tenant for the per-tenant OR sequence ──────────────────────
-      const [userRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
+const [userRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
       const resolvedTenantId = userRow?.tenantId ?? userId;
 
-      // ── Atomic per-tenant OR number via upsert sequence ─────────────────────
-      // PostgreSQL row-level lock on the or_sequences row serialises concurrent
-      // inserts so two simultaneous checkouts can never receive the same number.
-      // This permanently replaces the old COUNT(*)+1 TOCTOU race condition.
-      const seqResult = await db.execute(sql`
+const seqResult = await db.execute(sql`
         INSERT INTO or_sequences (tenant_id, next_val)
         VALUES (${resolvedTenantId}, 1)
         ON CONFLICT (tenant_id) DO UPDATE
@@ -628,20 +581,16 @@ export class DatabaseStorage implements IStorage {
         RETURNING next_val
       `);
       const seqRows = (seqResult as any).rows ?? seqResult;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const nextSeq = Number((Array.isArray(seqRows) ? seqRows[0] : (seqRows as any))?.next_val ?? 1);
       const padded = String(nextSeq).padStart(6, "0");
       const receiptNumber = `SR-${padded}`;
       const orNumber      = receiptNumber;
       const invoiceNumber = `INV-${padded}`;
 
-      // Use an explicit createdAt so it is included in the hash before insert.
-      const createdAt = new Date().toISOString();
+const createdAt = new Date().toISOString();
 
-      // ── Tamper-evident SHA-256 hash (BIR compliance) ───────────────────────
-      // Covers every fiscally-significant field. A BIR auditor can recompute
-      // this from the raw DB row; any discrepancy proves tampering.
-      const hashPayload = [
+const hashPayload = [
         userId,
         receiptNumber,
         orNumber,
@@ -658,8 +607,7 @@ export class DatabaseStorage implements IStorage {
       ].join("|");
       const saleHash = createHash("sha256").update(hashPayload).digest("hex");
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [created] = await db.insert(sales).values({
+const [created] = await db.insert(sales).values({
         ...saleInput,
         userId,
         tenantId: resolvedTenantId,
@@ -668,15 +616,13 @@ export class DatabaseStorage implements IStorage {
         invoiceNumber,
         createdAt,
         saleHash,
-        // Strip any client-supplied receipt/OR/invoice numbers so they cannot
-        // override the server-generated sequence.
-      } as any).returning();
-      // Fire-and-forget: customer stats update runs in the background so it
-      // never delays the checkout response returned to the cashier.
-      if (sale.customerId) {
+
+} as any).returning();
+
+if (sale.customerId) {
         void this.updateCustomerStats(sale.customerId, parseFloat(sale.total) || 0);
       }
-      // Auto-deduct ingredients via product recipes (cafés / production kitchens).
+
       void this.deductIngredientsForSale(userId, sale.items as { productId: number; quantity: number }[]).catch((e) => {
         console.error("Recipe deduction failed:", e);
       });
@@ -687,13 +633,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  /** Deduct ingredient stock based on product recipes (BOM) for sold items. */
-  async deductIngredientsForSale(userId: string, items: { productId: number; quantity: number }[]): Promise<void> {
+async deductIngredientsForSale(userId: string, items: { productId: number; quantity: number }[]): Promise<void> {
     if (!Array.isArray(items) || items.length === 0) return;
     const userIds = await this.getTenantUserIds(userId);
 
-    // Tally quantity sold per productId
-    const productQty = new Map<number, number>();
+const productQty = new Map<number, number>();
     for (const it of items) {
       const pid = Number(it?.productId);
       const qty = Number(it?.quantity ?? 1);
@@ -703,18 +647,16 @@ export class DatabaseStorage implements IStorage {
     if (productQty.size === 0) return;
 
     const productIds = [...productQty.keys()];
-    // Fetch matching recipes (only for products in this tenant — verified via products table)
+
     const recipes = await db.select().from(productRecipes).where(inArray(productRecipes.productId, productIds));
     if (recipes.length === 0) return;
 
-    // Verify products belong to tenant before applying
-    const tenantProducts = await db.select({ id: products.id }).from(products).where(
+const tenantProducts = await db.select({ id: products.id }).from(products).where(
       and(inArray(products.id, productIds), inArray(products.userId, userIds))
     );
     const allowedProducts = new Set(tenantProducts.map(p => p.id));
 
-    // Aggregate ingredient deltas
-    const ingredientDelta = new Map<number, number>();
+const ingredientDelta = new Map<number, number>();
     for (const r of recipes) {
       if (!allowedProducts.has(r.productId)) continue;
       const sold = productQty.get(r.productId) ?? 0;
@@ -728,7 +670,7 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       await Promise.all(
         [...ingredientDelta.entries()].map(([ingId, delta]) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           tx.update(ingredients)
             .set({ stockQty: sql`(COALESCE(stock_qty::numeric, 0) - ${delta})::text` } as any)
             .where(eq(ingredients.id, ingId))
@@ -763,7 +705,7 @@ export class DatabaseStorage implements IStorage {
         and(eq(sales.id, id), userCondition, isNull(sales.deletedAt))
       );
       if (!sale) return false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await (db.update(sales) as any)
         .set({ deletedAt: new Date().toISOString(), deletedBy, ...(reason ? { voidReason: reason } : {}) })
         .where(eq(sales.id, id));
@@ -787,18 +729,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Settings ─────────────────────────────────────────────────────────────
-
-  async getSettings(userId: string): Promise<UserSetting | undefined> {
+async getSettings(userId: string): Promise<UserSetting | undefined> {
     try {
-      // runAsAdmin issues SET LOCAL row_security = off inside an explicit
-      // transaction, guaranteeing the query bypasses RLS even on managed
-      // PostgreSQL instances (e.g. Supabase) where the pool role is subject
-      // to non-forced RLS policies.  dbSystem = _baseDb is the same pool
-      // connection and does NOT set row_security = off, so it can be blocked
-      // by user_settings RLS when app.current_tenant is not set (settings
-      // routes only use requireAuth, not tenantContextMiddleware).
-      const [setting] = await runAsAdmin(pool, (adminDb) =>
+
+const [setting] = await runAsAdmin(pool, (adminDb) =>
         adminDb.select().from(userSettings).where(eq(userSettings.userId, userId))
       );
       return setting;
@@ -810,18 +744,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateSettings(userId: string, settings: Partial<InsertUserSetting>): Promise<UserSetting> {
     const doUpsert = async () => {
-      // UPSERT: atomically insert or update so there is never a race between
-      // "does the row exist?" and "write the row".
-      // runAsAdmin issues SET LOCAL row_security = off so RLS never hides the
-      // existing row, preventing a false INSERT (which would lose onboardingComplete
-      // and other preserved fields) when the conflict path should have triggered.
-      const [result] = await runAsAdmin(pool, (adminDb) =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+const [result] = await runAsAdmin(pool, (adminDb) =>
+
         adminDb.insert(userSettings)
           .values({ userId, ...settings } as any)
           .onConflictDoUpdate({
             target: userSettings.userId,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             set: settings as any,
           })
           .returning()
@@ -832,10 +762,8 @@ export class DatabaseStorage implements IStorage {
     try {
       return await doUpsert();
     } catch (error: any) {
-      // 25P02 = "in_failed_sql_transaction" — a pool connection was returned
-      // while still inside an aborted transaction (pool contamination).
-      // Wait one tick so node-postgres can retire the bad connection, then retry once.
-      if (error?.code === "25P02") {
+
+if (error?.code === "25P02") {
         console.warn("[storage] updateSettings hit 25P02 — retrying after 50 ms");
         await new Promise(r => setTimeout(r, 50));
         return await doUpsert();
@@ -845,9 +773,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Customers ────────────────────────────────────────────────────────────
-
-  async getCustomers(
+async getCustomers(
     userId: string,
     opts: { limit?: number; offset?: number; orderByTopSpenders?: boolean } = {},
   ): Promise<Customer[]> {
@@ -885,7 +811,7 @@ export class DatabaseStorage implements IStorage {
 
   async createCustomer(userId: string, customer: InsertCustomer): Promise<Customer> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [created] = await db.insert(customers).values({ ...customer, userId } as any).returning();
       return created;
     } catch (error) {
@@ -898,7 +824,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getCustomer(id, userId);
       if (!existing) return undefined;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [updated] = await db.update(customers)
         .set(customer as any)
         .where(eq(customers.id, id))
@@ -914,7 +840,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const existing = await this.getCustomer(id, userId);
       if (!existing) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await db.update(customers).set({ deletedAt: new Date().toISOString() } as any).where(eq(customers.id, id));
     } catch (error) {
       console.error("Error deleting customer:", error);
@@ -924,9 +850,8 @@ export class DatabaseStorage implements IStorage {
 
   async updateCustomerStats(id: number, amount: number): Promise<void> {
     try {
-      // Atomic single-query update — avoids read/write race when two sales
-      // are processed for the same customer at the same time.
-      await db.execute(sql`
+
+await db.execute(sql`
         UPDATE customers
         SET total_spent  = ROUND(COALESCE(CAST(total_spent AS NUMERIC), 0) + ${amount}, 2)::text,
             visit_count  = COALESCE(visit_count, 0) + 1
@@ -937,9 +862,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Expenses ─────────────────────────────────────────────────────────────
-
-  async getExpenses(
+async getExpenses(
     userId: string,
     branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number },
   ): Promise<Expense[]> {
@@ -965,7 +888,7 @@ export class DatabaseStorage implements IStorage {
 
   async createExpense(userId: string, expense: InsertExpense): Promise<Expense> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [created] = await db.insert(expenses).values({ ...expense, userId } as any).returning();
       return created;
     } catch (error) {
@@ -979,7 +902,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
       if (!existing || !userIds.includes(existing.userId)) return undefined;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [updated] = await db.update(expenses)
         .set(expense as any)
         .where(eq(expenses.id, id))
@@ -996,7 +919,7 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
       if (!existing || !userIds.includes(existing.userId)) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await db.update(expenses).set({ deletedAt: new Date().toISOString() } as any).where(eq(expenses.id, id));
     } catch (error) {
       console.error("Error deleting expense:", error);
@@ -1004,9 +927,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Shifts ───────────────────────────────────────────────────────────────
-
-  async getShifts(userId: string, opts: { limit?: number; offset?: number } = {}): Promise<Shift[]> {
+async getShifts(userId: string, opts: { limit?: number; offset?: number } = {}): Promise<Shift[]> {
     try {
       const { limit = 200, offset = 0 } = opts;
       const userIds = await this.getTenantUserIds(userId);
@@ -1040,7 +961,7 @@ export class DatabaseStorage implements IStorage {
 
   async openShift(userId: string, openingBalance: string, notes?: string, denominationOpen?: string): Promise<Shift> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [created] = await db.insert(shifts).values({
         userId,
         openingBalance,
@@ -1063,8 +984,7 @@ export class DatabaseStorage implements IStorage {
       const [existing] = await db.select().from(shifts).where(eq(shifts.id, id));
       if (!existing || !userIds.includes(existing.userId)) return undefined;
 
-      // Calculate sales total during this shift
-      const shiftSales = await db.select().from(sales).where(
+const shiftSales = await db.select().from(sales).where(
         and(
           inArray(sales.userId, userIds),
           isNull(sales.deletedAt),
@@ -1073,8 +993,7 @@ export class DatabaseStorage implements IStorage {
       );
       const totalSalesAmount = shiftSales.reduce((acc, s) => acc + parseFloat(s.total || "0"), 0);
 
-      // Calculate expenses during this shift
-      const shiftExpenses = await db.select().from(expenses).where(
+const shiftExpenses = await db.select().from(expenses).where(
         and(
           inArray(expenses.userId, userIds),
           sql`${expenses.createdAt} >= ${existing.openedAt}`
@@ -1082,8 +1001,7 @@ export class DatabaseStorage implements IStorage {
       );
       const totalExpensesAmount = shiftExpenses.reduce((acc, e) => acc + parseFloat(e.amount || "0"), 0);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [updated] = await db.update(shifts)
+const [updated] = await db.update(shifts)
         .set({
           status: "closed",
           closingBalance,
@@ -1118,8 +1036,7 @@ export class DatabaseStorage implements IStorage {
       const prevOut = parseFloat(existing.cashOut ?? "0");
       const amtNum = parseFloat(amount) || 0;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [updated] = await db.update(shifts).set({
+const [updated] = await db.update(shifts).set({
         cashAdjustments: JSON.stringify(existingAdjs),
         cashIn: type === "in" ? (prevIn + amtNum).toFixed(2) : existing.cashIn,
         cashOut: type === "out" ? (prevOut + amtNum).toFixed(2) : existing.cashOut,
@@ -1131,9 +1048,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Discount Codes ───────────────────────────────────────────────────────
-
-  async getDiscountCodes(
+async getDiscountCodes(
     userId: string,
     opts: { limit?: number; offset?: number } = {},
   ): Promise<DiscountCode[]> {
@@ -1170,7 +1085,7 @@ export class DatabaseStorage implements IStorage {
 
   async createDiscountCode(userId: string, code: InsertDiscountCode): Promise<DiscountCode> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [created] = await db.insert(discountCodes).values({
         ...code,
         code: code.code.toUpperCase(),
@@ -1227,9 +1142,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Refunds ──────────────────────────────────────────────────────────────
-
-  async getRefunds(userId: string): Promise<RefundWithDetails[]> {
+async getRefunds(userId: string): Promise<RefundWithDetails[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const userCondition = userIds.length === 1
@@ -1267,10 +1180,8 @@ export class DatabaseStorage implements IStorage {
   async getRefundsBySale(saleId: number, userId: string): Promise<Refund[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
-      // Verify the sale belongs to this tenant before returning its refunds.
-      // Without this check any authenticated user could enumerate another
-      // tenant's refund data by guessing sale IDs.
-      const saleOwnerCond = userIds.length === 1
+
+const saleOwnerCond = userIds.length === 1
         ? and(eq(sales.id, saleId), eq(sales.userId, userIds[0]))
         : and(eq(sales.id, saleId), inArray(sales.userId, userIds));
       const [saleRow] = await db.select({ id: sales.id }).from(sales).where(saleOwnerCond);
@@ -1284,16 +1195,15 @@ export class DatabaseStorage implements IStorage {
 
   async createRefund(userId: string, refund: InsertRefund): Promise<Refund> {
     try {
-      // Verify the sale belongs to the caller's tenant before refunding it.
+
       const userIds = await this.getTenantUserIds(userId);
       const [existingSale] = await db.select({ userId: sales.userId }).from(sales)
         .where(eq(sales.id, refund.saleId));
       if (!existingSale || !userIds.includes(existingSale.userId)) {
         throw new Error("Sale not found or access denied");
       }
-      // Wrap insert + update in a transaction so we never have a refund row
-      // without the corresponding sale status update (or vice versa).
-      return await db.transaction(async (tx) => {
+
+return await db.transaction(async (tx) => {
         const [created] = await tx.insert(refunds).values({ ...refund, userId } as any).returning();
         await (tx.update(sales) as any)
           .set({ refundedAt: new Date().toISOString(), refundedBy: userId })
@@ -1306,9 +1216,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Tables ───────────────────────────────────────────────────────────────
-
-  async getTables(userId: string): Promise<Table[]> {
+async getTables(userId: string): Promise<Table[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1 ? and(eq(tables.userId, userIds[0]), isNull(tables.deletedAt)) : and(inArray(tables.userId, userIds), isNull(tables.deletedAt));
@@ -1366,9 +1274,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Suppliers ────────────────────────────────────────────────────────────
-
-  async getSuppliers(userId: string): Promise<Supplier[]> {
+async getSuppliers(userId: string): Promise<Supplier[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1 ? and(eq(suppliers.userId, userIds[0]), isNull(suppliers.deletedAt)) : and(inArray(suppliers.userId, userIds), isNull(suppliers.deletedAt));
@@ -1431,11 +1337,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Supplier Products ────────────────────────────────────────────────────
-
-  async getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
+async getSupplierProducts(supplierId: number, userId: string): Promise<(SupplierProduct & { productName: string; productSku: string | null; currentStock: number | null })[]> {
     try {
-      // Verify the supplier belongs to the caller's tenant before returning its products.
+
       const userIds = await this.getTenantUserIds(userId);
       const [supplier] = await db.select({ id: suppliers.id }).from(suppliers)
         .where(and(eq(suppliers.id, supplierId), inArray(suppliers.userId, userIds)));
@@ -1478,7 +1382,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSupplierProduct(id: number, userId: string): Promise<void> {
-    // Verify the supplier product's parent supplier belongs to the caller's tenant.
+
     const userIds = await this.getTenantUserIds(userId);
     const [row] = await db.select({ supplierId: supplierProducts.supplierId })
       .from(supplierProducts).where(eq(supplierProducts.id, id));
@@ -1489,15 +1393,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(supplierProducts).where(eq(supplierProducts.id, id));
   }
 
-  // ─── Purchase Orders ──────────────────────────────────────────────────────
-
-  async getPurchaseOrders(userId: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]> {
+async getPurchaseOrders(userId: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1 ? eq(purchaseOrders.userId, userIds[0]) : inArray(purchaseOrders.userId, userIds);
       const pos = await db.select().from(purchaseOrders).where(condition).orderBy(desc(purchaseOrders.createdAt)).limit(200);
       if (pos.length === 0) return [];
-      // Batch-fetch all items in one query instead of one query per PO (N+1 → 2 queries total).
+
       const poIds = pos.map(p => p.id);
       const allItems = await db.select().from(purchaseOrderItems)
         .where(inArray(purchaseOrderItems.purchaseOrderId, poIds));
@@ -1518,15 +1420,14 @@ export class DatabaseStorage implements IStorage {
     try {
       const { items = [], ...poData } = po;
       const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.totalCost || "0"), 0).toFixed(2);
-      // Wrap PO creation + item inserts in a transaction so we never leave a
-      // "headless" purchase order if the item inserts fail.
-      return await db.transaction(async (tx) => {
+
+return await db.transaction(async (tx) => {
         const [created] = await tx.insert(purchaseOrders).values({
           ...poData,
           userId,
           totalAmount,
         } as any).returning();
-        // Batch-insert all items in a single statement (no N+1).
+
         const createdItems: PurchaseOrderItem[] =
           items.length > 0
             ? await tx.insert(purchaseOrderItems)
@@ -1546,16 +1447,12 @@ export class DatabaseStorage implements IStorage {
       const userIds = await this.getTenantUserIds(userId);
       const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
       if (!po || !userIds.includes(po.userId)) return undefined;
-      // Idempotency guard — if already received, return as-is without adding stock again
+
       if ((po as any).status === "received") return po as PurchaseOrder;
 
-      // Fetch all items in one query
-      const items = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, id));
+const items = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, id));
 
-      // Build quantity deltas keyed by productId (sum if a product appears multiple times).
-      // We no longer pre-fetch stock values — the SQL expression `COALESCE(stock,0) + delta`
-      // handles the increment atomically so concurrent receives can't double-count.
-      const productIds = items.map(i => i.productId).filter((pid): pid is number => pid != null);
+const productIds = items.map(i => i.productId).filter((pid): pid is number => pid != null);
       const deltaMap = new Map<number, number>();
       for (const item of items) {
         if (item.productId != null && productIds.includes(item.productId)) {
@@ -1563,9 +1460,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
-      // Execute all stock updates inside a transaction so partial failures roll back.
-      // Use a SQL expression for the increment so concurrent receives can't double-count.
-      const [updated] = await db.transaction(async (tx) => {
+const [updated] = await db.transaction(async (tx) => {
         await Promise.all(
           [...deltaMap.entries()].map(([pid, delta]) =>
             tx.update(products)
@@ -1612,9 +1507,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Time Logs ────────────────────────────────────────────────────────────
-
-  async getTimeLogs(userId: string): Promise<TimeLog[]> {
+async getTimeLogs(userId: string): Promise<TimeLog[]> {
     try {
       return await db.select().from(timeLogs).where(and(eq(timeLogs.userId, userId), isNull(timeLogs.deletedAt))).orderBy(desc(timeLogs.clockIn)).limit(200);
     } catch (error) {
@@ -1835,9 +1728,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  // ─── Staff Schedules ───────────────────────────────────────────────────────
-
-  async getStaffSchedules(managerId: string, targetUserId?: string): Promise<(StaffSchedule & { userName: string | null; userEmail: string | null })[]> {
+async getStaffSchedules(managerId: string, targetUserId?: string): Promise<(StaffSchedule & { userName: string | null; userEmail: string | null })[]> {
     try {
       const userIds = await this.getTenantUserIds(managerId);
       if (userIds.length === 0) return [];
@@ -1931,9 +1822,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Product barcode lookup ────────────────────────────────────────────────
-
-  async getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined> {
+async getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1
@@ -1947,9 +1836,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Loyalty points ───────────────────────────────────────────────────────
-
-  async adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined> {
+async adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const condition = userIds.length === 1
@@ -1958,18 +1845,13 @@ export class DatabaseStorage implements IStorage {
       const [customer] = await db.select({ id: customers.id }).from(customers).where(condition);
       if (!customer) return undefined;
 
-      // Atomic update — GREATEST(0, ...) and the CASE prevent a lost-update race
-      // when two concurrent sales credit/debit the same customer simultaneously.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [updated] = await db.update(customers).set({
+const [updated] = await db.update(customers).set({
         loyaltyPoints: sql`GREATEST(0, COALESCE(loyalty_points, 0) + ${delta})`,
         lifetimePoints: sql`CASE WHEN ${delta} > 0 THEN COALESCE(lifetime_points, 0) + ${delta} ELSE COALESCE(lifetime_points, 0) END`,
       } as any).where(eq(customers.id, customerId)).returning();
       const newPoints = updated?.loyaltyPoints ?? 0;
 
-      // Log the change
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      void db.insert(loyaltyPointsLog).values({
+void db.insert(loyaltyPointsLog).values({
         userId,
         customerId,
         delta,
@@ -1980,8 +1862,7 @@ export class DatabaseStorage implements IStorage {
         note: opts?.note ?? null,
       } as any).catch(() => {});
 
-      // Recalc tier in background
-      this.getLoyaltyTiers(userId).then(tiers => {
+this.getLoyaltyTiers(userId).then(tiers => {
         if (tiers.length > 0) this.recalcCustomerTier(customerId, tiers).catch(() => {});
       }).catch(() => {});
 
@@ -1992,16 +1873,14 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Loyalty Tiers ─────────────────────────────────────────────────────────
-
-  async getLoyaltyTiers(userId: string): Promise<LoyaltyTier[]> {
+async getLoyaltyTiers(userId: string): Promise<LoyaltyTier[]> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? eq(loyaltyTiers.userId, userIds[0]) : inArray(loyaltyTiers.userId, userIds);
     return db.select().from(loyaltyTiers).where(condition).orderBy(loyaltyTiers.sortOrder);
   }
 
   async createLoyaltyTier(userId: string, tier: InsertLoyaltyTier): Promise<LoyaltyTier> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(loyaltyTiers).values({ ...tier, userId } as any).returning();
     return created;
   }
@@ -2009,7 +1888,7 @@ export class DatabaseStorage implements IStorage {
   async updateLoyaltyTier(id: number, userId: string, tier: Partial<InsertLoyaltyTier>): Promise<LoyaltyTier | undefined> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(loyaltyTiers).set(tier as any).where(condition).returning();
     return updated;
   }
@@ -2017,20 +1896,18 @@ export class DatabaseStorage implements IStorage {
   async deleteLoyaltyTier(id: number, userId: string): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyTiers.id, id), eq(loyaltyTiers.userId, userIds[0])) : and(eq(loyaltyTiers.id, id), inArray(loyaltyTiers.userId, userIds));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(loyaltyTiers).set({ deletedAt: new Date().toISOString() } as any).where(condition);
   }
 
-  // ─── Loyalty Rewards ───────────────────────────────────────────────────────
-
-  async getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]> {
+async getLoyaltyRewards(userId: string): Promise<LoyaltyReward[]> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyRewards.userId, userIds[0]), isNull(loyaltyRewards.deletedAt)) : and(inArray(loyaltyRewards.userId, userIds), isNull(loyaltyRewards.deletedAt));
     return db.select().from(loyaltyRewards).where(condition).orderBy(loyaltyRewards.pointsCost);
   }
 
   async createLoyaltyReward(userId: string, reward: InsertLoyaltyReward): Promise<LoyaltyReward> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(loyaltyRewards).values({ ...reward, userId } as any).returning();
     return created;
   }
@@ -2038,7 +1915,7 @@ export class DatabaseStorage implements IStorage {
   async updateLoyaltyReward(id: number, userId: string, reward: Partial<InsertLoyaltyReward>): Promise<LoyaltyReward | undefined> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(loyaltyRewards).set(reward as any).where(condition).returning();
     return updated;
   }
@@ -2046,7 +1923,7 @@ export class DatabaseStorage implements IStorage {
   async deleteLoyaltyReward(id: number, userId: string): Promise<void> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1 ? and(eq(loyaltyRewards.id, id), eq(loyaltyRewards.userId, userIds[0])) : and(eq(loyaltyRewards.id, id), inArray(loyaltyRewards.userId, userIds));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(loyaltyRewards).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(condition);
   }
 
@@ -2062,18 +1939,15 @@ export class DatabaseStorage implements IStorage {
       if (!customer) return null;
       if ((customer.loyaltyPoints ?? 0) < reward.pointsCost) return null;
 
-      // Both updates are atomic SQL expressions — no lost-update race possible
-      // even when two redemptions are processed concurrently for the same customer.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [updatedCustomer] = await db.update(customers).set({
+const [updatedCustomer] = await db.update(customers).set({
         loyaltyPoints: sql`GREATEST(0, COALESCE(loyalty_points, 0) - ${reward.pointsCost})`,
       } as any).where(eq(customers.id, customerId)).returning();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await db.update(loyaltyRewards).set({
         redemptionCount: sql`COALESCE(redemption_count, 0) + 1`,
       } as any).where(eq(loyaltyRewards.id, rewardId));
       const newPoints = updatedCustomer?.loyaltyPoints ?? 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [log] = await db.insert(loyaltyPointsLog).values({
         userId,
         customerId,
@@ -2090,9 +1964,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Loyalty Points Log ────────────────────────────────────────────────────
-
-  async getLoyaltyPointsLog(customerId: number, userId: string): Promise<LoyaltyPointsLog[]> {
+async getLoyaltyPointsLog(customerId: number, userId: string): Promise<LoyaltyPointsLog[]> {
     try {
       const userIds = await this.getTenantUserIds(userId);
       const cond = userIds.length === 1 ? and(eq(customers.id, customerId), eq(customers.userId, userIds[0])) : and(eq(customers.id, customerId), inArray(customers.userId, userIds));
@@ -2105,7 +1977,7 @@ export class DatabaseStorage implements IStorage {
   async addLoyaltyPointsLog(userId: string, customerId: number, delta: number, reason: string, opts?: { saleId?: number; rewardId?: number; note?: string; expiresAt?: string }): Promise<LoyaltyPointsLog> {
     const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
     const balance = Math.max(0, (customer?.loyaltyPoints ?? 0) + delta);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [log] = await db.insert(loyaltyPointsLog).values({
       userId, customerId, delta, balance, reason,
       saleId: opts?.saleId ?? null,
@@ -2125,21 +1997,19 @@ export class DatabaseStorage implements IStorage {
       const matched = sorted.find(t => lifetimePts >= t.minLifetimePoints);
       const newTier = matched?.name?.toLowerCase() ?? "none";
       if (newTier !== customer.tier) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         await db.update(customers).set({ tier: newTier } as any).where(eq(customers.id, customerId));
       }
-    } catch { /* ignore */ }
+    } catch {  }
   }
 
-  // ─── Service Staff ────────────────────────────────────────────────────────
-
-  async getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]> {
+async getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]> {
     const userIds = await this.getTenantUserIds(userId);
     const userCondition = userIds.length === 1
       ? eq(serviceStaff.userId, userIds[0])
       : inArray(serviceStaff.userId, userIds);
     const condition = branchId != null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       ? and(userCondition, eq((serviceStaff as any).branchId, branchId))
       : userCondition;
     return db.select().from(serviceStaff).where(condition).orderBy(desc(serviceStaff.createdAt));
@@ -2155,7 +2025,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createServiceStaff(userId: string, staff: InsertServiceStaff): Promise<ServiceStaff> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(serviceStaff).values({ ...staff, userId } as any).returning();
     return created;
   }
@@ -2163,7 +2033,7 @@ export class DatabaseStorage implements IStorage {
   async updateServiceStaff(id: number, userId: string, staff: Partial<InsertServiceStaff>): Promise<ServiceStaff | undefined> {
     const existing = await this.getServiceStaffMember(id, userId);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(serviceStaff).set(staff as any).where(eq(serviceStaff.id, id)).returning();
     return updated;
   }
@@ -2171,26 +2041,24 @@ export class DatabaseStorage implements IStorage {
   async deleteServiceStaff(id: number, userId: string): Promise<void> {
     const existing = await this.getServiceStaffMember(id, userId);
     if (!existing) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(serviceStaff).set({ deletedAt: new Date().toISOString() } as any).where(eq(serviceStaff.id, id));
   }
 
-  // ─── Service Rooms ────────────────────────────────────────────────────────
-
-  async getServiceRooms(userId: string, branchId?: number | null): Promise<ServiceRoom[]> {
+async getServiceRooms(userId: string, branchId?: number | null): Promise<ServiceRoom[]> {
     const userIds = await this.getTenantUserIds(userId);
     const userCondition = userIds.length === 1
       ? and(eq(serviceRooms.userId, userIds[0]), isNull(serviceRooms.deletedAt))
       : and(inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
     const condition = branchId != null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       ? and(userCondition, eq((serviceRooms as any).branchId, branchId))
       : userCondition;
     return db.select().from(serviceRooms).where(condition).orderBy(desc(serviceRooms.createdAt));
   }
 
   async createServiceRoom(userId: string, room: InsertServiceRoom): Promise<ServiceRoom> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(serviceRooms).values({ ...room, userId } as any).returning();
     return created;
   }
@@ -2202,7 +2070,7 @@ export class DatabaseStorage implements IStorage {
       : and(eq(serviceRooms.id, id), inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
     const [existing] = await db.select().from(serviceRooms).where(condition);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(serviceRooms).set(room as any).where(eq(serviceRooms.id, id)).returning();
     return updated;
   }
@@ -2214,27 +2082,25 @@ export class DatabaseStorage implements IStorage {
       : and(eq(serviceRooms.id, id), inArray(serviceRooms.userId, userIds), isNull(serviceRooms.deletedAt));
     const [existing] = await db.select().from(serviceRooms).where(condition);
     if (!existing) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(serviceRooms).set({ deletedAt: new Date().toISOString() } as any).where(eq(serviceRooms.id, id));
   }
 
-  // ─── Appointments ─────────────────────────────────────────────────────────
-
-  async getAppointments(userId: string, opts?: { date?: string; staffId?: number; status?: string }): Promise<Appointment[]> {
+async getAppointments(userId: string, opts?: { date?: string; staffId?: number; status?: string }): Promise<Appointment[]> {
     const userIds = await this.getTenantUserIds(userId);
     let condition = userIds.length === 1
       ? and(eq(appointments.userId, userIds[0]), isNull(appointments.deletedAt))
       : and(inArray(appointments.userId, userIds), isNull(appointments.deletedAt));
     if (opts?.date) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       condition = and(condition, eq(appointments.date, opts.date)) as any;
     }
     if (opts?.staffId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       condition = and(condition, eq(appointments.staffId, opts.staffId)) as any;
     }
     if (opts?.status) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       condition = and(condition, eq(appointments.status, opts.status)) as any;
     }
     return db.select().from(appointments).where(condition).orderBy(appointments.date, appointments.startTime);
@@ -2250,7 +2116,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAppointment(userId: string, appt: InsertAppointment): Promise<Appointment> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(appointments).values({ ...appt, userId } as any).returning();
     return created;
   }
@@ -2258,7 +2124,7 @@ export class DatabaseStorage implements IStorage {
   async updateAppointment(id: number, userId: string, appt: Partial<InsertAppointment>): Promise<Appointment | undefined> {
     const existing = await this.getAppointment(id, userId);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(appointments).set(appt as any).where(eq(appointments.id, id)).returning();
     return updated;
   }
@@ -2266,13 +2132,11 @@ export class DatabaseStorage implements IStorage {
   async deleteAppointment(id: number, userId: string): Promise<void> {
     const existing = await this.getAppointment(id, userId);
     if (!existing) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(appointments).set({ deletedAt: new Date().toISOString() } as any).where(eq(appointments.id, id));
   }
 
-  // ─── Membership Plans ─────────────────────────────────────────────────────
-
-  async getMembershipPlans(userId: string): Promise<MembershipPlan[]> {
+async getMembershipPlans(userId: string): Promise<MembershipPlan[]> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1
       ? and(eq(membershipPlans.userId, userIds[0]), isNull(membershipPlans.deletedAt))
@@ -2281,7 +2145,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMembershipPlan(userId: string, plan: InsertMembershipPlan): Promise<MembershipPlan> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(membershipPlans).values({ ...plan, userId } as any).returning();
     return created;
   }
@@ -2293,7 +2157,7 @@ export class DatabaseStorage implements IStorage {
       : and(eq(membershipPlans.id, id), inArray(membershipPlans.userId, userIds), isNull(membershipPlans.deletedAt));
     const [existing] = await db.select().from(membershipPlans).where(condition);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(membershipPlans).set(plan as any).where(eq(membershipPlans.id, id)).returning();
     return updated;
   }
@@ -2305,13 +2169,11 @@ export class DatabaseStorage implements IStorage {
       : and(eq(membershipPlans.id, id), inArray(membershipPlans.userId, userIds), isNull(membershipPlans.deletedAt));
     const [existing] = await db.select().from(membershipPlans).where(condition);
     if (!existing) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(membershipPlans).set({ deletedAt: new Date().toISOString(), isActive: false } as any).where(eq(membershipPlans.id, id));
   }
 
-  // ─── Memberships ──────────────────────────────────────────────────────────
-
-  async getMemberships(userId: string): Promise<(Membership & { customerName: string | null; customerPhone: string | null })[]> {
+async getMemberships(userId: string): Promise<(Membership & { customerName: string | null; customerPhone: string | null })[]> {
     const userIds = await this.getTenantUserIds(userId);
     const condition = userIds.length === 1
       ? eq(memberships.userId, userIds[0])
@@ -2337,7 +2199,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(customers, eq(memberships.customerId, customers.id))
       .where(condition)
       .orderBy(desc(memberships.createdAt));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     return rows as any;
   }
 
@@ -2351,7 +2213,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMembership(userId: string, m: InsertMembership): Promise<Membership> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(memberships).values({ ...m, userId } as any).returning();
     return created;
   }
@@ -2359,7 +2221,7 @@ export class DatabaseStorage implements IStorage {
   async updateMembership(id: number, userId: string, m: Partial<InsertMembership>): Promise<Membership | undefined> {
     const existing = await this.getMembership(id, userId);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(memberships).set(m as any).where(eq(memberships.id, id)).returning();
     return updated;
   }
@@ -2367,24 +2229,23 @@ export class DatabaseStorage implements IStorage {
   async deleteMembership(id: number, userId: string): Promise<void> {
     const existing = await this.getMembership(id, userId);
     if (!existing) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(memberships).set({ deletedAt: new Date().toISOString() } as any).where(eq(memberships.id, id));
   }
 
   async checkInMember(userId: string, data: InsertMembershipCheckIn): Promise<MembershipCheckIn> {
-    // Verify the membership belongs to the caller's tenant.
+
     const userIds = await this.getTenantUserIds(userId);
     const [existingMembership] = await db.select({ userId: memberships.userId }).from(memberships)
       .where(eq(memberships.id, data.membershipId));
     if (!existingMembership || !userIds.includes(existingMembership.userId)) {
       throw new Error("Membership not found or access denied");
     }
-    // Wrap insert + counter increment in a transaction so check-in count is
-    // never incremented without a corresponding check-in log row (or vice versa).
-    return await db.transaction(async (tx) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+return await db.transaction(async (tx) => {
+
       const [checkIn] = await tx.insert(membershipCheckIns).values({ ...data, userId } as any).returning();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await tx.update(memberships).set({
         checkInsUsed: sql`check_ins_used + 1`,
       } as any).where(eq(memberships.id, data.membershipId));
@@ -2398,9 +2259,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(membershipCheckIns.checkedInAt));
   }
 
-  // ─── Ingredients ──────────────────────────────────────────────────────────
-
-  async getIngredients(userId: string): Promise<Ingredient[]> {
+async getIngredients(userId: string): Promise<Ingredient[]> {
     const userIds = await this.getTenantUserIds(userId);
     return db.select().from(ingredients)
       .where(and(inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt)))
@@ -2415,7 +2274,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createIngredient(userId: string, data: InsertIngredient): Promise<Ingredient> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(ingredients).values({ ...data, userId } as any).returning();
     return created;
   }
@@ -2423,7 +2282,7 @@ export class DatabaseStorage implements IStorage {
   async updateIngredient(id: number, userId: string, data: Partial<InsertIngredient>): Promise<Ingredient | undefined> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(ingredients).set(data as any).where(eq(ingredients.id, id)).returning();
     return updated;
   }
@@ -2431,14 +2290,14 @@ export class DatabaseStorage implements IStorage {
   async deleteIngredient(id: number, userId: string): Promise<void> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await db.update(ingredients).set({ deletedAt: new Date().toISOString() } as any).where(eq(ingredients.id, id));
   }
 
   async adjustIngredientStock(id: number, userId: string, delta: number): Promise<Ingredient | undefined> {
     const existing = await this.getIngredient(id, userId);
     if (!existing) return undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(ingredients)
       .set({ stockQty: sql`(COALESCE(stock_qty::numeric, 0) + ${delta})::text` } as any)
       .where(eq(ingredients.id, id))
@@ -2446,11 +2305,9 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // ─── Product Recipes ──────────────────────────────────────────────────────
-
-  async getRecipeForProduct(productId: number, userId: string): Promise<(ProductRecipe & { ingredientName: string; unit: string })[]> {
+async getRecipeForProduct(productId: number, userId: string): Promise<(ProductRecipe & { ingredientName: string; unit: string })[]> {
     const userIds = await this.getTenantUserIds(userId);
-    // Verify product belongs to tenant
+
     const [prod] = await db.select().from(products).where(
       and(eq(products.id, productId), inArray(products.userId, userIds))
     );
@@ -2465,13 +2322,13 @@ export class DatabaseStorage implements IStorage {
     }).from(productRecipes)
       .leftJoin(ingredients, eq(productRecipes.ingredientId, ingredients.id))
       .where(eq(productRecipes.productId, productId));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     return rows as any;
   }
 
   async getProductsUsingIngredient(ingredientId: number, userId: string): Promise<{ id: number; name: string; quantity: string }[]> {
     const userIds = await this.getTenantUserIds(userId);
-    // First verify the ingredient belongs to this tenant (prevents IDOR probing of other tenants' ingredient IDs)
+
     const [ing] = await db.select({ id: ingredients.id })
       .from(ingredients)
       .where(and(eq(ingredients.id, ingredientId), inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt)));
@@ -2498,7 +2355,7 @@ export class DatabaseStorage implements IStorage {
       and(eq(products.id, productId), inArray(products.userId, userIds))
     );
     if (!prod) throw new Error("Product not found");
-    // Verify all ingredients belong to tenant
+
     if (items.length > 0) {
       const ingIds = items.map(i => i.ingredientId);
       const tenantIngs = await db.select({ id: ingredients.id }).from(ingredients).where(
@@ -2509,7 +2366,7 @@ export class DatabaseStorage implements IStorage {
       await db.transaction(async (tx) => {
         await tx.delete(productRecipes).where(eq(productRecipes.productId, productId));
         if (filtered.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           await tx.insert(productRecipes).values(filtered.map(i => ({
             productId,
             ingredientId: i.ingredientId,
@@ -2522,9 +2379,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── WiFi Vouchers ────────────────────────────────────────────────────────
-
-  async getWifiVouchers(userId: string): Promise<WifiVoucher[]> {
+async getWifiVouchers(userId: string): Promise<WifiVoucher[]> {
     const userIds = await this.getTenantUserIds(userId);
     return db.select().from(wifiVouchers)
       .where(inArray(wifiVouchers.userId, userIds))
@@ -2534,7 +2389,7 @@ export class DatabaseStorage implements IStorage {
 
   async createWifiVoucher(userId: string, data: InsertWifiVoucher & { saleId?: number | null }): Promise<WifiVoucher> {
     const code = randomBytes(6).toString('hex').toUpperCase();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [created] = await db.insert(wifiVouchers).values({
       userId,
       branchId: data.branchId ?? null,
@@ -2557,7 +2412,7 @@ export class DatabaseStorage implements IStorage {
     if (v.status !== "unused") return v;
     const now = new Date();
     const expires = new Date(now.getTime() + (v.durationMinutes ?? 60) * 60_000);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [updated] = await db.update(wifiVouchers).set({
       status: "active",
       redeemedAt: now.toISOString(),
@@ -2568,7 +2423,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateWifiVoucherMikrotikId(id: number, mikrotikUserId: string): Promise<void> {
     await db.update(wifiVouchers)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       .set({ mikrotikUserId } as any)
       .where(eq(wifiVouchers.id, id));
   }
@@ -2576,7 +2431,7 @@ export class DatabaseStorage implements IStorage {
   async expireOverdueVouchers(): Promise<Array<{ id: number; mikrotikUserId: string | null; userId: string }>> {
     const now = new Date().toISOString();
     return db.update(wifiVouchers)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       .set({ status: "expired" } as any)
       .where(and(eq(wifiVouchers.status, "active"), lt(wifiVouchers.expiresAt, now)))
       .returning({
@@ -2586,9 +2441,7 @@ export class DatabaseStorage implements IStorage {
       });
   }
 
-  // ─── Payroll ──────────────────────────────────────────────────────────────
-
-  async getPayrollPeriods(userId: string): Promise<PayrollPeriod[]> {
+async getPayrollPeriods(userId: string): Promise<PayrollPeriod[]> {
     const userIds = await this.getTenantUserIds(userId);
     return db.select().from(payrollPeriods)
       .where(inArray(payrollPeriods.userId, userIds))
@@ -2603,11 +2456,7 @@ export class DatabaseStorage implements IStorage {
     return p;
   }
 
-  /**
-   * Create a payroll period and auto-generate entries for every employee in the tenant
-   * by computing hours from time_logs and commission/tip from sales in the date range.
-   */
-  async createPayrollPeriod(userId: string, data: InsertPayrollPeriod): Promise<PayrollPeriod> {
+async createPayrollPeriod(userId: string, data: InsertPayrollPeriod): Promise<PayrollPeriod> {
     const userIds = await this.getTenantUserIds(userId);
     const [period] = await db.insert(payrollPeriods).values({
       userId,
@@ -2618,16 +2467,14 @@ export class DatabaseStorage implements IStorage {
       status: "draft",
     } as any).returning();
 
-    // Fetch all tenant users (employees) — exclude wageType "none"
-    const employees = await db.select().from(users).where(inArray(users.id, userIds));
+const employees = await db.select().from(users).where(inArray(users.id, userIds));
     const start = new Date(data.startDate).toISOString();
     const endInclusive = new Date(new Date(data.endDate).getTime() + 24 * 60 * 60_000 - 1).toISOString();
 
-    // All time logs for these users in window
-    const logs = await db.select().from(timeLogs).where(
+const logs = await db.select().from(timeLogs).where(
       and(inArray(timeLogs.userId, userIds), isNotNull(timeLogs.clockOut))
     );
-    // All sales in window for commission/tip
+
     const tenantSales = await db.select().from(sales).where(
       and(inArray(sales.userId, userIds), isNull(sales.deletedAt))
     );
@@ -2637,15 +2484,14 @@ export class DatabaseStorage implements IStorage {
     });
     const tipPool = inWindowSales.reduce((sum, s) => sum + (parseFloat(s.tip || "0") || 0), 0);
 
-    // Filter logs to window
-    const inWindowLogs = logs.filter(l => {
+const inWindowLogs = logs.filter(l => {
       const ci = l.clockIn ?? "";
       return ci >= start && ci <= endInclusive;
     });
 
     let totalAmount = 0;
     const entries: any[] = [];
-    // Count how many employees actually clocked in (for tip share)
+
     const employeesWithHours = new Set<string>();
     for (const l of inWindowLogs) employeesWithHours.add(l.userId);
     const tipShare = employeesWithHours.size > 0 ? tipPool / employeesWithHours.size : 0;
@@ -2665,11 +2511,10 @@ export class DatabaseStorage implements IStorage {
 
       let baseAmount = 0;
       if (wageType === "hourly") baseAmount = hours * wageRate;
-      else if (wageType === "monthly") baseAmount = wageRate; // simple monthly base
+      else if (wageType === "monthly") baseAmount = wageRate;
       else if (wageType === "commission") baseAmount = 0;
 
-      // Commission from sales rung up by this cashier
-      const empSales = inWindowSales.filter(s => s.cashierId === emp.id);
+const empSales = inWindowSales.filter(s => s.cashierId === emp.id);
       const empSubtotal = empSales.reduce((sum, s) => sum + (parseFloat(s.subtotal || "0") || 0), 0);
       const commissionAmount = (empSubtotal * commissionPct) / 100;
 
@@ -2728,7 +2573,7 @@ export class DatabaseStorage implements IStorage {
       ...data,
       netAmount: net.toFixed(2),
     } as any).where(eq(payrollEntries.id, id)).returning();
-    // Recompute period total
+
     const allEntries = await db.select().from(payrollEntries).where(eq(payrollEntries.periodId, entry.periodId));
     const total = allEntries.reduce((s, e) => s + (parseFloat(e.netAmount || "0") || 0), 0);
     await db.update(payrollPeriods).set({ totalAmount: total.toFixed(2) } as any).where(eq(payrollPeriods.id, entry.periodId));
@@ -2773,9 +2618,7 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // ─── Notifications ──────────────────────────────────────────────────────────
-
-  async getNotifications(userId: string): Promise<Notification[]> {
+async getNotifications(userId: string): Promise<Notification[]> {
     try {
       const ownerIds = await this.getTenantUserIds(userId);
       const ownerId = ownerIds[0];
@@ -2823,9 +2666,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Waste / Spoilage Log ──────────────────────────────────────────────────
-
-  async getWasteLogs(userId: string, branchId?: number | null): Promise<WasteLogEntry[]> {
+async getWasteLogs(userId: string, branchId?: number | null): Promise<WasteLogEntry[]> {
     const userIds = await this.getTenantUserIds(userId);
     const conds: ReturnType<typeof eq>[] = [inArray(wasteLog.userId, userIds) as ReturnType<typeof eq>];
     if (branchId != null) conds.push(eq(wasteLog.branchId, branchId) as ReturnType<typeof eq>);
@@ -2855,7 +2696,7 @@ export class DatabaseStorage implements IStorage {
       note: data.note ?? null,
       branchId: data.branchId ?? null,
     }).returning();
-    // Deduct from product stock
+
     if (data.productId && Number(data.quantity) > 0) {
       const qty = Math.round(Number(data.quantity));
       const [prod] = await db.select({ stock: products.stock }).from(products).where(eq(products.id, data.productId));
@@ -2870,7 +2711,7 @@ export class DatabaseStorage implements IStorage {
         reason: "waste", note: `${data.reason}${data.note ? ": " + data.note : ""}`,
       });
     }
-    // Deduct from ingredient stock
+
     if (data.ingredientId && Number(data.quantity) > 0) {
       await (db.update(ingredients) as ReturnType<typeof db.update>)
         .set({ stockQty: sql`GREATEST('0', (COALESCE(stock_qty, '0')::numeric - ${Number(data.quantity)})::text)` })
@@ -2879,9 +2720,7 @@ export class DatabaseStorage implements IStorage {
     return entry;
   }
 
-  // ─── Stock Transfers ────────────────────────────────────────────────────────
-
-  async getStockTransfers(userId: string, branchId?: number | null): Promise<(StockTransfer & { items: StockTransferItem[] })[]> {
+async getStockTransfers(userId: string, branchId?: number | null): Promise<(StockTransfer & { items: StockTransferItem[] })[]> {
     const userIds = await this.getTenantUserIds(userId);
     const conds: ReturnType<typeof eq>[] = [inArray(stockTransfers.userId, userIds) as ReturnType<typeof eq>];
     if (branchId != null) {
@@ -2919,7 +2758,7 @@ export class DatabaseStorage implements IStorage {
       insertedItems = await db.insert(stockTransferItems).values(
         data.items.map(i => ({ transferId: transfer.id, productId: i.productId, productName: i.productName, quantity: i.quantity, note: i.note ?? null }))
       ).returning();
-      // Deduct stock from source branch immediately
+
       for (const item of data.items) {
         await (db.update(products) as ReturnType<typeof db.update>)
           .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${item.quantity})` })
@@ -2955,7 +2794,7 @@ export class DatabaseStorage implements IStorage {
         });
       }
     } else if (status === "rejected") {
-      // Return stock to source branch
+
       const items = await db.select().from(stockTransferItems).where(eq(stockTransferItems.transferId, id));
       for (const item of items) {
         await (db.update(products) as ReturnType<typeof db.update>)
@@ -2970,9 +2809,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ─── Reorder Suggestions (velocity-based) ──────────────────────────────────
-
-  async getReorderSuggestions(userId: string, branchId?: number | null): Promise<{
+async getReorderSuggestions(userId: string, branchId?: number | null): Promise<{
     productId: number; productName: string; currentStock: number;
     lowStockThreshold: number; soldLast30Days: number; avgDailySales: number;
     daysOfStockLeft: number; suggestedOrderQty: number; preferredSupplierId: number | null;
@@ -3037,8 +2874,7 @@ export class DatabaseStorage implements IStorage {
     }).sort((a, b) => a.daysOfStockLeft - b.daysOfStockLeft);
   }
 
-  /** Deduct product stock after a sale and create restock notifications for items that hit 0 or low threshold. */
-  async deductProductStockForSale(userId: string, items: any[]): Promise<void> {
+async deductProductStockForSale(userId: string, items: any[]): Promise<void> {
     if (!Array.isArray(items) || items.length === 0) return;
     try {
       const userIds = await this.getTenantUserIds(userId);
@@ -3064,21 +2900,13 @@ export class DatabaseStorage implements IStorage {
         if (sold === 0) continue;
         const prevStock = product.stock ?? 0;
 
-        // Atomic decrement + RETURNING — the returned value is the actual
-        // post-update stock as committed by PostgreSQL, not a stale JS read.
-        // Without RETURNING, two concurrent sales depleting the last unit both
-        // compute newStock = max(0, prevStock - sold) from a stale pre-update
-        // read and both fire the out-of-stock notification. With RETURNING,
-        // only the sale whose committed value transitions to 0 notifies.
-        // Use .returning() with no args (the consistent pattern in this codebase)
-        // to guarantee compatibility with the Drizzle version in use.
-        const [updated] = await (db.update(products) as any)
+const [updated] = await (db.update(products) as any)
           .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${sold})` })
           .where(eq(products.id, product.id))
           .returning();
         const newStock: number = (updated as any)?.stock ?? Math.max(0, prevStock - sold);
         const threshold = product.lowStockThreshold ?? 10;
-        // Notify if stock just hit 0
+
         if (newStock === 0 && prevStock > 0) {
           await this.createNotification(userId, {
             type: "restock",
@@ -3099,7 +2927,7 @@ export class DatabaseStorage implements IStorage {
             } catch {}
           });
         } else if (newStock > 0 && newStock <= threshold && prevStock > threshold) {
-          // Only notify when crossing the threshold, not on every sale below it
+
           await this.createNotification(userId, {
             type: "low_stock",
             title: `${product.name} is running low`,

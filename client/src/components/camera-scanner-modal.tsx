@@ -1,15 +1,5 @@
-/**
- * CameraScannerModal — two scanning modes:
- *
- * 1. LIVE viewfinder (getUserMedia + BarcodeDetector)
- * 2. PHOTO fallback (<input capture="environment">) — works even when the
- *    browser blocks getUserMedia, because it opens the OS camera app directly.
- *
- * IMPORTANT: We do NOT pre-check navigator.permissions.query before trying.
- * Chrome sometimes returns "denied" even right after a user clears site data,
- * which would block us from ever asking. Instead we always show the button,
- * let the click be the user gesture, and only show the error if it actually fails.
- */
+
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -71,8 +61,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     setTimeout(() => { stopCamera(); onScan(rawValue); onClose(); }, 300);
   }, [onScan, onClose, stopCamera]);
 
-  // Called directly from a button click — guarantees the user gesture Chrome needs
-  const startCamera = useCallback(async () => {
+const startCamera = useCallback(async () => {
     setCameraState("starting");
     setCameraError(null);
     try {
@@ -110,8 +99,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     }
   }, [handleDetected, stopCamera]);
 
-  // Reset when modal opens/closes — no permission pre-check
-  useEffect(() => {
+useEffect(() => {
     if (!open) {
       stopCamera();
       setCameraState("idle");
@@ -125,15 +113,14 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
     if (!isBarcodeDetectorSupported()) {
       setCameraState("unsupported");
     } else {
-      setCameraState("idle"); // always start here — let the button click trigger getUserMedia
+      setCameraState("idle");
     }
   }, [open, stopCamera]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── Photo fallback — uses OS camera app, bypasses browser camera permission ──
-  const triggerPhotoCapture = () => {
-    setPhotoState("scanning"); // set before click so UI updates immediately
+const triggerPhotoCapture = () => {
+    setPhotoState("scanning");
     photoInputRef.current?.click();
   };
 
@@ -193,7 +180,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
           </DialogTitle>
         </DialogHeader>
 
-        {/* Hidden native-camera file input */}
+        {}
         <input
           ref={photoInputRef}
           type="file"
@@ -204,7 +191,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
           data-testid="input-photo-capture"
         />
 
-        {/* Camera viewport */}
+        {}
         <div className="relative bg-black" style={{ aspectRatio: "4/3" }}>
           <video
             ref={videoRef}
@@ -213,7 +200,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             data-testid="video-camera-preview"
           />
 
-          {/* Live viewfinder overlay */}
+          {}
           {cameraState === "active" && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="absolute inset-0 bg-black/40" />
@@ -233,7 +220,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
             </div>
           )}
 
-          {/* Idle — always start here, let the tap be the user gesture */}
+          {}
           {cameraState === "idle" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -244,7 +231,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
                 <p className="text-xs text-white/50 mt-0.5">Choose an option below</p>
               </div>
 
-              {/* Primary: live camera */}
+              {}
               <Button onClick={startCamera} className="w-full max-w-xs rounded-xl" data-testid="button-start-camera">
                 <Camera className="h-4 w-4 mr-2" /> Start Live Camera
               </Button>
@@ -255,7 +242,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
                 <div className="flex-1 h-px bg-white/10" />
               </div>
 
-              {/* Secondary: photo */}
+              {}
               <div className="w-full max-w-xs">
                 <PhotoButton label="Take a Photo to Scan" variant="secondary" />
                 <p className="text-[10px] text-white/30 mt-1.5">
@@ -304,7 +291,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
                 )}
               </div>
 
-              {/* Chrome fix — collapsed by default */}
+              {}
               <details className="w-full max-w-xs text-left">
                 <summary className="text-[11px] text-white/35 cursor-pointer select-none text-center py-1">
                   Fix Chrome's camera permission instead ›
@@ -348,7 +335,7 @@ export function CameraScannerModal({ open, onClose, onScan }: CameraScannerModal
           )}
         </div>
 
-        {/* Manual fallback */}
+        {}
         <div className="px-5 py-4 border-t border-border/40">
           <p className="text-xs text-muted-foreground mb-2">Or type / paste a barcode manually:</p>
           <div className="flex gap-2">

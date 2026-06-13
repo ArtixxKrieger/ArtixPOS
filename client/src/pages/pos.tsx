@@ -39,7 +39,6 @@ import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 import { BillSplitDialog, type SplitPortion } from "@/components/bill-split-dialog";
 import { ConfettiBurst } from "@/components/confetti";
 
-// Mirrors the Tailwind breakpoints used in the grid (sm=640, lg=1024).
 function useGridCols(): 2 | 3 | 4 {
   const get = (): 2 | 3 | 4 => {
     const w = window.innerWidth;
@@ -184,9 +183,7 @@ export default function POS() {
     settings?.currency || "",
   );
 
-  // lastRemoved is already managed inside useCart with a 5-second auto-clear
-
-  const [search, setSearch] = useState("");
+const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [category, setCategory] = useState<string>("all");
   const [discount, setDiscount] = useState(0);
@@ -284,20 +281,17 @@ export default function POS() {
       const matchCat = category === "all" || p.category === category;
       return matchSearch && matchCat;
     });
-    // Smart sort: when not actively searching, float frequently-added items to top
+
     if (!debouncedSearch && sessionFrequency.current.size > 0) {
       return [...list].sort((a, b) =>
         (sessionFrequency.current.get(b.id) ?? 0) - (sessionFrequency.current.get(a.id) ?? 0),
       );
     }
     return list;
-  // freqVersion triggers re-sort after each cart add
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, debouncedSearch, category, freqVersion]);
 
-  // Virtualizes the product list so only visible rows are in the DOM.
-  // With 1 000 products @ 4 cols = 250 rows; we render ≈ 9-12 at a time.
-  const productScrollRef = useRef<HTMLDivElement>(null);
+}, [products, debouncedSearch, category, freqVersion]);
+
+const productScrollRef = useRef<HTMLDivElement>(null);
   const cols = useGridCols();
   const rowCount = Math.ceil(filteredProducts.length / cols);
   const rowVirtualizer = useVirtualizer({
@@ -307,9 +301,7 @@ export default function POS() {
     overscan: 3,
   });
 
-  // Scroll to top when the search query or category filter changes so the
-  // user always sees results from the beginning of the filtered list.
-  useEffect(() => {
+useEffect(() => {
     productScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [debouncedSearch, category]);
 
@@ -319,10 +311,10 @@ export default function POS() {
       setTempSize(product.sizes[0] || null);
     } else {
       addToCart(product);
-      // Sound + haptic feedback on add
+
       playAddItem();
       hapticLight();
-      // Track frequency for smart sort
+
       sessionFrequency.current.set(
         product.id,
         (sessionFrequency.current.get(product.id) ?? 0) + 1,
@@ -334,9 +326,7 @@ export default function POS() {
     }
   }, [addToCart]);
 
-  // Keep a stable ref to handleProductClick so the mutation's onSuccess always
-  // calls the latest version even if the cart changes between renders.
-  const handleProductClickRef = useRef(handleProductClick);
+const handleProductClickRef = useRef(handleProductClick);
   useEffect(() => { handleProductClickRef.current = handleProductClick; }, [handleProductClick]);
 
   const barcodeLookupMutation = useMutation({
@@ -353,8 +343,7 @@ export default function POS() {
     },
   });
 
-  // Dedicated barcode input Enter handler
-  const handleBarcodeKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+const handleBarcodeKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && barcodeInput.trim()) {
       barcodeLookupMutation.mutate(barcodeInput.trim());
     }
@@ -391,12 +380,10 @@ export default function POS() {
     if (isCashPayment && isPaymentFocused && paymentInputRef.current) {
       paymentInputRef.current.focus({ preventScroll: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [cart, discount, isCashPayment]);
 
-  // The AI's "Reorder" button stashes a payload in sessionStorage then routes
-  // here. We pick it up once, populate cart + selected customer, then clear.
-  const reorderConsumedRef = useRef(false);
+const reorderConsumedRef = useRef(false);
   useEffect(() => {
     if (reorderConsumedRef.current) return;
     if (products.length === 0) return;
@@ -474,10 +461,7 @@ export default function POS() {
     const loyaltyPointsPerUnit = parseNumeric(settings?.loyaltyPointsPerUnit || "1");
     const pointsEarned = Math.floor(subtotal * loyaltyPointsPerUnit);
 
-    // One-time key per checkout attempt. Sent to the server so a replayed
-    // request (network hiccup where server succeeded but response was lost)
-    // returns the original result instead of creating a duplicate sale.
-    const idempotencyKey = nanoid();
+const idempotencyKey = nanoid();
 
     const orderData = {
       items:                cart,
@@ -506,8 +490,7 @@ export default function POS() {
                               : null,
     };
 
-    // Snapshots — used for optimistic receipt & rollback
-    const snapshotCart                  = [...cart];
+const snapshotCart                  = [...cart];
     const snapshotCustomer              = selectedCustomer;
     const snapshotName                  = !selectedCustomer && receiptName.trim() ? receiptName.trim() : undefined;
     const snapshotIssueWifi             = issueWifi;
@@ -520,8 +503,7 @@ export default function POS() {
     const wifiPassword = (settings as any)?.wifiPassword  as string | undefined;
     const wifiDuration = parseNumeric((settings as any)?.wifiDurationMinutes ?? 60) || 60;
 
-    // Optimistic receipt — show immediately while request is in-flight
-    const optimisticReceipt: ReceiptData = {
+const optimisticReceipt: ReceiptData = {
       items:               snapshotCart,
       subtotal,
       tax,
@@ -548,13 +530,11 @@ export default function POS() {
     setReceiptData(optimisticReceipt);
     setShowReceipt(true);
 
-    // Sounds + haptics — fire before state wipe so AudioContext starts fresh
-    playCheckout();
+playCheckout();
     hapticSuccess();
     setSaleFlash({ amount: formatCurrency(Math.max(0, total), currency), key: Date.now() });
 
-    // Wipe POS state immediately — gives cashier instant feedback
-    clearCart();
+clearCart();
     setDiscount(0);
     setAppliedCode(null);
     setDiscountCodeInput("");
@@ -570,10 +550,9 @@ export default function POS() {
     setShowBillSplit(false);
     setCartOpen(false);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    createPending.mutate({ ...orderData, idempotencyKey } as any, {
+createPending.mutate({ ...orderData, idempotencyKey } as any, {
       onSuccess: async (result) => {
-        // Patch receipt with real OR / order numbers from server
+
         setReceiptData(prev =>
           prev ? {
             ...prev,
@@ -582,20 +561,12 @@ export default function POS() {
           } : prev,
         );
 
-        // For offline-queued sales (id = __offline__…) the hook's onSuccess
-        // already updated every active sales query via setQueriesData and patched
-        // the dashboard via setQueryData.  Calling invalidateQueries here would
-        // trigger a background refetch whose queryFn reads the IDB — and IDB for
-        // date-filtered queries (/api/sales?startDate=…) never has the optimistic
-        // entry — so the refetch result would OVERWRITE the optimistic update.
-        // Only invalidate when the sale was confirmed by the server (real ID).
-        if (!isOfflineId(String((result as any)?.id ?? ""))) {
+if (!isOfflineId(String((result as any)?.id ?? ""))) {
           queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
           queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
         }
 
-        // Milestone tracking — accumulate daily total locally, check thresholds
-        const newDailyTotal = addToTodayTotal(total);
+const newDailyTotal = addToTodayTotal(total);
         checkMilestone(newDailyTotal);
 
         if (snapshotCustomer) {
@@ -648,7 +619,7 @@ export default function POS() {
       },
 
       onError: () => {
-        // Rollback — restore cart and dismiss receipt
+
         replaceCart(snapshotCart);
         setDiscount(snapshotDiscount);
         setAppliedCode(snapshotAppliedCode);
@@ -682,9 +653,7 @@ export default function POS() {
       : true,
   ).slice(0, 8);
 
-  // Called when "By Items" mode charges separate bills — creates one pending
-  // order per person so each gets their own receipt and sale record.
-  const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
+const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
     let succeeded = 0;
     for (const [idx, split] of splits.entries()) {
       try {
@@ -795,10 +764,10 @@ export default function POS() {
           )}
         </div>
 
-        {/* Summary */}
+        {}
         <div className="pt-2 border-t border-border/50 space-y-1.5">
 
-          {/* Customer selector — hidden for café-style businesses */}
+          {}
           {!isCafeStyle && (selectedCustomer ? (
             <div className="flex items-center gap-2 bg-primary/8 rounded-xl px-2.5 py-1.5 border border-primary/15">
               <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -823,7 +792,7 @@ export default function POS() {
             </button>
           ))}
 
-          {/* Receipt name (Starbucks-style walk-in name) */}
+          {}
           {!selectedCustomer && (
             <Input
               type="text"
@@ -835,7 +804,7 @@ export default function POS() {
             />
           )}
 
-          {/* Order type — food & beverage only */}
+          {}
           {isFoodBeverage && (
             <>
               <div className="flex gap-1 bg-secondary/60 rounded-xl p-1" data-testid="order-type-toggle">
@@ -880,7 +849,7 @@ export default function POS() {
                 </button>
               </div>
 
-              {/* Delivery address — shown only when delivery is selected */}
+              {}
               {orderType === "delivery" && (
                 <Input
                   type="text"
@@ -905,7 +874,7 @@ export default function POS() {
             </div>
           )}
 
-          {/* Discount code */}
+          {}
           {appliedCode ? (
             <div className="flex items-center justify-between gap-2 bg-rose-500/8 rounded-xl px-2.5 py-1.5 border border-rose-500/15">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -953,7 +922,7 @@ export default function POS() {
             </div>
           )}
 
-          {/* SC/PWD — BIR compliance */}
+          {}
           {!appliedCode && (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
@@ -988,8 +957,7 @@ export default function POS() {
             </div>
           )}
 
-
-          {isScPwd && (
+{isScPwd && (
             <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
               <span>{scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} {t("pos.scPwdDiscount20")}</span>
               <span className="tabular-nums font-semibold">-{formatCurrency(scPwdDiscount, currency)}</span>
@@ -1002,7 +970,7 @@ export default function POS() {
             </div>
           )}
 
-          {/* Loyalty points redemption */}
+          {}
           {selectedCustomer && (selectedCustomer.loyaltyPoints ?? 0) > 0 && (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 min-w-0">
@@ -1038,8 +1006,6 @@ export default function POS() {
             </div>
           )}
 
-
-          {/* WiFi voucher toggle */}
           {((settings as any)?.wifiSsid || (settings as any)?.wifiPassword) && (
             <label className="flex items-center justify-between text-xs gap-2 cursor-pointer" data-testid="toggle-wifi-voucher">
               <span className="font-medium text-muted-foreground">{t("pos.wifiVoucher")}</span>
@@ -1064,7 +1030,7 @@ export default function POS() {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium shrink-0 text-muted-foreground">{t("pos.paid")}</span>
 
-                {/* Mobile: native number keyboard */}
+                {}
                 <Input
                   ref={paymentInputRef}
                   type="number"
@@ -1076,7 +1042,7 @@ export default function POS() {
                   placeholder="0.00"
                 />
 
-                {/* Desktop: numpad popover */}
+                {}
                 <div className="hidden md:block">
                   <Popover open={showNumpad} onOpenChange={(open) => { setShowNumpad(open); setIsPaymentFocused(open); }}>
                     <PopoverTrigger asChild>
@@ -1197,9 +1163,9 @@ export default function POS() {
         </div>
       </div>
 
-      {/* Checkout button — pinned at bottom */}
+      {}
       <div className="shrink-0 pt-2 border-t border-border/40 space-y-1.5">
-        {/* Split Bill — food & bev only, needs at least 2 items */}
+        {}
         {canSplitBill && cart.length >= 2 && (
           <button
             onClick={() => setShowBillSplit(true)}
@@ -1228,12 +1194,12 @@ export default function POS() {
       style={{ height: isMobile ? "calc(100dvh - 196px)" : "calc(100dvh - 132px)" }}
     >
 
-      {/* Confetti burst on milestone */}
+      {}
       {showConfetti && (
         <ConfettiBurst onDone={() => setShowConfetti(false)} />
       )}
 
-      {/* Milestone banner */}
+      {}
       {milestone && createPortal(
         <div
           key={milestone.label}
@@ -1248,7 +1214,7 @@ export default function POS() {
         document.body,
       )}
 
-      {/* Sale amount flash — bottom-center, appears on successful checkout */}
+      {}
       {saleFlash && createPortal(
         <div
           key={saleFlash.key}
@@ -1263,7 +1229,7 @@ export default function POS() {
         document.body,
       )}
 
-      {/* Undo chip — appears at bottom of cart panel after item removal */}
+      {}
       {lastRemoved && createPortal(
         <button
           onClick={undoLastRemove}
@@ -1278,10 +1244,10 @@ export default function POS() {
         document.body,
       )}
 
-      {/* Left: Product grid */}
+      {}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Search + Barcode */}
+        {}
         <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1332,7 +1298,7 @@ export default function POS() {
           )}
         </div>
 
-        {/* Category pills */}
+        {}
         <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
           {categories.map(cat => (
             <button
@@ -1351,7 +1317,7 @@ export default function POS() {
           ))}
         </div>
 
-        {/* Products — skeleton while loading, virtual grid once ready */}
+        {}
         <div
           ref={productScrollRef}
           className={`flex-1 overflow-y-auto scrollbar-hide ${cart.length > 0 ? "pb-[88px] md:pb-4" : "pb-4"}`}
@@ -1400,7 +1366,7 @@ export default function POS() {
         </div>
       </div>
 
-      {/* Desktop Cart Panel */}
+      {}
       <div className="hidden md:flex w-[380px] flex-col bg-card rounded-3xl shadow-xl border border-border/30 px-5 pt-5 pb-4 overflow-hidden relative shrink-0">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -z-10" />
         <div className="flex items-center gap-2.5 mb-4 shrink-0">
@@ -1429,7 +1395,7 @@ export default function POS() {
         </div>
       </div>
 
-      {/* Mobile: Floating cart bar */}
+      {}
       {cart.length > 0 && (
         <div
           className="md:hidden fixed left-3 right-3 z-40 pointer-events-none"
@@ -1459,7 +1425,7 @@ export default function POS() {
         </div>
       )}
 
-      {/* Mobile Cart Sheet */}
+      {}
       <Sheet open={cartOpen} onOpenChange={setCartOpen}>
         <SheetContent
           side="bottom"
@@ -1486,7 +1452,7 @@ export default function POS() {
         </SheetContent>
       </Sheet>
 
-      {/* Product customization dialog */}
+      {}
       <Dialog
         open={!!selectedProduct}
         onOpenChange={(open) => { if (!open) { setSelectedProduct(null); setTempNote(""); } }}
@@ -1565,21 +1531,21 @@ export default function POS() {
         </DialogContent>
       </Dialog>
 
-      {/* Receipt Modal */}
+      {}
       <ReceiptModal
         open={showReceipt}
         onClose={() => setShowReceipt(false)}
         receipt={receiptData}
       />
 
-      {/* Camera Scanner Modal */}
+      {}
       <CameraScannerModal
         open={showCameraScanner}
         onClose={() => setShowCameraScanner(false)}
         onScan={(barcode) => barcodeLookupMutation.mutate(barcode)}
       />
 
-      {/* Bill Split Dialog — food & beverage only */}
+      {}
       <BillSplitDialog
         open={showBillSplit}
         onClose={() => setShowBillSplit(false)}
@@ -1592,7 +1558,7 @@ export default function POS() {
         onItemSplitCharge={handleSplitByItems}
       />
 
-      {/* Quick Add Product — shown when a scanned barcode has no match */}
+      {}
       <QuickAddProductDialog
         open={quickAddBarcode !== null}
         barcode={quickAddBarcode ?? ""}
@@ -1604,7 +1570,7 @@ export default function POS() {
         }}
       />
 
-      {/* Customer picker dialog */}
+      {}
       <Dialog open={showCustomerPicker} onOpenChange={setShowCustomerPicker}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>{t("pos.selectCustomer")}</DialogTitle></DialogHeader>

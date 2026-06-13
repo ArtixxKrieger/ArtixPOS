@@ -136,7 +136,7 @@ function useCountUp(target: number, visible: boolean, duration = 1200) {
 }
 
 function useCardTilt() {
-  /* noop */
+
 }
 
 function useLandingAnimations(
@@ -361,18 +361,18 @@ export default function Login() {
   const [forgotError, setForgotError] = useState<string | null>(null);
 
   const featTrackRef = useRef<HTMLDivElement>(null);
-  const featHoveredRef = useRef(false); // mouse hover pauses auto-speed
-  const featDraggingRef = useRef(false); // currently touch/mouse dragging
-  const featPosRef = useRef(0); // current scroll position (px)
-  const featVelRef = useRef(0.55); // current velocity (px/frame)
-  const featLastXRef = useRef(0); // last pointer x for delta calc
+  const featHoveredRef = useRef(false);
+  const featDraggingRef = useRef(false);
+  const featPosRef = useRef(0);
+  const featVelRef = useRef(0.55);
+  const featLastXRef = useRef(0);
 
   useEffect(() => {
     const el = featTrackRef.current;
     if (!el) return;
-    const BASE = 0.55; // auto-scroll speed
-    const FRICTION = 0.88; // velocity decay per frame after fling
-    const EASE = 0.055; // how fast velocity eases back to BASE
+    const BASE = 0.55;
+    const FRICTION = 0.88;
+    const EASE = 0.055;
     let raf: number;
 
     const tick = () => {
@@ -933,8 +933,7 @@ export default function Login() {
         .lp-section-lazy { content-visibility:auto; contain-intrinsic-size:0 600px; }
       `}</style>
 
-      
-      <div className="rise d1" style={{ marginBottom: 24 }}>
+<div className="rise d1" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
           <div
             style={{
@@ -985,8 +984,7 @@ export default function Login() {
         </p>
       </div>
 
-      
-      <div
+<div
         className="rise d1"
         style={{
           display: "flex",
@@ -1034,8 +1032,7 @@ export default function Login() {
         ))}
       </div>
 
-      
-      {reason === "banned" && (
+{reason === "banned" && (
         <div
           className="rise d1"
           style={{
@@ -1118,8 +1115,7 @@ export default function Login() {
         </div>
       )}
 
-      
-      <div className="rise d2">
+<div className="rise d2">
         <button
           type="button"
           className="btn-social"
@@ -1180,8 +1176,7 @@ export default function Login() {
         </button>
       </div>
 
-      
-      <div
+<div
         className="rise d2"
         style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}
       >
@@ -1211,8 +1206,7 @@ export default function Login() {
         />
       </div>
 
-      
-      <form
+<form
         onSubmit={handleEmailSubmit}
         className="rise d3"
         style={{ display: "flex", flexDirection: "column", gap: 11 }}
@@ -1720,7 +1714,7 @@ export default function Login() {
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
-      
+
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
         <div
           className="lp-orb"
@@ -1758,8 +1752,7 @@ export default function Login() {
         />
       </div>
 
-      
-      <header
+<header
         style={{
           position: "sticky",
           top: 0,
@@ -1867,8 +1860,7 @@ export default function Login() {
         </div>
       </header>
 
-      
-      <section
+<section
         style={{
           position: "relative",
           zIndex: 1,
@@ -1987,8 +1979,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      <div ref={statsRef} style={{ position: "relative", zIndex: 1, overflow: "hidden", padding: "18px 0", transform: "rotate(-1.5deg) scaleX(1.06)", background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(59,130,246,0.10)", borderBottom: "1px solid rgba(59,130,246,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }}>
+<div ref={statsRef} style={{ position: "relative", zIndex: 1, overflow: "hidden", padding: "18px 0", transform: "rotate(-1.5deg) scaleX(1.06)", background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(59,130,246,0.10)", borderBottom: "1px solid rgba(59,130,246,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }}>
         <div className="lp-marquee-track" style={{ display: "flex", whiteSpace: "nowrap", width: "max-content" }}>
           {[0, 1].map(copy => (
             <div key={copy} style={{ display: "flex", alignItems: "center", gap: 0 }}>
@@ -2016,11 +2007,9 @@ export default function Login() {
         </div>
       </div>
 
-      
-      <div style={{ height: 20, background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`, position: "relative", zIndex: 1, marginTop: -1 }} />
+<div style={{ height: 20, background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`, position: "relative", zIndex: 1, marginTop: -1 }} />
 
-      
-      <section style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}>
+<section style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}>
         <ContainerScroll
           scrollContainer={lpScrollRef}
           titleComponent={
@@ -2040,7 +2029,7 @@ export default function Login() {
             </div>
           }
         >
-          
+
           <div ref={mockSectionRef} style={{ width: "100%", height: "100%", background: "#0d0d0f", display: "flex", flexDirection: "row", fontFamily: "inherit", overflow: "hidden" }}>
 
             {/* Sidebar */}
@@ -2514,11 +2503,9 @@ export default function Login() {
         </ContainerScroll>
       </section>
 
-      
-      <div style={{ height: 80, background: `linear-gradient(to bottom, ${DARK}, rgba(255,255,255,0.015))`, position: "relative", zIndex: 1, marginBottom: -1 }} />
+<div style={{ height: 80, background: `linear-gradient(to bottom, ${DARK}, rgba(255,255,255,0.015))`, position: "relative", zIndex: 1, marginBottom: -1 }} />
 
-      
-      <section
+<section
         id="features"
         className="scroll-section lp-section-lazy"
         style={{ position: "relative", zIndex: 1, padding: "88px 0" }}
@@ -2560,8 +2547,7 @@ export default function Login() {
           </p>
         </div>
 
-        
-        <div
+<div
           style={{ overflow: "hidden", position: "relative", cursor: "grab", userSelect: "none" }}
           onMouseEnter={() => {
             featHoveredRef.current = true;
@@ -2611,7 +2597,7 @@ export default function Login() {
             featDraggingRef.current = false;
           }}
         >
-          
+
           <div
             style={{
               position: "absolute",
@@ -2641,7 +2627,7 @@ export default function Login() {
             ref={featTrackRef}
             style={{ display: "flex", gap: 18, padding: "4px 0 12px", willChange: "transform" }}
           >
-            
+
             {[0, 1].map((pass) => (
               <div key={pass} style={{ display: "flex", gap: 18, flexShrink: 0 }}>
                 {[
@@ -2967,8 +2953,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      <section
+<section
         id="devices"
         className="scroll-section"
         style={{
@@ -3199,8 +3184,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      <section
+<section
         className="scroll-section lp-section-lazy"
         style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(59,130,246,0.07)" }}
       >
@@ -3428,8 +3412,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      <section
+<section
         id="security"
         className="scroll-section lp-section-lazy"
         style={{
@@ -3655,8 +3638,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      <section
+<section
         id="pricing"
         className="scroll-section lp-section-lazy"
         style={{
@@ -3708,7 +3690,7 @@ export default function Login() {
               margin: "0 auto",
             }}
           >
-            
+
             <div
               className="price-card sr sr-left sr-d2"
               style={{
@@ -3798,8 +3780,7 @@ export default function Login() {
               </button>
             </div>
 
-            
-            <div
+<div
               className="price-card sr sr-d2"
               style={{
                 padding: "28px 24px",
@@ -3923,8 +3904,7 @@ export default function Login() {
               </button>
             </div>
 
-            
-            <div
+<div
               className="price-card sr sr-right sr-d2"
               style={{
                 padding: "28px 24px",
@@ -4048,8 +4028,7 @@ export default function Login() {
             </div>
           </div>
 
-          
-          <p
+<p
             className="sr sr-d3"
             style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)" }}
           >
@@ -4059,8 +4038,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      <section
+<section
         style={{
           position: "relative",
           zIndex: 1,
@@ -4070,7 +4048,7 @@ export default function Login() {
           overflow: "hidden",
         }}
       >
-        
+
         <div
           className="lp-aurora-orb"
           style={{
@@ -4085,7 +4063,7 @@ export default function Login() {
             zIndex: 0,
           }}
         />
-        
+
         <div
           aria-hidden="true"
           style={{
@@ -4110,7 +4088,7 @@ export default function Login() {
         >
           ARTIXPOS
         </div>
-        
+
         <div style={{ position: "relative", zIndex: 1 }}>
         <h2
           className="sr"
@@ -4191,8 +4169,7 @@ export default function Login() {
         </div>
       </section>
 
-      
-      {showLoginPanel && (
+{showLoginPanel && (
         <>
           <div
             onClick={() => setShowLoginPanel(false)}

@@ -320,7 +320,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-md w-full rounded-2xl p-0 overflow-hidden gap-0">
-          {/* Header */}
+          {}
           <div className={["px-5 pt-5 pb-4 border-b border-border", isVoided ? "bg-gradient-to-br from-rose-500/10 via-transparent to-transparent" : "bg-gradient-to-br from-primary/10 via-transparent to-transparent"].join(" ")}>
             <DialogHeader>
               <div className="flex items-center gap-3 mb-1">
@@ -380,7 +380,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               )}
             </div>
 
-            {/* Voided banner */}
+            {}
             {isVoided && (
               <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-500/8 border border-rose-500/15">
                 <ShieldCheck className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
@@ -395,7 +395,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               </div>
             )}
 
-            {/* Refunded details banner */}
+            {}
             {isAlreadyRefunded && !isVoided && sale.refundedAt && (
               <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/8 border border-rose-500/15">
                 <ShieldCheck className="h-3.5 w-3.5 text-rose-500 shrink-0" />
@@ -407,7 +407,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
           </div>
 
           <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide">
-            {/* Items */}
+            {}
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
                 Order Items · {items.length} {items.length === 1 ? "item" : "items"}
@@ -462,7 +462,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               </div>
             </div>
 
-            {/* Notes */}
+            {}
             {sale.notes && (
               <div className="glass-card rounded-xl p-3">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Order Note</p>
@@ -470,7 +470,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               </div>
             )}
 
-            {/* Payment breakdown */}
+            {}
             {(
               <div className="glass-card rounded-xl p-3 space-y-2">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Payment Summary</p>
@@ -520,7 +520,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             )}
           </div>
 
-          {/* Action buttons */}
+          {}
           {!isVoided && (
             <div className={["px-5 space-y-2", isManagerOrAbove ? "pt-0 pb-2" : "pb-5"].join(" ")}>
               <Button
@@ -534,7 +534,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             </div>
           )}
 
-          {/* Refund footer — only for manager/owner with canRefund permission */}
+          {}
           {!permsLoading && canRefund && !isVoided && (
             <div className="px-5 pb-2">
               {isAlreadyRefunded ? (
@@ -555,7 +555,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
             </div>
           )}
 
-          {/* Void footer — only for managers/owners on non-voided sales */}
+          {}
           {!permsLoading && canVoid && !isVoided && !isAlreadyRefunded && (
             <div className="px-5 pb-5">
               <Button
@@ -580,7 +580,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
         </DialogContent>
       </Dialog>
 
-      {/* Refund Dialog */}
+      {}
       <Dialog open={showRefund} onOpenChange={setShowRefund}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -621,7 +621,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
         </DialogContent>
       </Dialog>
 
-      {/* Void Dialog */}
+      {}
       <Dialog open={showVoid} onOpenChange={setShowVoid}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

@@ -1,14 +1,8 @@
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
 
-// ── Redis singleton ────────────────────────────────────────────────────────────
-// Uses Upstash REST API — works across autoscale replicas with no persistent
-// TCP connection needed. Returns null when env vars are not configured so the
-// app degrades gracefully to in-memory fallback.
+let _redis: Redis | null | undefined = undefined;
 
-let _redis: Redis | null | undefined = undefined; // undefined = not yet initialised
-
-/** True only when Upstash env vars are set. Use to skip async Redis calls entirely. */
 export const redisAvailable = !!(
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
 );
@@ -32,10 +26,6 @@ export function getRedis(): Redis | null {
     return null;
   }
 }
-
-// ── Shared rate limiters ───────────────────────────────────────────────────────
-// Created lazily on first use. Matches the same windows as the express-rate-limit
-// fallback so behaviour is consistent whether Redis is available or not.
 
 let _authRatelimit: Ratelimit | null | undefined = undefined;
 let _apiRatelimit: Ratelimit | null | undefined = undefined;
@@ -80,10 +70,6 @@ export function getAiRatelimit(): Ratelimit | null {
   return _aiRatelimit;
 }
 
-// ── Low-level helpers ──────────────────────────────────────────────────────────
-// These wrap Redis commands with error swallowing so a Redis hiccup never
-// crashes the request — the caller falls back to the in-memory tier.
-
 export async function redisGet<T>(key: string): Promise<T | null> {
   const redis = getRedis();
   if (!redis) return null;
@@ -99,7 +85,7 @@ export async function redisSet<T>(key: string, value: T, ttlMs: number): Promise
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.set(key, value, { px: ttlMs }); // px = millisecond TTL
+    await redis.set(key, value, { px: ttlMs });
   } catch (err) {
     console.error("[redis] SET error:", err);
   }
@@ -119,7 +105,7 @@ export async function redisDelByPattern(pattern: string): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    // SCAN is safe on large keyspaces — non-blocking unlike KEYS.
+
     let cursor: string | number = 0;
     do {
       const [nextCursor, keys]: [string | number, string[]] = await redis.scan(cursor, { match: pattern, count: 100 });

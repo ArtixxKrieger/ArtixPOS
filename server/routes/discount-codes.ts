@@ -7,14 +7,12 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerDiscountCodeRoutes(app: Express): void {
 
-  // ── List discount codes ────────────────────────────────────────────────────
-  app.get("/api/discount-codes", requireAuth, requirePro, async (req, res) => {
+app.get("/api/discount-codes", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getDiscountCodes(getUserId(req));
     res.json(list);
   });
 
-  // ── Validate a discount code ───────────────────────────────────────────────
-  app.post("/api/discount-codes/validate", requireAuth, requirePro, async (req, res) => {
+app.post("/api/discount-codes/validate", requireAuth, requirePro, async (req, res) => {
     try {
       const { code, orderTotal } = z.object({ code: z.string(), orderTotal: z.number() }).parse(req.body);
       const dc = await storage.getDiscountCodeByCode(code, getUserId(req));
@@ -40,8 +38,7 @@ export function registerDiscountCodeRoutes(app: Express): void {
     }
   });
 
-  // ── Create discount code ───────────────────────────────────────────────────
-  app.post("/api/discount-codes", requireAuth, requirePro, async (req, res) => {
+app.post("/api/discount-codes", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertDiscountCodeSchema.parse(req.body);
       const dc = await storage.createDiscountCode(getUserId(req), input);
@@ -52,8 +49,7 @@ export function registerDiscountCodeRoutes(app: Express): void {
     }
   });
 
-  // ── Update discount code ───────────────────────────────────────────────────
-  app.put("/api/discount-codes/:id", requireAuth, requirePro, async (req, res) => {
+app.put("/api/discount-codes/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertDiscountCodeSchema.partial().parse(req.body);
       const dc = await storage.updateDiscountCode(Number(req.params.id), getUserId(req), input);
@@ -65,8 +61,7 @@ export function registerDiscountCodeRoutes(app: Express): void {
     }
   });
 
-  // ── Delete discount code ───────────────────────────────────────────────────
-  app.delete("/api/discount-codes/:id", requireAuth, requirePro, async (req, res) => {
+app.delete("/api/discount-codes/:id", requireAuth, requirePro, async (req, res) => {
     const id = Number(req.params.id);
     const uid = getUserId(req);
     const list = await storage.getDiscountCodes(uid);

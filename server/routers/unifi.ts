@@ -1,12 +1,5 @@
-/**
- * Ubiquiti UniFi Controller / Dream Machine adapter.
- *
- * Auth flow:
- *   1. POST /api/auth/login → get session cookie
- *   2. Use cookie + X-CSRF-Token for subsequent requests
- *
- * API docs: https://ubntwiki.com/products/software/unifi-controller/api
- */
+
+
 import type { RouterAdapter, RouterConfig } from "./types";
 
 function getBaseUrl(config: RouterConfig): string {
@@ -21,8 +14,6 @@ interface UnifiSession {
   expiresAt: number;
 }
 
-// Per-controller session cache — keyed by baseUrl so multi-tenant instances
-// don't thrash each other's sessions.
 const _sessionCache = new Map<string, UnifiSession>();
 
 async function getSession(config: RouterConfig): Promise<UnifiSession | null> {
@@ -55,8 +46,7 @@ async function getSession(config: RouterConfig): Promise<UnifiSession | null> {
 
     if (!setCookie) return null;
 
-    // Extract the unifises cookie
-    const match = setCookie.match(/unifises=([^;]+)/) || setCookie.match(/UNIFISES=([^;]+)/);
+const match = setCookie.match(/unifises=([^;]+)/) || setCookie.match(/UNIFISES=([^;]+)/);
     if (!match) return null;
 
     const session: UnifiSession = {
@@ -113,8 +103,7 @@ export const unifiAdapter: RouterAdapter = {
         };
       }
 
-      // Try fetching basic controller info
-      const cookie = `unifises=${match[1]}`;
+const cookie = `unifises=${match[1]}`;
       const csrfToken = res.headers.get("X-CSRF-Token") || "";
       const infoRes = await fetch(`${baseUrl}/api/self`, {
         headers: {
@@ -158,8 +147,7 @@ export const unifiAdapter: RouterAdapter = {
       const siteId = getSiteId(config);
       const baseUrl = getBaseUrl(config);
 
-      // UniFi creates hotspot vouchers as "guest" users with duration limits
-      const body = {
+const body = {
         cmd: "create-voucher",
         expires: "custom",
         n: 1,
@@ -168,9 +156,9 @@ export const unifiAdapter: RouterAdapter = {
         down: 0,
         bytes: 0,
         note: "ArtixPOS",
-        // duration in minutes
+
         expire_number: durationMinutes,
-        expire_unit: 1, // 1 = minutes
+        expire_unit: 1,
       };
 
       const res = await fetch(`${baseUrl}/api/s/${encodeURIComponent(siteId)}/cmd/hotspot`, {
@@ -192,10 +180,8 @@ export const unifiAdapter: RouterAdapter = {
       }
 
       const data: any = await res.json().catch(() => ({}));
-      // UniFi returns the voucher with both _id (MongoDB ObjectId) and code.
-      // We return _id so removeUser / sync can reliably delete by internal reference.
-      // Fall back to code if _id isn't present (some older UniFi versions).
-      const voucherId =
+
+const voucherId =
         data?.data?.[0]?._id ?? data?.data?._id ?? data?.data?.[0]?.code ?? data?.data?.code;
       return voucherId ? String(voucherId) : code;
     } catch (err: any) {
@@ -212,8 +198,7 @@ export const unifiAdapter: RouterAdapter = {
       const siteId = getSiteId(config);
       const baseUrl = getBaseUrl(config);
 
-      // Revoke the voucher by code
-      const body = {
+const body = {
         cmd: "revoke-voucher",
         _id: userId,
       };
@@ -242,8 +227,7 @@ export const unifiAdapter: RouterAdapter = {
       const siteId = getSiteId(config);
       const baseUrl = getBaseUrl(config);
 
-      // List vouchers and find the one matching the code
-      const listRes = await fetch(`${baseUrl}/api/s/${encodeURIComponent(siteId)}/stat/voucher`, {
+const listRes = await fetch(`${baseUrl}/api/s/${encodeURIComponent(siteId)}/stat/voucher`, {
         headers: {
           Cookie: session.cookie,
           "X-CSRF-Token": session.csrfToken,
@@ -260,7 +244,7 @@ export const unifiAdapter: RouterAdapter = {
       if (!Array.isArray(vouchers) || vouchers.length === 0) return;
 
       const voucher = vouchers.find((v: any) => v.code === name || v.note === "ArtixPOS");
-      // The revoke-voucher command requires the internal _id, not the code.
+
       const voucherId = voucher?._id ?? voucher?.code;
       if (voucherId) await unifiAdapter.removeUser(config, String(voucherId));
     } catch (err: any) {

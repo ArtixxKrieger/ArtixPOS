@@ -17,11 +17,8 @@ export function registerSettingsRoutes(app: Express): void {
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const cacheKey = settingsCacheKey(uid);
-    // getOrFetch deduplicates concurrent cache-miss requests (stampede prevention).
-    // Settings can be null pre-onboarding, so we use a sentinel to distinguish
-    // "not cached" from "cached but null". A null result is NOT cached so the
-    // next request re-checks after the user completes onboarding.
-    const cached = await cache.getAsync<object>(cacheKey);
+
+const cached = await cache.getAsync<object>(cacheKey);
     if (cached) {
       const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
@@ -32,7 +29,7 @@ export function registerSettingsRoutes(app: Express): void {
 
     const settings = await storage.getSettings(uid);
     if (!settings) {
-      // No settings yet (pre-onboarding) — don't cache, it will change soon
+
       return res.json({
         id: 0,
         userId: uid,
@@ -48,10 +45,7 @@ export function registerSettingsRoutes(app: Express): void {
       });
     }
 
-    // Auto-heal: existing users set up before onboarding was introduced have
-    // onboardingComplete = 0 in the DB but have already configured their store.
-    // If the store name has been customised (≠ default), mark onboarding as done.
-    if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
+if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
       storage.updateSettings(uid, { onboardingComplete: 1 }).catch(() => {});
       const healed = { ...settings, onboardingComplete: 1 };
       await cache.setAsync(cacheKey, healed, TTL.SETTINGS);
@@ -59,10 +53,7 @@ export function registerSettingsRoutes(app: Express): void {
       return res.json(healed);
     }
 
-    // Auto-heal: if the store settings have a businessType but the main branch
-    // has a different (or missing) businessType, sync them. This fixes stores
-    // where the branch was seeded with a different type than what the owner set.
-    const settingsBusinessType = (settings as any).businessType as string | null | undefined;
+const settingsBusinessType = (settings as any).businessType as string | null | undefined;
     const settingsBusinessSubType = (settings as any).businessSubType as string | null | undefined;
     if (settingsBusinessType) {
       const tenantIdForHeal = getTenantId(req);
@@ -98,17 +89,9 @@ export function registerSettingsRoutes(app: Express): void {
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-      // Bust settings cache so the next GET returns fresh data
-      cache.del(settingsCacheKey(uid));
+cache.del(settingsCacheKey(uid));
 
-      // Guard: ensure the user row exists before inserting settings (FK constraint).
-      // Uses dbSystem (postgres / BYPASSRLS) so the check never fails due to RLS
-      // and never poisons the tenant-context transaction with an aborted query.
-      // IMPORTANT: we only auto-create for OAuth/native providers (Google, Facebook,
-      // Capacitor). Email/password users are always created during /api/auth/register
-      // so a missing row means the account was deleted — do NOT recreate it or a
-      // deleted account can be brought back by replaying a stale JWT.
-      try {
+try {
         const [existingUser] = await dbSystem
           .select({ id: users.id })
           .from(users)
@@ -118,7 +101,7 @@ export function registerSettingsRoutes(app: Express): void {
           const u = req.user!;
           const isEmailUser = !u.provider || u.provider === "email";
           if (isEmailUser) {
-            // Email users are hard-deleted — do not resurrect from a stale JWT.
+
             return res.status(401).json({ message: "Account not found. Please log in again." });
           }
           console.warn(
@@ -133,7 +116,7 @@ export function registerSettingsRoutes(app: Express): void {
               avatar: u.avatar ?? null,
               provider: u.provider ?? "email",
               providerId: u.email ?? u.id,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             } as any)
             .onConflictDoNothing();
         }
@@ -141,9 +124,7 @@ export function registerSettingsRoutes(app: Express): void {
         console.error("[settings] Failed to ensure user row:", userCheckErr);
       }
 
-      // Strip WiFi voucher fields and Pro posFeatures server-side if not on Pro.
-      // This prevents free users from bypassing the UI paywall via direct API calls.
-      const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
+const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
       if (tenantIdForProCheck) {
         try {
           const sub = await getSubscription(tenantIdForProCheck);
@@ -172,9 +153,8 @@ export function registerSettingsRoutes(app: Express): void {
             for (const field of proOnlyWifiFields) {
               delete (input as any)[field];
             }
-            // Strip Pro POS feature flags — free users cannot enable Pro features
-            // by directly calling the API (all Pro flags are forced to false).
-            if ((input as any).posFeatures && typeof (input as any).posFeatures === "object") {
+
+if ((input as any).posFeatures && typeof (input as any).posFeatures === "object") {
               const pf = (input as any).posFeatures as Record<string, unknown>;
               for (const k of PRO_POS_FEATURE_KEYS) pf[k as string] = false;
             }
@@ -215,22 +195,16 @@ export function registerSettingsRoutes(app: Express): void {
         });
       }
 
-      // Auto-create tenant + main branch when owner completes onboarding
-      if (input.onboardingComplete === 1) {
+if (input.onboardingComplete === 1) {
         try {
           const user = req.user!;
           const branchName =
             (input.storeName as string | undefined) || settings.storeName || "Main Branch";
 
-          // Always re-read the user row from the DB instead of trusting the JWT's
-          // tenantId. The JWT is stale right after registration, and a double-clicked
-          // "Complete onboarding" used to race itself into creating two tenants.
-          const [freshUser] = await db.select().from(users).where(eq(users.id, uid));
+const [freshUser] = await db.select().from(users).where(eq(users.id, uid));
           let currentTenantId = (freshUser?.tenantId as string | null) ?? null;
 
-          // If the user has no tenant yet (email/password owners), create one —
-          // guarded by UPDATE … WHERE tenantId IS NULL so concurrent requests can't both win.
-          if (!currentTenantId) {
+if (!currentTenantId) {
             const newTenant = await createTenant(branchName);
             const claim = await db.execute(
               sql`UPDATE users SET tenant_id = ${newTenant.id} WHERE id = ${uid} AND tenant_id IS NULL`,
@@ -239,9 +213,8 @@ export function registerSettingsRoutes(app: Express): void {
             if (claimed) {
               currentTenantId = newTenant.id;
             } else {
-              // Another concurrent request beat us to it — drop the spare tenant we just
-              // created and use the one already linked.
-              const [refreshed] = await db.select().from(users).where(eq(users.id, uid));
+
+const [refreshed] = await db.select().from(users).where(eq(users.id, uid));
               currentTenantId = refreshed?.tenantId ?? null;
               try {
                 await db.delete(tenants).where(eq(tenants.id, newTenant.id));
@@ -259,8 +232,7 @@ export function registerSettingsRoutes(app: Express): void {
             }
           }
 
-          // Create main branch if one doesn't already exist.
-          if (currentTenantId) {
+if (currentTenantId) {
             const existingBranches = await getBranches(currentTenantId);
             const hasMain = existingBranches.some((b: any) => b.isMain);
             if (!hasMain) {
@@ -289,11 +261,7 @@ export function registerSettingsRoutes(app: Express): void {
         }
       }
 
-      // Sync storeName / businessType / businessSubType to the main branch.
-      // The header in the client reads activeBranch.name (from the JWT/auth endpoint),
-      // NOT user_settings.store_name directly. So whenever storeName changes we must
-      // also update the branch name, otherwise the header keeps showing the stale name.
-      const tenantId = getTenantId(req);
+const tenantId = getTenantId(req);
       if (tenantId && input.onboardingComplete !== 1) {
         try {
           const branches = await getBranches(tenantId);
@@ -317,8 +285,7 @@ export function registerSettingsRoutes(app: Express): void {
         }
       }
 
-      // Log settings changes (skip onboarding-only updates)
-      if (input.onboardingComplete !== 1 && tenantId) {
+if (input.onboardingComplete !== 1 && tenantId) {
         const changed: Record<string, unknown> = {};
         if (input.taxRate !== undefined) changed.taxRate = input.taxRate;
         if (input.loyaltyPointsPerUnit !== undefined)

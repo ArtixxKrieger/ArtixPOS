@@ -41,19 +41,14 @@ export function useSales(params?: SalesQueryParams) {
     queryFn: async () => {
       const idbKey = buildCacheKey(url, params);
 
-      // ── IDB-first pattern ────────────────────────────────────────────────
-      // Return cached data immediately so the list isn't blank while the
-      // network request is in-flight or when offline.  Background-refresh
-      // from the server and merge, preserving any offline-queued sales that
-      // haven't been synced yet.
-      const idbData = await getCached<ReturnType<typeof api.sales.list.responses[200]["parse"]>>(idbKey);
+const idbData = await getCached<ReturnType<typeof api.sales.list.responses[200]["parse"]>>(idbKey);
 
       if (idbData !== null) {
         nativeFetch(url)
           .then(async (res) => {
             if (!res.ok) return;
             const fresh = api.sales.list.responses[200].parse(await res.json());
-            // Keep offline-queued sales (temp IDs) not yet synced to the server.
+
             const current = qc.getQueryData<any[]>(cacheKey);
             const freshIds = new Set((fresh ?? []).map((s: any) => String(s.id)));
             const offlinePending = (current ?? []).filter(
@@ -62,15 +57,14 @@ export function useSales(params?: SalesQueryParams) {
             const merged = offlinePending.length > 0
               ? [...offlinePending, ...fresh]
               : fresh;
-            setCached(idbKey, fresh).catch(() => {}); // IDB always gets server truth
+            setCached(idbKey, fresh).catch(() => {});
             qc.setQueryData(cacheKey, merged);
           })
           .catch(() => {});
         return idbData;
       }
 
-      // No IDB — must wait for network
-      try {
+try {
         const res = await nativeFetch(url);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.sales.list.responses[200].parse(await res.json());
@@ -90,7 +84,6 @@ export function useSales(params?: SalesQueryParams) {
   });
 }
 
-// Same budget as useCreatePendingOrder — 10 s before falling to offline queue.
 const SALE_TIMEOUT_MS = 10_000;
 
 export function useCreateSale() {
@@ -114,16 +107,14 @@ export function useCreateSale() {
         });
       } catch {
         clearTimeout(timer);
-        // Offline or timed out — pin the temp ID before async work so the
-        // queue item and the optimistic cache entry share the exact same value.
-        // offlineId lets foldQueue cancel the sale if it's voided offline too.
-        const tempId = makeOfflineId();
+
+const tempId = makeOfflineId();
         await queueMutation(
           "POST",
           api.sales.create.path,
           data,
           "sale",
-          tempId, // offlineId
+          tempId,
         );
         const optimistic = {
           ...data,
@@ -131,16 +122,13 @@ export function useCreateSale() {
           createdAt: new Date().toISOString(),
           _pendingSync: true,
         };
-        // Prepend to sales IDB cache (most-recent-first order)
+
         await patchCached(BASE_URL, (prev: any[]) => [
           optimistic,
           ...(Array.isArray(prev) ? prev : []),
         ]);
-        // Update dashboard stats IDB cache so the offline sale appears
-        // in today's revenue totals immediately.
-        // MUST be awaited — see use-pending-orders.ts for the full explanation
-        // of why fire-and-forget causes the optimistic entry to be clobbered.
-        const statsPrev = await getCached<any>("/api/dashboard/stats");
+
+const statsPrev = await getCached<any>("/api/dashboard/stats");
         if (statsPrev) {
           await setCached("/api/dashboard/stats", {
             ...statsPrev,
@@ -156,8 +144,7 @@ export function useCreateSale() {
         throw new Error((body as any)?.message ?? `Server error ${res.status}`);
       }
 
-      // Guard against truncated response body — sale is already on the server.
-      let result: ReturnType<typeof api.sales.create.responses[201]["parse"]>;
+let result: ReturnType<typeof api.sales.create.responses[201]["parse"]>;
       try {
         result = api.sales.create.responses[201].parse(await res.json());
       } catch {
@@ -166,7 +153,7 @@ export function useCreateSale() {
       return result;
     },
     onSuccess: (result) => {
-      // Prepend to cache instantly — no refetch needed
+
       queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) => [
         result,
         ...(old ?? []),
@@ -174,15 +161,13 @@ export function useCreateSale() {
       const fresh = queryClient.getQueryData<any[]>([BASE_URL]);
       if (fresh) setCached(BASE_URL, fresh);
 
-      // If this was an offline-queued sale, also update the dashboard stats
-      // TanStack cache so today's revenue counter reflects it immediately.
-      if (isOfflineId(String(result.id ?? ""))) {
+if (isOfflineId(String(result.id ?? ""))) {
         queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
           if (!old || !Array.isArray(old.todaySales)) return old;
           return { ...old, todaySales: [result, ...old.todaySales] };
         });
       }
-      // Deduct product stock in cache
+
       if (Array.isArray(result.items)) {
         const deductions = new Map<number, number>();
         for (const item of result.items as any[]) {
@@ -237,7 +222,6 @@ export function useDeleteSale() {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useDeletedSales() {
   return useQuery({
     queryKey: ["/api/sales/deleted"],

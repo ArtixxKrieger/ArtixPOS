@@ -6,10 +6,6 @@ import { PRO_POS_FEATURE_KEYS, DEFAULT_POS_FEATURES } from "@shared/schema";
 export { PRO_POS_FEATURE_KEYS, DEFAULT_POS_FEATURES };
 export type { PosFeatures };
 
-/**
- * Returns the effective posFeatures for the current tenant, falling back to
- * business-type-aware defaults when the owner hasn't completed setup yet.
- */
 export function usePosFeatures() {
   const { data: settings, isLoading } = useSettings();
   const { isPro, isLoading: subLoading } = useSubscription();
@@ -22,7 +18,7 @@ export function usePosFeatures() {
   async function saveFeatures(patch: Partial<PosFeatures>) {
     const current: PosFeatures = features ?? { ...DEFAULT_POS_FEATURES };
     const updated: PosFeatures = { ...current, ...patch };
-    // Client-side guard: strip Pro flags if not subscribed
+
     if (!isPro) {
       for (const k of PRO_POS_FEATURE_KEYS) updated[k] = false;
     }

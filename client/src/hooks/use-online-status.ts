@@ -24,16 +24,12 @@ export interface OnlineStatus {
   triggerRetryFailed: () => Promise<void>;
 }
 
-// ── Connectivity probe ────────────────────────────────────────────────────
-// FIX #4: Use navigator.onLine as the primary hardware signal. Only probe
-// the server to CONFIRM connectivity — never to deny it if the hardware
-// says we're connected (prevents false "Offline" badge with active Wi-Fi).
 async function confirmOnline(signal?: AbortSignal): Promise<boolean> {
-  // Hardware says offline — trust it immediately, skip network probe.
+
   if (!navigator.onLine) return false;
 
   const controller = new AbortController();
-  // Shortened to 2s — we already know hardware is up, just confirming server
+
   const timer = setTimeout(() => controller.abort(), 2000);
   signal?.addEventListener("abort", () => controller.abort(), { once: true });
   try {
@@ -44,20 +40,16 @@ async function confirmOnline(signal?: AbortSignal): Promise<boolean> {
     });
     return true;
   } catch {
-    // Network probe failed but hardware is up — could be a transient server
-    // issue. Return true so we don't incorrectly show "Offline" with Wi-Fi.
-    // The next poll cycle will re-confirm.
-    return navigator.onLine;
+
+return navigator.onLine;
   } finally {
     clearTimeout(timer);
   }
 }
 
-// ── Adaptive poll interval ────────────────────────────────────────────────
 const BASE_POLL_MS = 8_000;
 const MAX_POLL_MS  = 64_000;
 
-// ── Background Sync registration ─────────────────────────────────────────
 async function registerBackgroundSync(): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
   try {
@@ -69,10 +61,9 @@ async function registerBackgroundSync(): Promise<void> {
 }
 
 export function useOnlineStatus(): OnlineStatus {
-  // FIX #4: Initialize from navigator.onLine immediately — accurate hardware
-  // state on first render, zero latency, no HTTP probe needed.
-  const [isOnline, setIsOnline]               = useState(() => navigator.onLine);
-  // FIX #4: isReady is true immediately — hardware state is available at once.
+
+const [isOnline, setIsOnline]               = useState(() => navigator.onLine);
+
   const [isReady, _setIsReady]                = useState(true);
   const [isSyncing, setIsSyncing]             = useState(false);
   const [salesQueueCount, setSalesQueueCount] = useState(0);
@@ -87,13 +78,10 @@ export function useOnlineStatus(): OnlineStatus {
   const pollIntervalRef     = useRef(BASE_POLL_MS);
   const consecutiveOnline   = useRef(0);
   const pollTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Prevents firing a full confirmOnline + sync cycle on every rapid tab switch.
-  // 30s cooldown — the adaptive poller already covers longer-interval checks.
-  const lastVisibilityCheckRef = useRef(0);
 
-  // ── Queue count refresh ────────────────────────────────────────────────
-  // Single IDB scan replaces 3 separate getAll calls.
-  const refreshCounts = useCallback(async () => {
+const lastVisibilityCheckRef = useRef(0);
+
+const refreshCounts = useCallback(async () => {
     const { sales, total, failed } = await getQueueStats();
     if (!mountedRef.current) return total;
     setSalesQueueCount(sales);
@@ -102,8 +90,7 @@ export function useOnlineStatus(): OnlineStatus {
     return total;
   }, []);
 
-  // ── Core sync runner ──────────────────────────────────────────────────
-  const doSync = useCallback(async () => {
+const doSync = useCallback(async () => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
     if (mountedRef.current) setIsSyncing(true);
@@ -131,8 +118,7 @@ export function useOnlineStatus(): OnlineStatus {
     }
   }, [refreshCounts]);
 
-  // ── Came-online handler ───────────────────────────────────────────────
-  const handleCameOnline = useCallback(async () => {
+const handleCameOnline = useCallback(async () => {
     if (isCheckingRef.current) {
       checkAbortRef.current?.abort();
     }
@@ -155,19 +141,14 @@ export function useOnlineStatus(): OnlineStatus {
           registerBackgroundSync();
         }
 
-        // Always refresh all data when coming back online so that stale or
-        // errored queries (dashboard stats, sales, products…) recover
-        // immediately — even when there is nothing in the offline queue.
-        // Fire-and-forget so it never blocks the online status update.
-        refreshAllData().catch(() => {});
+refreshAllData().catch(() => {});
       }
     } finally {
       if (!ac.signal.aborted) isCheckingRef.current = false;
     }
   }, [doSync, refreshCounts]);
 
-  // ── Public trigger functions ──────────────────────────────────────────
-  const triggerSync = useCallback(async () => {
+const triggerSync = useCallback(async () => {
     await handleCameOnline();
   }, [handleCameOnline]);
 
@@ -178,12 +159,10 @@ export function useOnlineStatus(): OnlineStatus {
     await doRetryFailed();
   }, [doRetryFailed]);
 
-  // ── Main effect: listeners + polling ─────────────────────────────────
-  useEffect(() => {
+useEffect(() => {
     mountedRef.current = true;
 
-    // ── BroadcastChannel listener ──────────────────────────────────────
-    let channel: BroadcastChannel | null = null;
+let channel: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
       try {
         channel = new BroadcastChannel(SYNC_CHANNEL_NAME);
@@ -202,8 +181,7 @@ export function useOnlineStatus(): OnlineStatus {
       } catch {}
     }
 
-    // ── Service-worker TRIGGER_SYNC message ───────────────────────────
-    const swMessageHandler = (e: MessageEvent) => {
+const swMessageHandler = (e: MessageEvent) => {
       if (e.data?.type === "TRIGGER_SYNC" && mountedRef.current) {
         handleCameOnline();
       }
@@ -212,28 +190,23 @@ export function useOnlineStatus(): OnlineStatus {
       navigator.serviceWorker.addEventListener("message", swMessageHandler);
     }
 
-    // ── FIX #4: Background probe (non-blocking) ────────────────────────
-    // Hardware state is already set. Run the server probe in the background
-    // to confirm, then kick off any pending sync. This never blocks isReady.
-    const backgroundInit = async () => {
-      // Refresh queue counts immediately — IDB reads are fast
+const backgroundInit = async () => {
+
       const total = await refreshCounts();
 
-      // If hardware says we're online, run a background server probe
-      if (navigator.onLine) {
+if (navigator.onLine) {
         const online = await confirmOnline();
         if (!mountedRef.current) return;
         setIsOnline(online);
         if (online && total > 0) {
-          doSync(); // fire-and-forget — doesn't block anything
+          doSync();
           registerBackgroundSync();
         }
       }
     };
     backgroundInit();
 
-    // ── Event listeners ───────────────────────────────────────────────
-    const handleOffline = () => {
+const handleOffline = () => {
       if (mountedRef.current) {
         setIsOnline(false);
         consecutiveOnline.current = 0;
@@ -243,7 +216,7 @@ export function useOnlineStatus(): OnlineStatus {
 
     let debounceTimer: ReturnType<typeof setTimeout>;
     const handleOnline = () => {
-      // Hardware came back up — immediately reflect it, then confirm server
+
       if (mountedRef.current) setIsOnline(true);
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { handleCameOnline(); }, 300);
@@ -255,17 +228,14 @@ export function useOnlineStatus(): OnlineStatus {
         if (mountedRef.current) setIsOnline(false);
         return;
       }
-      // Rate-limit: skip if we ran a check within the last 30 s.
-      // The adaptive poller already covers periodic re-checks; firing a full
-      // confirmOnline + sync cycle on every rapid tab switch is wasteful.
-      const now = Date.now();
+
+const now = Date.now();
       if (now - lastVisibilityCheckRef.current < 30_000) return;
       lastVisibilityCheckRef.current = now;
       handleCameOnline();
     };
 
-    // ── Adaptive poller ───────────────────────────────────────────────
-    let consecutiveOffline = 0;
+let consecutiveOffline = 0;
 
     const schedulePoll = () => {
       if (!mountedRef.current) return;

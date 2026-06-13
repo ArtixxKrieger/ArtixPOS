@@ -258,7 +258,7 @@ const options: swaggerJsdoc.Options = {
 export function setupSwagger(app: Express): void {
   const spec = swaggerJsdoc(options);
   app.use("/api/docs", swaggerUi.serve);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   app.get("/api/docs", swaggerUi.setup(spec as any, {
     customCss: ".swagger-ui .topbar { display: none }",
     customSiteTitle: "ArtixPOS API Docs",

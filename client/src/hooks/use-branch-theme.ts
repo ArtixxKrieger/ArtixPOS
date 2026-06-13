@@ -74,11 +74,7 @@ export function useBranchTheme() {
   const { user } = useAuth();
   const { data: branches = [] } = useBranches();
 
-  // Prefer the color embedded in the auth response (available as soon as
-  // /api/auth/me resolves, no extra fetch needed). Fall back to the branches
-  // list for the rare case where the auth cache is stale or the branch was
-  // just updated.
-  const authColor = user?.activeBranch?.color ?? null;
+const authColor = user?.activeBranch?.color ?? null;
   const branchListColor = branches.find((b) => b.id === user?.activeBranchId)?.color ?? null;
   const color = authColor ?? branchListColor;
 

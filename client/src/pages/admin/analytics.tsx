@@ -14,7 +14,6 @@ import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/* ── Animated Counter ─────────────────────────────── */
 function Counter({ value, prefix = "", decimals }: { value: number; prefix?: string; decimals?: number }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -32,8 +31,6 @@ function Counter({ value, prefix = "", decimals }: { value: number; prefix?: str
   return <>{prefix}{display.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d })}</>;
 }
 
-/* ── Growth Badge ─────────────────────────────────── */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function GrowthBadge({ pct }: { pct: number }) {
   const up = pct >= 0;
   if (pct === 0) return <span className="text-[10px] text-muted-foreground/50 mt-1 flex items-center gap-0.5"><Minus className="h-2.5 w-2.5" /> No change</span>;
@@ -45,7 +42,6 @@ function GrowthBadge({ pct }: { pct: number }) {
   );
 }
 
-/* ── Insight Card ─────────────────────────────────── */
 function InsightCard({ icon: Icon, text, color }: { icon: any; text: string; color: string }) {
   return (
     <div className="flex items-start gap-3 p-3.5 bg-secondary/40 dark:bg-white/[0.04] border border-border/30 rounded-2xl">
@@ -70,7 +66,6 @@ const tooltipStyle = {
   fontWeight: 500,
 };
 
-/* ── Toggle Group ─────────────────────────────────── */
 function ToggleGroup<T extends string>({ value, onChange, options }: {
   value: T; onChange: (v: T) => void;
   options: { value: T; label: string }[];
@@ -127,8 +122,7 @@ export default function AdminAnalytics() {
     ? ((todayRevenue / analyticsData.length) / (totalRevenue / Math.max(analyticsData.reduce((s, a) => s + (a.totalOrders > 0 ? 1 : 0), 0), 1))) * 100 - 100
     : 0;
 
-  /* Bar chart data */
-  const barData = analyticsData.map((a, i) => ({
+const barData = analyticsData.map((a, i) => ({
     name: a.branch.name.length > 12 ? a.branch.name.slice(0, 12) + "…" : a.branch.name,
     fullName: a.branch.name,
     revenue: a.totalRevenue,
@@ -138,8 +132,7 @@ export default function AdminAnalytics() {
     color: CHART_COLORS[i % CHART_COLORS.length],
   }));
 
-  /* Pie chart data */
-  const pieData = analyticsData
+const pieData = analyticsData
     .filter(a => a.totalRevenue > 0)
     .map((a, i) => ({
       name: a.branch.name,
@@ -147,16 +140,14 @@ export default function AdminAnalytics() {
       color: CHART_COLORS[i % CHART_COLORS.length],
     }));
 
-  /* Top branch */
-  const topBranch = analyticsData.length > 0
+const topBranch = analyticsData.length > 0
     ? analyticsData.reduce((a, b) => b.totalRevenue > a.totalRevenue ? b : a, analyticsData[0])
     : null;
   const topToday = analyticsData.length > 0
     ? analyticsData.reduce((a, b) => b.todayRevenue > a.todayRevenue ? b : a, analyticsData[0])
     : null;
 
-  /* Smart insights */
-  const insights: { icon: any; text: string; color: string }[] = [];
+const insights: { icon: any; text: string; color: string }[] = [];
   if (topBranch && topBranch.totalRevenue > 0) {
     const pct = totalRevenue > 0 ? ((topBranch.totalRevenue / totalRevenue) * 100).toFixed(1) : "0";
     insights.push({
@@ -210,7 +201,7 @@ export default function AdminAnalytics() {
   return (
     <div className="space-y-5 page-enter pb-6">
 
-      {/* ── KPI Cards ── */}
+      {}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4 stagger-children">
         {[
           {
@@ -267,7 +258,7 @@ export default function AdminAnalytics() {
         ))}
       </div>
 
-      {/* ── Tax Summary ── */}
+      {}
       <div className="glass-card rounded-3xl p-5 md:p-6">
         <div className="flex items-center gap-2 mb-4">
           <div className="h-7 w-7 rounded-xl bg-amber-500/10 flex items-center justify-center">
@@ -295,7 +286,7 @@ export default function AdminAnalytics() {
         </div>
       </div>
 
-      {/* ── Branch Comparison Bar Chart ── */}
+      {}
       {analyticsData.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
@@ -342,11 +333,11 @@ export default function AdminAnalytics() {
         </div>
       )}
 
-      {/* ── Pie Chart + Today Breakdown ── */}
+      {}
       {analyticsData.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
 
-          {/* Revenue Distribution Pie */}
+          {}
           <div className="glass-card rounded-3xl overflow-hidden">
             <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
               <div className="h-7 w-7 rounded-xl bg-purple-500/10 flex items-center justify-center">
@@ -405,7 +396,7 @@ export default function AdminAnalytics() {
             </div>
           </div>
 
-          {/* Today's Branch Performance */}
+          {}
           <div className="glass-card rounded-3xl overflow-hidden">
             <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
               <div className="h-7 w-7 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -523,7 +514,7 @@ export default function AdminAnalytics() {
         </div>
       )}
 
-      {/* ── Smart Insights ── */}
+      {}
       {insights.length > 0 && (
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">

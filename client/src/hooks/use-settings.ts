@@ -8,10 +8,6 @@ import { nativeFetch } from "@/lib/queryClient";
 
 const SETTINGS_URL = api.settings.get.path;
 
-// ── IDB pre-warm ─────────────────────────────────────────────────────────────
-// FIX #1: Start reading IDB the moment this module loads so that by the time
-// any component calls useSettings(), the cached value is already in memory.
-// This reduces the "cold IDB read" from ~50-200ms to ~0ms on most calls.
 let _prewarmedSettings: unknown = undefined;
 let _prewarmDone = false;
 
@@ -24,19 +20,13 @@ getCached(SETTINGS_URL)
     _prewarmDone = true;
   });
 
-/**
- * Clears the in-memory settings prewarm cache and the IDB entry.
- * Must be called on logout to prevent cross-user data leakage:
- * the prewarm module-level variable persists across auth state changes
- * within the same page session, and the IDB key is not userId-scoped.
- */
 export async function clearSettingsPrewarm(): Promise<void> {
   _prewarmedSettings = undefined;
   _prewarmDone = false;
   try {
     await setCached(SETTINGS_URL, null as any);
   } catch {
-    /* best-effort */
+
   }
 }
 
@@ -47,10 +37,9 @@ function isNetworkOrTimeoutError(err: unknown): boolean {
   return false;
 }
 
-// ── Fetch with a hard timeout, returns null on any network/timeout failure ───
 async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
   const controller = new AbortController();
-  // 15s timeout — accounts for Supabase/Vercel cold starts which can take 5-10s
+
   const timeoutId = setTimeout(
     () => controller.abort(new DOMException("Settings fetch timeout", "TimeoutError")),
     15_000,
@@ -77,13 +66,13 @@ async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown |
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`${res.status}`);
     const data = api.settings.get.responses[200].parse(await res.json());
-    // Fire-and-forget — don't block returning data to React
+
     setCached(SETTINGS_URL, data).catch(() => {});
     return data;
   } catch (err) {
     clearTimeout(timeoutId);
-    if (isNetworkOrTimeoutError(err)) return undefined; // signal: use IDB
-    throw err; // non-network error — propagate
+    if (isNetworkOrTimeoutError(err)) return undefined;
+    throw err;
   }
 }
 
@@ -94,39 +83,32 @@ export function useSettings() {
   const query = useQuery({
     queryKey: [SETTINGS_URL],
     staleTime: Infinity,
-    // Serve IDB cache as placeholder while real fetch runs in background.
-    // CRITICAL: only use a cached value as placeholder — never return null/undefined,
-    // which would be misread as "settings loaded but empty" and trigger false
-    // onboarding redirects for returning users on a cold start.
-    placeholderData: () =>
+
+placeholderData: () =>
       (_prewarmDone && _prewarmedSettings != null ? _prewarmedSettings : undefined) as any,
     queryFn: async ({ signal }) => {
-      // If definitely offline, skip network entirely and return IDB immediately.
+
       if (!navigator.onLine) {
         const cached =
           await getCached<ReturnType<(typeof api.settings.get.responses)[200]["parse"]>>(
             SETTINGS_URL,
           );
-        // No cache + offline → throw so React Query retries when reconnected
+
         if (cached == null) throw new Error("Offline and no cached settings");
         return cached;
       }
 
-      // Try network with a 15s timeout (cold starts can be slow)
-      const result = await fetchSettingsFromNetwork(signal);
+const result = await fetchSettingsFromNetwork(signal);
 
-      // undefined = network/timeout error → fall back to IDB
-      if (result === undefined) {
+if (result === undefined) {
         const cached =
           await getCached<ReturnType<(typeof api.settings.get.responses)[200]["parse"]>>(
             SETTINGS_URL,
           );
-        // IDB has a prior session's data → use it; React Query will refetch next time
+
         if (cached != null) return cached;
-        // Both network failed AND IDB is empty → throw so React Query retries
-        // (returning null here would cache null forever with staleTime:Infinity,
-        // causing needsOnboarding to stay false for new users indefinitely)
-        throw new Error("Settings fetch timed out");
+
+throw new Error("Settings fetch timed out");
       }
 
       return result as ReturnType<(typeof api.settings.get.responses)[200]["parse"]> | null;
@@ -158,12 +140,8 @@ export function useSettings() {
       .then((r) => r.json())
       .then((updated) => {
         setCached(SETTINGS_URL, updated);
-        // Don't call queryClient.setQueryData here —
-        // auto-sync only patches timezone/currency,
-        // and the server's response may include auto-healed
-        // onboardingComplete=1 which triggers a second render
-        // (perceived as a "reload").
-      })
+
+})
       .catch(() => {});
   }, [query.data, queryClient]);
 
@@ -175,33 +153,22 @@ export function useUpdateSettings() {
 
   return useMutation({
     mutationFn: async (data: Partial<InsertUserSetting>) => {
-      // FIX #2: OPTIMISTIC UPDATE — apply to both React Query cache and IDB
-      // immediately, before touching the network. The UI reflects changes
-      // instantly; Save button is free as soon as this function returns.
-      const current = queryClient.getQueryData<any>([SETTINGS_URL]);
+
+const current = queryClient.getQueryData<any>([SETTINGS_URL]);
       const optimistic = current ? { ...current, ...data } : data;
 
-      // Synchronously update React Query cache — zero latency, no render blocked
-      queryClient.setQueryData([SETTINGS_URL], optimistic);
+queryClient.setQueryData([SETTINGS_URL], optimistic);
 
-      // Update IDB (fire-and-forget — non-blocking)
-      setCached(SETTINGS_URL, optimistic).catch(() => {});
+setCached(SETTINGS_URL, optimistic).catch(() => {});
 
-      // Update prewarm cache for next mount
-      _prewarmedSettings = optimistic;
+_prewarmedSettings = optimistic;
 
-      // FIX #2: If offline, queue immediately without attempting network at all
-      if (!navigator.onLine) {
+if (!navigator.onLine) {
         await queueMutation("PUT", api.settings.update.path, data);
         return optimistic as any;
       }
 
-      // Give the server up to 30 s — matching REQUEST_TIMEOUT_MS on the server.
-      // Vercel cold-starts + a cold DB (Neon/Supabase free tier) can easily take
-      // 5-10 s for the first save; a 5 s cut-off was silently queueing valid saves
-      // as "offline" mutations. Optimistic update is already applied above, so the
-      // user never waits for this timer.
-      const controller = new AbortController();
+const controller = new AbortController();
       const timer = setTimeout(
         () => controller.abort(new DOMException("Settings save timeout", "TimeoutError")),
         30_000,
@@ -226,12 +193,11 @@ export function useUpdateSettings() {
             body = { message: rawText || res.statusText };
           }
 
-          // For permanent server errors (4xx), revert the optimistic update
-          if (res.status >= 400 && res.status < 500) {
+if (res.status >= 400 && res.status < 500) {
             if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
             _prewarmedSettings = current;
           } else {
-            // 5xx — queue for retry, keep optimistic value shown
+
             await queueMutation("PUT", api.settings.update.path, data);
           }
 
@@ -245,8 +211,7 @@ export function useUpdateSettings() {
 
         const result = api.settings.update.responses[200].parse(await res.json());
 
-        // Update with the canonical server response (may include computed fields)
-        queryClient.setQueryData([SETTINGS_URL], result);
+queryClient.setQueryData([SETTINGS_URL], result);
         setCached(SETTINGS_URL, result).catch(() => {});
         _prewarmedSettings = result;
 
@@ -254,17 +219,15 @@ export function useUpdateSettings() {
       } catch (err) {
         clearTimeout(timer);
         if (isNetworkOrTimeoutError(err)) {
-          // Network/timeout — optimistic value is already shown, queue for sync
+
           await queueMutation("PUT", api.settings.update.path, data);
           return optimistic as any;
         }
         throw err;
       }
     },
-    // onSuccess: cache is already up-to-date from mutationFn — no refetch needed.
-    // We still call setQueryData as a safety net in case the server returned
-    // extra computed fields that weren't in our optimistic payload.
-    onSuccess: (data) => {
+
+onSuccess: (data) => {
       queryClient.setQueryData([SETTINGS_URL], data);
     },
   });

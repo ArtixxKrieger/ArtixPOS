@@ -110,7 +110,7 @@ export default function InventoryHub() {
     <div className="min-h-screen bg-background pb-24 md:pb-8">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
-        {/* Header */}
+        {}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
@@ -123,7 +123,7 @@ export default function InventoryHub() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {}
         <div className="overflow-x-auto -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 scrollbar-none">
           <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit min-w-full sm:min-w-0">
             {TABS.map(tab => {
@@ -153,7 +153,7 @@ export default function InventoryHub() {
           </div>
         </div>
 
-        {/* ── OVERVIEW TAB ── */}
+        {}
         {activeTab === "overview" && (
           <div className="space-y-4 sm:space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -232,7 +232,7 @@ export default function InventoryHub() {
                 )}
               </div>
 
-              {/* Recent waste */}
+              {}
               <div className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-sm flex items-center gap-1.5">
@@ -263,7 +263,7 @@ export default function InventoryHub() {
           </div>
         )}
 
-        {/* ── WASTE LOG TAB ── */}
+        {}
         {activeTab === "waste" && (
           <WasteTab
             logs={wasteLogs}
@@ -272,7 +272,7 @@ export default function InventoryHub() {
           />
         )}
 
-        {/* ── TRANSFERS TAB ── */}
+        {}
         {activeTab === "transfers" && (
           <TransfersTab
             transfers={transfers}
@@ -281,7 +281,7 @@ export default function InventoryHub() {
           />
         )}
 
-        {/* ── REORDER TAB ── */}
+        {}
         {activeTab === "reorder" && (
           <ReorderTab
             suggestions={reorderSuggestions}
@@ -290,7 +290,7 @@ export default function InventoryHub() {
           />
         )}
       </div>
-      {/* Waste Log Form Dialog */}
+      {}
       {showWasteForm && (
         <WasteLogForm
           products={products}
@@ -308,7 +308,7 @@ export default function InventoryHub() {
         />
       )}
 
-      {/* Transfer Form Dialog */}
+      {}
       {showTransferForm && (
         <TransferForm
           products={products}

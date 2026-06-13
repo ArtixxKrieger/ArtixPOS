@@ -1,8 +1,5 @@
-/**
- * QuickAddProductDialog — shown when a scanned barcode has no matching product.
- * Lets staff create a new product on the spot with the barcode pre-filled,
- * then immediately adds it to the cart.
- */
+
+
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,18 +43,17 @@ export function QuickAddProductDialog({
     defaultValues: { name: "", price: "", category: "General" },
   });
 
-  // Reset form whenever the dialog opens with a new barcode
-  useEffect(() => {
+useEffect(() => {
     if (open) {
       form.reset({ name: "", price: "", category: "General" });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, barcode]); // form is intentionally omitted — react-hook-form's form object is stable
+
+  }, [open, barcode]);
 
   async function onSubmit(values: FormValues) {
     try {
       const payload = { name: values.name.trim(), price: parseFloat(values.price).toFixed(2), category: values.category || "General", barcode: barcode || undefined, isActive: 1 };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const product = await createProduct.mutateAsync(payload as any);
       onCreated(product as Product);
       onClose();
@@ -148,7 +144,7 @@ export function QuickAddProductDialog({
               )}
             />
 
-            {/* Barcode read-only display */}
+            {}
             <div className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
               <span>Barcode</span>
               <span className="font-mono font-medium text-foreground">{barcode}</span>

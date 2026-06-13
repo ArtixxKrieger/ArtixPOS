@@ -5,13 +5,6 @@ function getToken(): string {
   return localStorage.getItem(NATIVE_TOKEN_KEY) ?? "";
 }
 
-/**
- * Connects to the /api/sse/dashboard channel and invalidates the dashboard
- * stats query the instant the server emits a stats-update event (i.e. a sale
- * just completed).  The effect is that every open dashboard tab — including
- * on another device logged in to the same tenant — updates its numbers in
- * real time without any polling.
- */
 export function useDashboardSse() {
   const esRef = useRef<EventSource | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);

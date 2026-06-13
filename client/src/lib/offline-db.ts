@@ -1,15 +1,10 @@
 import { openDB, type IDBPDatabase } from "idb";
 
-// v1: original schema
-// v2: added retryCount, permanentlyFailed, lastError to mutation-queue
-// v3: added nextRetryAt, offlineId to mutation-queue
 const DB_NAME    = "pos-offline-v1";
 const DB_VERSION = 3;
 
 export const SYNC_CHANNEL_NAME = "pos-sync";
 
-// IDB api-cache keys are prefixed with the current user's ID so that cached
-// data from User A can never be served to User B, even if network fails.
 const LAST_USER_LS_KEY = "pos-last-uid";
 let _currentUserId: string | null = null;
 
@@ -17,11 +12,6 @@ function cacheKey(url: string): string {
   return _currentUserId ? `${_currentUserId}:${url}` : url;
 }
 
-/**
- * Call once when the authenticated user is known (before any data fetching).
- * If the userId changed since the last session, wipes the entire api-cache so
- * no stale data from the previous account can leak through via IDB fallback.
- */
 export async function initUserSession(userId: string): Promise<void> {
   const lastId = localStorage.getItem(LAST_USER_LS_KEY);
   if (lastId && lastId !== userId) {
@@ -52,10 +42,8 @@ let _db: IDBPDatabase<PosOfflineDB> | null = null;
 async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
   if (_db) return _db;
   _db = await openDB<PosOfflineDB>(DB_NAME, DB_VERSION, {
-    // The upgrade callback receives (db, oldVersion, newVersion, transaction).
-    // We MUST use the `transaction` parameter to access existing object stores —
-    // calling db.createObjectStore() again on an already-existing store would throw.
-    upgrade(db, oldVersion, _newVersion, transaction) {
+
+upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         db.createObjectStore("api-cache", { keyPath: "url" });
         const qs = db.createObjectStore("mutation-queue", {
@@ -65,9 +53,7 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
         qs.createIndex("by-timestamp", "timestamp");
       }
 
-      // Use transaction.objectStore() — this is the only correct way to access
-      // an existing store during an IDB version upgrade with the `idb` library.
-      if (oldVersion < 2) {
+if (oldVersion < 2) {
         try {
           const qs2 = transaction.objectStore("mutation-queue");
           if (!qs2.indexNames.contains("by-category")) {
@@ -77,20 +63,16 @@ async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
             qs2.createIndex("by-failed", "permanentlyFailed");
           }
         } catch {
-          // Defensive: index already exists or store not yet present in this tx
+
         }
       }
 
-      // nextRetryAt and offlineId are new optional fields on existing records.
-      // No index needed — we filter in JS (queue is always small < 100 items).
-      // Existing records simply lack these fields and will be treated as
-      // immediately retryable (nextRetryAt = undefined → no delay).
-    },
+},
     blocked() {
-      // Another tab is holding an old DB version open — nothing we can do.
+
     },
     blocking() {
-      // We're blocking a newer version in another tab — close our handle.
+
       _db?.close();
       _db = null;
     },
@@ -107,58 +89,32 @@ export interface QueuedMutation {
   url: string;
   body?: unknown;
   timestamp: number;
-  /** "sale" | "pending-order" | "product" | undefined */
+
   category?: string;
-  /** Number of failed sync attempts (not counting permanent failures) */
+
   retryCount?: number;
-  /** True when the mutation is permanently un-syncable (e.g. 400/422 from server) */
+
   permanentlyFailed?: boolean;
-  /** Last error message, for display */
+
   lastError?: string;
-  /**
-   * Earliest time (ms epoch) this item should next be retried.
-   * Undefined = immediately retryable.
-   * Calculated as: Date.now() + BASE_BACKOFF * 2^retryCount after each failure.
-   */
-  nextRetryAt?: number;
-  /**
-   * For POST mutations: the temporary client-side ID assigned to the entity
-   * that was optimistically created. Used by foldQueue (POST+DELETE→nothing,
-   * POST+PUT→merge) and by ID remapping after the POST syncs and returns the
-   * real server ID.
-   */
-  offlineId?: string | number;
+
+nextRetryAt?: number;
+
+offlineId?: string | number;
 }
 
-/**
- * Read a cached API response from IDB.
- *
- * @param maxAgeMs  Optional TTL in ms.  If the entry is older than this,
- *                  null is returned as if the entry didn't exist.  This
- *                  prevents the offline fallback from serving week-old
- *                  product prices or stale inventory counts.
- *
- *                  Defaults to 24 hours — callers that need longer-lived data
- *                  (e.g. static lookup tables) can pass a larger value.
- *
- *                  Pass Infinity to disable the check entirely (legacy behaviour).
- */
 export async function getCached<T>(
   url: string,
   maxAgeMs: number = 24 * 60 * 60 * 1000,
 ): Promise<T | null> {
-  // Never serve IDB data when the session isn't initialized yet.
+
   if (!_currentUserId) return null;
   try {
     const db = await getDB();
     const entry = await db.get("api-cache", cacheKey(url));
     if (!entry) return null;
-    // TTL check: reject entries that are too old to be useful offline.
-    // The background prefetch refreshes all prefetch URLs every 5 minutes
-    // while online, so in practice the IDB copy is nearly always fresh.
-    // This guard prevents edge cases where the device has been fully offline
-    // for >24 h and serves obviously stale pricing/inventory data.
-    if (entry.timestamp && maxAgeMs !== Infinity && Date.now() - entry.timestamp > maxAgeMs) {
+
+if (entry.timestamp && maxAgeMs !== Infinity && Date.now() - entry.timestamp > maxAgeMs) {
       return null;
     }
     return entry.data as T;
@@ -185,7 +141,6 @@ export async function patchCached<T>(
   } catch {}
 }
 
-/** Returns the age of a cached entry in ms, or null if not cached. */
 export async function getCacheAge(url: string): Promise<number | null> {
   if (!_currentUserId) return null;
   try {
@@ -198,10 +153,6 @@ export async function getCacheAge(url: string): Promise<number | null> {
   }
 }
 
-/**
- * Evict api-cache entries older than maxAgeMs.
- * Call once per session to prevent the IDB growing unbounded on long-running POS devices.
- */
 export async function pruneStaleCache(maxAgeMs: number): Promise<void> {
   if (!_currentUserId) return;
   try {
@@ -210,7 +161,7 @@ export async function pruneStaleCache(maxAgeMs: number): Promise<void> {
     const cutoff = Date.now() - maxAgeMs;
     const tx = db.transaction("api-cache", "readwrite");
     for (const entry of all) {
-      // Only prune entries belonging to the current user (have the right prefix)
+
       if (entry.timestamp && entry.timestamp < cutoff && entry.url.startsWith(`${_currentUserId}:`)) {
         tx.store.delete(entry.url);
       }
@@ -221,21 +172,13 @@ export async function pruneStaleCache(maxAgeMs: number): Promise<void> {
 
 export const MAX_RETRIES = 5;
 
-/** Exponential backoff per retry attempt (ms). Cap at 5 min. */
 export function calcNextRetryAt(retryCount: number): number {
-  const base = 2_000; // 2 s
+  const base = 2_000;
   const backoff = Math.min(base * 2 ** retryCount, 5 * 60_000);
   const jitter = backoff * 0.2 * (Math.random() * 2 - 1);
   return Date.now() + Math.round(backoff + jitter);
 }
 
-/**
- * Add a new item to the queue.
- * @param offlineId  Temporary client-side ID given to the optimistically-created
- *                   entity (for POST mutations only). Enables foldQueue to collapse
- *                   subsequent edits/deletes and remapQueueItemUrls to fix URLs
- *                   after the POST syncs and returns a real server ID.
- */
 export async function queueMutation(
   method: string,
   url: string,
@@ -257,7 +200,6 @@ export async function queueMutation(
   return id;
 }
 
-/** Read all queued mutations ordered by timestamp (oldest first). */
 export async function getQueue(): Promise<QueuedMutation[]> {
   try {
     const db = await getDB();
@@ -267,7 +209,6 @@ export async function getQueue(): Promise<QueuedMutation[]> {
   }
 }
 
-/** Remove a single item from the queue. */
 export async function removeQueueItem(id: number): Promise<void> {
   try {
     const db = await getDB();
@@ -275,9 +216,6 @@ export async function removeQueueItem(id: number): Promise<void> {
   } catch {}
 }
 
-/** Overwrite the body of a queued mutation without touching any other fields.
- *  Used after foldQueue merges a POST+PUT so the persisted POST body is
- *  up-to-date before the PUT is removed from IDB. */
 export async function updateQueueItemBody(id: number, body: unknown): Promise<void> {
   try {
     const db = await getDB();
@@ -287,7 +225,6 @@ export async function updateQueueItemBody(id: number, body: unknown): Promise<vo
   } catch {}
 }
 
-/** Read all queue stats in a single IDB scan (replaces 3 separate getAll calls). */
 export async function getQueueStats(): Promise<{
   sales: number;
   total: number;
@@ -310,7 +247,6 @@ export async function getQueueStats(): Promise<{
   }
 }
 
-/** Update retry tracking fields on a queue item. */
 export async function updateQueueItemRetry(
   id: number,
   retryCount: number,
@@ -332,7 +268,6 @@ export async function updateQueueItemRetry(
   } catch {}
 }
 
-/** Reset all permanently-failed items so they'll be retried on next sync. */
 export async function resetFailedQueueItems(): Promise<void> {
   try {
     const db = await getDB();
@@ -355,12 +290,6 @@ export async function resetFailedQueueItems(): Promise<void> {
   } catch {}
 }
 
-/**
- * Scan all remaining queue items and replace every occurrence of oldId with
- * newId in both the URL and JSON body.  Call after a POST syncs successfully
- * and returns the real server-assigned ID so that subsequent queue items
- * (UPDATEs, DELETEs) targeting the temp ID are automatically corrected.
- */
 export async function remapQueueItemUrls(
   oldId: string,
   newId: string,
@@ -392,7 +321,6 @@ export async function remapQueueItemUrls(
   } catch {}
 }
 
-/** Total count of queued items (including permanently-failed). */
 export async function getQueueCount(): Promise<number> {
   try {
     const db = await getDB();
@@ -402,20 +330,14 @@ export async function getQueueCount(): Promise<number> {
   }
 }
 
-/** Count of queued sale / pending-order mutations that are NOT permanently failed.
- *  Delegates to getQueueStats() so we never do more than one IDB scan
- *  regardless of how many callers ask for individual counts. */
 export async function getSalesQueueCount(): Promise<number> {
   return (await getQueueStats()).sales;
 }
 
-/** Count of permanently-failed mutations.
- *  Delegates to getQueueStats() to avoid an independent full-table scan. */
 export async function getFailedQueueCount(): Promise<number> {
   return (await getQueueStats()).failed;
 }
 
-/** Return full details for all permanently-failed mutations (for conflict UI). */
 export async function getFailedQueueItems(): Promise<QueuedMutation[]> {
   try {
     const db = await getDB();
@@ -426,12 +348,10 @@ export async function getFailedQueueItems(): Promise<QueuedMutation[]> {
   }
 }
 
-/** Discard a single permanently-failed item from the queue (same as removeQueueItem). */
 export async function discardQueueItem(id: number): Promise<void> {
   return removeQueueItem(id);
 }
 
-/** Discard all permanently-failed items from the queue. */
 export async function discardAllFailedItems(): Promise<void> {
   try {
     const db = await getDB();
@@ -454,7 +374,6 @@ export function isOffline(): boolean {
 export const OFFLINE_ID_PREFIX = "__offline__";
 let _offlineCounter = 0;
 
-/** Generate a unique offline ID — guaranteed unique even within the same ms. */
 export function makeOfflineId(): string {
   _offlineCounter = (_offlineCounter + 1) % 1_000_000;
   return `${OFFLINE_ID_PREFIX}${Date.now()}_${_offlineCounter}_${Math.random()
@@ -466,13 +385,11 @@ export function isOfflineId(id: unknown): boolean {
   return typeof id === "string" && id.startsWith(OFFLINE_ID_PREFIX);
 }
 
-/** True if id looks like a large-timestamp temp numeric id (> 2024-01-01 in ms). */
 export function isTempNumericId(id: unknown): boolean {
   const n = Number(id);
   return Number.isFinite(n) && n > 1_500_000_000_000;
 }
 
-/** Clear only the API cache (safe to call on logout — preserves queued mutations). */
 export async function clearApiCache(): Promise<void> {
   try {
     const db = await getDB();
@@ -480,7 +397,6 @@ export async function clearApiCache(): Promise<void> {
   } catch {}
 }
 
-/** Clear everything: API cache + mutation queue. */
 export async function clearAllCache(): Promise<void> {
   _currentUserId = null;
   try {

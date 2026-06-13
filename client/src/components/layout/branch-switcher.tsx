@@ -30,10 +30,7 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   const activeId = user?.activeBranchId ?? null;
   const activeBranch = branches.find((b) => b.id === activeId);
 
-  // Auto-pin to a real branch on mount if owner has no active branch yet
-  // IMPORTANT: this hook MUST run on every render (no early returns above it),
-  // otherwise React throws #310.
-  useEffect(() => {
+useEffect(() => {
     if (!user || user.role !== "owner") return;
     if (activeId !== null) return;
     if (!branches.length) return;
@@ -41,7 +38,7 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
     switchBranch.mutateAsync(fallback.id).then(() => {
       setTimeout(() => window.location.reload(), 100);
     }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [branches.length, activeId, user?.role]);
 
   if (!user || user.role !== "owner") return null;

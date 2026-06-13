@@ -126,7 +126,7 @@ function SupplierDetailSheet({
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0" side="right">
-        {/* Header */}
+        {}
         <div className="p-5 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
           <SheetHeader>
             <div className="flex items-start justify-between gap-3">
@@ -155,7 +155,7 @@ function SupplierDetailSheet({
             </div>
           </SheetHeader>
 
-          {/* Contact row */}
+          {}
           <div className="flex flex-wrap gap-3 mt-4">
             {supplier.phone && (
               <a href={`tel:${supplier.phone}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -175,7 +175,7 @@ function SupplierDetailSheet({
           </div>
         </div>
 
-        {/* Stats row */}
+        {}
         <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
           {(
             <>
@@ -195,7 +195,7 @@ function SupplierDetailSheet({
           )}
         </div>
 
-        {/* Low stock alert */}
+        {}
         {lowStockItems.length > 0 && (
           <div className="mx-4 mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
@@ -213,7 +213,7 @@ function SupplierDetailSheet({
           </div>
         )}
 
-        {/* Tabs */}
+        {}
         <Tabs defaultValue="products" className="mt-4">
           <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0">
             <TabsTrigger value="products" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-sm">
@@ -227,7 +227,7 @@ function SupplierDetailSheet({
             </TabsTrigger>
           </TabsList>
 
-          {/* Products tab */}
+          {}
           <TabsContent value="products" className="p-4 space-y-3 mt-0">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{t("suppliers.productsCarried")}</p>
@@ -277,7 +277,7 @@ function SupplierDetailSheet({
               </div>
             )}
 
-            {/* Add product dialog */}
+            {}
             <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
               <DialogContent className="max-w-sm">
                 <DialogHeader><DialogTitle>{t("suppliers.linkProductTo")} {supplier.name}</DialogTitle></DialogHeader>
@@ -326,7 +326,7 @@ function SupplierDetailSheet({
             </Dialog>
           </TabsContent>
 
-          {/* Orders tab */}
+          {}
           <TabsContent value="orders" className="p-4 space-y-3 mt-0">
             {supplierPOs.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
@@ -362,7 +362,7 @@ function SupplierDetailSheet({
             </Button>
           </TabsContent>
 
-          {/* Info tab */}
+          {}
           <TabsContent value="info" className="p-4 space-y-4 mt-0">
             <div className="space-y-3">
               {supplier.contactPerson && (
@@ -510,7 +510,7 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -523,7 +523,7 @@ export default function SuppliersPage() {
         </Button>
       </div>
 
-      {/* Summary stat cards */}
+      {}
       {suppliers.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label={t("suppliers.totalSuppliers")} value={String(suppliers.length)} icon={Truck} />
@@ -533,7 +533,7 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* Search */}
+      {}
       <Input
         placeholder={t("suppliers.searchPlaceholder")}
         value={search}
@@ -542,7 +542,7 @@ export default function SuppliersPage() {
         data-testid="input-supplier-search"
       />
 
-      {/* List */}
+      {}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -606,7 +606,7 @@ export default function SuppliersPage() {
                   )}
                 </div>
 
-                {/* Quick stats footer */}
+                {}
                 {stats ? (
                   <div className="flex items-center gap-3 pt-1 border-t border-border text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><ShoppingBag className="h-3 w-3" />{stats.count} {t("suppliers.tabOrders").toLowerCase()}</span>
@@ -621,7 +621,7 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* Supplier Detail Sheet */}
+      {}
       {selectedSupplier && (
         <SupplierDetailSheet
           supplier={selectedSupplier}
@@ -633,7 +633,7 @@ export default function SuppliersPage() {
         />
       )}
 
-      {/* New Order redirect dialog */}
+      {}
       <Dialog open={!!newOrderForSupplier} onOpenChange={(v) => !v && setNewOrderForSupplier(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>{t("suppliers.createPurchaseOrder")}</DialogTitle></DialogHeader>
@@ -650,7 +650,7 @@ export default function SuppliersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add / Edit Supplier Dialog */}
+      {}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? t("suppliers.editSupplier") : t("suppliers.addSupplier")}</DialogTitle></DialogHeader>
@@ -691,7 +691,7 @@ export default function SuppliersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

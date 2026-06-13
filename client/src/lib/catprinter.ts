@@ -1,21 +1,4 @@
-/**
- * Cat-printer protocol implementation.
- *
- * Used by SC03h-365A and similar "cat / mini label" BLE thermal printers
- * sold on AliExpress/TikTok that use the iPrint / frogtosea app.
- *
- * GATT:
- *   Service:          0000ae30-0000-1000-8000-00805f9b34fb
- *   Write char:       0000ae01-0000-1000-8000-00805f9b34fb  (write-without-response)
- *
- * Packet format:
- *   [0x51] [0x78] [CMD] [0x00] [LEN_L] [LEN_H] [DATA…] [CRC8] [0xFF]
- *
- * Commands:
- *   0xAF  SetEnergy      data = [lo, hi] little-endian  (e.g. 0x04B0 = 1200)
- *   0xA2  PrintRow       data = 48 bytes of 1-bit raster (384 pixels, LSB first)
- *   0xA1  FeedPaper      data = [lines, 0x00]
- */
+
 
 import type { EscPosReceipt } from "./escpos";
 import { toAsciiCurrency } from "./escpos";
@@ -54,13 +37,9 @@ function packet(cmd: number, data: number[]): number[] {
   ];
 }
 
-/**
- * Find the largest bold monospace font size where `charsPerLine` characters
- * fit within PRINT_WIDTH pixels. Uses canvas measureText for accuracy.
- */
 function fitFontSize(charsPerLine: number): number {
   const probe = document.createElement("canvas").getContext("2d")!;
-  const testStr = "W".repeat(charsPerLine); // W is widest char
+  const testStr = "W".repeat(charsPerLine);
   for (let size = 28; size >= 8; size--) {
     probe.font = `bold ${size}px "Courier New", "Lucida Console", monospace`;
     if (probe.measureText(testStr).width <= PRINT_WIDTH) return size;
@@ -68,11 +47,6 @@ function fitFontSize(charsPerLine: number): number {
   return 8;
 }
 
-/**
- * Given a desired font size (px), returns how many "W" characters fit across
- * PRINT_WIDTH at that font size. Used to sync text layout with raster rendering.
- * Minimum of 16 chars so receipts are never illegibly wide.
- */
 export function catCharsPerLine(fontSize: number): number {
   const probe = document.createElement("canvas").getContext("2d")!;
   probe.font = `bold ${fontSize}px "Courier New", "Lucida Console", monospace`;
@@ -80,7 +54,6 @@ export function catCharsPerLine(fontSize: number): number {
   return Math.max(16, Math.floor(PRINT_WIDTH / charW));
 }
 
-/** Render plain-text receipt lines onto an off-screen canvas → 1-bit raster rows */
 function textToRasterRows(text: string, charsPerLine = 32): number[][] {
   const FONT_SIZE   = fitFontSize(charsPerLine);
   const LINE_HEIGHT = Math.ceil(FONT_SIZE * 1.3);
@@ -114,9 +87,8 @@ function textToRasterRows(text: string, charsPerLine = 32): number[][] {
     const row = new Array<number>(BYTES_PER_ROW).fill(0);
     for (let x = 0; x < PRINT_WIDTH; x++) {
       const idx = (y * PRINT_WIDTH + x) * 4;
-      // Red channel: white bg = 255, black text = 0. Threshold 200 captures anti-aliased edges.
-      // LSB-first bit order matches SC03h/iPrint protocol.
-      if (imgData.data[idx] < 200) {
+
+if (imgData.data[idx] < 200) {
         row[Math.floor(x / 8)] |= 1 << (x % 8);
       }
     }
@@ -126,13 +98,6 @@ function textToRasterRows(text: string, charsPerLine = 32): number[][] {
   return rows;
 }
 
-/**
- * Build the array of BLE packets to send for the given receipt text.
- * receiptWidth controls how many chars per line were used when building the text,
- * so we can size the font to match exactly.
- * If fontSize is provided, the charsPerLine is derived from that font size so
- * the rendered font matches the user's font size preference.
- */
 export function buildCatPrinterPackets(
   receiptText: string,
   energy = 65000,
@@ -144,26 +109,21 @@ export function buildCatPrinterPackets(
     : (receiptWidth === "58mm" ? 32 : 42);
   const packets: number[][] = [];
 
-  // Set darkness — send 10× so printer registers it before print rows arrive
-  const energyData = [energy & 0xff, (energy >> 8) & 0xff];
+const energyData = [energy & 0xff, (energy >> 8) & 0xff];
   for (let i = 0; i < 10; i++) {
     packets.push(packet(CMD_SET_ENERGY, energyData));
   }
 
-  // One packet per raster row
-  const rows = textToRasterRows(receiptText, charsPerLine);
+const rows = textToRasterRows(receiptText, charsPerLine);
   for (const row of rows) {
     packets.push(packet(CMD_PRINT_ROW, row));
   }
 
-  // Feed paper so the print exits the head
-  packets.push(packet(CMD_FEED_PAPER, [0x30, 0x00]));
+packets.push(packet(CMD_FEED_PAPER, [0x30, 0x00]));
 
   return packets;
 }
 
-/** Test print – no receipt data needed */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58mm"): number[][] {
   const width = receiptWidth === "58mm" ? 32 : 42;
   const dash  = "-".repeat(width);
@@ -185,8 +145,6 @@ function buildTestCatPrinterPackets(storeName: string, receiptWidth = "58mm"): n
   return buildCatPrinterPackets(lines, 65000, receiptWidth);
 }
 
-/** Convert a structured receipt into plain text for canvas rendering.
- *  Pass `charsOverride` to use a custom line width (e.g. derived from font size). */
 export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): string {
   const width = charsOverride ?? (r.receiptWidth === "58mm" ? 32 : 42);
   const dash  = "-".repeat(width);
@@ -205,8 +163,7 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
       return left + " ".repeat(Math.max(1, width - left.length - rightLen)) + right;
     }
 
-    // Word-wrap the left text across multiple lines
-    const words = left.split(" ");
+const words = left.split(" ");
     const lines: string[] = [];
     let current = "";
     for (const word of words) {
@@ -245,7 +202,7 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
   if (r.showPhone    && r.phone)         out.push(center(`Tel: ${r.phone}`));
   if (r.showEmail    && r.email)         out.push(center(r.email));
   if (r.showWebsite  && r.website)       out.push(center(r.website));
-  // BIR compliance header fields (required on official receipts)
+
   if (r.tin)                     out.push(center(`VAT TIN: ${r.tin}`));
   if (r.ptuNumber)               out.push(center(`PTU No.: ${r.ptuNumber}`));
   if (r.accreditationNumber)     out.push(center(`Accred.: ${r.accreditationNumber}`));
@@ -287,7 +244,7 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
     out.push(twoCol(label, `-${fmt(r.discount)}`));
   }
   if (r.vatRegistered) {
-    // BIR-required VAT breakdown on official receipts
+
     if ((r.vatableSales ?? 0) > 0) out.push(twoCol("VATable Sales", fmt(r.vatableSales!)));
     if (r.tax > 0) {
       const vatLabel = r.taxRate != null && r.taxRate > 0 ? `Output VAT (${r.taxRate}%)` : "Output VAT";
@@ -303,8 +260,7 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
     out.push(twoCol("Loyalty Redemption", `-${fmt(r.loyaltyDiscount)}`));
   }
 
-  // BIR required disclaimer for SC/PWD or non-VAT transactions
-  const isScPwdCat = r.discountType === "sc" || r.discountType === "pwd";
+const isScPwdCat = r.discountType === "sc" || r.discountType === "pwd";
   if (isScPwdCat || !r.vatRegistered) {
     out.push(dash);
     out.push(center("THIS DOCUMENT IS NOT VALID"));
@@ -317,7 +273,7 @@ export function buildReceiptText(r: EscPosReceipt, charsOverride?: number): stri
   if (r.paymentMethod === "cash" && r.changeAmount > 0) {
     out.push(twoCol("Change", fmt(r.changeAmount)));
   }
-  // SC/PWD ID for BIR audit trail
+
   if (r.scPwdId && (r.discountType === "sc" || r.discountType === "pwd")) {
     out.push(twoCol(`${r.discountType === "sc" ? "SC" : "PWD"} ID No.`, r.scPwdId));
   }

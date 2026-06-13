@@ -7,25 +7,22 @@ import { sales, ingredients, productRecipes, suppliers, supplierProducts } from 
 import { and, isNull, inArray, sql } from "drizzle-orm";
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
-  
-  // ── Product-based reorder suggestions (retail/pharmacy) ─────────────────
-  app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res) => {
+
+app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const branchId = getActiveBranchId(req);
     const suggestions = await storage.getReorderSuggestions(uid, branchId);
     res.json(suggestions);
   });
 
-  // ── Ingredient-based reorder suggestions (cafe/restaurant) ──────────────
-  app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro, async (req, res) => {
+app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
       const _branchId = getActiveBranchId(req);
-      
+
       const userIds = await (storage as any).getTenantUserIds(uid);
-      
-      // Get all ingredients with low stock
-      const lowStockIngredients = await db.select()
+
+const lowStockIngredients = await db.select()
         .from(ingredients)
         .where(and(
           inArray(ingredients.userId, userIds),
@@ -37,8 +34,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
         return res.json([]);
       }
 
-      // Get sales from last 30 days to calculate consumption
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const recentSales = await db.select({ id: sales.id, items: sales.items, createdAt: sales.createdAt })
         .from(sales)
         .where(and(
@@ -47,8 +43,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
           isNull(sales.deletedAt)
         ));
 
-      // Count products sold (for recipe calculation)
-      const productSoldMap = new Map<number, number>();
+const productSoldMap = new Map<number, number>();
       for (const sale of recentSales) {
         const items = (sale.items ?? []) as { productId?: number; id?: number; quantity?: number }[];
         for (const item of items) {
@@ -58,13 +53,11 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
         }
       }
 
-      // Get all recipes
-      const allRecipes = await db.select()
+const allRecipes = await db.select()
         .from(productRecipes)
         .where(inArray(productRecipes.ingredientId, lowStockIngredients.map(i => i.id)));
 
-      // Calculate ingredient consumption based on products sold × recipe qty
-      const ingredientConsumedMap = new Map<number, number>();
+const ingredientConsumedMap = new Map<number, number>();
       for (const recipe of allRecipes) {
         const productsSold = productSoldMap.get(recipe.productId) ?? 0;
         const qtyPerUnit = parseFloat(recipe.quantity || "0");
@@ -75,8 +68,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
         );
       }
 
-      // Get supplier info for ingredients — scoped to tenant via supplier.userId
-      const ingredientIds = lowStockIngredients.map(i => i.id);
+const ingredientIds = lowStockIngredients.map(i => i.id);
       const supplierProds = ingredientIds.length > 0
         ? await db.select({
             ingredientId: sql`${supplierProducts.productId}`.as('ingredientId'),
@@ -105,20 +97,18 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
         : [];
       const supplierNameMap = new Map(supplierNames.map(s => [s.id, s.name]));
 
-      // Build suggestions
-      const suggestions = lowStockIngredients.map(ing => {
+const suggestions = lowStockIngredients.map(ing => {
         const consumed30 = ingredientConsumedMap.get(ing.id) ?? 0;
         const avgDaily = consumed30 / 30;
         const current = parseFloat(ing.stockQty || "0");
         const threshold = parseFloat(ing.lowStockThreshold || "0");
         const daysLeft = avgDaily > 0 ? Math.floor(current / avgDaily) : 999;
-        
-        // Suggest 14 days worth + 20% safety margin, or at least threshold amount
-        const reorderDays = 14;
+
+const reorderDays = 14;
         const suggested = Math.max(threshold, Math.ceil(avgDaily * reorderDays * 1.2));
-        
+
         const sp = supplierMap.get(ing.id);
-        
+
         return {
           ingredientId: ing.id,
           ingredientName: ing.name,
@@ -142,8 +132,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     }
   });
 
-  // ── Generate ingredient-based purchase order ─────────────────────────────
-  app.post("/api/inventory/generate-ingredient-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.post("/api/inventory/generate-ingredient-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const uid = getUserId(req);
       const { supplierId, items } = req.body;
@@ -163,7 +152,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
         paymentStatus: "unpaid",
         notes: `Auto-generated ingredient reorder for ${items.length} ingredient(s)`,
         items: items.map((item: any) => ({
-          productId: item.ingredientId, // Using productId field for ingredient ID
+          productId: item.ingredientId,
           productName: item.ingredientName,
           quantity: item.quantity,
           unitCost: item.unitCost || "0",
@@ -178,8 +167,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     }
   });
 
-  // ── Generate product-based purchase order (existing) ─────────────────────
-  app.post("/api/inventory/generate-reorder-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.post("/api/inventory/generate-reorder-po", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const uid = getUserId(req);
       const { supplierId, items } = req.body;
@@ -214,8 +202,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     }
   });
 
-  // ── Waste log ──────────────────────────────────────────────────────────
-  app.get("/api/waste-log", requireAuth, requirePro, async (req, res) => {
+app.get("/api/waste-log", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const branchId = getActiveBranchId(req);
     const logs = await storage.getWasteLogs(uid, branchId);
@@ -234,8 +221,7 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
     }
   });
 
-  // ── Stock transfers ────────────────────────────────────────────────────
-  app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res) => {
+app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const branchId = getActiveBranchId(req);
     const transfers = await storage.getStockTransfers(uid, branchId);

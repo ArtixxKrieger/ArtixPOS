@@ -154,7 +154,7 @@ export default function Refunds() {
   return (
     <div className="space-y-4 page-enter">
 
-      {/* Summary bar */}
+      {}
       <div className="glass-card rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4 flex-wrap">
           <div>
@@ -184,7 +184,7 @@ export default function Refunds() {
         )}
       </div>
 
-      {/* Filters */}
+      {}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -220,7 +220,7 @@ export default function Refunds() {
         </DropdownMenu>
       </div>
 
-      {/* Table */}
+      {}
       {filtered.length > 0 ? (
         <div className="glass-card rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
@@ -256,7 +256,7 @@ export default function Refunds() {
                     className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors border-black/4 dark:border-white/4"
                     data-testid={`row-refund-${refund.id}`}
                   >
-                    {/* Refund ID */}
+                    {}
                     <TableCell className="px-4 py-3">
                       <span className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
                         <RotateCcw className="h-3 w-3 text-rose-500 shrink-0" />
@@ -264,7 +264,7 @@ export default function Refunds() {
                       </span>
                     </TableCell>
 
-                    {/* Sale TXN ID */}
+                    {}
                     <TableCell className="px-4 py-3">
                       <div className="flex flex-col gap-0.5">
                         <span className="flex items-center gap-1.5 text-xs font-mono font-medium">
@@ -279,14 +279,14 @@ export default function Refunds() {
                       </div>
                     </TableCell>
 
-                    {/* Amount */}
+                    {}
                     <TableCell className="px-4 py-3 text-right">
                       <span className="font-bold tabular-nums text-rose-500">
                         -{formatCurrency(refund.amount, currency)}
                       </span>
                     </TableCell>
 
-                    {/* Processed By — owner only */}
+                    {}
                     {isOwner && (
                       <TableCell className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -307,7 +307,7 @@ export default function Refunds() {
                       </TableCell>
                     )}
 
-                    {/* Date & Time */}
+                    {}
                     <TableCell className="px-4 py-3 whitespace-nowrap">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-sm text-muted-foreground">
@@ -319,7 +319,7 @@ export default function Refunds() {
                       </div>
                     </TableCell>
 
-                    {/* Reason */}
+                    {}
                     <TableCell className="px-4 py-3 max-w-[200px]">
                       <span
                         className="text-sm text-foreground/70 truncate block"

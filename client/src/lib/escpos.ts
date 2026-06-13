@@ -4,42 +4,35 @@ const LF = 0x0a;
 
 const enc = new TextEncoder();
 
-// ─── ASCII-safe currency for ESC/POS ─────────────────────────────────────────
-// Thermal printers use single-byte ASCII (CP437/CP858). Multi-byte UTF-8
-// currency symbols (₱=3 bytes, €=3 bytes, £=2 bytes…) break column alignment
-// because the printer counts BYTES for line width but JS counts Unicode chars.
-// We map every common multi-byte symbol to a 1-2 byte ASCII equivalent.
 const ASCII_CURRENCY_MAP: Record<string, string> = {
-  "₱": "P",    // Philippine Peso  → P
-  "€": "E",    // Euro             → E
-  "£": "L",    // British Pound    → L
-  "¥": "Y",    // Yen / Yuan       → Y
-  "₩": "W",    // Korean Won       → W
-  "₹": "Rs",   // Indian Rupee     → Rs
-  "฿": "B",    // Thai Baht        → B
-  "₫": "d",    // Vietnamese Dong  → d
-  "₦": "N",    // Nigerian Naira   → N
-  "₵": "C",    // Ghanaian Cedi    → C
-  "₪": "S",    // Israeli Shekel   → S
-  "₴": "H",    // Ukrainian Hryvnia→ H
-  "₼": "M",    // Azerbaijani Manat→ M
-  "₾": "L",    // Georgian Lari    → L
-  "₸": "T",    // Kazakhstani Tenge→ T
-  "₮": "T",    // Mongolian Tugrik → T
-  "₲": "G",    // Paraguayan Guaraní→G
-  "₡": "C",    // Costa Rican Colón→ C
-  "₢": "C",    // Brazilian Cruzeiro→C
-  "৳": "Tk",   // Bangladeshi Taka → Tk
-  "₨": "Rs",   // Pakistani Rupee  → Rs
-  "₭": "K",    // Laotian Kip      → K
+  "₱": "P",
+  "€": "E",
+  "£": "L",
+  "¥": "Y",
+  "₩": "W",
+  "₹": "Rs",
+  "฿": "B",
+  "₫": "d",
+  "₦": "N",
+  "₵": "C",
+  "₪": "S",
+  "₴": "H",
+  "₼": "M",
+  "₾": "L",
+  "₸": "T",
+  "₮": "T",
+  "₲": "G",
+  "₡": "C",
+  "₢": "C",
+  "৳": "Tk",
+  "₨": "Rs",
+  "₭": "K",
 };
 
 export function toAsciiCurrency(currency: string): string {
   return ASCII_CURRENCY_MAP[currency] ?? currency;
 }
 
-// Byte-safe string length: counts how many bytes a string will occupy in the
-// printer's output (ASCII = 1 byte each; after currency mapping, all chars are ASCII).
 function byteLen(str: string): number {
   return enc.encode(str).length;
 }
@@ -57,15 +50,13 @@ function pad(str: string, len: number): string {
 }
 
 function row(left: string, right: string, width: number): number[] {
-  // Use byteLen for right so column alignment matches the printer's byte counter.
+
   const rightBytes = byteLen(right);
   const available = width - rightBytes;
   const l = pad(left, Math.max(1, available));
   return text(l + right + "\n");
 }
 
-// Wraps long item names across multiple lines instead of truncating.
-// Uses byte lengths for column math so ₱→P (1 byte) aligns perfectly.
 function wrappedRow(left: string, right: string, width: number): number[] {
   const rightBytes = byteLen(right);
   const available = width - rightBytes;
@@ -74,8 +65,7 @@ function wrappedRow(left: string, right: string, width: number): number[] {
     return text(left.padEnd(available) + right + "\n");
   }
 
-  // Word-wrap the left text
-  const words = left.split(" ");
+const words = left.split(" ");
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -95,8 +85,7 @@ function wrappedRow(left: string, right: string, width: number): number[] {
     result.push(...text(lines[i] + "\n"));
   }
 
-  // Last line: try to fit the price on the same line
-  const lastLine = lines[lines.length - 1] || "";
+const lastLine = lines[lines.length - 1] || "";
   if (lastLine.length <= available) {
     result.push(...text(lastLine.padEnd(available) + right + "\n"));
   } else {
@@ -141,7 +130,7 @@ export interface EscPosReceipt {
   cashierName?: string;
   dateStr?: string;
   customerName?: string;
-  // BIR Compliance fields
+
   tin?: string;
   ptuNumber?: string;
   accreditationNumber?: string;
@@ -190,10 +179,10 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   };
 
   push(
-    bytes(ESC, 0x40),         // Initialize printer
-    bytes(ESC, 0x45, 1),      // Bold on (global)
-    bytes(ESC, 0x47, 1),      // Double-strike on — prints each dot twice, much darker output
-    bytes(ESC, 0x61, 0x01),   // Center align
+    bytes(ESC, 0x40),
+    bytes(ESC, 0x45, 1),
+    bytes(ESC, 0x47, 1),
+    bytes(ESC, 0x61, 0x01),
   );
 
   if (r.storeName) push(center(r.storeName, width));
@@ -204,7 +193,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   if (r.showPhone && r.phone) push(center(`Tel: ${r.phone}`, width));
   if (r.showEmail && r.email) push(center(r.email, width));
   if (r.showWebsite && r.website) push(center(r.website, width));
-  // BIR compliance header fields (required on official receipts)
+
   if (r.tin) push(center(`VAT TIN: ${r.tin}`, width));
   if (r.ptuNumber) push(center(`PTU No.: ${r.ptuNumber}`, width));
   if (r.accreditationNumber) push(center(`Accred.: ${r.accreditationNumber}`, width));
@@ -246,7 +235,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
     push(row(label, `-${fmt(r.discount, r.currency)}`, width));
   }
   if (r.vatRegistered) {
-    // BIR-required VAT breakdown on official receipts
+
     if ((r.vatableSales ?? 0) > 0) push(row("VATable Sales", fmt(r.vatableSales!, r.currency), width));
     if (r.tax > 0) {
       const vatLabel = r.taxRate != null && r.taxRate > 0 ? `Output VAT (${r.taxRate}%)` : "Output VAT";
@@ -262,8 +251,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
     push(row("Loyalty Redemption", `-${fmt(r.loyaltyDiscount, r.currency)}`, width));
   }
 
-  // BIR required disclaimer for SC/PWD or non-VAT transactions
-  const isScPwdEscPos = r.discountType === "sc" || r.discountType === "pwd";
+const isScPwdEscPos = r.discountType === "sc" || r.discountType === "pwd";
   if (isScPwdEscPos || !r.vatRegistered) {
     push(dashes(width));
     push(bytes(ESC, 0x61, 0x01));
@@ -279,7 +267,7 @@ export function buildReceiptEscPos(r: EscPosReceipt): Uint8Array {
   if (r.paymentMethod === "cash" && r.changeAmount > 0) {
     push(row("Change", fmt(r.changeAmount, r.currency), width));
   }
-  // SC/PWD ID for BIR audit trail
+
   if (r.scPwdId && (r.discountType === "sc" || r.discountType === "pwd")) {
     push(row(`${r.discountType === "sc" ? "SC" : "PWD"} ID No.`, r.scPwdId, width));
   }

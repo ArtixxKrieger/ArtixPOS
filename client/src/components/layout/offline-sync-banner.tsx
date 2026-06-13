@@ -91,7 +91,7 @@ export function OfflineSyncBanner({ status, lastPrefetch, isPrefetching = false,
     if (pillState !== "sync-done") {
       setPillState("hidden");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [isReady, isOnline, isSyncing, salesQueueCount, totalQueueCount, failedQueueCount, lastSync, dismissedFailed]);
 
   useEffect(() => {

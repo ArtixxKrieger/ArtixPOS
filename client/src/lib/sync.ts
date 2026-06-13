@@ -14,8 +14,6 @@ import {
 } from "./offline-db";
 import { queryClient, nativeFetch } from "./queryClient";
 
-// Emits events to other open tabs so they can refresh their queue counts
-// and online status without triggering a duplicate sync of their own.
 export type SyncChannelMessage =
   | { type: "SYNC_START" }
   | { type: "SYNC_COMPLETE"; result: SyncResult; ts: number }
@@ -33,8 +31,6 @@ function broadcast(msg: SyncChannelMessage) {
   try { getChannel()?.postMessage(msg); } catch {}
 }
 
-// Ensures only one browser tab runs syncOfflineData at any time.
-// Falls back gracefully when the Locks API is not available.
 async function withSyncLock<T>(fn: () => Promise<T>): Promise<T & { skipped?: boolean }> {
   const locks = (navigator as any).locks as LockManager | undefined;
   if (!locks) return fn() as any;
@@ -45,7 +41,7 @@ async function withSyncLock<T>(fn: () => Promise<T>): Promise<T & { skipped?: bo
       { ifAvailable: true },
       async (lock: Lock | null) => {
         if (!lock) {
-          // Another tab already holds the lock — skip silently.
+
           resolve({ skipped: true } as any);
           return;
         }
@@ -64,28 +60,14 @@ export interface SyncResult {
   skipped?: boolean;
 }
 
-// Collapses logically redundant mutations before sending them to the server.
-// All rules preserve intent: the final server state matches what the user did.
-//
-// Rules applied in order (each pass respects the toRemove set from prior passes):
-//
-//  1. Duplicate DELETEs to the same URL  → keep first (idempotent)
-//  2. Multiple PUT/PATCH to same URL      → keep last  (last-write-wins)
-//  3. PUT/PATCH before DELETE (same URL)  → remove PUT/PATCH
-//  4. POST + DELETE (same temp-ID entity) → remove both (net no-op)
-//  5. POST + PUT/PATCH (same temp-ID)     → merge body into POST, remove PUT/PATCH
-
 function isKnownTempId(value: unknown): boolean {
   return isOfflineId(value) || isTempNumericId(value);
 }
 
 function entityUrlMatchesTempId(url: string, baseCollectionUrl: string, tempId: string | number): boolean {
   const idStr = String(tempId);
-  // Guard: the URL must start with the same collection base (prevents
-  // cross-collection false positives, e.g. /api/sales/123 matching a POST to
-  // /api/products when both happen to share the same temp ID string).
-  // Then check the last path segment equals the temp ID.
-  return url.startsWith(baseCollectionUrl) && url.endsWith(`/${idStr}`);
+
+return url.startsWith(baseCollectionUrl) && url.endsWith(`/${idStr}`);
 }
 
 export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
@@ -112,15 +94,13 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
     putsByUrl.set(item.url, arr);
   }
   for (const items of putsByUrl.values()) {
-    // items are already in timestamp order (queue is sorted oldest→newest)
+
     for (let i = 0; i < items.length - 1; i++) {
       toRemove.add(items[i].id!);
     }
   }
 
-  // ── Pass 3: PUT/PATCH that comes BEFORE a DELETE to same URL → remove PUT ─
-  // Re-derive active DELETEs after pass 1
-  const activeDeletes = new Map<string, QueuedMutation>();
+const activeDeletes = new Map<string, QueuedMutation>();
   for (const item of queue) {
     if (toRemove.has(item.id!)) continue;
     if (item.method === "DELETE") activeDeletes.set(item.url, item);
@@ -138,28 +118,25 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
     if (toRemove.has(post.id!)) continue;
     if (post.method !== "POST") continue;
 
-    const baseUrl = post.url; // e.g. /api/products
+    const baseUrl = post.url;
     const tempId  = post.offlineId;
 
     for (const other of queue) {
       if (toRemove.has(other.id!)) continue;
       if (other.id === post.id) continue;
       if (other.method !== "DELETE") continue;
-      if (other.timestamp <= post.timestamp) continue; // DELETE must come after POST
+      if (other.timestamp <= post.timestamp) continue;
 
       let matches = false;
 
-      // Explicit offlineId match
-      if (tempId != null) {
+if (tempId != null) {
         matches = entityUrlMatchesTempId(other.url, baseUrl, tempId);
       }
 
-      // Heuristic: any DELETE whose last URL segment is a known temp ID
-      // and whose URL starts with the same base path
-      if (!matches) {
+if (!matches) {
         const lastSeg = other.url.split("/").pop() ?? "";
         if (isKnownTempId(lastSeg)) {
-          // baseUrl could be /api/products, other.url = /api/products/1234567890
+
           const otherBase = other.url.substring(0, other.url.lastIndexOf("/"));
           if (otherBase === baseUrl) matches = true;
         }
@@ -173,10 +150,7 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
     }
   }
 
-  // For any POST that survived pass 4, look for a later PUT/PATCH that targets
-  // the same temp entity. Merge the PUT body into the POST body and remove PUT.
-  // This means "create + immediately edit" becomes a single correct POST.
-  for (const post of queue) {
+for (const post of queue) {
     if (toRemove.has(post.id!)) continue;
     if (post.method !== "POST") continue;
 
@@ -192,8 +166,7 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
       if (other.timestamp <= post.timestamp) continue;
       if (!entityUrlMatchesTempId(other.url, baseUrl, tempId)) continue;
 
-      // Merge other.body into post.body
-      if (
+if (
         other.body !== null &&
         typeof other.body === "object" &&
         post.body !== null &&
@@ -209,26 +182,15 @@ export function foldQueue(queue: QueuedMutation[]): QueuedMutation[] {
 }
 
 function isPermanentFailure(status: number): boolean {
-  // 400/422 — bad request / validation error; data won't change on retry
-  // 413      — payload too large; won't shrink on retry
-  // 401      — not authenticated; user must re-login
-  //
-  // NOTE: 403 is intentionally NOT permanent. A 403 from the CSRF middleware
-  // ("CSRF token missing/invalid") is recoverable: the server sets a fresh
-  // CSRF cookie on every response, so the next nativeFetch() call will pick up
-  // the new token and succeed. Treating 403 as permanent was causing queued
-  // settings saves to be stuck forever after a CSRF cookie expiry.
-  return [400, 401, 413, 422].includes(status);
+
+return [400, 401, 413, 422].includes(status);
 }
 
 interface ProcessResult {
-  /** For successful POSTs: the server-assigned ID, so we can remap the queue. */
+
   serverId?: string | number;
 }
 
-// FIX #3: Each sync mutation gets a hard 15s timeout so a single hung
-// network request never blocks the entire sync loop. If the server takes
-// longer than 15s the item stays queued and is retried on the next cycle.
 const SYNC_MUTATION_TIMEOUT_MS = 15_000;
 
 async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
@@ -250,8 +212,7 @@ async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
     clearTimeout(timer);
   }
 
-  // 404 on DELETE is fine — item was already gone
-  if (res.status === 404 && item.method === "DELETE") return {};
+if (res.status === 404 && item.method === "DELETE") return {};
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -261,9 +222,7 @@ async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
     throw err;
   }
 
-  // For POSTs with a known offline ID: parse the response to get the real ID.
-  // We use res.clone() so the body is still readable by any caller above us.
-  if (item.method === "POST" && item.offlineId != null) {
+if (item.method === "POST" && item.offlineId != null) {
     try {
       const body = await res.clone().json();
       const serverId = body?.id;
@@ -274,27 +233,18 @@ async function processMutation(item: QueuedMutation): Promise<ProcessResult> {
   return {};
 }
 
-// Instead of a fixed allow-list, we derive which collections were touched and
-// invalidate exactly those. Dashboard/analytics/reports are always included
-// because any mutation (sale, expense, refund) can affect their totals.
-//
-// IMPORTANT: use the exact string that each page passes as queryKey[0].
-// TanStack Query prefix-matching works at the ARRAY element level, so
-// ["/api/dashboard"] does NOT invalidate queryKey: ["/api/dashboard/stats"].
 const ALWAYS_INVALIDATE = [
   ["/api/dashboard/stats"],
   ["/api/analytics"],
   ["/api/reports"],
-  // Pending-order mutations also create a sale record — invalidate the sales
-  // list so the Transactions page stays current after every sync, even when
-  // the SSE channel is closed or the dashboard tab is not open.
-  ["/api/sales"],
+
+["/api/sales"],
 ];
 
 function deriveInvalidationKeys(synced: QueuedMutation[]): string[][] {
   const bases = new Set<string>();
   for (const item of synced) {
-    // Extract the first two path segments: /api/<collection>
+
     const m = item.url.match(/^(\/api\/[a-z-]+)/i);
     if (m) bases.add(m[1]);
   }
@@ -313,38 +263,30 @@ export async function syncOfflineData(): Promise<SyncResult> {
 
     broadcast({ type: "SYNC_START" });
 
-    // Snapshot bodies BEFORE folding so we can detect which items were modified
-    const originalBodies = new Map(rawQueue.map((q) => [q.id!, q.body]));
+const originalBodies = new Map(rawQueue.map((q) => [q.id!, q.body]));
 
     const folded = foldQueue(rawQueue);
 
-    // foldQueue may merge a PUT body into a POST body (rule 5: POST+PUT→merged POST).
-    // The POST in IDB still has the OLD body — we must persist the merged body back
-    // to IDB NOW, BEFORE we delete the folded-out PUT below.
-    // If we skip this, a page reload after the PUT is removed but before the POST
-    // syncs leaves the POST with the pre-merge body forever.
-    const foldedIds = new Set(folded.map((q) => q.id!));
+const foldedIds = new Set(folded.map((q) => q.id!));
     const bodyPersistPromises: Promise<void>[] = [];
     for (const item of folded) {
       if (item.method === "POST" && item.id != null) {
         const orig = originalBodies.get(item.id);
-        // JSON comparison is cheap here — queues are always small (<100 items)
+
         if (JSON.stringify(orig) !== JSON.stringify(item.body)) {
           bodyPersistPromises.push(updateQueueItemBody(item.id, item.body));
         }
       }
     }
 
-    // Persist modified POST bodies and remove folded-out items in parallel
-    await Promise.all([
+await Promise.all([
       ...bodyPersistPromises,
       ...rawQueue
         .filter((q) => !foldedIds.has(q.id!))
         .map((q) => removeQueueItem(q.id!)),
     ]);
 
-    // Skip permanently-failed items (re-tried only via retryFailedMutations)
-    const actionable = folded.filter((q) => !q.permanentlyFailed);
+const actionable = folded.filter((q) => !q.permanentlyFailed);
 
     const result: SyncResult = {
       synced: 0,
@@ -357,7 +299,7 @@ export async function syncOfflineData(): Promise<SyncResult> {
     const now = Date.now();
 
     for (const item of actionable) {
-      // Per-item back-off: skip if we're not past the cooldown yet
+
       if (item.nextRetryAt && item.nextRetryAt > now) {
         result.failed++;
         continue;
@@ -369,9 +311,7 @@ export async function syncOfflineData(): Promise<SyncResult> {
         successfullySynced.push(item);
         result.synced++;
 
-        // ID remapping: after a POST succeeds, any later queue items that
-        // reference the temp offline ID are rewritten to use the real server ID.
-        if (serverId != null && item.offlineId != null) {
+if (serverId != null && item.offlineId != null) {
           await remapQueueItemUrls(String(item.offlineId), String(serverId));
         }
       } catch (err: any) {
@@ -383,7 +323,7 @@ export async function syncOfflineData(): Promise<SyncResult> {
           await updateQueueItemRetry(item.id!, retryCount, msg, true, undefined);
           result.permanentlyFailed++;
         } else {
-          // Set a per-item cooldown so we don't hammer the server on every poll
+
           const nextRetryAt = calcNextRetryAt(retryCount);
           await updateQueueItemRetry(item.id!, retryCount, msg, false, nextRetryAt);
           result.failed++;
@@ -410,18 +350,11 @@ export async function syncOfflineData(): Promise<SyncResult> {
   });
 }
 
-/** Reset all permanently-failed items and re-run sync. */
 export async function retryFailedMutations(): Promise<SyncResult> {
   await resetFailedQueueItems();
   return syncOfflineData();
 }
 
-/**
- * Invalidate all tracked queries.
- * Called when coming back online (with or without a pending queue) so that
- * stale/errored data is refreshed immediately.  Each key must exactly match
- * the first element of the queryKey array used by the corresponding hook.
- */
 export async function refreshAllData(): Promise<void> {
   const keys = [
     ...ALWAYS_INVALIDATE,

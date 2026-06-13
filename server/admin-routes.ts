@@ -91,7 +91,7 @@ export function registerAdminRoutes(app: Express) {
     try {
       const user = getAuthUser(req);
       let branchList = await getBranches(user.tenantId!);
-      // Admins only see their assigned branches
+
       if (user.role === "admin") {
         const assigned = await getUserBranches(user.id);
         branchList = branchList.filter(b => assigned.includes(b.id));
@@ -110,12 +110,12 @@ export function registerAdminRoutes(app: Express) {
           return res.status(403).json({ message: "The Free plan includes 1 branch. Upgrade to Pro when you are ready to manage multiple locations.", code: "BRANCH_LIMIT_REACHED" });
         }
       } else if (!isBusinessSubscription(sub)) {
-        // Pro plan: 1 branch max
+
         if (existingBranches.length >= 1) {
           return res.status(403).json({ message: "The Pro plan includes 1 branch. Upgrade to Business to manage multiple locations.", code: "BRANCH_LIMIT_REACHED" });
         }
       } else {
-        // Business plan: 10 branches max
+
         if (existingBranches.length >= 10) {
           return res.status(403).json({ message: "The Business plan supports up to 10 branches. Contact support if you need more.", code: "BRANCH_LIMIT_REACHED" });
         }
@@ -138,8 +138,7 @@ export function registerAdminRoutes(app: Express) {
       const branch = await createBranch(user.tenantId!, input as any);
       await createAuditLog({ tenantId: user.tenantId!, userId: user.id, action: "create", entity: "branch", entityId: String(branch.id), metadata: { name: branch.name } });
 
-      // If this is the owner's first branch, auto-assign them to it and set it active
-      const allBranches = await getBranches(user.tenantId!);
+const allBranches = await getBranches(user.tenantId!);
       let newToken: string | undefined;
       if (allBranches.length === 1) {
         await assignBranch(user.id, branch.id);
@@ -157,11 +156,7 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // GET returns the matching template (so the UI can ask "want a sample
-  // coffee menu?" before committing). POST actually inserts the products
-  // (and tables, where applicable) for the branch.
-
-  app.get("/api/admin/branches/:id/seed-template", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.get("/api/admin/branches/:id/seed-template", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
       const id = Number(req.params.id);
@@ -186,9 +181,7 @@ export function registerAdminRoutes(app: Express) {
       const branch = await getBranch(id, user.tenantId!);
       if (!branch) return res.status(404).json({ message: "Branch not found" });
 
-      // Allow the client to override which template to use (e.g. owner picks
-      // "cafe" defaults for an "other F&B" branch). Defaults to the auto-match.
-      const body = z.object({
+const body = z.object({
         templateKey: z.string().optional(),
       }).parse(req.body ?? {});
 
@@ -203,7 +196,7 @@ export function registerAdminRoutes(app: Express) {
       let productsCreated = 0;
       for (const item of template.items) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           await storage.createProduct(user.id, {
             name: item.name,
             price: item.price,
@@ -220,7 +213,7 @@ export function registerAdminRoutes(app: Express) {
       if (template.tables?.length) {
         for (const t of template.tables) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             await storage.createTable(user.id, {
               name: t.name,
               seats: t.seats,
@@ -249,10 +242,7 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // ─── Reset branch: wipe all products & tables for the branch, then
-  // optionally re-seed with the starter template. Useful for clearing demo
-  // data and starting from a clean catalog.
-  app.post("/api/admin/branches/:id/reset", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.post("/api/admin/branches/:id/reset", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
       const id = Number(req.params.id);
@@ -264,9 +254,7 @@ export function registerAdminRoutes(app: Express) {
         templateKey: z.string().optional(),
       }).parse(req.body ?? {});
 
-      // Find every product and table currently scoped to this branch (across
-      // every user in the tenant — staff-created items count too).
-      const tenantUserIds = (await getTenantUsers(user.tenantId!)).map(u => u.id);
+const tenantUserIds = (await getTenantUsers(user.tenantId!)).map(u => u.id);
       if (tenantUserIds.length === 0) {
         return res.status(400).json({ message: "No tenant users found" });
       }
@@ -281,29 +269,27 @@ export function registerAdminRoutes(app: Express) {
       const productIds = branchProducts.map(p => p.id);
       const tableIds = branchTables.map(t => t.id);
 
-      // Wipe everything inside a transaction so a failure leaves the branch in
-      // its previous state instead of half-deleted.
-      await db.transaction(async (tx) => {
+await db.transaction(async (tx) => {
         if (productIds.length) {
-          // Children that reference products via FK must go first.
+
           await tx.delete(productRecipes).where(inArray(productRecipes.productId, productIds));
           await tx.delete(productSizes).where(inArray(productSizes.productId, productIds));
           await tx.delete(productModifiers).where(inArray(productModifiers.productId, productIds));
-          // purchase_order_items keeps the historical row but unlinks the deleted product.
+
           await tx.update(purchaseOrderItems)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             .set({ productId: null } as any)
             .where(inArray(purchaseOrderItems.productId, productIds));
           await tx.delete(products).where(inArray(products.id, productIds));
         }
         if (tableIds.length) {
-          // Detach historical sales/pending orders from the deleted tables (FKs are nullable).
+
           await tx.update(sales)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             .set({ tableId: null } as any)
             .where(inArray(sales.tableId, tableIds));
           await tx.update(pendingOrders)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             .set({ tableId: null } as any)
             .where(inArray(pendingOrders.tableId, tableIds));
           await tx.delete(tables).where(inArray(tables.id, tableIds));
@@ -323,7 +309,7 @@ export function registerAdminRoutes(app: Express) {
           templateLabel = template.label;
           for (const item of template.items) {
             try {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
               await storage.createProduct(user.id, {
                 name: item.name,
                 price: item.price,
@@ -338,7 +324,7 @@ export function registerAdminRoutes(app: Express) {
           if (template.tables?.length) {
             for (const t of template.tables) {
               try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
                 await storage.createTable(user.id, {
                   name: t.name,
                   seats: t.seats,
@@ -585,11 +571,10 @@ export function registerAdminRoutes(app: Express) {
       const tenantUsers = await getTenantUsers(user.tenantId!);
       const isOwner = user.role === "owner";
       res.json(tenantUsers.map(u => {
-        // Strip security/recovery tokens from every response.
+
         const { passwordHash: _ph, resetToken: _rt, resetTokenExpires: _rte, ...safe } = u as any;
-        // Only owners can see compensation details — admins/managers should not
-        // be able to see what their peers are paid.
-        if (!isOwner && u.id !== user.id) {
+
+if (!isOwner && u.id !== user.id) {
           return { ...safe, wageType: undefined, wageRate: undefined, commissionPercent: undefined };
         }
         return safe;
@@ -603,17 +588,17 @@ export function registerAdminRoutes(app: Express) {
       const sub = await getSubscription(user.tenantId!);
       const tenantUsers = await getTenantUsers(user.tenantId!);
       if (!isProSubscription(sub)) {
-        // Free: owner + 2 staff = 3 total
+
         if (tenantUsers.length >= 3) {
           return res.status(403).json({ message: "The Free plan includes the owner plus 2 staff accounts. Upgrade to Pro to add more team members.", code: "STAFF_LIMIT_REACHED" });
         }
       } else if (!isBusinessSubscription(sub)) {
-        // Pro: owner + 15 staff = 16 total
+
         if (tenantUsers.length >= 16) {
           return res.status(403).json({ message: "The Pro plan supports up to 15 staff accounts. Upgrade to Business for unlimited team members.", code: "STAFF_LIMIT_REACHED" });
         }
       }
-      // Business: unlimited staff — no check needed
+
       const input = z.object({
         name: z.string().min(1),
         role: z.enum(["manager", "admin", "cashier", "staff"]),
@@ -621,8 +606,7 @@ export function registerAdminRoutes(app: Express) {
         pin: z.string().min(4).max(6).regex(/^\d+$/, "PIN must be 4–6 digits").optional(),
       }).parse(req.body);
 
-      // Admins cannot create admins or managers
-      if (user.role === "admin" && (input.role === "admin" || input.role === "manager")) {
+if (user.role === "admin" && (input.role === "admin" || input.role === "manager")) {
         return res.status(403).json({ message: "Admins cannot create admin or manager users" });
       }
 
@@ -653,10 +637,7 @@ export function registerAdminRoutes(app: Express) {
         name: z.string().min(1).optional(),
       }).parse(req.body);
 
-      // Owners cannot change their own role — prevents accidental self-lockout
-      // and blocks any privilege-escalation attack that gains owner-level access
-      // and then tries to use this endpoint to demote the real owner.
-      if (input.role && targetId === user.id) {
+if (input.role && targetId === user.id) {
         return res.status(403).json({ message: "You cannot change your own role." });
       }
 
@@ -793,13 +774,11 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // Manager+ can soft-delete any sale in their tenant
-  app.delete("/api/sales/:id", requireAuth, requireTenant, requireManagerOrAbove, async (req, res, next) => {
+app.delete("/api/sales/:id", requireAuth, requireTenant, requireManagerOrAbove, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
 
-      // Granular permission check — owners always allowed, others check canDeleteSale
-      if (user.role !== "owner") {
+if (user.role !== "owner") {
         const perm = await getRolePermissionForRole(user.tenantId!, user.role);
         if (perm && perm.canDeleteSale === false) {
           return res.status(403).json({ message: "You don't have permission to delete sales" });
@@ -808,8 +787,7 @@ export function registerAdminRoutes(app: Express) {
 
       const saleId = Number(req.params.id);
 
-      // Find the sale belonging to any user in this tenant
-      const tenantUsers = await getTenantUsers(user.tenantId!);
+const tenantUsers = await getTenantUsers(user.tenantId!);
       const userIds = tenantUsers.map(u => u.id);
 
       const [sale] = await db.select().from(sales).where(
@@ -835,8 +813,7 @@ export function registerAdminRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // Owner can see all deleted sales in their tenant
-  app.get("/api/sales/deleted", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.get("/api/sales/deleted", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
       const tenantUsers = await getTenantUsers(user.tenantId!);
@@ -907,19 +884,12 @@ export function registerAdminRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // GET /api/admin/audit-logs/verify
-  // Walks the full SHA-256 hash chain for this tenant's audit log and returns
-  // a tamper-detection report.  Owner-only — this is a forensic tool.
-  // For large tenants this may be slow; rate limit to 1 call per 60 s via
-  // the client (server does not add an extra rate limiter here).
-  app.get("/api/admin/audit-logs/verify", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.get("/api/admin/audit-logs/verify", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
       const result = await verifyAuditLogChain(user.tenantId!);
-      // Never expose full expected/actual hashes to the client — those are
-      // internal forensic details.  Return only position + entryId + createdAt
-      // so the owner knows *where* a break occurred without leaking hash values.
-      const safeBreaks = result.breaks.map(({ position, entryId, createdAt }) => ({
+
+const safeBreaks = result.breaks.map(({ position, entryId, createdAt }) => ({
         position,
         entryId,
         createdAt,
@@ -964,13 +934,12 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // Public endpoint — allows POS to read permissions for the current tenant user's role
-  app.get("/api/my-permissions", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/my-permissions", requireAuth, requireTenant, async (req, res, next) => {
     try {
       const user = getAuthUser(req);
       const { getRolePermissionForRole } = await import("./admin-storage");
       const perm = await getRolePermissionForRole(user.tenantId!, user.role);
-      // Owners and managers (without custom rules) get full permissions
+
       if (!perm) {
         return res.json({
           role: user.role,
@@ -992,12 +961,10 @@ export function registerAdminRoutes(app: Express) {
         return res.json({ tenantId: user.tenantId, alreadyExists: true });
       }
 
-      // Create a tenant for this user and make them owner
-      const tenant = await createTenant(user.name || user.email || "My Business");
+const tenant = await createTenant(user.name || user.email || "My Business");
       await (db.update(users) as any).set({ tenantId: tenant.id, role: "owner" }).where(eq(users.id, user.id));
 
-      // Fetch updated user and issue new JWT
-      const updatedUser = { ...user, tenantId: tenant.id, role: "owner" as const };
+const updatedUser = { ...user, tenantId: tenant.id, role: "owner" as const };
       const token = signToken(updatedUser);
       res.cookie(AUTH_COOKIE, token, {
         ...AUTH_COOKIE_OPTIONS,

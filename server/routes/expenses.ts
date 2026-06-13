@@ -9,8 +9,7 @@ import { getUserId, getActiveBranchId, resolveBranchId, auditLog, handleZodError
 
 export function registerExpenseRoutes(app: Express): void {
 
-  // ── List expenses ──────────────────────────────────────────────────────────
-  app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
+app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getExpenses(getUserId(req), {
       branchId: getActiveBranchId(req),
       limit: 500,
@@ -18,8 +17,7 @@ export function registerExpenseRoutes(app: Express): void {
     res.json(list);
   });
 
-  // ── Create expense ─────────────────────────────────────────────────────────
-  app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
+app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.extend({ amount: z.coerce.string() }).parse(req.body);
       const branchId = await resolveBranchId(req);
@@ -35,8 +33,7 @@ export function registerExpenseRoutes(app: Express): void {
     }
   });
 
-  // ── Update expense ─────────────────────────────────────────────────────────
-  app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
+app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.partial().extend({ amount: z.coerce.string().optional() }).parse(req.body);
       const expense = await storage.updateExpense(Number(req.params.id), getUserId(req), input);
@@ -51,8 +48,7 @@ export function registerExpenseRoutes(app: Express): void {
     }
   });
 
-  // ── Delete expense ─────────────────────────────────────────────────────────
-  app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
+app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));

@@ -32,8 +32,6 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DAYS = [
   { key: "mon", label: "Mon" },
   { key: "tue", label: "Tue" },
@@ -96,8 +94,6 @@ const BUSINESS_SUBTYPES: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmt(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
@@ -119,8 +115,6 @@ function isOpenNow(openingHours: Branch["openingHours"], timezone?: string | nul
   const closeMins = ch * 60 + cm;
   return nowMins >= openMins && nowMins < closeMins;
 }
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
 
 const branchSchema = z.object({
   name: z.string().min(1, "Branch name is required"),
@@ -147,7 +141,6 @@ const branchSchema = z.object({
   }
 });
 
-// Edit schema: name/businessType/businessSubType are locked and not re-validated
 const branchEditSchema = z.object({
   name: z.string().min(1),
   address: z.string().optional(),
@@ -165,8 +158,6 @@ const branchEditSchema = z.object({
 });
 
 type BranchForm = z.infer<typeof branchSchema>;
-
-// ─── Opening Hours Editor ─────────────────────────────────────────────────────
 
 function OpeningHoursEditor({
   value,
@@ -235,8 +226,6 @@ function OpeningHoursEditor({
   );
 }
 
-// ─── Color Picker ─────────────────────────────────────────────────────────────
-
 function ColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [hexInput, setHexInput] = useState(value || BRANCH_COLORS[0]);
 
@@ -256,7 +245,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
 
   return (
     <div className="space-y-4">
-      {/* Swatch preview + hex input */}
+      {}
       <div className="flex items-center gap-3">
         <div
           className="h-14 w-14 rounded-2xl shrink-0 shadow-lg border-2 border-white/20 flex items-center justify-center"
@@ -277,7 +266,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
         </div>
       </div>
 
-      {/* Preset grid */}
+      {}
       <div>
         <p className="text-[11px] font-semibold text-muted-foreground mb-2">Presets</p>
         <div className="grid grid-cols-5 gap-2">
@@ -307,8 +296,6 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
     </div>
   );
 }
-
-// ─── Color Live Preview ───────────────────────────────────────────────────────
 
 function hexToRgb(hex: string): [number, number, number] | null {
   const clean = hex.replace("#", "");
@@ -355,7 +342,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
       style={{ borderColor: alphaHex(displayColor, 0.3) }}
       data-testid="color-preview-panel"
     >
-      {/* Header strip */}
+      {}
       <div
         className="flex items-center gap-3 px-4 py-3"
         style={{ backgroundColor: displayColor }}
@@ -370,7 +357,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
           <p className="font-bold text-sm truncate" style={{ color: fg }}>{branchLabel}</p>
           <p className="text-[10px] opacity-75" style={{ color: fg }}>Live preview</p>
         </div>
-        {/* Active badge */}
+        {}
         <span
           className="text-[10px] font-bold px-2 py-0.5 rounded-full"
           style={{ backgroundColor: "rgba(255,255,255,0.22)", color: fg }}
@@ -379,12 +366,12 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
         </span>
       </div>
 
-      {/* Body */}
+      {}
       <div
         className="px-4 py-3 space-y-3"
         style={{ backgroundColor: bg12 }}
       >
-        {/* Buttons row */}
+        {}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
@@ -410,7 +397,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
           </span>
         </div>
 
-        {/* Mini stat cards */}
+        {}
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: "Today", value: "$0.00" },
@@ -428,7 +415,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
           ))}
         </div>
 
-        {/* Sidebar nav hint */}
+        {}
         <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ backgroundColor: bg20 }}>
           <div className="h-3.5 w-3.5 rounded" style={{ backgroundColor: displayColor }} />
           <span className="text-[10px] font-semibold" style={{ color: displayColor }}>
@@ -439,8 +426,6 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
     </div>
   );
 }
-
-// ─── Branch Form Dialog ───────────────────────────────────────────────────────
 
 function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: () => void; branch?: Branch }) {
   const createBranch = useCreateBranch();
@@ -500,7 +485,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
         businessType: branch.businessType ?? "",
         businessSubType: branch.businessSubType ?? "",
       });
-      // Infer country from the branch's saved timezone
+
       if (branch.timezone) {
         const match = COUNTRY_LIST.find(c => c.timezone === branch.timezone);
         setBranchCountry(match ?? null);
@@ -514,7 +499,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       setBranchCountry(null);
       setCountrySearch("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open, branch]);
 
   function handleClose() {
@@ -629,9 +614,9 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                   <TabsTrigger value="settings" className="text-xs" data-testid="tab-branch-settings">Settings</TabsTrigger>
                 </TabsList>
 
-                {/* Basic Tab */}
+                {}
                 <TabsContent value="basic" className="space-y-3 mt-3">
-                  {/* Color picker row */}
+                  {}
                   <FormField control={form.control} name="color" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Branch Color</FormLabel>
@@ -641,7 +626,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                     </FormItem>
                   )} />
 
-                  {/* Live preview */}
+                  {}
                   <ColorPreview
                     color={watchedColor ?? BRANCH_COLORS[0]}
                     name={watchedName ?? ""}
@@ -719,7 +704,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                   )} />
                 </TabsContent>
 
-                {/* Details Tab */}
+                {}
                 <TabsContent value="details" className="space-y-3 mt-3">
                   <FormField control={form.control} name="address" render={({ field }) => (
                     <FormItem>
@@ -775,7 +760,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                   )} />
                 </TabsContent>
 
-                {/* Hours Tab */}
+                {}
                 <TabsContent value="hours" className="mt-3 space-y-2">
                   <p className="text-xs text-muted-foreground">Set when this branch is open. The "Open Now" badge on the card uses these hours.</p>
                   <FormField control={form.control} name="openingHours" render={({ field }) => (
@@ -790,10 +775,10 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                   )} />
                 </TabsContent>
 
-                {/* Settings Tab */}
+                {}
                 <TabsContent value="settings" className="space-y-3 mt-3">
 
-                  {/* Country picker */}
+                  {}
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1">
                       <Globe className="h-3.5 w-3.5 inline mr-0.5" />Country
@@ -817,7 +802,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                     <p className="text-[11px] text-muted-foreground">Choosing a country auto-sets the timezone below.</p>
                   </div>
 
-                  {/* Country picker modal */}
+                  {}
                   {showCountryPicker && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCountryPicker(false)}>
                       <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
@@ -931,8 +916,6 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
   );
 }
 
-// ─── Branch Detail Drawer ─────────────────────────────────────────────────────
-
 function BranchDetailDrawer({
   branch,
   open,
@@ -983,7 +966,7 @@ function BranchDetailDrawer({
   return (
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0">
-        {/* Header with color stripe */}
+        {}
         {branch && (
           <>
             <div className="h-2 w-full" style={{ backgroundColor: color }} />
@@ -1032,7 +1015,7 @@ function BranchDetailDrawer({
                 </div>
               </SheetHeader>
 
-              {/* Contact info */}
+              {}
               <div className="grid grid-cols-1 gap-1.5">
                 {branch.address && (
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -1081,7 +1064,7 @@ function BranchDetailDrawer({
                 </div>
               )}
 
-              {/* Stats */}
+              {}
               {stats ? (
                 <>
                   <div className="grid grid-cols-2 gap-3">

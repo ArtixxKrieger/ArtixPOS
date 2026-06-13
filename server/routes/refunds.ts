@@ -8,20 +8,17 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerRefundRoutes(app: Express): void {
 
-  // ── List refunds (manager+ only) ───────────────────────────────────────────
-  app.get("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
+app.get("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
     const list = await storage.getRefunds(getUserId(req));
     res.json(list);
   });
 
-  // ── List refunds for a specific sale ──────────────────────────────────────
-  app.get("/api/refunds/sale/:saleId", requireAuth, async (req, res) => {
+app.get("/api/refunds/sale/:saleId", requireAuth, async (req, res) => {
     const list = await storage.getRefundsBySale(Number(req.params.saleId), getUserId(req));
     res.json(list);
   });
 
-  // ── Create refund ──────────────────────────────────────────────────────────
-  app.post("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
+app.post("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
       const refundUser = req.user;
       if (refundUser?.tenantId && refundUser.role !== "owner") {

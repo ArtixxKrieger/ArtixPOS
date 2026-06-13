@@ -178,7 +178,7 @@ export default function DiscountCodes() {
   return (
     <div className="space-y-4 page-enter">
 
-      {/* Summary */}
+      {}
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-card rounded-2xl p-4 bg-gradient-to-br from-violet-500/8 to-transparent">
           <div className="flex items-center gap-2 mb-2">
@@ -200,7 +200,7 @@ export default function DiscountCodes() {
         </div>
       </div>
 
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-base">Discount Codes</h2>
         <Button onClick={() => setShowForm(true)} className="h-9 rounded-xl" data-testid="button-add-discount-code">
@@ -208,7 +208,7 @@ export default function DiscountCodes() {
         </Button>
       </div>
 
-      {/* List */}
+      {}
       {codes.length === 0 ? (
         <div className="glass-card rounded-2xl py-16 text-center flex flex-col items-center gap-3">
           <div className="h-14 w-14 rounded-full bg-muted/40 flex items-center justify-center mb-2">

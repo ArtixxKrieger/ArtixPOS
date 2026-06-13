@@ -1,16 +1,5 @@
-/**
- * Route registration — thin orchestrator.
- *
- * Each domain is handled by its own file under server/routes/.
- * This file's only job is to:
- *   1. Call the existing special-purpose route registrars (admin, AI, subscription, payroll).
- *   2. Register the public branch-profile endpoint (no auth, rate-limited).
- *   3. Delegate every other domain to its dedicated registerXxxRoutes() function.
- *
- * Adding a new domain:
- *   a. Create server/routes/<domain>.ts and export registerXxxRoutes(app).
- *   b. Import + call it below — that's all.
- */
+
+
 import type { Express } from "express";
 import type { Server } from "http";
 import { rateLimit } from "express-rate-limit";
@@ -21,7 +10,6 @@ import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 import { branches as branchesTable, tenants } from "@shared/schema";
 
-// ── Domain route registrars ────────────────────────────────────────────────
 import { registerProductRoutes } from "./routes/products";
 import { registerPendingOrderRoutes } from "./routes/pending-orders";
 import { registerSaleRoutes } from "./routes/sales";
@@ -49,7 +37,6 @@ import { registerPushRoutes } from "./routes/push";
 import { registerStaffPinRoutes } from "./routes/staff-pin";
 import { registerScheduleRoutes } from "./routes/schedules";
 
-// Public-profile rate limiter — prevents enumeration of all branch IDs
 const publicBranchLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -63,8 +50,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  // ── Dev-only email preview ─────────────────────────────────────────────────
-  if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production") {
     app.get("/api/dev/email-preview/:type", async (req, res) => {
       const {
         buildVerificationEmailHtml,
@@ -111,14 +97,12 @@ export async function registerRoutes(
       res.send(html);
     });
 
-    // ── Dev email test-send — actually delivers via your real SMTP/Resend config ──
-    // POST /api/dev/email-send   body: { to, type }
-    app.post("/api/dev/email-send", async (req, res) => {
+app.post("/api/dev/email-send", async (req, res) => {
       const { to, type } = req.body ?? {};
       if (!to || !type) return res.status(400).json({ ok: false, message: "body must contain { to, type }" });
 
       const { sendVerificationEmail, sendPasswordResetEmail, sendReceiptEmail, resetTransporter } = await import("./email");
-      resetTransporter(); // pick up any newly-set env vars without restarting
+      resetTransporter();
 
       let ok = false;
       if (type === "verify") {
@@ -147,15 +131,13 @@ export async function registerRoutes(
     });
   }
 
-  // ── Third-party / special-purpose route registrars ─────────────────────────
-  registerAdminRoutes(app);
+registerAdminRoutes(app);
   registerSubscriptionRoutes(app);
   registerPaymentWebhookRoutes(app);
   registerRevenueCatWebhookRoutes(app);
   registerPayrollRoutes(app);
 
-  // ── Public branch profile (no auth) ───────────────────────────────────────
-  app.get("/api/public/branch/:id", publicBranchLimiter, async (req, res, next) => {
+app.get("/api/public/branch/:id", publicBranchLimiter, async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Invalid branch id" });
@@ -184,8 +166,7 @@ export async function registerRoutes(
     } catch (err) { next(err); }
   });
 
-  // ── Domain routes ──────────────────────────────────────────────────────────
-  registerProductRoutes(app);
+registerProductRoutes(app);
   registerPendingOrderRoutes(app);
   registerSaleRoutes(app);
   registerDashboardRoutes(app);

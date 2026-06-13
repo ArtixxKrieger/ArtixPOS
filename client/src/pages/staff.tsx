@@ -192,8 +192,7 @@ export default function StaffPage() {
     onSuccess: () => { toast({ title: "Staff member removed" }); setConfirmDelete(undefined); },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const toggleActiveMutation = useMutation({
+const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) =>
       apiRequest("PUT", `/api/service-staff/${id}`, { isActive }),
     onMutate: async ({ id, isActive }: { id: number; isActive: boolean }) => {

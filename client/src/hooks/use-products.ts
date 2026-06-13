@@ -16,19 +16,15 @@ class ValidationError extends Error {
 export function useProducts() {
   return useQuery({
     queryKey: [LIST_URL],
-    // Data stays fresh for 2 min — matches the server-side cache TTL (120 s).
-    // All mutations call setQueryData directly so the cache is always up-to-date
-    // without needing a stale-triggered refetch; the longer staleTime just
-    // prevents needless background re-fetches on route changes.
-    staleTime: 120_000,
+
+staleTime: 120_000,
     queryFn: async () => {
       try {
         const res = await nativeFetch(LIST_URL);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.products.list.responses[200].parse(await res.json());
-        // Fire-and-forget IDB write — do NOT await so the queryFn resolves
-        // immediately and React renders the new data without waiting for IDB.
-        setCached(LIST_URL, data).catch(() => {});
+
+setCached(LIST_URL, data).catch(() => {});
         return data;
       } catch (err) {
         const cached = await getCached<ReturnType<typeof api.products.list.responses[200]["parse"]>>(LIST_URL);
@@ -39,7 +35,6 @@ export function useProducts() {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useProduct(id: number) {
   return useQuery({
     queryKey: [api.products.get.path, id],
@@ -72,16 +67,14 @@ export function useCreateProduct() {
           body: JSON.stringify(data),
         });
       } catch {
-        // Offline — queue the mutation and return an optimistic result.
-        // We pin the temp ID before any async work so it's consistent between
-        // the queue item (offlineId) and the optimistic cache entry.
-        const tempId = Date.now();
+
+const tempId = Date.now();
         await queueMutation(
           "POST",
           api.products.create.path,
           data,
           "product",
-          tempId, // offlineId — enables foldQueue and ID remapping after sync
+          tempId,
         );
         const optimistic = { ...data, id: tempId, sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
         await patchCached(LIST_URL, (prev: any[]) => [...(Array.isArray(prev) ? prev : []), optimistic]);

@@ -6,7 +6,6 @@ import { ChefHat, Clock, Maximize2, Minimize2, CheckCircle2, Wifi, WifiOff } fro
 import type { PendingOrder } from "@shared/schema";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const KITCHEN_STATUSES = ["pending", "preparing", "ready"] as const;
 type KitchenStatus = typeof KITCHEN_STATUSES[number];
 
@@ -68,8 +67,8 @@ function playOrderBell() {
       osc.start(s);
       osc.stop(s + 0.7);
     });
-    setTimeout(() => { try { ctx.close(); } catch { /* ignore */ } }, 2500);
-  } catch { /* Web Audio not supported */ }
+    setTimeout(() => { try { ctx.close(); } catch {  } }, 2500);
+  } catch {  }
 }
 
 function elapsedMin(createdAt: string | null | undefined) {
@@ -151,7 +150,7 @@ export default function KitchenDisplayPage() {
       className="min-h-screen bg-[#0a0a0a] text-white flex flex-col select-none"
       data-testid="kitchen-display-page"
     >
-      {/* Header */}
+      {}
       <header className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-[#111] shrink-0">
         <div className="flex items-center gap-2.5">
           <ChefHat className="h-4 w-4 text-amber-400" />
@@ -190,7 +189,7 @@ export default function KitchenDisplayPage() {
         </div>
       </header>
 
-      {/* Body */}
+      {}
       <div className="flex-1 overflow-auto p-3">
         {kitchenOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-24 text-white/20">
@@ -204,7 +203,7 @@ export default function KitchenDisplayPage() {
               const cfg = STATUS_CONFIG[status];
               return (
                 <div key={status} className="flex flex-col gap-2 min-h-0">
-                  {/* Column header */}
+                  {}
                   <div className={cn("flex items-center gap-2 px-2.5 py-1.5 rounded-lg", cfg.headerBg)}>
                     <span className={cn("font-black text-xs uppercase tracking-widest", cfg.headerText)}>
                       {cfg.label}
@@ -214,7 +213,7 @@ export default function KitchenDisplayPage() {
                     </span>
                   </div>
 
-                  {/* Cards */}
+                  {}
                   <div className="flex flex-col gap-2 overflow-y-auto flex-1">
                     {grouped[status].length === 0 ? (
                       <div className="border border-dashed border-white/10 rounded-lg p-4 text-center text-white/15 text-xs">
@@ -239,7 +238,7 @@ export default function KitchenDisplayPage() {
                                   : cn("bg-white/[0.04]", cfg.accent)
                             )}
                           >
-                            {/* Card header */}
+                            {}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-black text-base leading-none">
@@ -292,7 +291,7 @@ export default function KitchenDisplayPage() {
                               <p className="text-[10px] text-white/35 -mt-1">{order.customerName}</p>
                             )}
 
-                            {/* Items */}
+                            {}
                             <ul className="space-y-1">
                               {((order.items as any[]) ?? []).map((item, i) => {
                                 const sizeName = item.size?.name ?? item.size ?? null;
@@ -322,7 +321,7 @@ export default function KitchenDisplayPage() {
                               </p>
                             )}
 
-                            {/* Action button */}
+                            {}
                             <button
                               data-testid={`kd-advance-${order.id}`}
                               onClick={() => updateMutation.mutate({ id: order.id, kitchenStatus: STATUS_CONFIG[status].next as string })}

@@ -115,7 +115,7 @@ export default function BranchPublicPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Hero header */}
+      {}
       <div
         style={{ background: accent }}
         className="relative overflow-hidden"
@@ -127,7 +127,7 @@ export default function BranchPublicPage() {
           }}
         />
         <div className="relative max-w-xl mx-auto px-6 pt-14 pb-10">
-          {/* Avatar */}
+          {}
           <div
             className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-lg mb-5 select-none"
             style={{ background: "rgba(255,255,255,0.2)", color: onAccent, backdropFilter: "blur(8px)" }}
@@ -135,7 +135,7 @@ export default function BranchPublicPage() {
             {branch.name.charAt(0).toUpperCase()}
           </div>
 
-          {/* Name + tenant */}
+          {}
           <h1 className="text-3xl font-bold mb-1" style={{ color: onAccent }}>
             {branch.name}
           </h1>
@@ -145,7 +145,7 @@ export default function BranchPublicPage() {
             </p>
           )}
 
-          {/* Status badges */}
+          {}
           <div className="flex flex-wrap gap-2">
             <span
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
@@ -177,11 +177,11 @@ export default function BranchPublicPage() {
         </div>
       </div>
 
-      {/* Content card */}
+      {}
       <div className="max-w-xl mx-auto px-4 -mt-4 pb-12">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
 
-          {/* Description */}
+          {}
           {branch.description && (
             <>
               <div className="px-6 py-5">
@@ -191,7 +191,7 @@ export default function BranchPublicPage() {
             </>
           )}
 
-          {/* Contact info */}
+          {}
           <div className="px-6 py-5 space-y-4">
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Contact</h2>
 
@@ -248,7 +248,7 @@ export default function BranchPublicPage() {
             )}
           </div>
 
-          {/* Opening hours */}
+          {}
           {branch.openingHours && (
             <>
               <Separator />
@@ -286,7 +286,7 @@ export default function BranchPublicPage() {
           )}
         </div>
 
-        {/* Footer */}
+        {}
         <p className="text-center text-xs text-slate-400 mt-6">
           Powered by <span className="font-semibold text-slate-500">ArtixPOS</span>
         </p>

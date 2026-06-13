@@ -182,8 +182,7 @@ export default function BIRPage() {
     return opts;
   }, []);
 
-  // Accreditation expiry
-  const accreditationExpiry = useMemo(() => {
+const accreditationExpiry = useMemo(() => {
     if (!accreditationDate) return null;
     try {
       const issued = new Date(accreditationDate);
@@ -534,7 +533,7 @@ export default function BIRPage() {
   return (
     <div className="space-y-5 page-enter pb-8">
 
-      {/* Page header */}
+      {}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold">BIR Compliance Center</h1>
@@ -553,7 +552,7 @@ export default function BIRPage() {
         </div>
       </div>
 
-      {/* ── Compliance Status ──────────────────────────────────────── */}
+      {}
       <div className="glass-card rounded-2xl p-4">
         <SectionTitle icon={ShieldCheck} label="Registration Status" sub="Required BIR fields for receipts and reports" />
 
@@ -599,7 +598,7 @@ export default function BIRPage() {
         </div>
       </div>
 
-      {/* ── CAS Registration Info ──────────────────────────────────── */}
+      {}
       <div className="glass-card rounded-2xl p-4">
         <SectionTitle icon={FileText} label="CAS Registration" sub="Computerized Accounting System — one-time BIR filing" />
         <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-3 space-y-2">
@@ -1153,7 +1152,7 @@ export default function BIRPage() {
         </div>
       </div>
 
-      {/* ── 2550M Pre-Fill Modal ───────────────────────────────────── */}
+      {}
       {show2550M && monthlySummary && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-4 pb-4 sm:pb-0"
@@ -1186,7 +1185,7 @@ export default function BIRPage() {
                 </p>
               </div>
 
-              {/* Taxpayer info */}
+              {}
               <div className="bg-secondary/30 rounded-xl px-3 py-2.5 space-y-1.5">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Taxpayer Information</p>
                 {[
@@ -1205,7 +1204,7 @@ export default function BIRPage() {
                 ))}
               </div>
 
-              {/* Output Tax */}
+              {}
               <div>
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Part I — Output Tax (Sales)</p>
                 <div className="space-y-1">
@@ -1229,7 +1228,7 @@ export default function BIRPage() {
                 </div>
               </div>
 
-              {/* SC/PWD Discounts */}
+              {}
               {monthlySummary.scPwdCount > 0 && (
                 <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl px-3 py-2">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1">SC/PWD Discounts (Adjustments)</p>
@@ -1242,7 +1241,7 @@ export default function BIRPage() {
                 </div>
               )}
 
-              {/* Input Tax entry */}
+              {}
               <div>
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Part II — Input Tax (Your Purchases)</p>
                 <div className="bg-secondary/30 rounded-xl px-3 py-3 space-y-2">
@@ -1266,7 +1265,7 @@ export default function BIRPage() {
                 </div>
               </div>
 
-              {/* Live computation */}
+              {}
               {(() => {
                 const itAmt = Math.max(0, parseFloat(inputTax) || 0);
                 const vatPayable = Math.max(0, monthlySummary.outputVat - itAmt);

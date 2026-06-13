@@ -16,8 +16,6 @@ import {
 } from "lucide-react";
 import type { Customer, LoyaltyTier, LoyaltyReward, Product } from "@shared/schema";
 
-// ─── Tier config helper ───────────────────────────────────────────────────────
-
 const TIER_ICONS: Record<string, typeof Star> = { bronze: Medal, silver: Star, gold: Crown, platinum: Sparkles };
 const PRESET_TIERS = [
   { name: "Bronze",   minLifetimePoints: 100,  multiplier: "1",   color: "#CD7F32", perks: "Early access to promotions", sortOrder: 1 },
@@ -34,8 +32,6 @@ const REWARD_TYPE_OPTIONS = [
   { value: "custom",           label: "Custom Reward",              icon: Gift },
 ];
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
 function StatCard({ icon: Icon, label, value, sub, color = "text-primary" }: {
   icon: React.ComponentType<{ className?: string }>; label: string; value: string; sub?: string; color?: string;
 }) {
@@ -51,8 +47,6 @@ function StatCard({ icon: Icon, label, value, sub, color = "text-primary" }: {
   );
 }
 
-// ─── Tier Form Dialog ─────────────────────────────────────────────────────────
-
 function TierFormDialog({ open, onClose, initial, onSave }: {
   open: boolean; onClose: () => void; initial?: LoyaltyTier | null; onSave: (data: Partial<LoyaltyTier>) => void;
 }) {
@@ -60,7 +54,7 @@ function TierFormDialog({ open, onClose, initial, onSave }: {
   useEffect(() => {
     if (initial) form.reset({ name: initial.name, minLifetimePoints: initial.minLifetimePoints, multiplier: initial.multiplier, color: initial.color, perks: initial.perks ?? "", sortOrder: initial.sortOrder });
     else form.reset({ name: "", minLifetimePoints: 0, multiplier: "1", color: "#CD7F32", perks: "", sortOrder: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [initial, open]);
 
   return (
@@ -109,8 +103,6 @@ function TierFormDialog({ open, onClose, initial, onSave }: {
   );
 }
 
-// ─── Reward Form Dialog ───────────────────────────────────────────────────────
-
 function RewardFormDialog({ open, onClose, initial, onSave, products }: {
   open: boolean; onClose: () => void; initial?: LoyaltyReward | null; onSave: (data: any) => void; products: Product[];
 }) {
@@ -120,7 +112,7 @@ function RewardFormDialog({ open, onClose, initial, onSave, products }: {
   useEffect(() => {
     if (initial) form.reset({ name: initial.name, description: initial.description ?? "", type: initial.type, pointsCost: initial.pointsCost, value: initial.value, isActive: initial.isActive ?? true, maxRedemptions: initial.maxRedemptions?.toString() ?? "", expiresAt: initial.expiresAt ?? "" });
     else form.reset({ name: "", description: "", type: "discount_fixed", pointsCost: 100, value: "0", isActive: true, maxRedemptions: "", expiresAt: "" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [initial, open]);
 
   const valueLabel: Record<string, string> = { discount_fixed: "Discount Amount", discount_percent: "Discount Percent (%)", free_product: "Product ID", stamp_card: "Stamps required", custom: "Reward Description" };
@@ -185,8 +177,6 @@ function RewardFormDialog({ open, onClose, initial, onSave, products }: {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function LoyaltyPage() {
   const { user } = useAuth();
   const { data: settings } = useSettings();
@@ -207,8 +197,7 @@ export default function LoyaltyPage() {
   const { data: rewards = [] } = useQuery<LoyaltyReward[]>({ queryKey: ["/api/loyalty/rewards"] });
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
-  // Settings form
-  const settingsForm = useForm({
+const settingsForm = useForm({
     defaultValues: {
       loyaltyPointsPerUnit: "1",
       loyaltyRedemptionRate: "100",
@@ -232,15 +221,14 @@ export default function LoyaltyPage() {
         loyaltyStampEnabled: !!settings.loyaltyStampEnabled,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [settings]);
 
   const watchedSettings = settingsForm.watch();
   const pointsPerUnit = parseFloat(watchedSettings.loyaltyPointsPerUnit || "1") || 0;
   const redemptionRate = parseFloat(watchedSettings.loyaltyRedemptionRate || "100") || 1;
 
-  // Stats
-  const stats = useMemo(() => {
+const stats = useMemo(() => {
     const withPoints = customers.filter(c => (c.loyaltyPoints ?? 0) > 0);
     const totalPts = customers.reduce((s, c) => s + (c.loyaltyPoints ?? 0), 0);
     const tierCounts: Record<string, number> = {};
@@ -252,8 +240,7 @@ export default function LoyaltyPage() {
     return { withPoints: withPoints.length, totalPts, tierCounts, top };
   }, [customers]);
 
-  // Tier mutations
-  const createTier = useMutation({
+const createTier = useMutation({
     mutationFn: (data: Partial<LoyaltyTier>) => apiRequest("POST", "/api/loyalty/tiers", data).then(r => r.json()),
     onSuccess: (result: LoyaltyTier) => {
       qc.setQueryData<LoyaltyTier[]>(["/api/loyalty/tiers"], (old) => old ? [...old, result] : [result]);
@@ -285,8 +272,7 @@ export default function LoyaltyPage() {
     onSuccess: () => { setDeletingTier(null); toast({ title: "Tier deleted" }); },
   });
 
-  // Reward mutations
-  const createReward = useMutation({
+const createReward = useMutation({
     mutationFn: (data: Partial<LoyaltyReward>) => apiRequest("POST", "/api/loyalty/rewards", data).then(r => r.json()),
     onSuccess: (result: LoyaltyReward) => {
       qc.setQueryData<LoyaltyReward[]>(["/api/loyalty/rewards"], (old) => old ? [...old, result] : [result]);
@@ -361,7 +347,7 @@ export default function LoyaltyPage() {
 
   return (
     <div className="space-y-4 page-enter">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-3 pb-1">
         <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
           <Sparkles className="h-4 w-4 text-primary" />
@@ -372,7 +358,7 @@ export default function LoyaltyPage() {
         </div>
       </div>
 
-      {/* Feature pills */}
+      {}
       <div className="flex flex-wrap gap-2">
         {[
           { icon: Coins,  label: "Earn", desc: "Points per purchase & tier multipliers" },
@@ -387,7 +373,7 @@ export default function LoyaltyPage() {
         ))}
       </div>
 
-      {/* Tabs */}
+      {}
       <div className="flex gap-1 bg-muted/40 rounded-2xl p-1">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -398,7 +384,7 @@ export default function LoyaltyPage() {
         ))}
       </div>
 
-      {/* ── Dashboard ─────────────────────────────────────────────────────────── */}
+      {}
       {tab === "dashboard" && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -408,7 +394,7 @@ export default function LoyaltyPage() {
             <StatCard icon={Award} label="Active Rewards" value={String(rewards.filter(r => r.isActive).length)} sub={`${tiers.length} tiers`} color="text-amber-600 dark:text-amber-400" />
           </div>
 
-          {/* Tier breakdown */}
+          {}
           {tiers.length > 0 && (
             <div className="bg-card rounded-2xl border border-border/40 p-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Members by Tier</p>
@@ -440,7 +426,7 @@ export default function LoyaltyPage() {
             </div>
           )}
 
-          {/* Top customers */}
+          {}
           <div className="bg-card rounded-2xl border border-border/40 overflow-hidden shadow-sm">
             <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
               <Star className="h-4 w-4 text-amber-500" />
@@ -472,7 +458,7 @@ export default function LoyaltyPage() {
         </div>
       )}
 
-      {/* ── Tiers ─────────────────────────────────────────────────────────────── */}
+      {}
       {tab === "tiers" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -533,7 +519,7 @@ export default function LoyaltyPage() {
         </div>
       )}
 
-      {/* ── Rewards ───────────────────────────────────────────────────────────── */}
+      {}
       {tab === "rewards" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -590,11 +576,11 @@ export default function LoyaltyPage() {
         </div>
       )}
 
-      {/* ── Settings ──────────────────────────────────────────────────────────── */}
+      {}
       {tab === "settings" && (
         <div className="space-y-4">
           <form onSubmit={settingsForm.handleSubmit(onSaveSettings)} className="space-y-4">
-            {/* Earning */}
+            {}
             <div className="bg-card rounded-2xl border border-border/40 p-4 space-y-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Point Earning</p>
               <div className="grid grid-cols-2 gap-4">
@@ -610,7 +596,7 @@ export default function LoyaltyPage() {
                 </div>
               </div>
 
-              {/* Live calculator */}
+              {}
               <div className="rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-200/40 dark:border-violet-500/20 p-3">
                 <div className="flex items-center gap-1.5 mb-2"><Calculator className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" /><p className="text-[10px] font-bold uppercase tracking-widest text-violet-700 dark:text-violet-300">Live Example</p></div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
@@ -621,7 +607,7 @@ export default function LoyaltyPage() {
               </div>
             </div>
 
-            {/* Bonus rules */}
+            {}
             <div className="bg-card rounded-2xl border border-border/40 p-4 space-y-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bonus Points</p>
               <div className="grid grid-cols-2 gap-4">
@@ -638,7 +624,7 @@ export default function LoyaltyPage() {
               </div>
             </div>
 
-            {/* Stamp card */}
+            {}
             <div className="bg-card rounded-2xl border border-border/40 p-4 space-y-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Stamp Card</p>
@@ -653,7 +639,7 @@ export default function LoyaltyPage() {
               )}
             </div>
 
-            {/* Expiry */}
+            {}
             <div className="bg-card rounded-2xl border border-border/40 p-4 space-y-3 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Points Expiry</p>
               <div>
@@ -672,7 +658,7 @@ export default function LoyaltyPage() {
         </div>
       )}
 
-      {/* Tier Form Dialog */}
+      {}
       <TierFormDialog
         open={tierDialog.open}
         onClose={() => setTierDialog({ open: false })}
@@ -680,7 +666,7 @@ export default function LoyaltyPage() {
         onSave={handleTierSave}
       />
 
-      {/* Reward Form Dialog */}
+      {}
       <RewardFormDialog
         open={rewardDialog.open}
         onClose={() => setRewardDialog({ open: false })}

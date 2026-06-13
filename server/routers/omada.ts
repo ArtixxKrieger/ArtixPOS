@@ -1,13 +1,5 @@
-/**
- * TP-Link Omada SDN Controller adapter.
- *
- * API docs: https://www.tp-link.com/en/omada-sdn/api/
- *
- * Auth flow:
- *   1. POST /api/v2/login → get session cookie
- *   2. Use cookie for subsequent requests
- *   3. POST /api/v2/logout when done (optional)
- */
+
+
 import type { RouterAdapter, RouterConfig } from "./types";
 
 function getBaseUrl(config: RouterConfig): string {
@@ -21,15 +13,12 @@ interface OmadaSession {
   expiresAt: number;
 }
 
-// Per-controller session cache — keyed by baseUrl so multi-tenant instances
-// don't thrash each other's sessions.
 const _sessionCache = new Map<string, OmadaSession>();
 
 async function getSession(config: RouterConfig): Promise<string | null> {
   const baseUrl = getBaseUrl(config);
 
-  // Reuse cached session if still valid (within 5 min margin)
-  const cached = _sessionCache.get(baseUrl);
+const cached = _sessionCache.get(baseUrl);
   if (cached && cached.expiresAt > Date.now() + 5 * 60_000) {
     return cached.cookie;
   }
@@ -47,12 +36,10 @@ async function getSession(config: RouterConfig): Promise<string | null> {
 
     if (!res.ok) return null;
 
-    // Omada returns a session cookie in Set-Cookie header
-    const setCookie = res.headers.get("set-cookie");
+const setCookie = res.headers.get("set-cookie");
     if (!setCookie) return null;
 
-    // Extract the omadac_id cookie
-    const match = setCookie.match(/omadac_id=([^;]+)/);
+const match = setCookie.match(/omadac_id=([^;]+)/);
     if (!match) return null;
 
     const cookie = `omadac_id=${match[1]}`;
@@ -74,8 +61,7 @@ export const omadaAdapter: RouterAdapter = {
     try {
       const baseUrl = getBaseUrl(config);
 
-      // Try to log in
-      const res = await fetch(`${baseUrl}/api/v2/login`, {
+const res = await fetch(`${baseUrl}/api/v2/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,8 +92,7 @@ export const omadaAdapter: RouterAdapter = {
         };
       }
 
-      // Try to get controller info
-      const cookie = `omadac_id=${match[1]}`;
+const cookie = `omadac_id=${match[1]}`;
       const infoRes = await fetch(`${baseUrl}/api/v2/sites`, {
         headers: { Cookie: cookie },
         signal: AbortSignal.timeout(6000),
@@ -115,7 +100,7 @@ export const omadaAdapter: RouterAdapter = {
 
       if (infoRes.ok) {
         const sites = await infoRes.json();
-        // result.data is an array of sites
+
         const siteList = Array.isArray(sites?.result?.data)
           ? sites.result.data
           : Array.isArray(sites?.data)
@@ -157,15 +142,13 @@ export const omadaAdapter: RouterAdapter = {
       const body = {
         name: code,
         password: code,
-        // Omada uses "validTime" in hours for the user account validity
+
         validTime: hours,
-        // Also set a usage quota — expire after N minutes of usage
-        // We set a daily limit that expires today
-        enableRateLimit: true,
+
+enableRateLimit: true,
         rateLimit: {
-          // Not strictly time-based; we set a 0 minute quota essentially creating
-          // a user that exists for the specified duration. Omada auto-clears expired users.
-          downRate: 0,
+
+downRate: 0,
           upRate: 0,
         },
       };
@@ -190,9 +173,9 @@ export const omadaAdapter: RouterAdapter = {
       }
 
       const data: any = await res.json().catch(() => ({}));
-      // Omada may return an id field
+
       const userId = data?.result?.id ?? data?.id ?? data?.result?._id;
-      return userId ? String(userId) : code; // Fall back to code as identifier
+      return userId ? String(userId) : code;
     } catch (err: any) {
       console.warn("[omada] createUser error:", err?.message);
       return null;
@@ -228,9 +211,7 @@ export const omadaAdapter: RouterAdapter = {
       const siteId = getSiteId(config);
       const baseUrl = getBaseUrl(config);
 
-      // List all hotspot users (Omada doesn't support a name search param,
-      // so we paginate/fetch all and filter client-side)
-      const listRes = await fetch(
+const listRes = await fetch(
         `${baseUrl}/api/v2/sites/${encodeURIComponent(siteId)}/setting/hotspot/users?currentPage=1&currentPageSize=500`,
         {
           headers: { Cookie: cookie },
@@ -245,8 +226,7 @@ export const omadaAdapter: RouterAdapter = {
 
       if (!Array.isArray(data) || data.length === 0) return;
 
-      // Match by name (the voucher code)
-      const user = data.find((u: any) => u.name === name || u.userName === name);
+const user = data.find((u: any) => u.name === name || u.userName === name);
       const userId = user?.id ?? user?._id;
       if (userId) await omadaAdapter.removeUser(config, String(userId));
     } catch (err: any) {

@@ -145,7 +145,7 @@ export default function SchedulesPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
@@ -160,7 +160,7 @@ export default function SchedulesPage() {
         </Button>
       </div>
 
-      {/* Empty state */}
+      {}
       {!isLoading && employees.length === 0 && (
         <div className="text-center py-16 text-muted-foreground space-y-2">
           <Users className="h-9 w-9 mx-auto opacity-30" />
@@ -168,7 +168,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Employee cards */}
+      {}
       {!isLoading && employees.length > 0 && (
         <div className="space-y-3">
           {employees.map(emp => {
@@ -176,7 +176,7 @@ export default function SchedulesPage() {
             const isExpanded = expandedEmployees.has(emp.id);
             return (
               <div key={emp.id} className="bg-card border border-border rounded-2xl overflow-hidden">
-                {/* Employee header row */}
+                {}
                 <button
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-secondary/40 transition-colors"
                   onClick={() => toggleExpand(emp.id)}
@@ -207,7 +207,7 @@ export default function SchedulesPage() {
                   </div>
                 </button>
 
-                {/* Expanded shifts */}
+                {}
                 {isExpanded && (
                   <div className="border-t border-border/60">
                     {empSchedules.length === 0 ? (
@@ -268,7 +268,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Skeleton */}
+      {}
       {isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
@@ -277,7 +277,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Add / Edit Dialog */}
+      {}
       <Dialog open={showForm} onOpenChange={open => { if (!open) { setShowForm(false); setEditingId(null); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -375,7 +375,7 @@ export default function SchedulesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
+      {}
       <Dialog open={!!deletingId} onOpenChange={open => { if (!open) setDeletingId(null); }}>
         <DialogContent className="max-w-xs">
           <DialogHeader>

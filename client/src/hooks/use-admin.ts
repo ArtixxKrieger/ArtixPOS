@@ -91,15 +91,12 @@ export interface BranchAnalytics {
   todayOrders: number;
 }
 
-// ─── Tenant ───────────────────────────────────────────────────────────────────
-
 export function useTenant() {
   return useQuery<Tenant>({
     queryKey: ["/api/admin/tenant"],
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useUpdateTenant() {
   const qc = useQueryClient();
   return useMutation({
@@ -110,8 +107,6 @@ function useUpdateTenant() {
     },
   });
 }
-
-// ─── Branches ─────────────────────────────────────────────────────────────────
 
 export function useBranches() {
   return useQuery<Branch[]>({
@@ -259,8 +254,6 @@ export function useSetMainBranch() {
   });
 }
 
-// ─── Users ────────────────────────────────────────────────────────────────────
-
 export function useTenantUsers() {
   return useQuery<TenantUser[]>({
     queryKey: ["/api/admin/users"],
@@ -346,15 +339,11 @@ export function useRemoveBranch() {
   });
 }
 
-// ─── Analytics ────────────────────────────────────────────────────────────────
-
 export function useBranchAnalytics() {
   return useQuery<BranchAnalytics[]>({
     queryKey: ["/api/admin/analytics"],
   });
 }
-
-// ─── Audit Logs ───────────────────────────────────────────────────────────────
 
 export interface AuditLogFilters {
   userId?: string;
@@ -382,8 +371,6 @@ export function useAuditLogs(filters?: AuditLogFilters) {
     },
   });
 }
-
-// ─── Role Permissions ─────────────────────────────────────────────────────────
 
 export function useRolePermissions() {
   return useQuery<RolePermission[]>({
@@ -426,30 +413,24 @@ export function useMyPermissions() {
   });
 }
 
-// ─── Branch Switch ────────────────────────────────────────────────────────────
-
 export function useSwitchBranch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (branchId: number | null) => {
       const res = await apiRequest("POST", "/api/admin/switch-branch", { branchId });
       const data = await res.json().catch(() => ({}));
-      // Persist the new JWT (with updated activeBranchId) so subsequent requests
-      // are scoped to the selected branch immediately.
-      if (data?.token) {
+
+if (data?.token) {
         setNativeToken(data.token);
       }
       return data;
     },
     onSuccess: () => {
-      // Wipe all cached data — branch-scoped queries (products, sales, pending
-      // orders, expenses) need to refetch with the new active branch.
-      qc.clear();
+
+qc.clear();
     },
   });
 }
-
-// ─── Ensure tenant ────────────────────────────────────────────────────────────
 
 export function useEnsureTenant() {
   const qc = useQueryClient();

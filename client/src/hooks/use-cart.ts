@@ -1,9 +1,5 @@
-/**
- * useCart — manages POS cart state and all cart operations.
- *
- * Extracted from pos.tsx so the component stays focused on rendering.
- * Depends on useToast for stock-guard feedback.
- */
+
+
 import { useState, useCallback, useRef } from "react";
 import { nanoid } from "nanoid";
 import type { Product } from "@shared/schema";
@@ -25,8 +21,7 @@ export function useCart(toast: ToastFn) {
   const [lastRemoved, setLastRemoved] = useState<{ item: CartItem; index: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /** Add a product to the cart, respecting stock limits. */
-  const addToCart = useCallback(
+const addToCart = useCallback(
     (
       product: Product,
       size?: { name: string; price: string },
@@ -85,8 +80,7 @@ export function useCart(toast: ToastFn) {
     [cart, toast],
   );
 
-  /** Increment or decrement a cart-item's quantity, respecting stock limits. */
-  const updateQuantity = useCallback(
+const updateQuantity = useCallback(
     (cartId: string, change: number) => {
       if (change > 0) {
         const item = cart.find((i) => i.cartId === cartId);
@@ -124,8 +118,7 @@ export function useCart(toast: ToastFn) {
     [cart, toast],
   );
 
-  /** Remove a cart item — stores it for 5-second undo window. */
-  const removeFromCart = useCallback((cartId: string) => {
+const removeFromCart = useCallback((cartId: string) => {
     setCart((prev) => {
       const index = prev.findIndex((i) => i.cartId === cartId);
       if (index !== -1) {
@@ -138,8 +131,7 @@ export function useCart(toast: ToastFn) {
     });
   }, []);
 
-  /** Restore the last removed item within the undo window. */
-  const undoLastRemove = useCallback(() => {
+const undoLastRemove = useCallback(() => {
     if (!lastRemoved) return;
     setCart((prev) => {
       const next = [...prev];
@@ -150,8 +142,7 @@ export function useCart(toast: ToastFn) {
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }, [lastRemoved]);
 
-  /** Update the per-item kitchen note. */
-  const updateNote = useCallback((cartId: string, note: string) => {
+const updateNote = useCallback((cartId: string, note: string) => {
     setCart((prev) =>
       prev.map((item) =>
         item.cartId === cartId ? { ...item, note: note || undefined } : item,
@@ -159,13 +150,11 @@ export function useCart(toast: ToastFn) {
     );
   }, []);
 
-  /** Replace the entire cart (e.g. after a reorder hand-off). */
-  const replaceCart = useCallback((items: CartItem[]) => {
+const replaceCart = useCallback((items: CartItem[]) => {
     setCart(items);
   }, []);
 
-  /** Reset the cart to empty. */
-  const clearCart = useCallback(() => setCart([]), []);
+const clearCart = useCallback(() => setCart([]), []);
 
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
 

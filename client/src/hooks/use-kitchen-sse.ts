@@ -45,7 +45,7 @@ export function useKitchenSse(options?: KitchenSseOptions) {
           try {
             const data = JSON.parse((e as MessageEvent).data ?? "{}");
             optionsRef.current.onOrderUpdate(data);
-          } catch { /* ignore */ }
+          } catch {  }
         }
       });
 
@@ -58,7 +58,7 @@ export function useKitchenSse(options?: KitchenSseOptions) {
           } else if (data.orderNumber) {
             toast({ title: `New order #${data.orderNumber} arrived`, duration: 4000 });
           }
-        } catch { /* ignore parse errors */ }
+        } catch {  }
       });
 
       es.onerror = () => {
@@ -91,7 +91,7 @@ export function useKitchenSse(options?: KitchenSseOptions) {
       esRef.current?.close();
       esRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   return { connected };

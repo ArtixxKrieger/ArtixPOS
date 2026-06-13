@@ -21,11 +21,6 @@ const isChunkLoadError = (err: Error) => {
   );
 };
 
-/**
- * Catches render errors anywhere below it so a single broken component (or a
- * failed dynamic chunk import after a deploy) doesn't unmount the entire app
- * to a blank white screen. Stale-chunk errors auto-recover by reloading once.
- */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null, componentStack: null };
 
@@ -37,15 +32,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error("[ErrorBoundary]", error, info);
     this.setState({ componentStack: info.componentStack ?? null });
 
-    // Only auto-reload for chunk errors when we're actually online.
-    // If the device is offline the reload will fail too and we'll just
-    // loop — instead let the offline fallback UI handle it.
-    if (isChunkLoadError(error) && navigator.onLine) {
+if (isChunkLoadError(error) && navigator.onLine) {
       const key = "artixpos_chunk_reload_at";
       const last = Number(sessionStorage.getItem(key) ?? "0");
-      // Only auto-reload once per minute to avoid an infinite reload loop
-      // if the new bundle itself is broken.
-      if (Date.now() - last > 60_000) {
+
+if (Date.now() - last > 60_000) {
         sessionStorage.setItem(key, String(Date.now()));
         window.location.reload();
       }
@@ -57,11 +48,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   hardReload = () => {
-    // Aggressive recovery: unregister any service worker, wipe its caches,
-    // then force-reload bypassing the HTTP cache. This breaks users out of
-    // the situation where a stale cached HTML keeps re-triggering the same
-    // chunk-load error on every reload.
-    try {
+
+try {
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker
           .getRegistrations()
@@ -81,7 +69,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         return;
       }
     } catch {
-      // fall through
+
     }
     window.location.reload();
   };
@@ -145,7 +133,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
           )}
 
-          {/* Hide technical details for offline errors — not actionable for users */}
+          {}
           {!isOfflineChunk && <div className="text-left bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-xs">
             <p className="font-mono break-words text-rose-700 dark:text-rose-400" data-testid="text-error-message">
               {error.name}: {error.message || "(no message)"}

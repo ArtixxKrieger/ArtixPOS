@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+
 
 interface BluetoothCharacteristicProperties {
   write: boolean;

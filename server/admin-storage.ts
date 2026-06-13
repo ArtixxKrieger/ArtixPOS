@@ -45,7 +45,7 @@ export async function getBranch(id: number, tenantId: string): Promise<Branch | 
 
 export async function createBranch(tenantId: string, data: { name: string; address?: string | null; phone?: string | null; email?: string | null; website?: string | null; description?: string | null; color?: string | null; timezone?: string | null; taxRate?: string | null; openingHours?: any; isActive?: boolean; isMain?: boolean; businessType?: string | null; businessSubType?: string | null }): Promise<Branch> {
   if (data.isMain) {
-    // Unset any existing main branch for this tenant
+
     await (db.update(branches) as any).set({ isMain: false }).where(eq(branches.tenantId, tenantId));
   }
   const [branch] = await db.insert(branches).values({ tenantId, ...data }).returning();
@@ -102,11 +102,10 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 export async function createStaffUser(tenantId: string, data: {
   name: string;
   role: "manager" | "admin" | "cashier" | "staff";
-  hashedPin?: string; // pre-hashed PIN, set immediately if provided
+  hashedPin?: string;
 }): Promise<User> {
-  // PIN-only staff: no email, no password, no app login.
-  // They authenticate exclusively via PIN on the in-store kiosk.
-  const id = `staff_${crypto.randomUUID()}`;
+
+const id = `staff_${crypto.randomUUID()}`;
   await (db.insert(users) as any).values({
     id,
     email: null,
@@ -127,7 +126,7 @@ export async function updateUserRole(userId: string, tenantId: string, role: "ow
     .set({ role })
     .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
     .returning();
-  // Invalidate tenant cache so the role change is immediately reflected
+
   invalidateTenantCache(userId);
   return user;
 }
@@ -194,7 +193,6 @@ export async function assignBranch(userId: string, branchId: number): Promise<vo
   }
 }
 
-// Bulk-assigns multiple branches to a user in a single INSERT (skip duplicates).
 export async function bulkAssignBranches(userId: string, branchIds: number[]): Promise<void> {
   if (branchIds.length === 0) return;
   await db.insert(userBranches)
@@ -280,21 +278,6 @@ export async function getAuditLogs(
 
   return rows as AuditLogWithActor[];
 }
-
-// ── Audit log chain integrity verifier ────────────────────────────────────
-//
-// The audit log uses a SHA-256 hash chain: each entry stores the hash of the
-// previous entry as `previousHash`.  This creates a tamper-evident ledger —
-// any deletion, insertion, or reordering of records breaks the chain.
-//
-// This verifier walks every entry for a tenant (oldest → newest) and checks:
-//   1. The first entry has previousHash = null (genesis).
-//   2. Every subsequent entry's previousHash equals the preceding recordHash.
-//
-// Note: individual record *content* hashes cannot be re-verified here because
-// the original hash payload included a JavaScript timestamp that isn't stored
-// separately in the DB.  Chain topology verification is still highly valuable:
-// it detects deletions, insertions between entries, and any reordering.
 
 export interface AuditChainBreak {
   position: number;
@@ -406,8 +389,7 @@ export async function getBranchAnalytics(tenantId: string, branchIds?: number[])
     ? eq(sales.branchId, filteredIds[0])
     : inArray(sales.branchId, filteredIds);
 
-  // Two GROUP BY queries replace the previous 2×N per-branch queries
-  const [allTimeTotals, todayTotals] = await Promise.all([
+const [allTimeTotals, todayTotals] = await Promise.all([
     db.select({
       branchId: sales.branchId,
       totalRevenue: sql<string>`COALESCE(SUM(CAST(${sales.total} AS REAL)), 0)`,

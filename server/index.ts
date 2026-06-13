@@ -74,9 +74,8 @@ const cspDirectives = {
   manifestSrc: ["'self'"],
   mediaSrc: ["'self'", "blob:", "data:"],
   ...(isDevelopment ? {} : { upgradeInsecureRequests: [] }),
-  // Collect CSP violations — see /api/csp-report handler below.
-  // Must use the kebab-case string key; helmet ignores unknown camelCase keys.
-  "report-uri": ["/api/csp-report"],
+
+"report-uri": ["/api/csp-report"],
 };
 
 app.use(
@@ -252,7 +251,7 @@ const NATIVE_ORIGINS = [
 
 app.use((req, res, next) => {
   const origin = req.headers.origin ?? "";
-  // Reflect only origins that match our explicit allowlist — never reflect arbitrary origins.
+
   const allowedOrigin =
     NATIVE_ORIGINS.find((o) => o === origin) ??
     (/^http:\/\/localhost(:\d+)?$/.test(origin) ? origin : null);
@@ -270,9 +269,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── CSP violation report collector ──────────────────────────────────────────
-// Browsers POST here when the helmet CSP blocks something.
-// Registered before the body-parser so it can use its own content-type handler.
 app.post(
   "/api/csp-report",
   express.json({ type: ["application/json", "application/csp-report"], limit: "32kb" }),
@@ -378,11 +374,7 @@ async function _doInit() {
     console.log("[init] step 2/8 — initSentry");
     await initSentry();
 
-    // Transaction-mode poolers (Supabase port 6543) cannot run DDL statements
-    // like ALTER TABLE or CREATE ROLE — they hang indefinitely and leak pool
-    // connections.  Detect and skip gracefully; run migrations via the Supabase
-    // SQL Editor or a direct (non-pooler) connection instead.
-    const dbUrl = process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || "";
+const dbUrl = process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || "";
     const isTransactionPooler = dbUrl.includes(":6543/") || (dbUrl.includes("pooler.supabase.com") && !dbUrl.includes(":5432/"));
 
     if (process.env.VERCEL !== "1") {
@@ -560,7 +552,7 @@ if (process.env.VERCEL !== "1") {
             }
           }
         } catch {
-          // router unreachable
+
         }
       }
       console.log(`[voucher-expiry] expired=${expired.length}`);

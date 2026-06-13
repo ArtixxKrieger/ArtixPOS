@@ -45,7 +45,7 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
           message
         )
         .catch(async (err: any) => {
-          // 404/410 = subscription expired — remove it
+
           if (err?.statusCode === 404 || err?.statusCode === 410) {
             await db.delete(pushSubscriptions)
               .where(eq(pushSubscriptions.id, sub.id))

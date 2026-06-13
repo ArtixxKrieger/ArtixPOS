@@ -8,7 +8,7 @@ import { getRolePermissionForRole } from "../admin-storage";
 import { getUserId, getTenantId, getActiveBranchId, resolveBranchId, auditLog, handleZodError } from "../lib/route-utils";
 import { cache } from "../cache";
 
-const IDEM_TTL_MS = 60 * 60 * 1000; // 1 hour idempotency window
+const IDEM_TTL_MS = 60 * 60 * 1000;
 
 export function registerPendingOrderRoutes(app: Express): void {
 
@@ -19,13 +19,8 @@ export function registerPendingOrderRoutes(app: Express): void {
 
   app.post(api.pendingOrders.create.path, requireAuth, async (req, res) => {
     try {
-      // The frontend generates a nanoid() `idempotencyKey` per checkout attempt.
-      // If the server processed the request but the response was lost (e.g. a
-      // WiFi hiccup), the offline-sync layer replays the same POST body including
-      // the same key. We return the cached result instead of creating a duplicate
-      // sale. The key is NOT in the Drizzle schema — we read it from the raw body
-      // before Zod strips unknown fields.
-      const rawIdempotencyKey = typeof (req.body as Record<string, unknown>).idempotencyKey === "string"
+
+const rawIdempotencyKey = typeof (req.body as Record<string, unknown>).idempotencyKey === "string"
         ? (req.body as Record<string, unknown>).idempotencyKey as string
         : undefined;
       const idemTenantId = (req.user as Record<string, unknown> | undefined)?.tenantId as string | undefined;
@@ -34,7 +29,7 @@ export function registerPendingOrderRoutes(app: Express): void {
         const idemCacheKey = `idem:po:${idemTenantId}:${rawIdempotencyKey}`;
         const cached = cache.get<object>(idemCacheKey);
         if (cached) {
-          // Already processed — return the original response, no duplicate side-effects.
+
           return res.status(201).json(cached);
         }
       }
@@ -50,9 +45,7 @@ export function registerPendingOrderRoutes(app: Express): void {
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-      // Force the active branch so an order placed while viewing branch A can
-      // never accidentally land on a different branch.
-      const enforcedBranch = await resolveBranchId(req);
+const enforcedBranch = await resolveBranchId(req);
       const inputWithCashier = {
         ...input,
         cashierId: input.cashierId ?? uid,
@@ -60,23 +53,16 @@ export function registerPendingOrderRoutes(app: Express): void {
       };
       const order = await storage.createPendingOrder(uid, inputWithCashier);
 
-      // When a POS order is finalised as paid, also record it as a sale so it
-      // immediately appears in Dashboard, Analytics, and Sales History.
-      // Capture BIR receipt fields from the auto-created sale so the client
-      // can display the correct OR number on the receipt without a second fetch.
-      let saleOrNumber: string | null = null;
+let saleOrNumber: string | null = null;
       let saleReceiptNumber: string | null = null;
       let saleId: number | null = null;
 
-      // Resolve tenant ID early — needed both for kitchen SSE and the
-      // background stats-update ping added below.
-      const tid = getTenantId(req);
+const tid = getTenantId(req);
 
       if (input.status === "paid") {
         try {
-          // Create the sale record synchronously — we need the OR / receipt
-          // numbers for the receipt the cashier is about to print.
-          const rawBody = req.body as any;
+
+const rawBody = req.body as any;
           const sale = await storage.createSale(uid, {
             items: input.items,
             subtotal: input.subtotal,
@@ -95,7 +81,7 @@ export function registerPendingOrderRoutes(app: Express): void {
             cashierId: uid,
             notes: input.notes,
             branchId: enforcedBranch,
-            // BIR compliance fields — must be persisted for X/Z reports and eSales
+
             discountType: rawBody.discountType ?? "regular",
             scPwdId: rawBody.scPwdId ?? null,
             vatableSales: rawBody.vatableSales ?? "0",
@@ -107,18 +93,13 @@ export function registerPendingOrderRoutes(app: Express): void {
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
-          // ── Non-blocking background work ──────────────────────────────────
-          // Stock deduction, discount-code counter, audit log, and the
-          // dashboard stats-update SSE ping are all fire-and-forget.
-          // Keeping them in the hot path was adding 300-800 ms of visible
-          // latency on every POS checkout.
-          const capturedSale   = sale;
+const capturedSale   = sale;
           const capturedUid    = uid;
           const capturedInput  = input;
           const capturedTid    = tid;
           const capturedReq    = req;
           setImmediate(async () => {
-            // Stock deduction — with 3 retries, matching the direct-sale route
+
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
                 await storage.deductProductStockForSale(capturedUid, capturedInput.items as any[]);
@@ -129,8 +110,7 @@ export function registerPendingOrderRoutes(app: Express): void {
               }
             }
 
-            // Discount-code usage counter
-            if (capturedInput.discountCode) {
+if (capturedInput.discountCode) {
               try {
                 const dc = await storage.getDiscountCodeByCode(capturedInput.discountCode, capturedUid);
                 if (dc) await storage.incrementDiscountCodeUsage(dc.id);
@@ -139,8 +119,7 @@ export function registerPendingOrderRoutes(app: Express): void {
               }
             }
 
-            // Audit log
-            try {
+try {
               await auditLog(capturedReq, "create", "sale", String(capturedSale.id), {
                 total: capturedSale.total,
                 itemCount: Array.isArray(capturedSale.items) ? capturedSale.items.length : 0,
@@ -149,11 +128,7 @@ export function registerPendingOrderRoutes(app: Express): void {
               });
             } catch {}
 
-            // Stats-update SSE — notify all open dashboard tabs so they refresh
-            // in real time.  This was the missing link: /api/pending-orders
-            // creates the sale but never emitted stats-update, so the dashboard
-            // SSE was completely silent for every POS checkout.
-            if (capturedTid) {
+if (capturedTid) {
               emitTenantEvent(capturedTid, {
                 type: "stats-update",
                 saleId: capturedSale.id,
@@ -162,14 +137,12 @@ export function registerPendingOrderRoutes(app: Express): void {
             }
           });
         } catch (saleErr) {
-          // Sale creation failure is non-fatal — the order is already saved.
+
           console.error("Failed to auto-create sale for paid order:", saleErr);
         }
       }
 
-      // Emit kitchen-new-order for ALL orders (paid at counter or tab-style)
-      // so the kitchen display lights up instantly.
-      if (tid) {
+if (tid) {
         emitTenantEvent(tid, {
           type: "kitchen-new-order",
           orderId: order.id,
@@ -191,17 +164,14 @@ export function registerPendingOrderRoutes(app: Express): void {
         });
       }
 
-      // Merge BIR receipt identifiers from the auto-created sale into the order response
-      const responseBody = {
+const responseBody = {
         ...order,
         orNumber: saleOrNumber ?? (order as any).orNumber ?? null,
         receiptNumber: saleReceiptNumber ?? (order as any).receiptNumber ?? null,
         saleId,
       };
 
-      // Cache successful response so a replay of the same idempotency key
-      // returns the original result without creating a second sale.
-      if (rawIdempotencyKey && idemTenantId) {
+if (rawIdempotencyKey && idemTenantId) {
         const idemCacheKey = `idem:po:${idemTenantId}:${rawIdempotencyKey}`;
         cache.set(idemCacheKey, responseBody, IDEM_TTL_MS);
       }
@@ -247,9 +217,7 @@ export function registerPendingOrderRoutes(app: Express): void {
     res.status(204).end();
   });
 
-  // Kept here (not in sse.ts) because it mutates an order — only the SSE push
-  // is related to the real-time channel.
-  app.patch("/api/pending-orders/:id/kitchen", requireAuth, async (req, res) => {
+app.patch("/api/pending-orders/:id/kitchen", requireAuth, async (req, res) => {
     try {
       const { kitchenStatus } = z.object({
         kitchenStatus: z.enum(["pending", "preparing", "ready", "done"]),

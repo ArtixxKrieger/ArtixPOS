@@ -1,17 +1,4 @@
-/**
- * RouterAdapter — interface every vendor adapter must implement.
- *
- * Adding a new vendor:
- *   1. Create server/routers/<vendor>.ts that exports an object satisfying RouterAdapter.
- *   2. Add the vendor to the VENDOR_ADAPTERS map in factory.ts.
- *   3. Add a ROUTER_VENDORS entry with UI metadata.
- *
- * No database changes needed — router_config JSONB stores whatever fields
- * each vendor needs. The factory.ts createRouterConfig/parseRouterConfig
- * helpers keep the JSONB payloads clean.
- */
 
-// ── Router Vendor UI Metadata ───────────────────────────────────────────────
 
 export type RouterVendorType =
   | "mikrotik"
@@ -24,23 +11,21 @@ export type RouterVendorType =
 
 export interface RouterVendorInfo {
   type: RouterVendorType;
-  label: string; // Display name in the UI
-  description: string; // One-line description for the setup wizard
-  icon: string; // Lucide icon name (used by dynamic icon rendering)
+  label: string;
+  description: string;
+  icon: string;
   defaultPort: number;
   defaultUsername: string;
   defaultUseSsl: boolean;
-  // Extra fields the UI should show beyond host/port/user/password.
-  // If undefined, only the 4 standard fields are shown.
-  extraFields?: {
+
+extraFields?: {
     key: string;
     label: string;
     placeholder: string;
     defaultValue: string;
   }[];
-  // Maximum voucher duration this router supports (minutes).
-  // null = unlimited. Some SMB routers crash with >24h sessions.
-  maxDurationMinutes: number | null;
+
+maxDurationMinutes: number | null;
 }
 
 export const ROUTER_VENDORS: RouterVendorInfo[] = [
@@ -133,8 +118,6 @@ export const ROUTER_VENDORS: RouterVendorInfo[] = [
   },
 ];
 
-// ── Router Config (stored as JSONB in user_settings.router_config) ──────────
-
 export interface RouterConfig {
   type: RouterVendorType;
   enabled: boolean;
@@ -143,27 +126,20 @@ export interface RouterConfig {
   username: string;
   password: string;
   useSsl: boolean;
-  // Vendor-specific extras — flattened into the top-level JSONB
+
   [key: string]: any;
 }
 
-// ── Router Adapter Interface ────────────────────────────────────────────────
-
 export interface RouterAdapter {
-  /** Quick connectivity check. Returns { ok, message, version? }. */
+
   testConnection(config: RouterConfig): Promise<{ ok: boolean; message: string; version?: string }>;
 
-  /** Create a time-limited user on the hotspot. Returns the router's internal user ID. */
-  createUser(config: RouterConfig, code: string, durationMinutes: number): Promise<string | null>;
+createUser(config: RouterConfig, code: string, durationMinutes: number): Promise<string | null>;
 
-  /** Remove a user by router-internal ID. */
-  removeUser(config: RouterConfig, userId: string): Promise<void>;
+removeUser(config: RouterConfig, userId: string): Promise<void>;
 
-  /** Remove a user by name/code (for batch expiry). */
-  removeUserByName(config: RouterConfig, name: string): Promise<void>;
+removeUserByName(config: RouterConfig, name: string): Promise<void>;
 }
-
-// ── Default Config Builder ──────────────────────────────────────────────────
 
 export function defaultRouterConfig(type: RouterVendorType): RouterConfig {
   const info = ROUTER_VENDORS.find((v) => v.type === type);

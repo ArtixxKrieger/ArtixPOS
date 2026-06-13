@@ -14,7 +14,7 @@ const isServerless = !!process.env.VERCEL;
 let _baseDbRead: typeof db;
 
 if (READ_URL) {
-  // DB_SSL_VERIFY=true → enforce certificate verification (stricter environments).
+
   const dbSslVerify = process.env.DB_SSL_VERIFY === "true";
   const readPool = new Pool({
     connectionString: READ_URL,
@@ -38,10 +38,6 @@ if (READ_URL) {
   }
 }
 
-// ── RLS-aware read proxy ──────────────────────────────────────────────────────
-// When a tenant context is active we route reads through the same
-// per-request connection that has SET LOCAL app.current_tenant set.
-// This ensures RLS policies are enforced on read-replica queries too.
 export const dbRead = new Proxy(_baseDbRead, {
   get(target, prop: string | symbol) {
     const store = _tenantStore.getStore();

@@ -1,9 +1,5 @@
-/**
- * RouterFactory — returns the correct RouterAdapter for a given vendor type.
- *
- * Each adapter is lazily imported so we never load vendor code for routers
- * the tenant isn't using. This keeps cold starts fast.
- */
+
+
 import type { RouterAdapter, RouterConfig, RouterVendorType } from "./types";
 import { defaultRouterConfig } from "./types";
 
@@ -17,7 +13,6 @@ const VENDOR_ADAPTERS: Record<RouterVendorType, () => Promise<RouterAdapter>> = 
   openwrt: () => Promise.resolve(todoAdapter("OpenWrt")),
 };
 
-// ── Placeholder for adapters not yet implemented ──────────────────────────
 function todoAdapter(name: string): RouterAdapter {
   return {
     testConnection: async () => ({ ok: false, message: `${name} adapter coming soon` }),
@@ -27,14 +22,8 @@ function todoAdapter(name: string): RouterAdapter {
   };
 }
 
-// ── Public API ────────────────────────────────────────────────────────────
-
 const _cache = new Map<RouterVendorType, RouterAdapter>();
 
-/**
- * Get (or lazy-load and cache) the adapter for a given vendor type.
- * The adapter is loaded once per process lifetime.
- */
 export async function getAdapter(type: RouterVendorType): Promise<RouterAdapter> {
   const cached = _cache.get(type);
   if (cached) return cached;
@@ -47,10 +36,6 @@ export async function getAdapter(type: RouterVendorType): Promise<RouterAdapter>
   return adapter;
 }
 
-/**
- * Parse router_config JSONB from the database into a typed RouterConfig,
- * filling in defaults for the declared vendor type.
- */
 export function parseRouterConfig(raw: any): RouterConfig | null {
   if (!raw || typeof raw !== "object") return null;
   const type = raw.type as RouterVendorType | undefined;

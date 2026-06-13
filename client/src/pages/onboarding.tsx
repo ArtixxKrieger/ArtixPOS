@@ -29,8 +29,6 @@ import { detectLocale, detectCountryByIP, COUNTRY_LIST, type CountryData } from 
 type BusinessType = "food_beverage" | "retail" | "services";
 type Step = "welcome" | "business_type" | "business_subtype" | "store_info" | "done";
 
-// ─── Static data ──────────────────────────────────────────────────────────────
-
 const STORE_NAME_PLACEHOLDER: Record<string, string> = {
   cafe: "e.g. Maria's Cafe",
   restaurant: "e.g. Maria's Restaurant",
@@ -111,10 +109,7 @@ const FREE_FEATURES: { icon: React.ElementType; label: string; desc: string }[] 
   { icon: Smartphone,   label: "Any Device",            desc: "Phone, tablet, or desktop" },
 ];
 
-// Owner flow steps for progress tracking
 const OWNER_STEPS: Step[] = ["business_type", "business_subtype", "store_info"];
-
-// ─── Sub-components ────────────────────────────────────────────────────────────
 
 function StepProgress({ current }: { current: number }) {
   return (
@@ -224,8 +219,6 @@ function CountryPicker({ value, onChange }: { value: CountryData | null; onChang
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
-
 export default function Onboarding() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
@@ -248,8 +241,7 @@ export default function Onboarding() {
   const { logout, isLoggingOut } = useAuth();
   const userPickedCountry = useRef(false);
 
-  // ── Geo-detect country on mount ─────────────────────────────────────────────
-  useEffect(() => {
+useEffect(() => {
     const locale = detectLocale();
     if (locale.countryCode) {
       const country = COUNTRY_LIST.find(c => c.code === locale.countryCode) ?? null;
@@ -286,8 +278,7 @@ export default function Onboarding() {
     return phone.replace(/\D/g, "").length > prefix.replace(/\D/g, "").length;
   }
 
-  // ── Label lookups ────────────────────────────────────────────────────────────
-  const SUBTYPE_LABELS: Record<string, string> = {
+const SUBTYPE_LABELS: Record<string, string> = {
     cafe: "Cafe / Coffee Shop", restaurant: "Restaurant", bakery: "Bakery",
     bar: "Bar / Pub", food_truck: "Food Truck", clothing: "Clothing / Fashion",
     electronics: "Electronics", grocery: "Grocery / Supermarket", bookstore: "Bookstore",
@@ -334,8 +325,7 @@ export default function Onboarding() {
     return ["POS & Order Management", "Customer Management", "Analytics & Reports", "Expenses Tracking", offline];
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
-  async function handleOwnerComplete() {
+async function handleOwnerComplete() {
     if (!storeCountry)            { toast({ title: t("onboarding.storeInfo.errorCountry"),       variant: "destructive" }); return; }
     if (!storeName.trim())        { toast({ title: t("onboarding.storeInfo.errorName"),           variant: "destructive" }); return; }
     if (!storeAddress.trim())     { toast({ title: t("onboarding.storeInfo.errorAddress"),        variant: "destructive" }); return; }
@@ -389,17 +379,16 @@ export default function Onboarding() {
   const ownerProgressIndex = OWNER_STEPS.indexOf(step);
   const showProgress = ownerProgressIndex >= 0;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-  return (
+return (
     <div className="h-screen overflow-y-auto overscroll-none flex flex-col bg-gradient-to-br from-violet-50 via-white to-blue-50 dark:from-[#0c0c18] dark:via-[#080810] dark:to-[#0a0c18]">
 
-      {/* Ambient glow */}
+      {}
       <div
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.06] dark:opacity-[0.04] blur-3xl pointer-events-none"
         style={{ background: "radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)" }}
       />
 
-      {/* ── Header ── */}
+      {}
       <header className="relative z-10 w-full px-5 sm:px-8 py-4 sm:py-5 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30 shrink-0">
@@ -431,13 +420,13 @@ export default function Onboarding() {
         </div>
       </header>
 
-      {/* ── Main ── */}
+      {}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
 
-        {/* ══ WELCOME ══ */}
+        {}
         {step === "welcome" && (
           <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Hero */}
+            {}
             <div className="text-center mb-8 sm:mb-10">
               <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-primary/10 dark:bg-primary/15 mb-5 sm:mb-6">
                 <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />

@@ -2,8 +2,6 @@ import { pgTable, text, integer, boolean, serial, jsonb } from "drizzle-orm/pg-c
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// ─── Tenants ──────────────────────────────────────────────────────────────────
-
 export const tenants = pgTable("tenants", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -12,28 +10,23 @@ export const tenants = pgTable("tenants", {
   deletedAt: text("deleted_at"),
 });
 
-// ─── Branches ─────────────────────────────────────────────────────────────────
-
 export type OpeningHours = {
   [day: string]: { open: string; close: string; closed: boolean };
 };
 
-// ─── POS Feature Flags ────────────────────────────────────────────────────────
-// Stored per-tenant in user_settings.pos_features (JSONB).
-// Free features are always toggleable. Pro features require an active subscription.
 export type PosFeatures = {
   setupComplete: boolean;
-  // ── Free features ──────────────────────────────────────────────────────────
-  takeout: boolean; // Takeout / to-go order type in POS
-  delivery: boolean; // Delivery order type + address field
-  barcodeScanning: boolean; // Scan barcodes to add items
-  receiptName: boolean; // Name on receipt (Starbucks-style)
-  customerAccounts: boolean; // Link sales to customer profiles
-  // ── Pro features ───────────────────────────────────────────────────────────
-  tables: boolean; // Table management & floor map
-  kitchenDisplay: boolean; // Send orders to kitchen/bar screen
-  splitBill: boolean; // Split bill across multiple guests
-  loyalty: boolean; // Earn & redeem loyalty points
+
+  takeout: boolean;
+  delivery: boolean;
+  barcodeScanning: boolean;
+  receiptName: boolean;
+  customerAccounts: boolean;
+
+  tables: boolean;
+  kitchenDisplay: boolean;
+  splitBill: boolean;
+  loyalty: boolean;
 };
 
 export const PRO_POS_FEATURE_KEYS: (keyof PosFeatures)[] = [
@@ -73,14 +66,12 @@ export const branches = pgTable("branches", {
   openingHours: jsonb("opening_hours").$type<OpeningHours>(),
   isActive: boolean("is_active").default(true),
   isMain: boolean("is_main").default(false),
-  // Each branch can be a different business (e.g. main is a cafe, second is a salon).
+
   businessType: text("business_type"),
   businessSubType: text("business_sub_type"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Users ────────────────────────────────────────────────────────────────────
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -90,7 +81,7 @@ export const users = pgTable("users", {
   provider: text("provider").notNull(),
   providerId: text("provider_id").notNull(),
   tenantId: text("tenant_id").references(() => tenants.id),
-  role: text("role").default("owner"), // owner | manager | admin | cashier | staff
+  role: text("role").default("owner"),
   passwordHash: text("password_hash"),
   isBanned: boolean("is_banned").default(false),
   bannedAt: text("banned_at"),
@@ -101,19 +92,17 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(true),
   emailVerificationToken: text("email_verification_token"),
   emailVerificationExpires: text("email_verification_expires"),
-  // Payroll fields
-  wageType: text("wage_type").default("none"), // none | hourly | monthly | commission
+
+  wageType: text("wage_type").default("none"),
   wageRate: text("wage_rate").default("0"),
   commissionPercent: text("commission_percent").default("0"),
-  staffGroup: text("staff_group"), // e.g. "Kitchen", "Floor", "Management"
-  // PIN clock-in (staff only — owners/managers use full login)
-  staffPin: text("staff_pin"), // scrypt-hashed 4-6 digit PIN
-  pinLockedUntil: text("pin_locked_until"), // ISO timestamp — set after repeated failures
+  staffGroup: text("staff_group"),
+
+  staffPin: text("staff_pin"),
+  pinLockedUntil: text("pin_locked_until"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   deletedAt: text("deleted_at"),
 });
-
-// ─── Invite Tokens ────────────────────────────────────────────────────────────
 
 export const inviteTokens = pgTable("invite_tokens", {
   id: serial("id").primaryKey(),
@@ -122,7 +111,7 @@ export const inviteTokens = pgTable("invite_tokens", {
     .references(() => tenants.id),
   token: text("token").notNull().unique(),
   email: text("email"),
-  role: text("role").default("cashier"), // owner | manager | admin | cashier | staff
+  role: text("role").default("cashier"),
   expiresAt: text("expires_at").notNull(),
   usedAt: text("used_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
@@ -135,8 +124,6 @@ export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({
 export type InviteToken = typeof inviteTokens.$inferSelect;
 export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
 
-// ─── User Branches ────────────────────────────────────────────────────────────
-
 export const userBranches = pgTable("user_branches", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
@@ -147,8 +134,6 @@ export const userBranches = pgTable("user_branches", {
     .references(() => branches.id),
 });
 
-// ─── Audit Logs ───────────────────────────────────────────────────────────────
-
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   tenantId: text("tenant_id").notNull(),
@@ -156,14 +141,12 @@ export const auditLogs = pgTable("audit_logs", {
   action: text("action").notNull(),
   entity: text("entity").notNull(),
   entityId: text("entity_id"),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   metadata: jsonb("metadata").$type<Record<string, any>>(),
   previousHash: text("previous_hash"),
   recordHash: text("record_hash"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Products ─────────────────────────────────────────────────────────────────
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
@@ -184,7 +167,7 @@ export const products = pgTable("products", {
   hasModifiers: boolean("has_modifiers").default(false),
   sizes: jsonb("sizes").$type<{ name: string; price: string }[]>(),
   modifiers: jsonb("modifiers").$type<{ name: string; price: string }[]>(),
-  // ── Perishable / Pharmacy fields ─────────────────────────────────────────
+
   expiryDate: text("expiry_date"),
   batchNumber: text("batch_number"),
   requiresPrescription: boolean("requires_prescription").default(false),
@@ -207,8 +190,6 @@ export const productModifiers = pgTable("product_modifiers", {
   price: text("price").notNull(),
 });
 
-// ─── Tables (Dine-in) ─────────────────────────────────────────────────────────
-
 export const tables = pgTable("tables", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
@@ -217,12 +198,10 @@ export const tables = pgTable("tables", {
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   seats: integer("seats").default(4),
-  status: text("status").notNull().default("available"), // available | occupied | reserved
+  status: text("status").notNull().default("available"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Suppliers ────────────────────────────────────────────────────────────────
 
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
@@ -239,16 +218,14 @@ export const suppliers = pgTable("suppliers", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Purchase Orders ──────────────────────────────────────────────────────────
-
 export const purchaseOrders = pgTable("purchase_orders", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
   supplierId: integer("supplier_id").references(() => suppliers.id),
-  status: text("status").notNull().default("pending"), // pending | received | cancelled
-  paymentStatus: text("payment_status").notNull().default("unpaid"), // unpaid | partial | paid
+  status: text("status").notNull().default("pending"),
+  paymentStatus: text("payment_status").notNull().default("unpaid"),
   totalAmount: text("total_amount").notNull().default("0"),
   notes: text("notes"),
   expectedDeliveryAt: text("expected_delivery_at"),
@@ -269,7 +246,6 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   totalCost: text("total_cost").notNull().default("0"),
 });
 
-// ─── Supplier Products (catalog of products each supplier carries) ─────────────
 export const supplierProducts = pgTable("supplier_products", {
   id: serial("id").primaryKey(),
   supplierId: integer("supplier_id")
@@ -284,8 +260,6 @@ export const supplierProducts = pgTable("supplier_products", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Customers ────────────────────────────────────────────────────────────────
-
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
@@ -299,15 +273,13 @@ export const customers = pgTable("customers", {
   visitCount: integer("visit_count").default(0),
   loyaltyPoints: integer("loyalty_points").default(0),
   lifetimePoints: integer("lifetime_points").default(0),
-  tier: text("tier").default("none"), // none | bronze | silver | gold | platinum
-  birthday: text("birthday"), // ISO date string YYYY-MM-DD
+  tier: text("tier").default("none"),
+  birthday: text("birthday"),
   stampCount: integer("stamp_count").default(0),
-  referredBy: integer("referred_by"), // customer.id who referred
+  referredBy: integer("referred_by"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Expenses ─────────────────────────────────────────────────────────────────
 
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
@@ -322,15 +294,13 @@ export const expenses = pgTable("expenses", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Shifts ───────────────────────────────────────────────────────────────────
-
 export const shifts = pgTable("shifts", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
-  status: text("status").notNull().default("open"), // open | closed
+  status: text("status").notNull().default("open"),
   openingBalance: text("opening_balance").notNull().default("0"),
   closingBalance: text("closing_balance"),
   totalSales: text("total_sales").default("0"),
@@ -339,16 +309,14 @@ export const shifts = pgTable("shifts", {
   notes: text("notes"),
   openedAt: text("opened_at").$defaultFn(() => new Date().toISOString()),
   closedAt: text("closed_at"),
-  // Cash drawer tracking
+
   cashIn: text("cash_in").default("0"),
   cashOut: text("cash_out").default("0"),
-  cashAdjustments: text("cash_adjustments"), // JSON: [{type,amount,reason,timestamp}]
-  denominationOpen: text("denomination_open"), // JSON: {1000:n,500:n,...}
-  denominationClose: text("denomination_close"), // JSON: {1000:n,500:n,...}
-  variance: text("variance"), // actual closing - expected closing
+  cashAdjustments: text("cash_adjustments"),
+  denominationOpen: text("denomination_open"),
+  denominationClose: text("denomination_close"),
+  variance: text("variance"),
 });
-
-// ─── Discount Codes ───────────────────────────────────────────────────────────
 
 export const discountCodes = pgTable("discount_codes", {
   id: serial("id").primaryKey(),
@@ -356,7 +324,7 @@ export const discountCodes = pgTable("discount_codes", {
     .notNull()
     .references(() => users.id),
   code: text("code").notNull(),
-  type: text("type").notNull().default("percentage"), // percentage | fixed
+  type: text("type").notNull().default("percentage"),
   value: text("value").notNull(),
   minOrder: text("min_order").default("0"),
   maxUses: integer("max_uses"),
@@ -367,16 +335,10 @@ export const discountCodes = pgTable("discount_codes", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── OR Number Sequences (per-tenant atomic BIR counter) ──────────────────────
-// Each row holds the last-used sequence value for one tenant.
-// The atomic INSERT ... ON CONFLICT DO UPDATE in createSale eliminates
-// the TOCTOU race of the old COUNT(*)+1 approach.
 export const orSequences = pgTable("or_sequences", {
   tenantId: text("tenant_id").primaryKey(),
   nextVal: integer("next_val").notNull().default(0),
 });
-
-// ─── Sales ────────────────────────────────────────────────────────────────────
 
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
@@ -385,14 +347,14 @@ export const sales = pgTable("sales", {
     .references(() => users.id),
   tenantId: text("tenant_id").references(() => tenants.id),
   branchId: integer("branch_id").references(() => branches.id),
-  cashierId: text("cashier_id"), // user.id of cashier who rang up the sale (for commission/tips)
+  cashierId: text("cashier_id"),
   receiptNumber: text("receipt_number"),
   orNumber: text("or_number"),
   invoiceNumber: text("invoice_number"),
   customerId: integer("customer_id").references(() => customers.id),
-  customerName: text("customer_name"), // Free-text guest name (Starbucks-style, not a stored customer)
+  customerName: text("customer_name"),
   tableId: integer("table_id").references(() => tables.id),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   items: jsonb("items").notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
   tax: text("tax").default("0"),
@@ -410,20 +372,16 @@ export const sales = pgTable("sales", {
   voidReason: text("void_reason"),
   refundedAt: text("refunded_at"),
   refundedBy: text("refunded_by"),
-  // BIR Compliance fields
-  discountType: text("discount_type").default("regular"), // regular | sc | pwd
+
+  discountType: text("discount_type").default("regular"),
   scPwdId: text("sc_pwd_id"),
   vatableSales: text("vatable_sales").default("0"),
   vatExemptSales: text("vat_exempt_sales").default("0"),
   zeroRatedSales: text("zero_rated_sales").default("0"),
-  // Tamper-evident SHA-256 hash covering all fiscal fields of this sale.
-  // Any post-insertion modification to OR/totals/VAT will break this hash,
-  // making tampering detectable during a BIR audit.
-  saleHash: text("sale_hash"),
+
+saleHash: text("sale_hash"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Refunds ──────────────────────────────────────────────────────────────────
 
 export const refunds = pgTable("refunds", {
   id: serial("id").primaryKey(),
@@ -433,14 +391,12 @@ export const refunds = pgTable("refunds", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   items: jsonb("items").$type<any[]>(),
   amount: text("amount").notNull(),
   reason: text("reason"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Pending Orders ───────────────────────────────────────────────────────────
 
 export const pendingOrders = pgTable("pending_orders", {
   id: serial("id").primaryKey(),
@@ -450,11 +406,11 @@ export const pendingOrders = pgTable("pending_orders", {
   branchId: integer("branch_id").references(() => branches.id),
   cashierId: text("cashier_id"),
   customerId: integer("customer_id").references(() => customers.id),
-  customerName: text("customer_name"), // Free-text guest name
+  customerName: text("customer_name"),
   tableId: integer("table_id").references(() => tables.id),
   orderNumber: integer("order_number"),
-  kitchenStatus: text("kitchen_status").default("pending"), // pending | preparing | ready | done
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  kitchenStatus: text("kitchen_status").default("pending"),
+
   items: jsonb("items").notNull().$type<any[]>(),
   subtotal: text("subtotal").notNull(),
   tax: text("tax").default("0"),
@@ -468,13 +424,11 @@ export const pendingOrders = pgTable("pending_orders", {
   changeAmount: text("change_amount"),
   status: text("status").default("unpaid"),
   notes: text("notes"),
-  orderType: text("order_type"), // "dine_in" | "takeout" | "delivery" | null
+  orderType: text("order_type"),
   deliveryAddress: text("delivery_address"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── User Settings ────────────────────────────────────────────────────────────
 
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
@@ -518,19 +472,15 @@ export const userSettings = pgTable("user_settings", {
   receiptShowPoweredBy: integer("receipt_show_powered_by").default(1),
   printDarkness: integer("print_darkness").default(65000),
   receiptFontSize: integer("receipt_font_size").default(15),
-  // Café WiFi voucher settings
+
   wifiSsid: text("wifi_ssid"),
   wifiPassword: text("wifi_password"),
   wifiDurationMinutes: integer("wifi_duration_minutes").default(60),
   wifiAutoIssue: integer("wifi_auto_issue").default(0),
-  // Universal router integration (replaces old MikroTik-only fields)
-  // JSONB shape: { type, enabled, host, port, username, password, useSsl, ...vendorExtras }
-  routerConfig: jsonb("router_config"),
 
-  // ── Legacy MikroTik fields (DEPRECATED — migrated to router_config) ──────
-  // These columns are kept temporarily for the migration script.
-  // After migration is verified in production they should be dropped.
-  mikrotikEnabled: integer("mikrotik_enabled").default(0),
+routerConfig: jsonb("router_config"),
+
+mikrotikEnabled: integer("mikrotik_enabled").default(0),
   mikrotikHost: text("mikrotik_host"),
   mikrotikPort: text("mikrotik_port").default("80"),
   mikrotikUser: text("mikrotik_user").default("admin"),
@@ -539,7 +489,7 @@ export const userSettings = pgTable("user_settings", {
   mikrotikUseSsl: integer("mikrotik_use_ssl").default(0),
   country: text("country"),
   posFeatures: jsonb("pos_features").$type<PosFeatures>(),
-  // BIR Compliance (Philippines Bureau of Internal Revenue)
+
   tin: text("tin"),
   ptuNumber: text("ptu_number"),
   accreditationNumber: text("accreditation_number"),
@@ -547,8 +497,6 @@ export const userSettings = pgTable("user_settings", {
   machineSerialNumber: text("machine_serial_number"),
   vatRegistered: integer("vat_registered").default(1),
 });
-
-// ─── Service Staff ────────────────────────────────────────────────────────────
 
 export const serviceStaff = pgTable("service_staff", {
   id: serial("id").primaryKey(),
@@ -567,8 +515,6 @@ export const serviceStaff = pgTable("service_staff", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Service Rooms / Stations / Chairs ────────────────────────────────────────
-
 export const serviceRooms = pgTable("service_rooms", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
@@ -576,14 +522,12 @@ export const serviceRooms = pgTable("service_rooms", {
     .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
-  type: text("type").default("room"), // room | chair | station | court | lane
-  status: text("status").default("available"), // available | occupied | maintenance
+  type: text("type").default("room"),
+  status: text("status").default("available"),
   notes: text("notes"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Appointments ─────────────────────────────────────────────────────────────
 
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
@@ -600,7 +544,7 @@ export const appointments = pgTable("appointments", {
   startTime: text("start_time").notNull(),
   endTime: text("end_time"),
   duration: integer("duration").default(60),
-  status: text("status").default("scheduled"), // scheduled | confirmed | in_progress | completed | cancelled | no_show
+  status: text("status").default("scheduled"),
   notes: text("notes"),
   price: text("price").default("0"),
   tip: text("tip").default("0"),
@@ -608,8 +552,6 @@ export const appointments = pgTable("appointments", {
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Membership Plans ─────────────────────────────────────────────────────────
 
 export const membershipPlans = pgTable("membership_plans", {
   id: serial("id").primaryKey(),
@@ -619,7 +561,7 @@ export const membershipPlans = pgTable("membership_plans", {
   name: text("name").notNull(),
   description: text("description"),
   price: text("price").notNull().default("0"),
-  billingCycle: text("billing_cycle").default("monthly"), // monthly | quarterly | annual | one_time
+  billingCycle: text("billing_cycle").default("monthly"),
   durationDays: integer("duration_days").default(30),
   features: jsonb("features").$type<string[]>(),
   maxCheckIns: integer("max_check_ins"),
@@ -627,8 +569,6 @@ export const membershipPlans = pgTable("membership_plans", {
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Memberships (Customer Enrollments) ───────────────────────────────────────
 
 export const memberships = pgTable("memberships", {
   id: serial("id").primaryKey(),
@@ -642,15 +582,13 @@ export const memberships = pgTable("memberships", {
   planName: text("plan_name").notNull(),
   startDate: text("start_date").notNull(),
   endDate: text("end_date"),
-  status: text("status").default("active"), // active | expired | cancelled | paused
+  status: text("status").default("active"),
   checkInsUsed: integer("check_ins_used").default(0),
   totalPaid: text("total_paid").default("0"),
   notes: text("notes"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Membership Check-ins ─────────────────────────────────────────────────────
 
 export const membershipCheckIns = pgTable("membership_check_ins", {
   id: serial("id").primaryKey(),
@@ -667,8 +605,6 @@ export const membershipCheckIns = pgTable("membership_check_ins", {
   checkedInAt: text("checked_in_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Time Logs (Employee Time Tracking) ───────────────────────────────────────
-
 export const timeLogs = pgTable("time_logs", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
@@ -679,33 +615,29 @@ export const timeLogs = pgTable("time_logs", {
   clockOut: text("clock_out"),
   notes: text("notes"),
   clockOutNotes: text("clock_out_notes"),
-  breakStart: text("break_start"), // ISO timestamp when current break started
-  breakMinutes: integer("break_minutes").default(0), // total accumulated break minutes
-  // Schedule-awareness fields — populated at clock-in when a matching schedule exists
-  scheduledStart: text("scheduled_start"), // "HH:MM" from matched schedule
-  scheduledEnd: text("scheduled_end"),     // "HH:MM" from matched schedule
-  lateMinutes: integer("late_minutes"),             // > 0 when clocked in late
-  earlyDepartureMinutes: integer("early_departure_minutes"), // > 0 when clocked out early
+  breakStart: text("break_start"),
+  breakMinutes: integer("break_minutes").default(0),
+
+  scheduledStart: text("scheduled_start"),
+  scheduledEnd: text("scheduled_end"),
+  lateMinutes: integer("late_minutes"),
+  earlyDepartureMinutes: integer("early_departure_minutes"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Staff Schedules ──────────────────────────────────────────────────────────
-// Recurring weekly schedule per employee (e.g. "Maria works Mon/Wed/Fri 9–5").
-// One row per employee-per-day-of-week. Multiple rows = multiple days.
-
 export const staffSchedules = pgTable("staff_schedules", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull(), // no FK — mirrors payrollPeriods / loyaltyTiers pattern
+  tenantId: text("tenant_id").notNull(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
-  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
-  startTime: text("start_time").notNull(),     // "HH:MM" 24-hour
-  endTime: text("end_time").notNull(),         // "HH:MM" 24-hour
-  effectiveFrom: text("effective_from").notNull(), // "YYYY-MM-DD" — inclusive start
-  effectiveTo: text("effective_to"),               // "YYYY-MM-DD" — inclusive end, null = ongoing
+  dayOfWeek: integer("day_of_week").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  effectiveFrom: text("effective_from").notNull(),
+  effectiveTo: text("effective_to"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
@@ -716,14 +648,12 @@ export const insertStaffScheduleSchema = createInsertSchema(staffSchedules).omit
 export type StaffSchedule = typeof staffSchedules.$inferSelect;
 export type InsertStaffSchedule = z.infer<typeof insertStaffScheduleSchema>;
 
-// ─── Role Permissions ─────────────────────────────────────────────────────────
-
 export const rolePermissions = pgTable("role_permissions", {
   id: serial("id").primaryKey(),
   tenantId: text("tenant_id")
     .notNull()
     .references(() => tenants.id),
-  role: text("role").notNull(), // manager | cashier
+  role: text("role").notNull(),
   maxDiscountPercent: integer("max_discount_percent").default(100),
   canRefund: boolean("can_refund").default(true),
   canDeleteSale: boolean("can_delete_sale").default(true),
@@ -733,17 +663,15 @@ export const rolePermissions = pgTable("role_permissions", {
 
 export type RolePermission = typeof rolePermissions.$inferSelect;
 
-// ─── Tenant Subscriptions ─────────────────────────────────────────────────────
-
 export const tenantSubscriptions = pgTable("tenant_subscriptions", {
   id: serial("id").primaryKey(),
   tenantId: text("tenant_id")
     .notNull()
     .unique()
     .references(() => tenants.id),
-  plan: text("plan").notNull().default("free"), // free | pro
-  billingCycle: text("billing_cycle"), // monthly | annual
-  status: text("status").notNull().default("active"), // active | cancelled | expired
+  plan: text("plan").notNull().default("free"),
+  billingCycle: text("billing_cycle"),
+  status: text("status").notNull().default("active"),
   currentPeriodStart: text("current_period_start"),
   currentPeriodEnd: text("current_period_end"),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
@@ -759,7 +687,7 @@ export const subscriptionPayments = pgTable("subscription_payments", {
   plan: text("plan").notNull(),
   billingCycle: text("billing_cycle").notNull(),
   amount: integer("amount").notNull(),
-  status: text("status").notNull().default("pending"), // pending | paid | failed
+  status: text("status").notNull().default("pending"),
   paymongoCheckoutId: text("paymongo_checkout_id"),
   checkoutUrl: text("checkout_url"),
   paidAt: text("paid_at"),
@@ -769,9 +697,6 @@ export const subscriptionPayments = pgTable("subscription_payments", {
 export type TenantSubscription = typeof tenantSubscriptions.$inferSelect;
 export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
 
-
-// ─── Ingredients (Raw Materials for Recipes) ──────────────────────────────────
-
 export const ingredients = pgTable("ingredients", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
@@ -779,7 +704,7 @@ export const ingredients = pgTable("ingredients", {
     .references(() => users.id),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
-  unit: text("unit").notNull().default("pcs"), // g | ml | pcs | kg | l
+  unit: text("unit").notNull().default("pcs"),
   stockQty: text("stock_qty").notNull().default("0"),
   lowStockThreshold: text("low_stock_threshold").default("0"),
   costPerUnit: text("cost_per_unit").default("0"),
@@ -787,8 +712,6 @@ export const ingredients = pgTable("ingredients", {
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
-
-// ─── Product Recipes (BOM linking products to ingredients) ────────────────────
 
 export const productRecipes = pgTable("product_recipes", {
   id: serial("id").primaryKey(),
@@ -798,10 +721,8 @@ export const productRecipes = pgTable("product_recipes", {
   ingredientId: integer("ingredient_id")
     .notNull()
     .references(() => ingredients.id),
-  quantity: text("quantity").notNull().default("0"), // amount of ingredient (in its unit) used per 1 product
+  quantity: text("quantity").notNull().default("0"),
 });
-
-// ─── WiFi Vouchers (per-branch customer WiFi codes) ───────────────────────────
 
 export const wifiVouchers = pgTable("wifi_vouchers", {
   id: serial("id").primaryKey(),
@@ -811,7 +732,7 @@ export const wifiVouchers = pgTable("wifi_vouchers", {
   branchId: integer("branch_id").references(() => branches.id),
   code: text("code").notNull(),
   durationMinutes: integer("duration_minutes").notNull().default(60),
-  status: text("status").notNull().default("unused"), // unused | active | expired
+  status: text("status").notNull().default("unused"),
   saleId: integer("sale_id").references(() => sales.id),
   customerName: text("customer_name"),
   customerEmail: text("customer_email"),
@@ -821,14 +742,12 @@ export const wifiVouchers = pgTable("wifi_vouchers", {
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ─── Notifications ────────────────────────────────────────────────────────────
-
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  type: text("type").notNull(), // "restock" | "low_stock"
+  type: text("type").notNull(),
   title: text("title").notNull(),
   message: text("message"),
   productId: integer("product_id"),
@@ -837,8 +756,6 @@ export const notifications = pgTable("notifications", {
 });
 
 export type Notification = typeof notifications.$inferSelect;
-
-// ─── Stock Logs ────────────────────────────────────────────────────────────────
 
 export const stockLogs = pgTable("stock_logs", {
   id: serial("id").primaryKey(),
@@ -851,14 +768,12 @@ export const stockLogs = pgTable("stock_logs", {
   previousStock: integer("previous_stock").notNull(),
   newStock: integer("new_stock").notNull(),
   delta: integer("delta").notNull(),
-  reason: text("reason").default("manual"), // "manual" | "sale" | "restock" | "adjustment"
+  reason: text("reason").default("manual"),
   note: text("note"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
 export type StockLog = typeof stockLogs.$inferSelect;
-
-// ─── Waste / Spoilage Log ─────────────────────────────────────────────────────
 
 export const wasteLog = pgTable("waste_log", {
   id: serial("id").primaryKey(),
@@ -871,15 +786,13 @@ export const wasteLog = pgTable("waste_log", {
   itemName: text("item_name").notNull(),
   quantity: text("quantity").notNull().default("0"),
   unit: text("unit").default("pcs"),
-  reason: text("reason").notNull().default("expired"), // expired | damaged | theft | sample | cooking_loss | other
+  reason: text("reason").notNull().default("expired"),
   costImpact: text("cost_impact").notNull().default("0"),
   note: text("note"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
 export type WasteLogEntry = typeof wasteLog.$inferSelect;
-
-// ─── Stock Transfers (branch-to-branch) ───────────────────────────────────────
 
 export const stockTransfers = pgTable("stock_transfers", {
   id: serial("id").primaryKey(),
@@ -888,7 +801,7 @@ export const stockTransfers = pgTable("stock_transfers", {
     .references(() => users.id),
   fromBranchId: integer("from_branch_id").references(() => branches.id),
   toBranchId: integer("to_branch_id").references(() => branches.id),
-  status: text("status").notNull().default("pending"), // pending | in_transit | received | rejected
+  status: text("status").notNull().default("pending"),
   notes: text("notes"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at"),
@@ -910,25 +823,21 @@ export const stockTransferItems = pgTable("stock_transfer_items", {
 export type StockTransfer = typeof stockTransfers.$inferSelect;
 export type StockTransferItem = typeof stockTransferItems.$inferSelect;
 
-// ─── Loyalty Tiers ─────────────────────────────────────────────────────────────
-
 export const loyaltyTiers = pgTable("loyalty_tiers", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  name: text("name").notNull(), // e.g. "Bronze", "Silver"
+  name: text("name").notNull(),
   minLifetimePoints: integer("min_lifetime_points").notNull().default(0),
-  multiplier: text("multiplier").notNull().default("1"), // point earning multiplier
-  color: text("color").notNull().default("#CD7F32"), // hex color
-  perks: text("perks"), // free-text description of perks
+  multiplier: text("multiplier").notNull().default("1"),
+  color: text("color").notNull().default("#CD7F32"),
+  perks: text("perks"),
   sortOrder: integer("sort_order").notNull().default(0),
   deletedAt: text("deleted_at"),
 });
 
 export type LoyaltyTier = typeof loyaltyTiers.$inferSelect;
-
-// ─── Loyalty Rewards Catalog ───────────────────────────────────────────────────
 
 export const loyaltyRewards = pgTable("loyalty_rewards", {
   id: serial("id").primaryKey(),
@@ -938,22 +847,20 @@ export const loyaltyRewards = pgTable("loyalty_rewards", {
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull().default("discount_fixed"),
-  // type: "discount_fixed" | "discount_percent" | "free_product" | "stamp_card" | "custom"
+
   pointsCost: integer("points_cost").notNull().default(100),
   value: text("value").notNull().default("0"),
-  // for discount_fixed: currency amount; discount_percent: 0-100; free_product: productId; custom: text
+
   productId: integer("product_id").references(() => products.id),
   isActive: boolean("is_active").default(true),
   deletedAt: text("deleted_at"),
-  maxRedemptions: integer("max_redemptions"), // null = unlimited
+  maxRedemptions: integer("max_redemptions"),
   redemptionCount: integer("redemption_count").default(0),
   expiresAt: text("expires_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
 export type LoyaltyReward = typeof loyaltyRewards.$inferSelect;
-
-// ─── Loyalty Points Log ────────────────────────────────────────────────────────
 
 export const loyaltyPointsLog = pgTable("loyalty_points_log", {
   id: serial("id").primaryKey(),
@@ -963,20 +870,18 @@ export const loyaltyPointsLog = pgTable("loyalty_points_log", {
   customerId: integer("customer_id")
     .notNull()
     .references(() => customers.id),
-  delta: integer("delta").notNull(), // positive = earn, negative = spend
-  balance: integer("balance").notNull().default(0), // points balance after this change
+  delta: integer("delta").notNull(),
+  balance: integer("balance").notNull().default(0),
   reason: text("reason").notNull().default("purchase"),
-  // reason: "purchase" | "redeem_discount" | "redeem_product" | "birthday" | "referral" | "manual" | "expiry" | "stamp_bonus"
+
   saleId: integer("sale_id"),
   rewardId: integer("reward_id").references(() => loyaltyRewards.id),
   note: text("note"),
-  expiresAt: text("expires_at"), // for points expiry
+  expiresAt: text("expires_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 
 export type LoyaltyPointsLog = typeof loyaltyPointsLog.$inferSelect;
-
-// ─── Payroll Periods ──────────────────────────────────────────────────────────
 
 export const payrollPeriods = pgTable("payroll_periods", {
   id: serial("id").primaryKey(),
@@ -985,11 +890,11 @@ export const payrollPeriods = pgTable("payroll_periods", {
     .references(() => tenants.id),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id), // owner who created it
+    .references(() => users.id),
   name: text("name").notNull(),
   startDate: text("start_date").notNull(),
   endDate: text("end_date").notNull(),
-  status: text("status").notNull().default("draft"), // draft | finalized | paid
+  status: text("status").notNull().default("draft"),
   totalAmount: text("total_amount").default("0"),
   notes: text("notes"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
@@ -999,8 +904,6 @@ export const payrollPeriods = pgTable("payroll_periods", {
   paymentReference: text("payment_reference"),
   deletedAt: text("deleted_at"),
 });
-
-// ─── Payroll Entries (per employee per period) ────────────────────────────────
 
 export const payrollEntries = pgTable("payroll_entries", {
   id: serial("id").primaryKey(),
@@ -1027,14 +930,13 @@ export const payrollEntries = pgTable("payroll_entries", {
 export type Ingredient = typeof ingredients.$inferSelect;
 export type ProductRecipe = typeof productRecipes.$inferSelect;
 export type WifiVoucher = typeof wifiVouchers.$inferSelect;
-// ─── Payroll Audit Log ────────────────────────────────────────────────────────
 
 export const payrollAuditLog = pgTable("payroll_audit_log", {
   id: serial("id").primaryKey(),
   tenantId: text("tenant_id")
     .notNull()
     .references(() => tenants.id),
-  action: text("action").notNull(), // "quick_pay" | "mark_paid" | "finalize" | "delete"
+  action: text("action").notNull(),
   periodId: integer("period_id"),
   periodName: text("period_name").notNull(),
   startDate: text("start_date"),
@@ -1052,8 +954,6 @@ export const payrollAuditLog = pgTable("payroll_audit_log", {
 export type PayrollPeriod = typeof payrollPeriods.$inferSelect;
 export type PayrollEntry = typeof payrollEntries.$inferSelect;
 export type PayrollAuditLog = typeof payrollAuditLog.$inferSelect;
-
-// ─── Insert Schemas ───────────────────────────────────────────────────────────
 
 export const insertUserSchema = createInsertSchema(users).extend({
   email: z.string().optional().nullable(),
@@ -1146,7 +1046,7 @@ export const insertSaleSchema = z.object({
   cashierId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   branchId: z.number().optional().nullable(),
-  // BIR compliance fields
+
   discountType: z.string().optional().nullable(),
   scPwdId: z.string().optional().nullable(),
   vatableSales: z.string().optional().nullable(),
@@ -1388,8 +1288,6 @@ export const closeShiftSchema = z.object({
 
 export type UserRole = "owner" | "manager" | "admin" | "cashier" | "staff";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
@@ -1466,8 +1364,6 @@ export type InsertMembership = z.infer<typeof insertMembershipSchema>;
 export type MembershipCheckIn = typeof membershipCheckIns.$inferSelect;
 export type InsertMembershipCheckIn = z.infer<typeof insertMembershipCheckInSchema>;
 
-// ─── Insert Schemas for new tables ───────────────────────────────────────────
-
 export const insertIngredientSchema = z.object({
   name: z.string().min(1),
   unit: z.string().min(1).default("pcs"),
@@ -1525,8 +1421,6 @@ export type InsertPayrollPeriod = z.infer<typeof insertPayrollPeriodSchema>;
 export type UpdatePayrollEntry = z.infer<typeof updatePayrollEntrySchema>;
 export type UpdateUserWage = z.infer<typeof updateUserWageSchema>;
 
-// ─── Loyalty Insert Schemas ───────────────────────────────────────────────────
-
 export const insertLoyaltyTierSchema = z.object({
   name: z.string().min(1),
   minLifetimePoints: z.number().int().min(0).default(0),
@@ -1551,11 +1445,6 @@ export const insertLoyaltyRewardSchema = z.object({
 export type InsertLoyaltyTier = z.infer<typeof insertLoyaltyTierSchema>;
 export type InsertLoyaltyReward = z.infer<typeof insertLoyaltyRewardSchema>;
 
-// ─── Revoked Tokens ───────────────────────────────────────────────────────────
-// Stores JWT IDs (jti) that have been explicitly revoked (e.g. on logout).
-// jwtAuthMiddleware checks this before trusting any token.
-// Rows are pruned automatically once their expiresAt has passed.
-
 export const revokedTokens = pgTable("revoked_tokens", {
   id: serial("id").primaryKey(),
   jti: text("jti").notNull().unique(),
@@ -1565,10 +1454,6 @@ export const revokedTokens = pgTable("revoked_tokens", {
 });
 
 export type RevokedToken = typeof revokedTokens.$inferSelect;
-
-// ─── Push Subscriptions ───────────────────────────────────────────────────────
-// Stores Web Push API subscriptions so the server can send background
-// notifications (low stock, new orders) even when the app is not open.
 
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),

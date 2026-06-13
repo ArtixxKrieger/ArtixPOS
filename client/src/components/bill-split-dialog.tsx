@@ -57,9 +57,7 @@ export function BillSplitDialog({
     return init;
   });
 
-  // Reset assignments whenever the dialog opens so stale cartIds from a
-  // previous opening (items added/removed since) don't bleed through.
-  useEffect(() => {
+useEffect(() => {
     if (open) {
       setMode("equal");
       setEqualPeople(2);
@@ -67,7 +65,7 @@ export function BillSplitDialog({
       cart.forEach(item => { init[item.cartId] = 0; });
       setItemAssignments(init);
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const perPersonEqual = total / equalPeople;
 
@@ -117,7 +115,7 @@ export function BillSplitDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Mode tabs */}
+        {}
         <div className="flex gap-1 mx-4 mt-3 bg-secondary/60 rounded-xl p-1">
           {(["equal", "items"] as const).map(m => (
             <button
@@ -136,7 +134,7 @@ export function BillSplitDialog({
           ))}
         </div>
 
-        {/* ── Equal split ─────────────────────────────────────────────────── */}
+        {}
         {mode === "equal" ? (
           <div className="px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -194,8 +192,7 @@ export function BillSplitDialog({
             </Button>
           </div>
 
-        /* ── By items ────────────────────────────────────────────────────── */
-        ) : (
+) : (
           <div className="px-4 py-4 space-y-3">
             <p className="text-xs text-muted-foreground">
               Tap the colored badge on each item to reassign it to a different person.
@@ -236,7 +233,7 @@ export function BillSplitDialog({
               })}
             </div>
 
-            {/* Per-person summary */}
+            {}
             <div className="space-y-1.5 border-t pt-3">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Summary</p>
               {splits.map(s => {

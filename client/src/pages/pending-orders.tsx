@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
 
-
 interface OrderItem {
   quantity: number;
   product: { name: string };
@@ -44,7 +43,6 @@ function elapsedMin(createdAt: string | null | undefined) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function makeDummyOrders(count: number): PendingOrder[] {
   return [...Array(count)].map((_, i) => ({
     id: i,
@@ -63,7 +61,7 @@ function makeDummyOrders(count: number): PendingOrder[] {
 
 export default function PendingOrders() {
   const { data: orders = [], isLoading: _isLoading } = usePendingOrders();
-  // Each order card is ~220px tall + 16px gap
+
   const displayOrders = orders as PendingOrder[];
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
@@ -75,8 +73,7 @@ export default function PendingOrders() {
   const [payments, setPayments] = useState<Record<number, string>>({});
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-  // Orders older than 15 min that still haven't been finalised
-  const staleOrders = (orders as PendingOrder[]).filter(
+const staleOrders = (orders as PendingOrder[]).filter(
     o => elapsedMin(o.createdAt) >= 15
   );
 
@@ -113,9 +110,7 @@ export default function PendingOrders() {
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
 
-    // If the order was already paid at the POS, the sale record was created
-    // at checkout time. Just remove it from the Orders queue to avoid duplicates.
-    if (order.status === "paid") {
+if (order.status === "paid") {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {
           toast({ title: "Order Completed", description: "Order removed from queue." });
@@ -164,7 +159,7 @@ export default function PendingOrders() {
   return (
     <div className="space-y-5 page-enter pb-4">
 
-      {/* Stale orders alert — shown when any order has been waiting 15+ minutes */}
+      {}
       {staleOrders.length > 0 && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl px-4 py-3">
           <Bell className="h-4 w-4 text-amber-500 shrink-0 mt-0.5 animate-bounce" />

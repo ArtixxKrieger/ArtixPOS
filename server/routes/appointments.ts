@@ -9,8 +9,7 @@ import { and, eq, isNull, lte, gte } from "drizzle-orm";
 
 export function registerAppointmentRoutes(app: Express): void {
 
-  // ── List appointments (filterable by date, staff, status) ─────────────────
-  app.get("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
+app.get("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     const { date, staffId, status } = req.query as Record<string, string>;
     const appts = await storage.getAppointments(getUserId(req), {
       date: date || undefined,
@@ -20,21 +19,17 @@ export function registerAppointmentRoutes(app: Express): void {
     res.json(appts);
   });
 
-  // ── Get single appointment ─────────────────────────────────────────────────
-  app.get("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
+app.get("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     const appt = await storage.getAppointment(Number(req.params.id), getUserId(req));
     if (!appt) return res.status(404).json({ message: "Appointment not found" });
     res.json(appt);
   });
 
-  // ── Create appointment ─────────────────────────────────────────────────────
-  app.post("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
+app.post("/api/appointments", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     try {
       const input = insertAppointmentSchema.parse(req.body);
 
-      // Server-side overlap check — prevents double-booking the same room or
-      // staff member even if the request bypasses the frontend UI guard.
-      if (input.startTime && input.endTime) {
+if (input.startTime && input.endTime) {
         const conflictConditions = [
           isNull((appointmentsTable as any).deletedAt),
           lte((appointmentsTable as any).startTime, input.endTime),
@@ -64,9 +59,7 @@ export function registerAppointmentRoutes(app: Express): void {
       const appt = await storage.createAppointment(uid, input);
       await auditLog(req, "create", "appointment", String(appt.id), { title: appt.title, customerId: appt.customerId });
 
-      // Push notification — fire-and-forget so it never delays the response.
-      // tenantId comes directly from the JWT on req.user — no extra DB round-trip needed.
-      const tenantId = (req.user as any)?.tenantId as string | null;
+const tenantId = (req.user as any)?.tenantId as string | null;
       if (tenantId) {
         setImmediate(async () => {
           try {
@@ -90,8 +83,7 @@ export function registerAppointmentRoutes(app: Express): void {
     }
   });
 
-  // ── Update appointment ─────────────────────────────────────────────────────
-  app.put("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
+app.put("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     try {
       const input = insertAppointmentSchema.partial().parse(req.body);
       const appt = await storage.updateAppointment(Number(req.params.id), getUserId(req), input);
@@ -103,8 +95,7 @@ export function registerAppointmentRoutes(app: Express): void {
     }
   });
 
-  // ── Delete appointment ─────────────────────────────────────────────────────
-  app.delete("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
+app.delete("/api/appointments/:id", requireAuth, requireProOrBusinessFeature("/appointments"), async (req, res) => {
     const id = Number(req.params.id);
     const uid = getUserId(req);
     const existing = await storage.getAppointment(id, uid);

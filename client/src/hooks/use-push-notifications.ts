@@ -43,8 +43,7 @@ export function usePushNotifications(): UsePushNotifications {
     setPermission(Notification.permission as PushPermission);
   }, [isSupported]);
 
-  // Verify stored subscription is still active in the browser
-  useEffect(() => {
+useEffect(() => {
     if (!isSupported || !isSubscribed) return;
     navigator.serviceWorker.ready
       .then((reg) => reg.pushManager.getSubscription())

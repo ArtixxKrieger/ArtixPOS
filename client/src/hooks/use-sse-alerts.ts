@@ -52,8 +52,7 @@ export function useSseAlerts(): { connected: boolean } {
       };
     }
 
-    // Reconnect immediately when the tab regains network
-    function onOnline() {
+function onOnline() {
       if (esRef.current) { esRef.current.close(); esRef.current = null; }
       retryDelay.current = 3000;
       connect();

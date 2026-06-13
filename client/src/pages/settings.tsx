@@ -136,8 +136,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
+const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -181,7 +180,7 @@ export default function Settings() {
   const [pmethods, setPmethods] = useState<PaymentMethod[]>([]);
   const [newMethodName, setNewMethodName] = useState("");
   const [newMethodIsCash, setNewMethodIsCash] = useState(false);
-  const [savingMethods] = useState(false); // kept for any remaining guards; actual save state driven by updateSettings.isPending
+  const [savingMethods] = useState(false);
 
   const isOwner = user?.role === "owner";
 
@@ -226,14 +225,12 @@ export default function Settings() {
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [settings, form]);
 
   const savePaymentMethods = (updated: PaymentMethod[]) => {
-    // FIX #2: Use mutate (not mutateAsync) — optimistic update already applied
-    // in useUpdateSettings, so the UI reflects changes instantly.
-    // setSavingMethods is not needed since the cache updates synchronously.
-    updateSettings.mutate({ paymentMethods: updated } as any, {
+
+updateSettings.mutate({ paymentMethods: updated } as any, {
       onSuccess: () => toast({ title: "Payment methods saved" }),
       onError: () => toast({ title: "Saved locally — will sync when online" }),
     });
@@ -304,18 +301,14 @@ export default function Settings() {
     updateSettings.mutate(payload as any, {
       onSuccess: () => {
         toast({ title: "Settings saved" });
-        // Invalidate the auth query so the header immediately reflects the
-        // updated store name.  The header reads activeBranch.name (from the
-        // JWT/auth endpoint, not user_settings.store_name), and the server
-        // now syncs storeName → branch.name on every settings PUT.
-        queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+
+queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       },
       onError: showErrorToast,
     });
   };
 
-
-  const handleLanguageChange = (code: string) => {
+const handleLanguageChange = (code: string) => {
     setCurrentLang(code);
     i18n.changeLanguage(code);
     localStorage.setItem("artixpos_language", code);
@@ -332,7 +325,7 @@ export default function Settings() {
 
       <SectionLabel icon={Palette}>Appearance</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
-        {/* Theme selector */}
+        {}
         <div className="px-4 py-3.5 border-b border-border/20">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
@@ -367,7 +360,7 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Language */}
+        {}
         <button
           onClick={() => setShowLangPicker(true)}
           data-testid="button-language-picker"
@@ -516,7 +509,7 @@ export default function Settings() {
                     data-testid={`button-country-${c.code}`}
                     onClick={() => {
                       setCurrentCountry(c);
-                      // Also update currency in the form
+
                       form.setValue("currency", c.currency);
                       setShowCountryPicker(false);
                       setCountrySearch("");
@@ -550,7 +543,7 @@ export default function Settings() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
 
-            {/* Store identity */}
+            {}
             <SectionLabel icon={Store}>Store</SectionLabel>
             <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
 
@@ -579,7 +572,7 @@ export default function Settings() {
                 </div>
               )}
 
-              {/* Country row */}
+              {}
               <button
                 type="button"
                 data-testid="button-country-picker"
@@ -641,7 +634,7 @@ export default function Settings() {
 
             </div>
 
-            {/* Contact */}
+            {}
             <SectionLabel icon={Phone}>Contact</SectionLabel>
             <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
               <SettingRow label="Address" icon={MapPin} iconColor="bg-rose-500/10">
@@ -966,12 +959,12 @@ export default function Settings() {
         )}
       </div>
 
-      {/* Version */}
+      {}
       <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">ArtixPOS · Business OS</p>
 
       <Sheet open={showHelp} onOpenChange={(open) => { setShowHelp(open); if (!open) { setHelpSearch(""); setExpandedHelp(null); } }}>
         <SheetContent side="bottom" className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
-          {/* Drag handle */}
+          {}
           <div className="flex justify-center pt-3 pb-1 shrink-0">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
           </div>

@@ -12,8 +12,6 @@ import {
 const KIOSK_BRANCH_KEY = "kiosk_branch_id";
 const KIOSK_TENANT_KEY = "kiosk_tenant_id";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 interface RosterMember {
   id: string;
   name: string | null;
@@ -24,8 +22,6 @@ interface RosterMember {
 }
 
 type LoginOutcome = "clocked-in" | "resumed" | "break-ended";
-
-// ── PIN Numpad ────────────────────────────────────────────────────────────────
 
 function PinDots({ length, filled }: { length: number; filled: number }) {
   return (
@@ -52,10 +48,8 @@ function Numpad({ onDigit, onDelete, onEnter, pinLength, disabled }: {
   pinLength: number;
   disabled?: boolean;
 }) {
-  // Bottom-left slot: shows "Enter" (↵) when 4–5 digits are typed so staff
-  // with shorter PINs can submit without waiting for 6 digits.
-  // Auto-submit fires at 6 digits so that slot stays empty for 6-digit PINs.
-  const showEnter = pinLength >= 4 && pinLength < 6;
+
+const showEnter = pinLength >= 4 && pinLength < 6;
   const keys = ["1","2","3","4","5","6","7","8","9","enter","0","⌫"];
   return (
     <div className="grid grid-cols-3 gap-3 w-full max-w-[260px] mx-auto">
@@ -84,8 +78,6 @@ function Numpad({ onDigit, onDelete, onEnter, pinLength, disabled }: {
     </div>
   );
 }
-
-// ── Staff card ────────────────────────────────────────────────────────────────
 
 function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => void }) {
   const initials = (member.name ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -147,8 +139,6 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-
 export default function StaffPinLogin() {
   const { user: ownerUser } = useAuth();
   const { toast: _toast } = useToast();
@@ -164,8 +154,7 @@ export default function StaffPinLogin() {
 
   const PIN_LENGTH = 6;
 
-  // ── Resolve branch/tenant — from live session or localStorage kiosk state ──
-  const sessionBranchId = (ownerUser as any)?.activeBranchId ?? null;
+const sessionBranchId = (ownerUser as any)?.activeBranchId ?? null;
   const sessionTenantId = (ownerUser as any)?.tenantId ?? null;
 
   const [kioskBranchId, setKioskBranchId] = useState<number | null>(() => {
@@ -176,9 +165,7 @@ export default function StaffPinLogin() {
     return localStorage.getItem(KIOSK_TENANT_KEY);
   });
 
-  // When the owner is logged in, persist kiosk context so roster still loads
-  // after their session is replaced by a staff PIN session.
-  useEffect(() => {
+useEffect(() => {
     if (sessionBranchId && sessionTenantId) {
       localStorage.setItem(KIOSK_BRANCH_KEY, String(sessionBranchId));
       localStorage.setItem(KIOSK_TENANT_KEY, sessionTenantId);
@@ -190,8 +177,7 @@ export default function StaffPinLogin() {
   const branchId = sessionBranchId ?? kioskBranchId;
   const tenantId = sessionTenantId ?? kioskTenantId;
 
-  // Fetch roster — works with or without an active session
-  const { data: roster = [], isLoading } = useQuery<RosterMember[]>({
+const { data: roster = [], isLoading } = useQuery<RosterMember[]>({
     queryKey: ["/api/staff-pin/roster", branchId, tenantId],
     queryFn: async () => {
       if (!branchId) return [];
@@ -219,31 +205,26 @@ export default function StaffPinLogin() {
       const isOwnerLogin = selectedMember?.role === "owner";
 
       if (isOwnerLogin) {
-        // Owner: force-refetch auth with the new cookie so the correct user data
-        // is in the cache BEFORE the redirect fires.  Just invalidating would
-        // leave the old employee data visible until the background refetch lands.
-        await queryClient.refetchQueries({ queryKey: ["auth-me"] });
+
+await queryClient.refetchQueries({ queryKey: ["auth-me"] });
         setLoginOutcome("clocked-in");
         setPhase("success");
         setTimeout(() => setLocation("/"), 1200);
         return;
       }
 
-      // Pre-populate the active log cache so timeclock shows correct state immediately
-      // (prevents the brief "Clocked Out" flash that confused users into clicking Clock In)
-      if (data.timeLog) {
+if (data.timeLog) {
         queryClient.setQueryData(["/api/time-logs/active"], data.timeLog);
       }
 
-      // Determine outcome and auto-end break if needed
-      let outcome: LoginOutcome = "clocked-in";
+let outcome: LoginOutcome = "clocked-in";
 
       if (data.alreadyClockedIn) {
         if (data.timeLog?.breakStart) {
-          // Employee is returning from a break — end it automatically
+
           try {
             await apiRequest("POST", "/api/time-logs/break-end", {});
-            // Refresh the active log so break end is reflected
+
             queryClient.invalidateQueries({ queryKey: ["/api/time-logs/active"] });
             outcome = "break-ended";
           } catch {
@@ -254,9 +235,7 @@ export default function StaffPinLogin() {
         }
       }
 
-      // Use the correct query key ("auth-me", not "/api/auth/me") and force an
-      // immediate refetch so the new staff JWT is reflected before navigation.
-      await queryClient.refetchQueries({ queryKey: ["auth-me"] });
+await queryClient.refetchQueries({ queryKey: ["auth-me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-logs/team"] });
 
@@ -269,7 +248,7 @@ export default function StaffPinLogin() {
       setShake(true);
       setTimeout(() => setShake(false), 500);
       if (err?.lockedUntil) setLockedUntil(err.lockedUntil);
-      // Show the error inline inside the kiosk instead of a floating toast
+
       setPinError(err.message ?? "Incorrect PIN");
     },
   });
@@ -284,7 +263,7 @@ export default function StaffPinLogin() {
     setPinError(null);
     const next = pin + d;
     setPin(next);
-    // Auto-submit at the max length; shorter PINs use the ↵ Enter button
+
     if (next.length === PIN_LENGTH) {
       loginMutation.mutate(next);
     }
@@ -304,9 +283,8 @@ export default function StaffPinLogin() {
     setPhase("pin");
   }
 
-  // ── Roster view ────────────────────────────────────────────────────────────
-  if (phase === "roster") {
-    // Owners always first
+if (phase === "roster") {
+
     const sortedRoster = [...roster].sort((a, b) => {
       if (a.role === "owner" && b.role !== "owner") return -1;
       if (b.role === "owner" && a.role !== "owner") return 1;
@@ -361,8 +339,7 @@ export default function StaffPinLogin() {
     );
   }
 
-  // ── PIN entry view ─────────────────────────────────────────────────────────
-  if (phase === "pin" && selectedMember) {
+if (phase === "pin" && selectedMember) {
     const isLocked = !!lockedUntil && new Date(lockedUntil) > new Date();
     const isOwnerMember = selectedMember.role === "owner";
     return (
@@ -436,8 +413,7 @@ export default function StaffPinLogin() {
     );
   }
 
-  // ── Success view ───────────────────────────────────────────────────────────
-  if (phase === "success") {
+if (phase === "success") {
     const isOwnerMember = selectedMember?.role === "owner";
     const firstName = selectedMember?.name?.split(" ")[0] ?? "";
 

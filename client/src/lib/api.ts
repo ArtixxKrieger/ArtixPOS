@@ -8,8 +8,6 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
 export const NATIVE_TOKEN_KEY = "cafebara_native_token";
 
-// ── URL helpers ───────────────────────────────────────────────────────────────
-
 export function resolveUrl(url: string): string {
   if (API_BASE && url.startsWith("/")) return `${API_BASE}${url}`;
   return url;
@@ -48,8 +46,6 @@ export function getCsrfHeaders(method: string): Record<string, string> {
   return token ? { "X-CSRF-Token": token } : {};
 }
 
-// ── Axios instance ────────────────────────────────────────────────────────────
-
 export const api = axios.create({
   baseURL: API_BASE || undefined,
   withCredentials: true,
@@ -57,8 +53,6 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// ── Request interceptor ───────────────────────────────────────────────────────
-// Injects auth token + CSRF header on every outgoing request.
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const method = (config.method ?? "GET").toUpperCase();
   Object.assign(config.headers, getAuthHeaders());
@@ -67,9 +61,6 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// ── 503 retry interceptor ─────────────────────────────────────────────────────
-// Silent exponential back-off (up to 3 retries) on server-overload.
-// Respects the Retry-After header when present.
 const MAX_503_RETRIES = 3;
 const BASE_503_DELAY_MS = 1_000;
 
@@ -96,14 +87,6 @@ api.interceptors.response.use(
   },
 );
 
-// ── 401 interceptor ───────────────────────────────────────────────────────────
-// When any API call returns 401, clear the stored token and redirect to /login.
-// Skipped for the /api/auth/me probe (that 401 is handled by useAuth itself)
-// and for requests already targeting auth routes, to avoid redirect loops.
-// URL namespaces that intentionally return 401 and handle it themselves —
-// do NOT redirect to /login for these.
-//   /api/auth/*      — useAuth handles unauthenticated state
-//   /api/staff-pin/* — wrong/missing PIN should show an error, not redirect
 const NO_REDIRECT_401 = ["/api/auth/", "/api/staff-pin/"];
 
 api.interceptors.response.use(
@@ -126,9 +109,6 @@ api.interceptors.response.use(
   },
 );
 
-// ── Error normaliser ──────────────────────────────────────────────────────────
-// Converts AxiosError into a plain Error with a readable message from the
-// response body. Callers never need to import AxiosError themselves.
 export function normaliseError(err: unknown): Error {
   if (err instanceof AxiosError) {
     const data = err.response?.data as
@@ -147,21 +127,12 @@ export function normaliseError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err));
 }
 
-// ── Duplicate-request guard ───────────────────────────────────────────────────
-// POST / PUT calls with the same method+url+body fingerprint share a Promise
-// while in-flight — prevents duplicate charges / orders from double-taps.
 const _inflight = new Map<string, Promise<AxiosResponse>>();
 
 function inflightKey(method: string, url: string, data: unknown): string {
   return `${method}:${url}:${JSON.stringify(data ?? null)}`;
 }
 
-// ── Public helpers ────────────────────────────────────────────────────────────
-
-/**
- * GET — used by the TanStack Query default queryFn.
- * Returns the parsed body; throws a normalised Error on non-2xx.
- */
 export async function apiGet<T = unknown>(
   url: string,
   signal?: AbortSignal,
@@ -174,20 +145,11 @@ export async function apiGet<T = unknown>(
   }
 }
 
-/**
- * Mutations (POST / PUT / PATCH / DELETE).
- *
- * POST and PUT are deduplicated: identical in-flight calls share a Promise so
- * a double-tap never fires two charges or two pending orders.
- *
- * Returns the Axios response augmented with a `.json()` shim so existing
- * callers that do `(await apiRequest(...)).json()` keep working unchanged.
- */
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown,
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 ): Promise<AxiosResponse & { ok: true; json: () => Promise<any> }> {
   const m = method.toUpperCase();
   const resolved = resolveUrl(url);
@@ -216,14 +178,9 @@ export async function apiRequest(
     res = await exec();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return Object.assign(res, { ok: true as const, json: async (): Promise<any> => res.data });
+return Object.assign(res, { ok: true as const, json: async (): Promise<any> => res.data });
 }
 
-/**
- * Low-level native-fetch wrapper for offline-sync code that needs to inspect
- * raw Response status before parsing. Returns a fetch-API Response.
- */
 export async function nativeFetch(
   url: string,
   options: RequestInit = {},

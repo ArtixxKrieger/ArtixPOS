@@ -34,7 +34,7 @@ async function ensurePro(req: Request, res: Response): Promise<boolean> {
 }
 
 export function registerPayrollRoutes(app: Express) {
-  // ── CSV Export for a pay period ─────────────────────────────────────────────
+
   app.get("/api/payroll/periods/:id/export-csv", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
@@ -43,7 +43,7 @@ export function registerPayrollRoutes(app: Express) {
 
       const [period] = await db
         .select()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         .from(payrollPeriods as any)
         .where(eq((payrollPeriods as any).id, periodId));
 
@@ -53,7 +53,7 @@ export function registerPayrollRoutes(app: Express) {
 
       const entries = await db
         .select()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         .from(payrollEntries as any)
         .where(eq((payrollEntries as any).periodId, periodId));
 
@@ -72,9 +72,8 @@ export function registerPayrollRoutes(app: Express) {
       }));
 
       const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
-      // Build CSV — each field is JSON.stringify-escaped to handle commas/quotes safely.
-      // Output is text/csv (set below), not HTML — no injection risk.
-      const csvEscapeField = (v: unknown): string => JSON.stringify(v ?? "");
+
+const csvEscapeField = (v: unknown): string => JSON.stringify(v ?? "");
       const csvRow = (r: Record<string, unknown>): string =>
         headers.map((h) => csvEscapeField(r[h])).join(",");
       const lines = [headers.join(","), ...rows.map(csvRow)].join("\n");
@@ -88,9 +87,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-
-  // ── List staff with wage info ───────────────────────────────────────────────
-  app.get("/api/payroll/staff", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/payroll/staff", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -108,8 +105,7 @@ export function registerPayrollRoutes(app: Express) {
         .from(users)
         .where(eq(users.tenantId, user.tenantId!));
 
-      // Attach first branch per user
-      const userIds = list.map(u => u.id);
+const userIds = list.map(u => u.id);
       const branchRows = userIds.length
         ? await db
             .select({ userId: userBranches.userId, branchId: userBranches.branchId, branchName: branches.name })
@@ -131,8 +127,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── Update a single user's wage settings ────────────────────────────────────
-  app.put("/api/payroll/staff/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.put("/api/payroll/staff/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -166,8 +161,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── Compute payroll for a date range ────────────────────────────────────────
-  app.get("/api/payroll/compute", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/payroll/compute", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -180,12 +174,10 @@ export function registerPayrollRoutes(app: Express) {
         to: req.query.to ?? new Date().toISOString(),
       });
 
-      // Tenant users
-      const tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
+const tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
       const userIds = tenantUsers.map((u) => u.id);
 
-      // Time logs in range (only those clocked out)
-      const logs = userIds.length
+const logs = userIds.length
         ? await db
             .select()
             .from(timeLogs)
@@ -199,8 +191,7 @@ export function registerPayrollRoutes(app: Express) {
             )
         : [];
 
-      // Sales by cashier in range (for commission)
-      const tenantSales = userIds.length
+const tenantSales = userIds.length
         ? await db
             .select({ cashierId: sales.cashierId, total: sales.total })
             .from(sales)
@@ -214,8 +205,7 @@ export function registerPayrollRoutes(app: Express) {
             )
         : [];
 
-      // Tally
-      const hoursMap = new Map<string, number>();
+const hoursMap = new Map<string, number>();
       for (const log of logs) {
         if (!log.clockOut) continue;
         const start = new Date(log.clockIn).getTime();
@@ -283,8 +273,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── Save a payroll period (persists computed entries for history) ────────────
-  app.post("/api/payroll/periods", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.post("/api/payroll/periods", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -325,7 +314,7 @@ export function registerPayrollRoutes(app: Express) {
       const period = rows[0];
 
       if (input.entries.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         await db.insert(payrollEntries as any).values(
           input.entries.map((e) => ({
             periodId: (period as any).id,
@@ -352,8 +341,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── List saved payroll periods ───────────────────────────────────────────────
-  app.get("/api/payroll/periods", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/payroll/periods", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -366,8 +354,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err: unknown) { next(err); }
   });
 
-  // ── Get entries for a period ──────────────────────────────────────────────────
-  app.get("/api/payroll/periods/:id/entries", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/payroll/periods/:id/entries", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -379,8 +366,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Finalize a period (draft → finalized) ─────────────────────────────────────
-  app.post("/api/payroll/periods/:id/finalize", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.post("/api/payroll/periods/:id/finalize", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -407,8 +393,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Mark period as paid (finalized → paid) ────────────────────────────────────
-  app.post("/api/payroll/periods/:id/pay", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.post("/api/payroll/periods/:id/pay", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -449,8 +434,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Soft-delete a draft period ────────────────────────────────────────────────
-  app.delete("/api/payroll/periods/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.delete("/api/payroll/periods/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -476,8 +460,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Update a single payroll entry (draft period only) ─────────────────────────
-  app.put("/api/payroll/entries/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.put("/api/payroll/entries/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -500,7 +483,7 @@ export function registerPayrollRoutes(app: Express) {
       if (!period || (period as any).tenantId !== user.tenantId) return res.status(403).json({ message: "Unauthorized" });
       if ((period as any).status !== "draft") return res.status(409).json({ message: "Can only edit entries in draft periods" });
       const [updated] = await db.update(payrollEntries as any).set(input as any).where(eq((payrollEntries as any).id, entryId)).returning() as any[];
-      // Recompute period total
+
       const allEntries = await db.select().from(payrollEntries as any).where(eq((payrollEntries as any).periodId, (period as any).id));
       const newTotal = (allEntries as any[]).reduce((s, e) => s + (parseFloat(e.netAmount) || 0), 0);
       await db.update(payrollPeriods as any).set({ totalAmount: newTotal.toFixed(2) }).where(eq((payrollPeriods as any).id, (period as any).id));
@@ -511,8 +494,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── Quick Pay: compute + create + instantly mark paid in one shot ─────────────
-  app.post("/api/payroll/quick-pay", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.post("/api/payroll/quick-pay", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -527,8 +509,7 @@ export function registerPayrollRoutes(app: Express) {
       });
       const input = schema.parse(req.body);
 
-      // Duplicate detection: warn if a paid period already covers this date range
-      if (!input.force) {
+if (!input.force) {
         const overlap = await db.select().from(payrollPeriods as any).where(
           and(
             eq((payrollPeriods as any).tenantId, user.tenantId),
@@ -546,8 +527,7 @@ export function registerPayrollRoutes(app: Express) {
         }
       }
 
-      // Get tenant users, optionally filtered to a specific branch
-      let tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
+let tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
       if (input.branchId) {
         const branchRows = await db.select({ userId: userBranches.userId }).from(userBranches).where(eq(userBranches.branchId, input.branchId));
         const branchUserIds = new Set(branchRows.map(r => r.userId));
@@ -555,8 +535,7 @@ export function registerPayrollRoutes(app: Express) {
       }
       const userIds = tenantUsers.map(u => u.id);
 
-      // Compute hours and sales for the period
-      const fromISO = `${input.from}T00:00:00.000Z`;
+const fromISO = `${input.from}T00:00:00.000Z`;
       const toISO = `${input.to}T23:59:59.999Z`;
       const logs = userIds.length ? await db.select().from(timeLogs).where(and(inArray(timeLogs.userId, userIds), isNotNull(timeLogs.clockOut), gte(timeLogs.clockIn, fromISO), lte(timeLogs.clockIn, toISO))) : [];
       const tenantSales = userIds.length ? await db.select({ cashierId: sales.cashierId, total: sales.total }).from(sales).where(and(inArray(sales.userId, userIds), isNull(sales.deletedAt), gte(sales.createdAt, fromISO), lte(sales.createdAt, toISO))) : [];
@@ -575,7 +554,7 @@ export function registerPayrollRoutes(app: Express) {
       }
 
       const now = new Date().toISOString();
-      // Create period already in "paid" state — no draft/finalize steps
+
       const [period] = await db.insert(payrollPeriods as any).values({
         tenantId: user.tenantId,
         userId: user.id,
@@ -590,8 +569,7 @@ export function registerPayrollRoutes(app: Express) {
         paymentReference: input.paymentReference || null,
       }).returning() as any[];
 
-      // Build entries for employees with a wage type
-      const payableUsers = tenantUsers.filter(u => u.wageType && u.wageType !== "none");
+const payableUsers = tenantUsers.filter(u => u.wageType && u.wageType !== "none");
       const entries = payableUsers.map(u => {
         const wageType = u.wageType as string;
         const wageRate = parseFloat(u.wageRate ?? "0") || 0;
@@ -651,8 +629,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── Audit Log ─────────────────────────────────────────────────────────────────
-  app.get("/api/payroll/audit-log", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.get("/api/payroll/audit-log", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -669,8 +646,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Add a manual entry to an existing draft period ────────────────────────────
-  app.post("/api/payroll/periods/:id/entries", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.post("/api/payroll/periods/:id/entries", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -724,8 +700,7 @@ export function registerPayrollRoutes(app: Express) {
     }
   });
 
-  // ── Delete a single entry from a draft period ─────────────────────────────────
-  app.delete("/api/payroll/entries/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+app.delete("/api/payroll/entries/:id", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -743,8 +718,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Analytics: period history + top earners + wage breakdown ─────────────────
-  app.get("/api/payroll/analytics", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/payroll/analytics", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);
@@ -762,8 +736,7 @@ export function registerPayrollRoutes(app: Express) {
       const allEntries = await db.select().from(payrollEntries as any)
         .where(inArray((payrollEntries as any).periodId, periodIds)) as any[];
 
-      // Period totals (chronological order)
-      const periodTotals = recentPeriods.map((p: any) => ({
+const periodTotals = recentPeriods.map((p: any) => ({
         id: p.id,
         name: p.name,
         startDate: p.startDate,
@@ -772,8 +745,7 @@ export function registerPayrollRoutes(app: Express) {
         totalAmount: parseFloat(p.totalAmount || "0"),
       })).reverse();
 
-      // Top earners across all periods
-      const earnerMap = new Map<string, { name: string; total: number; periods: number }>();
+const earnerMap = new Map<string, { name: string; total: number; periods: number }>();
       for (const e of allEntries) {
         const net = parseFloat(e.netAmount || "0");
         const existing = earnerMap.get(e.employeeUserId);
@@ -782,8 +754,7 @@ export function registerPayrollRoutes(app: Express) {
       }
       const topEarners = Array.from(earnerMap.values()).sort((a, b) => b.total - a.total).slice(0, 8);
 
-      // Wage type breakdown
-      const wageTypeMap = new Map<string, number>();
+const wageTypeMap = new Map<string, number>();
       for (const e of allEntries) {
         const net = parseFloat(e.netAmount || "0");
         wageTypeMap.set(e.wageType, (wageTypeMap.get(e.wageType) ?? 0) + net);
@@ -796,8 +767,7 @@ export function registerPayrollRoutes(app: Express) {
     } catch (err) { next(err); }
   });
 
-  // ── Per-employee pay history (last 10 periods they appear in) ─────────────────
-  app.get("/api/payroll/staff/:id/history", requireAuth, requireTenant, async (req, res, next) => {
+app.get("/api/payroll/staff/:id/history", requireAuth, requireTenant, async (req, res, next) => {
     try {
       if (!(await ensurePro(req, res))) return;
       const user = getAuthUser(req);

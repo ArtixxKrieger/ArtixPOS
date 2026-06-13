@@ -1,10 +1,4 @@
-// Branch seed templates — pre-populate a brand-new branch with sensible
-// starter products/categories so the owner can ring up their first sale
-// the moment they finish creating the branch.
-//
-// All seeded rows are scoped to the branchId + the owner's userId, so they
-// only show up inside that branch and can be edited/deleted just like any
-// other product the owner adds manually.
+
 
 export interface SeedItem {
   name: string;
@@ -16,7 +10,7 @@ export interface SeedTemplate {
   label: string;
   description: string;
   items: SeedItem[];
-  /** Optional dine-in tables to seed (cafe / restaurant / bar) */
+
   tables?: { name: string; seats: number }[];
 }
 
@@ -448,7 +442,6 @@ export const SEED_TEMPLATES: Record<string, SeedTemplate> = {
   },
 };
 
-/** Returns the template that best matches a branch's businessType + subType. */
 export function getSeedTemplate(
   businessType: string | null | undefined,
   businessSubType: string | null | undefined
@@ -456,7 +449,7 @@ export function getSeedTemplate(
   if (businessSubType && SEED_TEMPLATES[businessSubType]) {
     return SEED_TEMPLATES[businessSubType];
   }
-  // Fallback by type when no subtype is chosen
+
   if (businessType === "food_beverage") return SEED_TEMPLATES.cafe;
   if (businessType === "services") return SEED_TEMPLATES.salon;
   if (businessType === "retail") return SEED_TEMPLATES.clothing;

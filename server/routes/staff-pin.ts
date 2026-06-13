@@ -1,20 +1,4 @@
-/**
- * Staff PIN Clock-in System
- *
- * Flow:
- *   1. GET  /api/staff-pin/roster?branchId=N  — public within tenant, returns staff list (names + ids, no PINs)
- *   2. POST /api/staff-pin/login              — PIN auth, issues short-lived JWT, auto clocks in
- *   3. POST /api/staff-pin/clockout           — revokes session token, clocks out
- *   4. POST /api/staff-pin/set                — owner/manager sets or resets a staff member's PIN
- *   5. DELETE /api/staff-pin/:userId          — owner/manager removes a staff member's PIN
- *
- * Security model:
- *   - PINs are hashed with scrypt (same as passwords). Never stored plaintext.
- *   - After 5 consecutive wrong PINs for a user, that user's PIN is locked for 15 min.
- *   - IP-level brute-force guard (shared with regular login) applies too.
- *   - Sessions are short-lived (8 h) and auto-revoked on clock-out.
- *   - Owners and managers are excluded from PIN login entirely.
- */
+
 
 import type { Express } from "express";
 import { z } from "zod";
@@ -39,8 +23,6 @@ function getIp(req: import("express").Request): string {
   );
 }
 
-// Per-user failed PIN attempt counter (in-memory, lightweight)
-// Key: userId, Value: { count, resetAt }
 const pinAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function _getPinAttempts(userId: string): number {
@@ -64,24 +46,17 @@ function clearPinAttempts(userId: string): void {
 
 export function registerStaffPinRoutes(app: Express): void {
 
-  // Used by the clock-in screen to show who can log in.
-  // Works with an active session OR with explicit branchId + tenantId query params
-  // (so the kiosk screen can reload the roster after a staff session ends).
-  app.get("/api/staff-pin/roster", async (req, res) => {
+app.get("/api/staff-pin/roster", async (req, res) => {
     try {
       const branchId = Number(req.query.branchId);
       if (!Number.isInteger(branchId) || branchId <= 0)
         return res.status(400).json({ message: "branchId required" });
 
-      // Resolve tenantId: prefer authenticated session, fall back to query param
-      const tenantId: string | null =
+const tenantId: string | null =
         (req.user as any)?.tenantId ?? (req.query.tenantId as string | undefined) ?? null;
       if (!tenantId) return res.status(403).json({ message: "No tenant" });
 
-      // Get all users for this tenant+branch.
-      // Owners are included regardless of branch assignment (they own all branches).
-      // Non-owners must have a userBranches row for this branch.
-      const rows = await db
+const rows = await db
         .select({
           id: users.id,
           name: users.name,
@@ -124,18 +99,14 @@ export function registerStaffPinRoutes(app: Express): void {
         branchId: z.number().int().positive(),
       }).parse(req.body);
 
-      // Load user
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!user || user.isBanned)
         return res.status(401).json({ message: "Invalid PIN" });
 
-      // Managers without a PIN must use the regular login.
-      // Owners CAN use a PIN to re-authenticate at the kiosk screen.
-      if (user.role === "manager" && !user.staffPin)
+if (user.role === "manager" && !user.staffPin)
         return res.status(403).json({ message: "Please use the regular login for your account." });
 
-      // PIN lock check
-      const now = new Date().toISOString();
+const now = new Date().toISOString();
       if (user.pinLockedUntil && user.pinLockedUntil > now) {
         const unlockAt = new Date(user.pinLockedUntil);
         const minsLeft = Math.ceil((unlockAt.getTime() - Date.now()) / 60_000);
@@ -145,13 +116,11 @@ export function registerStaffPinRoutes(app: Express): void {
         });
       }
 
-      // Verify PIN exists
-      if (!user.staffPin) {
+if (!user.staffPin) {
         return res.status(401).json({ message: "No PIN set. Ask your manager to set one for you." });
       }
 
-      // Verify PIN hash
-      const valid = await verifyPassword(pin, user.staffPin);
+const valid = await verifyPassword(pin, user.staffPin);
       if (!valid) {
         recordFailedAttempt(getIp(req));
         const attempts = incrementPinAttempts(userId);
@@ -172,17 +141,13 @@ export function registerStaffPinRoutes(app: Express): void {
         });
       }
 
-      // PIN correct — clear lockout state
-      recordSuccessfulLogin(getIp(req));
+recordSuccessfulLogin(getIp(req));
       clearPinAttempts(userId);
       if (user.pinLockedUntil) {
         await db.update(users).set({ pinLockedUntil: null }).where(eq(users.id, userId));
       }
 
-      // Verify user belongs to this branch.
-      // Owners own ALL branches and are never listed in userBranches — skip the
-      // check for them.  Non-owners must have an explicit userBranches row.
-      if (user.role !== "owner") {
+if (user.role !== "owner") {
         const [branchLink] = await db
           .select()
           .from(userBranches)
@@ -192,8 +157,7 @@ export function registerStaffPinRoutes(app: Express): void {
           return res.status(403).json({ message: "You are not assigned to this branch." });
       }
 
-      // Auto clock-in: check for existing open time log
-      const [existingLog] = await db
+const [existingLog] = await db
         .select()
         .from(timeLogs)
         .where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
@@ -213,8 +177,7 @@ export function registerStaffPinRoutes(app: Express): void {
         timeLog = newLog;
       }
 
-      // Issue short-lived session token (8 hours — one shift max)
-      const jti = crypto.randomUUID();
+const jti = crypto.randomUUID();
       const token = jwt.sign(
         {
           jti,
@@ -232,8 +195,7 @@ export function registerStaffPinRoutes(app: Express): void {
         { expiresIn: "8h" }
       );
 
-      // Set auth cookie
-      res.cookie(AUTH_COOKIE, token, {
+res.cookie(AUTH_COOKIE, token, {
         ...AUTH_COOKIE_OPTIONS,
         maxAge: 8 * 60 * 60 * 1000,
       });
@@ -256,8 +218,7 @@ export function registerStaffPinRoutes(app: Express): void {
       if (!user?.pinSession)
         return res.status(400).json({ message: "Not a PIN session" });
 
-      // Close open time log
-      const [log] = await db
+const [log] = await db
         .select()
         .from(timeLogs)
         .where(and(eq(timeLogs.userId, user.id), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
@@ -266,7 +227,7 @@ export function registerStaffPinRoutes(app: Express): void {
       if (log) {
         const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
         const now = new Date();
-        // Accumulate any in-progress break before closing the log
+
         let finalBreakMinutes = log.breakMinutes ?? 0;
         if (log.breakStart) {
           const breakMs = now.getTime() - new Date(log.breakStart).getTime();
@@ -278,8 +239,7 @@ export function registerStaffPinRoutes(app: Express): void {
           .where(eq(timeLogs.id, log.id));
       }
 
-      // Revoke JWT
-      const authHeader = req.headers.authorization;
+const authHeader = req.headers.authorization;
       const cookieToken = req.cookies?.[AUTH_COOKIE];
       const token = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
       if (token) {
@@ -291,7 +251,7 @@ export function registerStaffPinRoutes(app: Express): void {
               : new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
             await db.insert(revokedTokens).values({ jti: payload.jti, userId: user.id, expiresAt: exp }).onConflictDoNothing();
           }
-        } catch { /* non-critical */ }
+        } catch {  }
       }
 
       res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
@@ -315,12 +275,10 @@ export function registerStaffPinRoutes(app: Express): void {
       if (!target || target.tenantId !== requestingUser.tenantId)
         return res.status(404).json({ message: "Staff member not found" });
 
-      // Only the owner themselves can set their own PIN (managers cannot set owner PINs)
-      if (target.role === "owner" && requestingUser.role !== "owner" && requestingUser.id !== target.id)
+if (target.role === "owner" && requestingUser.role !== "owner" && requestingUser.id !== target.id)
         return res.status(403).json({ message: "Only the owner can set their own PIN." });
 
-      // Managers can only set PINs for cashiers/admins, not other managers
-      if (requestingUser.role === "manager" && target.role === "manager")
+if (requestingUser.role === "manager" && target.role === "manager")
         return res.status(403).json({ message: "Managers cannot set PINs for other managers." });
 
       const hashed = await hashPassword(pin);
@@ -355,17 +313,13 @@ export function registerStaffPinRoutes(app: Express): void {
     }
   });
 
-  // Used when an employee starts a break or another staff member needs the device.
-  // The open time log (with breakStart set) remains intact; when they re-login via
-  // PIN the system finds the existing open log and continues from there.
-  app.post("/api/staff-pin/lock-screen", requireAuth, async (req, res) => {
+app.post("/api/staff-pin/lock-screen", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
       if (!user?.pinSession)
         return res.status(400).json({ message: "Not a PIN session" });
 
-      // Revoke JWT
-      const cookieToken = req.cookies?.[AUTH_COOKIE];
+const cookieToken = req.cookies?.[AUTH_COOKIE];
       const authHeader = req.headers.authorization;
       const token = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
       if (token) {
@@ -377,7 +331,7 @@ export function registerStaffPinRoutes(app: Express): void {
               : new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
             await db.insert(revokedTokens).values({ jti: payload.jti, userId: user.id, expiresAt: exp }).onConflictDoNothing();
           }
-        } catch { /* non-critical */ }
+        } catch {  }
       }
 
       res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
@@ -407,23 +361,19 @@ export function registerStaffPinRoutes(app: Express): void {
   });
 }
 
-// Runs every 15 minutes. Catches cases where the JWT expired but the time log
-// was never explicitly closed via the clockout endpoint.
 async function runAutoClockout() {
   try {
     const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
     const now = new Date().toISOString();
 
-    // Fetch stale logs including break state so we can compute accurate break minutes
-    const staleLogs = await db
+const staleLogs = await db
       .select({ id: timeLogs.id, breakStart: timeLogs.breakStart, breakMinutes: timeLogs.breakMinutes })
       .from(timeLogs)
       .where(and(isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt), sql`${timeLogs.clockIn} < ${eightHoursAgo}`));
 
     if (staleLogs.length > 0) {
-      // Update each log individually so we can accumulate final break minutes correctly
-      // for any employee who was still on break when their 8-hour window expired.
-      for (const log of staleLogs) {
+
+for (const log of staleLogs) {
         let finalBreakMinutes = log.breakMinutes ?? 0;
         if (log.breakStart) {
           const breakMs = new Date(now).getTime() - new Date(log.breakStart).getTime();

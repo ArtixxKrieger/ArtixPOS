@@ -23,7 +23,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-
 export function requireTenant(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ message: "Unauthorized" });
   const user = req.user as AuthUser;
@@ -42,7 +41,6 @@ export function requireOwner(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// owner | manager
 export function requireManagerOrAbove(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ message: "Unauthorized" });
   const user = req.user as AuthUser;
@@ -52,7 +50,6 @@ export function requireManagerOrAbove(req: Request, res: Response, next: NextFun
   next();
 }
 
-// owner | manager | admin
 export function requireAdminOrAbove(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ message: "Unauthorized" });
   const user = req.user as AuthUser;

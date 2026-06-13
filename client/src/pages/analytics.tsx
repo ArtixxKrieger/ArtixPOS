@@ -60,9 +60,9 @@ const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CHART_COLORS = ["#6366f1", "#8b5cf6", "#22c55e", "#f59e0b", "#0ea5e9", "#ef4444", "#f43f5e"];
 
 const MEDAL_COLORS = [
-  "#F5C518", // #1 Gold
-  "#A8B8C8", // #2 Silver
-  "#CD7F32", // #3 Bronze
+  "#F5C518",
+  "#A8B8C8",
+  "#CD7F32",
 ];
 
 const RANK_PALETTE = [
@@ -511,9 +511,8 @@ export default function Analytics() {
 
   const rev = (s: typeof sales[0]) => parseNumeric(s.total) - (showNet ? parseNumeric(s.tax) : 0);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const currRevenue = useMemo(() => currSales.reduce((a, s) => a + rev(s), 0), [currSales, showNet]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+const currRevenue = useMemo(() => currSales.reduce((a, s) => a + rev(s), 0), [currSales, showNet]);
+
   const prevRevenue = useMemo(() => prevSales.reduce((a, s) => a + rev(s), 0), [prevSales, showNet]);
   const currOrders = currSales.length;
   const prevOrders = prevSales.length;
@@ -535,8 +534,7 @@ export default function Analytics() {
   const ordPct = prevOrders > 0 ? ((currOrders - prevOrders) / prevOrders) * 100 : 0;
   const avgPct = prevAvg > 0 ? ((currAvg - prevAvg) / prevAvg) * 100 : 0;
 
-  /* Trend chart data */
-  const trendData = useMemo(() => {
+const trendData = useMemo(() => {
     if (range.isDay) {
       const curr: Record<number, { revenue: number; orders: number }> = {};
       const prev: Record<number, { revenue: number; orders: number }> = {};
@@ -579,11 +577,10 @@ export default function Analytics() {
         };
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [currSales, prevSales, range, showNet]);
 
-  /* Hourly heatmap (all time) */
-  const hourlyData = useMemo(() => {
+const hourlyData = useMemo(() => {
     const h: Record<number, number> = {};
     for (let i = 0; i < 24; i++) h[i] = 0;
     currSales.forEach(s => { h[new Date(s.createdAt!).getHours()] += 1; });
@@ -595,8 +592,7 @@ export default function Analytics() {
 
   const nonRefundedCurrSales = useMemo(() => currSales.filter(s => !(s as any).refundedAt), [currSales]);
 
-  /* Top products/services — exclude refunded sales. Handles both POS format {product:{name}} and appointment format {name} */
-  const productData = useMemo(() => {
+const productData = useMemo(() => {
     const counts: Record<string, { qty: number; revenue: number }> = {};
     nonRefundedCurrSales.forEach(s => {
       ((s.items as any[]) || []).forEach(item => {
@@ -614,8 +610,7 @@ export default function Analytics() {
       .sort((a, b) => prodSort === "qty" ? b.qty - a.qty : b.revenue - a.revenue);
   }, [nonRefundedCurrSales, prodSort]);
 
-  /* Category breakdown — exclude refunded sales */
-  const categoryData = useMemo(() => {
+const categoryData = useMemo(() => {
     const cats: Record<string, { revenue: number; orders: number }> = {};
     nonRefundedCurrSales.forEach(s => {
       ((s.items as any[]) || []).forEach(item => {
@@ -630,8 +625,7 @@ export default function Analytics() {
     return Object.entries(cats).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue);
   }, [nonRefundedCurrSales]);
 
-  /* Day of week */
-  const dowData = useMemo(() => {
+const dowData = useMemo(() => {
     const d: Record<number, { revenue: number; orders: number }> = {};
     for (let i = 0; i < 7; i++) d[i] = { revenue: 0, orders: 0 };
     currSales.forEach(s => {
@@ -640,11 +634,10 @@ export default function Analytics() {
       d[day].orders++;
     });
     return DOW.map((label, i) => ({ label, ...d[i] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [currSales, showNet]);
 
-  /* Payment methods */
-  const paymentData = useMemo(() => {
+const paymentData = useMemo(() => {
     const p: Record<string, { count: number; revenue: number }> = {};
     currSales.forEach(s => {
       const method = s.paymentMethod || "cash";
@@ -653,11 +646,10 @@ export default function Analytics() {
       p[method].revenue += rev(s);
     });
     return Object.entries(p).map(([name, v]) => ({ name: name === "online" ? "Online" : "Cash", ...v }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [currSales, showNet]);
 
-  /* Smart insights */
-  const insights = useMemo(() => {
+const insights = useMemo(() => {
     const list: { icon: any; text: string; color: string }[] = [];
     if (prevNetRevenue > 0) {
       const dir = currNetRevenue >= prevNetRevenue ? "up" : "down";
@@ -705,7 +697,7 @@ export default function Analytics() {
       });
     }
     return list;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [currNetRevenue, prevNetRevenue, revPct, currRefundCount, currRefundTotal, currOrders, productData, bestHour, dowData, categoryData, currency]);
 
   const rangeLabel = preset === "today" ? "today" : preset === "yesterday" ? "yesterday" : preset === "7d" ? "last-7d" : preset === "30d" ? "last-30d" : "custom";
@@ -729,9 +721,9 @@ export default function Analytics() {
   return (
     <div className="space-y-5 page-enter pb-24 md:pb-8">
 
-      {/* Date range + export */}
+      {}
       <div className="flex flex-col gap-2 sm:items-end">
-          {/* Preset pills — scrollable on narrow phones */}
+          {}
           <div className="overflow-x-auto scrollbar-none -mx-0.5 px-0.5 pb-0.5">
             <div className="flex bg-secondary/60 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-border/30 w-max">
               {(["today", "yesterday", "7d", "30d"] as Preset[]).map(p => (
@@ -781,7 +773,7 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Export buttons */}
+          {}
           <div className="flex items-center bg-secondary/60 dark:bg-secondary/40 rounded-xl border border-border/30 overflow-hidden self-start sm:self-auto">
             {[
               { label: "CSV", fn: () => exportCSV(currSales, currency, rangeLabel), testId: "button-export-csv" },
@@ -957,7 +949,7 @@ export default function Analytics() {
 
       <div className="grid gap-4 md:grid-cols-2">
 
-        {/* Top Items — label adapts to business type */}
+        {}
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-violet-500/10 flex items-center justify-center">
@@ -1010,7 +1002,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Hourly Heatmap */}
+        {}
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-amber-500/10 flex items-center justify-center">
@@ -1060,7 +1052,7 @@ export default function Analytics() {
 
       <div className="grid gap-4 md:grid-cols-2">
 
-        {/* Day of Week */}
+        {}
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-blue-500/10 flex items-center justify-center">
@@ -1097,7 +1089,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Payment Methods */}
+        {}
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
             <div className="h-7 w-7 rounded-xl bg-emerald-500/10 flex items-center justify-center">

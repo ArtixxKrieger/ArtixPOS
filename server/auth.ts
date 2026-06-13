@@ -76,9 +76,6 @@ function getClientIp(req: Request): string {
   );
 }
 
-// Returns an error string if the password is too weak, null if acceptable.
-// Rules are intentionally mirrored in the client-side strength meter so the
-// UI and API stay in sync without a round-trip for every keystroke.
 const COMMON_PASSWORDS = new Set([
   "password",
   "password1",
@@ -138,8 +135,6 @@ function validatePasswordStrength(password: string, email?: string): string | nu
 
 export const AUTH_COOKIE = "auth_token";
 
-// In-memory Set for O(1) lookup on every request. DB is the durable source of
-// truth; the Set is populated on startup and updated on every logout.
 const _revokedJtis = new Set<string>();
 
 async function _loadRevokedTokens(): Promise<void> {
@@ -171,7 +166,7 @@ async function _pruneRevokedTokens(): Promise<void> {
       console.log(`[auth] Pruned ${rows.length} expired revoked token(s) from memory + DB`);
     }
   } catch {
-    /* non-critical */
+
   }
 }
 
@@ -184,12 +179,9 @@ async function revokeToken(jti: string, userId: string, expiresAt: string): Prom
   }
 }
 
-// Load revoked tokens on startup and prune stale entries every hour
 _loadRevokedTokens();
 setInterval(_pruneRevokedTokens, 60 * 60 * 1000);
 
-// Logs auth events to the audit_logs table. Uses "system" as tenantId when
-// the user has no tenant yet (new accounts, pre-onboarding).
 async function logAuthEvent(opts: {
   userId: string;
   tenantId: string | null;
@@ -207,7 +199,7 @@ async function logAuthEvent(opts: {
       metadata: opts.metadata,
     });
   } catch {
-    /* audit failures must never block auth */
+
   }
 }
 
@@ -231,12 +223,11 @@ export function getJwtSecret(): string {
 }
 
 export function getBaseUrl(): string {
-  // Explicit override always wins (recommended for custom domains on Vercel)
+
   const appUrl = process.env.APP_URL?.replace(/\/$/, "");
   if (appUrl) return appUrl;
-  // VERCEL_PROJECT_PRODUCTION_URL is the stable production/custom domain URL.
-  // VERCEL_URL is deployment-specific (changes each deploy) — only use as fallback.
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+
+if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
@@ -296,7 +287,7 @@ export function verifyToken(token: string): Express.User {
     tenantId: payload.tenantId ?? null,
     role: payload.role ?? "owner",
     activeBranchId: payload.activeBranchId ?? null,
-    // Default true so old tokens (issued before email verification existed) aren't blocked.
+
     emailVerified: payload.emailVerified ?? true,
   };
 }
@@ -320,16 +311,6 @@ export function signToken(user: TokenUser, rememberMe = false): string {
   );
 }
 
-// Shared cookie options — MUST be identical between setAuthCookie / clearAuthCookie
-// or browsers (especially Chrome on HTTPS) silently refuse to delete the cookie,
-// which is what made "logout" appear to do nothing on the first click.
-//
-// SameSite=None; Secure is used unconditionally because:
-//   1. The app always runs behind an HTTPS endpoint (reverse proxy in dev, Vercel in prod).
-//   2. We have explicit CSRF token double-submit validation (csrfProtection middleware),
-//      so the CSRF protection that SameSite=Lax would otherwise provide is redundant.
-//   3. SameSite=None is required for the cookie to be delivered in any embedded context
-//      (iframes, OAuth pop-ups, etc.) regardless of the deployment environment.
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: true,
@@ -338,12 +319,10 @@ export const AUTH_COOKIE_OPTIONS = {
 };
 
 export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false) {
-  // Pass rememberMe so the JWT itself also expires in 30d instead of 7d —
-  // otherwise the cookie would outlive the token and silently log the user out.
-  const token = signToken(user, rememberMe);
-  // rememberMe = false → session ends when browser closes (1 day max)
-  // rememberMe = true  → cookie persists for 30 days
-  const maxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000;
+
+const token = signToken(user, rememberMe);
+
+const maxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000;
   res.cookie(AUTH_COOKIE, token, {
     ...AUTH_COOKIE_OPTIONS,
     maxAge,
@@ -356,7 +335,6 @@ export function clearAuthCookie(res: Response) {
 
 export const bannedUserIds = new Set<string>();
 
-// Seed banned users from DB so the set survives server restarts
 db.select({ id: users.id })
   .from(users)
   .where(eq(users.isBanned, true))
@@ -400,14 +378,14 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
         role: payload.role ?? "owner",
         activeBranchId: payload.activeBranchId ?? null,
       };
-      // Store jti on request so logout can revoke it
+
       req.tokenJti = payload.jti ?? null;
       req.tokenExp = payload.exp ?? null;
       if (req.path.startsWith("/api/")) {
         updateLastSeen(payload.id).catch(() => {});
       }
     } catch {
-      // invalid/expired token — ignore
+
     }
   }
   next();
@@ -421,42 +399,26 @@ async function findOrCreateUser(data: {
   provider: string;
   providerId: string;
 }): Promise<import("@shared/schema").User> {
-  // runAsAdmin issues SET LOCAL row_security = off inside its transaction, so
-  // RLS on the `users` table (which has USING/WITH CHECK on tenant_id) cannot
-  // block user creation or lookup at sign-in time — when there is no tenant
-  // context yet and every user's tenant_id is NULL.  Without this guard,
-  // Supabase's managed postgres (not a true PostgreSQL superuser) evaluates
-  // the policy even for non-forced RLS, causing the INSERT to fail with
-  // "new row violates row-level security policy" and subsequent SELECTs to
-  // return zero rows.
-  return runAsAdmin(pool, async (adminDb) => {
-    // Primary lookup: exact provider ID match (deterministic, fastest)
+
+return runAsAdmin(pool, async (adminDb) => {
+
     const [existing] = await adminDb.select().from(users).where(eq(users.id, data.id));
     if (existing) return existing;
 
-    // Fallback: email-based lookup — handles the RLS Catch-22 scenario where a
-    // returning user's row was hidden (non-null tenant_id + NULL current_tenant_id()
-    // → policy evaluated to NULL → 0 rows), as well as cross-provider account
-    // linking (user registered with email+password, now signs in with Google
-    // using the same email address).  We only fall back when an email is known.
-    if (data.email) {
+if (data.email) {
       const [byEmail] = await adminDb
         .select()
         .from(users)
         .where(eq(users.email, data.email))
         .limit(1);
       if (byEmail) {
-        // Link the provider ID: if they previously used a different provider,
-        // update the record so future primary-lookup hits are instant.
-        if (byEmail.id !== data.id) {
+
+if (byEmail.id !== data.id) {
           console.log(
             `[auth] findOrCreateUser: linking provider "${data.provider}" to existing account via email match (existing id=${byEmail.id})`,
           );
-          // Update the existing row with the new provider's ID, provider string,
-          // avatar, and name so future primary-key lookups return instantly.
-          // The old email_<sha256> ID becomes a legacy alias; the new provider-
-          // prefixed ID becomes the canonical one for future logins.
-          try {
+
+try {
             await adminDb
               .update(users)
               .set({
@@ -467,7 +429,7 @@ async function findOrCreateUser(data: {
                 ...(data.name ? { name: data.name } : {}),
               } as any)
               .where(eq(users.id, byEmail.id));
-            // Re-select with the newly-updated ID
+
             const [relinked] = await adminDb
               .select()
               .from(users)
@@ -486,7 +448,7 @@ async function findOrCreateUser(data: {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await adminDb.insert(users).values(data as any);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -501,20 +463,10 @@ async function findOrCreateUser(data: {
 
 const NATIVE_APP_SCHEME = process.env.NATIVE_APP_SCHEME || "com.artixpos.app";
 
-/**
- * Wipe every row scoped to the given user IDs, in strict FK order
- * (children → parents). Safe to call with one or many users at once.
- *
- * NOTE: This intentionally does NOT delete the `users` rows themselves —
- * the caller decides when to do that, since "delete tenant" needs to clean
- * tenant-scoped tables in between.
- */
 async function deleteUsersData(uids: string[]): Promise<void> {
   if (uids.length === 0) return;
 
-  // We need parent IDs so we can cascade into child tables that don't carry
-  // a userId column directly (purchaseOrderItems, stockTransferItems, etc.)
-  const userProductIds = (
+const userProductIds = (
     await db.select({ id: products.id }).from(products).where(inArray(products.userId, uids))
   ).map((r) => r.id);
 
@@ -561,39 +513,27 @@ async function deleteUsersData(uids: string[]): Promise<void> {
       .where(inArray(stockTransfers.userId, uids))
   ).map((r) => r.id);
 
-  // Rule: every table with a NOT NULL FK → another table being deleted must
-  // be deleted BEFORE its parent. Soft-deletes (UPDATE) are NOT used here —
-  // a soft-deleted row still holds its FK pointer and will block the final
-  // DELETE FROM users.
-
-  // Step 1 — membership_check_ins
-  //   refs: memberships.id NOT NULL, customers.id NOT NULL, users.id NOT NULL
-  if (userMembershipIds.length > 0) {
+if (userMembershipIds.length > 0) {
     await db
       .delete(membershipCheckIns)
       .where(inArray(membershipCheckIns.membershipId, userMembershipIds));
   }
   await db.delete(membershipCheckIns).where(inArray(membershipCheckIns.userId, uids));
 
-  // Step 2 — loyalty_points_log
-  //   refs: customers.id NOT NULL, loyalty_rewards.id nullable, users.id NOT NULL
-  await db.delete(loyaltyPointsLog).where(inArray(loyaltyPointsLog.userId, uids));
+await db.delete(loyaltyPointsLog).where(inArray(loyaltyPointsLog.userId, uids));
 
-  // Step 3 — refunds  (refs: sales.id NOT NULL, users.id NOT NULL)
-  if (userSaleIds.length > 0) {
+if (userSaleIds.length > 0) {
     await db.delete(refunds).where(inArray(refunds.saleId, userSaleIds));
   }
   await db.delete(refunds).where(inArray(refunds.userId, uids));
 
-  // Step 4 — stock_transfer_items  (refs: stock_transfers.id NOT NULL, products.id NOT NULL)
-  if (userStockTransferIds.length > 0) {
+if (userStockTransferIds.length > 0) {
     await db
       .delete(stockTransferItems)
       .where(inArray(stockTransferItems.transferId, userStockTransferIds));
   }
 
-  // Step 5 — product_recipes  (refs: products.id NOT NULL, ingredients.id NOT NULL)
-  if (userProductIds.length > 0) {
+if (userProductIds.length > 0) {
     await db.delete(productRecipes).where(inArray(productRecipes.productId, userProductIds));
     await db.delete(productSizes).where(inArray(productSizes.productId, userProductIds));
     await db.delete(productModifiers).where(inArray(productModifiers.productId, userProductIds));
@@ -602,151 +542,98 @@ async function deleteUsersData(uids: string[]): Promise<void> {
     await db.delete(productRecipes).where(inArray(productRecipes.ingredientId, userIngredientIds));
   }
 
-  // Step 6 — purchase_order_items  (refs: purchase_orders.id NOT NULL)
-  if (userPoIds.length > 0) {
+if (userPoIds.length > 0) {
     await db
       .delete(purchaseOrderItems)
       .where(inArray(purchaseOrderItems.purchaseOrderId, userPoIds));
   }
 
-  // Step 7 — supplier_products  (refs: suppliers.id NOT NULL, products.id NOT NULL)
-  if (userSupplierIds.length > 0) {
+if (userSupplierIds.length > 0) {
     await db.delete(supplierProducts).where(inArray(supplierProducts.supplierId, userSupplierIds));
   }
   if (userProductIds.length > 0) {
     await db.delete(supplierProducts).where(inArray(supplierProducts.productId, userProductIds));
   }
 
-  // Step 8 — stock_logs  (refs: products.id NOT NULL, users.id NOT NULL)
-  await db.delete(stockLogs).where(inArray(stockLogs.userId, uids));
+await db.delete(stockLogs).where(inArray(stockLogs.userId, uids));
   if (userProductIds.length > 0) {
     await db.delete(stockLogs).where(inArray(stockLogs.productId, userProductIds));
   }
 
-  // Step 9 — waste_log  (refs: products.id nullable, ingredients.id nullable, users.id NOT NULL)
-  await db.delete(wasteLog).where(inArray(wasteLog.userId, uids));
+await db.delete(wasteLog).where(inArray(wasteLog.userId, uids));
 
-  // Step 10 — appointments
-  //   refs: customers.id nullable, service_staff.id nullable, service_rooms.id nullable, users.id NOT NULL
-  await db.delete(appointments).where(inArray(appointments.userId, uids));
+await db.delete(appointments).where(inArray(appointments.userId, uids));
 
-  // Step 11 — memberships  (refs: customers.id NOT NULL, membership_plans.id nullable, users.id NOT NULL)
-  await db.delete(memberships).where(inArray(memberships.userId, uids));
+await db.delete(memberships).where(inArray(memberships.userId, uids));
 
-  // Step 12 — wifi_vouchers  (refs: sales.id nullable, users.id NOT NULL)
-  await db.delete(wifiVouchers).where(inArray(wifiVouchers.userId, uids));
+await db.delete(wifiVouchers).where(inArray(wifiVouchers.userId, uids));
   if (userSaleIds.length > 0) {
     await db.delete(wifiVouchers).where(inArray(wifiVouchers.saleId, userSaleIds));
   }
 
-  // Step 13 — notifications  (refs: users.id NOT NULL)
-  await db.delete(notifications).where(inArray(notifications.userId, uids));
+await db.delete(notifications).where(inArray(notifications.userId, uids));
 
-  // Step 15 — time_logs  (refs: users.id NOT NULL)
-  await db.delete(timeLogs).where(inArray(timeLogs.userId, uids));
+await db.delete(timeLogs).where(inArray(timeLogs.userId, uids));
 
-  // Step 16 — payroll_entries
-  //   refs: payroll_periods.id NOT NULL, users.id NOT NULL (employeeUserId)
-  if (userPayrollPeriodIds.length > 0) {
+if (userPayrollPeriodIds.length > 0) {
     await db.delete(payrollEntries).where(inArray(payrollEntries.periodId, userPayrollPeriodIds));
   }
   await db.delete(payrollEntries).where(inArray(payrollEntries.employeeUserId, uids));
 
-  // Step 17 — stock_transfers  (refs: users.id NOT NULL — children deleted in step 4)
-  await db.delete(stockTransfers).where(inArray(stockTransfers.userId, uids));
+await db.delete(stockTransfers).where(inArray(stockTransfers.userId, uids));
 
-  // Step 18 — sales  (refs: customers.id nullable, tables.id nullable, users.id NOT NULL)
-  //   Children refunds deleted in step 3, wifi_vouchers in step 12.
-  await db.delete(sales).where(inArray(sales.userId, uids));
+await db.delete(sales).where(inArray(sales.userId, uids));
 
-  // Step 19 — pending_orders  (refs: customers.id nullable, tables.id nullable, users.id NOT NULL)
-  await db.delete(pendingOrders).where(inArray(pendingOrders.userId, uids));
+await db.delete(pendingOrders).where(inArray(pendingOrders.userId, uids));
 
-  // Step 20 — purchase_orders  (refs: suppliers.id nullable, users.id NOT NULL — children deleted in step 6)
-  await db.delete(purchaseOrders).where(inArray(purchaseOrders.userId, uids));
+await db.delete(purchaseOrders).where(inArray(purchaseOrders.userId, uids));
 
-  // Step 21 — payroll_periods  (refs: users.id NOT NULL — entries deleted in step 16)
-  await db.delete(payrollPeriods).where(inArray(payrollPeriods.userId, uids));
+await db.delete(payrollPeriods).where(inArray(payrollPeriods.userId, uids));
 
-  // Step 22 — membership_plans  (refs: users.id NOT NULL — memberships deleted in step 11)
-  await db.delete(membershipPlans).where(inArray(membershipPlans.userId, uids));
+await db.delete(membershipPlans).where(inArray(membershipPlans.userId, uids));
 
-  // Step 23 — loyalty_rewards  (refs: products.id nullable, users.id NOT NULL — log deleted in step 2)
-  await db.delete(loyaltyRewards).where(inArray(loyaltyRewards.userId, uids));
+await db.delete(loyaltyRewards).where(inArray(loyaltyRewards.userId, uids));
 
-  // Step 24 — service_staff  (refs: users.id NOT NULL — appointments deleted in step 10)
-  await db.delete(serviceStaff).where(inArray(serviceStaff.userId, uids));
+await db.delete(serviceStaff).where(inArray(serviceStaff.userId, uids));
 
-  // Step 25 — service_rooms  (refs: users.id NOT NULL — appointments deleted in step 10)
-  await db.delete(serviceRooms).where(inArray(serviceRooms.userId, uids));
+await db.delete(serviceRooms).where(inArray(serviceRooms.userId, uids));
 
-  // Step 26 — customers  (refs: users.id NOT NULL)
-  //   All child tables (memberships, membershipCheckIns, loyaltyPointsLog,
-  //   appointments, sales, pendingOrders) deleted above.
-  await db.delete(customers).where(inArray(customers.userId, uids));
+await db.delete(customers).where(inArray(customers.userId, uids));
 
-  // Step 27 — ingredients  (refs: users.id NOT NULL — productRecipes + wasteLog deleted above)
-  await db.delete(ingredients).where(inArray(ingredients.userId, uids));
+await db.delete(ingredients).where(inArray(ingredients.userId, uids));
 
-  // Step 28 — products  (refs: users.id NOT NULL)
-  //   All child tables (productRecipes, supplierProducts, stockLogs,
-  //   stockTransferItems, wifiVouchers, purchaseOrderItems) deleted above.
-  await db.delete(products).where(inArray(products.userId, uids));
+await db.delete(products).where(inArray(products.userId, uids));
 
-  // Step 29 — suppliers  (refs: users.id NOT NULL — supplierProducts + purchaseOrders deleted above)
-  await db.delete(suppliers).where(inArray(suppliers.userId, uids));
+await db.delete(suppliers).where(inArray(suppliers.userId, uids));
 
-  // Step 30 — tables  (refs: users.id NOT NULL — sales + pendingOrders deleted above)
-  await db.delete(tables).where(inArray(tables.userId, uids));
+await db.delete(tables).where(inArray(tables.userId, uids));
 
-  // Step 31 — loyalty_tiers  (refs: users.id NOT NULL)
-  await db.delete(loyaltyTiers).where(inArray(loyaltyTiers.userId, uids));
+await db.delete(loyaltyTiers).where(inArray(loyaltyTiers.userId, uids));
 
-  // Step 32 — shifts  (refs: users.id NOT NULL)
-  await db.delete(shifts).where(inArray(shifts.userId, uids));
+await db.delete(shifts).where(inArray(shifts.userId, uids));
 
-  // Step 33 — discount_codes  (refs: users.id NOT NULL)
-  await db.delete(discountCodes).where(inArray(discountCodes.userId, uids));
+await db.delete(discountCodes).where(inArray(discountCodes.userId, uids));
 
-  // Step 34 — expenses  (refs: users.id NOT NULL)
-  await db.delete(expenses).where(inArray(expenses.userId, uids));
+await db.delete(expenses).where(inArray(expenses.userId, uids));
 
-  // Step 35 — audit_logs (userId column has no FK constraint — just a text field; GDPR hygiene)
-
-  await db
+await db
     .update(auditLogs)
     .set({ metadata: { deleted: true } } as any)
     .where(inArray(auditLogs.userId, uids));
 
-  // Step 36 — user_settings  (refs: users.id NOT NULL UNIQUE)
-  await db.delete(userSettings).where(inArray(userSettings.userId, uids));
+await db.delete(userSettings).where(inArray(userSettings.userId, uids));
 
-  // Step 37 — user_branches  (refs: users.id NOT NULL)
-  await db.delete(userBranches).where(inArray(userBranches.userId, uids));
+await db.delete(userBranches).where(inArray(userBranches.userId, uids));
 
-  // (caller deletes the user rows themselves)
 }
 
-/**
- * Tear down a tenant once all its users' data has already been wiped:
- * branches, role permissions, subscriptions, audit logs scoped
- * to the tenant, and finally the tenant row itself.
- *
- * Without this, an owner could "delete their account" but their old store
- * + branches stay in the database forever, and re-registering with the same
- * email re-creates a user with the same deterministic ID who would still
- * see remnants of the orphaned tenant.
- */
 async function deleteTenantShell(tenantId: string): Promise<void> {
-  // Step 1 — NULL out users.activeBranchId and users.tenantId for all tenant users
-  // so that branches and the tenant row can be hard-deleted without FK violations.
-  // (The user *rows* themselves are deleted by the caller right after this function.)
-  await db.execute(
+
+await db.execute(
     sql`UPDATE users SET active_branch_id = NULL, tenant_id = NULL WHERE tenant_id = ${tenantId}`,
   );
 
-  // Step 2 — user_branches (refs: branches.id NOT NULL)
-  await db
+await db
     .delete(userBranches)
     .where(
       inArray(
@@ -755,11 +642,9 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
       ),
     );
 
-  // Step 3 — hard-delete branches (tenantId NOT NULL FK → tenants; cleared above)
-  await db.delete(branches).where(eq(branches.tenantId, tenantId));
+await db.delete(branches).where(eq(branches.tenantId, tenantId));
 
-  // Step 4 — remaining tenant-scoped tables
-  await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
+await db.delete(rolePermissions).where(eq(rolePermissions.tenantId, tenantId));
   await db.delete(subscriptionPayments).where(eq(subscriptionPayments.tenantId, tenantId));
   await db.delete(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, tenantId));
 
@@ -767,7 +652,7 @@ async function deleteTenantShell(tenantId: string): Promise<void> {
     .update(auditLogs)
     .set({ metadata: { tenantDeleted: true } } as any)
     .where(eq(auditLogs.tenantId, tenantId));
-  // Step 5 — hard-delete the tenant row itself (no FK references remain)
+
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
 
@@ -984,9 +869,8 @@ export function setupAuth(app: Express) {
           return res.redirect("/login?error=google_no_user");
         }
         try {
-          // Google sign-in is always an explicit active choice — always persist for 30 days
-          // across all platforms: native deep-link, popup, and redirect flows.
-          if (isNative) {
+
+if (isNative) {
             const token = signToken(user, true);
             return res.redirect(`${NATIVE_APP_SCHEME}://auth?token=${encodeURIComponent(token)}`);
           }
@@ -1031,7 +915,7 @@ export function setupAuth(app: Express) {
         provider: "google",
         providerId: payload.sub,
       });
-      // Google sign-in is an explicit active choice — always persist for 30 days on native.
+
       const token = signToken(
         {
           id: user.id,
@@ -1098,8 +982,7 @@ export function setupAuth(app: Express) {
         });
       }
 
-      // Send welcome email — fire-and-forget, non-blocking.
-      const verifyBaseUrl = getBaseUrl();
+const verifyBaseUrl = getBaseUrl();
       const dashboardUrl = `${verifyBaseUrl}/`;
       sendWelcomeEmail(normalizedEmail, name.trim(), dashboardUrl).catch((err) => {
         console.error("[auth] Failed to send welcome email:", err);
@@ -1143,11 +1026,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // ── Email verification ────────────────────────────────────────────────────────
-
-  // Rate-limit resend requests: max 1 per 60 s per user (in-memory; good enough).
-  // Entries are pruned every 5 minutes to prevent unbounded memory growth.
-  const resendCooldown = new Map<string, number>();
+const resendCooldown = new Map<string, number>();
   setInterval(() => {
     const cutoff = Date.now() - 60_000;
     for (const [uid, ts] of resendCooldown) {
@@ -1181,8 +1060,7 @@ export function setupAuth(app: Express) {
           .where(eq(users.id, user.id)),
       );
 
-      // Issue a fresh cookie so the JWT carries emailVerified: true immediately.
-      setAuthCookie(res, {
+setAuthCookie(res, {
         id: user.id,
         name: user.name ?? null,
         email: user.email ?? null,
@@ -1251,9 +1129,7 @@ export function setupAuth(app: Express) {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      // Per-email block check — catches IP-rotating attackers targeting one account.
-      // Runs before the DB lookup so a blocked email is rejected with zero DB cost.
-      const emailBlock = await checkEmailBlocked(normalizedEmail);
+const emailBlock = await checkEmailBlocked(normalizedEmail);
       if (emailBlock.blocked) {
         return res
           .status(429)
@@ -1266,9 +1142,7 @@ export function setupAuth(app: Express) {
 
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
 
-      // runAsAdmin bypasses RLS — at login time there is no tenant context so the
-      // users policy would otherwise filter out any row with a non-null tenant_id.
-      const user = await runAsAdmin(pool, async (adminDb) => {
+const user = await runAsAdmin(pool, async (adminDb) => {
         const [row] = await adminDb.select().from(users).where(eq(users.id, userId));
         return row ?? null;
       });
@@ -1344,9 +1218,7 @@ export function setupAuth(app: Express) {
     res.json({ ok: true });
   });
 
-  // Validates the current token and issues a fresh 7-day token, resetting the
-  // sliding session window. The old token is revoked so it cannot be reused.
-  app.post("/api/auth/refresh", async (req, res, _next) => {
+app.post("/api/auth/refresh", async (req, res, _next) => {
     let token = (req as any).cookies?.[AUTH_COOKIE];
     if (
       !token &&
@@ -1364,8 +1236,7 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ message: "Token has been revoked" });
       }
 
-      // Revoke old token before issuing new one
-      if (payload.jti && payload.exp) {
+if (payload.jti && payload.exp) {
         await revokeToken(payload.jti, payload.id, new Date(payload.exp * 1000).toISOString());
       }
 
@@ -1383,9 +1254,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Owners can download a JSON archive of every record tied to their store
-  // before they delete the account. Non-owners get just their personal rows.
-  app.get("/api/auth/export", async (req, res, next) => {
+app.get("/api/auth/export", async (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     const uid = req.user.id;
 
@@ -1396,16 +1265,13 @@ export function setupAuth(app: Express) {
       const tenantId = liveUser.tenantId;
       const isOwnerWithTenant = liveUser.role === "owner" && !!tenantId;
 
-      // Build the list of users whose data to include.
-      // Owners get the whole team; everyone else gets just themselves.
-      let userIds: string[] = [uid];
+let userIds: string[] = [uid];
       if (isOwnerWithTenant) {
         const tenantUsers = await db.select().from(users).where(eq(users.tenantId, tenantId!));
         userIds = Array.from(new Set([uid, ...tenantUsers.map((u) => u.id)]));
       }
 
-      // Strip secrets out of user rows before exporting.
-      const sanitizeUser = (u: any) => {
+const sanitizeUser = (u: any) => {
         const { passwordHash: _ph, resetToken: _rt, resetTokenExpires: _rte, ...safe } = u;
         return safe;
       };
@@ -1414,8 +1280,7 @@ export function setupAuth(app: Express) {
         sanitizeUser,
       );
 
-      // Fan out queries in parallel — large stores have a lot of rows.
-      const [
+const [
         productsRows,
         productSizesRows,
         productModifiersRows,
@@ -1475,9 +1340,7 @@ export function setupAuth(app: Express) {
         db.select().from(userBranches).where(inArray(userBranches.userId, userIds)),
       ]);
 
-      // Filter the "global" child tables down to just the rows that reference
-      // entities we own — this avoids leaking other tenants' data.
-      const productIdSet = new Set(productsRows.map((p) => p.id));
+const productIdSet = new Set(productsRows.map((p) => p.id));
       const ingredientIdSet = new Set(ingredientsRows.map((i) => i.id));
       const purchaseOrderIdSet = new Set(purchaseOrdersRows.map((po) => po.id));
 
@@ -1490,8 +1353,7 @@ export function setupAuth(app: Express) {
         purchaseOrderIdSet.has(r.purchaseOrderId),
       );
 
-      // Tenant-scoped tables (only for owners with a tenant).
-      let tenantData: Record<string, any> = {};
+let tenantData: Record<string, any> = {};
       if (isOwnerWithTenant) {
         const [
           tenantRow,
@@ -1591,12 +1453,10 @@ export function setupAuth(app: Express) {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     const uid = req.user.id;
     try {
-      // Look up the live user row — JWT can be stale (e.g. role changed since
-      // login). We need the up-to-date tenantId + role to decide whether to
-      // also tear down the whole tenant.
-      const [liveUser] = await db.select().from(users).where(eq(users.id, uid));
+
+const [liveUser] = await db.select().from(users).where(eq(users.id, uid));
       if (!liveUser) {
-        // Already gone — just make sure the cookie is cleared and reply OK.
+
         clearAuthCookie(res);
         return res.json({ ok: true });
       }
@@ -1604,10 +1464,7 @@ export function setupAuth(app: Express) {
       const tenantId = liveUser.tenantId;
       const isOwnerWithTenant = liveUser.role === "owner" && !!tenantId;
 
-      // Build the list of users whose data we need to delete.
-      //   • owners: every user attached to the tenant (the team comes down too)
-      //   • everyone else: just themselves
-      let userIdsToWipe: string[] = [uid];
+let userIdsToWipe: string[] = [uid];
       if (isOwnerWithTenant) {
         const tenantUsers = await db
           .select({ id: users.id })
@@ -1620,23 +1477,15 @@ export function setupAuth(app: Express) {
 
       await deleteUsersData(userIdsToWipe);
 
-      // Owner accounts also delete the tenant + branches + tenant-scoped tables,
-      // otherwise the next time the same email re-registers and goes through
-      // onboarding they'd see the orphaned old store.
-      if (isOwnerWithTenant) {
+if (isOwnerWithTenant) {
         await deleteTenantShell(tenantId!);
       }
 
-      // Finally remove the user rows themselves
-      if (userIdsToWipe.length > 0) {
+if (userIdsToWipe.length > 0) {
         await db.delete(users).where(inArray(users.id, userIdsToWipe));
       }
 
-      // The settings cache is keyed by userId. Because email-based userIds are
-      // deterministic (sha256 of email), a stale cache entry would be served to
-      // the same user if they re-register with the same email — making it look
-      // like "the business is still there" even though all DB rows were deleted.
-      for (const wuid of userIdsToWipe) {
+for (const wuid of userIdsToWipe) {
         cache.del(settingsCacheKey(wuid));
         invalidateTenantCache(wuid);
       }
@@ -1659,18 +1508,7 @@ export function setupAuth(app: Express) {
     if (!req.user) return res.status(401).json({ user: null });
     const u = req.user;
 
-    // The JWT is signed once at login and cached by the client for up to 7 days.
-    // If the JWT was issued BEFORE onboarding completed (tenantId was null then),
-    // the token still carries tenantId=null even though the DB now has a real
-    // tenantId.  Without this re-read:
-    //   1. /api/auth/me returns tenantId=null
-    //   2. tenantContextMiddleware skips setting up the tenant context
-    //   3. The settings query returns nothing
-    //   4. needsOnboarding=true → user is force-redirected to onboarding again
-    //
-    // We use runAsAdmin so the SELECT bypasses RLS (same guarantee as
-    // findOrCreateUser) and always returns the row regardless of tenant context.
-    let liveRole = u.role ?? "owner";
+let liveRole = u.role ?? "owner";
     let liveTenantId: string | null = u.tenantId ?? null;
     let liveActiveBranchId: number | null = u.activeBranchId ?? null;
     let liveEmailVerified: boolean = (u as any).emailVerified ?? true;
@@ -1699,15 +1537,11 @@ export function setupAuth(app: Express) {
         liveEmailVerified = dbUser.emailVerified ?? true;
       }
     } catch (err) {
-      // Non-critical — fall back to JWT values if DB read fails
+
       console.warn("[auth/me] live user re-read failed, using JWT values:", (err as Error).message);
     }
 
-    // Resolve the active branch info so the client can adapt navigation,
-    // terminology, and apply the per-branch theme color without needing a
-    // separate /api/admin/branches fetch. This query runs in parallel with
-    // the runAsAdmin user re-read above — see Promise.all below.
-    let activeBranch: {
+let activeBranch: {
       id: number;
       name: string;
       color: string | null;
@@ -1734,7 +1568,7 @@ export function setupAuth(app: Express) {
         if (b) activeBranch = b;
       }
     } catch (err) {
-      // Don't fail the auth request if the branch lookup errors out.
+
       console.warn("[auth/me] active branch lookup failed:", (err as Error).message);
     }
 
@@ -1771,11 +1605,7 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Email is required." });
       }
 
-      // runAsAdmin bypasses RLS — forgot-password is an unauthenticated request so
-      // current_tenant_id() returns NULL, which would silently hide any user whose
-      // tenant_id is non-null (i.e. every onboarded user). Without runAsAdmin the
-      // token is never written and the email is never sent.
-      const user = await runAsAdmin(pool, async (adminDb) => {
+const user = await runAsAdmin(pool, async (adminDb) => {
         const [row] = await adminDb
           .select()
           .from(users)
@@ -1785,13 +1615,13 @@ export function setupAuth(app: Express) {
       });
 
       if (!user) {
-        // No logging here — avoids timing oracle and PII in logs.
+
       } else {
         const maskedEmail = user.email ? user.email.replace(/(.{2})[^@]*(@.*)/, "$1***$2") : "(no email)";
         console.log(`[auth/forgot-password] user found id=${user.id}, sending reset email to ${maskedEmail}`);
 
         const token = crypto.randomBytes(32).toString("hex");
-        const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+        const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
         await runAsAdmin(pool, async (adminDb) =>
           (adminDb.update(users) as any)
@@ -1830,9 +1660,7 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Password must be at least 8 characters." });
       }
 
-      // runAsAdmin bypasses RLS — reset-password is unauthenticated so RLS would
-      // hide users with a non-null tenant_id, making the token lookup return nothing.
-      const [user] = await runAsAdmin(pool, async (adminDb) =>
+const [user] = await runAsAdmin(pool, async (adminDb) =>
         adminDb.select().from(users).where(eq(users.resetToken, token)).limit(1),
       );
 
@@ -1848,8 +1676,7 @@ export function setupAuth(app: Express) {
 
       const passwordHash = await hashPassword(password);
 
-      // runAsAdmin bypasses RLS so the UPDATE reaches the row regardless of tenant context
-      await runAsAdmin(pool, async (adminDb) =>
+await runAsAdmin(pool, async (adminDb) =>
         (adminDb.update(users) as any)
           .set({ passwordHash, resetToken: null, resetTokenExpires: null })
           .where(eq(users.id, user.id)),

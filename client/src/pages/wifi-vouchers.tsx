@@ -80,7 +80,6 @@ const SECURITY_TYPES: {
   { type: "Open", label: "Open", color: "text-muted-foreground", icon: Unlock },
 ];
 
-// ── Router vendor metadata (mirrors server/routers/types.ts) ──────────────────
 type RouterVendorType = "mikrotik" | "omada" | "unifi" | "tplink" | "cisco" | "openwrt" | "generic";
 
 interface VendorInfo {

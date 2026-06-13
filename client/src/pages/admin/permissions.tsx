@@ -62,7 +62,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
 
   return (
     <div className="glass-card rounded-3xl overflow-hidden">
-      {/* Role header */}
+      {}
       <div className="px-5 py-4 border-b border-border/20 flex items-center gap-3">
         <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", meta.bg)}>
           <Icon className={cn("h-5 w-5", meta.color)} />
@@ -75,7 +75,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
 
       <div className="divide-y divide-border/20">
 
-        {/* Max discount */}
+        {}
         <div className="px-5 py-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -105,7 +105,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
           </div>
         </div>
 
-        {/* Can refund */}
+        {}
         <div className="flex items-center justify-between px-5 py-4">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Issue Refunds</p>
@@ -119,7 +119,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
           />
         </div>
 
-        {/* Can delete sale */}
+        {}
         <div className="flex items-center justify-between px-5 py-4">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Delete Sales</p>
@@ -133,7 +133,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
           />
         </div>
 
-        {/* Can void order */}
+        {}
         <div className="flex items-center justify-between px-5 py-4">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Void Orders</p>
@@ -161,8 +161,6 @@ export default function PermissionsPage() {
   return (
     <div className="space-y-5 page-enter pb-6">
 
-
-      {/* Info banner */}
       <div className="flex items-start gap-3 p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5">
         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
         <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">

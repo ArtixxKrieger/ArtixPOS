@@ -85,7 +85,7 @@ export default function ResetPassword() {
       className="min-h-screen flex items-center justify-center relative overflow-hidden transition-colors duration-500"
       style={{ background: isDark ? "#080810" : "#f8f7ff" }}
     >
-      {/* Background orbs */}
+      {}
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
         <div style={{
           position: "absolute", width: 500, height: 500, borderRadius: "50%",

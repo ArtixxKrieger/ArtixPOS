@@ -13,8 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 type PayrollEntry = {
   id: number;
   action: string;
@@ -36,8 +34,6 @@ type SelectedEntry =
   | { _type: "payroll"; log: PayrollEntry };
 
 type Source = "all" | "activity" | "payroll" | "risk";
-
-// ── Config ────────────────────────────────────────────────────────────────────
 
 const ACTION_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {
   create:             { label: "Created",      bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", icon: UserPlus },
@@ -115,8 +111,6 @@ function isRiskEntry(e: { _type: "general"; log: AuditLog } | { _type: "payroll"
   return e.log.action === "delete";
 }
 
-// ── Formatters ────────────────────────────────────────────────────────────────
-
 function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -141,8 +135,6 @@ function formatCurrency(v: string | number | null) {
   const n = typeof v === "string" ? parseFloat(v) : (v ?? 0);
   return isNaN(n) ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: "PHP" }).format(n);
 }
-
-// ── Event describers ──────────────────────────────────────────────────────────
 
 function describeEvent(action: string, entity: string, metadata: Record<string, any> | null, currency = "") {
   const meta = metadata ?? {};
@@ -247,8 +239,6 @@ function describePayroll(e: PayrollEntry) {
   return `${e.action.replace(/_/g, " ")} — ${e.periodName}`;
 }
 
-// ── Export helpers ────────────────────────────────────────────────────────────
-
 function exportToCSV(logs: AuditLog[], currency = "") {
   const headers = ["Date", "Actor", "Email", "Action", "Type", "Description"];
   const rows = logs.map(log => [
@@ -301,8 +291,6 @@ async function exportToPDF(logs: AuditLog[], storeLabel: string, currency = "") 
   doc.save(`audit-log-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
 function MetadataView({ metadata }: { metadata: Record<string, any> | null }) {
   if (!metadata || Object.keys(metadata).length === 0) {
     return <p className="text-xs text-muted-foreground italic">No additional details</p>;
@@ -322,8 +310,6 @@ function MetadataView({ metadata }: { metadata: Record<string, any> | null }) {
     </div>
   );
 }
-
-// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function AuditLogs() {
   const [source, setSource] = useState<Source>("all");
@@ -434,7 +420,7 @@ export default function AuditLogs() {
         </div>
       </div>
 
-      {/* Source chips */}
+      {}
       <div className="flex flex-wrap gap-2">
         {([
           { id: "all",      label: "All Activity",  icon: ScrollText,     risk: false },
@@ -464,7 +450,7 @@ export default function AuditLogs() {
         })}
       </div>
 
-      {/* Filter panel */}
+      {}
       {showFilters && (
         <div className="glass-card rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -519,7 +505,7 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* Log list */}
+      {}
       <div className="glass-card rounded-3xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border/20 flex items-center gap-2">
           <span className="font-semibold text-sm">
@@ -635,11 +621,11 @@ export default function AuditLogs() {
         )}
       </div>
 
-      {/* Detail sheet */}
+      {}
       <Sheet open={!!selectedEntry} onOpenChange={open => !open && setSelectedEntry(null)}>
         <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
 
-          {/* General event detail */}
+          {}
           {(() => {
             if (!selectedEntry || selectedEntry._type !== "general") return null;
             const log = selectedEntry.log;
@@ -693,7 +679,7 @@ export default function AuditLogs() {
             );
           })()}
 
-          {/* Payroll event detail */}
+          {}
           {(() => {
             if (!selectedEntry || selectedEntry._type !== "payroll") return null;
             const log = selectedEntry.log;

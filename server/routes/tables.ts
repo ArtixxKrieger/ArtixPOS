@@ -7,16 +7,14 @@ import { getUserId, handleZodError } from "../lib/route-utils";
 
 export function registerTableRoutes(app: Express): void {
 
-  // ── List tables ────────────────────────────────────────────────────────────
-  app.get("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
+app.get("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     const uid = getUserId(req);
     const ck = tablesCacheKey(uid);
     const list = await cache.getOrFetch(ck, () => storage.getTables(uid), 120_000);
     res.json(list);
   });
 
-  // ── Create table ───────────────────────────────────────────────────────────
-  app.post("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
+app.post("/api/tables", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     try {
       const input = insertTableSchema.parse(req.body);
       const uid = getUserId(req);
@@ -28,8 +26,7 @@ export function registerTableRoutes(app: Express): void {
     }
   });
 
-  // ── Update table ───────────────────────────────────────────────────────────
-  app.put("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
+app.put("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res) => {
     try {
       const input = insertTableSchema.partial().parse(req.body);
       const uid = getUserId(req);
@@ -42,8 +39,7 @@ export function registerTableRoutes(app: Express): void {
     }
   });
 
-  // ── Delete table ───────────────────────────────────────────────────────────
-  app.delete("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res, next) => {
+app.delete("/api/tables/:id", requireAuth, requireProOrBusinessFeature("/tables"), async (req, res, next) => {
     try {
       await storage.deleteTable(Number(req.params.id), getUserId(req));
       res.status(204).end();

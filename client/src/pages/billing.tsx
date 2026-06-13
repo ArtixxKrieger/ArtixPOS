@@ -153,7 +153,7 @@ export default function BillingPage() {
     } else if (status === "cancel") {
       navigate("/billing", { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const checkoutMutation = useMutation({
@@ -237,8 +237,7 @@ export default function BillingPage() {
     }
   };
 
-  // ── Dynamic country-pricing from settings currency ───────────────────────
-  const { data: settingsData } = useSettings();
+const { data: settingsData } = useSettings();
   const settingsCurrency = (settingsData as any)?.currency;
   const pricing = getPricingByCurrency(settingsCurrency);
   const sym = pricing.symbol;
@@ -261,7 +260,7 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      {/* Pro-required banner */}
+      {}
       {showProRequiredBanner && (
         <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 px-4 py-4">
           <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -273,7 +272,7 @@ export default function BillingPage() {
           </div>
         </div>
       )}
-      {/* Business-required banner */}
+      {}
       {showBusinessRequiredBanner && (
         <div className="flex items-start gap-3 rounded-xl border border-violet-400/30 bg-violet-500/5 px-4 py-4">
           <Lock className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
@@ -286,7 +285,7 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Page header */}
+      {}
       <div className="space-y-1.5 pt-1">
         <h1 className="text-2xl font-bold tracking-tight">Plans & billing</h1>
         <p className="text-sm text-muted-foreground">
@@ -294,7 +293,7 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* Current plan status */}
+      {}
       {isPro && (
         <div className="flex items-center justify-between flex-wrap gap-3 rounded-xl border border-border bg-muted/20 px-5 py-4">
           <div className="flex items-center gap-3">
@@ -331,7 +330,7 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Billing cycle toggle */}
+      {}
       {isOwner && !native && (
         <div className="flex items-center gap-1 p-1 rounded-lg border border-border bg-muted/30 w-fit">
           <button
@@ -362,10 +361,10 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Pricing cards */}
+      {}
       {isOwner && (
         <div className="grid gap-3 md:grid-cols-3 items-stretch">
-          {/* Free */}
+          {}
           <div
             className={`relative flex flex-col rounded-xl border bg-card overflow-hidden ${
               currentPlan === "free"
@@ -415,7 +414,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* Pro */}
+          {}
           <div
             className={`relative flex flex-col rounded-xl border overflow-hidden ${
               currentPlan === "pro"
@@ -552,7 +551,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* Business */}
+          {}
           <div
             className={`relative flex flex-col rounded-xl border overflow-hidden ${
               currentPlan === "business"
@@ -656,7 +655,7 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Feature comparison table */}
+      {}
       {isOwner && (
         <div className="rounded-xl border border-border/60 overflow-hidden">
           <div className="px-5 py-3.5 border-b border-border/60">
@@ -712,7 +711,7 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Non-owner notice */}
+      {}
       {!isOwner && (
         <div className="rounded-xl border border-border/60 bg-muted/20 px-6 py-8 text-center space-y-1.5">
           <Lock className="w-5 h-5 text-muted-foreground mx-auto" />

@@ -33,7 +33,7 @@ function InstallInstructions({ platform }: { platform: InstallPlatform }) {
       </div>
     );
   }
-  // Chrome / Edge — show address bar install icon hint
+
   return (
     <div className="flex items-center gap-1.5 text-xs text-white/60 mt-1">
       <span>Or click</span>
@@ -75,7 +75,7 @@ export function PwaInstallBanner() {
       `}</style>
 
       <div className="rounded-2xl border border-white/10 bg-[#13131f]/95 backdrop-blur-xl shadow-2xl overflow-hidden">
-        {/* Top row */}
+        {}
         <div className="flex items-center gap-3 px-4 pt-3.5 pb-2.5">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 shadow-lg">
             <img src="/logo192.png" alt="ArtixPOS" className="h-8 w-8 rounded-lg object-cover" />
@@ -96,7 +96,7 @@ export function PwaInstallBanner() {
           </button>
         </div>
 
-        {/* Install button / instructions */}
+        {}
         <div className="px-4 pb-3.5">
           {canInstall ? (
             <button

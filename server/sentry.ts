@@ -26,6 +26,6 @@ export async function applySentryErrorHandler(app: Express): Promise<void> {
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return;
   const Sentry = await import("@sentry/node");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   app.use(Sentry.expressErrorHandler() as any);
 }

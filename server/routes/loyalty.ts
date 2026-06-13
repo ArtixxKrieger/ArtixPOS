@@ -6,9 +6,7 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerLoyaltyRoutes(app: Express): void {
 
-  // ─── Loyalty Tiers ────────────────────────────────────────────────────────
-
-  app.get("/api/loyalty/tiers", requireAuth, requirePro, async (req, res, next) => {
+app.get("/api/loyalty/tiers", requireAuth, requirePro, async (req, res, next) => {
     try { res.json(await storage.getLoyaltyTiers(getUserId(req))); } catch (err) { next(err); }
   });
 
@@ -52,9 +50,7 @@ export function registerLoyaltyRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  // ─── Loyalty Rewards Catalog ──────────────────────────────────────────────
-
-  app.get("/api/loyalty/rewards", requireAuth, async (req, res, next) => {
+app.get("/api/loyalty/rewards", requireAuth, async (req, res, next) => {
     try { res.json(await storage.getLoyaltyRewards(getUserId(req))); } catch (err) { next(err); }
   });
 

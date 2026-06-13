@@ -657,8 +657,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-
-      <SyncConflictDrawer
+<SyncConflictDrawer
         open={conflictDrawerOpen}
         onClose={() => setConflictDrawerOpen(false)}
         onResolved={() => onlineStatus.triggerSync()}

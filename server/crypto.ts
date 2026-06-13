@@ -1,8 +1,5 @@
 import crypto from "crypto";
 
-// Canonical format: hash.salt  (64-byte scrypt key, hex-encoded)
-// Legacy format (original auth.ts): salt:hash  — verified for backward compat
-
 export function hashPassword(password: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const salt = crypto.randomBytes(16).toString("hex");
@@ -16,7 +13,7 @@ export function hashPassword(password: string): Promise<string> {
 export function verifyPassword(password: string, stored: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
     if (stored.includes(".")) {
-      // Canonical format: hash.salt
+
       const dotIdx = stored.lastIndexOf(".");
       const hash = stored.slice(0, dotIdx);
       const salt = stored.slice(dotIdx + 1);
@@ -30,7 +27,7 @@ export function verifyPassword(password: string, stored: string): Promise<boolea
         }
       });
     } else {
-      // Legacy format: salt:hash (original auth.ts passwords)
+
       const colonIdx = stored.indexOf(":");
       if (colonIdx === -1) return resolve(false);
       const salt = stored.slice(0, colonIdx);

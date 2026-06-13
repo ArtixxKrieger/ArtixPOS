@@ -542,7 +542,7 @@ function TourCard({
   const [measuredH, setMeasuredH] = useState(240);
   const cardRef = useCallback((node: HTMLDivElement | null) => {
     if (node) setMeasuredH(node.offsetHeight);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [stepIndex]);
 
   const cardH = measuredH;
@@ -771,13 +771,13 @@ export function AppTour() {
 
   useEffect(() => {
     if (!storageKey) return;
-    // Check both localStorage (fast, offline) and DB flag (syncs across devices)
+
     if (localStorage.getItem(storageKey)) return;
     if ((settings as any)?.tourSeen) return;
     if (!settings?.onboardingComplete) return;
     const timer = setTimeout(() => setVisible(true), 1000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [storageKey, settings?.onboardingComplete, (settings as any)?.tourSeen]);
 
   useEffect(() => {
@@ -803,7 +803,7 @@ export function AppTour() {
 
   const dismiss = useCallback(() => {
     if (storageKey) localStorage.setItem(storageKey, "1");
-    // Persist to DB so the tour doesn't re-appear on other devices / after cache clears
+
     apiRequest("PATCH", "/api/settings", { tourSeen: 1 }).catch(() => {});
     setExiting(true);
     setTimeout(() => setVisible(false), 280);
@@ -839,7 +839,7 @@ export function AppTour() {
     if (stepIndex === 0) {
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [visible]);
 
   useEffect(() => {

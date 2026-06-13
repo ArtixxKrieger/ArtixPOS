@@ -75,8 +75,7 @@ export default function BirAuditLogPage() {
     staleTime: 60_000,
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const entries = data?.entries ?? [];
+const entries = data?.entries ?? [];
 
   const filtered = useMemo(() => {
     let list = entries;
@@ -151,7 +150,7 @@ export default function BirAuditLogPage() {
 
   return (
     <div className="space-y-5 max-w-6xl">
-      {/* Header */}
+      {}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-foreground">BIR Void Audit Log</h1>
@@ -183,7 +182,7 @@ export default function BirAuditLogPage() {
         </div>
       </div>
 
-      {/* Integrity banner */}
+      {}
       <div className={cn(
         "rounded-2xl border p-4",
         integrityOk ? "bg-emerald-500/5 border-emerald-500/20" : "bg-rose-500/5 border-rose-500/20"
@@ -210,7 +209,7 @@ export default function BirAuditLogPage() {
             </p>
           </div>
 
-          {/* Summary pills */}
+          {}
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <div className="text-center bg-background/60 border border-border/50 rounded-xl px-3 py-1.5 min-w-[64px]">
               <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Voided</p>
@@ -236,9 +235,9 @@ export default function BirAuditLogPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Search */}
+        {}
         <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -250,7 +249,7 @@ export default function BirAuditLogPage() {
           />
         </div>
 
-        {/* Date range */}
+        {}
         <div className="flex items-center gap-1.5">
           <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <Input
@@ -272,7 +271,7 @@ export default function BirAuditLogPage() {
           />
         </div>
 
-        {/* Hash filter pills */}
+        {}
         <div className="flex items-center gap-1">
           {(["all", "ok", "tampered", "missing"] as const).map(f => (
             <button
@@ -291,7 +290,7 @@ export default function BirAuditLogPage() {
           ))}
         </div>
 
-        {/* Clear filters */}
+        {}
         {hasFilters && (
           <button
             onClick={clearFilters}
@@ -304,7 +303,7 @@ export default function BirAuditLogPage() {
         )}
       </div>
 
-      {/* Showing count when filtered */}
+      {}
       {hasFilters && !isLoading && (
         <p className="text-[11px] text-muted-foreground">
           Showing {filtered.length} of {entries.length} records
@@ -312,12 +311,12 @@ export default function BirAuditLogPage() {
         </p>
       )}
 
-      {/* Table */}
+      {}
       <div className="rounded-2xl border border-border/50 overflow-hidden bg-card">
-        {/* Table header — horizontal scroll on small screens */}
+        {}
         <div className="overflow-x-auto">
           <div className="min-w-[700px]">
-            {/* Column headers */}
+            {}
             <div className="grid grid-cols-[90px_90px_100px_1fr_140px_120px] gap-0 border-b border-border/40 bg-muted/30 px-4 py-2.5">
               {["OR Number", "Receipt", "Total", "Void Reason", "Voided At", "Hash Integrity"].map(h => (
                 <p key={h} className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate">{h}</p>
@@ -342,7 +341,7 @@ export default function BirAuditLogPage() {
                     )}
                     data-testid={`void-entry-${entry.id}`}
                   >
-                    {/* OR Number */}
+                    {}
                     <div className="min-w-0 pr-2">
                       <p className="text-xs font-bold tabular-nums truncate text-foreground">
                         {entry.orNumber ?? "—"}
@@ -355,22 +354,22 @@ export default function BirAuditLogPage() {
                       )}
                     </div>
 
-                    {/* Receipt */}
+                    {}
                     <p className="text-xs text-muted-foreground tabular-nums truncate pr-2">
                       {entry.receiptNumber ?? "—"}
                     </p>
 
-                    {/* Total */}
+                    {}
                     <p className="text-xs font-semibold tabular-nums">
                       {formatCurrency(parseFloat(entry.total || "0"), currency)}
                     </p>
 
-                    {/* Void Reason */}
+                    {}
                     <p className="text-xs text-muted-foreground truncate pr-3" title={entry.voidReason ?? ""}>
                       {entry.voidReason || <span className="italic opacity-40">No reason given</span>}
                     </p>
 
-                    {/* Voided At */}
+                    {}
                     <div className="flex items-center gap-1 shrink-0">
                       <Clock className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                       <div>
@@ -383,7 +382,7 @@ export default function BirAuditLogPage() {
                       </div>
                     </div>
 
-                    {/* Hash status */}
+                    {}
                     <div className="flex items-center gap-1.5 pl-2 shrink-0">
                       <HashBadge status={entry.hashStatus} />
                       {entry.saleHash && (
@@ -405,14 +404,14 @@ export default function BirAuditLogPage() {
         </div>
       </div>
 
-      {/* Footer note */}
+      {}
       {entries.length >= 1000 && (
         <p className="text-[10px] text-amber-600 dark:text-amber-400 text-center font-medium">
           Showing the 1,000 most recent void records. Use the date range filter to narrow results, or export CSV for the full dataset.
         </p>
       )}
 
-      {/* Legend */}
+      {}
       <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 space-y-2">
         <div className="flex items-center gap-2 mb-2">
           <FileText className="h-3.5 w-3.5 text-muted-foreground" />

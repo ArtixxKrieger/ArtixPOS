@@ -10,8 +10,6 @@ import { useSettings } from "@/hooks/use-settings";
 import type { PosFeatures } from "@shared/schema";
 import { DEFAULT_POS_FEATURES } from "@shared/schema";
 
-// ── Feature definitions ───────────────────────────────────────────────────────
-
 type FeatureDef = {
   key: keyof PosFeatures;
   icon: React.ElementType;
@@ -99,8 +97,6 @@ const PRO_FEATURES: FeatureDef[] = [
   },
 ];
 
-// ── Defaults based on existing business type ──────────────────────────────────
-
 function getDefaultsForBusinessType(
   businessType?: string | null,
   businessSubType?: string | null,
@@ -119,8 +115,6 @@ function getDefaultsForBusinessType(
   if (businessType === "services") return { customerAccounts: true };
   return { takeout: true, barcodeScanning: true, customerAccounts: true };
 }
-
-// ── Toggle card ───────────────────────────────────────────────────────────────
 
 function FeatureCard({
   def, enabled, onToggle, locked,
@@ -170,8 +164,6 @@ function FeatureCard({
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-
 export default function FeaturesPage() {
   const [, setLocation] = useLocation();
   const { features, isSetup, isLoading, isPro, saveFeatures, isSaving } = usePosFeatures();
@@ -179,8 +171,7 @@ export default function FeaturesPage() {
 
   const isSetupMode = new URLSearchParams(window.location.search).get("setup") === "1";
 
-  // Initialise local state: prefer saved features → businessType defaults → global defaults
-  const [draft, setDraft] = useState<PosFeatures>(() => {
+const [draft, setDraft] = useState<PosFeatures>(() => {
     if (features) return { ...features };
     const btDefaults = getDefaultsForBusinessType(
       (settings as any)?.businessType,
@@ -189,18 +180,15 @@ export default function FeaturesPage() {
     return { ...DEFAULT_POS_FEATURES, ...btDefaults };
   });
 
-  // Track whether we've done the one-time initialisation from async-loaded settings.
-  // Without this, the effect fires again whenever settings is re-fetched (e.g., cache
-  // warm from IDB), silently overwriting any toggles the user has made mid-session.
-  const draftInitialized = useRef(false);
+const draftInitialized = useRef(false);
 
   useEffect(() => {
     if (features) {
-      // Always sync when saved posFeatures arrives — keeps draft consistent with DB.
+
       setDraft({ ...features });
       draftInitialized.current = true;
     } else if (settings && !features && !draftInitialized.current) {
-      // One-time initialisation from businessType when posFeatures hasn't been saved yet.
+
       const btDefaults = getDefaultsForBusinessType(
         (settings as any)?.businessType,
         (settings as any)?.businessSubType,
@@ -218,10 +206,8 @@ export default function FeaturesPage() {
     try {
       await saveFeatures({ ...draft, setupComplete: true });
     } catch {
-      // Server error (e.g. DB migration not yet run). The optimistic update
-      // keeps posFeatures in the local cache so the setup-guard won't loop.
-      // We still navigate in setup mode so the user isn't stuck.
-    }
+
+}
     if (isSetupMode) {
       setLocation("/pos");
     }
@@ -232,7 +218,7 @@ export default function FeaturesPage() {
       (settings as any)?.businessType,
       (settings as any)?.businessSubType,
     );
-    // Fire-and-forget: don't block navigation on the save outcome.
+
     saveFeatures({ ...DEFAULT_POS_FEATURES, ...btDefaults, setupComplete: true }).catch(() => {});
     setLocation("/pos");
   }
@@ -241,7 +227,7 @@ export default function FeaturesPage() {
 
   return (
     <div className="min-h-screen bg-background pb-40">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/30 px-4 py-3 flex items-center gap-3">
         {!isSetupMode ? (
           <button
@@ -269,7 +255,7 @@ export default function FeaturesPage() {
 
       <div className="px-4 pt-5 space-y-6 max-w-xl mx-auto">
 
-        {/* ── Free features ────────────────────────────────────────────────── */}
+        {}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Check size={14} className="text-emerald-500" />
@@ -290,7 +276,7 @@ export default function FeaturesPage() {
           </div>
         </section>
 
-        {/* ── Pro features ─────────────────────────────────────────────────── */}
+        {}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Zap size={14} className="text-violet-500" />
@@ -327,10 +313,10 @@ export default function FeaturesPage() {
         </section>
       </div>
 
-      {/* ── Sticky save bar ──────────────────────────────────────────────────── */}
-      {/* Outer div handles fixed positioning full-width. Inner div handles
-          max-width centering. These MUST be separate: margin:auto is ignored
-          by the browser when both left+right are explicitly set on a fixed element. */}
+      {}
+      {
+
+}
       <div className="fixed bottom-0 left-0 right-0 z-30">
         <div
           className="bg-background/95 backdrop-blur border-t border-border/30 px-4 pt-3 flex gap-2 max-w-xl mx-auto"

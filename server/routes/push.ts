@@ -26,7 +26,7 @@ export function registerPushRoutes(app: Express): void {
       if (!endpoint || !keys?.p256dh || !keys?.auth) {
         return res.status(400).json({ message: "Invalid subscription payload" });
       }
-      // Delete-then-insert upsert: handles browser key regeneration for the same endpoint
+
       await db.delete(pushSubscriptions)
         .where(and(eq(pushSubscriptions.userId, uid), eq(pushSubscriptions.endpoint, endpoint)));
       await db.insert(pushSubscriptions).values({

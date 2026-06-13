@@ -39,8 +39,7 @@ export default function VerifyEmailPage() {
     })();
   }, []);
 
-  // Countdown timer for auto-redirect on success
-  useEffect(() => {
+useEffect(() => {
     if (status !== "success") return;
     if (countdown <= 0) {
       navigate("/");
@@ -54,7 +53,7 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-6">
       <Card className="w-full max-w-md shadow-xl border-0">
         <CardContent className="flex flex-col items-center text-center pt-10 pb-8 px-8">
-          {/* Logo */}
+          {}
           <div className="mb-8">
             <span className="text-2xl font-extrabold text-foreground">Artix</span>
             <span className="text-2xl font-extrabold text-violet-600">POS</span>

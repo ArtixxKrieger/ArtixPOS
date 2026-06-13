@@ -8,9 +8,7 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerCustomerRoutes(app: Express): void {
 
-  // ── List customers (paginated) ─────────────────────────────────────────────
-  // Only the default (no-param) request is cached — it's the hot path used by POS.
-  app.get("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+app.get("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const uid = getUserId(req);
     const limitRaw = Number(req.query.limit);
     const offsetRaw = Number(req.query.offset);
@@ -29,15 +27,13 @@ export function registerCustomerRoutes(app: Express): void {
     res.json(await storage.getCustomers(uid, opts));
   });
 
-  // ── Get single customer ────────────────────────────────────────────────────
-  app.get("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+app.get("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const customer = await storage.getCustomer(Number(req.params.id), getUserId(req));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
-  // ── Create customer ────────────────────────────────────────────────────────
-  app.post("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+app.post("/api/customers", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     try {
       const input = insertCustomerSchema.parse(req.body);
       const uid = getUserId(req);
@@ -50,8 +46,7 @@ export function registerCustomerRoutes(app: Express): void {
     }
   });
 
-  // ── Update customer ────────────────────────────────────────────────────────
-  app.put("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+app.put("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     try {
       const input = insertCustomerSchema.partial().parse(req.body);
       const customer = await storage.updateCustomer(Number(req.params.id), getUserId(req), input);
@@ -63,8 +58,7 @@ export function registerCustomerRoutes(app: Express): void {
     }
   });
 
-  // ── Delete customer ────────────────────────────────────────────────────────
-  app.delete("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+app.delete("/api/customers/:id", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const id = Number(req.params.id);
     const uid = getUserId(req);
     const existing = await storage.getCustomer(id, uid);
@@ -73,8 +67,7 @@ export function registerCustomerRoutes(app: Express): void {
     res.status(204).end();
   });
 
-  // ── Customer sales history ─────────────────────────────────────────────────
-  app.get("/api/customers/:id/sales", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
+app.get("/api/customers/:id/sales", requireAuth, requireProOrBusinessFeature("/customers"), async (req, res) => {
     const salesList = await storage.getSales(getUserId(req), {
       customerId: Number(req.params.id),
       limit: 500,
@@ -82,8 +75,7 @@ export function registerCustomerRoutes(app: Express): void {
     res.json(salesList);
   });
 
-  // ── Adjust loyalty points ──────────────────────────────────────────────────
-  app.post("/api/customers/:id/loyalty", requireAuth, requireProOrBusinessFeature("/customers") as any, async (req, res) => {
+app.post("/api/customers/:id/loyalty", requireAuth, requireProOrBusinessFeature("/customers") as any, async (req, res) => {
     try {
       const { delta, reason, saleId, note } = z.object({
         delta: z.number(),
@@ -99,16 +91,14 @@ export function registerCustomerRoutes(app: Express): void {
     }
   });
 
-  // ── Loyalty points log ─────────────────────────────────────────────────────
-  app.get("/api/customers/:id/loyalty-log", requireAuth, async (req, res, next) => {
+app.get("/api/customers/:id/loyalty-log", requireAuth, async (req, res, next) => {
     try {
       const logs = await storage.getLoyaltyPointsLog(Number(req.params.id), getUserId(req));
       res.json(logs);
     } catch (err) { next(err); }
   });
 
-  // ── Redeem loyalty reward ──────────────────────────────────────────────────
-  app.post("/api/customers/:id/redeem-reward", requireAuth, async (req, res, next) => {
+app.post("/api/customers/:id/redeem-reward", requireAuth, async (req, res, next) => {
     try {
       const { rewardId } = z.object({ rewardId: z.number().int() }).parse(req.body);
       const result = await storage.redeemLoyaltyReward(Number(req.params.id), rewardId, getUserId(req));

@@ -9,8 +9,7 @@ import { getUserId, getTenantId, getActiveBranchId, resolveBranchId, auditLog, h
 
 export function registerProductRoutes(app: Express): void {
 
-  // ── List products ──────────────────────────────────────────────────────────
-  app.get(api.products.list.path, requireAuth, async (req, res) => {
+app.get(api.products.list.path, requireAuth, async (req, res) => {
     const branch = getActiveBranchId(req);
     const uid = getUserId(req);
     const cacheKey = productsCacheKey(uid) + (branch != null ? `:b${branch}` : "");
@@ -22,32 +21,28 @@ export function registerProductRoutes(app: Express): void {
     res.json(data);
   });
 
-  // ── Get single product ─────────────────────────────────────────────────────
-  app.get(api.products.get.path, requireAuth, async (req, res) => {
+app.get(api.products.get.path, requireAuth, async (req, res) => {
     const product = await storage.getProduct(Number(req.params.id), getUserId(req));
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   });
 
-  // ── Low-stock products ─────────────────────────────────────────────────────
-  app.get("/api/products/low-stock", requireAuth, async (req, res, next) => {
+app.get("/api/products/low-stock", requireAuth, async (req, res, next) => {
     try {
       const products = await storage.getLowStockProducts(getUserId(req), getActiveBranchId(req));
       res.json(products);
     } catch (err) { next(err); }
   });
 
-  // ── Create product ─────────────────────────────────────────────────────────
-  app.post(api.products.create.path, requireAuth, async (req, res) => {
+app.post(api.products.create.path, requireAuth, async (req, res) => {
     try {
       const uid = getUserId(req);
       const tid = getTenantId(req);
       if (tid) {
         const sub = await getSubscription(tid);
         if (!isProSubscription(sub)) {
-          // Use L1 cache when warm (O(1), no DB round-trip).
-          // Falls back to a full fetch only on a cold cache — rare after first page load.
-          const cacheKey = productsCacheKey(uid);
+
+const cacheKey = productsCacheKey(uid);
           const cached = cache.get<any[]>(cacheKey);
           const productCount = cached !== undefined
             ? cached.length
@@ -64,9 +59,8 @@ export function registerProductRoutes(app: Express): void {
         price: z.coerce.string().min(1, "Price is required"),
       });
       const input = bodySchema.parse(req.body);
-      // SECURITY: Always force the new product into the user's active branch.
-      // Ignore any client-supplied branchId to prevent cross-branch leaks.
-      const branchId = await resolveBranchId(req);
+
+const branchId = await resolveBranchId(req);
       const product = await storage.createProduct(uid, { ...input, branchId });
       cache.del(productsCacheKey(uid));
       if (branchId != null) cache.del(productsCacheKey(uid) + `:b${branchId}`);
@@ -77,8 +71,7 @@ export function registerProductRoutes(app: Express): void {
     }
   });
 
-  // ── Update product ─────────────────────────────────────────────────────────
-  app.put(api.products.update.path, requireAuth, async (req, res) => {
+app.put(api.products.update.path, requireAuth, async (req, res) => {
     try {
       const bodySchema = api.products.update.input.extend({
         price: z.coerce.string().optional(),
@@ -101,8 +94,7 @@ export function registerProductRoutes(app: Express): void {
     }
   });
 
-  // ── Delete product ─────────────────────────────────────────────────────────
-  app.delete(api.products.delete.path, requireAuth, async (req, res) => {
+app.delete(api.products.delete.path, requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     const uid = getUserId(req);
     const existing = await storage.getProduct(id, uid);
@@ -112,8 +104,7 @@ export function registerProductRoutes(app: Express): void {
     res.status(204).end();
   });
 
-  // ── Adjust stock (relative delta) ─────────────────────────────────────────
-  app.post("/api/products/:id/stock", requireAuth, async (req, res) => {
+app.post("/api/products/:id/stock", requireAuth, async (req, res) => {
     try {
       const { delta } = z.object({ delta: z.number() }).parse(req.body);
       const uid = getUserId(req);
@@ -130,8 +121,7 @@ export function registerProductRoutes(app: Express): void {
     }
   });
 
-  // ── Set stock (absolute value) ─────────────────────────────────────────────
-  app.patch("/api/products/:id/stock", requireAuth, async (req, res) => {
+app.patch("/api/products/:id/stock", requireAuth, async (req, res) => {
     try {
       const { stock } = z.object({ stock: z.number().int().min(0) }).parse(req.body);
       const uid = getUserId(req);
@@ -148,16 +138,14 @@ export function registerProductRoutes(app: Express): void {
     }
   });
 
-  // ── Stock adjustment logs ──────────────────────────────────────────────────
-  app.get("/api/products/:id/stock-logs", requireAuth, async (req, res, next) => {
+app.get("/api/products/:id/stock-logs", requireAuth, async (req, res, next) => {
     try {
       const logs = await storage.getStockLogs(Number(req.params.id), getUserId(req));
       res.json(logs);
     } catch (err) { next(err); }
   });
 
-  // ── Barcode lookup ─────────────────────────────────────────────────────────
-  app.get("/api/products/barcode/:barcode", requireAuth, async (req, res) => {
+app.get("/api/products/barcode/:barcode", requireAuth, async (req, res) => {
     const uid = getUserId(req);
     const { cache: c, barcodeCacheKey, TTL: ttl } = await import("../cache");
     const cacheKey = barcodeCacheKey(uid, req.params.barcode as string);
@@ -169,8 +157,7 @@ export function registerProductRoutes(app: Express): void {
     res.json(product);
   });
 
-  // ── CSV Export ─────────────────────────────────────────────────────────────
-  app.get("/api/products/export", requireAuth, async (req, res, next) => {
+app.get("/api/products/export", requireAuth, async (req, res, next) => {
     try {
       const prods = await storage.getProducts(getUserId(req));
       const HEADERS = ["name","category","price","sku","barcode","taxRate","trackStock","stock","lowStockThreshold"];
@@ -191,8 +178,7 @@ export function registerProductRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  // ── CSV Import (upsert by SKU or name) ────────────────────────────────────
-  app.post("/api/products/import", requireAuth, async (req, res, next) => {
+app.post("/api/products/import", requireAuth, async (req, res, next) => {
     try {
       const { rows } = z.object({
         rows: z.array(z.object({

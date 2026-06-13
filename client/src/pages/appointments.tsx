@@ -46,8 +46,6 @@ const formSchema = insertAppointmentSchema.extend({
   startTime: z.string().min(1, "Start time is required"),
 });
 
-// ─── Checkout / Payment Dialog ────────────────────────────────────────────────
-
 function CheckoutDialog({
   appt, staff, customers, onClose,
 }: {
@@ -144,7 +142,7 @@ function CheckoutDialog({
 
   return (
     <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
-      {/* Summary card */}
+      {}
       <div className="rounded-xl bg-muted/40 border border-border p-3 space-y-1.5">
         <p className="font-semibold text-foreground text-base">{appt.title}</p>
         {customer && (
@@ -170,7 +168,7 @@ function CheckoutDialog({
         </p>
       </div>
 
-      {/* Tip */}
+      {}
       <div>
         <label className="text-sm font-medium text-foreground mb-1.5 block">Tip ({currency})</label>
         <Input
@@ -181,7 +179,7 @@ function CheckoutDialog({
         />
       </div>
 
-      {/* Discount code */}
+      {}
       <div>
         <label className="text-sm font-medium text-foreground mb-1.5 block">Discount Code</label>
         {appliedDiscount ? (
@@ -216,7 +214,7 @@ function CheckoutDialog({
         {codeError && <p className="text-xs text-destructive mt-1">{codeError}</p>}
       </div>
 
-      {/* Total breakdown */}
+      {}
       <div className="rounded-xl border border-border bg-card p-3 space-y-1.5 text-sm">
         <div className="flex justify-between text-muted-foreground">
           <span>Service</span><span>{formatCurrency(basePrice, currency)}</span>
@@ -236,7 +234,7 @@ function CheckoutDialog({
         </div>
       </div>
 
-      {/* Payment method */}
+      {}
       <div>
         <label className="text-sm font-medium text-foreground mb-2 block">Payment Method</label>
         <div className="grid grid-cols-3 gap-2">
@@ -258,7 +256,7 @@ function CheckoutDialog({
         </div>
       </div>
 
-      {/* Cash change calculator */}
+      {}
       {paymentMethod === "cash" && (
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground block">Cash Given ({currency})</label>
@@ -295,7 +293,7 @@ function CheckoutDialog({
         </div>
       )}
 
-      {/* Confirm button */}
+      {}
       <Button
         className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
         disabled={completeMutation.isPending || !canPay}
@@ -307,8 +305,6 @@ function CheckoutDialog({
     </div>
   );
 }
-
-// ─── Booking Form ─────────────────────────────────────────────────────────────
 
 function AppointmentForm({
   initial, defaultDate, onClose,
@@ -352,10 +348,7 @@ function AppointmentForm({
   const watchedStartTime = form.watch("startTime");
   const watchedDuration  = form.watch("duration");
 
-  // Fetch appointments for the form's currently selected date — this is the source of truth
-  // for conflict checking. We fetch separately from the parent so changing the date in the form
-  // immediately triggers a fresh lookup.
-  const { data: dateAppointments = [] } = useQuery<Appointment[]>({
+const { data: dateAppointments = [] } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments", watchedDate],
     queryFn: async () => {
       if (!watchedDate) return [];
@@ -365,8 +358,7 @@ function AppointmentForm({
     enabled: !!watchedDate,
   });
 
-  // For each room, check if it's occupied at the selected time slot
-  const roomAvailability = useMemo(() => {
+const roomAvailability = useMemo(() => {
     const booked = new Set<number>();
     if (!watchedDate || !watchedStartTime || !watchedDuration) return booked;
 
@@ -375,7 +367,7 @@ function AppointmentForm({
 
     for (const a of dateAppointments as Appointment[]) {
       if (!a.roomId) continue;
-      if (a.id === initial?.id) continue; // ignore self when editing
+      if (a.id === initial?.id) continue;
       if (a.status === "cancelled" || a.status === "no_show") continue;
 
       const aStart = parse(`${a.date} ${a.startTime}`, "yyyy-MM-dd HH:mm", new Date());
@@ -412,7 +404,7 @@ function AppointmentForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4 max-h-[72vh] overflow-y-auto pr-1">
 
-        {/* Service / quick chips */}
+        {}
         <FormField control={form.control} name="title" render={({ field }) => (
           <FormItem>
             <FormLabel>{terminology.service}</FormLabel>
@@ -446,7 +438,7 @@ function AppointmentForm({
           </FormItem>
         )} />
 
-        {/* Date & time */}
+        {}
         <div className="grid grid-cols-2 gap-3">
           <FormField control={form.control} name="date" render={({ field }) => (
             <FormItem>
@@ -464,7 +456,7 @@ function AppointmentForm({
           )} />
         </div>
 
-        {/* Duration & status */}
+        {}
         <div className="grid grid-cols-2 gap-3">
           <FormField control={form.control} name="duration" render={({ field }) => (
             <FormItem>
@@ -492,7 +484,7 @@ function AppointmentForm({
           )} />
         </div>
 
-        {/* Customer */}
+        {}
         <FormField control={form.control} name="customerId" render={({ field }) => (
           <FormItem>
             <FormLabel>{terminology.customer}</FormLabel>
@@ -517,7 +509,7 @@ function AppointmentForm({
           </FormItem>
         )} />
 
-        {/* Staff */}
+        {}
         {activeStaff.length > 0 && (
           <FormField control={form.control} name="staffId" render={({ field }) => (
             <FormItem>
@@ -547,13 +539,13 @@ function AppointmentForm({
           )} />
         )}
 
-        {/* Rooms — card grid with live availability */}
+        {}
         {(rooms as ServiceRoom[]).length > 0 && (
           <FormField control={form.control} name="roomId" render={({ field }) => (
             <FormItem>
               <FormLabel>{terminology.room}</FormLabel>
               <div className="grid grid-cols-2 gap-2">
-                {/* "Any" option */}
+                {}
                 <button
                   type="button"
                   onClick={() => field.onChange(null)}
@@ -604,7 +596,7 @@ function AppointmentForm({
           )} />
         )}
 
-        {/* Price & tip */}
+        {}
         <div className="grid grid-cols-2 gap-3">
           <FormField control={form.control} name="price" render={({ field }) => (
             <FormItem>
@@ -626,7 +618,7 @@ function AppointmentForm({
           )} />
         </div>
 
-        {/* Notes */}
+        {}
         <FormField control={form.control} name="notes" render={({ field }) => (
           <FormItem>
             <FormLabel>Notes</FormLabel>
@@ -647,8 +639,6 @@ function AppointmentForm({
     </Form>
   );
 }
-
-// ─── Appointment Card ─────────────────────────────────────────────────────────
 
 function AppointmentCard({
   appt, staff, customers, rooms, terminology,
@@ -679,7 +669,7 @@ function AppointmentCard({
     <div data-testid={`card-appointment-${appt.id}`} className={`border rounded-2xl p-4 transition-all ${sc.bg}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          {/* Status badge + time */}
+          {}
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${sc.bg} ${sc.color}`}>
               {sc.label}
@@ -689,10 +679,10 @@ function AppointmentCard({
             </span>
           </div>
 
-          {/* Title */}
+          {}
           <p className="font-semibold text-foreground text-base">{appt.title}</p>
 
-          {/* Customer */}
+          {}
           {customer && (
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
               <User className="h-3.5 w-3.5 shrink-0" />
@@ -700,7 +690,7 @@ function AppointmentCard({
             </p>
           )}
 
-          {/* Staff */}
+          {}
           {assignedStaff && (
             <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: assignedStaff.color ?? "#6366f1" }} />
@@ -708,7 +698,7 @@ function AppointmentCard({
             </p>
           )}
 
-          {/* Room / Station / Chair — always shown when assigned */}
+          {}
           {assignedRoom && (
             <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <DoorOpen className="h-3.5 w-3.5 shrink-0" />
@@ -716,7 +706,7 @@ function AppointmentCard({
             </p>
           )}
 
-          {/* Price (shown only on completed) — NO dollar icon, formatCurrency already includes ₱ */}
+          {}
           {isCompleted && totalPaid > 0 && (
             <p className="text-sm font-semibold text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1.5">
               <Receipt className="h-3.5 w-3.5 shrink-0" />
@@ -730,7 +720,7 @@ function AppointmentCard({
           )}
         </div>
 
-        {/* Action icons */}
+        {}
         <div className="flex gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}
             data-testid={`button-edit-appt-${appt.id}`}>
@@ -743,15 +733,15 @@ function AppointmentCard({
         </div>
       </div>
 
-      {/* Notes */}
+      {}
       {appt.notes && (
         <p className="text-xs text-muted-foreground mt-2 italic">"{appt.notes}"</p>
       )}
 
-      {/* Status action buttons — hidden for terminal states */}
+      {}
       {!isCompleted && !isCancelled && (
         <div className="flex gap-1.5 mt-3 flex-wrap">
-          {/* Checkout / Complete — green and prominent */}
+          {}
           <button
             onClick={onCheckout}
             data-testid={`button-checkout-${appt.id}`}
@@ -760,7 +750,7 @@ function AppointmentCard({
             <CheckCircle2 className="h-3 w-3" /> → Completed
           </button>
 
-          {/* Other status transitions */}
+          {}
           {["confirmed", "in_progress", "cancelled", "no_show"].map((s) =>
             s !== appt.status && (
               <button
@@ -778,8 +768,6 @@ function AppointmentCard({
     </div>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AppointmentsPage() {
   const { toast } = useToast();
@@ -852,7 +840,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{terminology.page}</h1>
@@ -866,7 +854,7 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      {/* Date navigator */}
+      {}
       <div className="flex items-center justify-between bg-card border border-border rounded-2xl p-3">
         <Button variant="ghost" size="icon"
           onClick={() => setSelectedDate(format(subDays(parsedDate, 1), "yyyy-MM-dd"))}
@@ -884,7 +872,7 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      {/* Week strip */}
+      {}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {[-3, -2, -1, 0, 1, 2, 3].map((offset) => {
           const d          = format(addDays(new Date(), offset), "yyyy-MM-dd");
@@ -911,7 +899,7 @@ export default function AppointmentsPage() {
         })}
       </div>
 
-      {/* Filters */}
+      {}
       {(staff as ServiceStaff[]).length > 0 && (
         <div className="flex gap-2 flex-wrap">
           <Select value={filterStaff} onValueChange={setFilterStaff}>
@@ -939,7 +927,7 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Content */}
+      {}
       {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
@@ -1016,7 +1004,7 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Book / Edit dialog */}
+      {}
       <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) setEditing(undefined); setDialogOpen(v); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1033,7 +1021,7 @@ export default function AppointmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Checkout / payment dialog */}
+      {}
       <Dialog open={!!checkoutAppt} onOpenChange={(v) => { if (!v) setCheckoutAppt(undefined); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1053,7 +1041,7 @@ export default function AppointmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
+      {}
       <Dialog open={!!confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(undefined); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Delete {terminology.entry}?</DialogTitle></DialogHeader>

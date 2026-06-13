@@ -21,7 +21,6 @@ export const FREE_LIMITS = {
   staff: 2,
 };
 
-
 export const PRO_FEATURES = [
   "1 branch — all modules fully unlocked",
   "Unlimited products & inventory",

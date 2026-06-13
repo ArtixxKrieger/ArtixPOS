@@ -1,21 +1,5 @@
-/**
- * Generic RADIUS adapter.
- *
- * Creates users via FreeRADIUS-compatible REST API.
- * Most SMB routers with hotspot capability support RADIUS authentication.
- * This adapter assumes you have a FreeRADIUS server with REST module enabled,
- * or a managed RADIUS service.
- *
- * Setup required on the router:
- *   - Set RADIUS server IP → this ArtixPOS server
- *   - Set RADIUS shared secret (configured in router_config.radiusSecret)
- *   - Enable MAC/captive portal authentication
- *
- * Since FreeRADIUS usually manages users via a database (MySQL/PostgreSQL)
- * or flat files, this adapter provides both a "local DB" mode (ArtixPOS
- * directly inserts into the FreeRADIUS user table) and a "webhook" mode
- * where you point ArtixPOS at your existing RADIUS management API.
- */
+
+
 import type { RouterAdapter, RouterConfig } from "./types";
 
 function getBaseUrl(config: RouterConfig): string {
@@ -24,14 +8,6 @@ function getBaseUrl(config: RouterConfig): string {
   return `${protocol}://${config.host}:${port}`;
 }
 
-/**
- * For the generic adapter, we assume a simple REST API endpoint that accepts:
- *   POST /api/radius/users     { username, password, durationMinutes }
- *   DELETE /api/radius/users/:username
- *
- * Users can point this at their own FreeRADIUS management API,
- * a custom Django/Express bridge, or any other RADIUS provisioning service.
- */
 export const genericRadiusAdapter: RouterAdapter = {
   async testConnection(config) {
     try {
@@ -48,7 +24,7 @@ export const genericRadiusAdapter: RouterAdapter = {
         };
       }
       if (res.status === 404) {
-        // Try without /health endpoint
+
         return {
           ok: true,
           message: "Connected — RADIUS API (no health check available)",
@@ -120,7 +96,7 @@ export const genericRadiusAdapter: RouterAdapter = {
   },
 
   async removeUserByName(config, name) {
-    // Generic RADIUS API uses the username as the primary key
+
     try {
       const baseUrl = getBaseUrl(config);
       await fetch(`${baseUrl}/api/radius/users/${encodeURIComponent(name)}`, {

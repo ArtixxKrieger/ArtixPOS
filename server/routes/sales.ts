@@ -13,25 +13,14 @@ import { getUserId, getActiveBranchId, resolveBranchId, auditLog, isValidDate, h
 
 export function registerSaleRoutes(app: Express): void {
 
-  // Supports both OFFSET pagination (legacy) and keyset cursor pagination.
-  //
-  // Keyset usage:   GET /api/sales?before=<id>&limit=200
-  //   - Pass ?before=<last_id_on_current_page> to get the next page.
-  //   - Response includes X-Next-Cursor header: the smallest id in this page.
-  //     Use it as ?before=<X-Next-Cursor> to fetch the next page.
-  //   - Returns [] when there are no more rows.
-  //
-  // OFFSET usage (legacy, degrades at large offsets):
-  //   GET /api/sales?offset=200&limit=200
-  app.get(api.sales.list.path, requireAuth, async (req, res) => {
+app.get(api.sales.list.path, requireAuth, async (req, res) => {
     const { limit, offset, before, startDate, endDate, includeVoided } = req.query as Record<string, string>;
     if (startDate && !isValidDate(startDate)) return res.status(400).json({ message: "Invalid startDate format" });
     if (endDate && !isValidDate(endDate)) return res.status(400).json({ message: "Invalid endDate format" });
     const uid = getUserId(req);
     const bid = getActiveBranchId(req);
-    // Validate cursor: Number("abc") === NaN which passes `!= null` and would
-    // produce WHERE id < NaN — invalid SQL. Guard with Number.isFinite.
-    const beforeIdRaw = Number(before);
+
+const beforeIdRaw = Number(before);
     const beforeId = before && Number.isFinite(beforeIdRaw) ? beforeIdRaw : undefined;
     const pageLimit = Math.min(Number(limit) || 200, 1000);
 
@@ -47,8 +36,7 @@ export function registerSaleRoutes(app: Express): void {
       includeVoided: includeVoided === "1",
     }), 15_000);
 
-    // Emit the next-page cursor so clients can paginate without OFFSET
-    if (salesList.length > 0) {
+if (salesList.length > 0) {
       const minId = salesList[salesList.length - 1].id;
       res.setHeader("X-Next-Cursor", String(minId));
     }
@@ -108,8 +96,7 @@ export function registerSaleRoutes(app: Express): void {
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-      // Enforce maxDiscountPercent for non-owners
-      const saleUser = req.user;
+const saleUser = req.user;
       if (saleUser?.tenantId && saleUser.role !== "owner") {
         const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
         if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
@@ -121,8 +108,7 @@ export function registerSaleRoutes(app: Express): void {
         }
       }
 
-      // Increment discount code usage atomically if provided
-      if (input.discountCode) {
+if (input.discountCode) {
         const dc = await storage.getDiscountCodeByCode(input.discountCode, uid);
         if (dc) {
           const incremented = await storage.incrementDiscountCodeUsage(dc.id);
@@ -132,16 +118,14 @@ export function registerSaleRoutes(app: Express): void {
         }
       }
 
-      // Force the active branch so direct /api/sales calls cannot leak across branches.
-      const enforcedBranch = await resolveBranchId(req);
+const enforcedBranch = await resolveBranchId(req);
       const sale = await storage.createSale(uid, {
         ...input,
         cashierId: input.cashierId ?? uid,
         branchId: enforcedBranch,
       });
 
-      // Non-blocking stock deduction with 3 retries
-      (async () => {
+(async () => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             await storage.deductProductStockForSale(uid, input.items as any[]);
@@ -196,7 +180,7 @@ export function registerSaleRoutes(app: Express): void {
                 receiptFooter: (storeSettings as any)?.receiptFooter,
               });
             }
-          } catch { /* receipt email is best-effort */ }
+          } catch {  }
         });
       }
     } catch (err) {
@@ -204,9 +188,7 @@ export function registerSaleRoutes(app: Express): void {
     }
   });
 
-  // Locked sales (those already included in a closed shift Z-report) cannot be
-  // voided to preserve BIR audit integrity.
-  app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
     const saleUser = req.user;
     if (saleUser?.tenantId && saleUser.role !== "owner") {
       const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);

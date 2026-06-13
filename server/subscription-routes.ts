@@ -91,11 +91,9 @@ async function getOrCreateSubscription(tenantId: string) {
   return rows[0] ?? null;
 }
 
-
 export function registerSubscriptionRoutes(app: Express) {
 
-  // GET /api/subscription — current subscription for authenticated tenant
-  app.get("/api/subscription", requireAuth, async (req: Request, res: Response) => {
+app.get("/api/subscription", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const tenantId = user?.tenantId;
@@ -103,18 +101,17 @@ export function registerSubscriptionRoutes(app: Express) {
 
       let sub = await getOrCreateSubscription(tenantId);
       if (!sub) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         await db.insert(tenantSubscriptions).values({ tenantId, plan: "free", status: "active" } as any);
         sub = await getOrCreateSubscription(tenantId);
       }
 
-      // auto-expire if period ended
-      if (sub && (sub.plan === "pro" || sub.plan === "business") && sub.currentPeriodEnd) {
+if (sub && (sub.plan === "pro" || sub.plan === "business") && sub.currentPeriodEnd) {
         const expired = new Date(sub.currentPeriodEnd) < new Date();
         if (expired && sub.status === "active") {
           await db
             .update(tenantSubscriptions)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             .set({ plan: "free", status: "expired", billingCycle: null, currentPeriodEnd: null, updatedAt: new Date().toISOString() } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
           sub = await getOrCreateSubscription(tenantId);
@@ -128,8 +125,7 @@ export function registerSubscriptionRoutes(app: Express) {
     }
   });
 
-  // GET /api/subscription/payments — payment history
-  app.get("/api/subscription/payments", requireAuth, async (req: Request, res: Response) => {
+app.get("/api/subscription/payments", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const tenantId = user?.tenantId;
@@ -147,8 +143,7 @@ export function registerSubscriptionRoutes(app: Express) {
     }
   });
 
-  // POST /api/subscription/checkout — create a PayMongo checkout session
-  app.post("/api/subscription/checkout", requireAuth, async (req: Request, res: Response) => {
+app.post("/api/subscription/checkout", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const tenantId = user?.tenantId;
@@ -162,10 +157,7 @@ export function registerSubscriptionRoutes(app: Express) {
         return res.status(400).json({ message: "Invalid plan" });
       }
 
-      // Prevent checkout session spam — one pending checkout per tenant at a time.
-      // A pending checkout older than 30 minutes is considered stale and a new one
-      // is allowed (PayMongo checkout sessions expire after 1 hour anyway).
-      const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const recentPending = await db
         .select({
           id: subscriptionPayments.id,
@@ -184,9 +176,8 @@ export function registerSubscriptionRoutes(app: Express) {
       );
       if (activePending.length > 0) {
         const newest = activePending.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
-        // Return the PayMongo session ID (not the DB row ID) — the client
-        // sends this to /api/subscription/verify which matches on paymongoCheckoutId.
-        if (newest.checkoutUrl && newest.paymongoCheckoutId) {
+
+if (newest.checkoutUrl && newest.paymongoCheckoutId) {
           return res.json({ checkoutUrl: newest.checkoutUrl, checkoutId: newest.paymongoCheckoutId, reused: true });
         }
       }
@@ -210,8 +201,7 @@ export function registerSubscriptionRoutes(app: Express) {
       const checkoutId  = session.data.id;
       const checkoutUrl = session.data.attributes.checkout_url;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await db.insert(subscriptionPayments).values({
+await db.insert(subscriptionPayments).values({
         tenantId,
         plan: planKey,
         billingCycle,
@@ -228,8 +218,7 @@ export function registerSubscriptionRoutes(app: Express) {
     }
   });
 
-  // POST /api/subscription/verify — verify payment after return from PayMongo
-  app.post("/api/subscription/verify", requireAuth, async (req: Request, res: Response) => {
+app.post("/api/subscription/verify", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const tenantId = user?.tenantId;
@@ -237,20 +226,12 @@ export function registerSubscriptionRoutes(app: Express) {
 
       const { checkoutId } = req.body as { checkoutId?: string };
 
-      // Fetch ALL payments for this tenant so we can cross-reference the
-      // client-supplied checkoutId against records we own — this prevents
-      // cross-tenant payment theft where an attacker supplies another
-      // tenant's paid checkout session ID to upgrade their own account.
-      const payments = await db
+const payments = await db
         .select()
         .from(subscriptionPayments)
         .where(eq(subscriptionPayments.tenantId, tenantId));
 
-      // If client supplies a checkoutId it MUST match a record owned by this
-      // tenant; otherwise it is silently ignored and we fall back to the most
-      // recent pending record. We NEVER call PayMongo with an id the client
-      // provides that we cannot confirm belongs to this tenant.
-      const pendingPayments = payments
+const pendingPayments = payments
         .filter((p) => p.status === "pending")
         .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 
@@ -258,22 +239,21 @@ export function registerSubscriptionRoutes(app: Express) {
       if (checkoutId) {
         const ownedMatch = payments.find((p) => p.paymongoCheckoutId === checkoutId);
         if (!ownedMatch) {
-          // Client provided a checkout ID that does not belong to this tenant
+
           console.warn(`[subscription/verify] Tenant ${tenantId} supplied foreign checkoutId ${checkoutId} — rejected`);
           return res.status(403).json({ message: "Checkout session not found for this account." });
         }
         if (ownedMatch.status === "pending") {
           pending = ownedMatch;
         } else if (ownedMatch.status === "paid") {
-          // Already verified — idempotent success response
+
           return res.json({ success: true, plan: ownedMatch.plan ?? "pro", alreadyVerified: true });
         }
       }
 
       if (!pending) return res.status(404).json({ message: "No pending payment found" });
 
-      // Always use the checkout session ID from the DB record — never the raw client input
-      const sessionId = pending.paymongoCheckoutId;
+const sessionId = pending.paymongoCheckoutId;
       if (!sessionId) return res.status(400).json({ message: "No checkout session ID" });
 
       const session = await retrieveCheckoutSession(sessionId);
@@ -294,7 +274,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
         await db
           .update(subscriptionPayments)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           .set({ status: "paid", paidAt: now.toISOString() } as any)
           .where(eq(subscriptionPayments.id, pending.id));
 
@@ -302,7 +282,7 @@ export function registerSubscriptionRoutes(app: Express) {
         if (existing) {
           await db
             .update(tenantSubscriptions)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             .set({
               plan: pending.plan ?? "pro",
               billingCycle,
@@ -314,7 +294,7 @@ export function registerSubscriptionRoutes(app: Express) {
             } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           await db.insert(tenantSubscriptions).values({
             tenantId,
             plan: pending.plan ?? "pro",
@@ -335,8 +315,7 @@ export function registerSubscriptionRoutes(app: Express) {
     }
   });
 
-  // POST /api/subscription/cancel — cancel at period end
-  app.post("/api/subscription/cancel", requireAuth, async (req: Request, res: Response) => {
+app.post("/api/subscription/cancel", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const tenantId = user?.tenantId;
@@ -344,7 +323,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
       await db
         .update(tenantSubscriptions)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         .set({ cancelAtPeriodEnd: true, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
@@ -354,8 +333,7 @@ export function registerSubscriptionRoutes(app: Express) {
     }
   });
 
-  // POST /api/subscription/reactivate — undo cancel
-  app.post("/api/subscription/reactivate", requireAuth, async (req: Request, res: Response) => {
+app.post("/api/subscription/reactivate", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const tenantId = user?.tenantId;
@@ -363,7 +341,7 @@ export function registerSubscriptionRoutes(app: Express) {
 
       await db
         .update(tenantSubscriptions)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         .set({ cancelAtPeriodEnd: false, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
 
@@ -374,30 +352,11 @@ export function registerSubscriptionRoutes(app: Express) {
   });
 }
 
-// PayMongo Webhook
-// POST /api/webhooks/paymongo
-//
-// PayMongo calls this endpoint server-to-server whenever a payment event
-// occurs. This is the authoritative upgrade path — it fires even if the user
-// closes the browser before being redirected back to the app.
-//
-// Setup (one-time in your PayMongo dashboard):
-//   URL:    https://<your-domain>/api/webhooks/paymongo
-//   Events: checkout_session.payment.paid
-//   Then copy the webhook secret into PAYMONGO_WEBHOOK_SECRET.
-//
-// Signature verification (PayMongo docs):
-//   Header: x-paymongo-signature
-//   Format: t=<timestamp>,te=<test_sig>,li=<live_sig>
-//   Signed payload: "<timestamp>.<raw_body_string>"
-//   Algorithm: HMAC-SHA256(signed_payload, webhook_secret) → hex
-
 function verifyPayMongoSignature(rawBody: Buffer, signatureHeader: string): boolean {
   const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
   if (!secret) {
-    // No secret configured — skip verification only in development so the
-    // webhook can be tested locally without a real secret.
-    if (process.env.NODE_ENV !== "production") {
+
+if (process.env.NODE_ENV !== "production") {
       console.warn("[webhook/paymongo] PAYMONGO_WEBHOOK_SECRET not set — skipping signature check (dev only)");
       return true;
     }
@@ -405,20 +364,18 @@ function verifyPayMongoSignature(rawBody: Buffer, signatureHeader: string): bool
     return false;
   }
 
-  // Parse t=...,te=...,li=... header
-  const parts: Record<string, string> = {};
+const parts: Record<string, string> = {};
   for (const part of signatureHeader.split(",")) {
     const [k, v] = part.split("=");
     if (k && v) parts[k.trim()] = v.trim();
   }
 
   const timestamp = parts["t"];
-  // PayMongo sends either li (live) or te (test) depending on key mode
+
   const receivedSig = parts["li"] ?? parts["te"];
   if (!timestamp || !receivedSig) return false;
 
-  // Reject payloads older than 5 minutes to prevent replay attacks
-  const age = Date.now() - Number(timestamp) * 1000;
+const age = Date.now() - Number(timestamp) * 1000;
   if (age > 5 * 60 * 1000) {
     console.warn(`[webhook/paymongo] Signature timestamp too old: ${age}ms`);
     return false;
@@ -467,19 +424,6 @@ async function activateProForTenant(tenantId: string, billingCycle: "monthly" | 
 
   return periodEnd;
 }
-
-// RevenueCat Webhook
-// POST /api/webhooks/revenuecat
-//
-// RevenueCat calls this endpoint server-to-server whenever a subscription event
-// occurs (purchase, renewal, cancellation, expiry, etc.).
-//
-// Setup (one-time in your RevenueCat dashboard):
-//   Integrations → Webhooks → Add webhook
-//   URL:    https://<your-domain>/api/webhooks/revenuecat
-//   Authorization header value: copy into REVENUECAT_WEBHOOK_SECRET
-//
-// The app_user_id in the payload is the tenantId set at SDK init time.
 
 const RC_PRO_EVENTS = new Set([
   "INITIAL_PURCHASE",
@@ -607,12 +551,9 @@ export function registerRevenueCatWebhookRoutes(app: Express) {
 
 export function registerPaymentWebhookRoutes(app: Express) {
 
-  // PayMongo calls this after every successful payment — no auth cookie/token
-  // needed, but the HMAC signature on the raw body must be valid.
-  app.post("/api/webhooks/paymongo", async (req: Request, res: Response) => {
-    // req.body is a raw Buffer here because of the express.raw() middleware
-    // mounted on /api/webhooks in index.ts — before express.json() runs.
-    const rawBody: Buffer = req.body;
+app.post("/api/webhooks/paymongo", async (req: Request, res: Response) => {
+
+const rawBody: Buffer = req.body;
     if (!Buffer.isBuffer(rawBody) || rawBody.length === 0) {
       return res.status(400).json({ message: "Empty or non-raw body" });
     }
@@ -641,13 +582,7 @@ export function registerPaymentWebhookRoutes(app: Express) {
           return res.status(422).json({ message: "Missing checkout session ID" });
         }
 
-        // Atomically claim this payment record by updating status from
-        // 'pending' → 'paid' in a single conditional UPDATE.  Only the first
-        // concurrent request wins (RETURNING gives back the row); every
-        // subsequent retry — whether from PayMongo or a duplicate network
-        // event — gets zero rows and exits early.  This is race-condition-safe
-        // without any application-level locking or extra tables.
-        const [claimed] = await db
+const [claimed] = await db
           .update(subscriptionPayments)
           .set({ status: "paid", paidAt: new Date().toISOString() } as any)
           .where(and(
@@ -657,7 +592,7 @@ export function registerPaymentWebhookRoutes(app: Express) {
           .returning();
 
         if (!claimed) {
-          // Either no record exists (unknown checkout) or it was already paid.
+
           const [existing] = await db
             .select({ status: subscriptionPayments.status })
             .from(subscriptionPayments)
@@ -674,12 +609,7 @@ export function registerPaymentWebhookRoutes(app: Express) {
         const tenantId = claimed.tenantId!;
         const billingCycle = (claimed.billingCycle as "monthly" | "annual") ?? "monthly";
 
-        // Activate Pro subscription.  If this throws we MUST revert the payment
-        // record back to 'pending' so PayMongo retries can reclaim it via the
-        // conditional UPDATE above.  Without the revert, the record is stuck in
-        // 'paid' but the subscription was never activated and all retries exit
-        // early as "Already processed".
-        let periodEnd: Date;
+let periodEnd: Date;
         try {
           periodEnd = await activateProForTenant(tenantId, billingCycle);
         } catch (activateErr) {
@@ -699,12 +629,11 @@ export function registerPaymentWebhookRoutes(app: Express) {
 
       } catch (err) {
         console.error("[webhook/paymongo] Error processing checkout_session.payment.paid:", err);
-        // Return 500 so PayMongo retries — better to retry than silently drop
+
         return res.status(500).json({ message: "Internal error processing payment" });
       }
     }
 
-    // Acknowledge all other event types without processing them
-    return res.status(200).json({ received: true, note: `Unhandled event type: ${eventType}` });
+return res.status(200).json({ received: true, note: `Unhandled event type: ${eventType}` });
   });
 }

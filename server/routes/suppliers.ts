@@ -7,16 +7,14 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerSupplierRoutes(app: Express): void {
 
-  // ── List suppliers ─────────────────────────────────────────────────────────
-  app.get("/api/suppliers", requireAuth, requirePro, async (req, res) => {
+app.get("/api/suppliers", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const ck = suppliersCacheKey(uid);
     const list = await cache.getOrFetch(ck, () => storage.getSuppliers(uid), 120_000);
     res.json(list);
   });
 
-  // ── Create supplier ────────────────────────────────────────────────────────
-  app.post("/api/suppliers", requireAuth, requirePro, async (req, res) => {
+app.post("/api/suppliers", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertSupplierSchema.parse(req.body);
       const uid = getUserId(req);
@@ -28,8 +26,7 @@ export function registerSupplierRoutes(app: Express): void {
     }
   });
 
-  // ── Update supplier ────────────────────────────────────────────────────────
-  app.put("/api/suppliers/:id", requireAuth, requirePro, async (req, res) => {
+app.put("/api/suppliers/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertSupplierSchema.partial().parse(req.body);
       const uid = getUserId(req);
@@ -42,8 +39,7 @@ export function registerSupplierRoutes(app: Express): void {
     }
   });
 
-  // ── Delete supplier ────────────────────────────────────────────────────────
-  app.delete("/api/suppliers/:id", requireAuth, requirePro, async (req, res, next) => {
+app.delete("/api/suppliers/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       const sid = Number(req.params.id);
       const uid = getUserId(req);
@@ -55,20 +51,17 @@ export function registerSupplierRoutes(app: Express): void {
     } catch (err) { next(err); }
   });
 
-  // ── Supplier stats ─────────────────────────────────────────────────────────
-  app.get("/api/suppliers/:id/stats", requireAuth, requirePro, async (req, res) => {
+app.get("/api/suppliers/:id/stats", requireAuth, requirePro, async (req, res) => {
     const stats = await storage.getSupplierStats(getUserId(req), Number(req.params.id));
     res.json(stats);
   });
 
-  // ── Products linked to a supplier ─────────────────────────────────────────
-  app.get("/api/suppliers/:id/products", requireAuth, requirePro, async (req, res) => {
+app.get("/api/suppliers/:id/products", requireAuth, requirePro, async (req, res) => {
     const items = await storage.getSupplierProducts(Number(req.params.id), getUserId(req));
     res.json(items);
   });
 
-  // ── Link a product to a supplier ─────────────────────────────────────────
-  app.post("/api/suppliers/:id/products", requireAuth, requirePro, async (req, res) => {
+app.post("/api/suppliers/:id/products", requireAuth, requirePro, async (req, res) => {
     try {
       const { insertSupplierProductSchema } = await import("@shared/schema");
       const input = insertSupplierProductSchema.parse(req.body);
@@ -79,8 +72,7 @@ export function registerSupplierRoutes(app: Express): void {
     }
   });
 
-  // ── Unlink a supplier product ──────────────────────────────────────────────
-  app.delete("/api/supplier-products/:id", requireAuth, requirePro, async (req, res) => {
+app.delete("/api/supplier-products/:id", requireAuth, requirePro, async (req, res) => {
     await storage.deleteSupplierProduct(Number(req.params.id), getUserId(req));
     res.status(204).end();
   });
@@ -88,14 +80,12 @@ export function registerSupplierRoutes(app: Express): void {
 
 export function registerPurchaseOrderRoutes(app: Express): void {
 
-  // ── List purchase orders ───────────────────────────────────────────────────
-  app.get("/api/purchase-orders", requireAuth, requirePro, async (req, res) => {
+app.get("/api/purchase-orders", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getPurchaseOrders(getUserId(req));
     res.json(list);
   });
 
-  // ── Create purchase order ──────────────────────────────────────────────────
-  app.post("/api/purchase-orders", requireAuth, requirePro, async (req, res) => {
+app.post("/api/purchase-orders", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertPurchaseOrderSchema.parse(req.body);
       const po = await storage.createPurchaseOrder(getUserId(req), input);
@@ -106,24 +96,21 @@ export function registerPurchaseOrderRoutes(app: Express): void {
     }
   });
 
-  // ── Receive a purchase order ───────────────────────────────────────────────
-  app.post("/api/purchase-orders/:id/receive", requireAuth, requirePro, async (req, res) => {
+app.post("/api/purchase-orders/:id/receive", requireAuth, requirePro, async (req, res) => {
     const po = await storage.receivePurchaseOrder(Number(req.params.id), getUserId(req));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
     await auditLog(req, "receive", "purchase_order", String(po.id), { totalAmount: po.totalAmount });
     res.json(po);
   });
 
-  // ── Cancel a purchase order ────────────────────────────────────────────────
-  app.post("/api/purchase-orders/:id/cancel", requireAuth, requirePro, async (req, res) => {
+app.post("/api/purchase-orders/:id/cancel", requireAuth, requirePro, async (req, res) => {
     const po = await storage.cancelPurchaseOrder(Number(req.params.id), getUserId(req));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
     await auditLog(req, "cancel", "purchase_order", String(po.id), { totalAmount: po.totalAmount });
     res.json(po);
   });
 
-  // ── Update payment status ──────────────────────────────────────────────────
-  app.patch("/api/purchase-orders/:id/payment", requireAuth, requirePro, async (req, res) => {
+app.patch("/api/purchase-orders/:id/payment", requireAuth, requirePro, async (req, res) => {
     const { paymentStatus } = req.body;
     if (!["unpaid", "partial", "paid"].includes(paymentStatus)) {
       return res.status(400).json({ message: "Invalid payment status" });

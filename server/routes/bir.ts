@@ -1,12 +1,5 @@
-/**
- * BIR Compliance Routes
- *
- * All BIR-related reporting endpoints: X-Report, Z-Report (shift summary),
- * monthly summary, eSales CSV export, Electronic Journal (E-Journal),
- * OR-gap detection, void audit trail, and hash-integrity verification.
- *
- * BIR = Bureau of Internal Revenue (Philippines fiscal authority).
- */
+
+
 import type { Express } from "express";
 import { createHash } from "crypto";
 import { storage } from "../storage";
@@ -17,19 +10,14 @@ import { getUserId } from "../lib/route-utils";
 
 export function registerBirRoutes(app: Express): void {
 
-  // All aggregation runs in PostgreSQL — no row data is pulled into Node.js.
-  // Previously this loaded up to 10,000 rows and ran multiple JS .reduce()
-  // passes, which is both slower and silently wrong at high volume.
-  app.get("/api/bir/x-report", requireAuth, requirePro, async (req, res) => {
+app.get("/api/bir/x-report", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const openShift = await storage.getOpenShift(uid);
     if (!openShift) return res.json({ shift: null });
     const startDate = openShift.openedAt!;
 
-    // Fire all three aggregate queries in parallel — each scans only the
-    // tenant's rows in the current shift window via the tenant+created_at index.
-    const [aggRows, pmRows, dtRows] = await Promise.all([
-      // Aggregate totals
+const [aggRows, pmRows, dtRows] = await Promise.all([
+
       db.execute(sql`
         SELECT
           COUNT(*)::int                                                                      AS total_txn,
@@ -47,7 +35,7 @@ export function registerBirRoutes(app: Express): void {
           AND deleted_at IS NULL
           AND created_at >= ${startDate}
       `),
-      // Payment method breakdown
+
       db.execute(sql`
         SELECT
           COALESCE(payment_method, 'cash')                                  AS pm,
@@ -59,7 +47,7 @@ export function registerBirRoutes(app: Express): void {
           AND created_at >= ${startDate}
         GROUP BY payment_method
       `),
-      // Discount type breakdown
+
       db.execute(sql`
         SELECT
           COALESCE(discount_type, 'regular')                                AS dt,
@@ -110,10 +98,7 @@ export function registerBirRoutes(app: Express): void {
     });
   });
 
-  // All aggregation runs in PostgreSQL — no row data pulled into Node.js.
-  // Previously this loaded up to 10,000 rows and ran multiple JS .reduce()
-  // passes, which silently truncates reports for months with >10K transactions.
-  app.get("/api/bir/summary", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.get("/api/bir/summary", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
@@ -127,7 +112,7 @@ export function registerBirRoutes(app: Express): void {
     const uid       = getUserId(req);
 
     const [aggRows, pmRows] = await Promise.all([
-      // Single-pass aggregate — replaces 8+ separate JS reduce() calls
+
       db.execute(sql`
         SELECT
           COUNT(*)::int                                                                             AS total_txn,
@@ -147,7 +132,7 @@ export function registerBirRoutes(app: Express): void {
           AND created_at >= ${startDate}
           AND created_at <= ${endDate}
       `),
-      // Payment method breakdown
+
       db.execute(sql`
         SELECT
           COALESCE(payment_method, 'cash')                             AS pm,
@@ -265,10 +250,7 @@ export function registerBirRoutes(app: Express): void {
     res.send(csv);
   });
 
-  // Generates a sequential, fixed-width text log of all POS transactions for a
-  // given month — grouped by calendar day with daily subtotals and a period
-  // summary. This is the standard CAS E-Journal format required by BIR.
-  app.get("/api/bir/ejournal", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.get("/api/bir/ejournal", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const { month } = req.query as Record<string, string>;
     if (!month || !/^\d{4}-\d{2}$/.test(month))
       return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
@@ -280,8 +262,7 @@ export function registerBirRoutes(app: Express): void {
     const startDate = new Date(`${year}-${monStr}-01T00:00:00+08:00`).toISOString();
     const endDate   = new Date(`${year}-${monStr}-${lastDayStr}T23:59:59.999+08:00`).toISOString();
 
-    // Cap at 25 000 rows (≈ 833 transactions/day — far above any real POS).
-    const BIR_ROW_CAP = 25_000;
+const BIR_ROW_CAP = 25_000;
     const uid = getUserId(req);
     const [salesList, settingsData] = await Promise.all([
       storage.getSales(uid, { limit: BIR_ROW_CAP, startDate, endDate }),
@@ -320,9 +301,7 @@ export function registerBirRoutes(app: Express): void {
     function amt(n: number): string { return n.toFixed(2).padStart(12); }
     function amtHdr(s: string): string { return s.padStart(12); }
 
-    // SHA-256 hash chain — each tx row is hashed as SHA-256(prevHash + "|" + rowContent).
-    // Any deletion, insertion, or modification cascades and breaks subsequent hashes.
-    const CHAIN_SEED_INPUT = `EJOURNAL-GENESIS-${month}`;
+const CHAIN_SEED_INPUT = `EJOURNAL-GENESIS-${month}`;
     const chainSeed = createHash("sha256").update(CHAIN_SEED_INPUT).digest("hex");
     let prevHash = chainSeed;
     function chainStep(rowContent: string): string {
@@ -454,8 +433,7 @@ export function registerBirRoutes(app: Express): void {
     res.send(lines.join("\n"));
   });
 
-  // Uses a DB-level window function so we never load full sale rows into memory.
-  app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
+app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
     const rows = await db.execute(sql`
       SELECT CAST(or_number AS bigint) AS n
@@ -599,9 +577,7 @@ export function registerBirRoutes(app: Express): void {
     res.send(lines.join("\r\n"));
   });
 
-  // Recomputes every sale's SHA-256 hash from stored fiscal fields. Any mismatch
-  // proves the row was modified after initial creation.
-  app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 

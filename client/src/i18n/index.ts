@@ -33,8 +33,6 @@ export const SUPPORTED_LANGUAGES: Language[] = [
   { code: "tl", name: "Filipino", nativeName: "Filipino", dir: "ltr" },
 ];
 
-// Each entry is a separate Vite chunk — only downloaded when the user picks that language.
-// English is always bundled (it's the fallback and the most common locale).
 const LOCALE_LOADERS: Record<string, () => Promise<any>> = {
   es: () => import("./locales/es.json"),
   fr: () => import("./locales/fr.json"),
@@ -64,7 +62,7 @@ export async function loadLocale(code: string): Promise<void> {
     const mod = await loader();
     i18n.addResourceBundle(code, "translation", mod.default ?? mod, true, true);
   } catch {
-    // Fail silently — English fallback handles missing translations
+
   }
 }
 
@@ -83,24 +81,19 @@ i18n
     },
     fallbackLng: "en",
     detection: {
-      // Only read from localStorage — never auto-detect from the browser's
-      // navigator.language. The browser language reflects language preference,
-      // not a user choice inside the app. English is the default until the
-      // user explicitly picks a different language in Settings.
-      order: ["localStorage"],
+
+order: ["localStorage"],
       caches: ["localStorage"],
       lookupLocalStorage: "artixpos_language",
     },
     interpolation: {
       escapeValue: false,
     },
-    // Allow adding resource bundles after init (for lazy-loaded locales)
+
     partialBundledLanguages: true,
     load: "languageOnly",
   });
 
-// Patch changeLanguage so it always ensures the locale is loaded first.
-// This replaces every call-site in the app — no changes needed elsewhere.
 const _origChangeLanguage = i18n.changeLanguage.bind(i18n);
 i18n.changeLanguage = async (lng?: string, callback?: any) => {
   if (lng && lng !== "en") await loadLocale(lng);
@@ -110,9 +103,6 @@ i18n.changeLanguage = async (lng?: string, callback?: any) => {
 i18n.on("languageChanged", applyLanguageAttrs);
 applyLanguageAttrs(i18n.language);
 
-// Pre-load the user's saved language preference so the UI switches on first
-// render without a flash. Only reads from localStorage — never from the
-// browser navigator so English stays the default for new users.
 const _initialLang = (() => {
   try { return localStorage.getItem("artixpos_language") || "en"; }
   catch { return "en"; }

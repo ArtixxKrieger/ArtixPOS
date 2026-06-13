@@ -22,14 +22,11 @@ export function NotificationBell() {
   const [restockQty, setRestockQty] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // SSE-powered real-time alerts — replaces the old 30 s polling interval.
-  // When the server detects new low-stock items or pending orders it pushes an
-  // event that invalidates the relevant query caches, causing an immediate refetch.
-  const { connected: sseConnected } = useSseAlerts();
+const { connected: sseConnected } = useSseAlerts();
 
   const { data: notifs = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
-    refetchInterval: 120_000, // fallback polling every 2 min in case SSE drops
+    refetchInterval: 120_000,
   });
 
   const unreadCount = notifs.filter(n => !n.readAt).length;
@@ -104,7 +101,7 @@ export function NotificationBell() {
         className="w-80 p-0 rounded-2xl shadow-xl border border-border/50 overflow-hidden"
         data-testid="popover-notifications"
       >
-        {/* Header */}
+        {}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/20">
           <div className="flex items-center gap-2">
             <Bell className="h-3.5 w-3.5 text-primary" />
@@ -114,7 +111,7 @@ export function NotificationBell() {
                 {unreadCount} new
               </span>
             )}
-            {/* Real-time connection indicator */}
+            {}
             <span
               title={sseConnected ? "Real-time alerts active" : "Reconnecting…"}
               className="flex items-center gap-1"
@@ -150,7 +147,7 @@ export function NotificationBell() {
           </div>
         </div>
 
-        {/* List */}
+        {}
         <div className="max-h-80 overflow-y-auto scrollbar-hide">
           {notifs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
@@ -166,7 +163,7 @@ export function NotificationBell() {
                   n.readAt ? "opacity-50" : "",
                 ].join(" ")}
               >
-                {/* Main notification row */}
+                {}
                 <div
                   className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/20 cursor-pointer"
                   onClick={() => {
@@ -208,7 +205,7 @@ export function NotificationBell() {
                   </div>
                 </div>
 
-                {/* Inline restock form */}
+                {}
                 {restockingId === n.id && n.productId && (
                   <div className="px-4 pb-3 flex items-center gap-2" data-testid={`restock-form-${n.id}`}>
                     <div className="flex-1 flex items-center gap-1.5 bg-muted/40 border border-border/60 rounded-lg px-2 py-1.5">

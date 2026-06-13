@@ -6,9 +6,7 @@ import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerMembershipRoutes(app: Express): void {
 
-  // ─── Membership Plans ─────────────────────────────────────────────────────
-
-  app.get("/api/membership-plans", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
+app.get("/api/membership-plans", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     const plans = await storage.getMembershipPlans(getUserId(req));
     res.json(plans);
   });
@@ -45,9 +43,7 @@ export function registerMembershipRoutes(app: Express): void {
     res.status(204).end();
   });
 
-  // ─── Memberships ──────────────────────────────────────────────────────────
-
-  app.get("/api/memberships", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
+app.get("/api/memberships", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     const list = await storage.getMemberships(getUserId(req));
     res.json(list);
   });
@@ -90,9 +86,7 @@ export function registerMembershipRoutes(app: Express): void {
     res.status(204).end();
   });
 
-  // ─── Member Check-Ins ─────────────────────────────────────────────────────
-
-  app.post("/api/memberships/:id/check-in", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
+app.post("/api/memberships/:id/check-in", requireAuth, requireProOrBusinessFeature("/memberships"), async (req, res) => {
     try {
       const uid = getUserId(req);
       const m = await storage.getMembership(Number(req.params.id), uid);

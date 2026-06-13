@@ -10,7 +10,6 @@ import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
 import { useToast } from "@/hooks/use-toast";
 import { type UserSetting } from "@shared/schema";
 
-/** Escape user-supplied strings before interpolating into raw HTML print templates. */
 function escHtml(str: string | undefined | null): string {
   if (!str) return "";
   return str

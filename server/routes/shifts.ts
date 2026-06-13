@@ -7,9 +7,6 @@ import { db } from "../db";
 import { and, eq } from "drizzle-orm";
 import { getUserId, handleZodError, auditLog } from "../lib/route-utils";
 
-// ── Helper: OR number min/max using numeric ordering ─────────────────────────
-// Avoids lexicographic bugs where "9" > "100".
-// Falls back to lexicographic sort for alphanumeric OR numbers.
 function orNumericRange(orNums: string[]): { orFrom: string | null; orTo: string | null } {
   if (orNums.length === 0) return { orFrom: null, orTo: null };
   const allNumeric = orNums.every(n => /^\d+$/.test(n));
@@ -25,8 +22,7 @@ export { orNumericRange };
 
 export function registerShiftRoutes(app: Express): void {
 
-  // ── List shifts (paginated) ────────────────────────────────────────────────
-  app.get("/api/shifts", requireAuth, requirePro, async (req, res) => {
+app.get("/api/shifts", requireAuth, requirePro, async (req, res) => {
     const { limit, offset } = req.query as Record<string, string>;
     const list = await storage.getShifts(getUserId(req), {
       limit: Math.min(Number(limit) || 200, 1000),
@@ -35,14 +31,12 @@ export function registerShiftRoutes(app: Express): void {
     res.json(list);
   });
 
-  // ── Get currently open shift ───────────────────────────────────────────────
-  app.get("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
+app.get("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
     const shift = await storage.getOpenShift(getUserId(req));
     res.json(shift ?? null);
   });
 
-  // ── Open a new shift ───────────────────────────────────────────────────────
-  app.post("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
+app.post("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
     try {
       const { openingBalance, notes, denominationOpen } = insertShiftSchema.parse(req.body);
       const uid = getUserId(req);
@@ -58,11 +52,7 @@ export function registerShiftRoutes(app: Express): void {
     }
   });
 
-  // ── Z-report for a closed (or open) shift ─────────────────────────────────
-  // Direct DB lookup by primary key — O(1) instead of loading all shifts into
-  // memory and calling Array.find(). Avoids up to ~4 MB wasted allocation per
-  // request on stores with long shift histories.
-  app.get("/api/shifts/:id/z-report", requireAuth, requirePro, async (req, res) => {
+app.get("/api/shifts/:id/z-report", requireAuth, requirePro, async (req, res) => {
     const shiftId = Number(req.params.id);
     const uid = getUserId(req);
     const [shift] = await db
@@ -134,8 +124,7 @@ export function registerShiftRoutes(app: Express): void {
     });
   });
 
-  // ── Close a shift ──────────────────────────────────────────────────────────
-  app.post("/api/shifts/:id/close", requireAuth, requirePro, async (req, res) => {
+app.post("/api/shifts/:id/close", requireAuth, requirePro, async (req, res) => {
     try {
       const { closingBalance, notes, denominationClose, variance } = closeShiftSchema.parse(req.body);
       const shift = await storage.closeShift(
@@ -156,8 +145,7 @@ export function registerShiftRoutes(app: Express): void {
     }
   });
 
-  // ── Cash adjustment (in/out) ───────────────────────────────────────────────
-  app.post("/api/shifts/:id/cash-adjustment", requireAuth, requirePro, async (req, res) => {
+app.post("/api/shifts/:id/cash-adjustment", requireAuth, requirePro, async (req, res) => {
     try {
       const { type, amount, reason } = z.object({
         type: z.enum(["in", "out"]),

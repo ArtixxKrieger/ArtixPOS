@@ -56,24 +56,20 @@ export function usePwaInstall() {
   useEffect(() => {
     if (isAlreadyInstalled() || wasDismissedForever() || isSnoozed()) return;
 
-    // Pick up event already captured in index.html before React mounted
-    const stored = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null;
+const stored = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null;
     if (stored) {
       setPromptEvent(stored);
       setIsVisible(true);
       return;
     }
 
-    // Listen for the relay event from the early capture
-    const onReady = () => {
+const onReady = () => {
       const e = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null;
       if (e) { setPromptEvent(e); setIsVisible(true); }
     };
     window.addEventListener("pwa-prompt-ready", onReady);
 
-    // For Safari/Firefox/browsers that don't support beforeinstallprompt,
-    // show the instructions banner after a short delay anyway.
-    const fallbackTimer = setTimeout(() => {
+const fallbackTimer = setTimeout(() => {
       if (!(window as any).__pwaPrompt) {
         setIsVisible(true);
       }

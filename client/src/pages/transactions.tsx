@@ -203,7 +203,7 @@ export default function Transactions() {
   return (
     <div className="space-y-4 page-enter">
 
-      {/* Summary bar */}
+      {}
       <div className="glass-card rounded-2xl px-4 md:px-5 py-4 flex items-center gap-3 flex-wrap">
         <div>
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Showing</p>
@@ -224,7 +224,7 @@ export default function Transactions() {
           </>
         )}
         <div className="ml-auto flex items-center gap-2">
-          {/* Export CSV */}
+          {}
           <button
             onClick={handleExport}
             className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -233,7 +233,7 @@ export default function Transactions() {
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Export</span>
           </button>
-          {/* Voided toggle */}
+          {}
           <button
             onClick={() => setIncludeVoided(v => !v)}
             className={[
@@ -250,9 +250,9 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="flex flex-wrap gap-2 items-center">
-        {/* Search */}
+        {}
         <div className="flex-1 min-w-[160px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
@@ -270,7 +270,7 @@ export default function Transactions() {
           )}
         </div>
 
-        {/* Date filter */}
+        {}
         <DropdownMenu
           trigger={
             <button className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -287,7 +287,7 @@ export default function Transactions() {
           ))}
         </DropdownMenu>
 
-        {/* Custom date inputs */}
+        {}
         {dateFilter === "custom" && (
           <div className="flex items-center gap-1.5 flex-wrap">
             <input
@@ -306,7 +306,7 @@ export default function Transactions() {
           </div>
         )}
 
-        {/* Payment filter */}
+        {}
         <DropdownMenu
           trigger={
             <button className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -323,7 +323,7 @@ export default function Transactions() {
           <DropdownItem active={paymentFilter === "online"} onClick={() => setPaymentFilter("online")}>Online</DropdownItem>
         </DropdownMenu>
 
-        {/* Column picker — desktop only */}
+        {}
         <DropdownMenu
           align="right"
           trigger={
@@ -346,10 +346,10 @@ export default function Transactions() {
         </DropdownMenu>
       </div>
 
-      {/* Mobile card list — shown on small screens */}
+      {}
       {filtered.length > 0 ? (
         <>
-          {/* Mobile cards (sm and below) */}
+          {}
           <div className="md:hidden space-y-2">
             {filtered.map((sale) => {
               const items = (sale.items as any[]) || [];
@@ -370,7 +370,7 @@ export default function Transactions() {
                   ].join(" ")}
                   data-testid={`card-transaction-${sale.id}`}
                 >
-                  {/* Icon */}
+                  {}
                   <div className={[
                     "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
                     isVoided ? "bg-rose-500/10" : "bg-primary/8",
@@ -381,7 +381,7 @@ export default function Transactions() {
                     }
                   </div>
 
-                  {/* Info */}
+                  {}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-mono text-muted-foreground">TXN-{String(sale.id).padStart(4, "0")}</span>
@@ -410,7 +410,7 @@ export default function Transactions() {
                     </div>
                   </div>
 
-                  {/* Total */}
+                  {}
                   <div className="shrink-0 text-right">
                     <p className={["text-sm font-bold tabular-nums", isVoided ? "text-rose-500 line-through" : "text-primary"].join(" ")}>
                       {formatCurrency(sale.total, currency)}
@@ -422,7 +422,7 @@ export default function Transactions() {
             })}
           </div>
 
-          {/* Desktop table */}
+          {}
           <div className="hidden md:block glass-card rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <Table>

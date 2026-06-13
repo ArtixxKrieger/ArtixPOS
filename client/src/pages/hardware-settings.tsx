@@ -6,8 +6,6 @@ import { buildTestPrintEscPos } from "@/lib/escpos";
 import { useSettings } from "@/hooks/use-settings";
 import { BARCODE_BURST_MS, MIN_BARCODE_LENGTH, GS1_AIM_PREFIXES } from "@/constants/pos";
 
-// ─── Shared layout helpers ────────────────────────────────────────────────────
-
 function PageHeader() {
   return (
     <div className="mb-6">
@@ -61,8 +59,6 @@ function StatusBadge({ active, label }: { active: boolean; label: string }) {
   );
 }
 
-// ─── Barcode scanner helpers ──────────────────────────────────────────────────
-
 function cleanBarcode(raw: string): string {
   let s = raw;
   for (const prefix of GS1_AIM_PREFIXES) {
@@ -70,8 +66,6 @@ function cleanBarcode(raw: string): string {
   }
   return s.replace(/[\x00-\x1F\x7F]/g, "").trim();
 }
-
-// ─── Barcode Scanner Section ──────────────────────────────────────────────────
 
 interface ScanEntry {
   barcode: string;
@@ -86,8 +80,7 @@ function BarcodeScannerSection() {
   const activityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const testInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Cleanup timer on unmount to avoid state-update-on-unmounted-component warnings
-  useEffect(() => {
+useEffect(() => {
     return () => {
       if (activityTimer.current) clearTimeout(activityTimer.current);
     };
@@ -106,13 +99,12 @@ function BarcodeScannerSection() {
     markActive();
   }, [markActive]);
 
-  // Global burst-detection listener (mirrors useBarcodeScanner logic)
-  useEffect(() => {
+useEffect(() => {
     let buffer = "";
     let lastCharAt = 0;
 
     function onKeyDown(e: KeyboardEvent) {
-      // If test-mode input is focused, let its own handler run
+
       if (testInputRef.current && document.activeElement === testInputRef.current) return;
 
       const now = Date.now();
@@ -139,8 +131,7 @@ function BarcodeScannerSection() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [handleScan]);
 
-  // Test-mode input: scanner types into the dedicated field
-  function onTestInput(e: React.KeyboardEvent<HTMLInputElement>) {
+function onTestInput(e: React.KeyboardEvent<HTMLInputElement>) {
     const isTerminator = e.key === "Enter" || e.key === "Tab";
     if (!isTerminator) return;
     e.preventDefault();
@@ -165,7 +156,7 @@ function BarcodeScannerSection() {
       />
 
       <div className="p-4 space-y-4">
-        {/* Info banner */}
+        {}
         <div className="flex gap-2.5 p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 text-blue-700 dark:text-blue-300">
           <Info className="w-4 h-4 mt-0.5 shrink-0" />
           <div className="text-xs leading-relaxed">
@@ -178,7 +169,7 @@ function BarcodeScannerSection() {
           </div>
         </div>
 
-        {/* Compatible scanners */}
+        {}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Compatible Scanners</p>
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
@@ -200,7 +191,7 @@ function BarcodeScannerSection() {
 
         <div className="border-t border-border/40" />
 
-        {/* Live test area */}
+        {}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Test Your Scanner</p>
           <div className={[
@@ -398,7 +389,7 @@ function UsbPrinterSection() {
           </div>
         )}
 
-        {/* Info banner (only when supported) */}
+        {}
         {webUsbSupported && (
           <div className="flex gap-2.5 p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 text-blue-700 dark:text-blue-300">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
@@ -413,7 +404,7 @@ function UsbPrinterSection() {
           </div>
         )}
 
-        {/* Compatible brands */}
+        {}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Compatible Brands</p>
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
@@ -438,7 +429,7 @@ function UsbPrinterSection() {
 
         <div className="border-t border-border/40" />
 
-        {/* Printer list */}
+        {}
         {printers.length > 0 && (
           <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Connected Printers</p>
@@ -486,7 +477,7 @@ function UsbPrinterSection() {
           </div>
         )}
 
-        {/* Add printer button */}
+        {}
         {webUsbSupported && (
           <Button
             variant={printers.length === 0 ? "default" : "outline"}
@@ -499,7 +490,7 @@ function UsbPrinterSection() {
           </Button>
         )}
 
-        {/* Bluetooth note */}
+        {}
         <div className="flex gap-2 text-xs text-muted-foreground/70 items-start pt-1">
           <Circle className="w-3 h-3 mt-0.5 shrink-0" />
           <span>
@@ -512,8 +503,6 @@ function UsbPrinterSection() {
     </SectionCard>
   );
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HardwareSettings() {
   return (

@@ -6,20 +6,17 @@ import { getUserId, handleZodError } from "../lib/route-utils";
 
 export function registerTimeLogRoutes(app: Express): void {
 
-  // ── List time logs for current user ───────────────────────────────────────
-  app.get("/api/time-logs", requireAuth, requirePro, async (req, res) => {
+app.get("/api/time-logs", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getTimeLogs(getUserId(req));
     res.json(list);
   });
 
-  // ── Get the currently active (open) time log ───────────────────────────────
-  app.get("/api/time-logs/active", requireAuth, requirePro, async (req, res) => {
+app.get("/api/time-logs/active", requireAuth, requirePro, async (req, res) => {
     const log = await storage.getActiveTimeLog(getUserId(req));
     res.json(log ?? null);
   });
 
-  // ── Clock in ───────────────────────────────────────────────────────────────
-  app.post("/api/time-logs/clock-in", requireAuth, requirePro, async (req, res) => {
+app.post("/api/time-logs/clock-in", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
       const active = await storage.getActiveTimeLog(uid);
@@ -32,8 +29,7 @@ export function registerTimeLogRoutes(app: Express): void {
     }
   });
 
-  // ── Clock out ──────────────────────────────────────────────────────────────
-  app.post("/api/time-logs/clock-out", requireAuth, requirePro, async (req, res) => {
+app.post("/api/time-logs/clock-out", requireAuth, requirePro, async (req, res) => {
     try {
       const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
       const log = await storage.clockOut(getUserId(req), notes);
@@ -44,28 +40,24 @@ export function registerTimeLogRoutes(app: Express): void {
     }
   });
 
-  // ── Start break ────────────────────────────────────────────────────────────
-  app.post("/api/time-logs/break-start", requireAuth, requirePro, async (req, res) => {
+app.post("/api/time-logs/break-start", requireAuth, requirePro, async (req, res) => {
     const log = await storage.startBreak(getUserId(req));
     if (!log) return res.status(409).json({ message: "Not clocked in or already on break" });
     res.json(log);
   });
 
-  // ── End break ──────────────────────────────────────────────────────────────
-  app.post("/api/time-logs/break-end", requireAuth, requirePro, async (req, res) => {
+app.post("/api/time-logs/break-end", requireAuth, requirePro, async (req, res) => {
     const log = await storage.endBreak(getUserId(req));
     if (!log) return res.status(409).json({ message: "Not on break" });
     res.json(log);
   });
 
-  // ── Team time logs (manager+ only) ────────────────────────────────────────
-  app.get("/api/time-logs/team", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.get("/api/time-logs/team", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const logs = await storage.getTeamTimeLogs(getUserId(req));
     res.json(logs);
   });
 
-  // ── Manager: edit any time log in their tenant ─────────────────────────────
-  app.put("/api/time-logs/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.put("/api/time-logs/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const logId = Number(req.params.id);
       if (!Number.isInteger(logId) || logId <= 0)
@@ -79,8 +71,7 @@ export function registerTimeLogRoutes(app: Express): void {
         clockOutNotes: z.string().nullable().optional(),
       }).parse(req.body);
 
-      // Validate that clockOut (if given) is after clockIn
-      if (body.clockIn && body.clockOut) {
+if (body.clockIn && body.clockOut) {
         if (new Date(body.clockOut) <= new Date(body.clockIn))
           return res.status(400).json({ message: "Clock-out must be after clock-in" });
       }
@@ -93,8 +84,7 @@ export function registerTimeLogRoutes(app: Express): void {
     }
   });
 
-  // ── Manager: soft-delete a time log ───────────────────────────────────────
-  app.delete("/api/time-logs/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.delete("/api/time-logs/:id", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const logId = Number(req.params.id);
     if (!Number.isInteger(logId) || logId <= 0)
       return res.status(400).json({ message: "Invalid log ID" });
@@ -103,8 +93,7 @@ export function registerTimeLogRoutes(app: Express): void {
     res.json({ message: "Deleted" });
   });
 
-  // ── Manager: add manual time entry for any employee ────────────────────────
-  app.post("/api/time-logs/manual", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+app.post("/api/time-logs/manual", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const body = z.object({
         userId:        z.string(),

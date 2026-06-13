@@ -186,15 +186,8 @@ export function getCountryByCode(code: string): CountryData | null {
   return COUNTRY_BY_CODE[code] ?? null;
 }
 
-// ── Async IP-based country detection ─────────────────────────────────────────
-// Primary: /api/geo — our own server reads the country code that Cloudflare
-// (Replit) or Vercel injects into every request header for free. Zero cost,
-// zero rate limits, and no third-party dependency.
-//
-// Fallback: ipwho.is — only used when the proxy header is absent (e.g. plain
-// localhost dev without a reverse proxy in front).
 export async function detectCountryByIP(): Promise<CountryData | null> {
-  // 1. Own server — reads CF-IPCountry / x-vercel-ip-country header
+
   try {
     const r = await nativeFetch("/api/geo", { signal: AbortSignal.timeout(3000) });
     if (r.ok) {
@@ -202,17 +195,16 @@ export async function detectCountryByIP(): Promise<CountryData | null> {
       const code = typeof d.countryCode === "string" ? d.countryCode : null;
       if (code && COUNTRY_BY_CODE[code]) return COUNTRY_BY_CODE[code];
     }
-  } catch { /* fall through */ }
+  } catch {  }
 
-  // 2. External fallback — only reached in plain local dev (no Cloudflare/Vercel proxy)
-  try {
+try {
     const r = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(4000) });
     if (r.ok) {
       const d = await r.json();
       const code = typeof d.country_code === "string" ? d.country_code.toUpperCase() : null;
       if (code && COUNTRY_BY_CODE[code]) return COUNTRY_BY_CODE[code];
     }
-  } catch { /* give up */ }
+  } catch {  }
 
   return null;
 }
@@ -224,14 +216,10 @@ export interface LocaleInfo {
 }
 
 export function detectLocale(): LocaleInfo {
-  // Timezone is the most reliable country signal — it reflects the device's
-  // actual physical location regardless of browser language settings.
-  // Browser language (e.g. en-GB) only tells us language preference,
-  // NOT the user's country, so we check timezone first.
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
-  // 1. Try timezone → exact country match (highest confidence)
-  if (TIMEZONE_CURRENCY_MAP[timezone]) {
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+if (TIMEZONE_CURRENCY_MAP[timezone]) {
     const match = COUNTRY_LIST.find(c => c.timezone === timezone);
     if (match) {
       return { timezone, currency: match.currency, countryCode: match.code };
@@ -239,17 +227,14 @@ export function detectLocale(): LocaleInfo {
     return { timezone, currency: TIMEZONE_CURRENCY_MAP[timezone], countryCode: null };
   }
 
-  // 2. Try broad timezone region → currency (no precise country)
-  const tzRegion = timezone.split("/")[0];
+const tzRegion = timezone.split("/")[0];
   if (tzRegion === "Europe") return { timezone, currency: "€", countryCode: null };
   if (tzRegion === "America") return { timezone, currency: "$", countryCode: null };
   if (tzRegion === "Australia") return { timezone, currency: "A$", countryCode: null };
   if (tzRegion === "Pacific") return { timezone, currency: "$", countryCode: null };
   if (tzRegion === "Africa") return { timezone, currency: "$", countryCode: null };
 
-  // 3. Last resort: browser language region tag (least reliable for country)
-  //    Only used when timezone gives no usable signal at all.
-  const languages: string[] = Array.isArray(navigator.languages) && navigator.languages.length
+const languages: string[] = Array.isArray(navigator.languages) && navigator.languages.length
     ? Array.from(navigator.languages)
     : [navigator.language || ""];
 

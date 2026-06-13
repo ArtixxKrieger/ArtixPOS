@@ -72,8 +72,7 @@ export default function TimeClockPage() {
   const [clockInNotes, setClockInNotes] = useState("");
   const [clockOutNotes, setClockOutNotes] = useState("");
 
-  // Manager editing state
-  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
+const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [editingLog, setEditingLog] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({ clockIn: "", clockOut: "", breakMinutes: 0, notes: "", clockOutNotes: "" });
   const [deletingLog, setDeletingLog] = useState<any | null>(null);
@@ -129,7 +128,7 @@ export default function TimeClockPage() {
     onSuccess: async () => {
       toast({ title: "Break started — enjoy your rest!" });
       if (isPinSession) {
-        try { await apiRequest("POST", "/api/staff-pin/lock-screen", {}); } catch { /* best-effort */ }
+        try { await apiRequest("POST", "/api/staff-pin/lock-screen", {}); } catch {  }
         queryClient.cancelQueries();
         queryClient.clear();
         window.location.replace("/staff-clock-in");
@@ -150,8 +149,7 @@ export default function TimeClockPage() {
     onError: () => toast({ title: "Could not end break", variant: "destructive" }),
   });
 
-  // Manager mutations
-  const editLogMutation = useMutation({
+const editLogMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PUT", `/api/time-logs/${id}`, data),
     onSuccess: () => { invalidateLogs(); toast({ title: "Time log updated" }); setEditingLog(null); },
     onError: (e: any) => toast({ title: e?.message ?? "Failed to update log", variant: "destructive" }),
@@ -292,7 +290,7 @@ export default function TimeClockPage() {
 
   return (
     <div className="space-y-5 pb-8">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -321,7 +319,7 @@ export default function TimeClockPage() {
         </div>
       </div>
 
-      {/* Kiosk launch banner */}
+      {}
       {!isPinSession && isManagerOrAbove && (
         <button
           data-testid="button-launch-kiosk-banner"
@@ -339,7 +337,7 @@ export default function TimeClockPage() {
         </button>
       )}
 
-      {/* Tab switcher */}
+      {}
       {canSeeTeam && (
         <div className="flex gap-1 p-1 bg-secondary/40 rounded-2xl border border-border/30">
           {(["me", "team"] as const).map(t => (
@@ -361,10 +359,10 @@ export default function TimeClockPage() {
         </div>
       )}
 
-      {/* ─── MY HOURS TAB ─── */}
+      {}
       {tab === "me" && (
         <>
-          {/* Clock card */}
+          {}
           <div className="bg-card border border-border rounded-3xl p-6 flex flex-col items-center gap-5 text-center">
             <div>
               <p className="text-5xl font-bold tracking-tight tabular-nums">
@@ -464,7 +462,7 @@ export default function TimeClockPage() {
             )}
           </div>
 
-          {/* Stats row */}
+          {}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-card border border-border rounded-2xl p-4">
               <div className="flex items-center gap-1.5 text-muted-foreground mb-1.5">
@@ -495,7 +493,7 @@ export default function TimeClockPage() {
             </div>
           </div>
 
-          {/* Weekly grid */}
+          {}
           <div className="bg-card border border-border rounded-2xl p-4">
             <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-3">This Week</h3>
             <div className="grid grid-cols-7 gap-1">
@@ -526,7 +524,7 @@ export default function TimeClockPage() {
             </div>
           </div>
 
-          {/* History */}
+          {}
           <div className="space-y-4">
             <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">History</h2>
             {groups.length === 0 ? (
@@ -620,7 +618,7 @@ export default function TimeClockPage() {
         </>
       )}
 
-      {/* ─── TEAM TAB ─── */}
+      {}
       {tab === "team" && canSeeTeam && (
         <>
           <div className="flex items-center justify-between">
@@ -668,7 +666,7 @@ export default function TimeClockPage() {
                     "bg-card border rounded-2xl overflow-hidden transition-colors",
                     memberIsOt ? "border-orange-400/40" : "border-border"
                   )}>
-                    {/* Member header row */}
+                    {}
                     <div className="p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
@@ -726,7 +724,7 @@ export default function TimeClockPage() {
                       </div>
                     </div>
 
-                    {/* Expanded timecard entries */}
+                    {}
                     {isExpanded && (
                       <div className="border-t border-border/60">
                         {recentLogs.length === 0 ? (
@@ -812,7 +810,7 @@ export default function TimeClockPage() {
         </>
       )}
 
-      {/* ── Clock In Dialog ── */}
+      {}
       <Dialog open={showClockIn} onOpenChange={setShowClockIn}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -839,7 +837,7 @@ export default function TimeClockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Clock Out Dialog ── */}
+      {}
       <Dialog open={showClockOut} onOpenChange={setShowClockOut}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -887,7 +885,7 @@ export default function TimeClockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Log Dialog (manager) ── */}
+      {}
       <Dialog open={!!editingLog} onOpenChange={open => { if (!open) setEditingLog(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -955,7 +953,7 @@ export default function TimeClockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Confirm Dialog (manager) ── */}
+      {}
       <Dialog open={!!deletingLog} onOpenChange={open => { if (!open) setDeletingLog(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -990,7 +988,7 @@ export default function TimeClockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Manual Entry Dialog (manager) ── */}
+      {}
       <Dialog open={showManualEntry} onOpenChange={open => { if (!open) setShowManualEntry(false); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

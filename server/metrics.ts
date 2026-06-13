@@ -1,7 +1,4 @@
-// ── In-process metrics collector ──────────────────────────────────────────────
-// Tracks request counts, latency percentiles, and cache hit rate.
-// Persists lifetime totals to Redis every 60s so stats survive restarts.
-// Exposed at GET /api/metrics for external monitoring panels.
+
 
 import { redisGet, redisSet } from "./redis";
 
@@ -16,11 +13,8 @@ interface Bucket {
 
 const MAX_SAMPLES = 1_000;
 const REDIS_KEY   = "metrics:lifetime";
-const REDIS_TTL   = 365 * 24 * 60 * 60 * 1_000; // 1 year
+const REDIS_TTL   = 365 * 24 * 60 * 60 * 1_000;
 
-// ── Lifetime baseline loaded from Redis on startup ─────────────────────────────
-// "lifetime" = all-time totals across every process restart.
-// "session"  = counts since this process started (added to baseline for totals).
 interface Lifetime {
   requests: number;
   errors: number;
@@ -32,7 +26,6 @@ interface Lifetime {
 let baseline: Lifetime = { requests: 0, errors: 0, cacheHits: 0, cacheMisses: 0, totalLatencyMs: 0 };
 let baselineLoaded = false;
 
-// Load from Redis asynchronously — doesn't block startup.
 redisGet<Lifetime>(REDIS_KEY).then((saved) => {
   if (saved) {
     baseline = saved;
@@ -43,7 +36,6 @@ redisGet<Lifetime>(REDIS_KEY).then((saved) => {
   baselineLoaded = true;
 }).catch(() => { baselineLoaded = true; });
 
-// ── Session bucket (resets each restart) ──────────────────────────────────────
 const session: Bucket = {
   requests: 0,
   errors: 0,
@@ -54,8 +46,6 @@ const session: Bucket = {
 };
 
 const startedAt = Date.now();
-
-// ── Writers ────────────────────────────────────────────────────────────────────
 
 export function recordRequest(durationMs: number, statusCode: number): void {
   session.requests++;
@@ -68,8 +58,6 @@ export function recordRequest(durationMs: number, statusCode: number): void {
 export function recordCacheHit():  void { session.cacheHits++;   }
 export function recordCacheMiss(): void { session.cacheMisses++; }
 
-// ── Flush to Redis every 60s ───────────────────────────────────────────────────
-// Saves cumulative lifetime totals so the next process picks up where this left off.
 setInterval(async () => {
   try {
     const toSave: Lifetime = {
@@ -81,19 +69,15 @@ setInterval(async () => {
     };
     await redisSet(REDIS_KEY, toSave, REDIS_TTL);
   } catch {
-    // Redis unavailable — stats live only in memory this session.
+
   }
 }, 60_000).unref();
-
-// ── Percentile helper ──────────────────────────────────────────────────────────
 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   const idx = Math.ceil((p / 100) * sorted.length) - 1;
   return sorted[Math.max(0, idx)];
 }
-
-// ── Snapshot ───────────────────────────────────────────────────────────────────
 
 export function getMetricsSnapshot() {
   const sorted = [...session.latencySamples].sort((a, b) => a - b);

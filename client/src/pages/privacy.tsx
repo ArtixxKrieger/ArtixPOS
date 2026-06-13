@@ -109,7 +109,7 @@ export default function PrivacyPolicy() {
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
-      {/* Top bar */}
+      {}
       <header
         style={{
           position: "sticky",
@@ -211,7 +211,7 @@ export default function PrivacyPolicy() {
           alignItems: "flex-start",
         }}
       >
-        {/* Sidebar TOC — hidden on mobile */}
+        {}
         <aside
           style={{
             width: 220,
@@ -269,9 +269,9 @@ export default function PrivacyPolicy() {
           </nav>
         </aside>
 
-        {/* Main content */}
+        {}
         <main style={{ flex: 1, minWidth: 0 }}>
-          {/* Header */}
+          {}
           <div style={{ marginBottom: 52, paddingBottom: 36, borderBottom: `1px solid ${BORDER}` }}>
             <div
               style={{
@@ -331,7 +331,7 @@ export default function PrivacyPolicy() {
             </div>
           </div>
 
-          {/* TL;DR callout */}
+          {}
           <div
             style={{
               background: "rgba(59,130,246,0.06)",
@@ -698,7 +698,7 @@ export default function PrivacyPolicy() {
               />
             </section>
 
-            {/* 9 */}
+            {}
             <section>
               <SectionAnchor id="data-retention" />
               <SectionHeader num="9" title="Data Retention" />
@@ -723,7 +723,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 10 */}
+            {}
             <section>
               <SectionAnchor id="data-security" />
               <SectionHeader num="10" title="Data Security" />
@@ -773,7 +773,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 11 */}
+            {}
             <section>
               <SectionAnchor id="international" />
               <SectionHeader num="11" title="International Data Transfers" />
@@ -796,7 +796,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 12 */}
+            {}
             <section>
               <SectionAnchor id="your-rights" />
               <SectionHeader num="12" title="Your Rights & Choices" />
@@ -887,7 +887,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 13 */}
+            {}
             <section>
               <SectionAnchor id="children" />
               <SectionHeader num="13" title="Children's Privacy" />
@@ -912,7 +912,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 14 */}
+            {}
             <section>
               <SectionAnchor id="business-transfers" />
               <SectionHeader num="14" title="Business Transfers" />
@@ -931,7 +931,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 15 */}
+            {}
             <section>
               <SectionAnchor id="changes" />
               <SectionHeader num="16" title="Changes to This Policy" />
@@ -959,7 +959,7 @@ export default function PrivacyPolicy() {
               </Body>
             </section>
 
-            {/* 17 */}
+            {}
             <section>
               <SectionAnchor id="contact" />
               <SectionHeader num="17" title="Contact & Data Requests" />
@@ -1002,7 +1002,7 @@ export default function PrivacyPolicy() {
             </section>
           </div>
 
-          {/* Footer links */}
+          {}
           <div
             style={{
               marginTop: 72,
@@ -1040,7 +1040,7 @@ export default function PrivacyPolicy() {
         </main>
       </div>
 
-      {/* Mobile: floating Contents button */}
+      {}
       {isMobile && (
         <button
           onClick={() => setTocOpen(true)}
@@ -1089,7 +1089,7 @@ export default function PrivacyPolicy() {
         </button>
       )}
 
-      {/* Mobile: bottom sheet overlay */}
+      {}
       {isMobile && tocOpen && (
         <div
           onClick={() => setTocOpen(false)}
@@ -1103,7 +1103,7 @@ export default function PrivacyPolicy() {
         />
       )}
 
-      {/* Mobile: bottom sheet */}
+      {}
       {isMobile && (
         <div
           onTouchStart={onSheetTouchStart}
@@ -1127,7 +1127,7 @@ export default function PrivacyPolicy() {
             willChange: "transform",
           }}
         >
-          {/* Drag handle */}
+          {}
           <div
             style={{
               display: "flex",
@@ -1191,7 +1191,7 @@ export default function PrivacyPolicy() {
               </button>
             </div>
           </div>
-          {/* Scrollable nav list */}
+          {}
           <nav
             style={{
               overflowY: "auto",

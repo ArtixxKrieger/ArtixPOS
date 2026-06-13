@@ -9,28 +9,19 @@ const LIST_URL = api.pendingOrders.list.path;
 export function usePendingOrders() {
   return useQuery({
     queryKey: [LIST_URL],
-    // Data stays fresh for 30 s — mutations call setQueryData directly so the
-    // cache is always current without needing a stale-triggered refetch.
-    staleTime: 30_000,
+
+staleTime: 30_000,
     queryFn: async () => {
-      // ── IDB-first pattern ────────────────────────────────────────────────
-      // Return any cached data immediately to avoid a blank screen while
-      // waiting for the network (or while offline).  Then background-refresh
-      // from the server and merge, preserving any optimistic (temp-ID) entries
-      // that are still in-flight or queued for sync.
-      const idbData = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
+
+const idbData = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
 
       if (idbData !== null) {
         nativeFetch(LIST_URL)
           .then(async (res) => {
             if (!res.ok) return;
             const fresh = api.pendingOrders.list.responses[200].parse(await res.json());
-            // Keep any optimistic entries (temp offline IDs) that the server
-            // doesn't know about yet — e.g. a checkout that's mid-flight or
-            // queued offline.  Without this guard a fast background refresh
-            // would overwrite the onMutate optimistic entry and the order would
-            // flicker out of the list mid-request.
-            const current = qc.getQueryData<PendingOrder[]>([LIST_URL]);
+
+const current = qc.getQueryData<PendingOrder[]>([LIST_URL]);
             const freshIds = new Set((fresh ?? []).map((o: any) => String(o.id)));
             const optimisticPending = (current ?? []).filter(
               (o: any) => isOfflineId(String(o.id ?? "")) && !freshIds.has(String(o.id))
@@ -38,24 +29,22 @@ export function usePendingOrders() {
             const merged = optimisticPending.length > 0
               ? [...optimisticPending, ...fresh]
               : fresh;
-            setCached(LIST_URL, fresh).catch(() => {}); // IDB always stores server truth
+            setCached(LIST_URL, fresh).catch(() => {});
             qc.setQueryData([LIST_URL], merged);
           })
           .catch(() => {});
         return idbData;
       }
 
-      // No IDB data yet — must wait for network
-      try {
+try {
         const res = await nativeFetch(LIST_URL);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.pendingOrders.list.responses[200].parse(await res.json());
         setCached(LIST_URL, data).catch(() => {});
         return data;
       } catch (err) {
-        // One more IDB attempt — initUserSession may have populated it after
-        // the initial getCached returned null.
-        const retry = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
+
+const retry = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
         if (retry !== null) return retry;
         throw err;
       }
@@ -63,22 +52,16 @@ export function usePendingOrders() {
   });
 }
 
-// How long the live-checkout request is allowed to take before we give up and
-// queue the mutation offline.  Mirrors the 15 s budget used by processMutation
-// in sync.ts but is slightly shorter (10 s) so the offline path is taken while
-// the user is still looking at the receipt loading state.
 const CHECKOUT_TIMEOUT_MS = 10_000;
 
 export function useCreatePendingOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    // ── Optimistic update: order appears INSTANTLY in the list ──────────────
-    // Without this, the UI is blank until the full server round-trip completes
-    // (~500 ms–2 s on a paid order with stock deductions and audit logging).
-    onMutate: async (data: InsertPendingOrder) => {
+
+onMutate: async (data: InsertPendingOrder) => {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
       const previous = queryClient.getQueryData<PendingOrder[]>([LIST_URL]);
-      const tempId = makeOfflineId(); // stable placeholder until server responds
+      const tempId = makeOfflineId();
       const optimistic = {
         ...data,
         id: tempId as unknown as number,
@@ -97,12 +80,7 @@ export function useCreatePendingOrder() {
     mutationFn: async (data: InsertPendingOrder) => {
       let res: Response;
 
-      // Abort after CHECKOUT_TIMEOUT_MS — on slow / patchy connections a TCP
-      // handshake can succeed (preventing a TypeError) while the server takes
-      // many seconds to respond.  Without a timeout the fetch hangs indefinitely,
-      // the offline queue never fills, and the cashier is left staring at a
-      // pending receipt.
-      const controller = new AbortController();
+const controller = new AbortController();
       const timer = setTimeout(
         () => controller.abort(new DOMException("Checkout request timed out", "TimeoutError")),
         CHECKOUT_TIMEOUT_MS,
@@ -117,18 +95,14 @@ export function useCreatePendingOrder() {
         });
       } catch {
         clearTimeout(timer);
-        // Offline or timed out — generate a stable temp ID first so both the
-        // queue item (offlineId) and the optimistic cache entry reference the
-        // same value.  foldQueue uses offlineId to collapse a subsequent DELETE
-        // into a no-op, and syncOfflineData uses it to remap any subsequent PUT
-        // after the real server ID is assigned.
-        const tempId = makeOfflineId();
+
+const tempId = makeOfflineId();
         await queueMutation(
           "POST",
           api.pendingOrders.create.path,
           data,
           "pending-order",
-          tempId, // offlineId
+          tempId,
         );
         const optimistic = {
           ...data,
@@ -137,25 +111,17 @@ export function useCreatePendingOrder() {
           _pendingSync: true,
         };
 
-        // Patch pending-orders IDB cache
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => [
+await patchCached(LIST_URL, (prev: PendingOrder[]) => [
           ...(Array.isArray(prev) ? prev : []),
           optimistic as unknown as PendingOrder,
         ]);
 
-        // Also patch the sales IDB cache so the Sales page shows this sale
-        // immediately while the device is offline.
-        await patchCached("/api/sales", (prev: any[]) => [
+await patchCached("/api/sales", (prev: any[]) => [
           optimistic as any,
           ...(Array.isArray(prev) ? prev : []),
         ]);
 
-        // Update dashboard stats IDB cache so today's revenue is current offline.
-        // MUST be awaited — pos.tsx onSuccess calls invalidateQueries right after
-        // onSuccess fires, which re-runs the dashboard queryFn.  If this write is
-        // still in-flight when that queryFn reads IDB it will get the OLD data and
-        // clobber the optimistic setQueryData that fires a moment later.
-        const statsPrev = await getCached<any>("/api/dashboard/stats");
+const statsPrev = await getCached<any>("/api/dashboard/stats");
         if (statsPrev) {
           await setCached("/api/dashboard/stats", {
             ...statsPrev,
@@ -172,27 +138,20 @@ export function useCreatePendingOrder() {
         throw new Error((body as { message?: string })?.message ?? `Server error ${res.status}`);
       }
 
-      // Guard against a truncated response body (network drop after server
-      // wrote the headers but before the body arrived).  The sale IS already on
-      // the server — we must NOT throw here or pos.tsx's onError would restore
-      // the cart and the cashier would think the sale failed.
-      let result: PendingOrder;
+let result: PendingOrder;
       try {
         result = api.pendingOrders.create.responses[201].parse(await res.json());
       } catch {
-        // Body unreadable — return a minimal stand-in so onSuccess fires and
-        // the receipt stays open.  The sale is confirmed server-side.
-        result = { ...data, id: 0, createdAt: new Date().toISOString() } as unknown as PendingOrder;
+
+result = { ...data, id: 0, createdAt: new Date().toISOString() } as unknown as PendingOrder;
       }
 
       await patchCached(LIST_URL, (prev: PendingOrder[]) => [...(Array.isArray(prev) ? prev : []), result]);
       return result;
     },
     onSuccess: (result, _vars, context: any) => {
-      // Replace the onMutate placeholder (tempId) with the confirmed result.
-      // We remove both `tempId` (from onMutate) and `result.id` (dedup guard)
-      // before appending the final entry, so there are never duplicate rows.
-      queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) => {
+
+queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) => {
         if (!old) return [result];
         const filtered = old.filter(
           (o: any) =>
@@ -202,22 +161,13 @@ export function useCreatePendingOrder() {
         return [...filtered, result];
       });
 
-      // When the checkout was queued offline, the mutationFn returns the
-      // optimistic entry (id = __offline__…).  Mirror it into the sales and
-      // dashboard TanStack caches immediately so those pages reflect the new
-      // sale without waiting for a sync/invalidation cycle.
-      if (isOfflineId(String(result.id ?? ""))) {
-        // Sales list — use setQueriesData (prefix match) so ALL active sales
-        // queries are updated: the unfiltered ["/api/sales"] AND every date-
-        // filtered variant like ["/api/sales", "2024-06-01", "2024-06-30", …].
-        // setQueryData (exact match) only hits the no-params key and misses the
-        // "month" / "today" filtered queries on the Transactions page.
-        queryClient.setQueriesData<any[]>({ queryKey: ["/api/sales"] }, (old) =>
+if (isOfflineId(String(result.id ?? ""))) {
+
+queryClient.setQueriesData<any[]>({ queryKey: ["/api/sales"] }, (old) =>
           Array.isArray(old) ? [result, ...old] : [result]
         );
 
-        // Dashboard stats — add to todaySales so totals are correct offline
-        queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
+queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
           if (!old || !Array.isArray(old.todaySales)) return old;
           return {
             ...old,
@@ -226,8 +176,7 @@ export function useCreatePendingOrder() {
         });
       }
 
-      // Deduct stock in products cache for paid orders
-      if (result.status === "paid" && Array.isArray(result.items)) {
+if (result.status === "paid" && Array.isArray(result.items)) {
         const deductions = new Map<number, number>();
         for (const item of result.items as any[]) {
           const pid = Number(item?.productId ?? item?.id ?? item?.product?.id);

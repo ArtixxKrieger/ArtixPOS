@@ -255,7 +255,7 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -268,7 +268,7 @@ export default function PurchasesPage() {
         </Button>
       </div>
 
-      {/* Summary stats */}
+      {}
       {pos.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label={t("purchases.totalOrders")} value={String(totalOrders)} icon={BarChart3} />
@@ -278,7 +278,7 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -328,7 +328,7 @@ export default function PurchasesPage() {
         )}
       </div>
 
-      {/* List */}
+      {}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingBag className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -347,7 +347,7 @@ export default function PurchasesPage() {
             return (
               <div key={po.id} data-testid={`card-po-${po.id}`}
                 className={`bg-card border rounded-2xl overflow-hidden ${isOverdue ? "border-red-500/40" : "border-border"}`}>
-                {/* Summary row */}
+                {}
                 <div className="p-4 flex items-center gap-3 flex-wrap">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : po.id)}
@@ -395,7 +395,7 @@ export default function PurchasesPage() {
                   )}
                 </div>
 
-                {/* Expanded detail */}
+                {}
                 {isExpanded && (
                   <div className="border-t border-border bg-muted/30">
                     <div className="p-4 space-y-3">
@@ -458,7 +458,7 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {/* Create PO Dialog */}
+      {}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

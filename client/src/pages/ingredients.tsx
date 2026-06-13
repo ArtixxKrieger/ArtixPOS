@@ -340,7 +340,7 @@ export default function Ingredients() {
 
   return (
     <div className="space-y-4 page-enter">
-      {/* ── Header ── */}
+      {}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
@@ -364,7 +364,7 @@ export default function Ingredients() {
             />
           </div>
 
-          {/* Sort */}
+          {}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="h-10 w-10 rounded-2xl border-none bg-card shadow-sm shrink-0" data-testid="button-sort-ingredients">
@@ -381,7 +381,7 @@ export default function Ingredients() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Export */}
+          {}
           <Button
             variant="outline"
             size="icon"
@@ -404,7 +404,7 @@ export default function Ingredients() {
         </div>
       </div>
 
-      {/* ── Stats Cards ── */}
+      {}
       {stats.total > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <StatCard
@@ -438,7 +438,7 @@ export default function Ingredients() {
         </div>
       )}
 
-      {/* ── Filter Tabs ── */}
+      {}
       <div className="flex gap-1.5 bg-muted/40 rounded-2xl p-1 w-fit">
         {tabs.map((tab) => (
           <button
@@ -469,7 +469,7 @@ export default function Ingredients() {
         ))}
       </div>
 
-      {/* ── Empty state ── */}
+      {}
       {!isLoading && filtered.length === 0 ? (
         <div className="glass-card rounded-3xl py-16 px-6 text-center flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
@@ -521,14 +521,14 @@ export default function Ingredients() {
                 data-testid={`ingredient-row-${ing.id}`}
                 className="bg-card rounded-2xl border border-border/30 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
               >
-                {/* ── Main content row ── */}
+                {}
                 <div className="flex items-center gap-3 px-3.5 py-3">
-                  {/* Icon */}
+                  {}
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${stockBg}`}>
                     <Package className={`h-5 w-5 ${stockColor} opacity-70`} strokeWidth={1.5} />
                   </div>
 
-                  {/* Name + meta */}
+                  {}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm leading-tight truncate">{ing.name}</p>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -549,7 +549,7 @@ export default function Ingredients() {
                     </div>
                   </div>
 
-                  {/* Stock + value — right side */}
+                  {}
                   <div className="text-right shrink-0">
                     <p className={`font-black text-base tabular-nums leading-none ${stockColor}`}>
                       {ing.stockQty}
@@ -571,9 +571,9 @@ export default function Ingredients() {
                   </div>
                 </div>
 
-                {/* ── Action bar ── */}
+                {}
                 <div className="flex items-center border-t border-border/20 px-2 py-1.5 gap-1">
-                  {/* Quick ±1 */}
+                  {}
                   <button
                     onClick={() => adjustStockMutation.mutate({ id: ing.id, delta: -1 })}
                     className="flex items-center gap-1 h-8 px-2.5 rounded-xl hover:bg-rose-500/10 hover:text-rose-500 text-muted-foreground/60 transition-colors active:scale-95 text-xs font-medium"
@@ -593,7 +593,7 @@ export default function Ingredients() {
                     <span className="hidden xs:inline">+1</span>
                   </button>
 
-                  {/* Custom adjust */}
+                  {}
                   <button
                     onClick={() => openAdjust(ing)}
                     className="flex items-center gap-1 h-8 px-2.5 rounded-xl hover:bg-primary/10 hover:text-primary text-muted-foreground/60 transition-colors active:scale-95 text-xs font-medium"
@@ -606,7 +606,7 @@ export default function Ingredients() {
 
                   <div className="flex-1" />
 
-                  {/* Edit / Delete */}
+                  {}
                   {isPendingDelete ? (
                     <div className="flex items-center gap-1">
                       <span className="text-[11px] text-destructive font-semibold mr-1 hidden xs:inline">Delete?</span>
@@ -652,7 +652,7 @@ export default function Ingredients() {
         </div>
       )}
 
-      {/* ── Stock Adjustment Dialog ── */}
+      {}
       <Dialog open={adjustOpen} onOpenChange={(v) => { setAdjustOpen(v); if (!v) setAdjustTarget(null); }}>
         <DialogContent className="w-[calc(100vw-24px)] sm:max-w-[360px] rounded-3xl border-none shadow-2xl p-0">
           <div className="px-5 pt-5 pb-3 border-b border-border/30">
@@ -674,7 +674,7 @@ export default function Ingredients() {
                 </span>
               </div>
             )}
-            {/* Mode selector */}
+            {}
             <div className="grid grid-cols-3 gap-1.5 bg-muted/40 rounded-xl p-1">
               {(["add", "remove", "set"] as const).map((m) => (
                 <button
@@ -733,7 +733,7 @@ export default function Ingredients() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Create / Edit Dialog ── */}
+      {}
       <Dialog
         open={isDialogOpen}
         onOpenChange={(v) => { setIsDialogOpen(v); if (!v) { resetForm(); setEditingId(null); } }}

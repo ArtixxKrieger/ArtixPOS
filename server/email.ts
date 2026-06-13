@@ -496,17 +496,17 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
     <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(59,130,246,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 
-        <!-- Purple hero -->
+        <!-- Dark hero -->
         <tr>
-          <td style="background-color:#3b82f6;padding:36px 40px 32px;" class="px-m">
+          <td style="background-color:#0f0a1e;padding:36px 40px 32px;" class="px-m">
             <!-- Logo -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
               <tr>
-                <td style="background-color:rgba(255,255,255,0.18);border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
+                <td style="background-color:#3b82f6;border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
                   <span style="font-size:20px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:42px;display:inline-block;width:42px;">A</span>
                 </td>
                 <td style="padding-left:10px;vertical-align:middle;">
-                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;opacity:0.95;">Artix<span style="opacity:0.65;">POS</span></span>
+                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;">Artix<span style="color:#3b82f6;">POS</span></span>
                 </td>
               </tr>
             </table>
@@ -526,7 +526,6 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
                 <td style="background-color:#f0fdf4;border:1.5px solid #86efac;border-radius:50px;padding:8px 18px 8px 12px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td style="font-size:16px;line-height:1;padding-right:8px;">&#9989;</td>
                       <td style="font-size:13px;font-weight:600;color:#15803d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Account created — just verify your email</td>
                     </tr>
                   </table>
@@ -548,7 +547,7 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
               <tr>
                 <td style="background-color:#f0f7ff;border-left:3px solid #3b82f6;border-radius:0 10px 10px 0;padding:14px 18px;">
                   <p style="margin:0;font-size:13px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
-                    &#128274;&nbsp; <strong style="color:#1f2937;">Security tip:</strong> If you didn't create an ArtixPOS account, you can safely ignore this email. No account will be created without confirmation.
+                    <strong style="color:#1f2937;">Security tip:</strong> If you didn't create an ArtixPOS account, you can safely ignore this email. No account will be created without confirmation.
                   </p>
                 </td>
               </tr>
@@ -595,7 +594,6 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
                 <td style="background-color:#451a03;border:1px solid #92400e;border-radius:50px;padding:6px 16px 6px 10px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td style="font-size:14px;padding-right:8px;">&#9888;&#65039;</td>
                       <td style="font-size:12px;font-weight:600;color:#fbbf24;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Password reset requested &mdash; expires in 1 hour</td>
                     </tr>
                   </table>
@@ -659,7 +657,7 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
               <tr>
                 <td style="border-top:1px solid #f3f4f6;padding-top:20px;">
                   <p style="margin:0;font-size:12px;color:#9ca3af;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;">
-                    &#128274;&nbsp; Didn't request this? Ignore this email — your password won't change. Need help? <a href="mailto:support@artixpos.com" style="color:#3b82f6;">support@artixpos.com</a>
+                    Didn't request this? Ignore this email — your password won't change. Need help? <a href="mailto:support@artixpos.com" style="color:#3b82f6;">support@artixpos.com</a>
                   </p>
                 </td>
               </tr>
@@ -733,11 +731,6 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
   const hasTax      = parseFloat(sale.tax ?? "0") > 0;
   const hasDiscount = parseFloat(sale.discount ?? "0") > 0;
 
-  const pmIcons: Record<string, string> = {
-    cash: "&#128181;", card: "&#128179;", gcash: "&#128242;", maya: "&#128242;",
-    paymongo: "&#128179;", credit: "&#128179;", debit: "&#128179;",
-  };
-  const pmIcon = pmIcons[(sale.paymentMethod ?? "cash").toLowerCase()] ?? "&#128181;";
 
   const body = `
   <tr>
@@ -749,8 +742,8 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
           <td align="center" style="background-color:#3b82f6;padding:32px 40px 28px;" class="px-m">
             <div style="display:inline-block;background-color:rgba(255,255,255,0.2);border-radius:16px;width:56px;height:56px;text-align:center;line-height:56px;font-size:26px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin-bottom:10px;">${storeInit}</div>
             <p style="margin:0 0 2px;font-size:22px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storeName}</p>
-            ${storeAddr  ? `<p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128205;&nbsp;${storeAddr}</p>` : ""}
-            ${storePhone ? `<p style="margin:3px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128222;&nbsp;${storePhone}</p>` : ""}
+            ${storeAddr  ? `<p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storeAddr}</p>` : ""}
+            ${storePhone ? `<p style="margin:3px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storePhone}</p>` : ""}
           </td>
         </tr>
 
@@ -760,7 +753,7 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
                 <td style="vertical-align:bottom;">
-                  <p style="margin:0;font-size:22px;font-weight:800;color:#0f0a1e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;">&#129534;&nbsp;Your receipt</p>
+                  <p style="margin:0;font-size:22px;font-weight:800;color:#0f0a1e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;">Your receipt</p>
                   ${customer ? `<p style="margin:5px 0 0;font-size:14px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Hello, <strong>${customer}</strong>! Thanks for your purchase.</p>` : ""}
                 </td>
                 <td style="text-align:right;vertical-align:top;">
@@ -825,7 +818,7 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
                     </tr>
                     <tr>
                       <td colspan="2" style="padding-top:10px;border-top:1px solid #eff6ff;">
-                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${pmIcon}&nbsp;Paid via <strong style="color:#374151;text-transform:capitalize;">${pm}</strong></p>
+                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Paid via <strong style="color:#374151;text-transform:capitalize;">${pm}</strong></p>
                       </td>
                     </tr>
                   </table>
@@ -921,17 +914,17 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
     <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(59,130,246,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 
-        <!-- Purple hero -->
+        <!-- Dark hero -->
         <tr>
-          <td style="background-color:#3b82f6;padding:36px 40px 32px;" class="px-m">
+          <td style="background-color:#0f0a1e;padding:36px 40px 32px;" class="px-m">
             <!-- Logo -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
               <tr>
-                <td style="background-color:rgba(255,255,255,0.18);border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
+                <td style="background-color:#3b82f6;border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
                   <span style="font-size:20px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:42px;display:inline-block;width:42px;">A</span>
                 </td>
                 <td style="padding-left:10px;vertical-align:middle;">
-                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;opacity:0.95;">Artix<span style="opacity:0.65;">POS</span></span>
+                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;">Artix<span style="color:#3b82f6;">POS</span></span>
                 </td>
               </tr>
             </table>
@@ -951,7 +944,6 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
                 <td style="background-color:#eff6ff;border:1.5px solid #93c5fd;border-radius:50px;padding:8px 18px 8px 12px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td style="font-size:16px;line-height:1;padding-right:8px;">&#127881;</td>
                       <td style="font-size:13px;font-weight:600;color:#2563eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Account successfully created</td>
                     </tr>
                   </table>
@@ -970,19 +962,19 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
                   <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#2563eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">What you can do with ArtixPOS</p>
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                     <tr>
-                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128176;&nbsp; <strong>Point of Sale</strong> — fast checkout with offline support</td>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><strong>Point of Sale</strong> — fast checkout with offline support</td>
                     </tr>
                     <tr>
-                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128202;&nbsp; <strong>Analytics &amp; Reports</strong> — real-time sales insights</td>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><strong>Analytics &amp; Reports</strong> — real-time sales insights</td>
                     </tr>
                     <tr>
-                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128230;&nbsp; <strong>Inventory</strong> — track stock across all branches</td>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><strong>Inventory</strong> — track stock across all branches</td>
                     </tr>
                     <tr>
-                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128101;&nbsp; <strong>Staff &amp; Payroll</strong> — manage your team and schedules</td>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><strong>Staff &amp; Payroll</strong> — manage your team and schedules</td>
                     </tr>
                     <tr>
-                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128203;&nbsp; <strong>Customers &amp; Memberships</strong> — loyalty and CRM tools</td>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><strong>Customers &amp; Memberships</strong> — loyalty and CRM tools</td>
                     </tr>
                   </table>
                 </td>
@@ -999,7 +991,7 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
               <tr>
                 <td style="background-color:#f0f7ff;border-left:3px solid #3b82f6;border-radius:0 10px 10px 0;padding:14px 18px;">
                   <p style="margin:0;font-size:13px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
-                    &#128172;&nbsp; <strong style="color:#1f2937;">Need help getting started?</strong> Reply to this email or visit <a href="https://artixpos.com" style="color:#3b82f6;text-decoration:none;">artixpos.com</a> — we're here for you.
+                    <strong style="color:#1f2937;">Need help getting started?</strong> Reply to this email or visit <a href="https://artixpos.com" style="color:#3b82f6;text-decoration:none;">artixpos.com</a> — we're here for you.
                   </p>
                 </td>
               </tr>
@@ -1018,7 +1010,7 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
 export async function sendWelcomeEmail(to: string, name: string, dashboardUrl: string): Promise<boolean> {
   return sendEmail({
     to,
-    subject: `Welcome to ArtixPOS, ${name}! 🎉`,
+    subject: `Welcome to ArtixPOS, ${name}!`,
     text: [
       `Welcome to ArtixPOS, ${name}!`,
       "=".repeat(42),

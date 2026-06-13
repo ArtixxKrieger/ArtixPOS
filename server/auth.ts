@@ -1070,9 +1070,6 @@ export function setupAuth(app: Express) {
       const normalizedEmail = email.trim().toLowerCase();
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
 
-      const verifyToken = crypto.randomBytes(32).toString("hex");
-      const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
       const created = await runAsAdmin(pool, async (adminDb) => {
         const [existing] = await adminDb.select().from(users).where(eq(users.id, userId));
         if (existing) return null;
@@ -1086,9 +1083,7 @@ export function setupAuth(app: Express) {
           provider: "email",
           providerId: normalizedEmail,
           passwordHash,
-          emailVerified: false,
-          emailVerificationToken: verifyToken,
-          emailVerificationExpires: verifyExpires,
+          emailVerified: true,
         } as any);
 
         const [row] = await adminDb.select().from(users).where(eq(users.id, userId));
@@ -1103,14 +1098,8 @@ export function setupAuth(app: Express) {
         });
       }
 
-      // Send verification email — fire-and-forget so a mail failure doesn't block login.
-      const verifyBaseUrl = getBaseUrl();
-      const verifyUrl = `${verifyBaseUrl}/verify-email?token=${verifyToken}`;
-      sendVerificationEmail(normalizedEmail, verifyUrl).catch((err) => {
-        console.error("[auth] Failed to send verification email:", err);
-      });
-
       // Send welcome email — fire-and-forget, non-blocking.
+      const verifyBaseUrl = getBaseUrl();
       const dashboardUrl = `${verifyBaseUrl}/`;
       sendWelcomeEmail(normalizedEmail, name.trim(), dashboardUrl).catch((err) => {
         console.error("[auth] Failed to send welcome email:", err);
@@ -1125,7 +1114,7 @@ export function setupAuth(app: Express) {
         tenantId: (created as any).tenantId ?? null,
         role: created.role ?? "owner",
         activeBranchId: (created as any).activeBranchId ?? null,
-        emailVerified: false,
+        emailVerified: true,
       });
       logAuthEvent({
         userId: created.id,
@@ -1135,7 +1124,7 @@ export function setupAuth(app: Express) {
       });
       res.status(201).json({
         ok: true,
-        emailVerified: false,
+        emailVerified: true,
         user: {
           id: created.id,
           name: created.name ?? null,
@@ -1146,7 +1135,7 @@ export function setupAuth(app: Express) {
           role: (created as any).role ?? "owner",
           activeBranchId: (created as any).activeBranchId ?? null,
           activeBranch: null,
-          emailVerified: false,
+          emailVerified: true,
         },
       });
     } catch (err) {

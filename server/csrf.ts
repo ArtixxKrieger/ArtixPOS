@@ -24,8 +24,11 @@ function generate(): string {
  *
  * The browser can read this cookie via `document.cookie` and include the
  * value as the `X-CSRF-Token` request header.  A cross-origin attacker
- * cannot read the cookie value (SameSite=Strict + browser origin policy),
- * so only the legitimate front-end can produce a matching header.
+ * cannot read the cookie value (browser Same-Origin Policy prevents
+ * cross-origin JS from reading cookies), so only the legitimate front-end
+ * can produce a matching header.  SameSite=None is required for the app to
+ * work inside cross-site iframes (Replit preview, OAuth pop-ups); CSRF
+ * protection is provided by the double-submit pattern, not SameSite.
  *
  * Mount AFTER cookieParser so req.cookies is already populated.
  */

@@ -83,6 +83,11 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     }
     if (res.status === 403) {
       const data = await res.json().catch(() => ({}));
+      // Clear the localStorage auth cache — same reason as the 401 path above.
+      // Without this, a banned user's stale placeholder triggers a redirect loop:
+      // login page sees isAuthenticated=true (from cache) → redirects to "/" →
+      // app sees 403 again → back to login → loop.
+      saveCachedAuthUser(null);
       if (data.banned) {
         clearNativeToken();
         if (!window.location.pathname.startsWith("/login")) {

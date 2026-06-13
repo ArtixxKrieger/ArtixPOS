@@ -149,7 +149,7 @@
     "@vitest/coverage-v8": "^4.1.6",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.31.10",
-    "esbuild": "^0.25.0",
+    "esbuild": ">=0.28.1",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -166,7 +166,13 @@
   "overrides": {
     "uuid": ">=11.1.1",
     "@esbuild-kit/core-utils": {
-      "esbuild": ">=0.25.0"
+      "esbuild": ">=0.28.1"
+    },
+    "vite": {
+      "esbuild": ">=0.28.1"
+    },
+    "drizzle-kit": {
+      "esbuild": "0.28.1"
     },
     "rimraf": ">=4.0.0",
     "glob": ">=10.0.0"

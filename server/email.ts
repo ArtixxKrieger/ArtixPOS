@@ -640,6 +640,136 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   });
 }
 
+export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): string {
+  const safeName = escHtml(name);
+  const body = `
+  <tr>
+    <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(109,40,217,0.12);">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+
+        <!-- Purple hero -->
+        <tr>
+          <td style="background-color:#7c3aed;padding:36px 40px 32px;" class="px-m">
+            <!-- Logo -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background-color:rgba(255,255,255,0.18);border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;">
+                  <span style="font-size:20px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:42px;display:inline-block;width:42px;">A</span>
+                </td>
+                <td style="padding-left:10px;vertical-align:middle;">
+                  <span style="font-size:20px;font-weight:900;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.3px;opacity:0.95;">Artix<span style="opacity:0.65;">POS</span></span>
+                </td>
+              </tr>
+            </table>
+            <!-- Heading -->
+            <p style="margin:0;font-size:32px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.15;letter-spacing:-0.6px;">Welcome to<br>ArtixPOS, ${safeName}!</p>
+            <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.75);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;">Your business OS is ready to go</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px 40px;" class="px-m">
+
+            <!-- Status badge -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background-color:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:50px;padding:8px 18px 8px 12px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="font-size:16px;line-height:1;padding-right:8px;">&#127881;</td>
+                      <td style="font-size:13px;font-weight:600;color:#6d28d9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Account successfully created</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 24px;font-size:15px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.75;">
+              Hi <strong style="color:#0f0a1e;">${safeName}</strong>, welcome aboard! You now have access to everything you need to run your business — from sales and inventory to staff, reports, and more.
+            </p>
+
+            <!-- Feature list -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:32px;">
+              <tr>
+                <td style="background-color:#faf8ff;border-radius:14px;padding:20px 24px;">
+                  <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#6d28d9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-transform:uppercase;letter-spacing:0.6px;">What you can do with ArtixPOS</p>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <tr>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128176;&nbsp; <strong>Point of Sale</strong> — fast checkout with offline support</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128202;&nbsp; <strong>Analytics &amp; Reports</strong> — real-time sales insights</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128230;&nbsp; <strong>Inventory</strong> — track stock across all branches</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128101;&nbsp; <strong>Staff &amp; Payroll</strong> — manage your team and schedules</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:14px;color:#374151;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">&#128203;&nbsp; <strong>Customers &amp; Memberships</strong> — loyalty and CRM tools</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- CTA -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:32px;">
+              <tr><td>${ctaButton("Go to my dashboard", dashboardUrl)}</td></tr>
+            </table>
+
+            <!-- Help box -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
+              <tr>
+                <td style="background-color:#faf8ff;border-left:3px solid #7c3aed;border-radius:0 10px 10px 0;padding:14px 18px;">
+                  <p style="margin:0;font-size:13px;color:#4b5563;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;">
+                    &#128172;&nbsp; <strong style="color:#1f2937;">Need help getting started?</strong> Reply to this email or visit <a href="https://artixpos.com" style="color:#7c3aed;text-decoration:none;">artixpos.com</a> — we're here for you.
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  ${globalFooter()}`;
+
+  return emailShell(body, `Welcome to ArtixPOS, ${name}!`);
+}
+
+export async function sendWelcomeEmail(to: string, name: string, dashboardUrl: string): Promise<boolean> {
+  return sendEmail({
+    to,
+    subject: `Welcome to ArtixPOS, ${name}! 🎉`,
+    text: [
+      `Welcome to ArtixPOS, ${name}!`,
+      "=".repeat(42),
+      "",
+      `Hi ${name}, welcome aboard! Your ArtixPOS account is ready.`,
+      "",
+      "With ArtixPOS you can:",
+      "  • Point of Sale — fast checkout with offline support",
+      "  • Analytics & Reports — real-time sales insights",
+      "  • Inventory — track stock across all branches",
+      "  • Staff & Payroll — manage your team and schedules",
+      "  • Customers & Memberships — loyalty and CRM tools",
+      "",
+      "Go to your dashboard:",
+      dashboardUrl,
+      "",
+      "Need help? Reply to this email — we're here for you.",
+      "",
+      "— The ArtixPOS Team | https://artixpos.com",
+    ].join("\n"),
+    html: buildWelcomeEmailHtml(name, dashboardUrl),
+    headers: { "X-Entity-Ref-ID": `welcome-${Date.now()}`, "Precedence": "bulk" },
+  });
+}
+
 export async function sendReceiptEmail(
   to: string,
   sale: ReceiptEmailData,

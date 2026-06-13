@@ -53,7 +53,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
+import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "./email";
 import { hashPassword, verifyPassword } from "./crypto";
 import { cache, settingsCacheKey } from "./cache";
 import { invalidateTenantCache } from "./storage";
@@ -1108,6 +1108,12 @@ export function setupAuth(app: Express) {
       const verifyUrl = `${verifyBaseUrl}/verify-email?token=${verifyToken}`;
       sendVerificationEmail(normalizedEmail, verifyUrl).catch((err) => {
         console.error("[auth] Failed to send verification email:", err);
+      });
+
+      // Send welcome email — fire-and-forget, non-blocking.
+      const dashboardUrl = `${verifyBaseUrl}/`;
+      sendWelcomeEmail(normalizedEmail, name.trim(), dashboardUrl).catch((err) => {
+        console.error("[auth] Failed to send welcome email:", err);
       });
 
       setAuthCookie(res, {

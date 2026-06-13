@@ -423,12 +423,16 @@ async function _doInit() {
       const msg: string = err?.message ?? "";
       if (
         err?.code === "ECONNREFUSED" ||
+        err?.code === "EMAXCONN" ||
         msg.includes("too many clients") ||
+        msg.includes("max client connections") ||
         msg.includes("Connection terminated") ||
         msg.includes("connection timeout") ||
         msg.includes("timeout exceeded") ||
         msg.includes("Client was closed") ||
-        msg.includes("pool is draining")
+        msg.includes("pool is draining") ||
+        msg.includes("connection pool") ||
+        msg.includes("remaining connection slots")
       ) {
         return res.status(503).json({
           message: "Server is temporarily overloaded — please retry in a moment.",

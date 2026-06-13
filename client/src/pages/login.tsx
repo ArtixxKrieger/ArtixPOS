@@ -710,7 +710,11 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setForgotError(data.message ?? "Something went wrong.");
+        if (res.status === 503 || data.code === "DB_UNAVAILABLE") {
+          setForgotError("The server is temporarily busy. Please wait a moment and try again.");
+        } else {
+          setForgotError(data.message ?? "Something went wrong.");
+        }
         return;
       }
       setForgotSuccess(true);

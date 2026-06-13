@@ -1,23 +1,35 @@
 /**
  * brute-force.ts
  *
- * Per-IP login attempt tracker with progressive blocking.
+ * Two-layer login attempt tracker with progressive blocking.
  *
- * When Upstash Redis is configured, Redis is the primary shared store so every
- * cluster worker sees the same block state — an attacker can no longer bypass
- * the limit by hitting different workers. Falls back to a per-process in-memory
- * Map when Redis is unavailable (development / no env vars set).
+ * Layer 1 — Per-IP (existing):
+ *   Blocks an IP after repeated failures regardless of which account is targeted.
+ *   Thresholds (rolling 15-min window):
+ *     ≥ 5  failures → block for 15 min  (medium brute force)
+ *     ≥ 20 failures → block for 1 h     (high brute force)
+ *     ≥ 50 failures → block for 24 h    (credential stuffing)
  *
- * Thresholds (per IP, rolling 15-min window):
- *   ≥ 5  failures → block for 15 min  (medium brute force)
- *   ≥ 20 failures → block for 1 h     (high brute force)
- *   ≥ 50 failures → block for 24 h    (credential stuffing)
+ * Layer 2 — Per-email (new):
+ *   Blocks a specific account after repeated failures even if the attacker
+ *   rotates IPs (VPN/proxy/botnet). The email is SHA-256-hashed before use as
+ *   a key so no PII is stored in Redis or in-process memory.
+ *   Thresholds (rolling 1-hour window):
+ *     ≥ 10 failures → block for 2 h
+ *     ≥ 25 failures → block for 24 h
+ *
+ * When Upstash Redis is configured it is the primary shared store so every
+ * cluster worker sees the same block state. Falls back to a per-process
+ * in-memory Map when Redis is unavailable.
  *
  * Redis key scheme:
- *   bf:cnt:{ip}    — INCR counter; TTL = WINDOW_SECS (reset on success)
- *   bf:block:{ip}  — block marker; TTL = block duration; value = block seconds
+ *   bf:cnt:{ip}        — IP failure counter; TTL = WINDOW_SECS
+ *   bf:block:{ip}      — IP block marker;    TTL = block duration
+ *   bf:ecnt:{emailHash} — email failure counter; TTL = EMAIL_WINDOW_SECS
+ *   bf:eblock:{emailHash} — email block marker; TTL = block duration
  */
 
+import { createHash } from "crypto";
 import type { Request, Response, NextFunction } from "express";
 import { getRedis, redisAvailable } from "./redis";
 
@@ -203,11 +215,155 @@ function getIp(req: Request): string {
   );
 }
 
+// ── Per-email rate limiting ────────────────────────────────────────────────────
+// Catches IP-rotating attackers who target a single account from many IPs.
+// The email is hashed with SHA-256 before storage so no PII hits Redis or RAM.
+
+const EMAIL_WINDOW_MS   = 60 * 60 * 1000; // 1-hour rolling window
+const EMAIL_WINDOW_SECS = EMAIL_WINDOW_MS / 1000;
+
+const EMAIL_THRESHOLDS = [
+  { count: 25, blockMs: 24 * 60 * 60 * 1000 }, // sustained campaign → 24 h
+  { count: 10, blockMs:  2 * 60 * 60 * 1000 }, // targeted attack    → 2 h
+] as const;
+
+const emailStore = new Map<string, AttemptRecord>();
+
+function hashEmail(email: string): string {
+  return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+}
+
+function getEmailRecord(hash: string): AttemptRecord {
+  if (!emailStore.has(hash)) emailStore.set(hash, { timestamps: [], blockedUntil: 0 });
+  return emailStore.get(hash)!;
+}
+
+function pruneEmailWindow(record: AttemptRecord): void {
+  const cutoff = Date.now() - EMAIL_WINDOW_MS;
+  record.timestamps = record.timestamps.filter(t => t > cutoff);
+}
+
+function memEmailRecordFailed(hash: string): void {
+  const record = getEmailRecord(hash);
+  pruneEmailWindow(record);
+  record.timestamps.push(Date.now());
+  const count = record.timestamps.length;
+  for (const { count: threshold, blockMs } of EMAIL_THRESHOLDS) {
+    if (count >= threshold) {
+      record.blockedUntil = Date.now() + blockMs;
+      break;
+    }
+  }
+}
+
+function memEmailBlockSeconds(hash: string): number {
+  const record = emailStore.get(hash);
+  if (!record || record.blockedUntil <= Date.now()) return 0;
+  return Math.ceil((record.blockedUntil - Date.now()) / 1000);
+}
+
+function memEmailClear(hash: string): void {
+  emailStore.delete(hash);
+}
+
+const eCntKey   = (h: string) => `bf:ecnt:${h}`;
+const eBlockKey = (h: string) => `bf:eblock:${h}`;
+
+async function redisEmailRecordFailed(hash: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    const count = await redis.incr(eCntKey(hash));
+    if (count === 1) await redis.expire(eCntKey(hash), EMAIL_WINDOW_SECS);
+    for (const { count: threshold, blockMs } of EMAIL_THRESHOLDS) {
+      if (count >= threshold) {
+        const blockSecs = Math.ceil(blockMs / 1000);
+        await redis.set(eBlockKey(hash), blockSecs, { ex: blockSecs });
+        console.warn(`[brute-force] Redis: email blocked for ${blockMs / 3_600_000}h after ${count} failed attempts`);
+        break;
+      }
+    }
+  } catch (err) {
+    console.error("[brute-force] Redis emailRecordFailed error:", err);
+  }
+}
+
+async function redisEmailBlockSeconds(hash: string): Promise<number> {
+  const redis = getRedis();
+  if (!redis) return 0;
+  try {
+    const ttl = await redis.ttl(eBlockKey(hash));
+    return ttl > 0 ? ttl : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function redisEmailClear(hash: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await redis.del(eCntKey(hash), eBlockKey(hash));
+  } catch (err) {
+    console.error("[brute-force] Redis emailClear error:", err);
+  }
+}
+
+/**
+ * Record a failed login attempt for a specific email address.
+ * Call this whenever an email/password pair fails authentication.
+ */
+export function recordEmailFailedAttempt(email: string): void {
+  const hash = hashEmail(email);
+  memEmailRecordFailed(hash);
+  if (redisAvailable) void redisEmailRecordFailed(hash);
+}
+
+/**
+ * Clear the email failure counter on successful login.
+ * Call this alongside recordSuccessfulLogin().
+ */
+export function recordEmailSuccessfulLogin(email: string): void {
+  const hash = hashEmail(email);
+  memEmailClear(hash);
+  if (redisAvailable) void redisEmailClear(hash);
+}
+
+/**
+ * Check whether a specific email is currently blocked.
+ * Returns { blocked: false } or { blocked: true, retryAfterSecs }.
+ * Async because it may need to check Redis for cross-worker state.
+ */
+export async function checkEmailBlocked(
+  email: string,
+): Promise<{ blocked: false } | { blocked: true; retryAfterSecs: number }> {
+  const hash = hashEmail(email);
+
+  const memSecs = memEmailBlockSeconds(hash);
+  if (memSecs > 0) return { blocked: true, retryAfterSecs: memSecs };
+
+  if (redisAvailable) {
+    const redisSecs = await redisEmailBlockSeconds(hash);
+    if (redisSecs > 0) {
+      // Warm local store to avoid repeated Redis lookups
+      const record = getEmailRecord(hash);
+      record.blockedUntil = Date.now() + redisSecs * 1000;
+      return { blocked: true, retryAfterSecs: redisSecs };
+    }
+  }
+
+  return { blocked: false };
+}
+
 // Purge stale in-memory records every 30 minutes to prevent memory creep.
 setInterval(() => {
   const now = Date.now();
   for (const [ip, record] of store.entries()) {
     pruneWindow(record);
     if (record.timestamps.length === 0 && record.blockedUntil < now) store.delete(ip);
+  }
+  for (const [hash, record] of emailStore.entries()) {
+    pruneEmailWindow(record);
+    if (record.timestamps.length === 0 && record.blockedUntil < now) emailStore.delete(hash);
   }
 }, 30 * 60 * 1000).unref();

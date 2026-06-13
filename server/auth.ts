@@ -57,7 +57,14 @@ import { sendPasswordResetEmail } from "./email";
 import { hashPassword, verifyPassword } from "./crypto";
 import { cache, settingsCacheKey } from "./cache";
 import { invalidateTenantCache } from "./storage";
-import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
+import {
+  bruteForceGuard,
+  recordFailedAttempt,
+  recordSuccessfulLogin,
+  recordEmailFailedAttempt,
+  recordEmailSuccessfulLogin,
+  checkEmailBlocked,
+} from "./brute-force";
 import { updateLastSeen } from "./admin-storage";
 
 function getClientIp(req: Request): string {
@@ -1126,6 +1133,20 @@ export function setupAuth(app: Express) {
     }
     try {
       const normalizedEmail = email.trim().toLowerCase();
+
+      // Per-email block check — catches IP-rotating attackers targeting one account.
+      // Runs before the DB lookup so a blocked email is rejected with zero DB cost.
+      const emailBlock = await checkEmailBlocked(normalizedEmail);
+      if (emailBlock.blocked) {
+        return res
+          .status(429)
+          .set("Retry-After", String(emailBlock.retryAfterSecs))
+          .json({
+            message: `Too many failed attempts for this account. Try again in ${Math.ceil(emailBlock.retryAfterSecs / 60)} minute(s).`,
+            retryAfter: emailBlock.retryAfterSecs,
+          });
+      }
+
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
 
       // runAsAdmin bypasses RLS — at login time there is no tenant context so the
@@ -1137,6 +1158,7 @@ export function setupAuth(app: Express) {
 
       if (!user || user.provider !== "email" || !user.passwordHash) {
         recordFailedAttempt(ip);
+        recordEmailFailedAttempt(normalizedEmail);
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
@@ -1151,6 +1173,7 @@ export function setupAuth(app: Express) {
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
         recordFailedAttempt(ip);
+        recordEmailFailedAttempt(normalizedEmail);
         logAuthEvent({
           userId: user.id,
           tenantId: user.tenantId ?? null,
@@ -1161,6 +1184,7 @@ export function setupAuth(app: Express) {
       }
 
       recordSuccessfulLogin(ip);
+      recordEmailSuccessfulLogin(normalizedEmail);
       setAuthCookie(res, user as any, rememberMe === true);
       logAuthEvent({
         userId: user.id,

@@ -12,10 +12,32 @@ import nodemailer from "nodemailer";
 //   3. Fall back to nodemailer SMTP for any other provider
 
 function getResendApiKey(): string | null {
-  if (process.env.RESEND_API_KEY) return process.env.RESEND_API_KEY;
-  const smtpPass = process.env.SMTP_PASS;
+  // Explicit dedicated variable — most reliable, no prefix-sniffing required
+  const explicit = process.env.RESEND_API_KEY?.trim();
+  if (explicit) return explicit;
+  // Fallback: detect Resend API key stored in SMTP_PASS (trim to tolerate spaces/quotes)
+  const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, "");
   if (smtpPass?.startsWith("re_")) return smtpPass;
   return null;
+}
+
+/** Called once at startup — logs which email transport is active without revealing the key. */
+export function logEmailTransportStatus(): void {
+  const key = getResendApiKey();
+  if (key) {
+    const masked = key.slice(0, 7) + "..." + key.slice(-4);
+    console.log(`[email] transport=resend-http-api key=${masked}`);
+    return;
+  }
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  if (host && user && pass) {
+    console.log(`[email] transport=smtp host=${host} user=${user}`);
+  } else {
+    console.warn("[email] ⚠  NO EMAIL TRANSPORT CONFIGURED — password reset emails will not send.");
+    console.warn("[email]    Set RESEND_API_KEY=re_xxx in your environment to enable email.");
+  }
 }
 
 // SMTP fallback — only used when not using Resend HTTP API

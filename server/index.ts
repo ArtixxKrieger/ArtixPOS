@@ -24,6 +24,7 @@ import { warmCache } from "./startup-warm";
 import { cache } from "./cache";
 import { tenantContextMiddleware } from "./tenant-context";
 import { setupRLS } from "./rls-setup";
+import { logEmailTransportStatus } from "./email";
 import { pool } from "./db";
 import { startCleanupScheduler } from "./cleanup";
 import { ensurePartitions } from "./partition-manager";
@@ -392,6 +393,8 @@ async function _doInit() {
         console.warn("[rls] ⚠  setupRLS skipped:", msg);
       }
     }
+
+    logEmailTransportStatus();
 
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);

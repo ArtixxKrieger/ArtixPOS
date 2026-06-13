@@ -422,9 +422,22 @@ function emailShell(bodyHtml: string, previewText = ""): string {
     body{margin:0;padding:0;background-color:#eff6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;}
     .email-container{max-width:600px;margin:0 auto;}
     a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}
+    /* ── Mobile (≤600 px) ───────────────────────────────────────────────────── */
     @media only screen and (max-width:600px){
-      .email-container{width:100%!important;}
+      /* Container fills screen width */
+      .email-container{width:100%!important;max-width:100%!important;}
+      /* Horizontal padding on hero + body sections */
       .px-m{padding-left:20px!important;padding-right:20px!important;}
+      /* Hero heading — slightly smaller on narrow screens */
+      .hero-h{font-size:24px!important;letter-spacing:-0.3px!important;line-height:1.25!important;}
+      /* CTA button — full-width, easy tap target */
+      .cta-btn{
+        display:block!important;
+        text-align:center!important;
+        padding:16px 24px!important;
+        width:auto!important;
+        box-sizing:border-box!important;
+      }
     }
   </style>
 </head>
@@ -456,7 +469,7 @@ function ctaButton(label: string, url: string, color = "#3b82f6"): string {
   </v:roundrect>
   <![endif]-->
   <!--[if !mso]><!-->
-  <a href="${safeHref}" style="display:inline-block;background-color:${color};color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;font-weight:700;letter-spacing:0.3px;line-height:1;padding:16px 52px;text-decoration:none;border-radius:10px;mso-hide:all;">${label}</a>
+  <a href="${safeHref}" class="cta-btn" style="display:inline-block;background-color:${color};color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;font-weight:700;letter-spacing:0.3px;line-height:1;padding:16px 52px;text-decoration:none;border-radius:10px;mso-hide:all;">${label}</a>
   <!--<![endif]-->`;
 }
 
@@ -498,7 +511,7 @@ export function buildVerificationEmailHtml(verifyUrl: string): string {
               </tr>
             </table>
             <!-- Heading -->
-            <p style="margin:0;font-size:32px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.15;letter-spacing:-0.6px;">Confirm your<br>email address</p>
+            <p class="hero-h" style="margin:0;font-size:32px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.15;letter-spacing:-0.6px;">Confirm your<br>email address</p>
             <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.75);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;">One quick step to activate your account</p>
           </td>
         </tr>
@@ -589,7 +602,7 @@ export function buildPasswordResetEmailHtml(resetUrl: string): string {
                 </td>
               </tr>
             </table>
-            <p style="margin:0;font-size:30px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.2;letter-spacing:-0.5px;">Reset your<br>password</p>
+            <p class="hero-h" style="margin:0;font-size:30px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.2;letter-spacing:-0.5px;">Reset your<br>password</p>
           </td>
         </tr>
 
@@ -923,7 +936,7 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
               </tr>
             </table>
             <!-- Heading -->
-            <p style="margin:0;font-size:32px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.15;letter-spacing:-0.6px;">Welcome to<br>ArtixPOS, ${safeName}!</p>
+            <p class="hero-h" style="margin:0;font-size:32px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.15;letter-spacing:-0.6px;">Welcome to<br>ArtixPOS, ${safeName}!</p>
             <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.75);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;">Your business OS is ready to go</p>
           </td>
         </tr>

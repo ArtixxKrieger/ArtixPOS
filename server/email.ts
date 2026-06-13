@@ -479,15 +479,54 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
 // Send functions (use the HTML builders above)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Returns a display-name From header, e.g. "ArtixPOS <noreply@artixpos.com>"
+function senderFrom(): string {
+  const addr = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@artixpos.com";
+  // If the address already contains a display name (has angle brackets), use as-is
+  if (addr.includes("<")) return addr;
+  return `ArtixPOS <${addr}>`;
+}
+
+// Standard headers that every transactional email should carry.
+// • X-Mailer identifies the sender software (not secret, helps whitelist filters).
+// • X-Entity-Ref-ID gives spam filters a stable per-message dedup key.
+// • Precedence: bulk tells Gmail/Outlook this is automated, not a personal reply.
+function baseHeaders(refId: string): Record<string, string> {
+  return {
+    "X-Mailer": "ArtixPOS Mailer",
+    "X-Entity-Ref-ID": refId,
+    "Precedence": "bulk",
+  };
+}
+
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<boolean> {
   const transporter = getTransporter();
   if (!transporter) return false;
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@artixpos.com";
+  const refId = `verify-${Date.now()}`;
   try {
     await transporter.sendMail({
-      from, to,
+      from: senderFrom(),
+      to,
       subject: "Confirm your ArtixPOS email address",
+      // Plain-text version: required for good deliverability.
+      // HTML-only emails are penalised by spam filters.
+      text: [
+        "ArtixPOS — Confirm your email address",
+        "=".repeat(42),
+        "",
+        "Thanks for signing up! Click the link below to verify your",
+        "email address and activate your account.",
+        "This link expires in 24 hours.",
+        "",
+        verifyUrl,
+        "",
+        "If you didn't create an ArtixPOS account, you can safely",
+        "ignore this email — no account will be created without confirmation.",
+        "",
+        "— The ArtixPOS Team | https://artixpos.com",
+      ].join("\n"),
       html: buildVerificationEmailHtml(verifyUrl),
+      headers: baseHeaders(refId),
     });
     return true;
   } catch (err) {
@@ -499,12 +538,35 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<boolean> {
   const transporter = getTransporter();
   if (!transporter) return false;
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@artixpos.com";
+  const refId = `reset-${Date.now()}`;
   try {
     await transporter.sendMail({
-      from, to,
+      from: senderFrom(),
+      to,
       subject: "Reset your ArtixPOS password",
+      text: [
+        "ArtixPOS — Reset your password",
+        "=".repeat(42),
+        "",
+        "We received a request to reset the password for your ArtixPOS",
+        "account. Click the link below to choose a new password.",
+        "This link expires in 1 hour.",
+        "",
+        resetUrl,
+        "",
+        "WHAT HAPPENS NEXT",
+        "1. Click the link above within 1 hour",
+        "2. Enter and confirm your new password",
+        "3. Sign back in to your account",
+        "",
+        "Didn't request this? You can safely ignore this email.",
+        "Your password will NOT be changed.",
+        "",
+        "Need help? support@artixpos.com",
+        "— The ArtixPOS Team | https://artixpos.com",
+      ].join("\n"),
       html: buildPasswordResetEmailHtml(resetUrl),
+      headers: baseHeaders(refId),
     });
     return true;
   } catch (err) {
@@ -520,12 +582,60 @@ export async function sendReceiptEmail(
 ): Promise<boolean> {
   const transporter = getTransporter();
   if (!transporter) return false;
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@artixpos.com";
+
+  const currency = store.currency ?? "₱";
+  const fmt = (v: string | null | undefined) => `${currency}${parseFloat(v ?? "0").toFixed(2)}`;
+  const refNum = sale.orNumber ?? sale.receiptNumber ?? "";
+  const dateStr = new Date(sale.createdAt).toLocaleString("en-PH", {
+    dateStyle: "long", timeStyle: "short",
+  });
+
+  const items = Array.isArray(sale.items) ? (sale.items as any[]) : [];
+  const itemLines = items.map((item: any) => {
+    const name  = item?.product?.name ?? item?.name ?? item?.title ?? "Item";
+    const size  = item?.size?.name ? ` (${item.size.name})` : "";
+    const qty   = item?.quantity ?? 1;
+    const price = parseFloat(item?.size?.price ?? item?.product?.price ?? item?.price ?? "0");
+    const mods  = (item?.modifiers ?? []).reduce((s: number, m: any) => s + parseFloat(m?.price ?? "0"), 0);
+    const total = (price + mods) * qty;
+    return `  ${name}${size}${qty > 1 ? ` x${qty}` : ""}  ${currency}${total.toFixed(2)}`;
+  });
+
+  const hasTax      = parseFloat(sale.tax ?? "0") > 0;
+  const hasDiscount = parseFloat(sale.discount ?? "0") > 0;
+
+  const textBody = [
+    `Receipt from ${store.name}`,
+    "=".repeat(42),
+    ...(refNum ? [`Receipt #${refNum}`] : []),
+    dateStr,
+    ...(sale.customerName ? [`Customer: ${sale.customerName}`] : []),
+    "",
+    "ITEMS",
+    "-".repeat(28),
+    ...itemLines,
+    "-".repeat(28),
+    ...(hasTax ? [`Subtotal: ${fmt(sale.subtotal)}`, `Tax:      ${fmt(sale.tax)}`] : []),
+    ...(hasDiscount ? [`Discount: -${fmt(sale.discount)}`] : []),
+    `TOTAL:    ${fmt(sale.total)}`,
+    `Payment:  ${sale.paymentMethod}`,
+    "",
+    ...(store.address ? [`${store.address}`] : []),
+    ...(store.phone   ? [`${store.phone}`]   : []),
+    ...(store.receiptFooter ? ["", store.receiptFooter] : []),
+    "",
+    "Powered by ArtixPOS — https://artixpos.com",
+  ].join("\n");
+
+  const refId = `receipt-${refNum || Date.now()}`;
   try {
     await transporter.sendMail({
-      from, to,
-      subject: `Your receipt from ${escHtml(store.name)}`,
+      from: senderFrom(),
+      to,
+      subject: `Your receipt from ${store.name}`,
+      text: textBody,
       html: buildReceiptEmailHtml(sale, store),
+      headers: baseHeaders(refId),
     });
     return true;
   } catch (err) {

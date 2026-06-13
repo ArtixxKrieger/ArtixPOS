@@ -75,6 +75,10 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
         debugLog("auth", "fetchMe — stale native token detected, clearing");
         clearNativeToken();
       }
+      // Clear the localStorage auth cache so the stale placeholder can't trigger
+      // phantom redirects to "/" on the next page load (which causes the reload loop
+      // when cookies aren't delivered, e.g. in a cross-site iframe context).
+      saveCachedAuthUser(null);
       return null;
     }
     if (res.status === 403) {

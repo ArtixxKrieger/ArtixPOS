@@ -311,10 +311,19 @@ export function signToken(user: TokenUser, rememberMe = false): string {
 // Shared cookie options — MUST be identical between setAuthCookie / clearAuthCookie
 // or browsers (especially Chrome on HTTPS) silently refuse to delete the cookie,
 // which is what made "logout" appear to do nothing on the first click.
+//
+// SameSite=None + Secure is required when the app runs inside a cross-site iframe
+// (e.g. Replit's webview preview is embedded in replit.com while the app lives at
+// *.replit.dev — different eTLD+1 — so SameSite=Lax blocks cookie delivery on every
+// XHR/fetch request, causing all post-login API calls to return 401).
+// We also apply SameSite=None in production since it is always served over HTTPS.
+const _isReplitEnv = !!(process.env.REPL_ID || process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN);
+const _useSecureCookie = process.env.NODE_ENV === "production" || _isReplitEnv;
+
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  secure: _useSecureCookie,
+  sameSite: (_useSecureCookie ? "none" : "lax") as "none" | "lax",
   path: "/",
 };
 

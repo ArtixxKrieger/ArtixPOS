@@ -2,3 +2,4 @@
 - [Staff PIN clock-in system](staff-pin-system.md) — PIN auth design decisions: getJwtSecret must be exported from auth.ts to share the same secret; timeLogs has no tenantId column; owners/managers excluded from PIN login.
 - [Employee role design](employee-role-design.md) — "staff" role added for clock-in-only workers; separate from POS users; PinSessionApp branches on role.
 - [POS Feature Flags system](pos-feature-flags.md) — posFeatures JSONB in user_settings; DB migration in migrations/add_pos_features.sql must be run; POSWithSetupGuard in App.tsx redirects first-time users to /features?setup=1.
+- [Replit iframe cookie SameSite fix](replit-cookie-samesite.md) — SameSite=None;Secure required in Replit env; detect via REPL_ID/REPLIT_DOMAINS; also clear localStorage auth cache in fetchMe on 401.

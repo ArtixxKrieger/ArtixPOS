@@ -978,10 +978,8 @@ export function registerAdminRoutes(app: Express) {
       // Fetch updated user and issue new JWT
       const updatedUser = { ...user, tenantId: tenant.id, role: "owner" as const };
       const token = signToken(updatedUser);
-      res.cookie("auth_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+      res.cookie(AUTH_COOKIE, token, {
+        ...AUTH_COOKIE_OPTIONS,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 

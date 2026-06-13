@@ -65,9 +65,85 @@ export function resetTransporter(): void {
   _transporter = undefined;
 }
 
+// ─── Concurrency limiter ───────────────────────────────────────────────────────
+// Caps simultaneous outbound email calls so a burst of registrations/resets
+// cannot overwhelm the provider or trigger rate-limit bans.
+const MAX_CONCURRENT_SENDS = 5;
+let _activeCount = 0;
+const _waitQueue: Array<() => void> = [];
+
+function _acquireSlot(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (_activeCount < MAX_CONCURRENT_SENDS) {
+      _activeCount++;
+      resolve();
+    } else {
+      _waitQueue.push(() => { _activeCount++; resolve(); });
+    }
+  });
+}
+
+function _releaseSlot(): void {
+  _activeCount--;
+  const next = _waitQueue.shift();
+  if (next) next();
+}
+
+// ─── Per-attempt result type ──────────────────────────────────────────────────
+type AttemptResult =
+  | { ok: true }
+  | { ok: false; permanent: true }
+  | { ok: false; permanent: false; retryAfterMs?: number };
+
+// ─── Single Resend HTTP attempt ───────────────────────────────────────────────
+const FETCH_TIMEOUT_MS = 10_000; // 10 s — abort if provider hangs
+
+async function _attemptResend(
+  key: string,
+  from: string,
+  opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
+): Promise<AttemptResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [opts.to], subject: opts.subject, text: opts.text, html: opts.html, headers: opts.headers }),
+    });
+    const body = await res.text().catch(() => "(unreadable)");
+
+    if (res.ok) return { ok: true };
+
+    if (res.status === 429) {
+      const ra = parseInt(res.headers.get("retry-after") ?? "2", 10);
+      console.warn(`[email] Resend rate-limited (429), retry-after=${ra}s`);
+      return { ok: false, permanent: false, retryAfterMs: ra * 1000 };
+    }
+    if (res.status >= 500) {
+      console.warn(`[email] Resend server error ${res.status}:`, body.slice(0, 200));
+      return { ok: false, permanent: false };
+    }
+    // 4xx (not 429) — bad request / invalid email — no point retrying
+    console.error(`[email] Resend permanent error ${res.status}:`, body.slice(0, 200));
+    return { ok: false, permanent: true };
+  } catch (err: any) {
+    const reason = err?.name === "AbortError" ? "timeout (10 s)" : (err?.message ?? String(err));
+    console.warn(`[email] Resend network error: ${reason}`);
+    return { ok: false, permanent: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Unified send helper ──────────────────────────────────────────────────────
-// Tries Resend HTTP API (via native fetch) first; falls back to nodemailer SMTP.
-// Returns true on success, false on any failure (never throws).
+// • Queues through the concurrency limiter (max 5 concurrent sends)
+// • Up to 3 attempts with exponential back-off (1 s → 2 s → 4 s + jitter)
+// • Respects Retry-After header on 429 responses
+// • Returns true on success, false on permanent or exhausted failure (never throws)
+const MAX_ATTEMPTS = 3;
+
 async function sendEmail(opts: {
   to: string;
   subject: string;
@@ -81,51 +157,71 @@ async function sendEmail(opts: {
   })();
 
   const resendKey = getResendApiKey();
-  console.log(`[email] transport=${resendKey ? "resend-api" : "smtp"} to=${opts.to} subject="${opts.subject}"`);
+  const transport = resendKey ? "resend-api" : "smtp";
+  console.log(`[email] queued transport=${transport} to=${opts.to} subject="${opts.subject}" queue=${_waitQueue.length}`);
 
-  if (resendKey) {
-    try {
-      console.log(`[email] calling Resend API from=${from}`);
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from,
-          to: [opts.to],
-          subject: opts.subject,
-          text: opts.text,
-          html: opts.html,
-          headers: opts.headers,
-        }),
-      });
-      const body = await res.text().catch(() => "(unreadable)");
-      if (!res.ok) {
-        console.error(`[email] Resend API error ${res.status}:`, body);
-        return false;
+  await _acquireSlot();
+  try {
+    // ── Resend HTTP API path ────────────────────────────────────────────────
+    if (resendKey) {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (attempt > 1) {
+          const jitter = Math.random() * 200;
+          const baseDelay = 1000 * 2 ** (attempt - 2); // 1 s, 2 s, 4 s
+          const delay = Math.min(baseDelay + jitter, 8000);
+          console.warn(`[email] Resend retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`);
+          await new Promise<void>((r) => setTimeout(r, delay));
+        }
+
+        const result = await _attemptResend(resendKey, from, opts);
+
+        if (result.ok) {
+          if (attempt > 1) console.log(`[email] Resend succeeded on attempt ${attempt} to=${opts.to}`);
+          else console.log(`[email] Resend sent to=${opts.to}`);
+          return true;
+        }
+        if (result.permanent) return false; // e.g. invalid email address — no retry
+
+        // Transient failure — if the provider asked us to wait longer, honour it
+        if (result.retryAfterMs && result.retryAfterMs > 0 && attempt < MAX_ATTEMPTS) {
+          console.warn(`[email] Honouring Retry-After ${result.retryAfterMs}ms before next attempt`);
+          await new Promise<void>((r) => setTimeout(r, result.retryAfterMs));
+        }
       }
-      console.log(`[email] Resend API success ${res.status}:`, body);
-      return true;
-    } catch (err) {
-      console.error("[email] Resend fetch threw:", err);
+      console.error(`[email] Resend gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);
       return false;
     }
-  }
 
-  // SMTP fallback — for non-Resend providers
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.warn("[email] No transport configured — set RESEND_API_KEY or SMTP_HOST/USER/PASS");
+    // ── SMTP (nodemailer) path ──────────────────────────────────────────────
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.warn("[email] No transport configured — set RESEND_API_KEY or SMTP_HOST/USER/PASS");
+      return false;
+    }
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (attempt > 1) {
+        const delay = Math.min(1000 * 2 ** (attempt - 2) + Math.random() * 200, 8000);
+        console.warn(`[email] SMTP retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`);
+        await new Promise<void>((r) => setTimeout(r, delay));
+      }
+      try {
+        await transporter.sendMail({ from, ...opts });
+        if (attempt > 1) console.log(`[email] SMTP succeeded on attempt ${attempt} to=${opts.to}`);
+        else console.log(`[email] SMTP sent to=${opts.to}`);
+        return true;
+      } catch (err: any) {
+        // SMTP 5xx = transient; 4xx = permanent (bad address, auth, etc.)
+        const code: number = err?.responseCode ?? 0;
+        const isPermanent = code >= 400 && code < 500;
+        console.error(`[email] SMTP attempt ${attempt} failed (code=${code}):`, err?.message);
+        if (isPermanent) return false; // no retry
+      }
+    }
+    console.error(`[email] SMTP gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);
     return false;
-  }
-  try {
-    await transporter.sendMail({ from, ...opts });
-    return true;
-  } catch (err) {
-    console.error("[email] SMTP sendMail failed:", err);
-    return false;
+  } finally {
+    _releaseSlot();
   }
 }
 

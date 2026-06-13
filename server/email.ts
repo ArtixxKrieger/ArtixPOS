@@ -45,6 +45,39 @@ export async function sendPasswordResetEmail(
   return true;
 }
 
+export async function sendVerificationEmail(
+  to: string,
+  verifyUrl: string
+): Promise<boolean> {
+  const transporter = getTransporter();
+  if (!transporter) return false;
+  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@artixpos.com";
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Confirm your ArtixPOS email address",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <div style="margin-bottom:24px">
+          <span style="font-size:22px;font-weight:800;color:#0f0a1e">Artix</span><span style="font-size:22px;font-weight:800;color:#7c3aed">POS</span>
+        </div>
+        <h2 style="margin:0 0 8px;font-size:22px;color:#0f0a1e">Confirm your email</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 24px;line-height:1.6">
+          Thanks for signing up! Click the button below to verify your email address
+          and activate your account. This link expires in 24 hours.
+        </p>
+        <a href="${verifyUrl}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:14px">
+          Confirm email address
+        </a>
+        <p style="color:#999;font-size:12px;margin:24px 0 0;line-height:1.6">
+          If you didn't create an ArtixPOS account, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  });
+  return true;
+}
+
 export interface ReceiptEmailData {
   total: string;
   subtotal: string;

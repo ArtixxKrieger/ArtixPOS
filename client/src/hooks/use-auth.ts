@@ -45,6 +45,7 @@ export interface AuthUser {
   activeBranchId: number | null;
   activeBranch: ActiveBranchInfo | null;
   pinSession?: boolean;
+  emailVerified?: boolean;
 }
 
 async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthUser | null> {

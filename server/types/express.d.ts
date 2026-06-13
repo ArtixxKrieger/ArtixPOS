@@ -24,6 +24,7 @@ declare global {
       tenantId: string | null;
       role: string;
       activeBranchId: number | null;
+      emailVerified?: boolean;
     }
 
     interface Request {

@@ -98,6 +98,9 @@ export const users = pgTable("users", {
   lastSeenAt: text("last_seen_at"),
   resetToken: text("reset_token"),
   resetTokenExpires: text("reset_token_expires"),
+  emailVerified: boolean("email_verified").default(true),
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpires: text("email_verification_expires"),
   // Payroll fields
   wageType: text("wage_type").default("none"), // none | hourly | monthly | commission
   wageRate: text("wage_rate").default("0"),

@@ -53,7 +53,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { sendPasswordResetEmail } from "./email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
 import { hashPassword, verifyPassword } from "./crypto";
 import { cache, settingsCacheKey } from "./cache";
 import { invalidateTenantCache } from "./storage";
@@ -282,6 +282,7 @@ export interface TokenUser {
   tenantId: string | null;
   role: string;
   activeBranchId: number | null;
+  emailVerified?: boolean;
 }
 
 export function verifyToken(token: string): Express.User {
@@ -295,6 +296,8 @@ export function verifyToken(token: string): Express.User {
     tenantId: payload.tenantId ?? null,
     role: payload.role ?? "owner",
     activeBranchId: payload.activeBranchId ?? null,
+    // Default true so old tokens (issued before email verification existed) aren't blocked.
+    emailVerified: payload.emailVerified ?? true,
   };
 }
 
@@ -310,6 +313,7 @@ export function signToken(user: TokenUser, rememberMe = false): string {
       tenantId: user.tenantId ?? null,
       role: user.role ?? "owner",
       activeBranchId: user.activeBranchId ?? null,
+      emailVerified: user.emailVerified ?? true,
     },
     getJwtSecret(),
     { expiresIn: rememberMe ? "90d" : "7d" },
@@ -1066,6 +1070,9 @@ export function setupAuth(app: Express) {
       const normalizedEmail = email.trim().toLowerCase();
       const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
 
+      const verifyToken = crypto.randomBytes(32).toString("hex");
+      const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
       const created = await runAsAdmin(pool, async (adminDb) => {
         const [existing] = await adminDb.select().from(users).where(eq(users.id, userId));
         if (existing) return null;
@@ -1079,6 +1086,9 @@ export function setupAuth(app: Express) {
           provider: "email",
           providerId: normalizedEmail,
           passwordHash,
+          emailVerified: false,
+          emailVerificationToken: verifyToken,
+          emailVerificationExpires: verifyExpires,
         } as any);
 
         const [row] = await adminDb.select().from(users).where(eq(users.id, userId));
@@ -1093,6 +1103,13 @@ export function setupAuth(app: Express) {
         });
       }
 
+      // Send verification email — fire-and-forget so a mail failure doesn't block login.
+      const verifyBaseUrl = getBaseUrl();
+      const verifyUrl = `${verifyBaseUrl}/verify-email?token=${verifyToken}`;
+      sendVerificationEmail(normalizedEmail, verifyUrl).catch((err) => {
+        console.error("[auth] Failed to send verification email:", err);
+      });
+
       setAuthCookie(res, {
         id: created.id,
         name: created.name ?? null,
@@ -1102,6 +1119,7 @@ export function setupAuth(app: Express) {
         tenantId: (created as any).tenantId ?? null,
         role: created.role ?? "owner",
         activeBranchId: (created as any).activeBranchId ?? null,
+        emailVerified: false,
       });
       logAuthEvent({
         userId: created.id,
@@ -1111,6 +1129,7 @@ export function setupAuth(app: Express) {
       });
       res.status(201).json({
         ok: true,
+        emailVerified: false,
         user: {
           id: created.id,
           name: created.name ?? null,
@@ -1121,11 +1140,101 @@ export function setupAuth(app: Express) {
           role: (created as any).role ?? "owner",
           activeBranchId: (created as any).activeBranchId ?? null,
           activeBranch: null,
+          emailVerified: false,
         },
       });
     } catch (err) {
       next(err);
     }
+  });
+
+  // ── Email verification ────────────────────────────────────────────────────────
+
+  // Rate-limit resend requests: max 1 per 60 s per user (in-memory; good enough).
+  const resendCooldown = new Map<string, number>();
+
+  app.get("/api/auth/verify-email", async (req, res, next) => {
+    const token = req.query.token as string | undefined;
+    if (!token) return res.status(400).json({ message: "Token is required.", code: "MISSING" });
+    try {
+      const [user] = await runAsAdmin(pool, async (adminDb) =>
+        adminDb
+          .select()
+          .from(users)
+          .where(eq(users.emailVerificationToken, token))
+          .limit(1),
+      );
+
+      if (!user) return res.status(400).json({ message: "Invalid verification link.", code: "INVALID" });
+      if ((user as any).emailVerified) return res.status(200).json({ ok: true, alreadyVerified: true });
+
+      const expires = (user as any).emailVerificationExpires;
+      if (expires && new Date(expires) < new Date()) {
+        return res.status(400).json({ message: "This link has expired. Please request a new one.", code: "EXPIRED" });
+      }
+
+      await runAsAdmin(pool, async (adminDb) =>
+        (adminDb.update(users) as any)
+          .set({ emailVerified: true, emailVerificationToken: null, emailVerificationExpires: null })
+          .where(eq(users.id, user.id)),
+      );
+
+      // Issue a fresh cookie so the JWT carries emailVerified: true immediately.
+      setAuthCookie(res, {
+        id: user.id,
+        name: user.name ?? null,
+        email: user.email ?? null,
+        avatar: user.avatar ?? null,
+        provider: user.provider,
+        tenantId: (user as any).tenantId ?? null,
+        role: user.role ?? "owner",
+        activeBranchId: (user as any).activeBranchId ?? null,
+        emailVerified: true,
+      });
+
+      logAuthEvent({ userId: user.id, tenantId: (user as any).tenantId ?? null, action: "email_verified", metadata: {} });
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/auth/resend-verification", async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ message: "Login required." });
+    const userId = req.user.id;
+    try {
+      const [user] = await runAsAdmin(pool, async (adminDb) =>
+        adminDb.select().from(users).where(eq(users.id, userId)).limit(1),
+      );
+      if (!user) return res.status(404).json({ message: "User not found." });
+      if ((user as any).emailVerified) return res.status(400).json({ message: "Email is already verified." });
+      if (user.provider !== "email") return res.status(400).json({ message: "Not an email account." });
+      if (!user.email) return res.status(400).json({ message: "No email on record." });
+
+      const last = resendCooldown.get(userId) ?? 0;
+      const waitSecs = Math.ceil((last + 60_000 - Date.now()) / 1000);
+      if (waitSecs > 0) {
+        return res.status(429).set("Retry-After", String(waitSecs)).json({
+          message: `Please wait ${waitSecs} second(s) before requesting another email.`,
+        });
+      }
+
+      const newToken = crypto.randomBytes(32).toString("hex");
+      const newExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      await runAsAdmin(pool, async (adminDb) =>
+        (adminDb.update(users) as any)
+          .set({ emailVerificationToken: newToken, emailVerificationExpires: newExpires })
+          .where(eq(users.id, userId)),
+      );
+
+      resendCooldown.set(userId, Date.now());
+
+      const baseUrl = getBaseUrl();
+      const verifyUrl = `${baseUrl}/verify-email?token=${newToken}`;
+      sendVerificationEmail(user.email, verifyUrl).catch((err) => {
+        console.error("[auth] resend verification email failed:", err);
+      });
+
+      res.json({ ok: true });
+    } catch (err) { next(err); }
   });
 
   app.post("/api/auth/login", bruteForceGuard, async (req, res, next) => {
@@ -1562,6 +1671,7 @@ export function setupAuth(app: Express) {
     let liveRole = u.role ?? "owner";
     let liveTenantId: string | null = u.tenantId ?? null;
     let liveActiveBranchId: number | null = u.activeBranchId ?? null;
+    let liveEmailVerified: boolean = (u as any).emailVerified ?? true;
     try {
       const [dbUser] = await runAsAdmin(pool, async (adminDb) =>
         adminDb
@@ -1569,6 +1679,7 @@ export function setupAuth(app: Express) {
             tenantId: users.tenantId,
             role: users.role,
             isBanned: users.isBanned,
+            emailVerified: users.emailVerified,
           })
           .from(users)
           .where(eq(users.id, u.id))
@@ -1583,6 +1694,7 @@ export function setupAuth(app: Express) {
         }
         liveRole = (dbUser.role as string) ?? liveRole;
         liveTenantId = (dbUser.tenantId as string | null) ?? liveTenantId;
+        liveEmailVerified = dbUser.emailVerified ?? true;
       }
     } catch (err) {
       // Non-critical — fall back to JWT values if DB read fails
@@ -1635,6 +1747,7 @@ export function setupAuth(app: Express) {
         role: liveRole,
         activeBranchId: liveActiveBranchId,
         activeBranch,
+        emailVerified: liveEmailVerified,
       },
     });
   });

@@ -4,7 +4,7 @@ import {
   timeLogs,
   type Tenant, type Branch, type User, type AuditLog, type UserBranch, type RolePermission,
 } from "@shared/schema";
-import { eq, and, desc, inArray, isNull, isNotNull, sql, gte, lte } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, isNull, isNotNull, sql, gte, lte } from "drizzle-orm";
 import { invalidateTenantCache } from "./storage";
 import crypto from "crypto";
 
@@ -279,6 +279,77 @@ export async function getAuditLogs(
     .limit(limit);
 
   return rows as AuditLogWithActor[];
+}
+
+// ── Audit log chain integrity verifier ────────────────────────────────────
+//
+// The audit log uses a SHA-256 hash chain: each entry stores the hash of the
+// previous entry as `previousHash`.  This creates a tamper-evident ledger —
+// any deletion, insertion, or reordering of records breaks the chain.
+//
+// This verifier walks every entry for a tenant (oldest → newest) and checks:
+//   1. The first entry has previousHash = null (genesis).
+//   2. Every subsequent entry's previousHash equals the preceding recordHash.
+//
+// Note: individual record *content* hashes cannot be re-verified here because
+// the original hash payload included a JavaScript timestamp that isn't stored
+// separately in the DB.  Chain topology verification is still highly valuable:
+// it detects deletions, insertions between entries, and any reordering.
+
+export interface AuditChainBreak {
+  position: number;
+  entryId: number;
+  expected: string | null;
+  actual: string | null;
+  createdAt: string | null;
+}
+
+export interface AuditChainVerifyResult {
+  ok: boolean;
+  total: number;
+  broken: number;
+  breaks: AuditChainBreak[];
+  checkedAt: string;
+}
+
+export async function verifyAuditLogChain(tenantId: string): Promise<AuditChainVerifyResult> {
+  const entries = await db
+    .select({
+      id: auditLogs.id,
+      previousHash: auditLogs.previousHash,
+      recordHash: auditLogs.recordHash,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(eq(auditLogs.tenantId, tenantId))
+    .orderBy(asc(auditLogs.createdAt), asc(auditLogs.id));
+
+  const breaks: AuditChainBreak[] = [];
+  let prevHash: string | null = null;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const expectedPrevHash = i === 0 ? null : prevHash;
+
+    if (entry.previousHash !== expectedPrevHash) {
+      breaks.push({
+        position: i,
+        entryId: entry.id,
+        expected: expectedPrevHash,
+        actual: entry.previousHash ?? null,
+        createdAt: entry.createdAt ?? null,
+      });
+    }
+    prevHash = entry.recordHash ?? null;
+  }
+
+  return {
+    ok: breaks.length === 0,
+    total: entries.length,
+    broken: breaks.length,
+    breaks,
+    checkedAt: new Date().toISOString(),
+  };
 }
 
 export async function getRolePermissions(tenantId: string): Promise<RolePermission[]> {

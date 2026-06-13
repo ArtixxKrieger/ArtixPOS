@@ -9,7 +9,7 @@ import {
   getBranches, getBranch, createBranch, updateBranch, deleteBranch, setMainBranch,
   getTenantUsers, createStaffUser, updateUserRole, deleteUser, getUserById,
   getUserBranches, assignBranch, removeBranch, bulkAssignBranches,
-  getAuditLogs, createAuditLog,
+  getAuditLogs, createAuditLog, verifyAuditLogChain,
   getBranchAnalytics,
   getUserByEmail, verifyPassword, hashPassword,
   banUser, unbanUser,
@@ -904,6 +904,27 @@ export function registerAdminRoutes(app: Express) {
         endDate: endDate ? endDate + "T23:59:59.999Z" : undefined,
       });
       res.json(logs);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/admin/audit-logs/verify
+  // Walks the full SHA-256 hash chain for this tenant's audit log and returns
+  // a tamper-detection report.  Owner-only — this is a forensic tool.
+  // For large tenants this may be slow; rate limit to 1 call per 60 s via
+  // the client (server does not add an extra rate limiter here).
+  app.get("/api/admin/audit-logs/verify", requireAuth, requireTenant, requireOwner, async (req, res, next) => {
+    try {
+      const user = getAuthUser(req);
+      const result = await verifyAuditLogChain(user.tenantId!);
+      // Never expose full expected/actual hashes to the client — those are
+      // internal forensic details.  Return only position + entryId + createdAt
+      // so the owner knows *where* a break occurred without leaking hash values.
+      const safeBreaks = result.breaks.map(({ position, entryId, createdAt }) => ({
+        position,
+        entryId,
+        createdAt,
+      }));
+      res.json({ ...result, breaks: safeBreaks });
     } catch (err) { next(err); }
   });
 

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { tenantSubscriptions, subscriptionPayments } from "@shared/schema";
 import { requireAuth } from "./middleware";
 
@@ -160,6 +160,28 @@ export function registerSubscriptionRoutes(app: Express) {
       }
       if (!["pro", "business"].includes(planKey)) {
         return res.status(400).json({ message: "Invalid plan" });
+      }
+
+      // Prevent checkout session spam — one pending checkout per tenant at a time.
+      // A pending checkout older than 30 minutes is considered stale and a new one
+      // is allowed (PayMongo checkout sessions expire after 1 hour anyway).
+      const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      const recentPending = await db
+        .select({ id: subscriptionPayments.id, checkoutUrl: subscriptionPayments.checkoutUrl, createdAt: subscriptionPayments.createdAt })
+        .from(subscriptionPayments)
+        .where(and(
+          eq(subscriptionPayments.tenantId, tenantId),
+          eq(subscriptionPayments.status, "pending"),
+        ))
+        .limit(5);
+      const activePending = recentPending.filter(
+        (p) => p.createdAt && p.createdAt > staleCutoff,
+      );
+      if (activePending.length > 0) {
+        const newest = activePending.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+        if (newest.checkoutUrl) {
+          return res.json({ checkoutUrl: newest.checkoutUrl, checkoutId: newest.id, reused: true });
+        }
       }
 
       const planInfo = PLANS[planKey][billingCycle];
@@ -612,33 +634,38 @@ export function registerPaymentWebhookRoutes(app: Express) {
           return res.status(422).json({ message: "Missing checkout session ID" });
         }
 
-        // Look up which tenant owns this checkout session
-        const [match] = await db
-          .select()
-          .from(subscriptionPayments)
-          .where(eq(subscriptionPayments.paymongoCheckoutId, checkoutId))
-          .limit(1);
+        // Atomically claim this payment record by updating status from
+        // 'pending' → 'paid' in a single conditional UPDATE.  Only the first
+        // concurrent request wins (RETURNING gives back the row); every
+        // subsequent retry — whether from PayMongo or a duplicate network
+        // event — gets zero rows and exits early.  This is race-condition-safe
+        // without any application-level locking or extra tables.
+        const [claimed] = await db
+          .update(subscriptionPayments)
+          .set({ status: "paid", paidAt: new Date().toISOString() } as any)
+          .where(and(
+            eq(subscriptionPayments.paymongoCheckoutId, checkoutId),
+            eq(subscriptionPayments.status, "pending"),
+          ))
+          .returning();
 
-        if (!match) {
-          // Could be a test payment or from a different environment — log and
-          // acknowledge so PayMongo doesn't retry indefinitely.
-          console.warn(`[webhook/paymongo] No payment record for checkoutId ${checkoutId} — ignoring`);
-          return res.status(200).json({ received: true, note: "No matching payment record" });
-        }
-
-        if (match.status === "paid") {
-          // Idempotent — already processed, just acknowledge
-          console.log(`[webhook/paymongo] Payment ${checkoutId} already marked paid — skipping`);
+        if (!claimed) {
+          // Either no record exists (unknown checkout) or it was already paid.
+          const [existing] = await db
+            .select({ status: subscriptionPayments.status })
+            .from(subscriptionPayments)
+            .where(eq(subscriptionPayments.paymongoCheckoutId, checkoutId))
+            .limit(1);
+          if (!existing) {
+            console.warn(`[webhook/paymongo] No payment record for checkoutId ${checkoutId} — ignoring`);
+            return res.status(200).json({ received: true, note: "No matching payment record" });
+          }
+          console.log(`[webhook/paymongo] Payment ${checkoutId} already processed (status: ${existing.status}) — skipping`);
           return res.status(200).json({ received: true, note: "Already processed" });
         }
 
-        const tenantId = match.tenantId!;
-        const billingCycle = (match.billingCycle as "monthly" | "annual") ?? "monthly";
-
-        // Mark payment as paid
-        await db.update(subscriptionPayments)
-          .set({ status: "paid", paidAt: new Date().toISOString() } as any)
-          .where(eq(subscriptionPayments.id, match.id));
+        const tenantId = claimed.tenantId!;
+        const billingCycle = (claimed.billingCycle as "monthly" | "annual") ?? "monthly";
 
         // Activate Pro subscription
         const periodEnd = await activateProForTenant(tenantId, billingCycle);

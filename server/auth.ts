@@ -1769,29 +1769,43 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Email is required." });
       }
 
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email.toLowerCase().trim()))
-        .limit(1);
+      // runAsAdmin bypasses RLS — forgot-password is an unauthenticated request so
+      // current_tenant_id() returns NULL, which would silently hide any user whose
+      // tenant_id is non-null (i.e. every onboarded user). Without runAsAdmin the
+      // token is never written and the email is never sent.
+      const user = await runAsAdmin(pool, async (adminDb) => {
+        const [row] = await adminDb
+          .select()
+          .from(users)
+          .where(eq(users.email, email.toLowerCase().trim()))
+          .limit(1);
+        return row ?? null;
+      });
 
       if (user) {
         const token = crypto.randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
-        await db
-          .update(users)
-          .set({ resetToken: token, resetTokenExpires: expires } as any)
-          .where(eq(users.id, user.id));
+        await runAsAdmin(pool, async (adminDb) =>
+          (adminDb.update(users) as any)
+            .set({ resetToken: token, resetTokenExpires: expires })
+            .where(eq(users.id, user.id)),
+        );
 
         const baseUrl = getBaseUrl();
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-        const sent = await sendPasswordResetEmail(user.email!, resetUrl);
+        // Catch SMTP errors here so they don't propagate as a 500 to the user.
+        // A mail failure is non-fatal — we log it and return the same ambiguous
+        // success message (avoids leaking whether the email exists in our DB).
+        const sent = await sendPasswordResetEmail(user.email!, resetUrl).catch((err) => {
+          console.error("[auth] sendPasswordResetEmail threw:", err);
+          return false;
+        });
 
         if (!sent) {
           console.log(
-            `[auth] Password reset requested for user ${user.id} — SMTP not configured, token not delivered.`,
+            `[auth] Password reset requested for user ${user.id} — SMTP not configured or delivery failed, token not sent.`,
           );
         }
       }
@@ -1812,7 +1826,11 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Password must be at least 8 characters." });
       }
 
-      const [user] = await db.select().from(users).where(eq(users.resetToken, token)).limit(1);
+      // runAsAdmin bypasses RLS — reset-password is unauthenticated so RLS would
+      // hide users with a non-null tenant_id, making the token lookup return nothing.
+      const [user] = await runAsAdmin(pool, async (adminDb) =>
+        adminDb.select().from(users).where(eq(users.resetToken, token)).limit(1),
+      );
 
       if (!user || !user.resetTokenExpires) {
         return res.status(400).json({ message: "Invalid or expired reset link." });
@@ -1826,10 +1844,12 @@ export function setupAuth(app: Express) {
 
       const passwordHash = await hashPassword(password);
 
-      await db
-        .update(users)
-        .set({ passwordHash, resetToken: null, resetTokenExpires: null } as any)
-        .where(eq(users.id, user.id));
+      // runAsAdmin bypasses RLS so the UPDATE reaches the row regardless of tenant context
+      await runAsAdmin(pool, async (adminDb) =>
+        (adminDb.update(users) as any)
+          .set({ passwordHash, resetToken: null, resetTokenExpires: null })
+          .where(eq(users.id, user.id)),
+      );
 
       res.json({ message: "Password updated successfully. You can now sign in." });
     } catch (err) {

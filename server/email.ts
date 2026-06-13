@@ -68,17 +68,24 @@ export function resetTransporter(): void {
 // ─── Concurrency limiter ───────────────────────────────────────────────────────
 // Caps simultaneous outbound email calls so a burst of registrations/resets
 // cannot overwhelm the provider or trigger rate-limit bans.
+// Hard cap on queue depth: beyond MAX_QUEUED the call is rejected immediately
+// (returns false) rather than growing the queue without bound.
 const MAX_CONCURRENT_SENDS = 5;
+const MAX_QUEUED           = 500; // reject if more than this many are already waiting
 let _activeCount = 0;
 const _waitQueue: Array<() => void> = [];
 
-function _acquireSlot(): Promise<void> {
-  return new Promise<void>((resolve) => {
+/** Returns false when the queue is full (caller should treat as delivery failure). */
+function _acquireSlot(): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
     if (_activeCount < MAX_CONCURRENT_SENDS) {
       _activeCount++;
-      resolve();
+      resolve(true);
+    } else if (_waitQueue.length >= MAX_QUEUED) {
+      console.error(`[email] Queue full (${MAX_QUEUED} waiting) — dropping send request`);
+      resolve(false);
     } else {
-      _waitQueue.push(() => { _activeCount++; resolve(); });
+      _waitQueue.push(() => { _activeCount++; resolve(true); });
     }
   });
 }
@@ -138,9 +145,10 @@ async function _attemptResend(
 }
 
 // ─── Unified send helper ──────────────────────────────────────────────────────
-// • Queues through the concurrency limiter (max 5 concurrent sends)
+// • Queues through the concurrency limiter (max 5 concurrent, 500 queued)
 // • Up to 3 attempts with exponential back-off (1 s → 2 s → 4 s + jitter)
-// • Respects Retry-After header on 429 responses
+// • Respects Retry-After header on 429: uses max(backoff, retryAfter) so the
+//   two delays are never added together (no double-sleeping)
 // • Returns true on success, false on permanent or exhausted failure (never throws)
 const MAX_ATTEMPTS = 3;
 
@@ -158,17 +166,27 @@ async function sendEmail(opts: {
 
   const resendKey = getResendApiKey();
   const transport = resendKey ? "resend-api" : "smtp";
-  console.log(`[email] queued transport=${transport} to=${opts.to} subject="${opts.subject}" queue=${_waitQueue.length}`);
+  // Log queue depth BEFORE pushing so the number is accurate
+  console.log(`[email] queued transport=${transport} to=${opts.to} subject="${opts.subject}" active=${_activeCount} queue=${_waitQueue.length}`);
 
-  await _acquireSlot();
+  const acquired = await _acquireSlot();
+  if (!acquired) return false; // queue full — already logged inside _acquireSlot
+
   try {
     // ── Resend HTTP API path ────────────────────────────────────────────────
     if (resendKey) {
+      // retryAfterOverrideMs: when Resend sends Retry-After, use that as the
+      // minimum delay for the NEXT iteration instead of adding it on top of
+      // the exponential backoff (which would cause double-sleeping).
+      let retryAfterOverrideMs = 0;
+
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         if (attempt > 1) {
           const jitter = Math.random() * 200;
-          const baseDelay = 1000 * 2 ** (attempt - 2); // 1 s, 2 s, 4 s
-          const delay = Math.min(baseDelay + jitter, 8000);
+          const backoff = Math.min(1000 * 2 ** (attempt - 2) + jitter, 8000); // 1 s, 2 s, 4 s
+          // Use whichever is longer: our backoff or the provider's Retry-After
+          const delay = Math.max(backoff, retryAfterOverrideMs);
+          retryAfterOverrideMs = 0; // consumed — reset for next iteration
           console.warn(`[email] Resend retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`);
           await new Promise<void>((r) => setTimeout(r, delay));
         }
@@ -182,10 +200,9 @@ async function sendEmail(opts: {
         }
         if (result.permanent) return false; // e.g. invalid email address — no retry
 
-        // Transient failure — if the provider asked us to wait longer, honour it
-        if (result.retryAfterMs && result.retryAfterMs > 0 && attempt < MAX_ATTEMPTS) {
-          console.warn(`[email] Honouring Retry-After ${result.retryAfterMs}ms before next attempt`);
-          await new Promise<void>((r) => setTimeout(r, result.retryAfterMs));
+        // Store Retry-After so the NEXT iteration's pre-sleep uses it (not additive)
+        if (!result.permanent && result.retryAfterMs && result.retryAfterMs > 0) {
+          retryAfterOverrideMs = result.retryAfterMs;
         }
       }
       console.error(`[email] Resend gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);

@@ -74,6 +74,9 @@ const cspDirectives = {
   manifestSrc: ["'self'"],
   mediaSrc: ["'self'", "blob:", "data:"],
   ...(isDevelopment ? {} : { upgradeInsecureRequests: [] }),
+  // Collect CSP violations — see /api/csp-report handler below.
+  // Must use the kebab-case string key; helmet ignores unknown camelCase keys.
+  "report-uri": ["/api/csp-report"],
 };
 
 app.use(
@@ -266,6 +269,22 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ── CSP violation report collector ──────────────────────────────────────────
+// Browsers POST here when the helmet CSP blocks something.
+// Registered before the body-parser so it can use its own content-type handler.
+app.post(
+  "/api/csp-report",
+  express.json({ type: ["application/json", "application/csp-report"], limit: "32kb" }),
+  (req: Request, res: Response) => {
+    const report = (req.body as Record<string, unknown>)?.["csp-report"] ?? req.body;
+    const blocked   = (report as Record<string, unknown>)?.["blocked-uri"]        ?? "unknown";
+    const directive = (report as Record<string, unknown>)?.["violated-directive"] ?? "unknown";
+    const doc       = (report as Record<string, unknown>)?.["document-uri"]       ?? "";
+    logger.warn({ blocked, directive, doc }, "[csp] violation");
+    res.status(204).end();
+  },
+);
 
 app.use("/api/webhooks", express.raw({ type: "application/json", limit: "1mb" }));
 app.use(express.json({ limit: "1mb" }));

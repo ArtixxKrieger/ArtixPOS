@@ -13,7 +13,9 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 //   • OAuth callbacks — already protected by HMAC-signed state parameter.
 //   • Native (Capacitor) clients — detected via Bearer token; they never
 //     attach cookies, making cookie-based CSRF impossible by definition.
-const CSRF_EXEMPT_PREFIXES = ["/auth/google", "/auth/facebook"];
+//   • CSP violation reports — POSTed by the browser's own enforcement engine,
+//     never carry user state changes, and cannot include CSRF tokens.
+const CSRF_EXEMPT_PREFIXES = ["/auth/google", "/auth/facebook", "/api/csp-report"];
 
 function generate(): string {
   return randomBytes(32).toString("hex");

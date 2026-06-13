@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getRedis, redisAvailable } from "./redis";
 
 // ─── Transport strategy ───────────────────────────────────────────────────────
 // Vercel serverless functions cannot reliably hold the multi-round-trip TCP
@@ -96,6 +97,130 @@ function _releaseSlot(): void {
   if (next) next();
 }
 
+// ─── Dead-letter queue (Redis-backed persistent retry) ────────────────────────
+// When sendEmail exhausts all in-flight attempts due to a TRANSIENT failure
+// (network error, 429, 5xx), the job is serialised to a Redis sorted set.
+// A background poller re-attempts delivery on a schedule, up to DLQ_MAX_RETRIES
+// extra times.  Permanent failures (invalid address, bad API key) are never
+// enqueued — retrying them would just waste quota.
+//
+// Graceful degradation: if Redis is not configured, the DLQ is silently
+// disabled and the behaviour is identical to before (3 in-flight attempts,
+// then the email is lost).
+
+const DLQ_KEY          = "artixpos:email:dlq";
+const DLQ_MAX_RETRIES  = 3;                              // extra DLQ rounds
+const DLQ_MAX_AGE_MS   = 24 * 60 * 60 * 1000;           // discard after 24 h
+const DLQ_DELAYS_MS    = [5 * 60_000, 30 * 60_000, 2 * 60 * 60_000]; // 5 min, 30 min, 2 h
+const DLQ_POLL_MS      = 60_000;                         // poll every 60 s
+
+interface DlqContext {
+  jobId: string;
+  dlqRetry: number;  // 0 = first DLQ attempt
+  queuedAt: number;  // original ms timestamp — for max-age check
+}
+
+interface EmailJob {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  headers?: Record<string, string>;
+  jobId: string;
+  dlqRetry: number;
+  queuedAt: number;
+}
+
+// Atomically claim AND remove up to N due jobs in a single round-trip.
+// Prevents double-processing when running in cluster mode (multiple workers).
+const _DLQ_CLAIM_SCRIPT = `
+local jobs = redis.call('ZRANGEBYSCORE', KEYS[1], '0', ARGV[1], 'LIMIT', '0', ARGV[2])
+if #jobs == 0 then return {} end
+redis.call('ZREM', KEYS[1], unpack(jobs))
+return jobs
+`.trim();
+
+async function _enqueueToDlq(
+  opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
+  ctx?: DlqContext,
+): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return; // Redis not configured — degrade silently
+
+  const dlqRetry  = ctx?.dlqRetry ?? 0;
+  const jobId     = ctx?.jobId    ?? Math.random().toString(36).slice(2, 10);
+  const queuedAt  = ctx?.queuedAt ?? Date.now();
+  const delayMs   = DLQ_DELAYS_MS[dlqRetry] ?? DLQ_DELAYS_MS[DLQ_DELAYS_MS.length - 1];
+  const runAt     = Date.now() + delayMs;
+
+  const job: EmailJob = { ...opts, jobId, dlqRetry, queuedAt };
+
+  try {
+    await redis.zadd(DLQ_KEY, { score: runAt, member: JSON.stringify(job) });
+    console.warn(
+      `[email:dlq] Enqueued job=${jobId} dlqRetry=${dlqRetry} ` +
+      `nextAttempt=+${Math.round(delayMs / 60_000)}min to=${opts.to}`,
+    );
+  } catch (err) {
+    console.error("[email:dlq] Failed to write job to Redis:", err);
+  }
+}
+
+async function _pollDlq(): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  let claimed: string[] = [];
+  try {
+    // Lua script atomically reads + removes up to 10 due jobs
+    const raw = await redis.eval(
+      _DLQ_CLAIM_SCRIPT,
+      [DLQ_KEY],
+      [String(Date.now()), "10"],
+    ) as string[] | null;
+    if (!raw || raw.length === 0) return;
+    claimed = raw;
+  } catch (err) {
+    console.error("[email:dlq] Poll claim error:", err);
+    return;
+  }
+
+  console.log(`[email:dlq] Claimed ${claimed.length} due job(s)`);
+
+  for (const serialised of claimed) {
+    let job: EmailJob;
+    try { job = JSON.parse(serialised) as EmailJob; }
+    catch { console.error("[email:dlq] Unparseable job — discarding:", serialised.slice(0, 120)); continue; }
+
+    // Drop jobs that are older than the max-age limit
+    if (Date.now() - job.queuedAt > DLQ_MAX_AGE_MS) {
+      console.error(`[email:dlq] Job ${job.jobId} expired (>24 h) — discarding to=${job.to}`);
+      continue;
+    }
+
+    const ctx: DlqContext = { jobId: job.jobId, dlqRetry: job.dlqRetry, queuedAt: job.queuedAt };
+    console.log(`[email:dlq] Retrying job=${job.jobId} dlqRetry=${job.dlqRetry} to=${job.to}`);
+
+    // sendEmail has its own 3-attempt in-flight retry; pass ctx so that on
+    // transient exhaustion it re-enqueues with an incremented dlqRetry count.
+    await sendEmail(
+      { to: job.to, subject: job.subject, text: job.text, html: job.html, headers: job.headers },
+      ctx,
+    );
+  }
+}
+
+/** Start the background DLQ poller.  Call once at server startup. */
+export function startEmailDlqPoller(): void {
+  if (!redisAvailable) {
+    console.warn("[email:dlq] Redis not configured — DLQ disabled (transient failures will not be retried after exhaustion).");
+    return;
+  }
+  const t = setInterval(_pollDlq, DLQ_POLL_MS);
+  t.unref(); // don't keep the process alive
+  console.log(`[email:dlq] Poller started — checking every ${DLQ_POLL_MS / 1000}s`);
+}
+
 // ─── Per-attempt result type ──────────────────────────────────────────────────
 type AttemptResult =
   | { ok: true }
@@ -152,13 +277,12 @@ async function _attemptResend(
 // • Returns true on success, false on permanent or exhausted failure (never throws)
 const MAX_ATTEMPTS = 3;
 
-async function sendEmail(opts: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-  headers?: Record<string, string>;
-}): Promise<boolean> {
+// _dlqCtx is set when sendEmail is called by the DLQ poller so it can
+// re-enqueue with an incremented retry count on transient exhaustion.
+async function sendEmail(
+  opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
+  _dlqCtx?: DlqContext,
+): Promise<boolean> {
   const from = (() => {
     const addr = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@artixpos.com";
     return addr.includes("<") ? addr : `ArtixPOS <${addr}>`;
@@ -206,6 +330,17 @@ async function sendEmail(opts: {
         }
       }
       console.error(`[email] Resend gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);
+      // Transient exhaustion — persist to DLQ for a later retry if quota remains
+      const _nextDlqRetry = (_dlqCtx?.dlqRetry ?? -1) + 1;
+      if (_nextDlqRetry < DLQ_MAX_RETRIES) {
+        _enqueueToDlq(opts, {
+          jobId: _dlqCtx?.jobId ?? Math.random().toString(36).slice(2, 10),
+          dlqRetry: _nextDlqRetry,
+          queuedAt: _dlqCtx?.queuedAt ?? Date.now(),
+        }).catch(() => {});
+      } else {
+        console.error(`[email] Job permanently discarded after ${DLQ_MAX_RETRIES} DLQ rounds to=${opts.to}`);
+      }
       return false;
     }
 
@@ -236,6 +371,17 @@ async function sendEmail(opts: {
       }
     }
     console.error(`[email] SMTP gave up after ${MAX_ATTEMPTS} attempts to=${opts.to}`);
+    // Transient exhaustion — persist to DLQ for a later retry if quota remains
+    const _nextDlqRetry = (_dlqCtx?.dlqRetry ?? -1) + 1;
+    if (_nextDlqRetry < DLQ_MAX_RETRIES) {
+      _enqueueToDlq(opts, {
+        jobId: _dlqCtx?.jobId ?? Math.random().toString(36).slice(2, 10),
+        dlqRetry: _nextDlqRetry,
+        queuedAt: _dlqCtx?.queuedAt ?? Date.now(),
+      }).catch(() => {});
+    } else {
+      console.error(`[email] Job permanently discarded after ${DLQ_MAX_RETRIES} DLQ rounds to=${opts.to}`);
+    }
     return false;
   } finally {
     _releaseSlot();

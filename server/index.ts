@@ -24,7 +24,7 @@ import { warmCache } from "./startup-warm";
 import { cache } from "./cache";
 import { tenantContextMiddleware } from "./tenant-context";
 import { setupRLS } from "./rls-setup";
-import { logEmailTransportStatus } from "./email";
+import { logEmailTransportStatus, startEmailDlqPoller } from "./email";
 import { pool } from "./db";
 import { startCleanupScheduler } from "./cleanup";
 import { ensurePartitions } from "./partition-manager";
@@ -395,6 +395,7 @@ async function _doInit() {
     }
 
     logEmailTransportStatus();
+    startEmailDlqPoller();
 
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);

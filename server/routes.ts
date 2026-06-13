@@ -62,6 +62,56 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // ── Dev-only email preview ─────────────────────────────────────────────────
+  if (process.env.NODE_ENV !== "production") {
+    app.get("/api/dev/email-preview/:type", async (req, res) => {
+      const {
+        buildVerificationEmailHtml,
+        buildPasswordResetEmailHtml,
+        buildReceiptEmailHtml,
+      } = await import("./email");
+      const type = req.params.type;
+
+      let html = "";
+      if (type === "verify") {
+        html = buildVerificationEmailHtml("https://artixpos.com/verify-email?token=abc123preview");
+      } else if (type === "reset") {
+        html = buildPasswordResetEmailHtml("https://artixpos.com/reset-password?token=abc123preview");
+      } else if (type === "receipt") {
+        html = buildReceiptEmailHtml(
+          {
+            total: "485.00",
+            subtotal: "433.93",
+            tax: "51.07",
+            discount: "50.00",
+            paymentMethod: "GCash",
+            customerName: "Maria Santos",
+            orNumber: "2024-00142",
+            createdAt: new Date().toISOString(),
+            items: [
+              { product: { name: "Caramel Macchiato", price: "175.00" }, size: { name: "Large", price: "195.00" }, quantity: 1, modifiers: [{ name: "Extra Shot", price: "30.00" }] },
+              { product: { name: "Cheesecake Slice", price: "165.00" }, quantity: 1, modifiers: [] },
+              { product: { name: "Mineral Water", price: "45.00" }, quantity: 3, modifiers: [] },
+            ],
+          },
+          {
+            name: "Bean & Brew Café",
+            currency: "₱",
+            address: "123 Ayala Ave, Makati City",
+            phone: "+63 917 555 1234",
+            receiptFooter: "Thank you for visiting! See you again soon ☕",
+          }
+        );
+      } else {
+        return res.status(404).send("Unknown type. Use: verify | reset | receipt");
+      }
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(html);
+    });
+  }
+
   // ── Third-party / special-purpose route registrars ─────────────────────────
   registerAdminRoutes(app);
   registerSubscriptionRoutes(app);

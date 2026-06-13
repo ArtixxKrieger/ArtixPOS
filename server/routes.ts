@@ -110,6 +110,41 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(html);
     });
+
+    // ── Dev email test-send — actually delivers via your real SMTP/Resend config ──
+    // POST /api/dev/email-send   body: { to, type }
+    app.post("/api/dev/email-send", async (req, res) => {
+      const { to, type } = req.body ?? {};
+      if (!to || !type) return res.status(400).json({ ok: false, message: "body must contain { to, type }" });
+
+      const { sendVerificationEmail, sendPasswordResetEmail, sendReceiptEmail, resetTransporter } = await import("./email");
+      resetTransporter(); // pick up any newly-set env vars without restarting
+
+      let ok = false;
+      if (type === "verify") {
+        ok = await sendVerificationEmail(to, "https://artixpos.com/verify-email?token=TEST_TOKEN_PREVIEW");
+      } else if (type === "reset") {
+        ok = await sendPasswordResetEmail(to, "https://artixpos.com/reset-password?token=TEST_TOKEN_PREVIEW");
+      } else if (type === "receipt") {
+        ok = await sendReceiptEmail(to, {
+          total: "485.00", subtotal: "433.93", tax: "51.07", discount: "50.00",
+          paymentMethod: "GCash", customerName: "Maria Santos",
+          orNumber: "2024-00142", createdAt: new Date().toISOString(),
+          items: [
+            { product: { name: "Caramel Macchiato", price: "175.00" }, size: { name: "Large", price: "195.00" }, quantity: 1, modifiers: [{ name: "Extra Shot", price: "30.00" }] },
+            { product: { name: "Cheesecake Slice", price: "165.00" }, quantity: 1, modifiers: [] },
+            { product: { name: "Mineral Water", price: "45.00" }, quantity: 3, modifiers: [] },
+          ],
+        }, { name: "Bean & Brew Café", currency: "₱", address: "123 Ayala Ave, Makati City", phone: "+63 917 555 1234", receiptFooter: "Thank you for visiting!" });
+      } else {
+        return res.status(400).json({ ok: false, message: "type must be: verify | reset | receipt" });
+      }
+
+      if (!ok) {
+        return res.status(500).json({ ok: false, message: "Send failed — check server logs. SMTP credentials may be missing or wrong." });
+      }
+      res.json({ ok: true, message: `${type} email sent to ${to}` });
+    });
   }
 
   // ── Third-party / special-purpose route registrars ─────────────────────────

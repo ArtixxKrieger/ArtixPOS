@@ -24,10 +24,14 @@ const connectionString =
   process.env.SUPABASE_DATABASE_URL ||
   process.env.DATABASE_URL;
 
+// DB_SSL_VERIFY=true → enforce certificate verification (stricter environments).
+// Defaults to false for Supabase pooler compatibility (pooler uses self-signed intermediates).
+const dbSslVerify = process.env.DB_SSL_VERIFY === "true";
+
 export const pool = new Pool({
   connectionString,
   ssl: connectionString && !connectionString.includes("localhost")
-    ? { rejectUnauthorized: false }
+    ? { rejectUnauthorized: dbSslVerify }
     : false,
 
   max: POOL_MAX,

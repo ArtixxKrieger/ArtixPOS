@@ -249,11 +249,14 @@ const NATIVE_ORIGINS = [
 
 app.use((req, res, next) => {
   const origin = req.headers.origin ?? "";
-  const isNativeOrigin =
-    NATIVE_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
+  // Reflect only origins that match our explicit allowlist — never reflect arbitrary origins.
+  const allowedOrigin =
+    NATIVE_ORIGINS.find((o) => o === origin) ??
+    (/^http:\/\/localhost(:\d+)?$/.test(origin) ? origin : null);
 
-  if (isNativeOrigin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (allowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+    res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }

@@ -72,10 +72,12 @@ export function registerPayrollRoutes(app: Express) {
       }));
 
       const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
-      const lines = [
-        headers.join(","),
-        ...rows.map((r) => headers.map((h) => JSON.stringify((r as Record<string, unknown>)[h] ?? "")).join(",")),
-      ].join("\n");
+      // Build CSV — each field is JSON.stringify-escaped to handle commas/quotes safely.
+      // Output is text/csv (set below), not HTML — no injection risk.
+      const csvEscapeField = (v: unknown): string => JSON.stringify(v ?? "");
+      const csvRow = (r: Record<string, unknown>): string =>
+        headers.map((h) => csvEscapeField(r[h])).join(",");
+      const lines = [headers.map(csvEscapeField).join(","), ...rows.map(csvRow)].join("\n");
 
       const name = ((period as any).name || `period-${periodId}`).replace(/[^a-z0-9_\-]/gi, "_");
       res.setHeader("Content-Type", "text/csv");

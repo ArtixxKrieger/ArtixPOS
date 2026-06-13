@@ -14,9 +14,11 @@ const isServerless = !!process.env.VERCEL;
 let _baseDbRead: typeof db;
 
 if (READ_URL) {
+  // DB_SSL_VERIFY=true → enforce certificate verification (stricter environments).
+  const dbSslVerify = process.env.DB_SSL_VERIFY === "true";
   const readPool = new Pool({
     connectionString: READ_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: dbSslVerify },
     max: isServerless ? 15 : parseInt(process.env.DB_READ_POOL_MAX ?? "10", 10),
     idleTimeoutMillis:       isServerless ? 55_000 : 30_000,
     connectionTimeoutMillis: isServerless ?  4_000 :  5_000,

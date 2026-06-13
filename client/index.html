@@ -385,22 +385,33 @@
             var root = document.getElementById('root');
             if (root) {
               _shown = true;
-              function _escHtml(s) {
-                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-              }
-              root.innerHTML =
-                '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a12;font-family:monospace;padding:24px;z-index:99999">'
-                + '<div style="max-width:480px;width:100%;background:#1a1a2e;border:1px solid #ff4d4d;border-radius:12px;padding:20px;color:#fff;">'
-                + '<p style="color:#ff4d4d;font-weight:bold;font-size:14px;margin:0 0 8px">App failed to load</p>'
-                + '<pre style="font-size:11px;color:#ffb3b3;white-space:pre-wrap;word-break:break-word;margin:0 0 16px;max-height:200px;overflow:auto">'
-                + _escHtml(msg) + '</pre>'
-                + '<button onclick="(function(){try{sessionStorage.removeItem(\'' + STALE_KEY + '\');}catch(e){}'
-                + 'try{if(navigator.serviceWorker)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister()})});'
-                + 'if(window.caches)caches.keys().then(function(k){k.forEach(function(c){caches.delete(c)})})}catch(e){}'
-                + 'setTimeout(function(){window.location.reload()},400)})()" '
-                + 'style="background:#7c3aed;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;width:100%">'
-                + 'Clear cache &amp; reload</button>'
-                + '</div></div>';
+              // Build crash UI with DOM APIs — avoids innerHTML with dynamic content.
+              var overlay = document.createElement('div');
+              overlay.setAttribute('style','position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a12;font-family:monospace;padding:24px;z-index:99999');
+              var card = document.createElement('div');
+              card.setAttribute('style','max-width:480px;width:100%;background:#1a1a2e;border:1px solid #ff4d4d;border-radius:12px;padding:20px;color:#fff;');
+              var title = document.createElement('p');
+              title.setAttribute('style','color:#ff4d4d;font-weight:bold;font-size:14px;margin:0 0 8px');
+              title.textContent = 'App failed to load';
+              var pre = document.createElement('pre');
+              pre.setAttribute('style','font-size:11px;color:#ffb3b3;white-space:pre-wrap;word-break:break-word;margin:0 0 16px;max-height:200px;overflow:auto');
+              pre.textContent = String(msg);
+              var btn = document.createElement('button');
+              btn.setAttribute('style','background:#7c3aed;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;width:100%');
+              btn.textContent = 'Clear cache & reload';
+              btn.addEventListener('click', function() {
+                try { sessionStorage.removeItem(STALE_KEY); } catch(e) {}
+                try {
+                  if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister()})});
+                  if (window.caches) caches.keys().then(function(k){k.forEach(function(c){caches.delete(c)})});
+                } catch(e) {}
+                setTimeout(function(){window.location.reload();},400);
+              });
+              card.appendChild(title);
+              card.appendChild(pre);
+              card.appendChild(btn);
+              overlay.appendChild(card);
+              root.appendChild(overlay);
               try { sessionStorage.setItem(CRASH_KEY, String(msg)); } catch(e) {}
             }
           }

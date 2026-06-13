@@ -1785,9 +1785,10 @@ export function setupAuth(app: Express) {
       });
 
       if (!user) {
-        console.log(`[auth/forgot-password] no user found for email: ${email.toLowerCase().trim()}`);
+        // No logging here — avoids timing oracle and PII in logs.
       } else {
-        console.log(`[auth/forgot-password] user found id=${user.id}, sending reset email to ${user.email}`);
+        const maskedEmail = user.email ? user.email.replace(/(.{2})[^@]*(@.*)/, "$1***$2") : "(no email)";
+        console.log(`[auth/forgot-password] user found id=${user.id}, sending reset email to ${maskedEmail}`);
 
         const token = crypto.randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour

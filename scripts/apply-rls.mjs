@@ -19,9 +19,13 @@ if (!connectionString) {
   process.exit(1);
 }
 
+// DB_SSL_VERIFY=true → enforce certificate verification (stricter environments).
+// Defaults to false for Supabase pooler compatibility (pooler uses self-signed intermediates).
+const dbSslVerify = process.env.DB_SSL_VERIFY === "true";
+
 const pool = new Pool({
   connectionString,
-  ssl: !connectionString.includes("localhost") ? { rejectUnauthorized: false } : false,
+  ssl: !connectionString.includes("localhost") ? { rejectUnauthorized: dbSslVerify } : false,
   max: 2,
   connectionTimeoutMillis: 15_000,
 });

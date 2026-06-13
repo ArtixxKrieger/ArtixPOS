@@ -1,0 +1,11 @@
+# Exclude Replit platform skill scripts — not application code.
+.agents/
+.local/
+
+# Build output
+dist/
+node_modules/
+
+# Test fixtures
+*.test.ts
+*.spec.ts

@@ -1,28 +1,53 @@
 import { queryClient, getQueryFn } from "./queryClient";
 import { getCached, pruneStaleCache } from "./offline-db";
 
-export const ALL_PREFETCH_URLS: readonly string[] = [
+// ── Priority groups ────────────────────────────────────────────────────────
+// Network fetches are batched by priority so POS-critical data (products,
+// customers, settings) is guaranteed to land in IDB first on weak mobile
+// connections.  All 20 groups fire in parallel WITHIN each tier; tiers are
+// sequenced with a short delay so the critical tier monopolises bandwidth
+// before lower-priority requests compete.
+
+/** Tier 1 — absolutely required for offline POS checkout */
+const CRITICAL_URLS: readonly string[] = [
   "/api/settings",
-  "/api/subscription",
-  "/api/dashboard/stats",
-  "/api/notifications",
-  "/api/pending-orders",
+  "/api/pos-features",
   "/api/products",
-  "/api/customers",
-  "/api/expenses",
-  "/api/staff",
-  "/api/suppliers",
-  "/api/admin/branches",
   "/api/categories",
-  "/api/memberships",
-  "/api/loyalty-tiers",
+  "/api/customers",
+  "/api/pending-orders",
+];
+
+/** Tier 2 — needed for most in-store operations */
+const OPERATIONAL_URLS: readonly string[] = [
+  "/api/staff",
   "/api/tables",
   "/api/rooms",
-  "/api/pos-features",
-  "/api/shifts",
-  "/api/inventory",
-  "/api/appointments",
+  "/api/memberships",
+  "/api/loyalty-tiers",
   "/api/discount-codes",
+  "/api/ingredients",
+];
+
+/** Tier 3 — background / analytics (fetched after critical + operational) */
+const BACKGROUND_URLS: readonly string[] = [
+  "/api/dashboard/stats",
+  "/api/inventory",
+  "/api/suppliers",
+  "/api/expenses",
+  "/api/appointments",
+  "/api/shifts",
+  "/api/subscription",
+  "/api/notifications",
+  "/api/admin/branches",
+];
+
+// Flat list used by the 5-minute background refresh hook (order doesn't
+// matter there — we're already online and just keeping IDB warm).
+export const ALL_PREFETCH_URLS: readonly string[] = [
+  ...CRITICAL_URLS,
+  ...OPERATIONAL_URLS,
+  ...BACKGROUND_URLS,
 ];
 
 const LAST_UID_LS_KEY = "pos-last-uid";
@@ -40,8 +65,11 @@ export function prefetchBootstrapData(userId: string): void {
 
   const queryFn = getQueryFn({ on401: "returnNull" });
 
+  // ── Step 1: Seed the in-memory React Query cache from IDB immediately ────
+  // This is synchronous in the sense that it fires before any network request,
+  // so mounted components see data instantly from the last session.
   for (const url of ALL_PREFETCH_URLS) {
-    getCached<unknown>(url)
+    getCached<unknown>(url, Infinity)
       .then((cached) => {
         if (cached != null && queryClient.getQueryData([url]) === undefined) {
           queryClient.setQueryData([url], cached);
@@ -50,18 +78,34 @@ export function prefetchBootstrapData(userId: string): void {
       .catch(() => {});
   }
 
-  for (const url of ALL_PREFETCH_URLS) {
-    queryClient
-      .fetchQuery({ queryKey: [url], queryFn })
-      .then((data) => {
-        if (data != null) {
-          import("./offline-db").then(({ setCached }) => {
-            setCached(url, data).catch(() => {});
-          });
-        }
-      })
-      .catch(() => {});
+  // ── Step 2: Network fetch in priority tiers ───────────────────────────────
+  // Each tier fans out in parallel, then the next tier starts after a short
+  // gap.  This lets the critical URLs saturate available bandwidth before the
+  // background URLs compete.  On fast connections (>10 Mbps) all tiers
+  // effectively land simultaneously anyway; the gap only matters on slow links.
+  async function fetchTier(urls: readonly string[], delayMs: number): Promise<void> {
+    if (delayMs > 0) await new Promise<void>((r) => setTimeout(r, delayMs));
+    await Promise.allSettled(
+      urls.map((url) =>
+        queryClient
+          .fetchQuery({ queryKey: [url], queryFn })
+          .then((data) => {
+            if (data != null) {
+              import("./offline-db").then(({ setCached }) => {
+                setCached(url, data).catch(() => {});
+              });
+            }
+          })
+          .catch(() => {}),
+      ),
+    );
   }
+
+  // Fire tiers sequentially without blocking the main call (fire-and-forget).
+  fetchTier(CRITICAL_URLS, 0)
+    .then(() => fetchTier(OPERATIONAL_URLS, 200))
+    .then(() => fetchTier(BACKGROUND_URLS, 200))
+    .catch(() => {});
 }
 
 export function clearPrefetchCache(): void {

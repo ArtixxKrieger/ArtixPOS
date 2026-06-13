@@ -130,13 +130,38 @@ export interface QueuedMutation {
   offlineId?: string | number;
 }
 
-export async function getCached<T>(url: string): Promise<T | null> {
+/**
+ * Read a cached API response from IDB.
+ *
+ * @param maxAgeMs  Optional TTL in ms.  If the entry is older than this,
+ *                  null is returned as if the entry didn't exist.  This
+ *                  prevents the offline fallback from serving week-old
+ *                  product prices or stale inventory counts.
+ *
+ *                  Defaults to 24 hours — callers that need longer-lived data
+ *                  (e.g. static lookup tables) can pass a larger value.
+ *
+ *                  Pass Infinity to disable the check entirely (legacy behaviour).
+ */
+export async function getCached<T>(
+  url: string,
+  maxAgeMs: number = 24 * 60 * 60 * 1000,
+): Promise<T | null> {
   // Never serve IDB data when the session isn't initialized yet.
   if (!_currentUserId) return null;
   try {
     const db = await getDB();
     const entry = await db.get("api-cache", cacheKey(url));
-    return entry ? (entry.data as T) : null;
+    if (!entry) return null;
+    // TTL check: reject entries that are too old to be useful offline.
+    // The background prefetch refreshes all prefetch URLs every 5 minutes
+    // while online, so in practice the IDB copy is nearly always fresh.
+    // This guard prevents edge cases where the device has been fully offline
+    // for >24 h and serves obviously stale pricing/inventory data.
+    if (entry.timestamp && maxAgeMs !== Infinity && Date.now() - entry.timestamp > maxAgeMs) {
+      return null;
+    }
+    return entry.data as T;
   } catch {
     return null;
   }
@@ -378,30 +403,16 @@ export async function getQueueCount(): Promise<number> {
 }
 
 /** Count of queued sale / pending-order mutations that are NOT permanently failed.
- *  Counts both "sale" (useCreateSale) and "pending-order" (useCreatePendingOrder / POS checkout). */
+ *  Delegates to getQueueStats() so we never do more than one IDB scan
+ *  regardless of how many callers ask for individual counts. */
 export async function getSalesQueueCount(): Promise<number> {
-  try {
-    const db = await getDB();
-    const all = await db.getAll("mutation-queue");
-    return all.filter(
-      (item) =>
-        (item.category === "sale" || item.category === "pending-order") &&
-        !item.permanentlyFailed,
-    ).length;
-  } catch {
-    return 0;
-  }
+  return (await getQueueStats()).sales;
 }
 
-/** Count of permanently-failed mutations. */
+/** Count of permanently-failed mutations.
+ *  Delegates to getQueueStats() to avoid an independent full-table scan. */
 export async function getFailedQueueCount(): Promise<number> {
-  try {
-    const db = await getDB();
-    const all = await db.getAll("mutation-queue");
-    return all.filter((item) => item.permanentlyFailed).length;
-  } catch {
-    return 0;
-  }
+  return (await getQueueStats()).failed;
 }
 
 /** Return full details for all permanently-failed mutations (for conflict UI). */

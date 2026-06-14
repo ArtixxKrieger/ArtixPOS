@@ -7,20 +7,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
-import { useSubscription } from "@/hooks/use-subscription";
-import { useEffect, useState, useRef, lazy, Suspense, ComponentType, ReactNode } from "react";
+import { useEffect, useState, useRef, Suspense, ReactNode } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
 import { prefetchBootstrapData, clearPrefetchCache } from "@/lib/prefetch";
 import { initUserSession, clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
-import { isEssentialBusinessUrl } from "@shared/business-access";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
 import { AppTour } from "@/components/app-tour";
-
-const INVITE_STORAGE_KEY = "artixpos_pending_invite";
-const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 
 import Login from "@/pages/login";
 import ResetPassword from "@/pages/reset-password";
@@ -29,53 +24,65 @@ import NotFound from "@/pages/not-found";
 import BranchPublicPage from "@/pages/branch-public";
 import StaffPinLogin from "@/pages/staff-pin-login";
 
-const Dashboard = lazy(() => import("@/pages/dashboard"));
-const POS = lazy(() => import("@/pages/pos"));
-const Products = lazy(() => import("@/pages/products"));
-const Analytics = lazy(() => import("@/pages/analytics"));
-const PendingOrders = lazy(() => import("@/pages/pending-orders"));
-const Settings = lazy(() => import("@/pages/settings"));
-const Transactions = lazy(() => import("@/pages/transactions"));
-const AdminIndex = lazy(() => import("@/pages/admin/index"));
-const AdminBranches = lazy(() => import("@/pages/admin/branches"));
-const AdminUsers = lazy(() => import("@/pages/admin/users"));
-const AdminAnalytics = lazy(() => import("@/pages/admin/analytics"));
-const AdminAuditLogs = lazy(() => import("@/pages/admin/audit-logs"));
-const AdminPermissions = lazy(() => import("@/pages/admin/permissions"));
-const Customers = lazy(() => import("@/pages/customers"));
-const Expenses = lazy(() => import("@/pages/expenses"));
-const Shifts = lazy(() => import("@/pages/shifts"));
-const DiscountCodes = lazy(() => import("@/pages/discount-codes"));
-const Refunds = lazy(() => import("@/pages/refunds"));
-const TablesPage = lazy(() => import("@/pages/tables"));
-const KitchenPage = lazy(() => import("@/pages/kitchen"));
-const KitchenDisplayPage = lazy(() => import("@/pages/kitchen-display"));
-const SuppliersPage = lazy(() => import("@/pages/suppliers"));
-const PurchasesPage = lazy(() => import("@/pages/purchases"));
-const TimeClockPage = lazy(() => import("@/pages/timeclock"));
-const Onboarding = lazy(() => import("@/pages/onboarding"));
-const AppointmentsPage = lazy(() => import("@/pages/appointments"));
-const StaffPage = lazy(() => import("@/pages/staff"));
-const RoomsPage = lazy(() => import("@/pages/rooms"));
-const MembershipsPage = lazy(() => import("@/pages/memberships"));
-const BillingPage = lazy(() => import("@/pages/billing"));
-const TermsPage = lazy(() => import("@/pages/terms"));
-const PrivacyPage = lazy(() => import("@/pages/privacy"));
-const PrintSettings = lazy(() => import("@/pages/print-settings"));
-const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
-const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
-const WifiVouchersPage = lazy(() => import("@/pages/wifi-vouchers"));
-const PayrollPage = lazy(() => import("@/pages/payroll"));
-const SchedulesPage = lazy(() => import("@/pages/schedules"));
-const BIRPage = lazy(() => import("@/pages/bir"));
-const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
-const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
-const FeaturesPage = lazy(() => import("@/pages/features"));
-const InventoryHubPage = lazy(() => import("@/pages/inventory-hub"));
-const IngredientsPage = lazy(() => import("@/pages/ingredients"));
-const VercelAnalytics = lazy(() =>
-  import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
-);
+import {
+  Dashboard,
+  POS,
+  Products,
+  Analytics,
+  PendingOrders,
+  Settings,
+  KitchenDisplayPage,
+  TimeClockPage,
+  Onboarding,
+  TermsPage,
+  PrivacyPage,
+  IngredientsPage,
+  VercelAnalytics,
+  PRIORITY_LAZY_ROUTES,
+  DEFERRED_LAZY_ROUTES,
+} from "@/lib/lazy-pages";
+
+import {
+  CashierGuard,
+  POSWithSetupGuard,
+  ProGuard,
+  TransactionsRoute,
+  AdminRoute,
+  AdminBranchesRoute,
+  AdminUsersRoute,
+  AdminAnalyticsRoute,
+  AdminAuditLogsRoute,
+  AdminPermissionsRoute,
+  CustomersRoute,
+  ExpensesRoute,
+  ShiftsRoute,
+  DiscountCodesRoute,
+  RefundsRoute,
+  TablesRoute,
+  KitchenRoute,
+  SuppliersRoute,
+  PurchasesRoute,
+  TimeClockRoute,
+  AppointmentsRoute,
+  StaffRoute,
+  RoomsRoute,
+  MembershipsRoute,
+  PrintSettingsRoute,
+  HardwareSettingsRoute,
+  LoyaltyRoute,
+  WifiVouchersRoute,
+  PayrollRoute,
+  SchedulesRoute,
+  BIRRoute,
+  BIRAuditLogRoute,
+  ExpiryRoute,
+  InventoryRoute,
+  BillingRoute,
+  FeaturesRoute,
+} from "@/lib/route-guards";
+
+const INVITE_STORAGE_KEY = "artixpos_pending_invite";
+const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -158,14 +165,14 @@ function useNativeDeepLink() {
 
         debugLog("deeplink", "registering appUrlOpen listener");
 
-const launch = await CapApp.getLaunchUrl();
+        const launch = await CapApp.getLaunchUrl();
         debugLog("deeplink", `getLaunchUrl=${JSON.stringify(launch)}`);
         if (launch?.url) {
           debugLog("deeplink", `cold-launch deep link: ${launch.url}`);
           handleAuthDeepLink(launch.url);
         }
 
-const handle = await CapApp.addListener("appUrlOpen", async (data) => {
+        const handle = await CapApp.addListener("appUrlOpen", async (data) => {
           debugLog("deeplink", `appUrlOpen fired: ${data.url}`);
           try {
             await Browser.close();
@@ -191,109 +198,8 @@ const handle = await CapApp.addListener("appUrlOpen", async (data) => {
   }, []);
 }
 
-function ProGuard({ component: Component, url }: { component: ComponentType; url: string }) {
-  const { isPro, isLoading } = useSubscription();
-  const { data: settings, isLoading: settingsLoading } = useSettings();
-  if (isLoading || settingsLoading) return null;
-  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType))
-    return <Redirect to="/billing?reason=pro_required" />;
-  return <Component />;
-}
-
-function ProAndCashierGuard({
-  component: Component,
-  url,
-}: {
-  component: ComponentType;
-  url: string;
-}) {
-  const { user } = useAuth();
-  const { isPro, isLoading } = useSubscription();
-  const { data: settings, isLoading: settingsLoading } = useSettings();
-  if (isLoading || settingsLoading) return null;
-  if (!isPro && !isEssentialBusinessUrl(url, settings?.businessType, settings?.businessSubType))
-    return <Redirect to="/billing?reason=pro_required" />;
-  if (user?.role === "cashier") return <Redirect to="/" />;
-  return <Component />;
-}
-
-function OwnerGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  if (user?.role !== "owner") return <Redirect to="/" />;
-  return <Component />;
-}
-
-function ProAndOwnerGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  const { isPro, isLoading } = useSubscription();
-  if (isLoading) return null;
-  if (user?.role !== "owner") return <Redirect to="/" />;
-  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
-  return <Component />;
-}
-
-function CashierGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  if (user?.role === "cashier") return <Redirect to="/" />;
-  return <Component />;
-}
-
-function POSWithSetupGuard() {
-  const [location, setLocation] = useLocation();
-  const { data: settings, isLoading } = useSettings();
-  const posFeatures = (settings as any)?.posFeatures;
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (location !== "/pos") return;
-
-if (settings != null && posFeatures == null) {
-      setLocation("/features?setup=1");
-    }
-  }, [isLoading, settings, posFeatures, location, setLocation]);
-
-return <POS />;
-}
-
-function AdminGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  const role = user?.role;
-  if (!role || role === "cashier") return <Redirect to="/" />;
-  return <Component />;
-}
-
-function AdminProGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  const { isPro, isLoading } = useSubscription();
-  const role = user?.role;
-  if (!role || role === "cashier") return <Redirect to="/" />;
-  if (isLoading) return null;
-  if (!isPro) return <Redirect to="/billing?reason=pro_required" />;
-  return <Component />;
-}
-
-function AdminBusinessGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  const { isBusiness, isLoading } = useSubscription();
-  const role = user?.role;
-  if (!role || role === "cashier") return <Redirect to="/" />;
-  if (isLoading) return null;
-  if (!isBusiness) return <Redirect to="/billing?reason=business_required" />;
-  return <Component />;
-}
-
-function ManagerOrAboveGuard({ component: Component }: { component: ComponentType }) {
-  const { user } = useAuth();
-  const role = user?.role;
-  if (!role || (role !== "owner" && role !== "manager")) return <Redirect to="/" />;
-  return <Component />;
-}
-
-const pageFallback = null;
-
 function LoadingScreen({ message: _message }: { message?: string }) {
-
-const [offlineStall, setOfflineStall] = useState(false);
+  const [offlineStall, setOfflineStall] = useState(false);
   const [slowStall, setSlowStall] = useState(false);
 
   useEffect(() => {
@@ -417,132 +323,6 @@ function PersistentRoute({
   );
 }
 
-const HardwareSettingsRoute = () => <HardwareSettings />;
-const BillingRoute = () => <BillingPage />;
-
-const TransactionsRoute = () => <CashierGuard component={Transactions} />;
-const StaffRoute = () => <ProAndCashierGuard url="/staff" component={StaffPage} />;
-const ExpiryRoute = () => <CashierGuard component={ExpiryTrackerPage} />;
-const InventoryRoute = () => (
-  <ErrorBoundary
-    fallback={(err, retry) => (
-      <div className="min-h-screen flex items-center justify-center bg-background px-6 py-12">
-        <div className="max-w-sm w-full text-center space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-            <svg
-              className="w-6 h-6 text-red-600 dark:text-red-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <h2 className="text-lg font-semibold text-foreground">Failed to load Inventory</h2>
-          <p className="text-sm text-muted-foreground">
-            This might be a temporary network issue. Try again without leaving the page.
-          </p>
-          <button
-            onClick={retry}
-            className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
-            data-testid="button-inventory-retry"
-          >
-            Try again
-          </button>
-        </div>
-      </div>
-    )}
-  >
-    <CashierGuard component={InventoryHubPage} />
-  </ErrorBoundary>
-);
-
-const AdminRoute = () => <AdminGuard component={AdminIndex} />;
-const AdminBranchesRoute = () => <AdminGuard component={AdminBranches} />;
-const AdminUsersRoute = () => <AdminProGuard component={AdminUsers} />;
-const AdminAnalyticsRoute = () => <AdminProGuard component={AdminAnalytics} />;
-const AdminAuditLogsRoute = () => <AdminBusinessGuard component={AdminAuditLogs} />;
-const AdminPermissionsRoute = () => <AdminGuard component={AdminPermissions} />;
-
-const RefundsRoute = () => <ManagerOrAboveGuard component={Refunds} />;
-const PrintSettingsRoute = () => <OwnerGuard component={PrintSettings} />;
-const BIRRoute = () => <ProAndOwnerGuard component={BIRPage} />;
-const BIRAuditLogRoute = () => <ProAndOwnerGuard component={BIRAuditLogPage} />;
-
-const CustomersRoute = () => <ProAndCashierGuard url="/customers" component={Customers} />;
-const ExpensesRoute = () => <ProAndCashierGuard url="/expenses" component={Expenses} />;
-const DiscountCodesRoute = () => (
-  <ProAndCashierGuard url="/discount-codes" component={DiscountCodes} />
-);
-const SuppliersRoute = () => <ProAndCashierGuard url="/suppliers" component={SuppliersPage} />;
-const PurchasesRoute = () => <ProAndCashierGuard url="/purchases" component={PurchasesPage} />;
-
-const FeaturesRoute = () => (
-  <Suspense fallback={null}>
-    <FeaturesPage />
-  </Suspense>
-);
-const ShiftsRoute = () => <ProGuard url="/shifts" component={Shifts} />;
-const TablesRoute = () => <ProGuard url="/tables" component={TablesPage} />;
-const KitchenRoute = () => <ProGuard url="/kitchen" component={KitchenPage} />;
-const TimeClockRoute = () => <ProGuard url="/timeclock" component={TimeClockPage} />;
-const AppointmentsRoute = () => <ProGuard url="/appointments" component={AppointmentsPage} />;
-const RoomsRoute = () => <ProGuard url="/rooms" component={RoomsPage} />;
-const MembershipsRoute = () => <ProGuard url="/memberships" component={MembershipsPage} />;
-const LoyaltyRoute = () => <ProGuard url="/loyalty" component={LoyaltyPage} />;
-const WifiVouchersRoute = () => <ProGuard url="/wifi-vouchers" component={WifiVouchersPage} />;
-const PayrollRoute = () => <ProGuard url="/payroll" component={PayrollPage} />;
-const SchedulesRoute = () => <ProGuard url="/schedules" component={SchedulesPage} />;
-
-const ALL_LAZY_ROUTES: Array<() => Promise<unknown>> = [
-  () => import("@/pages/dashboard"),
-  () => import("@/pages/pos"),
-  () => import("@/pages/products"),
-  () => import("@/pages/analytics"),
-  () => import("@/pages/pending-orders"),
-  () => import("@/pages/settings"),
-  () => import("@/pages/transactions"),
-  () => import("@/pages/customers"),
-  () => import("@/pages/expenses"),
-  () => import("@/pages/shifts"),
-  () => import("@/pages/discount-codes"),
-  () => import("@/pages/refunds"),
-  () => import("@/pages/tables"),
-  () => import("@/pages/kitchen"),
-  () => import("@/pages/kitchen-display"),
-  () => import("@/pages/suppliers"),
-  () => import("@/pages/purchases"),
-  () => import("@/pages/timeclock"),
-  () => import("@/pages/onboarding"),
-  () => import("@/pages/appointments"),
-  () => import("@/pages/staff"),
-  () => import("@/pages/rooms"),
-  () => import("@/pages/memberships"),
-  () => import("@/pages/billing"),
-  () => import("@/pages/print-settings"),
-  () => import("@/pages/hardware-settings"),
-  () => import("@/pages/loyalty"),
-  () => import("@/pages/payroll"),
-  () => import("@/pages/bir"),
-  () => import("@/pages/bir-audit-log"),
-  () => import("@/pages/expiry-tracker"),
-  () => import("@/pages/features"),
-  () => import("@/pages/admin/index"),
-  () => import("@/pages/admin/branches"),
-  () => import("@/pages/admin/users"),
-  () => import("@/pages/admin/analytics"),
-  () => import("@/pages/admin/audit-logs"),
-  () => import("@/pages/admin/permissions"),
-];
-
-const PRIORITY_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(0, 5);
-const DEFERRED_LAZY_ROUTES = ALL_LAZY_ROUTES.slice(5);
-
 function useRoutePreloader() {
   useEffect(() => {
     if (!navigator.onLine) return;
@@ -576,6 +356,8 @@ function useRoutePreloader() {
   }, []);
 }
 
+const pageFallback = null;
+
 function AppRouter() {
   const { data: settings, isLoading: settingsLoading, isError: settingsError } = useSettings();
   const { user } = useAuth();
@@ -583,12 +365,12 @@ function AppRouter() {
   useRoutePreloader();
   useBranchTheme();
 
-const settingsEverLoaded = useRef(settings !== undefined);
+  const settingsEverLoaded = useRef(settings !== undefined);
   if (!settingsEverLoaded.current && settings !== undefined) {
     settingsEverLoaded.current = true;
   }
 
-const [settingsTimedOut, setSettingsTimedOut] = useState(false);
+  const [settingsTimedOut, setSettingsTimedOut] = useState(false);
   useEffect(() => {
     if (settingsEverLoaded.current || !settingsLoading) return;
     const t = setTimeout(() => setSettingsTimedOut(true), 4_000);
@@ -605,14 +387,14 @@ const [settingsTimedOut, setSettingsTimedOut] = useState(false);
     return <LoadingScreen />;
   }
 
-const onboardedKey = user?.id ? `artix-onboarded-${user.id}` : null;
+  const onboardedKey = user?.id ? `artix-onboarded-${user.id}` : null;
   const alreadyOnboarded = onboardedKey ? localStorage.getItem(onboardedKey) === "1" : false;
 
-if (onboardedKey && settings?.onboardingComplete) {
+  if (onboardedKey && settings?.onboardingComplete) {
     localStorage.setItem(onboardedKey, "1");
   }
 
-const needsOnboarding =
+  const needsOnboarding =
     !settingsError &&
     settings !== undefined &&
     settings !== null &&
@@ -737,7 +519,6 @@ function PinSessionApp() {
     try {
       await apiRequest("POST", "/api/staff-pin/clockout");
     } catch {
-
     }
     queryClient.cancelQueries();
     queryClient.removeQueries({ predicate: (q) => (q.queryKey[0] as string) !== "auth-me" });
@@ -801,7 +582,7 @@ function ProtectedRouter() {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
-if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
       queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearPrefetchCache();
@@ -818,7 +599,7 @@ if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {
     initRevenueCat(user.tenantId).catch((e) => console.warn("[revenuecat] init error:", e));
   }, [isAuthenticated, user?.tenantId]);
 
-useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated && !isLoading) {
       queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
@@ -861,7 +642,7 @@ useEffect(() => {
       .finally(() => setRedeemingInvite(false));
   }, [isAuthenticated, isLoading]);
 
-if (redeemingInvite) {
+  if (redeemingInvite) {
     return <LoadingScreen message="Joining your team…" />;
   }
   if (isLoading) return null;

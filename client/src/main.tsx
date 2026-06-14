@@ -46,20 +46,16 @@ if ("serviceWorker" in navigator) {
 
 navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "SW_ASSET_404") {
-        const STALE_KEY = "_artix_stale_reload";
-        try {
-          const attempts = Number(sessionStorage.getItem(STALE_KEY) ?? "0");
-          if (attempts >= 3) return;
-          sessionStorage.setItem(STALE_KEY, String(attempts + 1));
-        } catch { return; }
-        const doReload = () => window.location.reload();
+        // A hashed chunk returned 404 — the SW already deleted SHELL_CACHE.
+        // Clear all remaining caches here so the next load gets fresh assets.
+        // DO NOT trigger a reload: lazyWithRetry (lazy-pages.ts) is the sole
+        // reload mechanism for chunk errors. If both fired independently they
+        // would double-reload on every new deployment, giving users 4-6 total
+        // page loads instead of 1.
         if (window.caches) {
           caches.keys()
             .then((keys) => Promise.all(keys.map((k) => caches.delete(k).catch(() => {}))))
-            .catch(() => {})
-            .finally(doReload);
-        } else {
-          doReload();
+            .catch(() => {});
         }
       }
     });

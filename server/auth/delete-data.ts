@@ -43,7 +43,6 @@ import {
   loyaltyRewards,
   loyaltyPointsLog,
   notifications,
-  users,
 } from "@shared/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 

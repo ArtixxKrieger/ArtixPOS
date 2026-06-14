@@ -36,7 +36,10 @@ document.addEventListener("visibilitychange", () => {
 
 const _swHost = window.location.hostname;
 const _isLocalhost = _swHost === "localhost" || _swHost === "127.0.0.1" || _swHost === "0.0.0.0";
-const _shouldRegisterSW = "serviceWorker" in navigator && !_isLocalhost;
+// Disable SW in Vite dev mode: it can serve stale cached HTML referencing old
+// hashed production assets (which 404 in dev), triggering SW_ASSET_404 reload
+// loops.  The SW is only useful in production builds.
+const _shouldRegisterSW = "serviceWorker" in navigator && !_isLocalhost && !import.meta.env.DEV;
 
 if ("serviceWorker" in navigator) {
   if (_shouldRegisterSW) {

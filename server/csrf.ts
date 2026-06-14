@@ -19,8 +19,9 @@ export function csrfCookieMiddleware(
   res: Response,
   next: NextFunction,
 ) {
+  let token: string;
   if (!req.cookies[CSRF_COOKIE]) {
-    const token = generate();
+    token = generate();
     res.cookie(CSRF_COOKIE, token, {
       httpOnly: false,
       secure: true,
@@ -28,10 +29,15 @@ export function csrfCookieMiddleware(
       maxAge: COOKIE_MAX_AGE_MS,
       path: "/",
     });
-    req._csrfToken = token;
   } else {
-    req._csrfToken = req.cookies[CSRF_COOKIE];
+    token = req.cookies[CSRF_COOKIE];
   }
+  req._csrfToken = token;
+  // Echo the token in a response header so the client can read it even when
+  // document.cookie is unavailable (e.g. Replit iframe, third-party cookie
+  // restrictions in Chrome 120+).  Reading a response header does not require
+  // cookie access and works reliably in all iframe contexts.
+  res.setHeader("X-CSRF-Token", token);
   next();
 }
 

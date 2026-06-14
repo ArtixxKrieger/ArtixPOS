@@ -33,7 +33,19 @@ export function getCredentials(): "include" | "omit" {
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
+// In-memory cache for the CSRF token captured from X-CSRF-Token response headers.
+// This is the primary source — it works even when document.cookie is unavailable
+// (e.g. Chrome 120+ third-party cookie restrictions inside the Replit iframe).
+let _csrfTokenCache = "";
+
+export function storeCsrfToken(token: string) {
+  if (token) _csrfTokenCache = token;
+}
+
 function getCsrfToken(): string {
+  // Prefer the in-memory value captured from a response header (always reliable).
+  if (_csrfTokenCache) return _csrfTokenCache;
+  // Fall back to reading the cookie directly (works in first-party contexts).
   if (typeof document === "undefined") return "";
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
   return match?.[1] ?? "";
@@ -65,7 +77,12 @@ const MAX_503_RETRIES = 3;
 const BASE_503_DELAY_MS = 1_000;
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // Capture CSRF token echoed by the server on every response.
+    const echoed = res.headers["x-csrf-token"] as string | undefined;
+    if (echoed) storeCsrfToken(echoed);
+    return res;
+  },
   async (err: AxiosError) => {
     const config = err.config as InternalAxiosRequestConfig & {
       _503retries?: number;
@@ -192,7 +209,7 @@ export async function nativeFetch(
   options: RequestInit = {},
 ): Promise<Response> {
   const method = (options.method ?? "GET").toUpperCase();
-  return fetch(resolveUrl(url), {
+  const res = await fetch(resolveUrl(url), {
     ...options,
     credentials: getCredentials(),
     headers: {
@@ -201,4 +218,9 @@ export async function nativeFetch(
       ...getCsrfHeaders(method),
     },
   });
+  // Capture the echoed CSRF token so subsequent mutations don't rely on
+  // document.cookie (which may be inaccessible in cross-site iframe contexts).
+  const echoed = res.headers.get("x-csrf-token");
+  if (echoed) storeCsrfToken(echoed);
+  return res;
 }

@@ -72,6 +72,8 @@ async function fetchTier(urls: readonly string[], delayMs: number): Promise<void
               import("./offline-db").then(({ setCached }) => {
                 setCached(url, data).catch(() => {});
               });
+            } else {
+              queryClient.removeQueries({ queryKey: [url], exact: true });
             }
           })
           .catch(() => {}),

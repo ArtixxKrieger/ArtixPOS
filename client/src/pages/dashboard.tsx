@@ -124,7 +124,8 @@ try {
   });
 
   const { data: settings } = useSettings();
-  const { data: products = [] } = useProducts();
+  const { data: _productsRaw } = useProducts();
+  const products = _productsRaw ?? [];
   const [, setLocation] = useLocation();
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const { businessType: branchBusinessType, businessSubType: branchBusinessSubType } = useBranchBusiness();

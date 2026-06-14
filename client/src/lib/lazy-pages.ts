@@ -1,50 +1,101 @@
 import { lazy } from "react";
 
-export const Dashboard = lazy(() => import("@/pages/dashboard"));
-export const POS = lazy(() => import("@/pages/pos"));
-export const Products = lazy(() => import("@/pages/products"));
-export const Analytics = lazy(() => import("@/pages/analytics"));
-export const PendingOrders = lazy(() => import("@/pages/pending-orders"));
-export const Settings = lazy(() => import("@/pages/settings"));
-export const Transactions = lazy(() => import("@/pages/transactions"));
-export const AdminIndex = lazy(() => import("@/pages/admin/index"));
-export const AdminBranches = lazy(() => import("@/pages/admin/branches"));
-export const AdminUsers = lazy(() => import("@/pages/admin/users"));
-export const AdminAnalytics = lazy(() => import("@/pages/admin/analytics"));
-export const AdminAuditLogs = lazy(() => import("@/pages/admin/audit-logs"));
-export const AdminPermissions = lazy(() => import("@/pages/admin/permissions"));
-export const Customers = lazy(() => import("@/pages/customers"));
-export const Expenses = lazy(() => import("@/pages/expenses"));
-export const Shifts = lazy(() => import("@/pages/shifts"));
-export const DiscountCodes = lazy(() => import("@/pages/discount-codes"));
-export const Refunds = lazy(() => import("@/pages/refunds"));
-export const TablesPage = lazy(() => import("@/pages/tables"));
-export const KitchenPage = lazy(() => import("@/pages/kitchen"));
-export const KitchenDisplayPage = lazy(() => import("@/pages/kitchen-display"));
-export const SuppliersPage = lazy(() => import("@/pages/suppliers"));
-export const PurchasesPage = lazy(() => import("@/pages/purchases"));
-export const TimeClockPage = lazy(() => import("@/pages/timeclock"));
-export const Onboarding = lazy(() => import("@/pages/onboarding"));
-export const AppointmentsPage = lazy(() => import("@/pages/appointments"));
-export const StaffPage = lazy(() => import("@/pages/staff"));
-export const RoomsPage = lazy(() => import("@/pages/rooms"));
-export const MembershipsPage = lazy(() => import("@/pages/memberships"));
-export const BillingPage = lazy(() => import("@/pages/billing"));
-export const TermsPage = lazy(() => import("@/pages/terms"));
-export const PrivacyPage = lazy(() => import("@/pages/privacy"));
-export const PrintSettings = lazy(() => import("@/pages/print-settings"));
-export const HardwareSettings = lazy(() => import("@/pages/hardware-settings"));
-export const LoyaltyPage = lazy(() => import("@/pages/loyalty"));
-export const WifiVouchersPage = lazy(() => import("@/pages/wifi-vouchers"));
-export const PayrollPage = lazy(() => import("@/pages/payroll"));
-export const SchedulesPage = lazy(() => import("@/pages/schedules"));
-export const BIRPage = lazy(() => import("@/pages/bir"));
-export const BIRAuditLogPage = lazy(() => import("@/pages/bir-audit-log"));
-export const ExpiryTrackerPage = lazy(() => import("@/pages/expiry-tracker"));
-export const FeaturesPage = lazy(() => import("@/pages/features"));
-export const InventoryHubPage = lazy(() => import("@/pages/inventory-hub"));
-export const IngredientsPage = lazy(() => import("@/pages/ingredients"));
-export const VercelAnalytics = lazy(() =>
+/**
+ * Wraps React.lazy() with automatic cache-clearing recovery for stale-deployment
+ * chunk load failures (e.g. "Failed to fetch dynamically imported module").
+ *
+ * When a lazy chunk 404s after a new deployment, this clears all SW caches and
+ * the SW registration itself, then reloads — so the browser fetches fresh HTML
+ * and the correct new chunk hashes. Without this, a plain reload() lets the SW
+ * re-serve the same stale HTML, causing an infinite error loop.
+ *
+ * A sessionStorage counter prevents runaway reload loops (max 3 attempts).
+ */
+function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
+  factory: () => Promise<T>,
+): ReturnType<typeof lazy<T["default"]>> {
+  return lazy(() =>
+    factory().catch(async (err: unknown) => {
+      const msg = String((err as Error)?.message ?? "");
+      const isChunkErr =
+        /Failed to fetch dynamically imported module/i.test(msg) ||
+        /Loading (chunk|CSS chunk) [\d]+ failed/i.test(msg) ||
+        /Importing a module script failed/i.test(msg) ||
+        (err as Error)?.name === "ChunkLoadError";
+
+      if (!isChunkErr || !navigator.onLine) throw err;
+
+      const RETRY_KEY = "_artix_lazy_retry";
+      const attempts = Number(sessionStorage.getItem(RETRY_KEY) ?? "0");
+      if (attempts >= 3) throw err;
+      sessionStorage.setItem(RETRY_KEY, String(attempts + 1));
+
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations().catch(() => []);
+          await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+        }
+        if (window.caches) {
+          const keys = await caches.keys().catch(() => [] as string[]);
+          await Promise.all(keys.map((k) => caches.delete(k).catch(() => false)));
+        }
+      } catch {
+        // ignore — reload regardless
+      }
+
+      window.location.reload();
+      // Return a never-resolving promise so React.lazy doesn't render anything
+      // while the page is reloading.
+      return new Promise<never>(() => {});
+    }),
+  );
+}
+
+export const Dashboard = lazyWithRetry(() => import("@/pages/dashboard"));
+export const POS = lazyWithRetry(() => import("@/pages/pos"));
+export const Products = lazyWithRetry(() => import("@/pages/products"));
+export const Analytics = lazyWithRetry(() => import("@/pages/analytics"));
+export const PendingOrders = lazyWithRetry(() => import("@/pages/pending-orders"));
+export const Settings = lazyWithRetry(() => import("@/pages/settings"));
+export const Transactions = lazyWithRetry(() => import("@/pages/transactions"));
+export const AdminIndex = lazyWithRetry(() => import("@/pages/admin/index"));
+export const AdminBranches = lazyWithRetry(() => import("@/pages/admin/branches"));
+export const AdminUsers = lazyWithRetry(() => import("@/pages/admin/users"));
+export const AdminAnalytics = lazyWithRetry(() => import("@/pages/admin/analytics"));
+export const AdminAuditLogs = lazyWithRetry(() => import("@/pages/admin/audit-logs"));
+export const AdminPermissions = lazyWithRetry(() => import("@/pages/admin/permissions"));
+export const Customers = lazyWithRetry(() => import("@/pages/customers"));
+export const Expenses = lazyWithRetry(() => import("@/pages/expenses"));
+export const Shifts = lazyWithRetry(() => import("@/pages/shifts"));
+export const DiscountCodes = lazyWithRetry(() => import("@/pages/discount-codes"));
+export const Refunds = lazyWithRetry(() => import("@/pages/refunds"));
+export const TablesPage = lazyWithRetry(() => import("@/pages/tables"));
+export const KitchenPage = lazyWithRetry(() => import("@/pages/kitchen"));
+export const KitchenDisplayPage = lazyWithRetry(() => import("@/pages/kitchen-display"));
+export const SuppliersPage = lazyWithRetry(() => import("@/pages/suppliers"));
+export const PurchasesPage = lazyWithRetry(() => import("@/pages/purchases"));
+export const TimeClockPage = lazyWithRetry(() => import("@/pages/timeclock"));
+export const Onboarding = lazyWithRetry(() => import("@/pages/onboarding"));
+export const AppointmentsPage = lazyWithRetry(() => import("@/pages/appointments"));
+export const StaffPage = lazyWithRetry(() => import("@/pages/staff"));
+export const RoomsPage = lazyWithRetry(() => import("@/pages/rooms"));
+export const MembershipsPage = lazyWithRetry(() => import("@/pages/memberships"));
+export const BillingPage = lazyWithRetry(() => import("@/pages/billing"));
+export const TermsPage = lazyWithRetry(() => import("@/pages/terms"));
+export const PrivacyPage = lazyWithRetry(() => import("@/pages/privacy"));
+export const PrintSettings = lazyWithRetry(() => import("@/pages/print-settings"));
+export const HardwareSettings = lazyWithRetry(() => import("@/pages/hardware-settings"));
+export const LoyaltyPage = lazyWithRetry(() => import("@/pages/loyalty"));
+export const WifiVouchersPage = lazyWithRetry(() => import("@/pages/wifi-vouchers"));
+export const PayrollPage = lazyWithRetry(() => import("@/pages/payroll"));
+export const SchedulesPage = lazyWithRetry(() => import("@/pages/schedules"));
+export const BIRPage = lazyWithRetry(() => import("@/pages/bir"));
+export const BIRAuditLogPage = lazyWithRetry(() => import("@/pages/bir-audit-log"));
+export const ExpiryTrackerPage = lazyWithRetry(() => import("@/pages/expiry-tracker"));
+export const FeaturesPage = lazyWithRetry(() => import("@/pages/features"));
+export const InventoryHubPage = lazyWithRetry(() => import("@/pages/inventory-hub"));
+export const IngredientsPage = lazyWithRetry(() => import("@/pages/ingredients"));
+export const VercelAnalytics = lazyWithRetry(() =>
   import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
 );
 

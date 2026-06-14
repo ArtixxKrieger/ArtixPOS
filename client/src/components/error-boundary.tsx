@@ -32,13 +32,31 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error("[ErrorBoundary]", error, info);
     this.setState({ componentStack: info.componentStack ?? null });
 
-if (isChunkLoadError(error) && navigator.onLine) {
+    if (isChunkLoadError(error) && navigator.onLine) {
       const key = "artixpos_chunk_reload_at";
       const last = Number(sessionStorage.getItem(key) ?? "0");
 
-if (Date.now() - last > 60_000) {
+      if (Date.now() - last > 30_000) {
         sessionStorage.setItem(key, String(Date.now()));
-        window.location.reload();
+        // Must wipe SW caches before reloading — a plain reload() lets the SW
+        // serve the same stale HTML again, so the chunk 404 repeats forever.
+        const doReload = () => window.location.reload();
+        try {
+          const unregisterSW = "serviceWorker" in navigator
+            ? navigator.serviceWorker
+                .getRegistrations()
+                .then((regs) => Promise.all(regs.map((r) => r.unregister().catch(() => false))))
+                .catch(() => {})
+            : Promise.resolve();
+          const wipeCaches = window.caches
+            ? caches.keys()
+                .then((keys) => Promise.all(keys.map((k) => caches.delete(k).catch(() => false))))
+                .catch(() => {})
+            : Promise.resolve();
+          Promise.all([unregisterSW, wipeCaches]).finally(doReload);
+        } catch {
+          doReload();
+        }
       }
     }
   }

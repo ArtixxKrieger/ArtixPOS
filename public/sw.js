@@ -1,4 +1,4 @@
-// ArtixPOS Service Worker v11
+// ArtixPOS Service Worker v12
 // Caching strategies:
 //   HTML/navigation   → stale-while-revalidate (instant from cache; updates background)
 //   Hashed assets     → cache-first, immutable
@@ -7,14 +7,14 @@
 //   Flag CDN images   → stale-while-revalidate (flagcdn.com, works offline)
 //   API calls         → network-only
 //
-// v11 changes:
-//   Navigation strategy changed from network-first to stale-while-revalidate.
-//   App shell now loads INSTANTLY from cache on every visit while the cache
-//   is refreshed in the background.  The stale-deployment guard (SW_ASSET_404)
-//   ensures stale HTML that references removed hashed assets triggers a full
-//   cache wipe + reload automatically, so this is safe for Vite deployments.
+// v12 changes:
+//   ErrorBoundary now does a hard reload (unregister SW + wipe caches) instead
+//   of a plain reload() on chunk load errors, preventing the SW from re-serving
+//   stale HTML that references removed hashed assets after a new deployment.
+//   Version bump forces all v11 SW clients to receive a fresh SW and clear
+//   their old caches on next visit.
 
-const CACHE_VERSION = "v11";
+const CACHE_VERSION = "v12";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;

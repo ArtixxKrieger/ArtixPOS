@@ -23,7 +23,10 @@ function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
         /Importing a module script failed/i.test(msg) ||
         (err as Error)?.name === "ChunkLoadError";
 
-      if (!isChunkErr || !navigator.onLine) throw err;
+      // Only auto-recover in production builds. In dev, Vite module imports can
+      // fail transiently (HMR reconnects, server restart) and triggering a
+      // reload loop here makes development impossible.
+      if (!isChunkErr || !navigator.onLine || !import.meta.env.PROD) throw err;
 
       const RETRY_KEY = "_artix_lazy_retry";
       const attempts = Number(sessionStorage.getItem(RETRY_KEY) ?? "0");

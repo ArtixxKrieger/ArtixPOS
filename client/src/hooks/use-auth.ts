@@ -100,7 +100,11 @@ saveCachedAuthUser(null);
   } catch (err) {
     clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — NETWORK ERROR / TIMEOUT: ${err}`);
-    return null;
+    // Do NOT clear the auth cache on network errors / timeouts / AbortErrors.
+    // Returning null here would call saveCachedAuthUser(null), wipe localStorage,
+    // and redirect the user to login — even though they are still authenticated.
+    // Return the last known good user so the session survives transient failures.
+    return loadCachedAuthUser();
   }
 }
 

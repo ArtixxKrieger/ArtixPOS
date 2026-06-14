@@ -32,7 +32,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error("[ErrorBoundary]", error, info);
     this.setState({ componentStack: info.componentStack ?? null });
 
-    if (isChunkLoadError(error) && navigator.onLine) {
+    // Only auto-reload in production. In dev (Vite), chunk errors are transient
+    // (HMR reconnects, server restarts) — auto-reloading in dev causes infinite
+    // reload loops and is never the right fix.
+    if (isChunkLoadError(error) && navigator.onLine && import.meta.env.PROD) {
       const key = "artixpos_chunk_reload_at";
       const last = Number(sessionStorage.getItem(key) ?? "0");
 

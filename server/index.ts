@@ -49,7 +49,7 @@ if (!isServerless) {
 }
 
 const scriptSrc: string[] = isDevelopment
-  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
+  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com", "https://replit.com", "https://*.replit.com", "https://replit-cdn.com", "https://*.replit-cdn.com"]
   : ["'self'", "https://accounts.google.com", "https://*.google.com"];
 
 const cspDirectives = {
@@ -61,8 +61,8 @@ const cspDirectives = {
     ? ["'self'", "data:", "https:", "blob:"]
     : ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com", "https://graph.facebook.com"],
   connectSrc: isDevelopment
-    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io"]
-    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io"],
+    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io", "https://fonts.googleapis.com", "https://fonts.gstatic.com"]
+    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
   frameSrc: ["https://accounts.google.com"],
   frameAncestors: isDevelopment
     ? ["'self'", "https://replit.com", "https://*.replit.com"]

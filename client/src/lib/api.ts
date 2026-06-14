@@ -89,6 +89,8 @@ api.interceptors.response.use(
 
 const NO_REDIRECT_401 = ["/api/auth/", "/api/staff-pin/"];
 
+let _sessionExpiredAt = 0;
+
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
@@ -102,7 +104,11 @@ api.interceptors.response.use(
         !window.location.pathname.startsWith("/staff-clock-in")
       ) {
         clearNativeToken();
-        window.location.replace("/login");
+        const now = Date.now();
+        if (now - _sessionExpiredAt > 3000) {
+          _sessionExpiredAt = now;
+          window.dispatchEvent(new CustomEvent("auth:session-expired"));
+        }
       }
     }
     return Promise.reject(err);

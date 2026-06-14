@@ -659,6 +659,10 @@ export default function Login() {
       handleNativeGoogleSignIn();
       return;
     }
+    if (!googleClientId) {
+      setNativeError("Google sign-in is not configured for this app.");
+      return;
+    }
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }

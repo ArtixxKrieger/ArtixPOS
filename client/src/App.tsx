@@ -580,6 +580,14 @@ function ProtectedRouter() {
   const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    function handleSessionExpired() {
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+    }
+    window.addEventListener("auth:session-expired", handleSessionExpired);
+    return () => window.removeEventListener("auth:session-expired", handleSessionExpired);
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
     if (prevUserIdRef.current !== null && prevUserIdRef.current !== user.id) {

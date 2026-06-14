@@ -573,7 +573,7 @@ function PinSessionApp() {
 }
 
 function ProtectedRouter() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, isFetching, user } = useAuth();
   const [location] = useLocation();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
 
@@ -653,7 +653,8 @@ function ProtectedRouter() {
   if (redeemingInvite) {
     return <LoadingScreen message="Joining your team…" />;
   }
-  if (isLoading) return null;
+
+  if (isLoading || (!isAuthenticated && isFetching)) return null;
 
   if (!isAuthenticated) {
     return <Redirect to="/login" />;

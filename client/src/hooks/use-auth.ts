@@ -100,10 +100,19 @@ saveCachedAuthUser(null);
   } catch (err) {
     clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — NETWORK ERROR / TIMEOUT: ${err}`);
-    // Do NOT clear the auth cache on network errors / timeouts / AbortErrors.
-    // Returning null here would call saveCachedAuthUser(null), wipe localStorage,
-    // and redirect the user to login — even though they are still authenticated.
-    // Return the last known good user so the session survives transient failures.
+
+    // AbortErrors fall into two cases:
+    // 1. Our internal timeout controller fired (name includes "TimeoutError") — rethrow
+    //    so React Query retries (the server may just be slow).
+    // 2. React Query cancelled the request (component unmount / query cancelled).
+    //    Rethrowing here lets React Query handle it cleanly without treating it as
+    //    a "null" response that would wipe the auth cache and redirect to /login.
+    // In both cases: rethrow, never return null from an abort.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+
+    // On genuine network failures (offline, server completely unreachable) return
+    // the last known cached user so the session isn't destroyed by a transient
+    // outage — the user is probably still authenticated.
     return loadCachedAuthUser();
   }
 }

@@ -116,7 +116,7 @@ function useScrollReveal() {
 
     document.querySelectorAll(".sr").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  });
+  }, []);
 }
 
 function useCountUp(target: number, visible: boolean, duration = 1200) {
@@ -686,7 +686,13 @@ export default function Login() {
         setFormError(data.message ?? "Something went wrong.");
         return;
       }
-      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+      const authUser = data.user ?? null;
+      queryClient.setQueryData(["auth-me"], authUser);
+      if (authUser) {
+        try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
+      } else {
+        try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
+      }
     } catch {
       setFormError("Network error. Please try again.");
     } finally {

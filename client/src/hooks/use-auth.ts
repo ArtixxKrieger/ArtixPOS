@@ -124,7 +124,7 @@ saveCachedAuthUser(null);
 export function useAuth() {
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading, isFetching } = useQuery<AuthUser | null>({
+  const { data: user, isLoading, isFetching, isPlaceholderData } = useQuery<AuthUser | null>({
     queryKey: ["auth-me"],
     queryFn: fetchMe,
     placeholderData: loadCachedAuthUser(),
@@ -166,6 +166,7 @@ export function useAuth() {
     user: u,
     isLoading,
     isFetching,
+    isPlaceholderData,
     isAuthenticated: !!u,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,

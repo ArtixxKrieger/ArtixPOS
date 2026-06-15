@@ -331,7 +331,7 @@ const POS_DEMO = [
 
 export default function Login() {
   const { t } = useTranslation();
-  const { isAuthenticated, isLoading, isFetching } = useAuth();
+  const { isAuthenticated, isLoading, isPlaceholderData } = useAuth();
   const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
   const { canInstall, install } = usePwaInstall();
@@ -527,7 +527,7 @@ export default function Login() {
   }, [isLoading]);
 
   useEffect(() => {
-    if (isLoading || isFetching) return;
+    if (isLoading || isPlaceholderData) return;
     if (!isAuthenticated) {
       sessionStorage.removeItem("artix-logout-pending");
       return;
@@ -551,7 +551,7 @@ export default function Login() {
       return;
     }
     setLocation("/");
-  }, [isAuthenticated, isLoading, isFetching, setLocation]);
+  }, [isAuthenticated, isLoading, isPlaceholderData, setLocation]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);

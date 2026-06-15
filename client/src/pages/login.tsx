@@ -3,7 +3,7 @@ import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, clearAuthCache } from "@/hooks/use-auth";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import {
   apiRequest,
@@ -331,7 +331,7 @@ const POS_DEMO = [
 
 export default function Login() {
   const { t } = useTranslation();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isFetching } = useAuth();
   const [, setLocation] = useLocation();
   const [isDark, setIsDark] = useState(getIsDark);
   const { canInstall, install } = usePwaInstall();
@@ -527,7 +527,7 @@ export default function Login() {
   }, [isLoading]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isFetching) return;
     if (!isAuthenticated) {
       sessionStorage.removeItem("artix-logout-pending");
       return;
@@ -541,15 +541,17 @@ export default function Login() {
         } catch {}
         const { clearNativeToken } = await import("@/lib/queryClient");
         clearNativeToken();
+        clearAuthCache();
         await clearAllCache();
-        queryClient.cancelQueries();
+        queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
+        queryClient.setQueryData(["auth-me"], null);
         queryClient.clear();
         window.location.replace("/login");
       })();
       return;
     }
     setLocation("/");
-  }, [isAuthenticated, isLoading, setLocation]);
+  }, [isAuthenticated, isLoading, isFetching, setLocation]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);

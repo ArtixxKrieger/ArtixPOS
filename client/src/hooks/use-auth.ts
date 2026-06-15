@@ -26,6 +26,10 @@ function saveCachedAuthUser(user: AuthUser | null): void {
   } catch {}
 }
 
+export function clearAuthCache(): void {
+  saveCachedAuthUser(null);
+}
+
 export interface ActiveBranchInfo {
   id: number;
   name: string;
@@ -142,13 +146,16 @@ export function useAuth() {
       clearAllCache().catch(() => {});
     },
     onSuccess: () => {
-      queryClient.cancelQueries();
+      queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
+      queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();
       window.location.replace("/login");
     },
     onError: () => {
       clearNativeToken();
-      queryClient.cancelQueries();
+      saveCachedAuthUser(null);
+      queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
+      queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();
       window.location.replace("/login");
     },

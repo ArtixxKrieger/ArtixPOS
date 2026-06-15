@@ -6,3 +6,4 @@
 - [CSRF token via response header](csrf-response-header.md) — Echo CSRF token in X-CSRF-Token response header; client caches in memory (_csrfTokenCache); avoids document.cookie failure in Replit iframe + Chrome third-party restrictions.
 - [Login setQueryData pattern](login-setquerydata.md) — After login/register POST, use setQueryData+localStorage update instead of invalidateQueries; the server already returns the user so a second fetchMe round-trip is unnecessary and unreliable.
 - [Post-login reload and login-page bugs](post-login-bugs.md) — Two root causes: (1) SW stale-while-revalidate → old HTML → chunk 404 → double reload; fixed by network-first HTML in sw.js v13. (2) cancelQueries() (no filter) cancelled auth-me → brief isFetching=false gap → login redirect; fixed by scoping cancel to non-auth-me queries.
+- [Logout redirect loop fix](logout-redirect-loop.md) — Four bugs together caused the redirect loop after logout; all fixed.

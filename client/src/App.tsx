@@ -609,7 +609,7 @@ function ProtectedRouter() {
 
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
-      queryClient.cancelQueries();
+      queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearAllCache().catch(() => {});
       clearPrefetchCache();

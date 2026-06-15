@@ -1,20 +1,21 @@
-// ArtixPOS Service Worker v12
+// ArtixPOS Service Worker v13
 // Caching strategies:
-//   HTML/navigation   → stale-while-revalidate (instant from cache; updates background)
+//   HTML/navigation   → network-first (3 s timeout), cache fallback
 //   Hashed assets     → cache-first, immutable
 //   Fonts             → cache-first
 //   Images            → stale-while-revalidate
 //   Flag CDN images   → stale-while-revalidate (flagcdn.com, works offline)
 //   API calls         → network-only
 //
-// v12 changes:
-//   ErrorBoundary now does a hard reload (unregister SW + wipe caches) instead
-//   of a plain reload() on chunk load errors, preventing the SW from re-serving
-//   stale HTML that references removed hashed assets after a new deployment.
-//   Version bump forces all v11 SW clients to receive a fresh SW and clear
-//   their old caches on next visit.
+// v13 changes:
+//   Navigation strategy changed from stale-while-revalidate to network-first
+//   with a 3-second timeout + cache fallback.  This guarantees users always
+//   receive fresh HTML (with current hashed asset URLs) after a new Vercel
+//   deployment, eliminating the stale-HTML → stale-chunk-URL → 404 →
+//   lazyWithRetry reload cycle that was causing 1-2 unexpected reloads after
+//   sign-in on every new production deployment.
 
-const CACHE_VERSION = "v12";
+const CACHE_VERSION = "v13";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;
@@ -250,45 +251,40 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 5. Navigation requests — stale-while-revalidate
+  // 5. Navigation requests — network-first with 3-second timeout, cache fallback
   //
-  // Return the cached app shell immediately so the app loads INSTANTLY on
-  // every visit after the first.  The cache is updated in the background so
-  // the next load always has a fresh copy.
-  //
-  // Safety: Vite hashes all JS/CSS asset filenames.  If a deployment changes
-  // those hashes the hashed-asset handler above fires SW_ASSET_404, which
-  // triggers a full cache-wipe + reload in every open tab — so serving stale
-  // HTML never leaves the app in a broken state.
+  // Always try to get fresh HTML from the network so users receive the current
+  // deployment's asset hashes. This eliminates the "stale HTML → stale chunk
+  // URL → CDN 404 → reload" cycle that plagued the previous stale-while-
+  // revalidate strategy. On a Vercel CDN edge the network hop is ~50-150 ms
+  // (well within the 3-second timeout); we still serve from cache when offline
+  // or the server is unreachable.
   if (isNavigation(req) || (isSameOrigin(req.url) && url.pathname.endsWith(".html"))) {
     event.respondWith(
-      caches.open(SHELL_CACHE).then(async (cache) => {
-        // Try to find a cached shell entry (exact URL, root, or /index.html)
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+
+        // Attempt a network fetch with a 3-second hard timeout
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 3000);
+        try {
+          const res = await fetch(req, { signal: controller.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            cache.put(req, res.clone()).catch(() => {});
+            return res;
+          }
+        } catch (_) {
+          clearTimeout(timer);
+        }
+
+        // Network failed or timed out — fall back to cached shell
         const cached =
           (await cache.match(req)) ??
           (await cache.match("/")) ??
           (await cache.match("/index.html"));
-
-        // Kick off a background network fetch to keep the cache fresh
-        const networkFetch = fetch(req)
-          .then((res) => {
-            if (res.ok) cache.put(req, res.clone());
-            return res;
-          })
-          .catch(() => null);
-
-        if (cached) {
-          // Cache hit — return instantly, let network update run in background
-          return cached;
-        }
-
-        // No cache yet (first-ever load) — wait for the network
-        const res = await networkFetch;
-        if (res && res.ok) return res;
-
-        // Nothing in cache and network failed — show offline page
-        return offlineFallbackResponse();
-      })
+        return cached ?? offlineFallbackResponse();
+      })()
     );
     return;
   }

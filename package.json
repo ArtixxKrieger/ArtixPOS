@@ -13,7 +13,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:rls": "node scripts/apply-rls.mjs",
-    "vercel-build": "npm run build"
+    "vercel-build": "npm run build",
+    "postinstall": "node -e \"const{cpSync,existsSync}=require('fs');const src='node_modules/@esbuild/linux-x64/bin/esbuild';const dest='node_modules/drizzle-kit/node_modules/@esbuild/linux-x64/bin/esbuild';if(existsSync(src)&&existsSync(dest))cpSync(src,dest);\""
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",

@@ -692,7 +692,12 @@ export default function Login() {
       const authUser = data.user ?? null;
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
+        queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
+        nativeFetch("/api/settings")
+          .then(r => r.ok ? r.json() : null)
+          .then(settings => { if (settings) queryClient.setQueryData(["/api/settings"], settings); })
+          .catch(() => {});
         initUserSession(String(authUser.id))
           .then(() => prefetchBootstrapData(String(authUser.id)))
           .catch(() => {});

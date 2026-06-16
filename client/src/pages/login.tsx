@@ -528,7 +528,7 @@ export default function Login() {
   }, [isLoading]);
 
   useEffect(() => {
-    if (isLoading || isPlaceholderData || formLoading) return;
+    if (isLoading || isPlaceholderData) return;
     if (!isAuthenticated) {
       sessionStorage.removeItem("artix-logout-pending");
       return;
@@ -552,7 +552,7 @@ export default function Login() {
       return;
     }
     setLocation("/");
-  }, [isAuthenticated, isLoading, isPlaceholderData, formLoading, setLocation]);
+  }, [isAuthenticated, isLoading, isPlaceholderData, setLocation]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -693,13 +693,9 @@ export default function Login() {
       queryClient.setQueryData(["auth-me"], authUser);
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
-        try {
-          await initUserSession(String(authUser.id));
-          await Promise.race([
-            prefetchBootstrapData(String(authUser.id)),
-            new Promise<void>((resolve) => setTimeout(resolve, 1500)),
-          ]);
-        } catch {}
+        initUserSession(String(authUser.id))
+          .then(() => prefetchBootstrapData(String(authUser.id)))
+          .catch(() => {});
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
       }

@@ -43,15 +43,15 @@ const prefetchTsKey = (uid: string) => `artixpos_last_prefetch_${uid}`;
 
 const prefetchedUsers = new Set<string>();
 
-export async function prefetchBootstrapData(userId: string): Promise<void> {
+export function prefetchBootstrapData(userId: string): void {
   if (prefetchedUsers.has(userId)) return;
   prefetchedUsers.add(userId);
 
-  pruneStaleCache(7 * 24 * 60 * 60 * 1000).catch(() => {});
+pruneStaleCache(7 * 24 * 60 * 60 * 1000).catch(() => {});
 
   const queryFn = getQueryFn({ on401: "returnNull" });
 
-  for (const url of ALL_PREFETCH_URLS) {
+for (const url of ALL_PREFETCH_URLS) {
     getCached<unknown>(url, Infinity)
       .then((cached) => {
         if (cached != null && queryClient.getQueryData([url]) === undefined) {
@@ -61,7 +61,7 @@ export async function prefetchBootstrapData(userId: string): Promise<void> {
       .catch(() => {});
   }
 
-  async function fetchTier(urls: readonly string[], delayMs: number): Promise<void> {
+async function fetchTier(urls: readonly string[], delayMs: number): Promise<void> {
     if (delayMs > 0) await new Promise<void>((r) => setTimeout(r, delayMs));
     await Promise.allSettled(
       urls.map((url) =>
@@ -81,9 +81,10 @@ export async function prefetchBootstrapData(userId: string): Promise<void> {
     );
   }
 
-  await fetchTier(CRITICAL_URLS, 0);
-  fetchTier(OPERATIONAL_URLS, 200).catch(() => {});
-  fetchTier(BACKGROUND_URLS, 400).catch(() => {});
+fetchTier(CRITICAL_URLS, 0)
+    .then(() => fetchTier(OPERATIONAL_URLS, 200))
+    .then(() => fetchTier(BACKGROUND_URLS, 200))
+    .catch(() => {});
 }
 
 export function clearPrefetchCache(): void {

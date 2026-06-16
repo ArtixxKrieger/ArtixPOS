@@ -690,7 +690,6 @@ export default function Login() {
         return;
       }
       const authUser = data.user ?? null;
-      queryClient.setQueryData(["auth-me"], authUser);
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
         try {
@@ -703,6 +702,7 @@ export default function Login() {
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
       }
+      queryClient.setQueryData(["auth-me"], authUser);
     } catch {
       setFormError("Network error. Please try again.");
     } finally {

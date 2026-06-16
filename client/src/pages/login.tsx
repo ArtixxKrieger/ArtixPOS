@@ -690,14 +690,16 @@ export default function Login() {
         return;
       }
       const authUser = data.user ?? null;
-      queryClient.setQueryData(["auth-me"], authUser);
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
+        queryClient.setQueryData(["auth-me"], authUser);
         initUserSession(String(authUser.id))
           .then(() => prefetchBootstrapData(String(authUser.id)))
           .catch(() => {});
+        setLocation("/");
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
+        queryClient.setQueryData(["auth-me"], null);
       }
     } catch {
       setFormError("Network error. Please try again.");

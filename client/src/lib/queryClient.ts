@@ -107,18 +107,11 @@ if (typeof document !== "undefined") {
     if (document.visibilityState !== "visible") return;
 
     queryClient.getQueryCache().getAll().forEach((query) => {
+      const key = query.queryKey[0];
+      if (key === "auth-me" || (typeof key === "string" && key.startsWith("/api/auth"))) return;
       if (query.state.status === "error") {
         queryClient.invalidateQueries({ queryKey: query.queryKey });
       }
     });
-  });
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("pageshow", (event) => {
-    if ((event as PageTransitionEvent).persisted) {
-
-queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-    }
   });
 }

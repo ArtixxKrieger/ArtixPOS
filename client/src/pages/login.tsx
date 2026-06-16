@@ -528,7 +528,7 @@ export default function Login() {
   }, [isLoading]);
 
   useEffect(() => {
-    if (isLoading || isPlaceholderData) return;
+    if (isLoading || isPlaceholderData || formLoading) return;
     if (!isAuthenticated) {
       sessionStorage.removeItem("artix-logout-pending");
       return;
@@ -552,7 +552,7 @@ export default function Login() {
       return;
     }
     setLocation("/");
-  }, [isAuthenticated, isLoading, isPlaceholderData, setLocation]);
+  }, [isAuthenticated, isLoading, isPlaceholderData, formLoading, setLocation]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);

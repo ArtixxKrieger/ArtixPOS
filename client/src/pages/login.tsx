@@ -11,7 +11,8 @@ import {
   queryClient,
   nativeFetch,
 } from "@/lib/queryClient";
-import { clearAllCache } from "@/lib/offline-db";
+import { clearAllCache, initUserSession } from "@/lib/offline-db";
+import { prefetchBootstrapData } from "@/lib/prefetch";
 import { detectLocale } from "@/lib/locale-detect";
 import { getPricingByCurrency, formatPrice } from "@/lib/pricing";
 import gsap from "gsap";
@@ -692,6 +693,9 @@ export default function Login() {
       queryClient.setQueryData(["auth-me"], authUser);
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
+        initUserSession(String(authUser.id))
+          .then(() => prefetchBootstrapData(String(authUser.id)))
+          .catch(() => {});
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
       }

@@ -20,23 +20,12 @@ setLocation("/");                             // logged in, go to app
 
 **Why:** Without this, stale localStorage cache immediately makes `isAuthenticated=true` and triggers redirect to "/" before fetchMe returns. If fetchMe returns 401, the app unmounts and redirects back to /login — visible as a "loading N times" loop.
 
-## Post-login LoadingScreen — critical ordering rule
+## Post-login LoadingScreen
 
-`setQueryData(["auth-me"], user)` must be called **AFTER** `await prefetchBootstrapData()`, not before.
+**Root cause**: After logout, `clearAllCache()` wipes IndexedDB. On next login, `useSettings()` has no prewarm cache. `prefetchBootstrapData` only fires in ProtectedRouter's `useEffect` — *after* AppRouter renders — so AppRouter hits `<LoadingScreen>` every time.
 
-**Why the order matters:** If `setQueryData` fires first, React sees `isAuthenticated=true`, schedules a re-render, and the redirect `useEffect` fires after that render — which happens BEFORE the `await` in the form handler resolves. The `await` in an async event handler does NOT block React's effect system. Navigation happens before the prefetch completes → LoadingScreen still shows.
+**Fix**: Call `initUserSession(userId).then(() => prefetchBootstrapData(userId))` **immediately in the login form handler** (right after `setQueryData`), not just in ProtectedRouter's effect. The prefetch races the React render cycle; settings is often cached before AppRouter's first render.
 
-If `prefetchBootstrapData` is awaited first and THEN `setQueryData` fires: settings is already in cache when React sees `isAuthenticated=true` and runs the redirect. AppRouter renders directly to Dashboard — no LoadingScreen.
+`prefetchBootstrapData` is guarded by `prefetchedUsers.has(userId)` so the ProtectedRouter call becomes a no-op — no double-fetch.
 
-**Correct pattern in handleEmailSubmit**:
-```ts
-// 1. prefetch first (auth cookie from login response is already set, so requests are authenticated)
-await initUserSession(userId);
-await Promise.race([prefetchBootstrapData(userId), new Promise(r => setTimeout(r, 1500))]);
-// 2. THEN flip auth state — triggers redirect AFTER data is ready
-queryClient.setQueryData(["auth-me"], authUser);
-```
-
-`prefetchBootstrapData` is guarded by `prefetchedUsers.has(userId)` so the ProtectedRouter effect call becomes a no-op — no double-fetch.
-
-**How to apply**: In any login path (email form, OAuth callback), always put `setQueryData(["auth-me"], user)` LAST — after all critical prefetching is done.
+**How to apply**: In any login path that calls `setQueryData(["auth-me"], user)`, also fire the prefetch immediately after.

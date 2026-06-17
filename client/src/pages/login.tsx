@@ -1141,7 +1141,8 @@ export default function Login() {
         </div>
       )}
 
-<div className="rise d2">
+{googleClientId && (
+      <div className="rise d2">
         <button
           type="button"
           className="btn-social"
@@ -1201,8 +1202,10 @@ export default function Login() {
           </span>
         </button>
       </div>
+      )}
 
-<div
+      {googleClientId && (
+      <div
         className="rise d2"
         style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}
       >
@@ -1231,6 +1234,7 @@ export default function Login() {
           }}
         />
       </div>
+      )}
 
 <form
         onSubmit={handleEmailSubmit}

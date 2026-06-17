@@ -698,6 +698,12 @@ export default function Login() {
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
 
+        // Store JWT as Bearer token so all requests work even when cookies are
+        // blocked (Replit iframe, Chrome third-party cookie restrictions).
+        if (data.token) {
+          setNativeToken(data.token);
+        }
+
         // ── CRITICAL: set these BEFORE setQueryData so the redirect effect
         // (which fires when isAuthenticated flips to true) sees the guard flag
         // before React re-renders. Without this the effect fires during the

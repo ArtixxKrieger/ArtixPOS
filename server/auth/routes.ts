@@ -400,7 +400,7 @@ export function setupAuth(app: Express) {
         console.error("[auth] Failed to send welcome email:", err);
       });
 
-      setAuthCookie(res, {
+      const registerUser = {
         id: created.id,
         name: created.name ?? null,
         email: created.email ?? null,
@@ -410,7 +410,9 @@ export function setupAuth(app: Express) {
         role: created.role ?? "owner",
         activeBranchId: (created as any).activeBranchId ?? null,
         emailVerified: true,
-      });
+      };
+      const registerToken = signToken(registerUser);
+      setAuthCookie(res, registerUser);
       logAuthEvent({
         userId: created.id,
         tenantId: (created as any).tenantId ?? null,
@@ -420,6 +422,7 @@ export function setupAuth(app: Express) {
       res.status(201).json({
         ok: true,
         emailVerified: true,
+        token: registerToken,
         user: {
           id: created.id,
           name: created.name ?? null,
@@ -589,6 +592,7 @@ export function setupAuth(app: Express) {
       recordSuccessfulLogin(ip);
       recordEmailSuccessfulLogin(normalizedEmail);
       setAuthCookie(res, user as any, rememberMe === true);
+      const loginToken = signToken(user as any, rememberMe === true);
       logAuthEvent({
         userId: user.id,
         tenantId: user.tenantId ?? null,
@@ -597,6 +601,7 @@ export function setupAuth(app: Express) {
       });
       res.json({
         ok: true,
+        token: loginToken,
         user: {
           id: user.id,
           name: user.name ?? null,

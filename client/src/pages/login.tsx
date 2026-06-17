@@ -670,10 +670,7 @@ export default function Login() {
       handleNativeGoogleSignIn();
       return;
     }
-    if (!googleClientId) {
-      setNativeError("Google sign-in is not configured for this app.");
-      return;
-    }
+    if (!googleClientId) return;
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }
@@ -1166,8 +1163,7 @@ export default function Login() {
         </div>
       )}
 
-{googleClientId && (
-      <div className="rise d2">
+<div className="rise d2">
         <button
           type="button"
           className="btn-social"
@@ -1227,9 +1223,7 @@ export default function Login() {
           </span>
         </button>
       </div>
-      )}
 
-      {googleClientId && (
       <div
         className="rise d2"
         style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}
@@ -1259,7 +1253,6 @@ export default function Login() {
           }}
         />
       </div>
-      )}
 
 <form
         onSubmit={handleEmailSubmit}

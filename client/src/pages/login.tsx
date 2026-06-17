@@ -4,7 +4,7 @@ import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth, clearAuthCache } from "@/hooks/use-auth";
-import { signalPostLoginNav } from "@/hooks/use-settings";
+import { signalPostLoginNav, fetchSettingsFromNetwork } from "@/hooks/use-settings";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import {
   apiRequest,
@@ -346,6 +346,8 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null,
   );
 
+  const loginNavigatedRef = useRef(false);
+
   const [showLoginPanel, setShowLoginPanel] = useState(false);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -534,6 +536,11 @@ export default function Login() {
       sessionStorage.removeItem("artix-logout-pending");
       return;
     }
+    // Login handler already navigated — don't double-fire
+    if (loginNavigatedRef.current) {
+      loginNavigatedRef.current = false;
+      return;
+    }
     const logoutPending = sessionStorage.getItem("artix-logout-pending") === "1";
     if (logoutPending) {
       sessionStorage.removeItem("artix-logout-pending");
@@ -693,18 +700,36 @@ export default function Login() {
       const authUser = data.user ?? null;
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
-        queryClient.cancelQueries({ queryKey: ["auth-me"] });
+        // Cancel any in-flight auth-me fetch so it can't overwrite our setQueryData
+        await queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
+
+        // Await settings NOW so AppRouter has data on first render — no blank flash
+        try {
+          const settings = await fetchSettingsFromNetwork();
+          if (settings !== undefined) {
+            queryClient.setQueryData(["/api/settings"], settings);
+          }
+        } catch {}
+
+        // Background-prefetch remaining bootstrap data
         initUserSession(String(authUser.id))
           .then(() => prefetchBootstrapData(String(authUser.id)))
           .catch(() => {});
-        // Signal AppRouter to skip the LoadingScreen gate on first mount,
-        // then navigate directly to the correct destination so there is no
-        // extra /→/onboarding client-side redirect for new users.
+
+        // Signal AppRouter to skip the LoadingScreen gate
         signalPostLoginNav();
+
+        // Compute destination from real settings so there's no /→/onboarding redirect
+        const settingsData = queryClient.getQueryData(["/api/settings"]) as any;
         const alreadyOnboarded =
           localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
-        setLocation(!authUser.tenantId && !alreadyOnboarded ? "/onboarding" : "/");
+        const needsOnboarding =
+          !settingsData?.onboardingComplete && !alreadyOnboarded && !authUser.tenantId;
+
+        // Mark that we are navigating so the auth redirect effect doesn't double-fire
+        loginNavigatedRef.current = true;
+        setLocation(needsOnboarding ? "/onboarding" : "/");
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
         queryClient.setQueryData(["auth-me"], null);

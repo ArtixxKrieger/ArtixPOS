@@ -20,6 +20,16 @@ getCached(SETTINGS_URL)
     _prewarmDone = true;
   });
 
+// Set by the login handler just before navigation so AppRouter skips the LoadingScreen
+// gate on the very first render after login (consumed once, then resets).
+let _skipLoadingGate = false;
+export function signalPostLoginNav(): void { _skipLoadingGate = true; }
+export function consumeLoadingGateSignal(): boolean {
+  const v = _skipLoadingGate;
+  _skipLoadingGate = false;
+  return v;
+}
+
 export async function clearSettingsPrewarm(): Promise<void> {
   _prewarmedSettings = undefined;
   _prewarmDone = false;
@@ -37,7 +47,7 @@ function isNetworkOrTimeoutError(err: unknown): boolean {
   return false;
 }
 
-export async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
+async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
   const controller = new AbortController();
 
   const timeoutId = setTimeout(

@@ -4,7 +4,7 @@ import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth, clearAuthCache } from "@/hooks/use-auth";
-import { fetchSettingsFromNetwork } from "@/hooks/use-settings";
+import { signalPostLoginNav } from "@/hooks/use-settings";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import {
   apiRequest,
@@ -695,29 +695,16 @@ export default function Login() {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
         queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
-
-        // Pre-warm settings before navigating so AppRouter has data immediately
-        // (no blank LoadingScreen) and we can navigate directly to the right page
-        let navigateTo = "/";
-        try {
-          const settings = await fetchSettingsFromNetwork();
-          if (settings !== undefined) {
-            queryClient.setQueryData(["/api/settings"], settings);
-            const onboardedKey = `artix-onboarded-${authUser.id}`;
-            const alreadyOnboarded = localStorage.getItem(onboardedKey) === "1";
-            const needsOnboarding =
-              settings !== null &&
-              !(settings as any)?.onboardingComplete &&
-              !alreadyOnboarded &&
-              !authUser.tenantId;
-            if (needsOnboarding) navigateTo = "/onboarding";
-          }
-        } catch {}
-
         initUserSession(String(authUser.id))
           .then(() => prefetchBootstrapData(String(authUser.id)))
           .catch(() => {});
-        setLocation(navigateTo);
+        // Signal AppRouter to skip the LoadingScreen gate on first mount,
+        // then navigate directly to the correct destination so there is no
+        // extra /→/onboarding client-side redirect for new users.
+        signalPostLoginNav();
+        const alreadyOnboarded =
+          localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
+        setLocation(!authUser.tenantId && !alreadyOnboarded ? "/onboarding" : "/");
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
         queryClient.setQueryData(["auth-me"], null);

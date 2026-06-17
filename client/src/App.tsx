@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
-import { useSettings } from "@/hooks/use-settings";
+import { useSettings, consumeLoadingGateSignal } from "@/hooks/use-settings";
 import { useEffect, useState, useRef, Suspense, ReactNode } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
@@ -365,7 +365,7 @@ function AppRouter() {
   useRoutePreloader();
   useBranchTheme();
 
-  const settingsEverLoaded = useRef(settings !== undefined);
+  const settingsEverLoaded = useRef(settings !== undefined || consumeLoadingGateSignal());
   if (!settingsEverLoaded.current && settings !== undefined) {
     settingsEverLoaded.current = true;
   }
@@ -406,7 +406,7 @@ function AppRouter() {
     return <Redirect to="/onboarding" />;
   }
 
-  if (!needsOnboarding && location === "/onboarding") {
+  if (settings !== undefined && !needsOnboarding && location === "/onboarding") {
     return <Redirect to="/" />;
   }
 

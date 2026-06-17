@@ -37,7 +37,7 @@ function isNetworkOrTimeoutError(err: unknown): boolean {
   return false;
 }
 
-async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
+export async function fetchSettingsFromNetwork(signal?: AbortSignal): Promise<unknown | null> {
   const controller = new AbortController();
 
   const timeoutId = setTimeout(

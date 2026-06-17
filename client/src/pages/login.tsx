@@ -697,6 +697,17 @@ export default function Login() {
       const authUser = data.user ?? null;
       if (authUser) {
         try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
+
+        // ── CRITICAL: set these BEFORE setQueryData so the redirect effect
+        // (which fires when isAuthenticated flips to true) sees the guard flag
+        // before React re-renders. Without this the effect fires during the
+        // subsequent await and double-navigates.
+        loginNavigatedRef.current = true;
+        // Also arm the api.ts auth-state tracker immediately so the bootstrap
+        // prefetch 401 interceptor knows we have a valid session.
+        const { setAuthenticatedUserId } = await import("@/lib/api");
+        setAuthenticatedUserId(authUser.id);
+
         // Cancel any in-flight auth-me fetch so it can't overwrite our setQueryData
         await queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
@@ -724,8 +735,6 @@ export default function Login() {
         const needsOnboarding =
           !settingsData?.onboardingComplete && !alreadyOnboarded && !authUser.tenantId;
 
-        // Mark that we are navigating so the auth redirect effect doesn't double-fire
-        loginNavigatedRef.current = true;
         setLocation(needsOnboarding ? "/onboarding" : "/");
       } else {
         try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}

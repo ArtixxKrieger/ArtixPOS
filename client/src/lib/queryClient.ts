@@ -11,6 +11,7 @@ export {
   apiRequest,
   apiGet,
   normaliseError,
+  setAuthenticatedUserId,
   NATIVE_TOKEN_KEY,
 } from "./api";
 

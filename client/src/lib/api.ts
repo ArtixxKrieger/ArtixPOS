@@ -108,6 +108,15 @@ const NO_REDIRECT_401 = ["/api/auth/", "/api/staff-pin/"];
 
 let _sessionExpiredAt = 0;
 
+// Track whether we currently have an authenticated user so bootstrap-prefetch
+// 401 responses (e.g. a restricted route for a new user) don't fire a false
+// session-expiry that kicks the user out immediately after login.
+let _authenticatedUserId: string | null = null;
+
+export function setAuthenticatedUserId(id: string | null): void {
+  _authenticatedUserId = id;
+}
+
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
@@ -116,6 +125,10 @@ api.interceptors.response.use(
       const isSelfHandled = NO_REDIRECT_401.some((prefix) => url.includes(prefix));
       if (
         !isSelfHandled &&
+        // Only fire session-expired when we actually have an authenticated session.
+        // Without this guard, bootstrap prefetch 401s (e.g. new user, restricted
+        // route) would invalidate auth-me and kick a freshly-logged-in user.
+        _authenticatedUserId &&
         typeof window !== "undefined" &&
         !window.location.pathname.startsWith("/login") &&
         !window.location.pathname.startsWith("/staff-clock-in")

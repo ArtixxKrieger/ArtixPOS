@@ -581,6 +581,11 @@ function ProtectedRouter() {
 
   useEffect(() => {
     function handleSessionExpired() {
+      // Guard: if we already have no authenticated user in the cache, there is
+      // nothing to expire — skip the invalidation to avoid a spurious refetch
+      // that could race with a fresh login.
+      const cached = queryClient.getQueryData(["auth-me"]);
+      if (!cached) return;
       queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     }
     window.addEventListener("auth:session-expired", handleSessionExpired);

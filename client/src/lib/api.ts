@@ -14,7 +14,6 @@ export function resolveUrl(url: string): string {
 }
 
 export function setNativeToken(token: string) {
-  if (!API_BASE) return;
   localStorage.setItem(NATIVE_TOKEN_KEY, token);
 }
 

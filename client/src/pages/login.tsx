@@ -670,7 +670,6 @@ export default function Login() {
       handleNativeGoogleSignIn();
       return;
     }
-    if (!googleClientId) return;
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }

@@ -132,7 +132,9 @@ api.interceptors.response.use(
         !window.location.pathname.startsWith("/login") &&
         !window.location.pathname.startsWith("/staff-clock-in")
       ) {
-        clearNativeToken();
+        // Do NOT clear the native token here — a 401 on any single endpoint
+        // doesn't mean the token itself is invalid (it could be a restricted
+        // route). fetchMe will clear the token if auth/me itself returns 401.
         const now = Date.now();
         if (now - _sessionExpiredAt > 3000) {
           _sessionExpiredAt = now;

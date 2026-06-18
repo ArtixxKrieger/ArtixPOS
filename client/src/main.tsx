@@ -3,6 +3,10 @@ import App from "./App";
 import "./index.css";
 import "sileo/styles.css";
 import "./i18n";
+import { initErrorCapture } from "@/lib/error-capture";
+
+// Start capturing errors before React renders so nothing is missed
+initErrorCapture();
 
 function dismissSplash() {
   const splash = document.getElementById("app-splash");

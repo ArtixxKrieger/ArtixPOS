@@ -36,6 +36,7 @@ import { registerInventoryAdvancedRoutes } from "./routes/inventory-advanced";
 import { registerPushRoutes } from "./routes/push";
 import { registerStaffPinRoutes } from "./routes/staff-pin";
 import { registerScheduleRoutes } from "./routes/schedules";
+import { registerClientErrorRoutes } from "./client-errors";
 
 const publicBranchLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -196,6 +197,7 @@ registerProductRoutes(app);
   registerPushRoutes(app);
   registerStaffPinRoutes(app);
   registerScheduleRoutes(app);
+  registerClientErrorRoutes(app);
 
   return httpServer;
 }

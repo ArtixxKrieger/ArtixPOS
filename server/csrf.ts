@@ -8,7 +8,7 @@ const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
-const CSRF_EXEMPT_PREFIXES = ["/auth/google", "/auth/facebook", "/api/csp-report"];
+const CSRF_EXEMPT_PREFIXES = ["/auth/google", "/auth/facebook", "/api/csp-report", "/api/client-errors"];
 
 function generate(): string {
   return randomBytes(32).toString("hex");

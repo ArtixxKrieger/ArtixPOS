@@ -4,6 +4,7 @@ import { nativeFetch, clearNativeToken, NATIVE_TOKEN_KEY, setAuthenticatedUserId
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { clearSettingsPrewarm } from "@/hooks/use-settings";
+import { setErrorCaptureUser } from "@/lib/error-capture";
 import type { UserRole } from "@shared/schema";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
@@ -164,10 +165,10 @@ export function useAuth() {
 
   const u = user ?? null;
 
-  // Keep the api.ts auth-state tracker in sync so the 401 interceptor only
-  // fires auth:session-expired when we actually have a valid session.
+  // Keep the api.ts auth-state tracker and error capture user in sync.
   useEffect(() => {
     setAuthenticatedUserId(u?.id ?? null);
+    setErrorCaptureUser(u?.id ?? null);
   }, [u?.id]);
 
   return {

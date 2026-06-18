@@ -32,6 +32,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error("[ErrorBoundary]", error, info);
     this.setState({ componentStack: info.componentStack ?? null });
 
+    // Forward to automatic error capture (fire-and-forget)
+    import("@/lib/error-capture").then(({ captureError }) => {
+      captureError(
+        "react_boundary",
+        error.message,
+        (error.stack ?? "") + "\n\nComponent Stack:" + (info.componentStack ?? ""),
+      );
+    }).catch(() => {});
+
     // Only auto-reload in production. In dev (Vite), chunk errors are transient
     // (HMR reconnects, server restarts) — auto-reloading in dev causes infinite
     // reload loops and is never the right fix.

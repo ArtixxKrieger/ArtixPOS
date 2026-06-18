@@ -119,6 +119,21 @@ export function setAuthenticatedUserId(id: string | null): void {
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
+    // Capture 5xx errors silently — don't await, never block the request chain
+    const status = err.response?.status ?? 0;
+    if (status >= 500) {
+      import("@/lib/error-capture").then(({ captureError }) => {
+        const url = err.config?.url ?? "unknown";
+        const method = (err.config?.method ?? "GET").toUpperCase();
+        captureError("api_error", `${method} ${url} → ${status}`, undefined, {
+          status,
+          method,
+          url,
+          responseData: err.response?.data,
+        });
+      }).catch(() => {});
+    }
+
     if (err.response?.status === 401) {
       const url = err.config?.url ?? "";
       const isSelfHandled = NO_REDIRECT_401.some((prefix) => url.includes(prefix));

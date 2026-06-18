@@ -290,9 +290,19 @@ await client.query(`
     `);
 
     console.log("[rls] ✓ Row-Level Security policies applied to all tenant tables");
-  } catch (err) {
-    console.error("[rls] ✗ Failed to apply RLS policies:", err);
-    throw err;
+  } catch (err: any) {
+    // "tuple concurrently updated" (XX000) happens when two processes race to
+    // apply the same RLS policies at startup. The policies are idempotent so
+    // whichever process wins is fine — don't crash, just warn.
+    const isConcurrentUpdate =
+      err?.code === "XX000" ||
+      (typeof err?.message === "string" && err.message.includes("tuple concurrently updated"));
+    if (isConcurrentUpdate) {
+      console.warn("[rls] ⚠  setupRLS skipped: tuple concurrently updated");
+    } else {
+      console.error("[rls] ✗ Failed to apply RLS policies:", err);
+      throw err;
+    }
   } finally {
     client.release();
   }

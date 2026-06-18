@@ -112,17 +112,20 @@ app.use((_req, res, next) => {
 });
 
 app.get("/api/health", async (req, res) => {
+  const now = Date.now();
   const t = () => Date.now();
 
-  let supabase: { status: string; latencyMs: number; error?: string };
+  // ── Database check ────────────────────────────────────────────────────────
+  let db: { status: string; latencyMs: number; error?: string };
   const dbStart = t();
   try {
     await _healthDb.execute(_healthSql`SELECT 1`);
-    supabase = { status: "ok", latencyMs: t() - dbStart };
+    db = { status: "ok", latencyMs: t() - dbStart };
   } catch (err: any) {
-    supabase = { status: "error", latencyMs: t() - dbStart, error: err?.message ?? "unreachable" };
+    db = { status: "error", latencyMs: t() - dbStart, error: err?.message ?? "unreachable" };
   }
 
+  // ── Redis check ───────────────────────────────────────────────────────────
   let redis: { status: string; latencyMs: number; error?: string };
   const { getRedis } = await import("./redis");
   const redisClient = getRedis();
@@ -138,26 +141,111 @@ app.get("/api/health", async (req, res) => {
     }
   }
 
-  const dbOk = supabase.status === "ok";
-  const redisOk = redis.status === "ok" || redis.status === "not_configured";
-  const overall = !dbOk ? "down" : !redisOk ? "degraded" : "ok";
+  // ── DB connection pool stats ──────────────────────────────────────────────
+  const poolStats = {
+    total: (pool as any).totalCount ?? null,
+    idle:  (pool as any).idleCount  ?? null,
+    waiting: (pool as any).waitingCount ?? null,
+  };
 
+  // ── Overall status ────────────────────────────────────────────────────────
+  const dbOk    = db.status === "ok";
+  const redisOk = redis.status === "ok" || redis.status === "not_configured";
+  const overall: "ok" | "degraded" | "down" = !dbOk ? "down" : !redisOk ? "degraded" : "ok";
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
   const metricsToken = process.env.METRICS_TOKEN;
-  const authHeader = req.headers.authorization ?? "";
-  const isAuthed = metricsToken ? authHeader === `Bearer ${metricsToken}` : false;
+  const authHeader   = req.headers.authorization ?? "";
+  const isAuthed     = metricsToken ? authHeader === `Bearer ${metricsToken}` : false;
 
   res.setHeader("Cache-Control", "no-store");
 
-  if (isAuthed) {
-    res.status(dbOk ? 200 : 503).json({
+  if (!isAuthed) {
+    // Public: minimal — just enough for an uptime monitor ping
+    return res.status(dbOk ? 200 : 503).json({
       status: overall,
-      uptime: Math.floor(process.uptime()),
-      ts: new Date().toISOString(),
-      services: { supabase, redis },
+      ts: new Date(now).toISOString(),
     });
-  } else {
-    res.status(dbOk ? 200 : 503).json({ status: overall });
   }
+
+  // ── Memory ────────────────────────────────────────────────────────────────
+  const mem = process.memoryUsage();
+  const mb  = (n: number) => Math.round(n / 1_048_576);
+
+  // ── CPU / OS ──────────────────────────────────────────────────────────────
+  const os = await import("os");
+  const loadAvg = os.loadavg();                      // 1m, 5m, 15m
+  const cpuCount = os.cpus().length;
+  const totalMemMb = Math.round(os.totalmem() / 1_048_576);
+  const freeMemMb  = Math.round(os.freemem()  / 1_048_576);
+
+  // ── App metrics ───────────────────────────────────────────────────────────
+  const metrics = getMetricsSnapshot();
+
+  // ── Circuit breakers ──────────────────────────────────────────────────────
+  const breakers = getAllBreakerStates();
+
+  // ── Cache ─────────────────────────────────────────────────────────────────
+  const cacheSize = cache.size();
+
+  res.status(dbOk ? 200 : 503).json({
+    status: overall,
+    ts: new Date(now).toISOString(),
+    env: process.env.NODE_ENV ?? "unknown",
+
+    process: {
+      pid:     process.pid,
+      uptime:  Math.floor(process.uptime()),
+      node:    process.version,
+      platform: process.platform,
+    },
+
+    memory: {
+      heapUsedMb:  mb(mem.heapUsed),
+      heapTotalMb: mb(mem.heapTotal),
+      rssMb:       mb(mem.rss),
+      externalMb:  mb(mem.external),
+      heapPct:     Math.round((mem.heapUsed / mem.heapTotal) * 100),
+    },
+
+    os: {
+      cpus:        cpuCount,
+      loadAvg1m:   +loadAvg[0].toFixed(2),
+      loadAvg5m:   +loadAvg[1].toFixed(2),
+      loadAvg15m:  +loadAvg[2].toFixed(2),
+      totalMemMb,
+      freeMemMb,
+      freeMemPct:  Math.round((freeMemMb / totalMemMb) * 100),
+    },
+
+    services: {
+      db:    { ...db, pool: poolStats },
+      redis,
+    },
+
+    cache: {
+      entries:   cacheSize,
+      hitRate:   metrics.cache.hitRate,
+      hits:      metrics.cache.hits,
+      misses:    metrics.cache.misses,
+    },
+
+    requests: {
+      total:     metrics.requests.total,
+      session:   metrics.requests.session,
+      errors5xx: metrics.requests.errors5xx,
+      errorRate: metrics.requests.errorRate,
+    },
+
+    latency: {
+      avgMs: metrics.latency.avgMs,
+      p50Ms: metrics.latency.p50Ms,
+      p95Ms: metrics.latency.p95Ms,
+      p99Ms: metrics.latency.p99Ms,
+    },
+
+    circuitBreakers: breakers,
+  });
 });
 
 app.get("/api/geo", (req, res) => {

@@ -23,17 +23,15 @@ export { orNumericRange };
 export function registerShiftRoutes(app: Express): void {
 
 app.get("/api/shifts", requireAuth, requirePro, async (req, res) => {
-    const { limit, offset } = req.query as Record<string, string>;
-    const list = await storage.getShifts(getUserId(req), {
-      limit: Math.min(Number(limit) || 200, 1000),
-      offset: Math.max(Number(offset) || 0, 0),
-    });
-    res.json(list);
-  });
+    const { limit, offset, status } = req.query as Record<string, string>;
 
-app.get("/api/shifts/open", requireAuth, requirePro, async (req, res) => {
-    const shift = await storage.getOpenShift(getUserId(req));
-    res.json(shift ?? null);
+    // B-pattern: ?status=open returns only the open shift
+    if (status === "open") {
+      const shift = await storage.getOpenShift(getUserId(req));
+      return res.json(shift ?? null);
+    }
+
+    const list = await storage.getShifts(getUserId(req), {
   });
 
 app.post("/api/shifts/open", requireAuth, requirePro, async (req, res) => {

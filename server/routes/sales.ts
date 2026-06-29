@@ -9,34 +9,50 @@ import { db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { sales as salesTable, shifts as shiftsTable } from "@shared/schema";
 import { cache, dashboardCacheKey, salesCacheKey } from "../cache";
-import { getUserId, getActiveBranchId, resolveBranchId, auditLog, isValidDate, handleZodError } from "../lib/route-utils";
+import {
+  getUserId,
+  getActiveBranchId,
+  resolveBranchId,
+  auditLog,
+  isValidDate,
+  handleZodError,
+} from "../lib/route-utils";
 
 export function registerSaleRoutes(app: Express): void {
-
-app.get(api.sales.list.path, requireAuth, async (req, res) => {
-    const { limit, offset, before, startDate, endDate, includeVoided } = req.query as Record<string, string>;
-    if (startDate && !isValidDate(startDate)) return res.status(400).json({ message: "Invalid startDate format" });
-    if (endDate && !isValidDate(endDate)) return res.status(400).json({ message: "Invalid endDate format" });
+  app.get(api.sales.list.path, requireAuth, async (req, res) => {
+    const { limit, offset, before, startDate, endDate, includeVoided, status } =
+      req.query as Record<string, string>;
+    if (startDate && !isValidDate(startDate))
+      return res.status(400).json({ message: "Invalid startDate format" });
+    if (endDate && !isValidDate(endDate))
+      return res.status(400).json({ message: "Invalid endDate format" });
     const uid = getUserId(req);
     const bid = getActiveBranchId(req);
 
-const beforeIdRaw = Number(before);
+    // B-pattern: ?status=void is an alias for ?includeVoided=1
+    const showVoided = includeVoided === "1" || status === "void";
+    const beforeIdRaw = Number(before);
     const beforeId = before && Number.isFinite(beforeIdRaw) ? beforeIdRaw : undefined;
     const pageLimit = Math.min(Number(limit) || 200, 1000);
 
-    const tag = `${pageLimit}:${beforeId ?? ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${includeVoided || ""}`;
+    const tag = `${pageLimit}:${beforeId ?? ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${showVoided ? "1" : "0"}`;
     const ck = salesCacheKey(uid, bid, tag);
-    const salesList = await cache.getOrFetch(ck, () => storage.getSales(uid, {
-      branchId:      bid ?? undefined,
-      limit:         pageLimit,
-      beforeId:      beforeId,
-      offset:        beforeId == null ? Math.max(Number(offset) || 0, 0) : undefined,
-      startDate:     startDate || undefined,
-      endDate:       endDate || undefined,
-      includeVoided: includeVoided === "1",
-    }), 15_000);
+    const salesList = await cache.getOrFetch(
+      ck,
+      () =>
+        storage.getSales(uid, {
+          branchId: bid ?? undefined,
+          limit: pageLimit,
+          beforeId: beforeId,
+          offset: beforeId == null ? Math.max(Number(offset) || 0, 0) : undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          includeVoided: showVoided,
+        }),
+      15_000,
+    );
 
-if (salesList.length > 0) {
+    if (salesList.length > 0) {
       const minId = salesList[salesList.length - 1].id;
       res.setHeader("X-Next-Cursor", String(minId));
     }
@@ -52,28 +68,59 @@ if (salesList.length > 0) {
       ...(endDate ? { endDate } : {}),
     });
     const headers = [
-      "id","status","createdAt","receiptNumber","orNumber","invoiceNumber",
-      "subtotal","tax","discount","total","paymentMethod","customerName",
-      "discountType","scPwdId","vatableSales","vatExemptSales","zeroRatedSales",
-      "voidedAt","voidedBy","voidReason",
+      "id",
+      "status",
+      "createdAt",
+      "receiptNumber",
+      "orNumber",
+      "invoiceNumber",
+      "subtotal",
+      "tax",
+      "discount",
+      "total",
+      "paymentMethod",
+      "customerName",
+      "discountType",
+      "scPwdId",
+      "vatableSales",
+      "vatExemptSales",
+      "zeroRatedSales",
+      "voidedAt",
+      "voidedBy",
+      "voidReason",
     ];
     const rows = salesList.map((sale) => {
       const s = sale as any;
       return [
-        sale.id, s.deletedAt ? "VOID" : "ACTIVE", sale.createdAt ?? "",
-        s.receiptNumber ?? "", s.orNumber ?? "", s.invoiceNumber ?? "",
-        sale.subtotal ?? "", sale.tax ?? "", sale.discount ?? "", sale.total ?? "",
-        sale.paymentMethod ?? "", sale.customerName ?? "", s.discountType ?? "regular",
-        s.scPwdId ?? "", s.vatableSales ?? "0", s.vatExemptSales ?? "0", s.zeroRatedSales ?? "0",
-        s.deletedAt ?? "", s.deletedBy ?? "", s.voidReason ?? "",
+        sale.id,
+        s.deletedAt ? "VOID" : "ACTIVE",
+        sale.createdAt ?? "",
+        s.receiptNumber ?? "",
+        s.orNumber ?? "",
+        s.invoiceNumber ?? "",
+        sale.subtotal ?? "",
+        sale.tax ?? "",
+        sale.discount ?? "",
+        sale.total ?? "",
+        sale.paymentMethod ?? "",
+        sale.customerName ?? "",
+        s.discountType ?? "regular",
+        s.scPwdId ?? "",
+        s.vatableSales ?? "0",
+        s.vatExemptSales ?? "0",
+        s.zeroRatedSales ?? "0",
+        s.deletedAt ?? "",
+        s.deletedBy ?? "",
+        s.voidReason ?? "",
       ];
     });
-    const filename = startDate && endDate
-      ? `sales-journal-${startDate}-to-${endDate}.csv`
-      : `sales-journal-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename =
+      startDate && endDate
+        ? `sales-journal-${startDate}-to-${endDate}.csv`
+        : `sales-journal-${new Date().toISOString().slice(0, 10)}.csv`;
     const csv = [
       headers.join(","),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
     ].join("\n");
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -96,19 +143,24 @@ if (salesList.length > 0) {
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-const saleUser = req.user;
+      const saleUser = req.user;
       if (saleUser?.tenantId && saleUser.role !== "owner") {
         const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
         if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
-          const discountAmt = parseFloat(input.discount || "0") + parseFloat((input as any).loyaltyDiscount || "0");
+          const discountAmt =
+            parseFloat(input.discount || "0") + parseFloat((input as any).loyaltyDiscount || "0");
           const subtotalAmt = parseFloat(input.subtotal || "0");
           if (subtotalAmt > 0 && (discountAmt / subtotalAmt) * 100 > perm.maxDiscountPercent) {
-            return res.status(403).json({ message: `Discount exceeds your allowed maximum of ${perm.maxDiscountPercent}%` });
+            return res
+              .status(403)
+              .json({
+                message: `Discount exceeds your allowed maximum of ${perm.maxDiscountPercent}%`,
+              });
           }
         }
       }
 
-if (input.discountCode) {
+      if (input.discountCode) {
         const dc = await storage.getDiscountCodeByCode(input.discountCode, uid);
         if (dc) {
           const incremented = await storage.incrementDiscountCodeUsage(dc.id);
@@ -118,20 +170,20 @@ if (input.discountCode) {
         }
       }
 
-const enforcedBranch = await resolveBranchId(req);
+      const enforcedBranch = await resolveBranchId(req);
       const sale = await storage.createSale(uid, {
         ...input,
         cashierId: input.cashierId ?? uid,
         branchId: enforcedBranch,
       });
 
-(async () => {
+      (async () => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             await storage.deductProductStockForSale(uid, input.items as any[]);
             break;
           } catch (e) {
-            if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
+            if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt));
             else console.error(`[stock] deduction failed after 3 attempts for sale ${sale.id}:`, e);
           }
         }
@@ -161,26 +213,30 @@ const enforcedBranch = await resolveBranchId(req);
             const customer = await storage.getCustomer(Number(input.customerId), uid);
             if (customer?.email) {
               const storeSettings = await storage.getSettings(uid);
-              await sendReceiptEmail(customer.email, {
-                total: sale.total,
-                subtotal: (sale as any).subtotal ?? sale.total,
-                tax: (sale as any).tax,
-                discount: sale.discount,
-                paymentMethod: sale.paymentMethod ?? "cash",
-                customerName: sale.customerName,
-                items: sale.items,
-                orNumber: (sale as any).orNumber,
-                receiptNumber: (sale as any).receiptNumber,
-                createdAt: (sale as any).createdAt ?? new Date().toISOString(),
-              }, {
-                name: (storeSettings as any)?.storeName ?? "Store",
-                currency: storeSettings?.currency ?? "₱",
-                address: (storeSettings as any)?.address,
-                phone: (storeSettings as any)?.phone,
-                receiptFooter: (storeSettings as any)?.receiptFooter,
-              });
+              await sendReceiptEmail(
+                customer.email,
+                {
+                  total: sale.total,
+                  subtotal: (sale as any).subtotal ?? sale.total,
+                  tax: (sale as any).tax,
+                  discount: sale.discount,
+                  paymentMethod: sale.paymentMethod ?? "cash",
+                  customerName: sale.customerName,
+                  items: sale.items,
+                  orNumber: (sale as any).orNumber,
+                  receiptNumber: (sale as any).receiptNumber,
+                  createdAt: (sale as any).createdAt ?? new Date().toISOString(),
+                },
+                {
+                  name: (storeSettings as any)?.storeName ?? "Store",
+                  currency: storeSettings?.currency ?? "₱",
+                  address: (storeSettings as any)?.address,
+                  phone: (storeSettings as any)?.phone,
+                  receiptFooter: (storeSettings as any)?.receiptFooter,
+                },
+              );
             }
-          } catch {  }
+          } catch {}
         });
       }
     } catch (err) {
@@ -188,7 +244,7 @@ const enforcedBranch = await resolveBranchId(req);
     }
   });
 
-app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res) => {
     const saleUser = req.user;
     if (saleUser?.tenantId && saleUser.role !== "owner") {
       const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
@@ -213,11 +269,12 @@ app.delete("/api/sales/:id", requireAuth, requireManagerOrAbove, async (req, res
 
       const saleTime = saleRow.createdAt;
       const lockedByShift = closedShifts.some(
-        s => s.openedAt && s.closedAt && saleTime >= s.openedAt && saleTime <= s.closedAt
+        (s) => s.openedAt && s.closedAt && saleTime >= s.openedAt && saleTime <= s.closedAt,
       );
       if (lockedByShift) {
         return res.status(409).json({
-          message: "This sale is locked inside a closed shift (Z-report already generated). It cannot be voided to preserve BIR audit integrity.",
+          message:
+            "This sale is locked inside a closed shift (Z-report already generated). It cannot be voided to preserve BIR audit integrity.",
         });
       }
     }

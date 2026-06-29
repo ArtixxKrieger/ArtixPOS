@@ -1,4 +1,4 @@
-import { db, pool } from "../db";
+import { pool } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { runAsAdmin } from "../tenant-context";

@@ -1,4 +1,4 @@
-import { db, pool } from "../db";
+import { db } from "../db";
 import { users, revokedTokens } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
@@ -45,8 +45,7 @@ async function _pruneRevokedTokens(): Promise<void> {
       }
       console.log(`[auth] Pruned ${rows.length} expired revoked token(s) from memory + DB`);
     }
-  } catch {
-  }
+  } catch {}
 }
 
 export async function revokeToken(jti: string, userId: string, expiresAt: string): Promise<void> {
@@ -201,8 +200,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
       if (req.path.startsWith("/api/")) {
         updateLastSeen(payload.id).catch(() => {});
       }
-    } catch {
-    }
+    } catch {}
   }
   next();
 }

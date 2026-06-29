@@ -26,7 +26,6 @@ import {
   suppliers,
   purchaseOrders,
   purchaseOrderItems,
-  supplierProducts,
   userBranches,
   ingredients,
   productRecipes,
@@ -58,7 +57,6 @@ import {
 import { isDisposableEmail } from "../email-domain-validator";
 import {
   AUTH_COOKIE,
-  AUTH_COOKIE_OPTIONS,
   _revokedJtis,
   revokeToken,
   getJwtSecret,
@@ -66,7 +64,6 @@ import {
   signToken,
   setAuthCookie,
   clearAuthCookie,
-  bannedUserIds,
 } from "./core";
 import {
   findOrCreateUser,
@@ -159,8 +156,7 @@ async function logAuthEvent(opts: {
       entity: "auth",
       metadata: opts.metadata,
     });
-  } catch {
-  }
+  } catch {}
 }
 
 export function setupAuth(app: Express) {
@@ -357,7 +353,8 @@ export function setupAuth(app: Express) {
     }
     if (isDisposableEmail(email)) {
       return res.status(400).json({
-        message: "Temporary or disposable email addresses are not allowed. Please use a permanent email address (e.g. Gmail, Yahoo, Outlook).",
+        message:
+          "Temporary or disposable email addresses are not allowed. Please use a permanent email address (e.g. Gmail, Yahoo, Outlook).",
       });
     }
     const pwError = validatePasswordStrength(password, email);
@@ -454,24 +451,28 @@ export function setupAuth(app: Express) {
     if (!token) return res.status(400).json({ message: "Token is required.", code: "MISSING" });
     try {
       const [user] = await runAsAdmin(pool, async (adminDb) =>
-        adminDb
-          .select()
-          .from(users)
-          .where(eq(users.emailVerificationToken, token))
-          .limit(1),
+        adminDb.select().from(users).where(eq(users.emailVerificationToken, token)).limit(1),
       );
 
-      if (!user) return res.status(400).json({ message: "Invalid verification link.", code: "INVALID" });
-      if ((user as any).emailVerified) return res.status(200).json({ ok: true, alreadyVerified: true });
+      if (!user)
+        return res.status(400).json({ message: "Invalid verification link.", code: "INVALID" });
+      if ((user as any).emailVerified)
+        return res.status(200).json({ ok: true, alreadyVerified: true });
 
       const expires = (user as any).emailVerificationExpires;
       if (expires && new Date(expires) < new Date()) {
-        return res.status(400).json({ message: "This link has expired. Please request a new one.", code: "EXPIRED" });
+        return res
+          .status(400)
+          .json({ message: "This link has expired. Please request a new one.", code: "EXPIRED" });
       }
 
       await runAsAdmin(pool, async (adminDb) =>
         (adminDb.update(users) as any)
-          .set({ emailVerified: true, emailVerificationToken: null, emailVerificationExpires: null })
+          .set({
+            emailVerified: true,
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+          })
           .where(eq(users.id, user.id)),
       );
 
@@ -487,9 +488,16 @@ export function setupAuth(app: Express) {
         emailVerified: true,
       });
 
-      logAuthEvent({ userId: user.id, tenantId: (user as any).tenantId ?? null, action: "email_verified", metadata: {} });
+      logAuthEvent({
+        userId: user.id,
+        tenantId: (user as any).tenantId ?? null,
+        action: "email_verified",
+        metadata: {},
+      });
       res.json({ ok: true });
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.post("/api/auth/resend-verification", async (req, res, next) => {
@@ -500,16 +508,21 @@ export function setupAuth(app: Express) {
         adminDb.select().from(users).where(eq(users.id, userId)).limit(1),
       );
       if (!user) return res.status(404).json({ message: "User not found." });
-      if ((user as any).emailVerified) return res.status(400).json({ message: "Email is already verified." });
-      if (user.provider !== "email") return res.status(400).json({ message: "Not an email account." });
+      if ((user as any).emailVerified)
+        return res.status(400).json({ message: "Email is already verified." });
+      if (user.provider !== "email")
+        return res.status(400).json({ message: "Not an email account." });
       if (!user.email) return res.status(400).json({ message: "No email on record." });
 
       const last = resendCooldown.get(userId) ?? 0;
       const waitSecs = Math.ceil((last + 60_000 - Date.now()) / 1000);
       if (waitSecs > 0) {
-        return res.status(429).set("Retry-After", String(waitSecs)).json({
-          message: `Please wait ${waitSecs} second(s) before requesting another email.`,
-        });
+        return res
+          .status(429)
+          .set("Retry-After", String(waitSecs))
+          .json({
+            message: `Please wait ${waitSecs} second(s) before requesting another email.`,
+          });
       }
 
       const newToken = crypto.randomBytes(32).toString("hex");
@@ -529,7 +542,9 @@ export function setupAuth(app: Express) {
       });
 
       res.json({ ok: true });
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.post("/api/auth/login", bruteForceGuard, async (req, res, next) => {
@@ -976,7 +991,10 @@ export function setupAuth(app: Express) {
           })
           .from(branchesTable)
           .where(
-            and(eqLocal(branchesTable.id, liveActiveBranchId), eqLocal(branchesTable.tenantId, liveTenantId)),
+            and(
+              eqLocal(branchesTable.id, liveActiveBranchId),
+              eqLocal(branchesTable.tenantId, liveTenantId),
+            ),
           )
           .limit(1);
         if (b) activeBranch = b;
@@ -1029,8 +1047,12 @@ export function setupAuth(app: Express) {
 
       if (!user) {
       } else {
-        const maskedEmail = user.email ? user.email.replace(/(.{2})[^@]*(@.*)/, "$1***$2") : "(no email)";
-        console.log(`[auth/forgot-password] user found id=${user.id}, sending reset email to ${maskedEmail}`);
+        const maskedEmail = user.email
+          ? user.email.replace(/(.{2})[^@]*(@.*)/, "$1***$2")
+          : "(no email)";
+        console.log(
+          `[auth/forgot-password] user found id=${user.id}, sending reset email to ${maskedEmail}`,
+        );
 
         const token = crypto.randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();

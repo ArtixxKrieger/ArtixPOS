@@ -7,7 +7,7 @@ import {
   type StaffSchedule,
   type InsertStaffSchedule,
 } from "@shared/schema";
-import { eq, and, isNull, isNotNull, inArray, desc, lte, gte, or } from "drizzle-orm";
+import { eq, and, isNull, inArray, desc, lte, gte, or } from "drizzle-orm";
 import { getTenantUserIds, SCHEDULE_GRACE_MINS } from "./base";
 
 /**
@@ -43,7 +43,9 @@ export async function getActiveTimeLog(userId: string): Promise<TimeLog | undefi
     const [log] = await db
       .select()
       .from(timeLogs)
-      .where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
+      .where(
+        and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)),
+      )
       .limit(1);
     return log;
   } catch (error) {
@@ -210,19 +212,21 @@ export async function endBreak(userId: string): Promise<TimeLog | undefined> {
 export async function getTeamTimeLogs(
   userId: string,
   opts: { limit?: number; offset?: number } = {},
-): Promise<{
-  id: number;
-  userId: string;
-  clockIn: string;
-  clockOut: string | null;
-  notes: string | null;
-  clockOutNotes: string | null;
-  breakStart: string | null;
-  breakMinutes: number | null;
-  createdAt: string | null;
-  userName: string | null;
-  userEmail: string | null;
-}[]> {
+): Promise<
+  {
+    id: number;
+    userId: string;
+    clockIn: string;
+    clockOut: string | null;
+    notes: string | null;
+    clockOutNotes: string | null;
+    breakStart: string | null;
+    breakMinutes: number | null;
+    createdAt: string | null;
+    userName: string | null;
+    userEmail: string | null;
+  }[]
+> {
   try {
     const { limit = 500, offset = 0 } = opts;
     const userIds = await getTenantUserIds(userId);
@@ -274,10 +278,18 @@ export async function editTimeLog(
     const condition =
       userIds.length === 1
         ? and(eq(timeLogs.id, logId), eq(timeLogs.userId, userIds[0]), isNull(timeLogs.deletedAt))
-        : and(eq(timeLogs.id, logId), inArray(timeLogs.userId, userIds), isNull(timeLogs.deletedAt));
+        : and(
+            eq(timeLogs.id, logId),
+            inArray(timeLogs.userId, userIds),
+            isNull(timeLogs.deletedAt),
+          );
     const [existing] = await db.select({ id: timeLogs.id }).from(timeLogs).where(condition);
     if (!existing) return undefined;
-    const [updated] = await db.update(timeLogs).set(data as any).where(eq(timeLogs.id, logId)).returning();
+    const [updated] = await db
+      .update(timeLogs)
+      .set(data as any)
+      .where(eq(timeLogs.id, logId))
+      .returning();
     return updated;
   } catch (error) {
     console.error("Error editing time log:", error);
@@ -292,7 +304,11 @@ export async function deleteTimeLog(managerId: string, logId: number): Promise<b
     const condition =
       userIds.length === 1
         ? and(eq(timeLogs.id, logId), eq(timeLogs.userId, userIds[0]), isNull(timeLogs.deletedAt))
-        : and(eq(timeLogs.id, logId), inArray(timeLogs.userId, userIds), isNull(timeLogs.deletedAt));
+        : and(
+            eq(timeLogs.id, logId),
+            inArray(timeLogs.userId, userIds),
+            isNull(timeLogs.deletedAt),
+          );
     const [existing] = await db.select({ id: timeLogs.id }).from(timeLogs).where(condition);
     if (!existing) return false;
     await db
@@ -404,7 +420,10 @@ export async function createStaffSchedule(
     .from(users)
     .where(eq(users.id, managerId));
   const tenantId = managerRow?.tenantId ?? managerId;
-  const [created] = await db.insert(staffSchedules).values({ ...data, tenantId } as any).returning();
+  const [created] = await db
+    .insert(staffSchedules)
+    .values({ ...data, tenantId } as any)
+    .returning();
   return created;
 }
 
@@ -422,7 +441,11 @@ export async function updateStaffSchedule(
         : and(eq(staffSchedules.id, id), inArray(staffSchedules.userId, userIds));
     const [existing] = await db.select({ id: staffSchedules.id }).from(staffSchedules).where(cond);
     if (!existing) return undefined;
-    const [updated] = await db.update(staffSchedules).set(data as any).where(eq(staffSchedules.id, id)).returning();
+    const [updated] = await db
+      .update(staffSchedules)
+      .set(data as any)
+      .where(eq(staffSchedules.id, id))
+      .returning();
     return updated;
   } catch (error) {
     console.error("Error updating staff schedule:", error);

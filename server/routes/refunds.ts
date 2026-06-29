@@ -4,21 +4,35 @@ import { storage } from "../storage";
 import { requireAuth, requireManagerOrAbove } from "../middleware";
 import { insertRefundSchema } from "@shared/schema";
 import { getRolePermissionForRole } from "../admin-storage";
-import { getUserId, auditLog, handleZodError } from "../lib/route-utils";
+import {
+  getUserId,
+  auditLog,
+  handleZodError,
+  parsePagination,
+  paginatedResponse,
+} from "../lib/route-utils";
 
 export function registerRefundRoutes(app: Express): void {
+  app.get("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
+    const uid = getUserId(req);
+    const { saleId } = req.query as Record<string, string>;
 
-app.get("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
-    const list = await storage.getRefunds(getUserId(req));
-    res.json(list);
+    // B-pattern: ?saleId=:id filters by sale
+    const list = saleId
+      ? await storage.getRefundsBySale(Number(saleId), uid)
+      : await storage.getRefunds(uid);
+
+    const { page, limit, offset } = parsePagination(req.query as Record<string, string>);
+    const paged = list.slice(offset, offset + limit);
+    paginatedResponse(res, paged, list.length, page, limit);
   });
 
-app.get("/api/refunds/sale/:saleId", requireAuth, async (req, res) => {
+  app.get("/api/refunds/sale/:saleId", requireAuth, async (req, res) => {
     const list = await storage.getRefundsBySale(Number(req.params.saleId), getUserId(req));
     res.json(list);
   });
 
-app.post("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
+  app.post("/api/refunds", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
       const refundUser = req.user;
       if (refundUser?.tenantId && refundUser.role !== "owner") {

@@ -1,5 +1,3 @@
-
-
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { db } from "../db";
@@ -33,7 +31,7 @@ export async function resolveBranchId(req: Request): Promise<number | null> {
     .where(eq(branchesTable.tenantId, tid));
 
   if (tenantBranches.length === 0) return null;
-  const main = tenantBranches.find(b => b.isMain);
+  const main = tenantBranches.find((b) => b.isMain);
   return (main ?? tenantBranches[0]).id;
 }
 
@@ -55,9 +53,7 @@ export async function auditLog(
       entityId,
       metadata,
     });
-  } catch {
-
-  }
+  } catch {}
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/;
@@ -76,4 +72,36 @@ export function handleZodError(err: unknown, res: Response): boolean {
     return true;
   }
   return false;
+}
+
+// ── B-pattern helpers ────────────────────────────────────────────────────
+
+/** Parses ?page and ?limit from query params with safe defaults. */
+export function parsePagination(query: Record<string, string>): {
+  page: number;
+  limit: number;
+  offset: number;
+} {
+  const page = Math.max(1, parseInt(query.page ?? "1", 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? "20", 10) || 20));
+  return { page, limit, offset: (page - 1) * limit };
+}
+
+/** Standard B-pattern response: { data, meta: { page, limit, total } } */
+export function paginatedResponse<T>(
+  res: Response,
+  data: T[],
+  total: number,
+  page: number,
+  limit: number,
+): void {
+  res.json({
+    data,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
+}
+
+/** Standard success envelope: { data } */
+export function successResponse<T>(res: Response, data: T, status = 200): void {
+  res.status(status).json({ data });
 }

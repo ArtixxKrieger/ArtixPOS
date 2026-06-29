@@ -725,20 +725,18 @@ export default function Login() {
         await queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
 
-        // Wipe stale SW + caches BEFORE navigating.  If the SW is serving
-        // HTML from a previous deployment, lazy chunks will have old hashes
-        // that 404 on the server, triggering the 7-reload cascade from
-        // lazyWithRetry + ErrorBoundary + unhandledrejection.
-        try {
-          if ("serviceWorker" in navigator) {
-            const regs = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(regs.map((r) => r.unregister()));
-          }
-        } catch {}
+        // Clear the SW's HTML shell cache so stale chunk hashes from a
+        // previous deployment don't cause the 7-reload cascade.  We only
+        // clear the shell cache, NOT unregister the SW or delete other
+        // caches — that would break auth after multiple login cycles.
         try {
           if (window.caches) {
-            const keys = await caches.keys();
-            await Promise.all(keys.map((k) => caches.delete(k)));
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+              if (name.startsWith("artix-shell-")) {
+                await caches.delete(name);
+              }
+            }
           }
         } catch {}
 

@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { dbRead } from "../db-read";
+import { db } from "../../db";
+import { dbRead } from "../../db-read";
 import { createHash } from "crypto";
 import {
   sales,

@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { dbRead } from "../db-read";
+import { db } from "../../db";
+import { dbRead } from "../../db-read";
 import {
   products,
   stockLogs,
@@ -188,6 +188,11 @@ export async function getProductByBarcode(barcode: string, userId: string): Prom
   }
 }
 
+/**
+ * Deducts stock for all sold items inside a single DB transaction.
+ * If any update fails, the entire deduction is rolled back — no partial state.
+ * Also fires low-stock / out-of-stock notifications after the transaction commits.
+ */
 export async function deductProductStockForSale(userId: string, items: any[]): Promise<void> {
   if (!Array.isArray(items) || items.length === 0) return;
   try {
@@ -205,63 +210,75 @@ export async function deductProductStockForSale(userId: string, items: any[]): P
     const userCondition = userIds.length === 1
       ? eq(products.userId, userIds[0])
       : inArray(products.userId, userIds);
+
     const rows = await db.select().from(products)
       .where(and(userCondition, inArray(products.id, productIds)));
 
-    for (const product of rows) {
-      if (!product.trackStock) continue;
-      const sold = productQty.get(product.id) ?? 0;
-      if (sold === 0) continue;
-      const prevStock = product.stock ?? 0;
+    const notificationsToSend: { product: typeof rows[0]; sold: number; newStock: number }[] = [];
 
-      const [updated] = await (db.update(products) as any)
-        .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${sold})` })
-        .where(eq(products.id, product.id))
-        .returning();
-      const newStock: number = (updated as any)?.stock ?? Math.max(0, prevStock - sold);
-      const threshold = product.lowStockThreshold ?? 10;
+    // Wrap all stock deductions in a single transaction so a mid-loop failure
+    // doesn't leave some products decremented and others not.
+    await db.transaction(async (tx) => {
+      for (const product of rows) {
+        if (!product.trackStock) continue;
+        const sold = productQty.get(product.id) ?? 0;
+        if (sold === 0) continue;
+        const prevStock = product.stock ?? 0;
 
-      if (newStock === 0 && prevStock > 0) {
-        await createNotification(userId, {
-          type: "restock",
-          title: `${product.name} is out of stock`,
-          message: `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`,
+        const [updated] = await (tx.update(products) as any)
+          .set({ stock: sql`GREATEST(0, COALESCE(stock, 0) - ${sold})` })
+          .where(eq(products.id, product.id))
+          .returning();
+
+        const newStock: number = (updated as any)?.stock ?? Math.max(0, prevStock - sold);
+
+        await tx.insert(stockLogs).values({
           productId: product.id,
-        });
-        setImmediate(async () => {
-          try {
-            const { sendPushToUsers } = await import("../push");
-            const tenantUserIds = await getTenantUserIds(userId);
-            await sendPushToUsers(tenantUserIds, {
-              title: `⚠️ Out of stock: ${product.name}`,
-              body: `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`,
-              tag: `stock-${product.id}`,
-              url: "/products",
-            });
-          } catch {}
-        });
-      } else if (newStock > 0 && newStock <= threshold && prevStock > threshold) {
-        await createNotification(userId, {
-          type: "low_stock",
-          title: `${product.name} is running low`,
-          message: `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`,
-          productId: product.id,
-        });
-        setImmediate(async () => {
-          try {
-            const { sendPushToUsers } = await import("../push");
-            const tenantUserIds = await getTenantUserIds(userId);
-            await sendPushToUsers(tenantUserIds, {
-              title: `📦 Low stock: ${product.name}`,
-              body: `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`,
-              tag: `stock-${product.id}`,
-              url: "/products",
-            });
-          } catch {}
-        });
+          userId,
+          previousStock: prevStock,
+          newStock,
+          delta: -sold,
+          reason: "sale",
+        } as any).catch(() => {});
+
+        const threshold = product.lowStockThreshold ?? 10;
+        if ((newStock === 0 && prevStock > 0) || (newStock > 0 && newStock <= threshold && prevStock > threshold)) {
+          notificationsToSend.push({ product, sold, newStock });
+        }
       }
+    });
+
+    // Fire notifications after transaction commits — failures here are non-fatal
+    for (const { product, sold, newStock } of notificationsToSend) {
+      const threshold = product.lowStockThreshold ?? 10;
+      const isOut = newStock === 0;
+      const title = isOut ? `${product.name} is out of stock` : `${product.name} is running low`;
+      const message = isOut
+        ? `Sold ${sold} unit${sold !== 1 ? "s" : ""}. Stock is now 0. Reorder immediately.`
+        : `Only ${newStock} unit${newStock !== 1 ? "s" : ""} remaining (threshold: ${threshold}).`;
+
+      await createNotification(userId, {
+        type: isOut ? "restock" : "low_stock",
+        title,
+        message,
+        productId: product.id,
+      }).catch(() => {});
+
+      setImmediate(async () => {
+        try {
+          const { sendPushToUsers } = await import("../../push");
+          const tenantUserIds = await getTenantUserIds(userId);
+          await sendPushToUsers(tenantUserIds, {
+            title: isOut ? `⚠️ Out of stock: ${product.name}` : `📦 Low stock: ${product.name}`,
+            body: message,
+            tag: `stock-${product.id}`,
+            url: "/products",
+          });
+        } catch {}
+      });
     }
   } catch (e) {
     console.error("deductProductStockForSale error:", e);
+    throw e;
   }
 }

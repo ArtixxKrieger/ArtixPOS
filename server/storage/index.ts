@@ -34,25 +34,25 @@ import type {
   LoyaltyPointsLog,
 } from "@shared/schema";
 
-export { invalidateTenantCache } from "./base";
+export { invalidateTenantCache } from "../infrastructure/persistence/base";
 
-import * as productsModule from "./products";
-import * as ordersModule from "./orders";
-import * as salesModule from "./sales";
-import * as settingsModule from "./settings";
-import * as customersModule from "./customers";
-import * as expensesModule from "./expenses";
-import * as shiftsModule from "./shifts";
-import * as discountsModule from "./discounts";
-import * as tablesModule from "./tables";
-import * as suppliersModule from "./suppliers";
-import * as timeclockModule from "./timeclock";
-import * as appointmentsModule from "./appointments";
-import * as membershipsModule from "./memberships";
-import * as inventoryModule from "./inventory";
-import * as wifiVouchersModule from "./wifi-vouchers";
-import * as payrollModule from "./payroll";
-import * as notificationsModule from "./notifications";
+import * as productsModule from "../infrastructure/persistence/products";
+import * as ordersModule from "../infrastructure/persistence/orders";
+import * as salesModule from "../infrastructure/persistence/sales";
+import * as settingsModule from "../infrastructure/persistence/settings";
+import * as customersModule from "../infrastructure/persistence/customers";
+import * as expensesModule from "../infrastructure/persistence/expenses";
+import * as shiftsModule from "../infrastructure/persistence/shifts";
+import * as discountsModule from "../infrastructure/persistence/discounts";
+import * as tablesModule from "../infrastructure/persistence/tables";
+import * as suppliersModule from "../infrastructure/persistence/suppliers";
+import * as timeclockModule from "../infrastructure/persistence/timeclock";
+import * as appointmentsModule from "../infrastructure/persistence/appointments";
+import * as membershipsModule from "../infrastructure/persistence/memberships";
+import * as inventoryModule from "../infrastructure/persistence/inventory";
+import * as wifiVouchersModule from "../infrastructure/persistence/wifi-vouchers";
+import * as payrollModule from "../infrastructure/persistence/payroll";
+import * as notificationsModule from "../infrastructure/persistence/notifications";
 
 export interface IStorage {
   getProducts(userId: string, branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number }): Promise<Product[]>;
@@ -67,7 +67,7 @@ export interface IStorage {
   getProductByBarcode(barcode: string, userId: string): Promise<Product | undefined>;
   deductProductStockForSale(userId: string, items: any[]): Promise<void>;
 
-  getPendingOrders(userId: string, branchId?: number | null): Promise<PendingOrder[]>;
+  getPendingOrders(userId: string, branchId?: number | null, opts?: { limit?: number; offset?: number }): Promise<PendingOrder[]>;
   getPendingOrder(id: number, userId: string): Promise<PendingOrder | undefined>;
   createPendingOrder(userId: string, order: Omit<InsertPendingOrder, "userId">): Promise<PendingOrder>;
   updatePendingOrder(id: number, userId: string, order: Partial<InsertPendingOrder>): Promise<PendingOrder | undefined>;
@@ -154,13 +154,13 @@ export interface IStorage {
     preferredSupplierName: string | null; unitCost: string | null;
   }[]>;
 
-  getTimeLogs(userId: string): Promise<TimeLog[]>;
+  getTimeLogs(userId: string, opts?: { limit?: number; offset?: number }): Promise<TimeLog[]>;
   getActiveTimeLog(userId: string): Promise<TimeLog | undefined>;
   clockIn(userId: string, notes?: string): Promise<TimeLog>;
   clockOut(userId: string, notes?: string): Promise<TimeLog | undefined>;
   startBreak(userId: string): Promise<TimeLog | undefined>;
   endBreak(userId: string): Promise<TimeLog | undefined>;
-  getTeamTimeLogs(userId: string): Promise<{
+  getTeamTimeLogs(userId: string, opts?: { limit?: number; offset?: number }): Promise<{
     id: number; userId: string; clockIn: string; clockOut: string | null;
     notes: string | null; clockOutNotes: string | null; breakStart: string | null;
     breakMinutes: number | null; createdAt: string | null; userName: string | null; userEmail: string | null;

@@ -1,5 +1,5 @@
-import { pool } from "../db";
-import { runAsAdmin } from "../tenant-context";
+import { pool } from "../../db";
+import { runAsAdmin } from "../../tenant-context";
 import {
   userSettings,
   type UserSetting,

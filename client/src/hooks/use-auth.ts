@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { nativeFetch, clearNativeToken, NATIVE_TOKEN_KEY, setAuthenticatedUserId } from "@/lib/queryClient";
+import {
+  nativeFetch,
+  clearNativeToken,
+  NATIVE_TOKEN_KEY,
+  setAuthenticatedUserId,
+} from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { clearSettingsPrewarm } from "@/hooks/use-settings";
@@ -59,16 +64,23 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
   const isNative = !!API_BASE;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(new DOMException("fetchMe timeout", "TimeoutError")), 20_000);
+  const timeoutId = setTimeout(
+    () => controller.abort(new DOMException("fetchMe timeout", "TimeoutError")),
+    20_000,
+  );
   if (signal) {
     if (signal.aborted) {
       clearTimeout(timeoutId);
       controller.abort(signal.reason);
     } else {
-      signal.addEventListener("abort", () => {
-        clearTimeout(timeoutId);
-        controller.abort(signal.reason);
-      }, { once: true });
+      signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timeoutId);
+          controller.abort(signal.reason);
+        },
+        { once: true },
+      );
     }
   }
 
@@ -83,13 +95,13 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
         clearNativeToken();
       }
 
-saveCachedAuthUser(null);
+      saveCachedAuthUser(null);
       return null;
     }
     if (res.status === 403) {
       const data = await res.json().catch(() => ({}));
 
-saveCachedAuthUser(null);
+      saveCachedAuthUser(null);
       if (data.banned) {
         clearNativeToken();
         if (!window.location.pathname.startsWith("/login")) {
@@ -126,7 +138,12 @@ saveCachedAuthUser(null);
 export function useAuth() {
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading, isFetching, isPlaceholderData } = useQuery<AuthUser | null>({
+  const {
+    data: user,
+    isLoading,
+    isFetching,
+    isPlaceholderData,
+  } = useQuery<AuthUser | null>({
     queryKey: ["auth-me"],
     queryFn: fetchMe,
     placeholderData: loadCachedAuthUser(),
@@ -138,10 +155,8 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      try {
-        await nativeFetch("/auth/logout", { method: "POST" });
-      } catch {
-      }
+      // Let the server call throw if it fails — onError handles the retry.
+      await nativeFetch("/auth/logout", { method: "POST" });
       clearNativeToken();
       saveCachedAuthUser(null);
       await clearSettingsPrewarm().catch(() => {});
@@ -154,6 +169,14 @@ export function useAuth() {
       window.location.replace("/login");
     },
     onError: () => {
+      // Server logout failed (network / CSRF).  Set the pending flag so
+      // the login page retries the server-side logout before showing the
+      // form — otherwise the httpOnly cookie is still valid, fetchMe
+      // returns the user, and the login page redirects straight back to
+      // the dashboard.
+      try {
+        sessionStorage.setItem("artix-logout-pending", "1");
+      } catch {}
       clearNativeToken();
       saveCachedAuthUser(null);
       queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });

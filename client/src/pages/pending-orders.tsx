@@ -1,11 +1,25 @@
-import { usePendingOrders, useDeletePendingOrder, useUpdatePendingOrder } from "@/hooks/use-pending-orders";
+import {
+  usePendingOrders,
+  useDeletePendingOrder,
+  useUpdatePendingOrder,
+} from "@/hooks/use-pending-orders";
 import { useCreateSale } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
 import { useMyPermissions } from "@/hooks/use-admin";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, XCircle, CreditCard, FileText, Calendar, Utensils, ShoppingBag, Bell } from "lucide-react";
+import {
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  CreditCard,
+  FileText,
+  Calendar,
+  Utensils,
+  ShoppingBag,
+  Bell,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
@@ -50,12 +64,21 @@ function makeDummyOrders(count: number): PendingOrder[] {
       { quantity: 2, product: { name: "Burger" } },
       { quantity: 1, product: { name: "Fries" } },
     ],
-    subtotal: "0", tax: "0", discount: "0", discountCode: null,
-    loyaltyDiscount: null, total: "0", paymentMethod: "cash",
-    paymentAmount: "0", changeAmount: "0", status: "pending",
-    notes: null, orderType: null,
+    subtotal: "0",
+    tax: "0",
+    discount: "0",
+    discountCode: null,
+    loyaltyDiscount: null,
+    total: "0",
+    paymentMethod: "cash",
+    paymentAmount: "0",
+    changeAmount: "0",
+    status: "pending",
+    notes: null,
+    orderType: null,
     createdAt: new Date().toISOString(),
-    customerId: null, tableId: null,
+    customerId: null,
+    tableId: null,
   }));
 }
 
@@ -73,9 +96,7 @@ export default function PendingOrders() {
   const [payments, setPayments] = useState<Record<number, string>>({});
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-const staleOrders = (orders as PendingOrder[]).filter(
-    o => elapsedMin(o.createdAt) >= 15
-  );
+  const staleOrders = (orders as PendingOrder[]).filter((o) => elapsedMin(o.createdAt) >= 15);
 
   const handleDiscard = (orderId: number) => {
     const timer = setTimeout(() => {
@@ -110,55 +131,67 @@ const staleOrders = (orders as PendingOrder[]).filter(
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
 
-if (order.status === "paid") {
+    if (order.status === "paid") {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {
           toast({ title: "Order Completed", description: "Order removed from queue." });
-        }
+        },
       });
       return;
     }
 
-    createSale.mutate({
-      items: order.items || [],
-      subtotal: order.subtotal || "0",
-      tax: order.tax || "0",
-      discount: order.discount || "0",
-      discountCode: order.discountCode || null,
-      loyaltyDiscount: order.loyaltyDiscount || "0",
-      total: order.total || "0",
-      paymentMethod: order.paymentMethod || "cash",
-      paymentAmount: paidAmount.toString(),
-      changeAmount: Math.max(0, paidAmount - total).toString(),
-      notes: order.notes || null,
-      customerId: order.customerId || null,
-      tableId: order.tableId || null,
-    }, {
-      onSuccess: () => {
-        deleteOrder.mutate(order.id);
-        toast({ title: "Order Completed", description: "Processed as a sale." });
-      }
-    });
+    createSale.mutate(
+      {
+        items: order.items || [],
+        subtotal: order.subtotal || "0",
+        tax: order.tax || "0",
+        discount: order.discount || "0",
+        discountCode: order.discountCode || null,
+        loyaltyDiscount: order.loyaltyDiscount || "0",
+        total: order.total || "0",
+        paymentMethod: order.paymentMethod || "cash",
+        paymentAmount: paidAmount.toString(),
+        changeAmount: Math.max(0, paidAmount - total).toString(),
+        notes: order.notes || null,
+        customerId: order.customerId || null,
+        tableId: order.tableId || null,
+      },
+      {
+        onSuccess: () => {
+          deleteOrder.mutate(order.id);
+          toast({ title: "Order Completed", description: "Processed as a sale." });
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Failed to make sale",
+            description: err?.message ?? "Please try again.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
   };
 
   const handleUpdatePayment = (order: PendingOrder) => {
     const paidAmount = Number(payments[order.id] ?? "0");
     const total = parseNumeric(order.total || "0");
-    updateOrder.mutate({
-      id: order.id,
-      paymentAmount: paidAmount.toString(),
-      changeAmount: Math.max(0, paidAmount - total).toString(),
-      status: paidAmount >= total ? "paid" : "unpaid",
-    }, {
-      onSuccess: () => {
-        toast({ title: "Payment Updated", description: "Order status updated." });
-      }
-    });
+    updateOrder.mutate(
+      {
+        id: order.id,
+        paymentAmount: paidAmount.toString(),
+        changeAmount: Math.max(0, paidAmount - total).toString(),
+        status: paidAmount >= total ? "paid" : "unpaid",
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Payment Updated", description: "Order status updated." });
+        },
+      },
+    );
   };
 
   return (
     <div className="space-y-5 page-enter pb-4">
-
       {}
       {staleOrders.length > 0 && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl px-4 py-3">
@@ -175,12 +208,17 @@ if (order.status === "paid") {
       )}
 
       {displayOrders.length === 0 ? (
-        <div className="glass-card rounded-3xl py-20 text-center flex flex-col items-center gap-3" data-testid="empty-pending-orders">
+        <div
+          className="glass-card rounded-3xl py-20 text-center flex flex-col items-center gap-3"
+          data-testid="empty-pending-orders"
+        >
           <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
             <CheckCircle2 className="h-8 w-8 text-emerald-500/70" strokeWidth={2} />
           </div>
           <p className="text-base font-bold">All caught up</p>
-          <p className="text-sm text-muted-foreground/70">No orders waiting — saved orders will appear here.</p>
+          <p className="text-sm text-muted-foreground/70">
+            No orders waiting — saved orders will appear here.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 stagger-children">
@@ -190,7 +228,10 @@ if (order.status === "paid") {
             const total = parseNumeric(order.total || "0");
             const paid = parseNumeric(order.paymentAmount || "0");
             const isPaid = order.status === "paid" || paid >= total;
-            const changeAmt = Math.max(0, Number(payments[order.id] ?? order.paymentAmount ?? "0") - total);
+            const changeAmt = Math.max(
+              0,
+              Number(payments[order.id] ?? order.paymentAmount ?? "0") - total,
+            );
 
             return (
               <div
@@ -203,17 +244,30 @@ if (order.status === "paid") {
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
                       <Calendar className="h-3 w-3" />
-                      {order.createdAt ? format(new Date(order.createdAt), "MMM d, h:mm a") : "Unknown time"}
+                      {order.createdAt
+                        ? format(new Date(order.createdAt), "MMM d, h:mm a")
+                        : "Unknown time"}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className={[
-                        "flex items-center gap-1.5 text-xs font-bold",
-                        isPaid ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                      ].join(" ")}>
-                        {isPaid
-                          ? <><CheckCircle2 className="h-3.5 w-3.5" />Paid</>
-                          : <><XCircle className="h-3.5 w-3.5" />Unpaid</>
-                        }
+                      <div
+                        className={[
+                          "flex items-center gap-1.5 text-xs font-bold",
+                          isPaid
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-amber-600 dark:text-amber-400",
+                        ].join(" ")}
+                      >
+                        {isPaid ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Paid
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3.5 w-3.5" />
+                            Unpaid
+                          </>
+                        )}
                       </div>
                       {order.orderType === "dine_in" && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-md">
@@ -237,17 +291,23 @@ if (order.status === "paid") {
                     <p className="text-2xl font-black text-primary tabular-nums">
                       {formatCurrency(order.total || "0", currency)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{itemCount} items</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                      {itemCount} items
+                    </p>
                   </div>
                 </div>
 
                 {/* Items list */}
                 <div className="px-5 py-3 space-y-2 flex-1 max-h-44 overflow-y-auto scrollbar-hide">
                   {items.map((item, i) => (
-                    <div key={i} className="flex items-start justify-between gap-2 py-1.5 border-b border-border/20 last:border-0">
+                    <div
+                      key={i}
+                      className="flex items-start justify-between gap-2 py-1.5 border-b border-border/20 last:border-0"
+                    >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold leading-tight">
-                          <span className="text-primary font-bold">{item.quantity}×</span> {item.product?.name || "Unknown"}
+                          <span className="text-primary font-bold">{item.quantity}×</span>{" "}
+                          {item.product?.name || "Unknown"}
                         </p>
                         {item.modifiers && item.modifiers.length > 0 && (
                           <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -280,14 +340,18 @@ if (order.status === "paid") {
                 {/* Payment input */}
                 <div className="px-5 py-3 bg-secondary/20 border-t border-border/30 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Payment</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Payment
+                    </span>
                     <div className="flex gap-2">
                       <Input
                         type="number"
                         placeholder="0.00"
                         className="w-28 h-8 text-right bg-background border-none text-xs font-bold rounded-xl"
                         value={payments[order.id] ?? order.paymentAmount ?? ""}
-                        onChange={(e) => setPayments(prev => ({ ...prev, [order.id]: e.target.value }))}
+                        onChange={(e) =>
+                          setPayments((prev) => ({ ...prev, [order.id]: e.target.value }))
+                        }
                         data-testid={`input-payment-${order.id}`}
                       />
                       <Button
@@ -301,7 +365,9 @@ if (order.status === "paid") {
                   </div>
                   {changeAmt > 0 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">Change</span>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                        Change
+                      </span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm tabular-nums">
                         {formatCurrency(changeAmt, currency)}
                       </span>
@@ -338,7 +404,6 @@ if (order.status === "paid") {
           })}
         </div>
       )}
-
     </div>
   );
 }

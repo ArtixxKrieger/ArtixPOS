@@ -5,13 +5,19 @@ import { api } from "@shared/routes";
 import { requireAuth } from "../middleware";
 import { emit as emitTenantEvent } from "../events";
 import { getRolePermissionForRole } from "../admin-storage";
-import { getUserId, getTenantId, getActiveBranchId, resolveBranchId, auditLog, handleZodError } from "../lib/route-utils";
-import { cache } from "../cache";
+import {
+  getUserId,
+  getTenantId,
+  getActiveBranchId,
+  resolveBranchId,
+  auditLog,
+  handleZodError,
+} from "../lib/route-utils";
+import { cache, dashboardCacheKey } from "../cache";
 
 const IDEM_TTL_MS = 60 * 60 * 1000;
 
 export function registerPendingOrderRoutes(app: Express): void {
-
   app.get(api.pendingOrders.list.path, requireAuth, async (req, res) => {
     const orders = await storage.getPendingOrders(getUserId(req), getActiveBranchId(req));
     res.json(orders);
@@ -19,17 +25,18 @@ export function registerPendingOrderRoutes(app: Express): void {
 
   app.post(api.pendingOrders.create.path, requireAuth, async (req, res) => {
     try {
-
-const rawIdempotencyKey = typeof (req.body as Record<string, unknown>).idempotencyKey === "string"
-        ? (req.body as Record<string, unknown>).idempotencyKey as string
-        : undefined;
-      const idemTenantId = (req.user as Record<string, unknown> | undefined)?.tenantId as string | undefined;
+      const rawIdempotencyKey =
+        typeof (req.body as Record<string, unknown>).idempotencyKey === "string"
+          ? ((req.body as Record<string, unknown>).idempotencyKey as string)
+          : undefined;
+      const idemTenantId = (req.user as Record<string, unknown> | undefined)?.tenantId as
+        | string
+        | undefined;
 
       if (rawIdempotencyKey && idemTenantId) {
         const idemCacheKey = `idem:po:${idemTenantId}:${rawIdempotencyKey}`;
         const cached = cache.get<object>(idemCacheKey);
         if (cached) {
-
           return res.status(201).json(cached);
         }
       }
@@ -45,7 +52,7 @@ const rawIdempotencyKey = typeof (req.body as Record<string, unknown>).idempoten
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-const enforcedBranch = await resolveBranchId(req);
+      const enforcedBranch = await resolveBranchId(req);
       const inputWithCashier = {
         ...input,
         cashierId: input.cashierId ?? uid,
@@ -53,16 +60,15 @@ const enforcedBranch = await resolveBranchId(req);
       };
       const order = await storage.createPendingOrder(uid, inputWithCashier);
 
-let saleOrNumber: string | null = null;
+      let saleOrNumber: string | null = null;
       let saleReceiptNumber: string | null = null;
       let saleId: number | null = null;
 
-const tid = getTenantId(req);
+      const tid = getTenantId(req);
 
       if (input.status === "paid") {
         try {
-
-const rawBody = req.body as any;
+          const rawBody = req.body as any;
           const sale = await storage.createSale(uid, {
             items: input.items,
             subtotal: input.subtotal,
@@ -93,33 +99,39 @@ const rawBody = req.body as any;
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
-const capturedSale   = sale;
-          const capturedUid    = uid;
-          const capturedInput  = input;
-          const capturedTid    = tid;
-          const capturedReq    = req;
+          const capturedSale = sale;
+          const capturedUid = uid;
+          const capturedInput = input;
+          const capturedTid = tid;
+          const capturedReq = req;
           setImmediate(async () => {
-
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
                 await storage.deductProductStockForSale(capturedUid, capturedInput.items as any[]);
                 break;
               } catch (stockErr) {
-                if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
-                else console.error(`[CRITICAL] Stock deduction failed for sale ${capturedSale.id} — inventory may be inconsistent:`, stockErr);
+                if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt));
+                else
+                  console.error(
+                    `[CRITICAL] Stock deduction failed for sale ${capturedSale.id} — inventory may be inconsistent:`,
+                    stockErr,
+                  );
               }
             }
 
-if (capturedInput.discountCode) {
+            if (capturedInput.discountCode) {
               try {
-                const dc = await storage.getDiscountCodeByCode(capturedInput.discountCode, capturedUid);
+                const dc = await storage.getDiscountCodeByCode(
+                  capturedInput.discountCode,
+                  capturedUid,
+                );
                 if (dc) await storage.incrementDiscountCodeUsage(dc.id);
               } catch (dcErr) {
                 console.error("Failed to increment discount code usage:", dcErr);
               }
             }
 
-try {
+            try {
               await auditLog(capturedReq, "create", "sale", String(capturedSale.id), {
                 total: capturedSale.total,
                 itemCount: Array.isArray(capturedSale.items) ? capturedSale.items.length : 0,
@@ -128,7 +140,7 @@ try {
               });
             } catch {}
 
-if (capturedTid) {
+            if (capturedTid) {
               emitTenantEvent(capturedTid, {
                 type: "stats-update",
                 saleId: capturedSale.id,
@@ -137,41 +149,50 @@ if (capturedTid) {
             }
           });
         } catch (saleErr) {
-
           console.error("Failed to auto-create sale for paid order:", saleErr);
+          return res.status(500).json({
+            message: "Failed to create sale. Please try again.",
+            orderId: order.id,
+          });
         }
+
+        // Clear caches so dashboard + sales list reflect the new sale immediately
+        cache.del(dashboardCacheKey(uid, enforcedBranch));
+        cache.delByPrefix(`sales:${uid}`);
       }
 
-if (tid) {
+      if (tid) {
         emitTenantEvent(tid, {
           type: "kitchen-new-order",
           orderId: order.id,
           orderNumber: (order as any).orderNumber ?? null,
           itemCount: Array.isArray(input.items) ? input.items.length : 0,
         });
-        const itemCount  = Array.isArray(input.items) ? input.items.length : 1;
-        const orderLabel = (order as any).orderNumber ? `#${(order as any).orderNumber}` : `#${order.id}`;
+        const itemCount = Array.isArray(input.items) ? input.items.length : 1;
+        const orderLabel = (order as any).orderNumber
+          ? `#${(order as any).orderNumber}`
+          : `#${order.id}`;
         setImmediate(async () => {
           try {
             const { sendPushToTenant } = await import("../push");
             await sendPushToTenant(tid, {
               title: `🍽️ New Order ${orderLabel}`,
-              body:  `${itemCount} item${itemCount !== 1 ? "s" : ""} waiting in the kitchen.`,
-              tag:   `order-${order.id}`,
-              url:   "/kitchen",
+              body: `${itemCount} item${itemCount !== 1 ? "s" : ""} waiting in the kitchen.`,
+              tag: `order-${order.id}`,
+              url: "/kitchen",
             });
           } catch {}
         });
       }
 
-const responseBody = {
+      const responseBody = {
         ...order,
         orNumber: saleOrNumber ?? (order as any).orNumber ?? null,
         receiptNumber: saleReceiptNumber ?? (order as any).receiptNumber ?? null,
         saleId,
       };
 
-if (rawIdempotencyKey && idemTenantId) {
+      if (rawIdempotencyKey && idemTenantId) {
         const idemCacheKey = `idem:po:${idemTenantId}:${rawIdempotencyKey}`;
         cache.set(idemCacheKey, responseBody, IDEM_TTL_MS);
       }
@@ -217,12 +238,16 @@ if (rawIdempotencyKey && idemTenantId) {
     res.status(204).end();
   });
 
-app.patch("/api/pending-orders/:id/kitchen", requireAuth, async (req, res) => {
+  app.patch("/api/pending-orders/:id/kitchen", requireAuth, async (req, res) => {
     try {
-      const { kitchenStatus } = z.object({
-        kitchenStatus: z.enum(["pending", "preparing", "ready", "done"]),
-      }).parse(req.body);
-      const order = await storage.updatePendingOrder(Number(req.params.id), getUserId(req), { kitchenStatus });
+      const { kitchenStatus } = z
+        .object({
+          kitchenStatus: z.enum(["pending", "preparing", "ready", "done"]),
+        })
+        .parse(req.body);
+      const order = await storage.updatePendingOrder(Number(req.params.id), getUserId(req), {
+        kitchenStatus,
+      });
       if (!order) return res.status(404).json({ message: "Order not found" });
       const tid = getTenantId(req);
       if (tid) {

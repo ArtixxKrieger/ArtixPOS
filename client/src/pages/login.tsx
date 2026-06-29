@@ -6,12 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth, clearAuthCache } from "@/hooks/use-auth";
 import { signalPostLoginNav, fetchSettingsFromNetwork } from "@/hooks/use-settings";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
-import {
-  apiRequest,
-  setNativeToken,
-  queryClient,
-  nativeFetch,
-} from "@/lib/queryClient";
+import { apiRequest, setNativeToken, queryClient, nativeFetch } from "@/lib/queryClient";
 import { clearAllCache, initUserSession } from "@/lib/offline-db";
 import { prefetchBootstrapData } from "@/lib/prefetch";
 import { detectLocale } from "@/lib/locale-detect";
@@ -137,9 +132,7 @@ function useCountUp(target: number, visible: boolean, duration = 1200) {
   return val;
 }
 
-function useCardTilt() {
-
-}
+function useCardTilt() {}
 
 function useLandingAnimations(
   lpScrollRef: React.RefObject<HTMLDivElement | null>,
@@ -324,11 +317,11 @@ function useLandingAnimations(
 }
 
 const POS_DEMO = [
-  { e:"☕", name:"Espresso", price:80 },
-  { e:"🍵", name:"Matcha Latte", price:120 },
-  { e:"☕", name:"Espresso", price:80 },
-  { e:"🥐", name:"Croissant", price:65 },
-  { e:"🥤", name:"Frappe", price:150 },
+  { e: "☕", name: "Espresso", price: 80 },
+  { e: "🍵", name: "Matcha Latte", price: 120 },
+  { e: "☕", name: "Espresso", price: 80 },
+  { e: "🥐", name: "Croissant", price: 65 },
+  { e: "🥤", name: "Frappe", price: 150 },
 ];
 
 export default function Login() {
@@ -408,7 +401,9 @@ export default function Login() {
   const mockSectionRef = useRef<HTMLDivElement>(null);
   const [mockVisible, setMockVisible] = useState(false);
   const [activeMockTab, setActiveMockTab] = useState("Dashboard");
-  const [posCart, setPosCart] = useState<Array<{e:string;name:string;price:number;qty:number}>>([]);
+  const [posCart, setPosCart] = useState<
+    Array<{ e: string; name: string; price: number; qty: number }>
+  >([]);
   const [posHighlight, setPosHighlight] = useState(-1);
   const [posCharging, setPosCharging] = useState(false);
 
@@ -468,34 +463,45 @@ export default function Login() {
   useEffect(() => {
     if (!mockSectionRef.current) return;
     const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) setMockVisible(true); },
-      { threshold: 0.1 }
+      ([e]) => {
+        if (e.isIntersecting) setMockVisible(true);
+      },
+      { threshold: 0.1 },
     );
     io.observe(mockSectionRef.current);
     return () => io.disconnect();
   }, []);
 
   useEffect(() => {
-    if (activeMockTab !== "POS") { setPosCart([]); setPosCharging(false); setPosHighlight(-1); return; }
+    if (activeMockTab !== "POS") {
+      setPosCart([]);
+      setPosCharging(false);
+      setPosHighlight(-1);
+      return;
+    }
     let step = 0;
     setPosCart([]);
     setPosCharging(false);
     const run = () => {
       if (step < POS_DEMO.length) {
         const p = POS_DEMO[step];
-        setPosHighlight(step % 3 + (step >= 3 ? 0 : 0));
-        const prodIdx = [0,1,0,3,2][step] ?? step;
+        setPosHighlight((step % 3) + (step >= 3 ? 0 : 0));
+        const prodIdx = [0, 1, 0, 3, 2][step] ?? step;
         setPosHighlight(prodIdx);
-        setPosCart(prev => {
-          const idx = prev.findIndex(i => i.name === p.name);
-          if (idx >= 0) return prev.map((i,ei) => ei===idx ? {...i, qty:i.qty+1} : i);
-          return [...prev, {...p, qty:1}];
+        setPosCart((prev) => {
+          const idx = prev.findIndex((i) => i.name === p.name);
+          if (idx >= 0) return prev.map((i, ei) => (ei === idx ? { ...i, qty: i.qty + 1 } : i));
+          return [...prev, { ...p, qty: 1 }];
         });
         setTimeout(() => setPosHighlight(-1), 380);
         step++;
       } else {
         setPosCharging(true);
-        setTimeout(() => { setPosCart([]); setPosCharging(false); step = 0; }, 2200);
+        setTimeout(() => {
+          setPosCart([]);
+          setPosCharging(false);
+          step = 0;
+        }, 2200);
       }
     };
     const t = setInterval(run, 1700);
@@ -695,7 +701,9 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        try { localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser)); } catch {}
+        try {
+          localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
+        } catch {}
 
         // Store JWT as Bearer token so all requests work even when cookies are
         // blocked (Replit iframe, Chrome third-party cookie restrictions).
@@ -717,6 +725,23 @@ export default function Login() {
         await queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
 
+        // Wipe stale SW + caches BEFORE navigating.  If the SW is serving
+        // HTML from a previous deployment, lazy chunks will have old hashes
+        // that 404 on the server, triggering the 7-reload cascade from
+        // lazyWithRetry + ErrorBoundary + unhandledrejection.
+        try {
+          if ("serviceWorker" in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister()));
+          }
+        } catch {}
+        try {
+          if (window.caches) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          }
+        } catch {}
+
         // Await settings NOW so AppRouter has data on first render — no blank flash
         try {
           const settings = await fetchSettingsFromNetwork();
@@ -735,14 +760,15 @@ export default function Login() {
 
         // Compute destination from real settings so there's no /→/onboarding redirect
         const settingsData = queryClient.getQueryData(["/api/settings"]) as any;
-        const alreadyOnboarded =
-          localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
+        const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
         const needsOnboarding =
           !settingsData?.onboardingComplete && !alreadyOnboarded && !authUser.tenantId;
 
         setLocation(needsOnboarding ? "/onboarding" : "/");
       } else {
-        try { localStorage.removeItem("artixpos_auth_me_v1"); } catch {}
+        try {
+          localStorage.removeItem("artixpos_auth_me_v1");
+        } catch {}
         queryClient.setQueryData(["auth-me"], null);
       }
     } catch {
@@ -995,7 +1021,7 @@ export default function Login() {
         .lp-section-lazy { content-visibility:auto; contain-intrinsic-size:0 600px; }
       `}</style>
 
-<div className="rise d1" style={{ marginBottom: 24 }}>
+      <div className="rise d1" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
           <div
             style={{
@@ -1046,7 +1072,7 @@ export default function Login() {
         </p>
       </div>
 
-<div
+      <div
         className="rise d1"
         style={{
           display: "flex",
@@ -1094,7 +1120,7 @@ export default function Login() {
         ))}
       </div>
 
-{reason === "banned" && (
+      {reason === "banned" && (
         <div
           className="rise d1"
           style={{
@@ -1177,7 +1203,7 @@ export default function Login() {
         </div>
       )}
 
-<div className="rise d2">
+      <div className="rise d2">
         <button
           type="button"
           className="btn-social"
@@ -1268,7 +1294,7 @@ export default function Login() {
         />
       </div>
 
-<form
+      <form
         onSubmit={handleEmailSubmit}
         className="rise d3"
         style={{ display: "flex", flexDirection: "column", gap: 11 }}
@@ -1776,7 +1802,6 @@ export default function Login() {
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
-
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
         <div
           className="lp-orb"
@@ -1814,7 +1839,7 @@ export default function Login() {
         />
       </div>
 
-<header
+      <header
         style={{
           position: "sticky",
           top: 0,
@@ -1867,12 +1892,22 @@ export default function Login() {
               <button
                 key={id}
                 className="nav-link"
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, font: "inherit" }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  font: "inherit",
+                }}
                 onClick={() => {
                   const el = document.getElementById(id);
                   const container = lpScrollRef.current;
                   if (!el || !container) return;
-                  const offset = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
+                  const offset =
+                    el.getBoundingClientRect().top -
+                    container.getBoundingClientRect().top +
+                    container.scrollTop -
+                    80;
                   container.scrollTo({ top: offset, behavior: "smooth" });
                 }}
               >
@@ -1901,12 +1936,21 @@ export default function Login() {
                 backdropFilter: "blur(8px)",
                 transition: "background 0.15s",
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(99,102,241,0.28)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "rgba(99,102,241,0.15)")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.28)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.15)")}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 16l-4-4h2.5V4h3v8H16l-4 4z"/>
-                <path d="M20 18H4v2h16v-2z"/>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 16l-4-4h2.5V4h3v8H16l-4 4z" />
+                <path d="M20 18H4v2h16v-2z" />
               </svg>
               Install App
             </button>
@@ -1922,7 +1966,7 @@ export default function Login() {
         </div>
       </header>
 
-<section
+      <section
         style={{
           position: "relative",
           zIndex: 1,
@@ -2041,9 +2085,26 @@ export default function Login() {
         </div>
       </section>
 
-<div ref={statsRef} style={{ position: "relative", zIndex: 1, overflow: "hidden", padding: "18px 0", transform: "rotate(-1.5deg) scaleX(1.06)", background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(59,130,246,0.10)", borderBottom: "1px solid rgba(59,130,246,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }}>
-        <div className="lp-marquee-track" style={{ display: "flex", whiteSpace: "nowrap", width: "max-content" }}>
-          {[0, 1].map(copy => (
+      <div
+        ref={statsRef}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          overflow: "hidden",
+          padding: "18px 0",
+          transform: "rotate(-1.5deg) scaleX(1.06)",
+          background: "rgba(255,255,255,0.03)",
+          borderTop: "1px solid rgba(59,130,246,0.10)",
+          borderBottom: "1px solid rgba(59,130,246,0.10)",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.4)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <div
+          className="lp-marquee-track"
+          style={{ display: "flex", whiteSpace: "nowrap", width: "max-content" }}
+        >
+          {[0, 1].map((copy) => (
             <div key={copy} style={{ display: "flex", alignItems: "center", gap: 0 }}>
               {[
                 "Full-stack POS",
@@ -2057,8 +2118,24 @@ export default function Login() {
                 "Staff Scheduling",
                 "No Monthly Lock-in",
               ].map((item, i) => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 28, padding: "0 28px" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.38)" }}>
+                <span
+                  key={i}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 28,
+                    padding: "0 28px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase" as const,
+                      color: "rgba(255,255,255,0.38)",
+                    }}
+                  >
                     {item}
                   </span>
                   <span style={{ color: NEON, opacity: 0.5, fontSize: 10 }}>✦</span>
@@ -2069,34 +2146,107 @@ export default function Login() {
         </div>
       </div>
 
-<div style={{ height: 20, background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`, position: "relative", zIndex: 1, marginTop: -1 }} />
+      <div
+        style={{
+          height: 20,
+          background: `linear-gradient(to bottom, rgba(255,255,255,0.015), ${DARK})`,
+          position: "relative",
+          zIndex: 1,
+          marginTop: -1,
+        }}
+      />
 
-<section style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}>
+      <section style={{ position: "relative", zIndex: 1, background: DARK, overflow: "hidden" }}>
         <ContainerScroll
           scrollContainer={lpScrollRef}
           titleComponent={
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: NEON, letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 14 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: NEON,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase" as const,
+                  marginBottom: 14,
+                }}
+              >
                 See it in action
               </div>
-              <h2 style={{ fontSize: "clamp(28px, 5vw, 52px)", fontWeight: 900, lineHeight: 1.08, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 12px" }}>
+              <h2
+                style={{
+                  fontSize: "clamp(28px, 5vw, 52px)",
+                  fontWeight: 900,
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.04em",
+                  color: "#fff",
+                  margin: "0 0 12px",
+                }}
+              >
                 One dashboard.{" "}
-                <span style={{ background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 50%,#38bdf8 100%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                <span
+                  style={{
+                    background: `linear-gradient(90deg,${NEON} 0%,${BLUE} 50%,#38bdf8 100%)`,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
                   Every insight.
                 </span>
               </h2>
-              <p style={{ fontSize: 15, color: "rgba(255,255,255,0.40)", maxWidth: 440, margin: "0 auto", lineHeight: 1.65 }}>
+              <p
+                style={{
+                  fontSize: 15,
+                  color: "rgba(255,255,255,0.40)",
+                  maxWidth: 440,
+                  margin: "0 auto",
+                  lineHeight: 1.65,
+                }}
+              >
                 Sales, inventory, staff, and analytics — all in one beautifully unified view.
               </p>
             </div>
           }
         >
-
-          <div ref={mockSectionRef} style={{ width: "100%", height: "100%", background: "#0d0d0f", display: "flex", flexDirection: "row", fontFamily: "inherit", overflow: "hidden" }}>
-
+          <div
+            ref={mockSectionRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "#0d0d0f",
+              display: "flex",
+              flexDirection: "row",
+              fontFamily: "inherit",
+              overflow: "hidden",
+            }}
+          >
             {/* Sidebar */}
-            <div style={{ width: 48, background: "#0a0a0c", borderRight: "1px solid rgba(59,130,246,0.08)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12, gap: 4, flexShrink: 0 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg,${BLUE},${BLUE2})`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+            <div
+              style={{
+                width: 48,
+                background: "#0a0a0c",
+                borderRight: "1px solid rgba(59,130,246,0.08)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                paddingTop: 12,
+                gap: 4,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                }}
+              >
                 <span style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}>A</span>
               </div>
               {[
@@ -2107,186 +2257,802 @@ export default function Login() {
                 { icon: "⊞", label: "Staff" },
                 { icon: "◈", label: "Reports" },
               ].map((item, i) => (
-                <div key={i} title={item.label} onClick={() => setActiveMockTab(item.label)}
-                  style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: activeMockTab === item.label ? "rgba(59,130,246,0.18)" : "transparent",
-                    border: activeMockTab === item.label ? `1px solid rgba(59,130,246,0.30)` : "1px solid transparent",
-                    cursor: "pointer", fontSize: 13,
+                <div
+                  key={i}
+                  title={item.label}
+                  onClick={() => setActiveMockTab(item.label)}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background:
+                      activeMockTab === item.label ? "rgba(59,130,246,0.18)" : "transparent",
+                    border:
+                      activeMockTab === item.label
+                        ? `1px solid rgba(59,130,246,0.30)`
+                        : "1px solid transparent",
+                    cursor: "pointer",
+                    fontSize: 13,
                     color: activeMockTab === item.label ? NEON : "rgba(255,255,255,0.22)",
-                    transition: "all 0.18s ease" }}>
+                    transition: "all 0.18s ease",
+                  }}
+                >
                   {item.icon}
                 </div>
               ))}
               <div style={{ flex: 1 }} />
-              <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg,#a78bfa,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, fontSize: 9, color: "#fff", fontWeight: 700 }}>JD</div>
+              <div
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg,#a78bfa,#7c3aed)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 10,
+                  fontSize: 9,
+                  color: "#fff",
+                  fontWeight: 700,
+                }}
+              >
+                JD
+              </div>
             </div>
 
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <div style={{ height: 38, borderBottom: "1px solid rgba(59,130,246,0.07)", display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0, background: "rgba(9,9,11,0.6)" }}>
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(239,68,68,0.55)" }} />
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(251,191,36,0.55)" }} />
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(34,197,94,0.45)" }} />
-                <span style={{ fontSize: 9, fontWeight: 700, color: NEON, marginLeft: 4 }}>{activeMockTab}</span>
+              <div
+                style={{
+                  height: 38,
+                  borderBottom: "1px solid rgba(59,130,246,0.07)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 16px",
+                  gap: 10,
+                  flexShrink: 0,
+                  background: "rgba(9,9,11,0.6)",
+                }}
+              >
+                <div
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: "rgba(239,68,68,0.55)",
+                  }}
+                />
+                <div
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: "rgba(251,191,36,0.55)",
+                  }}
+                />
+                <div
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: "rgba(34,197,94,0.45)",
+                  }}
+                />
+                <span style={{ fontSize: 9, fontWeight: 700, color: NEON, marginLeft: 4 }}>
+                  {activeMockTab}
+                </span>
                 <div style={{ flex: 1 }} />
-                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div className="pdot" style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399" }} />
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>Branch 1 · Main Store</span>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "3px 10px",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  <div
+                    className="pdot"
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      background: "#34d399",
+                      boxShadow: "0 0 6px #34d399",
+                    }}
+                  />
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                    Branch 1 · Main Store
+                  </span>
                 </div>
-                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>Today · Jun 12, 2026</div>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}>
+                  Today · Jun 12, 2026
+                </div>
               </div>
 
               <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
                 {activeMockTab === "Dashboard" && (
-                  <div key="dash" className="mock-tab-content" style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:9, height:"100%", overflow:"hidden" }}>
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <div
+                    key="dash"
+                    className="mock-tab-content"
+                    style={{
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 9,
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
                       <div>
-                        <div style={{ fontSize:12, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>Good morning, Juan 👋</div>
-                        <div style={{ fontSize:8, color:"rgba(255,255,255,0.28)", marginTop:1 }}>Here's what's happening at Main Store today.</div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color: "#fff",
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          Good morning, Juan 👋
+                        </div>
+                        <div style={{ fontSize: 8, color: "rgba(255,255,255,0.28)", marginTop: 1 }}>
+                          Here's what's happening at Main Store today.
+                        </div>
                       </div>
-                      <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-                        {["Today","Week","Month"].map((t,i) => (
-                          <div key={i} style={{ padding:"3px 9px", borderRadius:6, fontSize:8, fontWeight:600, background:i===0?"rgba(59,130,246,0.18)":"rgba(255,255,255,0.04)", color:i===0?NEON:"rgba(255,255,255,0.28)", border:i===0?"1px solid rgba(59,130,246,0.30)":"1px solid rgba(255,255,255,0.06)", cursor:"pointer" }}>{t}</div>
+                      <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                        {["Today", "Week", "Month"].map((t, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              padding: "3px 9px",
+                              borderRadius: 6,
+                              fontSize: 8,
+                              fontWeight: 600,
+                              background:
+                                i === 0 ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.04)",
+                              color: i === 0 ? NEON : "rgba(255,255,255,0.28)",
+                              border:
+                                i === 0
+                                  ? "1px solid rgba(59,130,246,0.30)"
+                                  : "1px solid rgba(255,255,255,0.06)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {t}
+                          </div>
                         ))}
-                        <div style={{ width:22, height:22, borderRadius:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, cursor:"pointer" }}>🔔</div>
+                        <div
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 7,
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            cursor: "pointer",
+                          }}
+                        >
+                          🔔
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 7 }}>
                       {[
-                        { l:"Revenue", v:"₱24,850", d:"+12.4%", c:NEON, spark:[30,45,38,60,52,80,68,92,75,100] },
-                        { l:"Orders", v:"137", d:"+8 today", c:"#34d399", spark:[50,42,65,55,70,60,78,65,85,72] },
-                        { l:"Avg Order", v:"₱181", d:"+₱14 vs avg", c:"#a78bfa", spark:[60,65,55,70,62,68,72,66,74,78] },
-                        { l:"Staff Active", v:"9/12", d:"3 on break", c:"#f59e0b", spark:[80,80,70,70,80,60,60,80,80,75] },
-                      ].map((s,si) => (
-                        <div key={si} style={{ padding:"9px 11px", borderRadius:10, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", display:"flex", flexDirection:"column", gap:3 }}>
-                          <div style={{ fontSize:7, color:"rgba(255,255,255,0.28)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>{s.l}</div>
-                          <div style={{ fontSize:16, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>{s.v}</div>
-                          <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between" }}>
-                            <span style={{ fontSize:7, color:s.c, fontWeight:700 }}>↑ {s.d}</span>
+                        {
+                          l: "Revenue",
+                          v: "₱24,850",
+                          d: "+12.4%",
+                          c: NEON,
+                          spark: [30, 45, 38, 60, 52, 80, 68, 92, 75, 100],
+                        },
+                        {
+                          l: "Orders",
+                          v: "137",
+                          d: "+8 today",
+                          c: "#34d399",
+                          spark: [50, 42, 65, 55, 70, 60, 78, 65, 85, 72],
+                        },
+                        {
+                          l: "Avg Order",
+                          v: "₱181",
+                          d: "+₱14 vs avg",
+                          c: "#a78bfa",
+                          spark: [60, 65, 55, 70, 62, 68, 72, 66, 74, 78],
+                        },
+                        {
+                          l: "Staff Active",
+                          v: "9/12",
+                          d: "3 on break",
+                          c: "#f59e0b",
+                          spark: [80, 80, 70, 70, 80, 60, 60, 80, 80, 75],
+                        },
+                      ].map((s, si) => (
+                        <div
+                          key={si}
+                          style={{
+                            padding: "9px 11px",
+                            borderRadius: 10,
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 3,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 7,
+                              color: "rgba(255,255,255,0.28)",
+                              fontWeight: 600,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            {s.l}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 800,
+                              color: "#fff",
+                              letterSpacing: "-0.02em",
+                            }}
+                          >
+                            {s.v}
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-end",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span style={{ fontSize: 7, color: s.c, fontWeight: 700 }}>
+                              ↑ {s.d}
+                            </span>
                             <svg width="38" height="16" viewBox="0 0 38 16">
-                              <polyline fill="none" stroke={s.c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                                strokeDasharray="200" strokeDashoffset={mockVisible?0:200}
-                                style={{ transition:`stroke-dashoffset 0.9s ease-out ${0.2+si*0.1}s` }}
-                                points={s.spark.map((v,j)=>`${(j/(s.spark.length-1))*38},${16-(v/100)*14}`).join(" ")} />
+                              <polyline
+                                fill="none"
+                                stroke={s.c}
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeDasharray="200"
+                                strokeDashoffset={mockVisible ? 0 : 200}
+                                style={{
+                                  transition: `stroke-dashoffset 0.9s ease-out ${0.2 + si * 0.1}s`,
+                                }}
+                                points={s.spark
+                                  .map(
+                                    (v, j) =>
+                                      `${(j / (s.spark.length - 1)) * 38},${16 - (v / 100) * 14}`,
+                                  )
+                                  .join(" ")}
+                              />
                             </svg>
                           </div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr 0.9fr", gap:7, flex:1, minHeight:0 }}>
-                      <div style={{ borderRadius:10, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", padding:"11px 13px", display:"flex", flexDirection:"column" }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.6fr 1fr 0.9fr",
+                        gap: 7,
+                        flex: 1,
+                        minHeight: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          borderRadius: 10,
+                          background: "rgba(255,255,255,0.025)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          padding: "11px 13px",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 8,
+                          }}
+                        >
                           <div>
-                            <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.06em" }}>Revenue Trend</div>
-                            <div style={{ fontSize:13, fontWeight:800, color:"#fff", marginTop:1 }}>₱24,850</div>
+                            <div
+                              style={{
+                                fontSize: 8,
+                                color: "rgba(255,255,255,0.25)",
+                                fontWeight: 600,
+                                textTransform: "uppercase" as const,
+                                letterSpacing: "0.06em",
+                              }}
+                            >
+                              Revenue Trend
+                            </div>
+                            <div
+                              style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginTop: 1 }}
+                            >
+                              ₱24,850
+                            </div>
                           </div>
-                          <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-                            <div style={{ fontSize:7, color:"#34d399", fontWeight:700, background:"rgba(52,211,153,0.10)", border:"1px solid rgba(52,211,153,0.20)", padding:"2px 6px", borderRadius:20 }}>↑ 12.4%</div>
-                            <div style={{ fontSize:7, color:"rgba(255,255,255,0.22)", padding:"2px 6px", borderRadius:20, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.06)" }}>vs yesterday</div>
+                          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                            <div
+                              style={{
+                                fontSize: 7,
+                                color: "#34d399",
+                                fontWeight: 700,
+                                background: "rgba(52,211,153,0.10)",
+                                border: "1px solid rgba(52,211,153,0.20)",
+                                padding: "2px 6px",
+                                borderRadius: 20,
+                              }}
+                            >
+                              ↑ 12.4%
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 7,
+                                color: "rgba(255,255,255,0.22)",
+                                padding: "2px 6px",
+                                borderRadius: 20,
+                                background: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                              }}
+                            >
+                              vs yesterday
+                            </div>
                           </div>
                         </div>
-                        <div style={{ flex:1, position:"relative" }}>
-                          <svg width="100%" height="100%" viewBox="0 0 200 65" preserveAspectRatio="none" style={{ overflow:"visible" }}>
+                        <div style={{ flex: 1, position: "relative" }}>
+                          <svg
+                            width="100%"
+                            height="100%"
+                            viewBox="0 0 200 65"
+                            preserveAspectRatio="none"
+                            style={{ overflow: "visible" }}
+                          >
                             <defs>
                               <linearGradient id="ag3" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor={BLUE} stopOpacity="0.32" />
                                 <stop offset="100%" stopColor={BLUE} stopOpacity="0" />
                               </linearGradient>
                             </defs>
-                            {[0.25,0.5,0.75].map((y,gi) => (
-                              <line key={gi} x1="0" y1={y*65} x2="200" y2={y*65} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                            {[0.25, 0.5, 0.75].map((y, gi) => (
+                              <line
+                                key={gi}
+                                x1="0"
+                                y1={y * 65}
+                                x2="200"
+                                y2={y * 65}
+                                stroke="rgba(255,255,255,0.04)"
+                                strokeWidth="1"
+                              />
                             ))}
-                            <path d="M0,56 C10,51 20,42 35,35 C50,28 60,44 75,29 C90,14 105,25 120,17 C135,9 150,19 165,7 C175,1 190,5 200,2 L200,65 L0,65 Z"
-                              fill="url(#ag3)" style={{ opacity:mockVisible?1:0, transition:"opacity 1s ease-out 0.5s" }} />
-                            <path d="M0,56 C10,51 20,42 35,35 C50,28 60,44 75,29 C90,14 105,25 120,17 C135,9 150,19 165,7 C175,1 190,5 200,2"
-                              fill="none" stroke={NEON} strokeWidth="1.5" strokeLinecap="round"
-                              strokeDasharray="500" strokeDashoffset={mockVisible?0:500}
-                              style={{ transition:"stroke-dashoffset 1.4s ease-out 0.3s" }} />
-                            <circle cx="200" cy="2" r="3" fill={NEON} style={{ opacity:mockVisible?1:0, transition:"opacity 0.3s ease-out 1.6s" }} />
-                            <circle cx="200" cy="2" r="6" fill={NEON} fillOpacity="0.18" style={{ opacity:mockVisible?1:0, transition:"opacity 0.3s ease-out 1.6s" }} />
+                            <path
+                              d="M0,56 C10,51 20,42 35,35 C50,28 60,44 75,29 C90,14 105,25 120,17 C135,9 150,19 165,7 C175,1 190,5 200,2 L200,65 L0,65 Z"
+                              fill="url(#ag3)"
+                              style={{
+                                opacity: mockVisible ? 1 : 0,
+                                transition: "opacity 1s ease-out 0.5s",
+                              }}
+                            />
+                            <path
+                              d="M0,56 C10,51 20,42 35,35 C50,28 60,44 75,29 C90,14 105,25 120,17 C135,9 150,19 165,7 C175,1 190,5 200,2"
+                              fill="none"
+                              stroke={NEON}
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeDasharray="500"
+                              strokeDashoffset={mockVisible ? 0 : 500}
+                              style={{ transition: "stroke-dashoffset 1.4s ease-out 0.3s" }}
+                            />
+                            <circle
+                              cx="200"
+                              cy="2"
+                              r="3"
+                              fill={NEON}
+                              style={{
+                                opacity: mockVisible ? 1 : 0,
+                                transition: "opacity 0.3s ease-out 1.6s",
+                              }}
+                            />
+                            <circle
+                              cx="200"
+                              cy="2"
+                              r="6"
+                              fill={NEON}
+                              fillOpacity="0.18"
+                              style={{
+                                opacity: mockVisible ? 1 : 0,
+                                transition: "opacity 0.3s ease-out 1.6s",
+                              }}
+                            />
                           </svg>
                         </div>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
-                          {["6am","9am","12pm","3pm","6pm","9pm","Now"].map((d,di) => (
-                            <span key={di} style={{ fontSize:6, color:"rgba(255,255,255,0.16)", fontWeight:500 }}>{d}</span>
+                        <div
+                          style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}
+                        >
+                          {["6am", "9am", "12pm", "3pm", "6pm", "9pm", "Now"].map((d, di) => (
+                            <span
+                              key={di}
+                              style={{
+                                fontSize: 6,
+                                color: "rgba(255,255,255,0.16)",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {d}
+                            </span>
                           ))}
                         </div>
                       </div>
-                      <div style={{ borderRadius:10, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", padding:"11px 12px", display:"flex", flexDirection:"column" }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
-                          <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.06em" }}>Live Orders</div>
-                          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                            <div className="pdot" style={{ width:5, height:5, borderRadius:"50%", background:"#34d399", boxShadow:"0 0 5px #34d399" }} />
-                            <span style={{ fontSize:7, color:"#34d399", fontWeight:600 }}>6 active</span>
+                      <div
+                        style={{
+                          borderRadius: 10,
+                          background: "rgba(255,255,255,0.025)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          padding: "11px 12px",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 7,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 8,
+                              color: "rgba(255,255,255,0.25)",
+                              fontWeight: 600,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.06em",
+                            }}
+                          >
+                            Live Orders
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <div
+                              className="pdot"
+                              style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: "50%",
+                                background: "#34d399",
+                                boxShadow: "0 0 5px #34d399",
+                              }}
+                            />
+                            <span style={{ fontSize: 7, color: "#34d399", fontWeight: 600 }}>
+                              6 active
+                            </span>
                           </div>
                         </div>
-                        <div style={{ display:"flex", flexDirection:"column", gap:4, overflow:"hidden", flex:1 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                            overflow: "hidden",
+                            flex: 1,
+                          }}
+                        >
                           {[
-                            { id:"#4292", items:"Espresso ×2, Croissant", amt:"₱225", status:"Ready", sc:"#34d399", av:"MS" },
-                            { id:"#4291", items:"Matcha Latte, Frappe", amt:"₱270", status:"Preparing", sc:"#f59e0b", av:"CR" },
-                            { id:"#4290", items:"Americano ×3, Water", amt:"₱220", status:"Pending", sc:BLUE, av:"AG" },
-                            { id:"#4289", items:"Cake Slice, Hot Choco", amt:"₱185", status:"Paid", sc:NEON, av:"JD" },
-                            { id:"#4288", items:"Croissant ×2, OJ", amt:"₱175", status:"Done", sc:"rgba(255,255,255,0.22)", av:"MS" },
-                          ].map((o,oi) => (
-                            <div key={oi} style={{ padding:"5px 7px", borderRadius:7, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.05)", display:"flex", alignItems:"center", gap:6 }}>
-                              <div style={{ width:18, height:18, borderRadius:"50%", background:"rgba(59,130,246,0.18)", border:"1px solid rgba(59,130,246,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:6, fontWeight:800, color:NEON, flexShrink:0 }}>{o.av}</div>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:7, fontWeight:700, color:NEON }}>{o.id}</div>
-                                <div style={{ fontSize:7, color:"rgba(255,255,255,0.40)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{o.items}</div>
+                            {
+                              id: "#4292",
+                              items: "Espresso ×2, Croissant",
+                              amt: "₱225",
+                              status: "Ready",
+                              sc: "#34d399",
+                              av: "MS",
+                            },
+                            {
+                              id: "#4291",
+                              items: "Matcha Latte, Frappe",
+                              amt: "₱270",
+                              status: "Preparing",
+                              sc: "#f59e0b",
+                              av: "CR",
+                            },
+                            {
+                              id: "#4290",
+                              items: "Americano ×3, Water",
+                              amt: "₱220",
+                              status: "Pending",
+                              sc: BLUE,
+                              av: "AG",
+                            },
+                            {
+                              id: "#4289",
+                              items: "Cake Slice, Hot Choco",
+                              amt: "₱185",
+                              status: "Paid",
+                              sc: NEON,
+                              av: "JD",
+                            },
+                            {
+                              id: "#4288",
+                              items: "Croissant ×2, OJ",
+                              amt: "₱175",
+                              status: "Done",
+                              sc: "rgba(255,255,255,0.22)",
+                              av: "MS",
+                            },
+                          ].map((o, oi) => (
+                            <div
+                              key={oi}
+                              style={{
+                                padding: "5px 7px",
+                                borderRadius: 7,
+                                background: "rgba(255,255,255,0.025)",
+                                border: "1px solid rgba(255,255,255,0.05)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: "50%",
+                                  background: "rgba(59,130,246,0.18)",
+                                  border: "1px solid rgba(59,130,246,0.25)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 6,
+                                  fontWeight: 800,
+                                  color: NEON,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {o.av}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 7, fontWeight: 700, color: NEON }}>
+                                  {o.id}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 7,
+                                    color: "rgba(255,255,255,0.40)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {o.items}
+                                </div>
                               </div>
                               <div>
-                                <div style={{ fontSize:8, fontWeight:800, color:"#fff" }}>{o.amt}</div>
-                                <div style={{ fontSize:6, fontWeight:700, color:o.sc, textAlign:"right" as const }}>{o.status}</div>
+                                <div style={{ fontSize: 8, fontWeight: 800, color: "#fff" }}>
+                                  {o.amt}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 6,
+                                    fontWeight: 700,
+                                    color: o.sc,
+                                    textAlign: "right" as const,
+                                  }}
+                                >
+                                  {o.status}
+                                </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-                        <div style={{ borderRadius:10, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", padding:"10px 12px", flex:1 }}>
-                          <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.06em", marginBottom:8 }}>Top Items</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                        <div
+                          style={{
+                            borderRadius: 10,
+                            background: "rgba(255,255,255,0.025)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            padding: "10px 12px",
+                            flex: 1,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 8,
+                              color: "rgba(255,255,255,0.25)",
+                              fontWeight: 600,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.06em",
+                              marginBottom: 8,
+                            }}
+                          >
+                            Top Items
+                          </div>
                           {[
-                            { name:"Espresso", sold:48, pct:86, c:NEON },
-                            { name:"Matcha Latte", sold:34, pct:64, c:"#a78bfa" },
-                            { name:"Croissant", sold:29, pct:52, c:"#34d399" },
-                            { name:"Frappe", sold:22, pct:40, c:"#f59e0b" },
-                          ].map((p,pi) => (
-                            <div key={pi} style={{ marginBottom:6 }}>
-                              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-                                <span style={{ fontSize:7, color:"rgba(255,255,255,0.50)", fontWeight:500 }}>{p.name}</span>
-                                <span style={{ fontSize:7, color:"rgba(255,255,255,0.28)", fontWeight:600 }}>{p.sold}</span>
+                            { name: "Espresso", sold: 48, pct: 86, c: NEON },
+                            { name: "Matcha Latte", sold: 34, pct: 64, c: "#a78bfa" },
+                            { name: "Croissant", sold: 29, pct: 52, c: "#34d399" },
+                            { name: "Frappe", sold: 22, pct: 40, c: "#f59e0b" },
+                          ].map((p, pi) => (
+                            <div key={pi} style={{ marginBottom: 6 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: 2,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    color: "rgba(255,255,255,0.50)",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {p.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    color: "rgba(255,255,255,0.28)",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {p.sold}
+                                </span>
                               </div>
-                              <div style={{ height:3, borderRadius:999, background:"rgba(255,255,255,0.06)" }}>
-                                <div style={{ height:"100%", borderRadius:999, width:mockVisible?`${p.pct}%`:"0%", background:`linear-gradient(90deg,${p.c}88,${p.c})`, transition:`width 0.8s ease-out ${0.3+pi*0.12}s` }} />
+                              <div
+                                style={{
+                                  height: 3,
+                                  borderRadius: 999,
+                                  background: "rgba(255,255,255,0.06)",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    height: "100%",
+                                    borderRadius: 999,
+                                    width: mockVisible ? `${p.pct}%` : "0%",
+                                    background: `linear-gradient(90deg,${p.c}88,${p.c})`,
+                                    transition: `width 0.8s ease-out ${0.3 + pi * 0.12}s`,
+                                  }}
+                                />
                               </div>
                             </div>
                           ))}
                         </div>
-                        <div style={{ borderRadius:10, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", padding:"10px 12px" }}>
-                          <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.06em", marginBottom:6 }}>Payment Mix</div>
+                        <div
+                          style={{
+                            borderRadius: 10,
+                            background: "rgba(255,255,255,0.025)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            padding: "10px 12px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 8,
+                              color: "rgba(255,255,255,0.25)",
+                              fontWeight: 600,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.06em",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Payment Mix
+                          </div>
                           {[
-                            { method:"GCash", pct:52, c:BLUE },
-                            { method:"Cash", pct:31, c:"#34d399" },
-                            { method:"Card", pct:17, c:"#a78bfa" },
-                          ].map((p,pi) => (
-                            <div key={pi} style={{ marginBottom:5 }}>
-                              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:1 }}>
-                                <span style={{ fontSize:7, color:"rgba(255,255,255,0.38)", fontWeight:500 }}>{p.method}</span>
-                                <span style={{ fontSize:7, color:"rgba(255,255,255,0.55)", fontWeight:700 }}>{p.pct}%</span>
+                            { method: "GCash", pct: 52, c: BLUE },
+                            { method: "Cash", pct: 31, c: "#34d399" },
+                            { method: "Card", pct: 17, c: "#a78bfa" },
+                          ].map((p, pi) => (
+                            <div key={pi} style={{ marginBottom: 5 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: 1,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    color: "rgba(255,255,255,0.38)",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {p.method}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    color: "rgba(255,255,255,0.55)",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {p.pct}%
+                                </span>
                               </div>
-                              <div style={{ height:3, borderRadius:999, background:"rgba(255,255,255,0.06)" }}>
-                                <div style={{ height:"100%", borderRadius:999, width:mockVisible?`${p.pct}%`:"0%", background:p.c, transition:`width 0.7s ease-out ${0.5+pi*0.1}s` }} />
+                              <div
+                                style={{
+                                  height: 3,
+                                  borderRadius: 999,
+                                  background: "rgba(255,255,255,0.06)",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    height: "100%",
+                                    borderRadius: 999,
+                                    width: mockVisible ? `${p.pct}%` : "0%",
+                                    background: p.c,
+                                    transition: `width 0.7s ease-out ${0.5 + pi * 0.1}s`,
+                                  }}
+                                />
                               </div>
                             </div>
                           ))}
-                          <div style={{ marginTop:8, paddingTop:7, borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ display:"flex", justifyContent:"space-between" }}>
-                              <span style={{ fontSize:7, color:"rgba(255,255,255,0.28)", fontWeight:500 }}>Today's goal</span>
-                              <span style={{ fontSize:7, color:NEON, fontWeight:700 }}>83%</span>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              paddingTop: 7,
+                              borderTop: "1px solid rgba(255,255,255,0.06)",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span
+                                style={{
+                                  fontSize: 7,
+                                  color: "rgba(255,255,255,0.28)",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Today's goal
+                              </span>
+                              <span style={{ fontSize: 7, color: NEON, fontWeight: 700 }}>83%</span>
                             </div>
-                            <div style={{ height:4, borderRadius:999, background:"rgba(255,255,255,0.06)", marginTop:4 }}>
-                              <div style={{ height:"100%", borderRadius:999, width:mockVisible?"83%":"0%", background:`linear-gradient(90deg,${BLUE2},${NEON})`, transition:"width 1s ease-out 0.8s" }} />
+                            <div
+                              style={{
+                                height: 4,
+                                borderRadius: 999,
+                                background: "rgba(255,255,255,0.06)",
+                                marginTop: 4,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  height: "100%",
+                                  borderRadius: 999,
+                                  width: mockVisible ? "83%" : "0%",
+                                  background: `linear-gradient(90deg,${BLUE2},${NEON})`,
+                                  transition: "width 1s ease-out 0.8s",
+                                }}
+                              />
                             </div>
-                            <div style={{ fontSize:6, color:"rgba(255,255,255,0.20)", marginTop:3 }}>₱24,850 / ₱30,000</div>
+                            <div
+                              style={{ fontSize: 6, color: "rgba(255,255,255,0.20)", marginTop: 3 }}
+                            >
+                              ₱24,850 / ₱30,000
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2295,83 +3061,365 @@ export default function Login() {
                 )}
 
                 {activeMockTab === "POS" && (
-                  <div key="pos" className="mock-tab-content" style={{ display:"flex", height:"100%", overflow:"hidden" }}>
-                    <div style={{ flex:1, padding:"10px 12px", display:"flex", flexDirection:"column", gap:7, overflow:"hidden" }}>
-                      <div style={{ display:"flex", gap:7, alignItems:"center" }}>
-                        <div style={{ flex:1, height:26, borderRadius:8, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:6, padding:"0 10px" }}>
-                          <span style={{ fontSize:9, color:"rgba(255,255,255,0.20)" }}>🔍</span>
-                          <span style={{ fontSize:8, color:"rgba(255,255,255,0.20)" }}>Search products…</span>
+                  <div
+                    key="pos"
+                    className="mock-tab-content"
+                    style={{ display: "flex", height: "100%", overflow: "hidden" }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        padding: "10px 12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 7,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 26,
+                            borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "0 10px",
+                          }}
+                        >
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.20)" }}>🔍</span>
+                          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.20)" }}>
+                            Search products…
+                          </span>
                         </div>
-                        <div style={{ height:26, padding:"0 10px", borderRadius:8, background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.22)", display:"flex", alignItems:"center", gap:4, cursor:"pointer" }}>
-                          <span style={{ fontSize:9 }}>📷</span>
-                          <span style={{ fontSize:7, color:NEON, fontWeight:600 }}>Scan</span>
+                        <div
+                          style={{
+                            height: 26,
+                            padding: "0 10px",
+                            borderRadius: 8,
+                            background: "rgba(59,130,246,0.12)",
+                            border: "1px solid rgba(59,130,246,0.22)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span style={{ fontSize: 9 }}>📷</span>
+                          <span style={{ fontSize: 7, color: NEON, fontWeight: 600 }}>Scan</span>
                         </div>
                       </div>
-                      <div style={{ display:"flex", gap:5 }}>
-                        {["All","Drinks","Food","Snacks","Desserts"].map((c,ci) => (
-                          <div key={ci} style={{ padding:"2px 8px", borderRadius:20, fontSize:7, fontWeight:600, background:ci===0?"rgba(59,130,246,0.18)":"rgba(255,255,255,0.04)", color:ci===0?NEON:"rgba(255,255,255,0.30)", border:ci===0?"1px solid rgba(59,130,246,0.25)":"1px solid rgba(255,255,255,0.06)", cursor:"pointer" }}>{c}</div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        {["All", "Drinks", "Food", "Snacks", "Desserts"].map((c, ci) => (
+                          <div
+                            key={ci}
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 20,
+                              fontSize: 7,
+                              fontWeight: 600,
+                              background:
+                                ci === 0 ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.04)",
+                              color: ci === 0 ? NEON : "rgba(255,255,255,0.30)",
+                              border:
+                                ci === 0
+                                  ? "1px solid rgba(59,130,246,0.25)"
+                                  : "1px solid rgba(255,255,255,0.06)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {c}
+                          </div>
                         ))}
                       </div>
-                      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, flex:1 }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(3,1fr)",
+                          gap: 7,
+                          flex: 1,
+                        }}
+                      >
                         {[
-                          { e:"☕", name:"Espresso", price:80, stock:48 },
-                          { e:"🍵", name:"Matcha Latte", price:120, stock:34 },
-                          { e:"🥤", name:"Frappe", price:150, stock:22 },
-                          { e:"🥐", name:"Croissant", price:65, stock:15 },
-                          { e:"🍰", name:"Cake Slice", price:95, stock:8 },
-                          { e:"💧", name:"Water", price:25, stock:60 },
-                        ].map((p,pi) => {
+                          { e: "☕", name: "Espresso", price: 80, stock: 48 },
+                          { e: "🍵", name: "Matcha Latte", price: 120, stock: 34 },
+                          { e: "🥤", name: "Frappe", price: 150, stock: 22 },
+                          { e: "🥐", name: "Croissant", price: 65, stock: 15 },
+                          { e: "🍰", name: "Cake Slice", price: 95, stock: 8 },
+                          { e: "💧", name: "Water", price: 25, stock: 60 },
+                        ].map((p, pi) => {
                           const hl = posHighlight === pi;
                           return (
-                            <div key={pi} style={{ borderRadius:10, background:hl?"rgba(59,130,246,0.18)":"rgba(255,255,255,0.03)", border:hl?"1px solid rgba(59,130,246,0.42)":"1px solid rgba(255,255,255,0.07)", padding:"8px 6px 6px", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer", transition:"all 0.22s", position:"relative", transform:hl?"scale(1.04)":"scale(1)" }}>
-                              {p.stock <= 10 && <div style={{ position:"absolute", top:4, right:4, fontSize:5, fontWeight:700, color:"#f59e0b", background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.30)", borderRadius:4, padding:"1px 4px" }}>LOW</div>}
-                              <div style={{ fontSize:20, lineHeight:1 }}>{p.e}</div>
-                              <div style={{ fontSize:7, fontWeight:700, color:"rgba(255,255,255,0.75)", textAlign:"center" as const }}>{p.name}</div>
-                              <div style={{ fontSize:9, fontWeight:800, color:hl?NEON:"rgba(255,255,255,0.85)" }}>₱{p.price}</div>
-                              <div style={{ fontSize:6, color:"rgba(255,255,255,0.20)" }}>Stock: {p.stock}</div>
+                            <div
+                              key={pi}
+                              style={{
+                                borderRadius: 10,
+                                background: hl ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.03)",
+                                border: hl
+                                  ? "1px solid rgba(59,130,246,0.42)"
+                                  : "1px solid rgba(255,255,255,0.07)",
+                                padding: "8px 6px 6px",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: 3,
+                                cursor: "pointer",
+                                transition: "all 0.22s",
+                                position: "relative",
+                                transform: hl ? "scale(1.04)" : "scale(1)",
+                              }}
+                            >
+                              {p.stock <= 10 && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 4,
+                                    right: 4,
+                                    fontSize: 5,
+                                    fontWeight: 700,
+                                    color: "#f59e0b",
+                                    background: "rgba(245,158,11,0.15)",
+                                    border: "1px solid rgba(245,158,11,0.30)",
+                                    borderRadius: 4,
+                                    padding: "1px 4px",
+                                  }}
+                                >
+                                  LOW
+                                </div>
+                              )}
+                              <div style={{ fontSize: 20, lineHeight: 1 }}>{p.e}</div>
+                              <div
+                                style={{
+                                  fontSize: 7,
+                                  fontWeight: 700,
+                                  color: "rgba(255,255,255,0.75)",
+                                  textAlign: "center" as const,
+                                }}
+                              >
+                                {p.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 800,
+                                  color: hl ? NEON : "rgba(255,255,255,0.85)",
+                                }}
+                              >
+                                ₱{p.price}
+                              </div>
+                              <div style={{ fontSize: 6, color: "rgba(255,255,255,0.20)" }}>
+                                Stock: {p.stock}
+                              </div>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                    <div style={{ width:132, borderLeft:"1px solid rgba(255,255,255,0.06)", background:"rgba(0,0,0,0.15)", display:"flex", flexDirection:"column", padding:"10px 9px", gap:4 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-                        <div style={{ fontSize:8, fontWeight:700, color:"rgba(255,255,255,0.35)", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Cart</div>
-                        <div style={{ fontSize:7, color:NEON, fontWeight:700, background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.20)", borderRadius:10, padding:"1px 7px" }}>{posCart.reduce((a,i)=>a+i.qty,0)} items</div>
+                    <div
+                      style={{
+                        width: 132,
+                        borderLeft: "1px solid rgba(255,255,255,0.06)",
+                        background: "rgba(0,0,0,0.15)",
+                        display: "flex",
+                        flexDirection: "column",
+                        padding: "10px 9px",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 3,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 700,
+                            color: "rgba(255,255,255,0.35)",
+                            textTransform: "uppercase" as const,
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Cart
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 7,
+                            color: NEON,
+                            fontWeight: 700,
+                            background: "rgba(59,130,246,0.12)",
+                            border: "1px solid rgba(59,130,246,0.20)",
+                            borderRadius: 10,
+                            padding: "1px 7px",
+                          }}
+                        >
+                          {posCart.reduce((a, i) => a + i.qty, 0)} items
+                        </div>
                       </div>
                       {posCart.length === 0 ? (
-                        <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:5 }}>
-                          <span style={{ fontSize:22, opacity:0.20 }}>🛒</span>
-                          <span style={{ fontSize:7, color:"rgba(255,255,255,0.18)", textAlign:"center" as const }}>Tap a product to add to cart</span>
+                        <div
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexDirection: "column",
+                            gap: 5,
+                          }}
+                        >
+                          <span style={{ fontSize: 22, opacity: 0.2 }}>🛒</span>
+                          <span
+                            style={{
+                              fontSize: 7,
+                              color: "rgba(255,255,255,0.18)",
+                              textAlign: "center" as const,
+                            }}
+                          >
+                            Tap a product to add to cart
+                          </span>
                         </div>
                       ) : (
-                        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:3, overflow:"hidden" }}>
+                        <div
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 3,
+                            overflow: "hidden",
+                          }}
+                        >
                           {posCart.map((item) => (
-                            <div key={item.name} style={{ borderRadius:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", padding:"5px 7px" }}>
-                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                                <span style={{ fontSize:7, fontWeight:600, color:"rgba(255,255,255,0.75)" }}>{item.e} {item.name}</span>
-                                <span style={{ fontSize:7, fontWeight:800, color:"rgba(255,255,255,0.40)", background:"rgba(255,255,255,0.06)", borderRadius:4, padding:"0 4px" }}>×{item.qty}</span>
+                            <div
+                              key={item.name}
+                              style={{
+                                borderRadius: 7,
+                                background: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.07)",
+                                padding: "5px 7px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    fontWeight: 600,
+                                    color: "rgba(255,255,255,0.75)",
+                                  }}
+                                >
+                                  {item.e} {item.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    fontWeight: 800,
+                                    color: "rgba(255,255,255,0.40)",
+                                    background: "rgba(255,255,255,0.06)",
+                                    borderRadius: 4,
+                                    padding: "0 4px",
+                                  }}
+                                >
+                                  ×{item.qty}
+                                </span>
                               </div>
-                              <div style={{ fontSize:8, fontWeight:800, color:NEON, marginTop:2 }}>₱{item.price * item.qty}</div>
+                              <div
+                                style={{ fontSize: 8, fontWeight: 800, color: NEON, marginTop: 2 }}
+                              >
+                                ₱{item.price * item.qty}
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
-                      <div style={{ borderTop:"1px solid rgba(255,255,255,0.07)", paddingTop:7, marginTop:2 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-                          <span style={{ fontSize:7, color:"rgba(255,255,255,0.28)" }}>Subtotal</span>
-                          <span style={{ fontSize:7, color:"rgba(255,255,255,0.45)" }}>₱{posCart.reduce((a,i)=>a+i.price*i.qty,0)}</span>
+                      <div
+                        style={{
+                          borderTop: "1px solid rgba(255,255,255,0.07)",
+                          paddingTop: 7,
+                          marginTop: 2,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: 2,
+                          }}
+                        >
+                          <span style={{ fontSize: 7, color: "rgba(255,255,255,0.28)" }}>
+                            Subtotal
+                          </span>
+                          <span style={{ fontSize: 7, color: "rgba(255,255,255,0.45)" }}>
+                            ₱{posCart.reduce((a, i) => a + i.price * i.qty, 0)}
+                          </span>
                         </div>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
-                          <span style={{ fontSize:9, fontWeight:700, color:"#fff" }}>Total</span>
-                          <span style={{ fontSize:9, fontWeight:800, color:NEON }}>₱{posCart.reduce((a,i)=>a+i.price*i.qty,0)}</span>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: 7,
+                          }}
+                        >
+                          <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>Total</span>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: NEON }}>
+                            ₱{posCart.reduce((a, i) => a + i.price * i.qty, 0)}
+                          </span>
                         </div>
-                        <div style={{ background:posCharging?`linear-gradient(135deg,#34d399,#059669)`:`linear-gradient(135deg,${BLUE},${BLUE2})`, borderRadius:8, padding:"7px 0", textAlign:"center" as const, fontSize:8, fontWeight:800, color:"#fff", cursor:"pointer", transition:"background 0.4s ease", boxShadow:posCharging?"0 4px 14px rgba(52,211,153,0.35)":`0 4px 14px rgba(59,130,246,0.35)` }}>
-                          {posCharging ? "✓ Processing…" : `Charge ₱${posCart.reduce((a,i)=>a+i.price*i.qty,0)}`}
+                        <div
+                          style={{
+                            background: posCharging
+                              ? `linear-gradient(135deg,#34d399,#059669)`
+                              : `linear-gradient(135deg,${BLUE},${BLUE2})`,
+                            borderRadius: 8,
+                            padding: "7px 0",
+                            textAlign: "center" as const,
+                            fontSize: 8,
+                            fontWeight: 800,
+                            color: "#fff",
+                            cursor: "pointer",
+                            transition: "background 0.4s ease",
+                            boxShadow: posCharging
+                              ? "0 4px 14px rgba(52,211,153,0.35)"
+                              : `0 4px 14px rgba(59,130,246,0.35)`,
+                          }}
+                        >
+                          {posCharging
+                            ? "✓ Processing…"
+                            : `Charge ₱${posCart.reduce((a, i) => a + i.price * i.qty, 0)}`}
                         </div>
-                        <div style={{ display:"flex", gap:4, marginTop:6 }}>
-                          {["Cash","GCash","Card"].map((m,mi) => (
-                            <div key={mi} style={{ flex:1, textAlign:"center" as const, fontSize:6, fontWeight:600, padding:"3px 0", borderRadius:5, background:mi===1?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.04)", color:mi===1?NEON:"rgba(255,255,255,0.28)", border:mi===1?"1px solid rgba(59,130,246,0.25)":"1px solid rgba(255,255,255,0.06)", cursor:"pointer" }}>{m}</div>
+                        <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                          {["Cash", "GCash", "Card"].map((m, mi) => (
+                            <div
+                              key={mi}
+                              style={{
+                                flex: 1,
+                                textAlign: "center" as const,
+                                fontSize: 6,
+                                fontWeight: 600,
+                                padding: "3px 0",
+                                borderRadius: 5,
+                                background:
+                                  mi === 1 ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.04)",
+                                color: mi === 1 ? NEON : "rgba(255,255,255,0.28)",
+                                border:
+                                  mi === 1
+                                    ? "1px solid rgba(59,130,246,0.25)"
+                                    : "1px solid rgba(255,255,255,0.06)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {m}
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -2380,39 +3428,206 @@ export default function Login() {
                 )}
 
                 {activeMockTab === "Orders" && (
-                  <div key="orders" className="mock-tab-content" style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:7, height:"100%", overflow:"hidden" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-                      <div style={{ display:"flex", gap:5 }}>
-                        {[{l:"All",n:12},{l:"Pending",n:4},{l:"Preparing",n:5},{l:"Ready",n:3}].map((tab,ti) => (
-                          <div key={ti} style={{ padding:"3px 9px", borderRadius:20, fontSize:7, fontWeight:600, background:ti===0?"rgba(59,130,246,0.18)":"rgba(255,255,255,0.04)", color:ti===0?NEON:"rgba(255,255,255,0.30)", border:ti===0?"1px solid rgba(59,130,246,0.25)":"1px solid rgba(255,255,255,0.06)", cursor:"pointer" }}>
-                            {tab.l} <span style={{ opacity:0.55 }}>·{tab.n}</span>
+                  <div
+                    key="orders"
+                    className="mock-tab-content"
+                    style={{
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 7,
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 5 }}>
+                        {[
+                          { l: "All", n: 12 },
+                          { l: "Pending", n: 4 },
+                          { l: "Preparing", n: 5 },
+                          { l: "Ready", n: 3 },
+                        ].map((tab, ti) => (
+                          <div
+                            key={ti}
+                            style={{
+                              padding: "3px 9px",
+                              borderRadius: 20,
+                              fontSize: 7,
+                              fontWeight: 600,
+                              background:
+                                ti === 0 ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.04)",
+                              color: ti === 0 ? NEON : "rgba(255,255,255,0.30)",
+                              border:
+                                ti === 0
+                                  ? "1px solid rgba(59,130,246,0.25)"
+                                  : "1px solid rgba(255,255,255,0.06)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {tab.l} <span style={{ opacity: 0.55 }}>·{tab.n}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{ fontSize:7, color:"rgba(255,255,255,0.22)", fontWeight:500 }}>Auto-refresh 30s</div>
+                      <div
+                        style={{ fontSize: 7, color: "rgba(255,255,255,0.22)", fontWeight: 500 }}
+                      >
+                        Auto-refresh 30s
+                      </div>
                     </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:5, overflow:"hidden", flex:1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 5,
+                        overflow: "hidden",
+                        flex: 1,
+                      }}
+                    >
                       {[
-                        { id:"#4295", table:"Table 4", items:"Espresso ×2, Matcha Latte", amt:"₱320", status:"Pending", sc:"#f59e0b", time:"1m", av:"MS", urgent:true },
-                        { id:"#4294", table:"Table 2", items:"Frappe, Cake Slice, Water ×2", amt:"₱265", status:"Preparing", sc:BLUE, time:"4m", av:"CR", urgent:false },
-                        { id:"#4293", table:"Takeaway", items:"Americano ×3, Croissant ×2", amt:"₱435", status:"Ready", sc:"#34d399", time:"7m", av:"AG", urgent:false },
-                        { id:"#4292", table:"Table 7", items:"Hot Choco, Muffin, OJ", amt:"₱260", status:"Paid", sc:NEON, time:"11m", av:"JD", urgent:false },
-                        { id:"#4291", table:"Table 1", items:"Espresso, BLT Sandwich", amt:"₱245", status:"Done", sc:"rgba(255,255,255,0.22)", time:"18m", av:"MS", urgent:false },
-                      ].map((o,oi) => (
-                        <div key={oi} style={{ padding:"7px 10px", borderRadius:9, background:o.urgent?"rgba(245,158,11,0.06)":"rgba(255,255,255,0.025)", border:o.urgent?"1px solid rgba(245,158,11,0.18)":"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:8 }}>
-                          <div style={{ width:22, height:22, borderRadius:"50%", background:"rgba(59,130,246,0.18)", border:"1px solid rgba(59,130,246,0.22)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:7, fontWeight:800, color:NEON, flexShrink:0 }}>{o.av}</div>
-                          <div style={{ flexShrink:0 }}>
-                            <div style={{ fontSize:9, fontWeight:800, color:NEON }}>{o.id}</div>
-                            <div style={{ fontSize:7, color:"rgba(255,255,255,0.28)", marginTop:1 }}>{o.table}</div>
+                        {
+                          id: "#4295",
+                          table: "Table 4",
+                          items: "Espresso ×2, Matcha Latte",
+                          amt: "₱320",
+                          status: "Pending",
+                          sc: "#f59e0b",
+                          time: "1m",
+                          av: "MS",
+                          urgent: true,
+                        },
+                        {
+                          id: "#4294",
+                          table: "Table 2",
+                          items: "Frappe, Cake Slice, Water ×2",
+                          amt: "₱265",
+                          status: "Preparing",
+                          sc: BLUE,
+                          time: "4m",
+                          av: "CR",
+                          urgent: false,
+                        },
+                        {
+                          id: "#4293",
+                          table: "Takeaway",
+                          items: "Americano ×3, Croissant ×2",
+                          amt: "₱435",
+                          status: "Ready",
+                          sc: "#34d399",
+                          time: "7m",
+                          av: "AG",
+                          urgent: false,
+                        },
+                        {
+                          id: "#4292",
+                          table: "Table 7",
+                          items: "Hot Choco, Muffin, OJ",
+                          amt: "₱260",
+                          status: "Paid",
+                          sc: NEON,
+                          time: "11m",
+                          av: "JD",
+                          urgent: false,
+                        },
+                        {
+                          id: "#4291",
+                          table: "Table 1",
+                          items: "Espresso, BLT Sandwich",
+                          amt: "₱245",
+                          status: "Done",
+                          sc: "rgba(255,255,255,0.22)",
+                          time: "18m",
+                          av: "MS",
+                          urgent: false,
+                        },
+                      ].map((o, oi) => (
+                        <div
+                          key={oi}
+                          style={{
+                            padding: "7px 10px",
+                            borderRadius: 9,
+                            background: o.urgent
+                              ? "rgba(245,158,11,0.06)"
+                              : "rgba(255,255,255,0.025)",
+                            border: o.urgent
+                              ? "1px solid rgba(245,158,11,0.18)"
+                              : "1px solid rgba(255,255,255,0.06)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              background: "rgba(59,130,246,0.18)",
+                              border: "1px solid rgba(59,130,246,0.22)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 7,
+                              fontWeight: 800,
+                              color: NEON,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {o.av}
                           </div>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:7, color:"rgba(255,255,255,0.50)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{o.items}</div>
+                          <div style={{ flexShrink: 0 }}>
+                            <div style={{ fontSize: 9, fontWeight: 800, color: NEON }}>{o.id}</div>
+                            <div
+                              style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", marginTop: 1 }}
+                            >
+                              {o.table}
+                            </div>
                           </div>
-                          <div style={{ textAlign:"right" as const, flexShrink:0 }}>
-                            <div style={{ fontSize:9, fontWeight:800, color:"#fff" }}>{o.amt}</div>
-                            <div style={{ fontSize:6, color:"rgba(255,255,255,0.22)", marginTop:1 }}>{o.time} ago</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 7,
+                                color: "rgba(255,255,255,0.50)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {o.items}
+                            </div>
                           </div>
-                          <div style={{ fontSize:7, fontWeight:700, color:o.sc, padding:"2px 7px", borderRadius:20, background:"rgba(255,255,255,0.04)", border:`1px solid ${o.sc}44`, whiteSpace:"nowrap", flexShrink:0 }}>{o.status}</div>
+                          <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                            <div style={{ fontSize: 9, fontWeight: 800, color: "#fff" }}>
+                              {o.amt}
+                            </div>
+                            <div
+                              style={{ fontSize: 6, color: "rgba(255,255,255,0.22)", marginTop: 1 }}
+                            >
+                              {o.time} ago
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 7,
+                              fontWeight: 700,
+                              color: o.sc,
+                              padding: "2px 7px",
+                              borderRadius: 20,
+                              background: "rgba(255,255,255,0.04)",
+                              border: `1px solid ${o.sc}44`,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {o.status}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2420,45 +3635,232 @@ export default function Login() {
                 )}
 
                 {activeMockTab === "Products" && (
-                  <div key="products" className="mock-tab-content" style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:8, height:"100%", overflow:"hidden" }}>
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#fff" }}>Products <span style={{ color:"rgba(255,255,255,0.28)", fontWeight:500, fontSize:8 }}>24 items</span></div>
-                      <div style={{ display:"flex", gap:5 }}>
-                        <div style={{ padding:"4px 9px", borderRadius:7, fontSize:7, fontWeight:600, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", color:"rgba(255,255,255,0.40)", cursor:"pointer" }}>↑ Import</div>
-                        <div style={{ background:`linear-gradient(135deg,${BLUE},${BLUE2})`, borderRadius:7, padding:"4px 10px", fontSize:7, fontWeight:700, color:"#fff", cursor:"pointer" }}>+ Add</div>
+                  <div
+                    key="products"
+                    className="mock-tab-content"
+                    style={{
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>
+                        Products{" "}
+                        <span
+                          style={{ color: "rgba(255,255,255,0.28)", fontWeight: 500, fontSize: 8 }}
+                        >
+                          24 items
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <div
+                          style={{
+                            padding: "4px 9px",
+                            borderRadius: 7,
+                            fontSize: 7,
+                            fontWeight: 600,
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            color: "rgba(255,255,255,0.40)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ↑ Import
+                        </div>
+                        <div
+                          style={{
+                            background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
+                            borderRadius: 7,
+                            padding: "4px 10px",
+                            fontSize: 7,
+                            fontWeight: 700,
+                            color: "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          + Add
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:5, flex:1, overflow:"hidden" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 5,
+                        flex: 1,
+                        overflow: "hidden",
+                      }}
+                    >
                       {[
-                        { e:"☕", name:"Espresso", cat:"Coffee", price:80, cost:18, stock:48, c:NEON, low:false },
-                        { e:"🍵", name:"Matcha Latte", cat:"Tea", price:120, cost:32, stock:34, c:"#34d399", low:false },
-                        { e:"🥤", name:"Frappe", cat:"Blended", price:150, cost:45, stock:22, c:"#a78bfa", low:false },
-                        { e:"🥐", name:"Croissant", cat:"Pastry", price:65, cost:20, stock:15, c:"#f59e0b", low:false },
-                        { e:"🍰", name:"Cake Slice", cat:"Dessert", price:95, cost:28, stock:8, c:"#fb7185", low:true },
-                        { e:"🧃", name:"Fresh Juice", cat:"Drinks", price:45, cost:12, stock:60, c:BLUE, low:false },
-                      ].map((p,pi) => {
-                        const margin = Math.round(((p.price-p.cost)/p.price)*100);
+                        {
+                          e: "☕",
+                          name: "Espresso",
+                          cat: "Coffee",
+                          price: 80,
+                          cost: 18,
+                          stock: 48,
+                          c: NEON,
+                          low: false,
+                        },
+                        {
+                          e: "🍵",
+                          name: "Matcha Latte",
+                          cat: "Tea",
+                          price: 120,
+                          cost: 32,
+                          stock: 34,
+                          c: "#34d399",
+                          low: false,
+                        },
+                        {
+                          e: "🥤",
+                          name: "Frappe",
+                          cat: "Blended",
+                          price: 150,
+                          cost: 45,
+                          stock: 22,
+                          c: "#a78bfa",
+                          low: false,
+                        },
+                        {
+                          e: "🥐",
+                          name: "Croissant",
+                          cat: "Pastry",
+                          price: 65,
+                          cost: 20,
+                          stock: 15,
+                          c: "#f59e0b",
+                          low: false,
+                        },
+                        {
+                          e: "🍰",
+                          name: "Cake Slice",
+                          cat: "Dessert",
+                          price: 95,
+                          cost: 28,
+                          stock: 8,
+                          c: "#fb7185",
+                          low: true,
+                        },
+                        {
+                          e: "🧃",
+                          name: "Fresh Juice",
+                          cat: "Drinks",
+                          price: 45,
+                          cost: 12,
+                          stock: 60,
+                          c: BLUE,
+                          low: false,
+                        },
+                      ].map((p, pi) => {
+                        const margin = Math.round(((p.price - p.cost) / p.price) * 100);
                         return (
-                          <div key={pi} style={{ borderRadius:9, background:"rgba(255,255,255,0.025)", border:p.low?"1px solid rgba(251,113,133,0.20)":"1px solid rgba(255,255,255,0.06)", padding:"7px 10px", display:"flex", alignItems:"center", gap:9 }}>
-                            <div style={{ width:26, height:26, borderRadius:7, background:`${p.c}18`, border:`1px solid ${p.c}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, flexShrink:0 }}>{p.e}</div>
-                            <div style={{ flex:1 }}>
-                              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                                <span style={{ fontSize:8, fontWeight:700, color:"#fff" }}>{p.name}</span>
-                                <span style={{ fontSize:6, color:"rgba(255,255,255,0.28)", background:"rgba(255,255,255,0.05)", borderRadius:4, padding:"1px 5px" }}>{p.cat}</span>
-                                {p.low && <span style={{ fontSize:6, color:"#fb7185", background:"rgba(251,113,133,0.12)", borderRadius:4, padding:"1px 5px", fontWeight:700 }}>LOW STOCK</span>}
+                          <div
+                            key={pi}
+                            style={{
+                              borderRadius: 9,
+                              background: "rgba(255,255,255,0.025)",
+                              border: p.low
+                                ? "1px solid rgba(251,113,133,0.20)"
+                                : "1px solid rgba(255,255,255,0.06)",
+                              padding: "7px 10px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 9,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: 7,
+                                background: `${p.c}18`,
+                                border: `1px solid ${p.c}33`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 13,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {p.e}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                <span style={{ fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                                  {p.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 6,
+                                    color: "rgba(255,255,255,0.28)",
+                                    background: "rgba(255,255,255,0.05)",
+                                    borderRadius: 4,
+                                    padding: "1px 5px",
+                                  }}
+                                >
+                                  {p.cat}
+                                </span>
+                                {p.low && (
+                                  <span
+                                    style={{
+                                      fontSize: 6,
+                                      color: "#fb7185",
+                                      background: "rgba(251,113,133,0.12)",
+                                      borderRadius: 4,
+                                      padding: "1px 5px",
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    LOW STOCK
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            <div style={{ textAlign:"right" as const, flexShrink:0 }}>
-                              <div style={{ fontSize:9, fontWeight:800, color:p.c }}>₱{p.price}</div>
-                              <div style={{ fontSize:6, color:"rgba(255,255,255,0.25)" }}>Cost ₱{p.cost}</div>
+                            <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: p.c }}>
+                                ₱{p.price}
+                              </div>
+                              <div style={{ fontSize: 6, color: "rgba(255,255,255,0.25)" }}>
+                                Cost ₱{p.cost}
+                              </div>
                             </div>
-                            <div style={{ textAlign:"right" as const, flexShrink:0, minWidth:36 }}>
-                              <div style={{ fontSize:8, fontWeight:700, color:"#34d399" }}>{margin}%</div>
-                              <div style={{ fontSize:6, color:"rgba(255,255,255,0.22)" }}>margin</div>
+                            <div
+                              style={{ textAlign: "right" as const, flexShrink: 0, minWidth: 36 }}
+                            >
+                              <div style={{ fontSize: 8, fontWeight: 700, color: "#34d399" }}>
+                                {margin}%
+                              </div>
+                              <div style={{ fontSize: 6, color: "rgba(255,255,255,0.22)" }}>
+                                margin
+                              </div>
                             </div>
-                            <div style={{ textAlign:"right" as const, flexShrink:0, minWidth:28 }}>
-                              <div style={{ fontSize:8, fontWeight:700, color:p.stock<=10?"#fb7185":"rgba(255,255,255,0.55)" }}>{p.stock}</div>
-                              <div style={{ fontSize:6, color:"rgba(255,255,255,0.22)" }}>stock</div>
+                            <div
+                              style={{ textAlign: "right" as const, flexShrink: 0, minWidth: 28 }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: 700,
+                                  color: p.stock <= 10 ? "#fb7185" : "rgba(255,255,255,0.55)",
+                                }}
+                              >
+                                {p.stock}
+                              </div>
+                              <div style={{ fontSize: 6, color: "rgba(255,255,255,0.22)" }}>
+                                stock
+                              </div>
                             </div>
                           </div>
                         );
@@ -2468,39 +3870,178 @@ export default function Login() {
                 )}
 
                 {activeMockTab === "Staff" && (
-                  <div key="staff" className="mock-tab-content" style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:8, height:"100%", overflow:"hidden" }}>
-                    <div style={{ display:"flex", gap:7, flexShrink:0 }}>
+                  <div
+                    key="staff"
+                    className="mock-tab-content"
+                    style={{
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
                       {[
-                        { l:"Clocked In", v:"9", c:"#34d399" },
-                        { l:"On Break", v:"3", c:"#f59e0b" },
-                        { l:"Hrs Today", v:"76.5h", c:NEON },
-                        { l:"Wages Today", v:"₱4,200", c:"#a78bfa" },
-                      ].map((s,si) => (
-                        <div key={si} style={{ flex:1, borderRadius:9, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", padding:"8px 10px" }}>
-                          <div style={{ fontSize:6, color:"rgba(255,255,255,0.28)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.07em" }}>{s.l}</div>
-                          <div style={{ fontSize:13, fontWeight:800, color:s.c, marginTop:3 }}>{s.v}</div>
+                        { l: "Clocked In", v: "9", c: "#34d399" },
+                        { l: "On Break", v: "3", c: "#f59e0b" },
+                        { l: "Hrs Today", v: "76.5h", c: NEON },
+                        { l: "Wages Today", v: "₱4,200", c: "#a78bfa" },
+                      ].map((s, si) => (
+                        <div
+                          key={si}
+                          style={{
+                            flex: 1,
+                            borderRadius: 9,
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            padding: "8px 10px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 6,
+                              color: "rgba(255,255,255,0.28)",
+                              fontWeight: 600,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.07em",
+                            }}
+                          >
+                            {s.l}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: s.c, marginTop: 3 }}>
+                            {s.v}
+                          </div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:5, overflow:"hidden", flex:1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 5,
+                        overflow: "hidden",
+                        flex: 1,
+                      }}
+                    >
                       {[
-                        { name:"Juan dela Cruz", role:"Manager", in:"8:00 AM", hrs:"4h 12m", sales:"₱8,420", status:"Active", c:"#34d399", av:"JD" },
-                        { name:"Maria Santos", role:"Cashier", in:"8:30 AM", hrs:"3h 42m", sales:"₱5,180", status:"Active", c:"#34d399", av:"MS" },
-                        { name:"Carlo Reyes", role:"Barista", in:"9:00 AM", hrs:"3h 12m", sales:"—", status:"Break", c:"#f59e0b", av:"CR" },
-                        { name:"Ana Gomez", role:"Cashier", in:"10:00 AM", hrs:"2h 12m", sales:"₱2,640", status:"Active", c:"#34d399", av:"AG" },
-                        { name:"Ben Torres", role:"Kitchen", in:"—", hrs:"—", sales:"—", status:"Off", c:"rgba(255,255,255,0.20)", av:"BT" },
-                      ].map((s,si) => (
-                        <div key={si} style={{ padding:"7px 10px", borderRadius:9, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:9 }}>
-                          <div style={{ width:28, height:28, borderRadius:"50%", background:`linear-gradient(135deg,${s.c}44,${s.c}18)`, border:`1px solid ${s.c}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:800, color:s.c, flexShrink:0 }}>{s.av}</div>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:8, fontWeight:700, color:"#fff" }}>{s.name}</div>
-                            <div style={{ fontSize:7, color:"rgba(255,255,255,0.28)", marginTop:1 }}>{s.role} · In: {s.in}</div>
+                        {
+                          name: "Juan dela Cruz",
+                          role: "Manager",
+                          in: "8:00 AM",
+                          hrs: "4h 12m",
+                          sales: "₱8,420",
+                          status: "Active",
+                          c: "#34d399",
+                          av: "JD",
+                        },
+                        {
+                          name: "Maria Santos",
+                          role: "Cashier",
+                          in: "8:30 AM",
+                          hrs: "3h 42m",
+                          sales: "₱5,180",
+                          status: "Active",
+                          c: "#34d399",
+                          av: "MS",
+                        },
+                        {
+                          name: "Carlo Reyes",
+                          role: "Barista",
+                          in: "9:00 AM",
+                          hrs: "3h 12m",
+                          sales: "—",
+                          status: "Break",
+                          c: "#f59e0b",
+                          av: "CR",
+                        },
+                        {
+                          name: "Ana Gomez",
+                          role: "Cashier",
+                          in: "10:00 AM",
+                          hrs: "2h 12m",
+                          sales: "₱2,640",
+                          status: "Active",
+                          c: "#34d399",
+                          av: "AG",
+                        },
+                        {
+                          name: "Ben Torres",
+                          role: "Kitchen",
+                          in: "—",
+                          hrs: "—",
+                          sales: "—",
+                          status: "Off",
+                          c: "rgba(255,255,255,0.20)",
+                          av: "BT",
+                        },
+                      ].map((s, si) => (
+                        <div
+                          key={si}
+                          style={{
+                            padding: "7px 10px",
+                            borderRadius: 9,
+                            background: "rgba(255,255,255,0.025)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 9,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: `linear-gradient(135deg,${s.c}44,${s.c}18)`,
+                              border: `1px solid ${s.c}44`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 8,
+                              fontWeight: 800,
+                              color: s.c,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {s.av}
                           </div>
-                          <div style={{ textAlign:"right" as const, flexShrink:0 }}>
-                            <div style={{ fontSize:8, fontWeight:700, color:NEON }}>{s.sales}</div>
-                            <div style={{ fontSize:6, color:"rgba(255,255,255,0.22)", marginTop:1 }}>{s.hrs}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                              {s.name}
+                            </div>
+                            <div
+                              style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", marginTop: 1 }}
+                            >
+                              {s.role} · In: {s.in}
+                            </div>
                           </div>
-                          <div style={{ fontSize:7, fontWeight:700, color:s.c, padding:"2px 7px", borderRadius:20, background:`${s.c}18`, border:`1px solid ${s.c}33`, whiteSpace:"nowrap", flexShrink:0 }}>{s.status}</div>
+                          <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: NEON }}>
+                              {s.sales}
+                            </div>
+                            <div
+                              style={{ fontSize: 6, color: "rgba(255,255,255,0.22)", marginTop: 1 }}
+                            >
+                              {s.hrs}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 7,
+                              fontWeight: 700,
+                              color: s.c,
+                              padding: "2px 7px",
+                              borderRadius: 20,
+                              background: `${s.c}18`,
+                              border: `1px solid ${s.c}33`,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {s.status}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2508,66 +4049,206 @@ export default function Login() {
                 )}
 
                 {activeMockTab === "Reports" && (
-                  <div key="reports" className="mock-tab-content" style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:8, height:"100%", overflow:"hidden" }}>
-                    <div style={{ display:"flex", gap:7, flexShrink:0 }}>
+                  <div
+                    key="reports"
+                    className="mock-tab-content"
+                    style={{
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
                       {[
-                        { l:"This Week", v:"₱134,200", d:"+18% vs last", c:NEON },
-                        { l:"Best Day", v:"Thursday", d:"₱28,500 revenue", c:"#a78bfa" },
-                        { l:"Daily Avg", v:"₱19,171", d:"7-day rolling avg", c:"#34d399" },
-                      ].map((m,mi) => (
-                        <div key={mi} style={{ flex:1, borderRadius:9, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", padding:"9px 11px" }}>
-                          <div style={{ fontSize:7, color:"rgba(255,255,255,0.28)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.07em" }}>{m.l}</div>
-                          <div style={{ fontSize:13, fontWeight:800, color:m.c, marginTop:3 }}>{m.v}</div>
-                          <div style={{ fontSize:7, color:"rgba(255,255,255,0.28)", marginTop:2 }}>{m.d}</div>
+                        { l: "This Week", v: "₱134,200", d: "+18% vs last", c: NEON },
+                        { l: "Best Day", v: "Thursday", d: "₱28,500 revenue", c: "#a78bfa" },
+                        { l: "Daily Avg", v: "₱19,171", d: "7-day rolling avg", c: "#34d399" },
+                      ].map((m, mi) => (
+                        <div
+                          key={mi}
+                          style={{
+                            flex: 1,
+                            borderRadius: 9,
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            padding: "9px 11px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 7,
+                              color: "rgba(255,255,255,0.28)",
+                              fontWeight: 600,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.07em",
+                            }}
+                          >
+                            {m.l}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: m.c, marginTop: 3 }}>
+                            {m.v}
+                          </div>
+                          <div
+                            style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", marginTop: 2 }}
+                          >
+                            {m.d}
+                          </div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ flex:1, borderRadius:10, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", padding:"11px 13px", display:"flex", flexDirection:"column" }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                        <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", fontWeight:600, textTransform:"uppercase" as const, letterSpacing:"0.06em" }}>Daily Revenue — This Week</div>
-                        <div style={{ display:"flex", gap:8 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                            <div style={{ width:8, height:3, borderRadius:2, background:NEON }} />
-                            <span style={{ fontSize:6, color:"rgba(255,255,255,0.30)" }}>This week</span>
+                    <div
+                      style={{
+                        flex: 1,
+                        borderRadius: 10,
+                        background: "rgba(255,255,255,0.025)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        padding: "11px 13px",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 8,
+                            color: "rgba(255,255,255,0.25)",
+                            fontWeight: 600,
+                            textTransform: "uppercase" as const,
+                            letterSpacing: "0.06em",
+                          }}
+                        >
+                          Daily Revenue — This Week
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                            <div
+                              style={{ width: 8, height: 3, borderRadius: 2, background: NEON }}
+                            />
+                            <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)" }}>
+                              This week
+                            </span>
                           </div>
-                          <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                            <div style={{ width:8, height:3, borderRadius:2, background:"rgba(255,255,255,0.18)" }} />
-                            <span style={{ fontSize:6, color:"rgba(255,255,255,0.30)" }}>Last week</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                            <div
+                              style={{
+                                width: 8,
+                                height: 3,
+                                borderRadius: 2,
+                                background: "rgba(255,255,255,0.18)",
+                              }}
+                            />
+                            <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)" }}>
+                              Last week
+                            </span>
                           </div>
                         </div>
                       </div>
-                      <div style={{ flex:1, display:"flex", alignItems:"flex-end", gap:5, overflow:"hidden" }}>
+                      <div
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "flex-end",
+                          gap: 5,
+                          overflow: "hidden",
+                        }}
+                      >
                         {[
-                          { day:"Mon", val:58, prev:48 },
-                          { day:"Tue", val:72, prev:61 },
-                          { day:"Wed", val:65, prev:70 },
-                          { day:"Thu", val:100, prev:82 },
-                          { day:"Fri", val:88, prev:75 },
-                          { day:"Sat", val:79, prev:66 },
-                          { day:"Sun", val:45, prev:52 },
-                        ].map((b,bi) => (
-                          <div key={bi} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, height:"100%", justifyContent:"flex-end" }}>
-                            <div style={{ width:"100%", display:"flex", gap:1, height:"100%", alignItems:"flex-end" }}>
-                              <div style={{ flex:1, borderRadius:"3px 3px 0 0", background:"rgba(255,255,255,0.10)", height:mockVisible?`${b.prev}%`:"0%", transition:`height 0.6s ease-out ${0.05+bi*0.08}s`, minHeight:0 }} />
-                              <div style={{ flex:1, borderRadius:"3px 3px 0 0", background:b.day==="Thu"?`linear-gradient(to top,${NEON},${NEON}99)`:`linear-gradient(to top,${BLUE},${BLUE}88)`, height:mockVisible?`${b.val}%`:"0%", transition:`height 0.7s ease-out ${0.1+bi*0.09}s`, minHeight:0 }} />
+                          { day: "Mon", val: 58, prev: 48 },
+                          { day: "Tue", val: 72, prev: 61 },
+                          { day: "Wed", val: 65, prev: 70 },
+                          { day: "Thu", val: 100, prev: 82 },
+                          { day: "Fri", val: 88, prev: 75 },
+                          { day: "Sat", val: 79, prev: 66 },
+                          { day: "Sun", val: 45, prev: 52 },
+                        ].map((b, bi) => (
+                          <div
+                            key={bi}
+                            style={{
+                              flex: 1,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 3,
+                              height: "100%",
+                              justifyContent: "flex-end",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: "100%",
+                                display: "flex",
+                                gap: 1,
+                                height: "100%",
+                                alignItems: "flex-end",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  flex: 1,
+                                  borderRadius: "3px 3px 0 0",
+                                  background: "rgba(255,255,255,0.10)",
+                                  height: mockVisible ? `${b.prev}%` : "0%",
+                                  transition: `height 0.6s ease-out ${0.05 + bi * 0.08}s`,
+                                  minHeight: 0,
+                                }}
+                              />
+                              <div
+                                style={{
+                                  flex: 1,
+                                  borderRadius: "3px 3px 0 0",
+                                  background:
+                                    b.day === "Thu"
+                                      ? `linear-gradient(to top,${NEON},${NEON}99)`
+                                      : `linear-gradient(to top,${BLUE},${BLUE}88)`,
+                                  height: mockVisible ? `${b.val}%` : "0%",
+                                  transition: `height 0.7s ease-out ${0.1 + bi * 0.09}s`,
+                                  minHeight: 0,
+                                }}
+                              />
                             </div>
-                            <span style={{ fontSize:6, color:b.day==="Thu"?NEON:"rgba(255,255,255,0.25)", fontWeight:b.day==="Thu"?700:500, flexShrink:0 }}>{b.day}</span>
+                            <span
+                              style={{
+                                fontSize: 6,
+                                color: b.day === "Thu" ? NEON : "rgba(255,255,255,0.25)",
+                                fontWeight: b.day === "Thu" ? 700 : 500,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {b.day}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           </div>
         </ContainerScroll>
       </section>
 
-<div style={{ height: 80, background: `linear-gradient(to bottom, ${DARK}, rgba(255,255,255,0.015))`, position: "relative", zIndex: 1, marginBottom: -1 }} />
+      <div
+        style={{
+          height: 80,
+          background: `linear-gradient(to bottom, ${DARK}, rgba(255,255,255,0.015))`,
+          position: "relative",
+          zIndex: 1,
+          marginBottom: -1,
+        }}
+      />
 
-<section
+      <section
         id="features"
         className="scroll-section lp-section-lazy"
         style={{ position: "relative", zIndex: 1, padding: "88px 0" }}
@@ -2609,7 +4290,7 @@ export default function Login() {
           </p>
         </div>
 
-<div
+        <div
           style={{ overflow: "hidden", position: "relative", cursor: "grab", userSelect: "none" }}
           onMouseEnter={() => {
             featHoveredRef.current = true;
@@ -2659,7 +4340,6 @@ export default function Login() {
             featDraggingRef.current = false;
           }}
         >
-
           <div
             style={{
               position: "absolute",
@@ -2689,7 +4369,6 @@ export default function Login() {
             ref={featTrackRef}
             style={{ display: "flex", gap: 18, padding: "4px 0 12px", willChange: "transform" }}
           >
-
             {[0, 1].map((pass) => (
               <div key={pass} style={{ display: "flex", gap: 18, flexShrink: 0 }}>
                 {[
@@ -3015,7 +4694,7 @@ export default function Login() {
         </div>
       </section>
 
-<section
+      <section
         id="devices"
         className="scroll-section"
         style={{
@@ -3246,7 +4925,7 @@ export default function Login() {
         </div>
       </section>
 
-<section
+      <section
         className="scroll-section lp-section-lazy"
         style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(59,130,246,0.07)" }}
       >
@@ -3474,7 +5153,7 @@ export default function Login() {
         </div>
       </section>
 
-<section
+      <section
         id="security"
         className="scroll-section lp-section-lazy"
         style={{
@@ -3700,7 +5379,7 @@ export default function Login() {
         </div>
       </section>
 
-<section
+      <section
         id="pricing"
         className="scroll-section lp-section-lazy"
         style={{
@@ -3752,7 +5431,6 @@ export default function Login() {
               margin: "0 auto",
             }}
           >
-
             <div
               className="price-card sr sr-left sr-d2"
               style={{
@@ -3842,7 +5520,7 @@ export default function Login() {
               </button>
             </div>
 
-<div
+            <div
               className="price-card sr sr-d2"
               style={{
                 padding: "28px 24px",
@@ -3966,7 +5644,7 @@ export default function Login() {
               </button>
             </div>
 
-<div
+            <div
               className="price-card sr sr-right sr-d2"
               style={{
                 padding: "28px 24px",
@@ -4090,7 +5768,7 @@ export default function Login() {
             </div>
           </div>
 
-<p
+          <p
             className="sr sr-d3"
             style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.22)" }}
           >
@@ -4100,7 +5778,7 @@ export default function Login() {
         </div>
       </section>
 
-<section
+      <section
         style={{
           position: "relative",
           zIndex: 1,
@@ -4110,7 +5788,6 @@ export default function Login() {
           overflow: "hidden",
         }}
       >
-
         <div
           className="lp-aurora-orb"
           style={{
@@ -4152,86 +5829,92 @@ export default function Login() {
         </div>
 
         <div style={{ position: "relative", zIndex: 1 }}>
-        <h2
-          className="sr"
-          style={{ fontSize: 52, fontWeight: 900, letterSpacing: "-0.04em", margin: "0 0 14px", lineHeight: 1.05 }}
-        >
-          Ready to start?
-        </h2>
-        <p
-          className="sr sr-d1"
-          style={{ fontSize: 16, color: "rgba(255,255,255,0.40)", marginBottom: 40 }}
-        >
-          Takes less than 2 minutes. Your first sale is free.
-        </p>
-        <button onClick={() => openPanel("register")} className="cta-primary sr sr-scale sr-d2">
-          Create your free account →
-        </button>
-        <div
-          className="sr sr-d3"
-          style={{
-            marginTop: 56,
-            paddingTop: 32,
-            borderTop: "1px solid rgba(255,255,255,0.05)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-          }}
-        >
-          <div
+          <h2
+            className="sr"
             style={{
-              width: 24,
-              height: 24,
-              borderRadius: 8,
-              background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
+              fontSize: 52,
+              fontWeight: 900,
+              letterSpacing: "-0.04em",
+              margin: "0 0 14px",
+              lineHeight: 1.05,
+            }}
+          >
+            Ready to start?
+          </h2>
+          <p
+            className="sr sr-d1"
+            style={{ fontSize: 16, color: "rgba(255,255,255,0.40)", marginBottom: 40 }}
+          >
+            Takes less than 2 minutes. Your first sale is free.
+          </p>
+          <button onClick={() => openPanel("register")} className="cta-primary sr sr-scale sr-d2">
+            Create your free account →
+          </button>
+          <div
+            className="sr sr-d3"
+            style={{
+              marginTop: 56,
+              paddingTop: 32,
+              borderTop: "1px solid rgba(255,255,255,0.05)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              gap: 10,
             }}
           >
-            <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>A</span>
+            <div
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 8,
+                background: `linear-gradient(135deg,${BLUE},${BLUE2})`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>A</span>
+            </div>
+            <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>
+              © 2026 ArtixPOS
+              <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "rgba(255,255,255,0.28)",
+                  textDecoration: "none",
+                  borderBottom: "1px solid rgba(255,255,255,0.12)",
+                  transition: "color 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.28)")}
+              >
+                Terms
+              </a>
+              <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "rgba(255,255,255,0.28)",
+                  textDecoration: "none",
+                  borderBottom: "1px solid rgba(255,255,255,0.12)",
+                  transition: "color 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.28)")}
+              >
+                Privacy
+              </a>
+            </span>
           </div>
-          <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>
-            © 2026 ArtixPOS
-            <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
-            <a
-              href="/terms"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: "rgba(255,255,255,0.28)",
-                textDecoration: "none",
-                borderBottom: "1px solid rgba(255,255,255,0.12)",
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.28)")}
-            >
-              Terms
-            </a>
-            <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
-            <a
-              href="/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: "rgba(255,255,255,0.28)",
-                textDecoration: "none",
-                borderBottom: "1px solid rgba(255,255,255,0.12)",
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.28)")}
-            >
-              Privacy
-            </a>
-          </span>
-        </div>
         </div>
       </section>
 
-{showLoginPanel && (
+      {showLoginPanel && (
         <>
           <div
             onClick={() => setShowLoginPanel(false)}

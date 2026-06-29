@@ -4,12 +4,15 @@ import { lazy } from "react";
  * Wraps React.lazy() with automatic cache-clearing recovery for stale-deployment
  * chunk load failures (e.g. "Failed to fetch dynamically imported module").
  *
- * When a lazy chunk 404s after a new deployment, this clears all SW caches and
- * the SW registration itself, then reloads — so the browser fetches fresh HTML
- * and the correct new chunk hashes. Without this, a plain reload() lets the SW
- * re-serve the same stale HTML, causing an infinite error loop.
+ * When a lazy chunk 404s after a new deployment, the SW is serving stale HTML
+ * with old chunk hashes.  This unregisters the SW, wipes all caches, then
+ * RETRIES the import directly against the server (no SW in the way).  If the
+ * retry succeeds the page continues without a reload.  If it fails, the error
+ * propagates to ErrorBoundary which does a single clean reload.
  *
- * A sessionStorage counter prevents runaway reload loops (max 3 attempts).
+ * Without a retry the old code called location.reload() from THREE different
+ * handlers (lazyWithRetry × 3, ErrorBoundary × 1, index.html onerror × 3),
+ * causing up to 7 consecutive reloads on every new deployment.
  */
 function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
   factory: () => Promise<T>,
@@ -28,11 +31,8 @@ function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
       // reload loop here makes development impossible.
       if (!isChunkErr || !navigator.onLine || !import.meta.env.PROD) throw err;
 
-      const RETRY_KEY = "_artix_lazy_retry";
-      const attempts = Number(sessionStorage.getItem(RETRY_KEY) ?? "0");
-      if (attempts >= 3) throw err;
-      sessionStorage.setItem(RETRY_KEY, String(attempts + 1));
-
+      // Unregister the SW and wipe all caches so the retry below hits the
+      // server directly with no stale intercept.
       try {
         if ("serviceWorker" in navigator) {
           const regs = await navigator.serviceWorker.getRegistrations().catch(() => []);
@@ -43,13 +43,13 @@ function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
           await Promise.all(keys.map((k) => caches.delete(k).catch(() => false)));
         }
       } catch {
-        // ignore — reload regardless
+        // ignore — retry regardless
       }
 
-      window.location.reload();
-      // Return a never-resolving promise so React.lazy doesn't render anything
-      // while the page is reloading.
-      return new Promise<never>(() => {});
+      // Retry the import once without the SW.  If it succeeds the page
+      // continues without any reload at all.  If it fails the error
+      // propagates to ErrorBoundary for a single clean reload.
+      return factory();
     }),
   );
 }

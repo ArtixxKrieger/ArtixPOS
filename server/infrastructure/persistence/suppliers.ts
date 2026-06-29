@@ -5,6 +5,7 @@ import {
   purchaseOrders,
   purchaseOrderItems,
   products,
+  stockLogs,
   sales,
   type Supplier,
   type InsertSupplier,
@@ -201,13 +202,30 @@ export async function receivePurchaseOrder(id: number, userId: string): Promise<
       }
     }
 
+    const currentStocks = productIds.length > 0
+      ? await db.select({ id: products.id, stock: products.stock }).from(products)
+          .where(inArray(products.id, productIds))
+      : [];
+    const stockMap = new Map(currentStocks.map(p => [p.id, p.stock ?? 0]));
+
     const [updated] = await db.transaction(async (tx) => {
       await Promise.all(
-        [...deltaMap.entries()].map(([pid, delta]) =>
-          tx.update(products)
+        [...deltaMap.entries()].map(async ([pid, delta]) => {
+          const previousStock = stockMap.get(pid) ?? 0;
+          const newStock = previousStock + delta;
+          await tx.update(products)
             .set({ stock: sql`COALESCE(stock, 0) + ${delta}` } as any)
-            .where(eq(products.id, pid))
-        )
+            .where(eq(products.id, pid));
+          await tx.insert(stockLogs).values({
+            productId: pid,
+            userId: po.userId,
+            previousStock,
+            newStock,
+            delta,
+            reason: "purchase_order",
+            note: `PO #${id} received`,
+          } as any).catch(() => {});
+        })
       );
       return tx.update(purchaseOrders).set({
         status: "received",

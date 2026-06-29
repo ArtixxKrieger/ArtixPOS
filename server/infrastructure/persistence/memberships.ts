@@ -106,22 +106,45 @@ export async function deleteMembership(id: number, userId: string): Promise<void
 
 export async function checkInMember(userId: string, data: InsertMembershipCheckIn): Promise<MembershipCheckIn> {
   const userIds = await getTenantUserIds(userId);
-  const [existingMembership] = await db.select({ userId: memberships.userId }).from(memberships)
+  const [existingMembership] = await db
+    .select({
+      userId: memberships.userId,
+      checkInsUsed: memberships.checkInsUsed,
+      planId: memberships.planId,
+    })
+    .from(memberships)
     .where(eq(memberships.id, data.membershipId));
   if (!existingMembership || !userIds.includes(existingMembership.userId)) {
     throw new Error("Membership not found or access denied");
   }
+
+  if (existingMembership.planId) {
+    const [plan] = await db
+      .select({ maxCheckIns: membershipPlans.maxCheckIns })
+      .from(membershipPlans)
+      .where(eq(membershipPlans.id, existingMembership.planId));
+    if (plan?.maxCheckIns != null && (existingMembership.checkInsUsed ?? 0) >= plan.maxCheckIns) {
+      throw new Error("Check-in limit reached for this membership plan");
+    }
+  }
+
   return await db.transaction(async (tx) => {
     const [checkIn] = await tx.insert(membershipCheckIns).values({ ...data, userId } as any).returning();
     await tx.update(memberships).set({
-      checkInsUsed: sql`check_ins_used + 1`,
+      checkInsUsed: sql`COALESCE(check_ins_used, 0) + 1`,
     } as any).where(eq(memberships.id, data.membershipId));
     return checkIn;
   });
 }
 
 export async function getCheckIns(membershipId: number, userId: string): Promise<MembershipCheckIn[]> {
+  const userIds = await getTenantUserIds(userId);
+  const [membership] = await db
+    .select({ userId: memberships.userId })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId));
+  if (!membership || !userIds.includes(membership.userId)) return [];
   return db.select().from(membershipCheckIns)
-    .where(and(eq(membershipCheckIns.membershipId, membershipId), eq(membershipCheckIns.userId, userId)))
+    .where(eq(membershipCheckIns.membershipId, membershipId))
     .orderBy(desc(membershipCheckIns.checkedInAt));
 }

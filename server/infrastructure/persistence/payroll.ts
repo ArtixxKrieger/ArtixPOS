@@ -10,7 +10,7 @@ import {
   type PayrollEntry,
   type UpdatePayrollEntry,
 } from "@shared/schema";
-import { eq, and, inArray, isNotNull, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, gte, lte, desc, sql } from "drizzle-orm";
 import { getTenantUserIds } from "./base";
 
 export async function getPayrollPeriods(userId: string): Promise<PayrollPeriod[]> {
@@ -43,23 +43,24 @@ export async function createPayrollPeriod(userId: string, data: InsertPayrollPer
   const start = new Date(data.startDate).toISOString();
   const endInclusive = new Date(new Date(data.endDate).getTime() + 24 * 60 * 60_000 - 1).toISOString();
 
-  const logs = await db.select().from(timeLogs).where(
-    and(inArray(timeLogs.userId, userIds), isNotNull(timeLogs.clockOut))
+  const inWindowLogs = await db.select().from(timeLogs).where(
+    and(
+      inArray(timeLogs.userId, userIds),
+      isNotNull(timeLogs.clockOut),
+      gte(timeLogs.clockIn, start),
+      lte(timeLogs.clockIn, endInclusive),
+    )
   );
 
-  const tenantSales = await db.select().from(sales).where(
-    and(inArray(sales.userId, userIds), sql`${sales.deletedAt} IS NULL`)
+  const inWindowSales = await db.select().from(sales).where(
+    and(
+      inArray(sales.userId, userIds),
+      sql`${sales.deletedAt} IS NULL`,
+      gte(sales.createdAt, start),
+      lte(sales.createdAt, endInclusive),
+    )
   );
-  const inWindowSales = tenantSales.filter(s => {
-    const t = s.createdAt ?? "";
-    return t >= start && t <= endInclusive;
-  });
   const tipPool = inWindowSales.reduce((sum, s) => sum + (parseFloat(s.tip || "0") || 0), 0);
-
-  const inWindowLogs = logs.filter(l => {
-    const ci = l.clockIn ?? "";
-    return ci >= start && ci <= endInclusive;
-  });
 
   let totalAmount = 0;
   const entries: any[] = [];
@@ -175,8 +176,12 @@ export async function markPayrollPeriodPaid(id: number, userId: string): Promise
 export async function deletePayrollPeriod(id: number, userId: string): Promise<void> {
   const period = await getPayrollPeriod(id, userId);
   if (!period) return;
-  await db.update(payrollEntries).set({ notes: sql`COALESCE(notes, '')` } as any).where(eq(payrollEntries.periodId, id));
-  await db.update(payrollPeriods).set({ deletedAt: new Date().toISOString() } as any).where(eq(payrollPeriods.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(payrollEntries).where(eq(payrollEntries.periodId, id));
+    await tx.update(payrollPeriods)
+      .set({ deletedAt: new Date().toISOString() } as any)
+      .where(eq(payrollPeriods.id, id));
+  });
 }
 
 export async function updateUserWage(targetUserId: string, requesterId: string, data: { wageType: string; wageRate: string; commissionPercent: string }): Promise<any> {

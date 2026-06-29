@@ -29,7 +29,7 @@ When a file was moved from `server/storage/` → `server/infrastructure/persiste
 
 **How to apply:** After adding any new persistence file, grep for `from "\.\./` inside `server/infrastructure/persistence/` and confirm every hit resolves two directories up (to `server/`), not one.
 
-## Bugs fixed during migration
+## Bugs fixed during migration (round 1)
 
 | File | Bug | Fix |
 |---|---|---|
@@ -40,3 +40,13 @@ When a file was moved from `server/storage/` → `server/infrastructure/persiste
 | customers.ts | `redeemLoyaltyReward` not in a transaction | Wrapped all 3 mutations in `db.transaction()` |
 | inventory.ts | `adjustIngredientStock` allowed negative stock | `GREATEST(0, stock + delta)` in SQL |
 | orders.ts | Hardcoded `.limit(300)` | `opts?: { limit?, offset? }` added with sensible default |
+
+## Bugs fixed during audit (round 2 — previously-unmodified modules)
+
+| File | Bug | Fix |
+|---|---|---|
+| payroll.ts | `deletePayrollPeriod` updated entries' `notes` field instead of deleting — orphaned entries forever | `tx.delete(payrollEntries)` + soft-delete period in one transaction |
+| payroll.ts | `createPayrollPeriod` loaded ALL timeLogs then filtered by date in JS — full table scan | SQL `gte`/`lte` filter pushed to DB query |
+| suppliers.ts | `receivePurchaseOrder` incremented stock but wrote no stock log entries — silent audit gap | SELECT stock before update; insert stockLogs inside same transaction |
+| memberships.ts | `checkInMember` never enforced plan's `maxCheckIns` limit — unlimited check-ins possible | Fetch plan, compare `checkInsUsed >= maxCheckIns`, throw if exceeded |
+| memberships.ts | `getCheckIns` scoped by raw `userId` not tenant IDs — staff always got empty results | Added `getTenantUserIds` check, verify membership ownership before returning rows |

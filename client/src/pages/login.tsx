@@ -3,12 +3,10 @@ import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { useAuth, clearAuthCache } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { signalPostLoginNav, fetchSettingsFromNetwork } from "@/hooks/use-settings";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { apiRequest, setNativeToken, queryClient, nativeFetch } from "@/lib/queryClient";
-import { clearAllCache, initUserSession } from "@/lib/offline-db";
-import { prefetchBootstrapData } from "@/lib/prefetch";
 import { detectLocale } from "@/lib/locale-detect";
 import { getPricingByCurrency, formatPrice } from "@/lib/pricing";
 import gsap from "gsap";
@@ -327,8 +325,6 @@ export default function Login() {
     (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || null,
   );
 
-  const loginNavigatedRef = useRef(false);
-
   const [showLoginPanel, setShowLoginPanel] = useState(false);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [formName, setFormName] = useState("");
@@ -526,38 +522,10 @@ export default function Login() {
 
   useEffect(() => {
     if (isLoading || isPlaceholderData) return;
-    if (!isAuthenticated) {
-      sessionStorage.removeItem("artix-logout-pending");
-      return;
+    if (isAuthenticated) {
+      // Already authenticated — redirect to dashboard
+      setLocation("/");
     }
-    // Login handler already navigated — don't double-fire
-    // NOTE: do NOT reset loginNavigatedRef here. The login handler may still
-    // be awaiting fetchSettingsFromNetwork() when React re-renders again.
-    // Resetting the flag would let a second render sneak through and call
-    // setLocation("/") before settings are loaded → AppRouter has no data →
-    // redirects back to /login.
-    if (loginNavigatedRef.current) {
-      return;
-    }
-    const logoutPending = sessionStorage.getItem("artix-logout-pending") === "1";
-    if (logoutPending) {
-      sessionStorage.removeItem("artix-logout-pending");
-      (async () => {
-        try {
-          await nativeFetch("/auth/logout", { method: "POST" });
-        } catch {}
-        const { clearNativeToken } = await import("@/lib/queryClient");
-        clearNativeToken();
-        clearAuthCache();
-        await clearAllCache();
-        queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
-        queryClient.setQueryData(["auth-me"], null);
-        queryClient.clear();
-        window.location.replace("/login");
-      })();
-      return;
-    }
-    setLocation("/");
   }, [isAuthenticated, isLoading, isPlaceholderData, setLocation]);
 
   useEffect(() => {
@@ -693,53 +661,30 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        try {
-          localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
-        } catch {}
+        localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
 
-        // Store JWT as Bearer token so all requests work even when cookies are
-        // blocked (Replit iframe, Chrome third-party cookie restrictions).
         if (data.token) {
           setNativeToken(data.token);
         }
 
-        // ── CRITICAL: set these BEFORE setQueryData so the redirect effect
-        // (which fires when isAuthenticated flips to true) sees the guard flag
-        // before React re-renders. Without this the effect fires during the
-        // subsequent await and double-navigates.
-        loginNavigatedRef.current = true;
-        // Also arm the api.ts auth-state tracker immediately so the bootstrap
-        // prefetch 401 interceptor knows we have a valid session.
         const { setAuthenticatedUserId } = await import("@/lib/api");
         setAuthenticatedUserId(authUser.id);
 
-        // Cancel any in-flight auth-me fetch so it can't overwrite our setQueryData
-        await queryClient.cancelQueries({ queryKey: ["auth-me"] });
         queryClient.setQueryData(["auth-me"], authUser);
 
-        // Await settings NOW so AppRouter has data on first render — no blank flash
-        try {
-          const settings = await fetchSettingsFromNetwork();
-          if (settings !== undefined) {
-            queryClient.setQueryData(["/api/settings"], settings);
-          }
-        } catch {}
-
-        // Background-prefetch remaining bootstrap data
-        initUserSession(String(authUser.id))
-          .then(() => prefetchBootstrapData(String(authUser.id)))
+        // Prefetch settings in background — don't block navigation
+        fetchSettingsFromNetwork()
+          .then((settings) => {
+            if (settings !== undefined) {
+              queryClient.setQueryData(["/api/settings"], settings);
+            }
+          })
           .catch(() => {});
 
-        // Signal AppRouter to skip the LoadingScreen gate
         signalPostLoginNav();
 
-        // Compute destination from real settings so there's no /→/onboarding redirect
-        const settingsData = queryClient.getQueryData(["/api/settings"]) as
-          | { onboardingComplete?: boolean }
-          | undefined;
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
-        const needsOnboarding =
-          !settingsData?.onboardingComplete && !alreadyOnboarded && !authUser.tenantId;
+        const needsOnboarding = !alreadyOnboarded && !authUser.tenantId;
 
         setLocation(needsOnboarding ? "/onboarding" : "/");
       } else {
@@ -749,7 +694,6 @@ export default function Login() {
         queryClient.setQueryData(["auth-me"], null);
       }
     } catch {
-      loginNavigatedRef.current = false;
       setFormError("Network error. Please try again.");
     } finally {
       setFormLoading(false);

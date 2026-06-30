@@ -8,7 +8,6 @@ import {
 } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
-import { clearSettingsPrewarm } from "@/hooks/use-settings";
 import { setErrorCaptureUser } from "@/lib/error-capture";
 import type { UserRole } from "@shared/schema";
 
@@ -155,30 +154,15 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Let the server call throw if it fails — onError handles the retry.
-      await nativeFetch("/auth/logout", { method: "POST" });
+      // Fire-and-forget server call — we clear local state regardless
+      nativeFetch("/auth/logout", { method: "POST" }).catch(() => {});
+    },
+    onMutate: () => {
       clearNativeToken();
       saveCachedAuthUser(null);
-      await clearSettingsPrewarm().catch(() => {});
       clearAllCache().catch(() => {});
     },
-    onSuccess: () => {
-      queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
-      queryClient.setQueryData(["auth-me"], null);
-      queryClient.clear();
-      window.location.replace("/login");
-    },
-    onError: () => {
-      // Server logout failed (network / CSRF).  Set the pending flag so
-      // the login page retries the server-side logout before showing the
-      // form — otherwise the httpOnly cookie is still valid, fetchMe
-      // returns the user, and the login page redirects straight back to
-      // the dashboard.
-      try {
-        sessionStorage.setItem("artix-logout-pending", "1");
-      } catch {}
-      clearNativeToken();
-      saveCachedAuthUser(null);
+    onSettled: () => {
       queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();

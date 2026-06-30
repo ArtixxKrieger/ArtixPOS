@@ -62,8 +62,20 @@ type FilterTab = "all" | "low" | "out";
 type SortKey = "name" | "stock" | "cost" | "value";
 
 const UNITS = [
-  "g", "kg", "ml", "l", "pcs", "cup",
-  "tbsp", "tsp", "oz", "lb", "box", "bag", "bottle", "pack",
+  "g",
+  "kg",
+  "ml",
+  "l",
+  "pcs",
+  "cup",
+  "tbsp",
+  "tsp",
+  "oz",
+  "lb",
+  "box",
+  "bag",
+  "bottle",
+  "pack",
 ];
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -92,7 +104,9 @@ function StatCard({
         <Icon className="h-5 w-5" strokeWidth={1.8} />
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide truncate">
+          {label}
+        </p>
         <p className="text-lg font-black leading-tight tabular-nums">{value}</p>
         {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
       </div>
@@ -103,9 +117,7 @@ function StatCard({
 function UsedInBadge({ ingredientId }: { ingredientId: number }) {
   const { data: products = [] } = useQuery<ProductUsage[]>({
     queryKey: ["/api/ingredients", ingredientId, "products"],
-    queryFn: () =>
-      nativeFetch(`/api/ingredients/${ingredientId}/products`)
-        .then((r) => r.json()),
+    queryFn: () => nativeFetch(`/api/ingredients/${ingredientId}/products`).then((r) => r.json()),
     staleTime: 60_000,
   });
   if (products.length === 0) return null;
@@ -122,7 +134,16 @@ function UsedInBadge({ ingredientId }: { ingredientId: number }) {
 
 function exportToCSV(ingredients: Ingredient[], _currency: string = "") {
   const rows = [
-    ["Name", "Unit", "Stock Qty", "Cost / Unit", "Total Value", "Low Stock Threshold", "Status", "Notes"],
+    [
+      "Name",
+      "Unit",
+      "Stock Qty",
+      "Cost / Unit",
+      "Total Value",
+      "Low Stock Threshold",
+      "Status",
+      "Notes",
+    ],
     ...ingredients.map((ing) => {
       const stock = Number(ing.stockQty || "0");
       const cost = Number(ing.costPerUnit || "0");
@@ -142,7 +163,9 @@ function exportToCSV(ingredients: Ingredient[], _currency: string = "") {
       ];
     }),
   ];
-  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const csv = rows
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -179,8 +202,13 @@ export default function Ingredients() {
   const [formCostPerUnit, setFormCostPerUnit] = useState("0");
   const [formNotes, setFormNotes] = useState("");
 
-  const { data: ingredients = [], isLoading } = useQuery<Ingredient[]>({
+  const { data: ingredients = [], isLoading } = useQuery<
+    { data: Ingredient[]; meta: unknown },
+    Error,
+    Ingredient[]
+  >({
     queryKey: ["/api/ingredients"],
+    select: (res) => res?.data ?? [],
   });
 
   const createMutation = useMutation({
@@ -245,22 +273,36 @@ export default function Ingredients() {
   });
 
   const resetForm = () => {
-    setFormName(""); setFormUnit("kg"); setFormStockQty("0");
-    setFormThreshold("0"); setFormCostPerUnit("0"); setFormNotes("");
+    setFormName("");
+    setFormUnit("kg");
+    setFormStockQty("0");
+    setFormThreshold("0");
+    setFormCostPerUnit("0");
+    setFormNotes("");
   };
 
-  const openCreate = () => { setEditingId(null); resetForm(); setIsDialogOpen(true); };
+  const openCreate = () => {
+    setEditingId(null);
+    resetForm();
+    setIsDialogOpen(true);
+  };
 
   const openEdit = (ing: Ingredient) => {
     setEditingId(ing.id);
-    setFormName(ing.name); setFormUnit(ing.unit);
-    setFormStockQty(ing.stockQty); setFormThreshold(ing.lowStockThreshold || "0");
-    setFormCostPerUnit(ing.costPerUnit || "0"); setFormNotes(ing.notes || "");
+    setFormName(ing.name);
+    setFormUnit(ing.unit);
+    setFormStockQty(ing.stockQty);
+    setFormThreshold(ing.lowStockThreshold || "0");
+    setFormCostPerUnit(ing.costPerUnit || "0");
+    setFormNotes(ing.notes || "");
     setIsDialogOpen(true);
   };
 
   const openAdjust = (ing: Ingredient) => {
-    setAdjustTarget(ing); setAdjustAmt(""); setAdjustMode("add"); setAdjustOpen(true);
+    setAdjustTarget(ing);
+    setAdjustAmt("");
+    setAdjustMode("add");
+    setAdjustOpen(true);
   };
 
   const confirmAdjust = () => {
@@ -293,12 +335,14 @@ export default function Ingredients() {
 
   const stats = useMemo(() => {
     const low = ingredients.filter((i) => {
-      const s = Number(i.stockQty || "0"), t = Number(i.lowStockThreshold || "0");
+      const s = Number(i.stockQty || "0"),
+        t = Number(i.lowStockThreshold || "0");
       return s > 0 && t > 0 && s <= t;
     });
     const out = ingredients.filter((i) => Number(i.stockQty || "0") === 0);
     const totalValue = ingredients.reduce(
-      (sum, i) => sum + Number(i.stockQty || "0") * Number(i.costPerUnit || "0"), 0
+      (sum, i) => sum + Number(i.stockQty || "0") * Number(i.costPerUnit || "0"),
+      0,
     );
     return { total: ingredients.length, low: low.length, out: out.length, totalValue };
   }, [ingredients]);
@@ -311,7 +355,8 @@ export default function Ingredients() {
     }
     if (filterTab === "low") {
       list = list.filter((i) => {
-        const s = Number(i.stockQty || "0"), t = Number(i.lowStockThreshold || "0");
+        const s = Number(i.stockQty || "0"),
+          t = Number(i.lowStockThreshold || "0");
         return s > 0 && t > 0 && s <= t;
       });
     } else if (filterTab === "out") {
@@ -348,7 +393,8 @@ export default function Ingredients() {
             Ingredients
           </h2>
           <p className="text-xs text-muted-foreground font-medium mt-0.5">
-            {stats.total} ingredient{stats.total !== 1 ? "s" : ""} · {stats.low} low · {stats.out} out
+            {stats.total} ingredient{stats.total !== 1 ? "s" : ""} · {stats.low} low · {stats.out}{" "}
+            out
           </p>
         </div>
 
@@ -367,13 +413,22 @@ export default function Ingredients() {
           {}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-10 rounded-2xl border-none bg-card shadow-sm shrink-0" data-testid="button-sort-ingredients">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-2xl border-none bg-card shadow-sm shrink-0"
+                data-testid="button-sort-ingredients"
+              >
                 <ArrowUpDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-                <DropdownMenuItem key={k} onClick={() => setSortKey(k)} className="flex items-center justify-between">
+                <DropdownMenuItem
+                  key={k}
+                  onClick={() => setSortKey(k)}
+                  className="flex items-center justify-between"
+                >
                   {SORT_LABELS[k]}
                   {sortKey === k && <Check className="h-3.5 w-3.5 text-primary" />}
                 </DropdownMenuItem>
@@ -426,14 +481,20 @@ export default function Ingredients() {
             label="Low Stock"
             value={stats.low}
             sub={stats.low === 0 ? "all good" : "need restock"}
-            color={stats.low > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted/40 text-muted-foreground"}
+            color={
+              stats.low > 0
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : "bg-muted/40 text-muted-foreground"
+            }
           />
           <StatCard
             icon={CircleSlash}
             label="Out of Stock"
             value={stats.out}
             sub={stats.out === 0 ? "none depleted" : "depleted"}
-            color={stats.out > 0 ? "bg-rose-500/10 text-rose-500" : "bg-muted/40 text-muted-foreground"}
+            color={
+              stats.out > 0 ? "bg-rose-500/10 text-rose-500" : "bg-muted/40 text-muted-foreground"
+            }
           />
         </div>
       )}
@@ -458,8 +519,8 @@ export default function Ingredients() {
                   tab.key === "low"
                     ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                     : tab.key === "out"
-                    ? "bg-rose-500/15 text-rose-500"
-                    : "bg-primary/10 text-primary"
+                      ? "bg-rose-500/15 text-rose-500"
+                      : "bg-primary/10 text-primary"
                 }`}
               >
                 {tab.count}
@@ -476,14 +537,18 @@ export default function Ingredients() {
             <FlaskConical className="h-8 w-8 opacity-20" strokeWidth={1.5} />
           </div>
           <p className="font-bold text-base">
-            {search ? "No results found" : filterTab !== "all" ? `No ${filterTab === "low" ? "low stock" : "out of stock"} items` : "No ingredients yet"}
+            {search
+              ? "No results found"
+              : filterTab !== "all"
+                ? `No ${filterTab === "low" ? "low stock" : "out of stock"} items`
+                : "No ingredients yet"}
           </p>
           <p className="text-sm text-muted-foreground/70 max-w-xs leading-relaxed">
             {search
               ? `No ingredients match "${search}"`
               : filterTab !== "all"
-              ? "Everything looks good in this category."
-              : "Add raw materials you use in your products — coffee beans, flour, milk, etc."}
+                ? "Everything looks good in this category."
+                : "Add raw materials you use in your products — coffee beans, flour, milk, etc."}
           </p>
           {!search && filterTab === "all" && (
             <Button onClick={openCreate} className="mt-2 rounded-2xl" size="sm">
@@ -524,7 +589,9 @@ export default function Ingredients() {
                 {}
                 <div className="flex items-center gap-3 px-3.5 py-3">
                   {}
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${stockBg}`}>
+                  <div
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${stockBg}`}
+                  >
                     <Package className={`h-5 w-5 ${stockColor} opacity-70`} strokeWidth={1.5} />
                   </div>
 
@@ -532,7 +599,10 @@ export default function Ingredients() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm leading-tight truncate">{ing.name}</p>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-semibold rounded-md">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 px-1.5 font-semibold rounded-md"
+                      >
                         {ing.unit}
                       </Badge>
                       {cost > 0 && (
@@ -554,7 +624,9 @@ export default function Ingredients() {
                     <p className={`font-black text-base tabular-nums leading-none ${stockColor}`}>
                       {ing.stockQty}
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{ing.unit}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                      {ing.unit}
+                    </p>
                     {cost > 0 && (
                       <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                         {formatCurrency(totalValue.toFixed(2), currency)}
@@ -562,8 +634,12 @@ export default function Ingredients() {
                     )}
                     {(isOut || isLow) && (
                       <div className="flex items-center gap-0.5 justify-end mt-0.5">
-                        <AlertTriangle className={`h-3 w-3 ${isOut ? "text-rose-500" : "text-amber-500"}`} />
-                        <span className={`text-[10px] font-bold ${isOut ? "text-rose-500" : "text-amber-500"}`}>
+                        <AlertTriangle
+                          className={`h-3 w-3 ${isOut ? "text-rose-500" : "text-amber-500"}`}
+                        />
+                        <span
+                          className={`text-[10px] font-bold ${isOut ? "text-rose-500" : "text-amber-500"}`}
+                        >
                           {isOut ? "OUT" : "LOW"}
                         </span>
                       </div>
@@ -609,7 +685,9 @@ export default function Ingredients() {
                   {}
                   {isPendingDelete ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-destructive font-semibold mr-1 hidden xs:inline">Delete?</span>
+                      <span className="text-[11px] text-destructive font-semibold mr-1 hidden xs:inline">
+                        Delete?
+                      </span>
                       <button
                         onClick={() => confirmDelete(ing.id)}
                         className="h-8 px-3 rounded-xl bg-destructive/10 text-destructive text-xs font-bold hover:bg-destructive/20 transition-colors flex items-center gap-1"
@@ -653,7 +731,13 @@ export default function Ingredients() {
       )}
 
       {}
-      <Dialog open={adjustOpen} onOpenChange={(v) => { setAdjustOpen(v); if (!v) setAdjustTarget(null); }}>
+      <Dialog
+        open={adjustOpen}
+        onOpenChange={(v) => {
+          setAdjustOpen(v);
+          if (!v) setAdjustTarget(null);
+        }}
+      >
         <DialogContent className="w-[calc(100vw-24px)] sm:max-w-[360px] rounded-3xl border-none shadow-2xl p-0">
           <div className="px-5 pt-5 pb-3 border-b border-border/30">
             <DialogHeader>
@@ -670,7 +754,8 @@ export default function Ingredients() {
               <div className="bg-muted/40 rounded-xl px-4 py-2.5 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground font-medium">Current stock</span>
                 <span className="font-black tabular-nums">
-                  {adjustTarget.stockQty} <span className="font-medium text-muted-foreground">{adjustTarget.unit}</span>
+                  {adjustTarget.stockQty}{" "}
+                  <span className="font-medium text-muted-foreground">{adjustTarget.unit}</span>
                 </span>
               </div>
             )}
@@ -681,7 +766,9 @@ export default function Ingredients() {
                   key={m}
                   onClick={() => setAdjustMode(m)}
                   className={`py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
-                    adjustMode === m ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                    adjustMode === m
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground"
                   }`}
                   data-testid={`button-adjust-mode-${m}`}
                 >
@@ -713,9 +800,9 @@ export default function Ingredients() {
                   {adjustMode === "set"
                     ? Number(adjustAmt)
                     : adjustMode === "add"
-                    ? Number(adjustTarget.stockQty) + Number(adjustAmt)
-                    : Math.max(0, Number(adjustTarget.stockQty) - Number(adjustAmt))
-                  } {adjustTarget.unit}
+                      ? Number(adjustTarget.stockQty) + Number(adjustAmt)
+                      : Math.max(0, Number(adjustTarget.stockQty) - Number(adjustAmt))}{" "}
+                  {adjustTarget.unit}
                 </span>
               </div>
             )}
@@ -736,7 +823,13 @@ export default function Ingredients() {
       {}
       <Dialog
         open={isDialogOpen}
-        onOpenChange={(v) => { setIsDialogOpen(v); if (!v) { resetForm(); setEditingId(null); } }}
+        onOpenChange={(v) => {
+          setIsDialogOpen(v);
+          if (!v) {
+            resetForm();
+            setEditingId(null);
+          }
+        }}
       >
         <DialogContent className="w-[calc(100vw-24px)] sm:max-w-[460px] max-h-[90dvh] overflow-y-auto rounded-3xl border-none shadow-2xl p-0">
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm px-5 pt-5 pb-3 border-b border-border/30">
@@ -752,7 +845,9 @@ export default function Ingredients() {
 
           <div className="px-5 py-4 space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ingredient Name</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Ingredient Name
+              </label>
               <Input
                 className="h-11 rounded-xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 placeholder="e.g. Coffee Beans, Whole Milk"
@@ -765,13 +860,19 @@ export default function Ingredients() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Unit</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Unit
+                </label>
                 <Select value={formUnit} onValueChange={setFormUnit}>
                   <SelectTrigger className="h-11 rounded-xl bg-muted/50 border-none focus:ring-2 focus:ring-primary/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="max-h-52">
-                    {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    {UNITS.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -781,7 +882,11 @@ export default function Ingredients() {
                 </label>
                 <Input
                   className="h-11 rounded-xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
                   value={formCostPerUnit}
                   onChange={(e) => setFormCostPerUnit(e.target.value)}
                   data-testid="input-ingredient-cost"
@@ -791,20 +896,32 @@ export default function Ingredients() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stock Qty</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Stock Qty
+                </label>
                 <Input
                   className="h-11 rounded-xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  type="number" inputMode="decimal" min="0" step="0.01" placeholder="0"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
                   value={formStockQty}
                   onChange={(e) => setFormStockQty(e.target.value)}
                   data-testid="input-ingredient-stock"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Low Stock Alert</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Low Stock Alert
+                </label>
                 <Input
                   className="h-11 rounded-xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  type="number" inputMode="decimal" min="0" step="0.01" placeholder="0"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
                   value={formThreshold}
                   onChange={(e) => setFormThreshold(e.target.value)}
                   data-testid="input-ingredient-threshold"
@@ -814,7 +931,10 @@ export default function Ingredients() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Notes <span className="normal-case font-normal ml-1 text-muted-foreground/60">(optional)</span>
+                Notes{" "}
+                <span className="normal-case font-normal ml-1 text-muted-foreground/60">
+                  (optional)
+                </span>
               </label>
               <Textarea
                 className="resize-none rounded-xl bg-muted/50 border-none text-sm focus-visible:ring-2 focus-visible:ring-primary/30"
@@ -831,7 +951,10 @@ export default function Ingredients() {
             <Button
               className="w-full rounded-2xl h-12 font-bold text-sm"
               disabled={isPending || !formName.trim()}
-              onClick={() => { if (editingId) updateMutation.mutate(); else createMutation.mutate(); }}
+              onClick={() => {
+                if (editingId) updateMutation.mutate();
+                else createMutation.mutate();
+              }}
               data-testid="button-submit-ingredient"
             >
               {isPending ? "Saving…" : editingId ? "Save Changes" : "Add Ingredient"}

@@ -19,7 +19,11 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
 function isNativePlatform(): boolean {
   try {
-    return (window as any).Capacitor?.isNativePlatform?.() === true;
+    return (
+      (
+        window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }
+      ).Capacitor?.isNativePlatform?.() === true
+    );
   } catch {
     return false;
   }
@@ -44,7 +48,7 @@ async function nativeGoogleSignIn(): Promise<string> {
   const webClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
   const iosClientId = (import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID as string) || webClientId;
   const platform = Capacitor.getPlatform();
-  const initOptions: Record<string, any> = {
+  const initOptions: Record<string, string | boolean | string[]> = {
     scopes: ["profile", "email"],
     grantOfflineAccess: true,
   };
@@ -52,11 +56,11 @@ async function nativeGoogleSignIn(): Promise<string> {
   if (platform === "ios" && iosClientId) initOptions.clientId = iosClientId;
   else if (webClientId) initOptions.clientId = webClientId;
   await GoogleAuth.initialize(initOptions);
-  let googleUser: any;
+  let googleUser: { authentication?: { idToken?: string } };
   try {
     googleUser = await GoogleAuth.signIn();
-  } catch (e: any) {
-    throw new Error(diagnoseNativeError(e?.message ?? String(e)));
+  } catch (e: unknown) {
+    throw new Error(diagnoseNativeError((e as Error)?.message ?? String(e)));
   }
   const idToken = googleUser?.authentication?.idToken;
   if (!idToken) throw new Error(diagnoseNativeError("no id token returned"));
@@ -114,22 +118,6 @@ function useScrollReveal() {
     document.querySelectorAll(".sr").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
-}
-
-function useCountUp(target: number, visible: boolean, duration = 1200) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!visible) return;
-    let start = 0;
-    const step = target / (duration / 16);
-    const tick = () => {
-      start = Math.min(start + step, target);
-      setVal(Math.round(start));
-      if (start < target) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [visible]);
-  return val;
 }
 
 function useCardTilt() {}
@@ -313,7 +301,7 @@ function useLandingAnimations(
       ScrollTrigger.getAll().forEach((t) => t.kill());
       extraCleanup.forEach((fn) => fn());
     };
-  }, []);
+  }, [dashWrapRef, lpScrollRef]);
 }
 
 const POS_DEMO = [
@@ -396,7 +384,7 @@ export default function Login() {
   }, []);
 
   const statsRef = useRef<HTMLDivElement>(null);
-  const [statsVisible, setStatsVisible] = useState(false);
+  const [, setStatsVisible] = useState(false);
   const lpScrollRef = useRef<HTMLDivElement>(null);
   const mockSectionRef = useRef<HTMLDivElement>(null);
   const [mockVisible, setMockVisible] = useState(false);
@@ -534,7 +522,7 @@ export default function Login() {
         window.history.replaceState({}, "", "/login");
       })();
     }
-  }, [isLoading]);
+  }, [isLoading, isAuthenticated]);
 
   useEffect(() => {
     if (isLoading || isPlaceholderData) return;
@@ -590,7 +578,7 @@ export default function Login() {
         if (cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
       })
       .catch(() => {});
-  }, []);
+  }, [googleClientId]);
 
   const urlParams = new URLSearchParams(window.location.search);
   const error = urlParams.get("error");
@@ -633,8 +621,8 @@ export default function Login() {
       if (userFromToken) queryClient.setQueryData(["auth-me"], userFromToken);
       else await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
+    } catch (err: unknown) {
+      const msg: string = (err as Error)?.message ?? String(err);
       const isUserCancel =
         msg.toLowerCase().includes("cancel") ||
         msg.toLowerCase().includes("dismissed") ||
@@ -686,7 +674,7 @@ export default function Login() {
     setFormLoading(true);
     try {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
-      const body: any = { email: formEmail, password: formPassword };
+      const body: Record<string, string | boolean> = { email: formEmail, password: formPassword };
       if (mode === "register") body.name = formName;
       if (mode === "signin") body.rememberMe = rememberMe;
       const res = await nativeFetch(endpoint, {
@@ -742,7 +730,9 @@ export default function Login() {
         signalPostLoginNav();
 
         // Compute destination from real settings so there's no /→/onboarding redirect
-        const settingsData = queryClient.getQueryData(["/api/settings"]) as any;
+        const settingsData = queryClient.getQueryData(["/api/settings"]) as
+          | { onboardingComplete?: boolean }
+          | undefined;
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
         const needsOnboarding =
           !settingsData?.onboardingComplete && !alreadyOnboarded && !authUser.tenantId;
@@ -1779,7 +1769,7 @@ export default function Login() {
         position: "fixed",
         inset: 0,
         overflowY: "auto",
-        WebkitOverflowScrolling: "touch" as any,
+        WebkitOverflowScrolling: "touch" as const,
         background: DARK,
         color: "#fff",
         fontFamily: "var(--font-sans, system-ui, sans-serif)",

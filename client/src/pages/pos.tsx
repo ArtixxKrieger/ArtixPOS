@@ -14,9 +14,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ShoppingCart, Plus, Minus, Trash2, Package, ChevronRight, NotebookPen, UserCircle2, X, CheckCircle2, Percent, Barcode, Star, Delete, Utensils, ShoppingBag, Camera, Truck, Scissors } from "lucide-react";
+import {
+  Search,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Package,
+  ChevronRight,
+  NotebookPen,
+  UserCircle2,
+  X,
+  CheckCircle2,
+  Percent,
+  Barcode,
+  Star,
+  Delete,
+  Utensils,
+  ShoppingBag,
+  Camera,
+  Truck,
+  Scissors,
+} from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBusinessTerminology } from "@/hooks/use-branch-business";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +64,6 @@ import { playCheckout, playAddItem, playMilestone } from "@/lib/sounds";
 import { hapticLight, hapticSuccess, hapticMilestone } from "@/lib/haptics";
 import { useMilestones, addToTodayTotal } from "@/hooks/use-milestones";
 import { BillSplitDialog, type SplitPortion } from "@/components/bill-split-dialog";
-import { ConfettiBurst } from "@/components/confetti";
 
 function useGridCols(): 2 | 3 | 4 {
   const get = (): 2 | 3 | 4 => {
@@ -59,7 +85,12 @@ type ProductCardProps = {
   addToCartLabel: string;
   currency: string;
 };
-const ProductCard = memo(function ProductCard({ product, onClick, addToCartLabel, currency }: ProductCardProps) {
+const ProductCard = memo(function ProductCard({
+  product,
+  onClick,
+  addToCartLabel,
+  currency,
+}: ProductCardProps) {
   const { t } = useTranslation();
   return (
     <button
@@ -67,10 +98,12 @@ const ProductCard = memo(function ProductCard({ product, onClick, addToCartLabel
       onClick={() => onClick(product)}
       className="group text-left bg-card rounded-3xl shadow-sm border border-border/30 overflow-hidden hover:shadow-xl hover:-translate-y-1 active:scale-[0.97] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
-      <div className={[
-        "pos-card-sweep aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
-        product.trackStock && product.stock === 0 ? "opacity-50" : "",
-      ].join(" ")}>
+      <div
+        className={[
+          "pos-card-sweep aspect-square bg-gradient-to-br from-secondary/60 to-muted/30 flex items-center justify-center relative overflow-hidden",
+          product.trackStock && product.stock === 0 ? "opacity-50" : "",
+        ].join(" ")}
+      >
         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <Package
           className="h-14 w-14 md:h-16 md:w-16 text-primary/25 group-hover:scale-110 group-hover:text-primary/40 transition-all duration-500"
@@ -82,36 +115,48 @@ const ProductCard = memo(function ProductCard({ product, onClick, addToCartLabel
         >
           <Plus className="h-3.5 w-3.5 text-white" />
         </div>
-        {product.trackStock && typeof product.stock === "number" && product.stock <= Math.max(0, product.lowStockThreshold ?? 5) && (
-          <div className={[
-            "absolute top-2 left-2 px-2 py-1 rounded-full text-[9px] font-bold tracking-wide backdrop-blur-sm border shadow-sm",
-            product.stock === 0
-              ? "bg-rose-500/90 text-white border-rose-300/30"
-              : "bg-amber-500/90 text-white border-amber-300/30",
-          ].join(" ")}>
-            {product.stock === 0 ? t("pos.outOfStock") : `${product.stock} ${t("pos.left")}`}
-          </div>
-        )}
+        {product.trackStock &&
+          typeof product.stock === "number" &&
+          product.stock <= Math.max(0, product.lowStockThreshold ?? 5) && (
+            <div
+              className={[
+                "absolute top-2 left-2 px-2 py-1 rounded-full text-[9px] font-bold tracking-wide backdrop-blur-sm border shadow-sm",
+                product.stock === 0
+                  ? "bg-rose-500/90 text-white border-rose-300/30"
+                  : "bg-amber-500/90 text-white border-amber-300/30",
+              ].join(" ")}
+            >
+              {product.stock === 0 ? t("pos.outOfStock") : `${product.stock} ${t("pos.left")}`}
+            </div>
+          )}
       </div>
       <div className="p-3">
-        <h3 className={[
-          "font-bold text-sm leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2",
-          product.trackStock && product.stock === 0 ? "text-muted-foreground/60" : "",
-        ].join(" ")}>
+        <h3
+          className={[
+            "font-bold text-sm leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2",
+            product.trackStock && product.stock === 0 ? "text-muted-foreground/60" : "",
+          ].join(" ")}
+        >
           {product.name}
         </h3>
         <div className="flex items-center justify-between gap-1">
-          <p className={[
-            "font-black text-base tabular-nums",
-            product.trackStock && product.stock === 0 ? "text-muted-foreground/50" : "text-primary",
-          ].join(" ")}>
+          <p
+            className={[
+              "font-black text-base tabular-nums",
+              product.trackStock && product.stock === 0
+                ? "text-muted-foreground/50"
+                : "text-primary",
+            ].join(" ")}
+          >
             {Array.isArray(product.sizes) && product.sizes.length > 0
               ? `${formatCurrency(product.sizes[0].price, currency)}+`
               : formatCurrency(product.price, currency)}
           </p>
         </div>
         {product.category && (
-          <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium">{product.category}</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium">
+            {product.category}
+          </p>
         )}
       </div>
     </button>
@@ -147,11 +192,9 @@ export default function POS() {
   const businessSubType = (settings as any)?.businessSubType;
   const isFoodBeverage = (settings as any)?.businessType === "food_beverage";
   const isCafeStyle =
-    isFoodBeverage &&
-    (CAFE_STYLE_BUSINESS_SUBTYPES as readonly string[]).includes(businessSubType);
+    isFoodBeverage && (CAFE_STYLE_BUSINESS_SUBTYPES as readonly string[]).includes(businessSubType);
   const canSplitBill =
-    isFoodBeverage &&
-    (businessSubType === "restaurant" || businessSubType === "bar");
+    isFoodBeverage && (businessSubType === "restaurant" || businessSubType === "bar");
 
   const {
     cart,
@@ -166,16 +209,14 @@ export default function POS() {
     clearCart,
   } = useCart(toast);
 
-  const [showConfetti, setShowConfetti]           = useState(false);
-  const [milestone, setMilestone]                 = useState<{ label: string; emoji: string } | null>(null);
-  const [saleFlash, setSaleFlash]                 = useState<{ amount: string; key: number } | null>(null);
-  const sessionFrequency                          = useRef<Map<number, number>>(new Map());
-  const [freqVersion, setFreqVersion]             = useState(0);
+  const [milestone, setMilestone] = useState<{ label: string; emoji: string } | null>(null);
+  const [saleFlash, setSaleFlash] = useState<{ amount: string; key: number } | null>(null);
+  const sessionFrequency = useRef<Map<number, number>>(new Map());
+  const [freqVersion, setFreqVersion] = useState(0);
 
   const { check: checkMilestone } = useMilestones(
     useCallback((label: string, emoji: string) => {
       setMilestone({ label, emoji });
-      setShowConfetti(true);
       playMilestone();
       hapticMilestone();
       setTimeout(() => setMilestone(null), 3600);
@@ -183,7 +224,7 @@ export default function POS() {
     settings?.currency || "",
   );
 
-const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [category, setCategory] = useState<string>("all");
   const [discount, setDiscount] = useState(0);
@@ -222,7 +263,11 @@ const [search, setSearch] = useState("");
   const { data: customers = [] } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
 
   const [discountCodeInput, setDiscountCodeInput] = useState("");
-  const [appliedCode, setAppliedCode] = useState<{ code: string; discountAmount: number; type: string } | null>(null);
+  const [appliedCode, setAppliedCode] = useState<{
+    code: string;
+    discountAmount: number;
+    type: string;
+  } | null>(null);
 
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanFlash, setScanFlash] = useState(false);
@@ -233,11 +278,12 @@ const [search, setSearch] = useState("");
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
-  const paymentMethods: { id: string; label: string; isCash: boolean }[] =
-    (settings as any)?.paymentMethods?.length
-      ? (settings as any).paymentMethods
-      : DEFAULT_PAYMENT_METHODS;
-  const selectedPaymentDef = paymentMethods.find(m => m.id === paymentMethod) ?? paymentMethods[0];
+  const paymentMethods: { id: string; label: string; isCash: boolean }[] = (settings as any)
+    ?.paymentMethods?.length
+    ? (settings as any).paymentMethods
+    : DEFAULT_PAYMENT_METHODS;
+  const selectedPaymentDef =
+    paymentMethods.find((m) => m.id === paymentMethod) ?? paymentMethods[0];
   const isCashPayment = selectedPaymentDef?.isCash ?? false;
   const currency = settings?.currency || "₱";
 
@@ -252,15 +298,8 @@ const [search, setSearch] = useState("");
       ? loyaltyPointsToRedeem / loyaltyRedemptionRate
       : 0;
 
-  const {
-    subtotal,
-    tax,
-    taxRate,
-    total,
-    effectiveDiscount,
-    discountedSubtotal,
-    scPwdDiscount,
-  } = useCartTotals({ cart, discount, loyaltyDiscount, globalTaxRate, isScPwd });
+  const { subtotal, tax, taxRate, total, effectiveDiscount, discountedSubtotal, scPwdDiscount } =
+    useCartTotals({ cart, discount, loyaltyDiscount, globalTaxRate, isScPwd });
 
   const maxRedeemablePoints = selectedCustomer
     ? Math.min(selectedCustomer.loyaltyPoints ?? 0, Math.floor(subtotal * loyaltyRedemptionRate))
@@ -271,27 +310,27 @@ const [search, setSearch] = useState("");
   const changeAmount = isCashPayment ? Math.max(0, numericPayment - total) : 0;
 
   const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category || "General"));
+    const cats = new Set(products.map((p) => p.category || "General"));
     return ["all", ...Array.from(cats)];
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    const list = products.filter(p => {
+    const list = products.filter((p) => {
       const matchSearch = p.name.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchCat = category === "all" || p.category === category;
       return matchSearch && matchCat;
     });
 
     if (!debouncedSearch && sessionFrequency.current.size > 0) {
-      return [...list].sort((a, b) =>
-        (sessionFrequency.current.get(b.id) ?? 0) - (sessionFrequency.current.get(a.id) ?? 0),
+      return [...list].sort(
+        (a, b) =>
+          (sessionFrequency.current.get(b.id) ?? 0) - (sessionFrequency.current.get(a.id) ?? 0),
       );
     }
     return list;
+  }, [products, debouncedSearch, category, freqVersion]);
 
-}, [products, debouncedSearch, category, freqVersion]);
-
-const productScrollRef = useRef<HTMLDivElement>(null);
+  const productScrollRef = useRef<HTMLDivElement>(null);
   const cols = useGridCols();
   const rowCount = Math.ceil(filteredProducts.length / cols);
   const rowVirtualizer = useVirtualizer({
@@ -301,37 +340,44 @@ const productScrollRef = useRef<HTMLDivElement>(null);
     overscan: 3,
   });
 
-useEffect(() => {
+  useEffect(() => {
     productScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [debouncedSearch, category]);
 
-  const handleProductClick = useCallback((product: Product) => {
-    if (Array.isArray(product.sizes) && product.sizes.length > 0) {
-      setSelectedProduct(product);
-      setTempSize(product.sizes[0] || null);
-    } else {
-      addToCart(product);
+  const handleProductClick = useCallback(
+    (product: Product) => {
+      if (Array.isArray(product.sizes) && product.sizes.length > 0) {
+        setSelectedProduct(product);
+        setTempSize(product.sizes[0] || null);
+      } else {
+        addToCart(product);
 
-      playAddItem();
-      hapticLight();
+        playAddItem();
+        hapticLight();
 
-      sessionFrequency.current.set(
-        product.id,
-        (sessionFrequency.current.get(product.id) ?? 0) + 1,
-      );
-      setFreqVersion(v => v + 1);
-      setSelectedProduct(null);
-      setTempSize(null);
-      setTempNote("");
-    }
-  }, [addToCart]);
+        sessionFrequency.current.set(
+          product.id,
+          (sessionFrequency.current.get(product.id) ?? 0) + 1,
+        );
+        setFreqVersion((v) => v + 1);
+        setSelectedProduct(null);
+        setTempSize(null);
+        setTempNote("");
+      }
+    },
+    [addToCart],
+  );
 
-const handleProductClickRef = useRef(handleProductClick);
-  useEffect(() => { handleProductClickRef.current = handleProductClick; }, [handleProductClick]);
+  const handleProductClickRef = useRef(handleProductClick);
+  useEffect(() => {
+    handleProductClickRef.current = handleProductClick;
+  }, [handleProductClick]);
 
   const barcodeLookupMutation = useMutation({
     mutationFn: (barcode: string) =>
-      apiRequest("GET", `/api/products/barcode/${encodeURIComponent(barcode)}`).then(r => r.json()),
+      apiRequest("GET", `/api/products/barcode/${encodeURIComponent(barcode)}`).then((r) =>
+        r.json(),
+      ),
     onSuccess: (product: Product) => {
       handleProductClickRef.current(product);
       setBarcodeInput("");
@@ -343,11 +389,14 @@ const handleProductClickRef = useRef(handleProductClick);
     },
   });
 
-const handleBarcodeKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && barcodeInput.trim()) {
-      barcodeLookupMutation.mutate(barcodeInput.trim());
-    }
-  }, [barcodeInput, barcodeLookupMutation]);
+  const handleBarcodeKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && barcodeInput.trim()) {
+        barcodeLookupMutation.mutate(barcodeInput.trim());
+      }
+    },
+    [barcodeInput, barcodeLookupMutation],
+  );
 
   useBarcodeScanner({
     dedicatedInputRef: barcodeRef,
@@ -355,19 +404,27 @@ const handleBarcodeKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElemen
       setScanFlash(true);
       setTimeout(() => setScanFlash(false), 800);
     }, []),
-    onScan: useCallback((barcode: string) => barcodeLookupMutation.mutate(barcode), [barcodeLookupMutation]),
+    onScan: useCallback(
+      (barcode: string) => barcodeLookupMutation.mutate(barcode),
+      [barcodeLookupMutation],
+    ),
   });
 
   const validateDiscountMutation = useMutation({
     mutationFn: (params: { code: string; orderTotal: number }) =>
-      apiRequest("POST", "/api/discount-codes/validate", params).then(r => r.json()),
+      apiRequest("POST", "/api/discount-codes/validate", params).then((r) => r.json()),
     onSuccess: (data: any) => {
       setAppliedCode({ code: data.code, discountAmount: data.discountAmount, type: data.type });
       setDiscount(data.discountAmount);
-      toast({ title: `Code applied: ${data.discountAmount > 0 ? formatCurrency(data.discountAmount, currency) + " off" : ""}` });
+      toast({
+        title: `Code applied: ${data.discountAmount > 0 ? formatCurrency(data.discountAmount, currency) + " off" : ""}`,
+      });
     },
     onError: async (err: any) => {
-      const msg = await (err?.response?.json?.().then((d: any) => d.message).catch(() => null));
+      const msg = await err?.response
+        ?.json?.()
+        .then((d: any) => d.message)
+        .catch(() => null);
       toast({ title: msg || "Invalid discount code" });
     },
   });
@@ -380,25 +437,34 @@ const handleBarcodeKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElemen
     if (isCashPayment && isPaymentFocused && paymentInputRef.current) {
       paymentInputRef.current.focus({ preventScroll: true });
     }
-
   }, [cart, discount, isCashPayment]);
 
-const reorderConsumedRef = useRef(false);
+  const reorderConsumedRef = useRef(false);
   useEffect(() => {
     if (reorderConsumedRef.current) return;
     if (products.length === 0) return;
     let raw: string | null = null;
-    try { raw = sessionStorage.getItem("pos:reorder"); } catch { return; }
+    try {
+      raw = sessionStorage.getItem("pos:reorder");
+    } catch {
+      return;
+    }
     if (!raw) return;
     reorderConsumedRef.current = true;
-    try { sessionStorage.removeItem("pos:reorder"); } catch {}
+    try {
+      sessionStorage.removeItem("pos:reorder");
+    } catch {}
 
     let payload: { customerId?: number; customerName?: string; items?: any[] } | null = null;
-    try { payload = JSON.parse(raw); } catch { return; }
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
     if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) return;
 
-    const productById   = new Map(products.map(p => [p.id, p]));
-    const productByName = new Map(products.map(p => [p.name.toLowerCase(), p]));
+    const productById = new Map(products.map((p) => [p.id, p]));
+    const productByName = new Map(products.map((p) => [p.name.toLowerCase(), p]));
 
     const restored: CartItem[] = [];
     let missing = 0;
@@ -410,28 +476,39 @@ const reorderConsumedRef = useRef(false);
         null;
       const productToUse: Product | null =
         live ?? (stored.id && stored.name && stored.price ? (stored as Product) : null);
-      if (!productToUse) { missing++; continue; }
+      if (!productToUse) {
+        missing++;
+        continue;
+      }
       restored.push({
-        cartId:    nanoid(),
-        product:   productToUse,
-        quantity:  Math.max(1, Number(it?.quantity) || 1),
-        size:      it?.size?.name ? { name: String(it.size.name), price: String(it.size.price ?? "0") } : undefined,
+        cartId: nanoid(),
+        product: productToUse,
+        quantity: Math.max(1, Number(it?.quantity) || 1),
+        size: it?.size?.name
+          ? { name: String(it.size.name), price: String(it.size.price ?? "0") }
+          : undefined,
         modifiers: Array.isArray(it?.modifiers)
-          ? it.modifiers.map((m: any) => ({ name: String(m?.name ?? ""), price: String(m?.price ?? "0") })).filter((m: any) => m.name)
+          ? it.modifiers
+              .map((m: any) => ({ name: String(m?.name ?? ""), price: String(m?.price ?? "0") }))
+              .filter((m: any) => m.name)
           : [],
-        note:      it?.note ? String(it.note) : undefined,
+        note: it?.note ? String(it.note) : undefined,
       });
     }
 
     if (restored.length === 0) {
-      toast({ title: "Couldn't reorder", description: "None of those items still exist in your menu.", variant: "destructive" });
+      toast({
+        title: "Couldn't reorder",
+        description: "None of those items still exist in your menu.",
+        variant: "destructive",
+      });
       return;
     }
 
     replaceCart(restored);
 
     if (payload.customerId != null) {
-      const c = customers.find(x => x.id === payload!.customerId) ?? null;
+      const c = customers.find((x) => x.id === payload!.customerId) ?? null;
       if (c) setSelectedCustomer(c);
     }
 
@@ -461,80 +538,82 @@ const reorderConsumedRef = useRef(false);
     const loyaltyPointsPerUnit = parseNumeric(settings?.loyaltyPointsPerUnit || "1");
     const pointsEarned = Math.floor(subtotal * loyaltyPointsPerUnit);
 
-const idempotencyKey = nanoid();
+    const idempotencyKey = nanoid();
 
     const orderData = {
-      items:                cart,
-      subtotal:             subtotal.toString(),
-      tax:                  tax.toString(),
-      discount:             effectiveDiscount.toString(),
-      discountCode:         isScPwd ? null : (appliedCode?.code ?? null),
-      loyaltyDiscount:      loyaltyDiscount.toString(),
-      total:                actualTotal.toString(),
-      paymentAmount:        numericPayment.toString(),
-      changeAmount:         changeAmount.toString(),
-      status:               !isCashPayment || numericPayment >= actualTotal ? "paid" : "unpaid",
+      items: cart,
+      subtotal: subtotal.toString(),
+      tax: tax.toString(),
+      discount: effectiveDiscount.toString(),
+      discountCode: isScPwd ? null : (appliedCode?.code ?? null),
+      loyaltyDiscount: loyaltyDiscount.toString(),
+      total: actualTotal.toString(),
+      paymentAmount: numericPayment.toString(),
+      changeAmount: changeAmount.toString(),
+      status: !isCashPayment || numericPayment >= actualTotal ? "paid" : "unpaid",
       paymentMethod,
-      customerId:           selectedCustomer?.id ?? null,
-      customerName:         !selectedCustomer && receiptName.trim() ? receiptName.trim() : null,
-      loyaltyPointsUsed:    loyaltyPointsToRedeem,
-      loyaltyPointsEarned:  selectedCustomer ? pointsEarned : 0,
-      discountType:         isScPwd ? scPwdType : "regular",
-      scPwdId:              isScPwd && scPwdId.trim() ? scPwdId.trim() : null,
-      vatableSales:         (!isScPwd ? discountedSubtotal : 0).toString(),
-      vatExemptSales:       (isScPwd ? discountedSubtotal : 0).toString(),
-      zeroRatedSales:       "0",
-      orderType:            isFoodBeverage ? orderType : null,
-      deliveryAddress:      isFoodBeverage && orderType === "delivery" && deliveryAddress.trim()
-                              ? deliveryAddress.trim()
-                              : null,
+      customerId: selectedCustomer?.id ?? null,
+      customerName: !selectedCustomer && receiptName.trim() ? receiptName.trim() : null,
+      loyaltyPointsUsed: loyaltyPointsToRedeem,
+      loyaltyPointsEarned: selectedCustomer ? pointsEarned : 0,
+      discountType: isScPwd ? scPwdType : "regular",
+      scPwdId: isScPwd && scPwdId.trim() ? scPwdId.trim() : null,
+      vatableSales: (!isScPwd ? discountedSubtotal : 0).toString(),
+      vatExemptSales: (isScPwd ? discountedSubtotal : 0).toString(),
+      zeroRatedSales: "0",
+      orderType: isFoodBeverage ? orderType : null,
+      deliveryAddress:
+        isFoodBeverage && orderType === "delivery" && deliveryAddress.trim()
+          ? deliveryAddress.trim()
+          : null,
     };
 
-const snapshotCart                  = [...cart];
-    const snapshotCustomer              = selectedCustomer;
-    const snapshotName                  = !selectedCustomer && receiptName.trim() ? receiptName.trim() : undefined;
-    const snapshotIssueWifi             = issueWifi;
-    const snapshotDiscount              = discount;
-    const snapshotAppliedCode           = appliedCode;
+    const snapshotCart = [...cart];
+    const snapshotCustomer = selectedCustomer;
+    const snapshotName = !selectedCustomer && receiptName.trim() ? receiptName.trim() : undefined;
+    const snapshotIssueWifi = issueWifi;
+    const snapshotDiscount = discount;
+    const snapshotAppliedCode = appliedCode;
     const snapshotLoyaltyPointsToRedeem = loyaltyPointsToRedeem;
-    const snapshotScPwdType             = scPwdType;
-    const snapshotScPwdId               = scPwdId;
-    const wifiSsid     = (settings as any)?.wifiSsid     as string | undefined;
-    const wifiPassword = (settings as any)?.wifiPassword  as string | undefined;
+    const snapshotScPwdType = scPwdType;
+    const snapshotScPwdId = scPwdId;
+    const wifiSsid = (settings as any)?.wifiSsid as string | undefined;
+    const wifiPassword = (settings as any)?.wifiPassword as string | undefined;
     const wifiDuration = parseNumeric((settings as any)?.wifiDurationMinutes ?? 60) || 60;
 
-const optimisticReceipt: ReceiptData = {
-      items:               snapshotCart,
+    const optimisticReceipt: ReceiptData = {
+      items: snapshotCart,
       subtotal,
       tax,
-      discount:            effectiveDiscount,
+      discount: effectiveDiscount,
       loyaltyDiscount,
-      total:               actualTotal,
+      total: actualTotal,
       paymentMethod,
-      paymentAmount:       numericPayment,
+      paymentAmount: numericPayment,
       changeAmount,
-      customerName:        snapshotCustomer?.name ?? snapshotName,
-      storeName:           (settings as any)?.storeName,
-      receiptFooter:       (settings as any)?.receiptFooter,
+      customerName: snapshotCustomer?.name ?? snapshotName,
+      storeName: (settings as any)?.storeName,
+      receiptFooter: (settings as any)?.receiptFooter,
       currency,
-      taxRate:             globalTaxRate,
-      discountCode:        snapshotScPwdType !== "none" ? null : (snapshotAppliedCode?.code ?? null),
+      taxRate: globalTaxRate,
+      discountCode: snapshotScPwdType !== "none" ? null : (snapshotAppliedCode?.code ?? null),
       loyaltyPointsEarned: snapshotCustomer && pointsEarned > 0 ? pointsEarned : undefined,
-      orderNumber:         null,
-      orNumber:            undefined,
-      discountType:        snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
-      scPwdId:             snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
-      vatableSales:        snapshotScPwdType === "none" ? discountedSubtotal : 0,
-      vatExemptSales:      snapshotScPwdType !== "none" ? discountedSubtotal : 0,
+      orderNumber: null,
+      orNumber: undefined,
+      discountType: snapshotScPwdType !== "none" ? snapshotScPwdType : "regular",
+      scPwdId:
+        snapshotScPwdType !== "none" && snapshotScPwdId.trim() ? snapshotScPwdId.trim() : undefined,
+      vatableSales: snapshotScPwdType === "none" ? discountedSubtotal : 0,
+      vatExemptSales: snapshotScPwdType !== "none" ? discountedSubtotal : 0,
     };
     setReceiptData(optimisticReceipt);
     setShowReceipt(true);
 
-playCheckout();
+    playCheckout();
     hapticSuccess();
     setSaleFlash({ amount: formatCurrency(Math.max(0, total), currency), key: Date.now() });
 
-clearCart();
+    clearCart();
     setDiscount(0);
     setAppliedCode(null);
     setDiscountCodeInput("");
@@ -550,47 +629,57 @@ clearCart();
     setShowBillSplit(false);
     setCartOpen(false);
 
-createPending.mutate({ ...orderData, idempotencyKey } as any, {
+    createPending.mutate({ ...orderData, idempotencyKey } as any, {
       onSuccess: async (result) => {
-
-        setReceiptData(prev =>
-          prev ? {
-            ...prev,
-            orderNumber: (result as any)?.orderNumber ?? null,
-            orNumber:    (result as any)?.orNumber ?? (result as any)?.receiptNumber ?? null,
-          } : prev,
+        setReceiptData((prev) =>
+          prev
+            ? {
+                ...prev,
+                orderNumber: (result as any)?.orderNumber ?? null,
+                orNumber: (result as any)?.orNumber ?? (result as any)?.receiptNumber ?? null,
+              }
+            : prev,
         );
 
-if (!isOfflineId(String((result as any)?.id ?? ""))) {
+        if (!isOfflineId(String((result as any)?.id ?? ""))) {
           queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
           queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
         }
 
-const newDailyTotal = addToTodayTotal(total);
+        const newDailyTotal = addToTodayTotal(total);
         checkMilestone(newDailyTotal);
 
         if (snapshotCustomer) {
           const netDelta = pointsEarned - snapshotLoyaltyPointsToRedeem;
           if (netDelta !== 0) {
-            apiRequest("POST", `/api/customers/${snapshotCustomer.id}/loyalty`, { delta: netDelta })
-              .catch((err) => {
-                if (isNetworkError(err)) {
-                  queueMutation("POST", `/api/customers/${snapshotCustomer.id}/loyalty`, { delta: netDelta }, "loyalty");
-                } else {
-                  toast({
-                    title: "Loyalty points sync failed",
-                    description: "Order was saved but loyalty points may not have updated. Please check manually.",
-                    variant: "destructive",
-                  });
-                }
-              });
+            apiRequest("POST", `/api/customers/${snapshotCustomer.id}/loyalty`, {
+              delta: netDelta,
+            }).catch((err) => {
+              if (isNetworkError(err)) {
+                queueMutation(
+                  "POST",
+                  `/api/customers/${snapshotCustomer.id}/loyalty`,
+                  { delta: netDelta },
+                  "loyalty",
+                );
+              } else {
+                toast({
+                  title: "Loyalty points sync failed",
+                  description:
+                    "Order was saved but loyalty points may not have updated. Please check manually.",
+                  variant: "destructive",
+                });
+              }
+            });
           }
           queryClient.setQueryData<Customer[]>(["/api/customers"], (old) =>
-            old ? old.map(c =>
-              c.id === snapshotCustomer.id
-                ? { ...c, loyaltyPoints: (c.loyaltyPoints ?? 0) + netDelta }
-                : c,
-            ) : old,
+            old
+              ? old.map((c) =>
+                  c.id === snapshotCustomer.id
+                    ? { ...c, loyaltyPoints: (c.loyaltyPoints ?? 0) + netDelta }
+                    : c,
+                )
+              : old,
           );
         }
 
@@ -601,16 +690,18 @@ const newDailyTotal = addToTodayTotal(total);
               customerName: snapshotName ?? snapshotCustomer?.name ?? null,
             });
             const v = await res.json();
-            setReceiptData(prev =>
-              prev ? {
-                ...prev,
-                wifiVoucher: {
-                  code:            v.code,
-                  durationMinutes: v.durationMinutes ?? wifiDuration,
-                  ssid:            wifiSsid,
-                  password:        wifiPassword,
-                },
-              } : prev,
+            setReceiptData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    wifiVoucher: {
+                      code: v.code,
+                      durationMinutes: v.durationMinutes ?? wifiDuration,
+                      ssid: wifiSsid,
+                      password: wifiPassword,
+                    },
+                  }
+                : prev,
             );
           } catch (e) {
             console.error("Failed to issue wifi voucher:", e);
@@ -619,7 +710,6 @@ const newDailyTotal = addToTodayTotal(total);
       },
 
       onError: () => {
-
         replaceCart(snapshotCart);
         setDiscount(snapshotDiscount);
         setAppliedCode(snapshotAppliedCode);
@@ -638,54 +728,85 @@ const newDailyTotal = addToTodayTotal(total);
       },
     });
   }, [
-    cart, total, isCashPayment, numericPayment, currency, settings, subtotal, tax,
-    effectiveDiscount, loyaltyDiscount, appliedCode, loyaltyPointsToRedeem,
-    isScPwd, scPwdType, scPwdId, discountedSubtotal, globalTaxRate, changeAmount,
-    paymentMethod, selectedCustomer, receiptName, issueWifi, discount, isFoodBeverage,
-    orderType, deliveryAddress, clearCart, replaceCart, createPending, toast,
+    cart,
+    total,
+    isCashPayment,
+    numericPayment,
+    currency,
+    settings,
+    subtotal,
+    tax,
+    effectiveDiscount,
+    loyaltyDiscount,
+    appliedCode,
+    loyaltyPointsToRedeem,
+    isScPwd,
+    scPwdType,
+    scPwdId,
+    discountedSubtotal,
+    globalTaxRate,
+    changeAmount,
+    paymentMethod,
+    selectedCustomer,
+    receiptName,
+    issueWifi,
+    discount,
+    isFoodBeverage,
+    orderType,
+    deliveryAddress,
+    clearCart,
+    replaceCart,
+    createPending,
+    toast,
     checkMilestone,
   ]);
 
-  const filteredCustomers = customers.filter(c =>
-    customerSearch
-      ? c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        (c.phone && c.phone.includes(customerSearch))
-      : true,
-  ).slice(0, 8);
+  const filteredCustomers = customers
+    .filter((c) =>
+      customerSearch
+        ? c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+          (c.phone && c.phone.includes(customerSearch))
+        : true,
+    )
+    .slice(0, 8);
 
-const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
-    let succeeded = 0;
-    for (const [idx, split] of splits.entries()) {
-      try {
-        await createPending.mutateAsync({
-          items: split.items as any,
-          subtotal: split.subtotal.toFixed(2),
-          tax: split.tax.toFixed(2),
-          total: split.total.toFixed(2),
-          paymentAmount: split.total.toFixed(2),
-          changeAmount: "0",
-          discount: "0",
-          loyaltyDiscount: "0",
-          status: "paid",
-          paymentMethod,
-          orderType: isFoodBeverage ? orderType : null,
-          notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
-        } as any);
-        succeeded++;
-      } catch {
-        toast({ title: `Failed to charge ${split.personLabel}`, variant: "destructive" });
+  const handleSplitByItems = useCallback(
+    async (splits: SplitPortion[]) => {
+      let succeeded = 0;
+      for (const [idx, split] of splits.entries()) {
+        try {
+          await createPending.mutateAsync({
+            items: split.items as any,
+            subtotal: split.subtotal.toFixed(2),
+            tax: split.tax.toFixed(2),
+            total: split.total.toFixed(2),
+            paymentAmount: split.total.toFixed(2),
+            changeAmount: "0",
+            discount: "0",
+            loyaltyDiscount: "0",
+            status: "paid",
+            paymentMethod,
+            orderType: isFoodBeverage ? orderType : null,
+            notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
+          } as any);
+          succeeded++;
+        } catch {
+          toast({ title: `Failed to charge ${split.personLabel}`, variant: "destructive" });
+        }
       }
-    }
-    if (succeeded > 0) {
-      clearCart();
-      toast({
-        title: "Split bill processed",
-        description: succeeded === splits.length
-          ? `${succeeded} separate bills charged.`
-          : `${succeeded} of ${splits.length} bills charged — ${splits.length - succeeded} failed.`,
-      });
-    }
-  }, [createPending, paymentMethod, orderType, isFoodBeverage, clearCart, toast]);
+      if (succeeded > 0) {
+        clearCart();
+        toast({
+          title: "Split bill processed",
+          description:
+            succeeded === splits.length
+              ? `${succeeded} separate bills charged.`
+              : `${succeeded} of ${splits.length} bills charged — ${splits.length - succeeded} failed.`,
+        });
+      }
+    },
+    [createPending, paymentMethod, orderType, isFoodBeverage, clearCart, toast],
+  );
 
   const CartContent = (
     <div className="h-full flex flex-col overflow-hidden">
@@ -694,7 +815,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           {cart.length === 0 ? (
             <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-muted-foreground/50 gap-2">
               <ShoppingCart className="h-10 w-10" strokeWidth={1.2} />
-              <p className="text-xs font-medium">{cartLabel} {t("pos.emptyCartSuffix")}</p>
+              <p className="text-xs font-medium">
+                {cartLabel} {t("pos.emptyCartSuffix")}
+              </p>
             </div>
           ) : (
             cart.map((item) => {
@@ -739,7 +862,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                       >
                         <Minus className="h-2.5 w-2.5" />
                       </button>
-                      <span className="w-5 text-center text-xs font-bold tabular-nums">{item.quantity}</span>
+                      <span className="w-5 text-center text-xs font-bold tabular-nums">
+                        {item.quantity}
+                      </span>
                       <button
                         className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
                         onClick={() => updateQuantity(item.cartId, 1)}
@@ -751,7 +876,10 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                     </div>
                     <button
                       className="h-6 w-6 flex items-center justify-center text-destructive/50 hover:text-destructive active:scale-90 transition-all"
-                      onClick={() => { removeFromCart(item.cartId); hapticLight(); }}
+                      onClick={() => {
+                        removeFromCart(item.cartId);
+                        hapticLight();
+                      }}
                       aria-label={`Remove ${item.product.name} from cart`}
                       data-testid={`button-remove-${item.cartId}`}
                     >
@@ -766,31 +894,38 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
 
         {}
         <div className="pt-2 border-t border-border/50 space-y-1.5">
-
           {}
-          {!isCafeStyle && (selectedCustomer ? (
-            <div className="flex items-center gap-2 bg-primary/8 rounded-xl px-2.5 py-1.5 border border-primary/15">
-              <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold leading-none truncate">{selectedCustomer.name}</p>
-                {selectedCustomer.phone && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{selectedCustomer.phone}</p>
-                )}
+          {!isCafeStyle &&
+            (selectedCustomer ? (
+              <div className="flex items-center gap-2 bg-primary/8 rounded-xl px-2.5 py-1.5 border border-primary/15">
+                <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold leading-none truncate">
+                    {selectedCustomer.name}
+                  </p>
+                  {selectedCustomer.phone && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {selectedCustomer.phone}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="shrink-0 text-muted-foreground/50 hover:text-destructive transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </div>
-              <button onClick={() => setSelectedCustomer(null)} className="shrink-0 text-muted-foreground/50 hover:text-destructive transition-colors">
-                <X className="h-3 w-3" />
+            ) : (
+              <button
+                onClick={() => setShowCustomerPicker(true)}
+                className="w-full flex items-center gap-2 text-xs text-muted-foreground/60 hover:text-foreground bg-secondary/40 rounded-xl px-3 py-1.5 border border-border/40 hover:border-border transition-all"
+                data-testid="button-select-customer"
+              >
+                <UserCircle2 className="h-3.5 w-3.5" />
+                <span>{t("pos.addCustomer")}</span>
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowCustomerPicker(true)}
-              className="w-full flex items-center gap-2 text-xs text-muted-foreground/60 hover:text-foreground bg-secondary/40 rounded-xl px-3 py-1.5 border border-border/40 hover:border-border transition-all"
-              data-testid="button-select-customer"
-            >
-              <UserCircle2 className="h-3.5 w-3.5" />
-              <span>{t("pos.addCustomer")}</span>
-            </button>
-          ))}
+            ))}
 
           {}
           {!selectedCustomer && (
@@ -807,7 +942,10 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           {}
           {isFoodBeverage && (
             <>
-              <div className="flex gap-1 bg-secondary/60 rounded-xl p-1" data-testid="order-type-toggle">
+              <div
+                className="flex gap-1 bg-secondary/60 rounded-xl p-1"
+                data-testid="order-type-toggle"
+              >
                 <button
                   onClick={() => setOrderType("dine_in")}
                   data-testid="button-order-type-dine-in"
@@ -854,7 +992,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                 <Input
                   type="text"
                   value={deliveryAddress}
-                  onChange={e => setDeliveryAddress(e.target.value.slice(0, 120))}
+                  onChange={(e) => setDeliveryAddress(e.target.value.slice(0, 120))}
                   placeholder="Delivery address (optional)"
                   className="h-8 rounded-xl bg-secondary/60 border-none text-xs"
                   data-testid="input-delivery-address"
@@ -869,7 +1007,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           </div>
           {taxRate > 0 && (
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{t("pos.vat")} ({taxRate}%)</span>
+              <span>
+                {t("pos.vat")} ({taxRate}%)
+              </span>
               <span className="tabular-nums">{formatCurrency(tax, currency)}</span>
             </div>
           )}
@@ -879,11 +1019,19 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
             <div className="flex items-center justify-between gap-2 bg-rose-500/8 rounded-xl px-2.5 py-1.5 border border-rose-500/15">
               <div className="flex items-center gap-1.5 min-w-0">
                 <CheckCircle2 className="h-3 w-3 text-rose-500 shrink-0" />
-                <code className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400">{appliedCode.code}</code>
-                <span className="text-[11px] text-rose-500/70">-{formatCurrency(appliedCode.discountAmount, currency)}</span>
+                <code className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400">
+                  {appliedCode.code}
+                </code>
+                <span className="text-[11px] text-rose-500/70">
+                  -{formatCurrency(appliedCode.discountAmount, currency)}
+                </span>
               </div>
               <button
-                onClick={() => { setAppliedCode(null); setDiscount(0); setDiscountCodeInput(""); }}
+                onClick={() => {
+                  setAppliedCode(null);
+                  setDiscount(0);
+                  setDiscountCodeInput("");
+                }}
                 className="text-muted-foreground/40 hover:text-destructive shrink-0"
               >
                 <X className="h-3 w-3" />
@@ -896,10 +1044,13 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                 <input
                   type="text"
                   value={discountCodeInput}
-                  onChange={e => setDiscountCodeInput(e.target.value.toUpperCase())}
-                  onKeyDown={e => {
+                  onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && discountCodeInput.trim()) {
-                      validateDiscountMutation.mutate({ code: discountCodeInput.trim(), orderTotal: subtotal });
+                      validateDiscountMutation.mutate({
+                        code: discountCodeInput.trim(),
+                        orderTotal: subtotal,
+                      });
                     }
                   }}
                   placeholder={t("pos.discountCode")}
@@ -910,7 +1061,10 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
               <button
                 onClick={() => {
                   if (discountCodeInput.trim()) {
-                    validateDiscountMutation.mutate({ code: discountCodeInput.trim(), orderTotal: subtotal });
+                    validateDiscountMutation.mutate({
+                      code: discountCodeInput.trim(),
+                      orderTotal: subtotal,
+                    });
                   }
                 }}
                 disabled={!discountCodeInput.trim() || validateDiscountMutation.isPending}
@@ -930,7 +1084,10 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                 {(["none", "sc", "pwd"] as const).map((scpwd) => (
                   <button
                     key={scpwd}
-                    onClick={() => { setScPwdType(scpwd); if (scpwd !== "none") setDiscount(0); }}
+                    onClick={() => {
+                      setScPwdType(scpwd);
+                      if (scpwd !== "none") setDiscount(0);
+                    }}
                     className={[
                       "flex-1 h-7 rounded-xl border text-[10px] font-bold transition-all active:scale-95",
                       scPwdType === scpwd
@@ -948,7 +1105,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
               {isScPwd && (
                 <Input
                   value={scPwdId}
-                  onChange={e => setScPwdId(e.target.value)}
+                  onChange={(e) => setScPwdId(e.target.value)}
                   placeholder={`${scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} ${t("pos.scPwdId")}`}
                   className="h-8 rounded-xl bg-secondary/60 border border-border/40 text-xs"
                   data-testid="input-scpwd-id"
@@ -957,16 +1114,22 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
             </div>
           )}
 
-{isScPwd && (
+          {isScPwd && (
             <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
-              <span>{scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} {t("pos.scPwdDiscount20")}</span>
-              <span className="tabular-nums font-semibold">-{formatCurrency(scPwdDiscount, currency)}</span>
+              <span>
+                {scPwdType === "sc" ? t("pos.seniorCitizen") : "PWD"} {t("pos.scPwdDiscount20")}
+              </span>
+              <span className="tabular-nums font-semibold">
+                -{formatCurrency(scPwdDiscount, currency)}
+              </span>
             </div>
           )}
           {!isScPwd && discount > 0 && (
             <div className="flex justify-between text-xs text-rose-600 dark:text-rose-400">
               <span>{t("pos.discount")}</span>
-              <span className="tabular-nums font-semibold">-{formatCurrency(discount, currency)}</span>
+              <span className="tabular-nums font-semibold">
+                -{formatCurrency(discount, currency)}
+              </span>
             </div>
           )}
 
@@ -975,7 +1138,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 min-w-0">
                 <Star className="h-3 w-3 text-amber-500 shrink-0" />
-                <span className="text-xs font-medium truncate">{t("pos.loyalty")} ({selectedCustomer.loyaltyPoints} {t("pos.pts")})</span>
+                <span className="text-xs font-medium truncate">
+                  {t("pos.loyalty")} ({selectedCustomer.loyaltyPoints} {t("pos.pts")})
+                </span>
                 {maxRedeemablePoints > 0 && (
                   <button
                     onClick={() => setLoyaltyPointsToRedeem(maxRedeemablePoints)}
@@ -992,7 +1157,11 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                 max={maxRedeemablePoints}
                 className="w-20 h-7 text-right bg-secondary/60 border-none rounded-xl text-xs font-semibold shrink-0"
                 value={loyaltyPointsToRedeem || ""}
-                onChange={e => setLoyaltyPointsToRedeem(Math.min(Number(e.target.value) || 0, maxRedeemablePoints))}
+                onChange={(e) =>
+                  setLoyaltyPointsToRedeem(
+                    Math.min(Number(e.target.value) || 0, maxRedeemablePoints),
+                  )
+                }
                 placeholder="0"
                 data-testid="input-loyalty-points-redeem"
               />
@@ -1001,13 +1170,20 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
 
           {loyaltyDiscount > 0 && (
             <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
-              <span>{t("pos.loyalty")} ({loyaltyPointsToRedeem} {t("pos.pts")})</span>
-              <span className="tabular-nums font-semibold">-{formatCurrency(loyaltyDiscount, currency)}</span>
+              <span>
+                {t("pos.loyalty")} ({loyaltyPointsToRedeem} {t("pos.pts")})
+              </span>
+              <span className="tabular-nums font-semibold">
+                -{formatCurrency(loyaltyDiscount, currency)}
+              </span>
             </div>
           )}
 
           {((settings as any)?.wifiSsid || (settings as any)?.wifiPassword) && (
-            <label className="flex items-center justify-between text-xs gap-2 cursor-pointer" data-testid="toggle-wifi-voucher">
+            <label
+              className="flex items-center justify-between text-xs gap-2 cursor-pointer"
+              data-testid="toggle-wifi-voucher"
+            >
               <span className="font-medium text-muted-foreground">{t("pos.wifiVoucher")}</span>
               <input
                 type="checkbox"
@@ -1028,7 +1204,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           {isCashPayment && (
             <>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium shrink-0 text-muted-foreground">{t("pos.paid")}</span>
+                <span className="text-xs font-medium shrink-0 text-muted-foreground">
+                  {t("pos.paid")}
+                </span>
 
                 {}
                 <Input
@@ -1044,13 +1222,21 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
 
                 {}
                 <div className="hidden md:block">
-                  <Popover open={showNumpad} onOpenChange={(open) => { setShowNumpad(open); setIsPaymentFocused(open); }}>
+                  <Popover
+                    open={showNumpad}
+                    onOpenChange={(open) => {
+                      setShowNumpad(open);
+                      setIsPaymentFocused(open);
+                    }}
+                  >
                     <PopoverTrigger asChild>
                       <button
                         className="w-28 h-8 px-3 text-right bg-secondary/60 rounded-xl text-sm font-bold tabular-nums hover:bg-secondary transition-colors border border-transparent hover:border-border/40"
                         data-testid="button-numpad-trigger"
                       >
-                        <span className={paymentAmount ? "text-foreground" : "text-muted-foreground/40"}>
+                        <span
+                          className={paymentAmount ? "text-foreground" : "text-muted-foreground/40"}
+                        >
                           {paymentAmount || "0.00"}
                         </span>
                       </button>
@@ -1062,7 +1248,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                       onOpenAutoFocus={(e) => e.preventDefault()}
                     >
                       <div className="bg-secondary/60 rounded-xl px-3 py-2 mb-2.5 text-right">
-                        <p className="text-2xl font-black tabular-nums leading-none">{paymentAmount || "0"}</p>
+                        <p className="text-2xl font-black tabular-nums leading-none">
+                          {paymentAmount || "0"}
+                        </p>
                         {changeAmount > 0 && (
                           <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">
                             Change: {formatCurrency(changeAmount, currency)}
@@ -1081,30 +1269,32 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                       )}
 
                       <div className="grid grid-cols-3 gap-1.5">
-                        {["7","8","9","4","5","6","1","2","3",".","0","backspace"].map((key) => (
-                          <button
-                            key={key}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              if (key === "backspace") {
-                                setPaymentAmount((p) => p.slice(0, -1));
-                              } else if (key === ".") {
-                                setPaymentAmount((p) => p.includes(".") ? p : (p || "0") + ".");
-                              } else {
-                                setPaymentAmount((p) => p === "0" ? key : p + key);
-                              }
-                            }}
-                            className={[
-                              "h-11 rounded-xl font-bold text-sm flex items-center justify-center transition-all active:scale-95 select-none",
-                              key === "backspace"
-                                ? "bg-destructive/8 text-destructive/70 hover:bg-destructive/15"
-                                : "bg-secondary/80 hover:bg-secondary border border-border/30",
-                            ].join(" ")}
-                            data-testid={`numpad-key-${key}`}
-                          >
-                            {key === "backspace" ? <Delete className="h-4 w-4" /> : key}
-                          </button>
-                        ))}
+                        {["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "backspace"].map(
+                          (key) => (
+                            <button
+                              key={key}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                if (key === "backspace") {
+                                  setPaymentAmount((p) => p.slice(0, -1));
+                                } else if (key === ".") {
+                                  setPaymentAmount((p) => (p.includes(".") ? p : (p || "0") + "."));
+                                } else {
+                                  setPaymentAmount((p) => (p === "0" ? key : p + key));
+                                }
+                              }}
+                              className={[
+                                "h-11 rounded-xl font-bold text-sm flex items-center justify-center transition-all active:scale-95 select-none",
+                                key === "backspace"
+                                  ? "bg-destructive/8 text-destructive/70 hover:bg-destructive/15"
+                                  : "bg-secondary/80 hover:bg-secondary border border-border/30",
+                              ].join(" ")}
+                              data-testid={`numpad-key-${key}`}
+                            >
+                              {key === "backspace" ? <Delete className="h-4 w-4" /> : key}
+                            </button>
+                          ),
+                        )}
                       </div>
 
                       <button
@@ -1128,14 +1318,15 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                   >
                     {t("pos.exact")}
                   </button>
-                  {quickAmounts.map(amount => (
+                  {quickAmounts.map((amount) => (
                     <button
                       key={amount}
                       onClick={() => setPaymentAmount(amount.toString())}
                       className="flex-1 h-7 rounded-xl bg-secondary/80 border border-border/40 text-[10px] font-bold hover:bg-secondary transition-all active:scale-95 tabular-nums"
                       data-testid={`button-quick-${amount}`}
                     >
-                      {currency}{amount}
+                      {currency}
+                      {amount}
                     </button>
                   ))}
                 </div>
@@ -1151,12 +1342,17 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           )}
 
           <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-            <SelectTrigger className="w-full h-8 bg-secondary/60 border-none rounded-xl text-xs font-medium" data-testid="select-payment-method">
+            <SelectTrigger
+              className="w-full h-8 bg-secondary/60 border-none rounded-xl text-xs font-medium"
+              data-testid="select-payment-method"
+            >
               <SelectValue placeholder={t("pos.paymentMethod")} />
             </SelectTrigger>
             <SelectContent>
-              {paymentMethods.map(m => (
-                <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+              {paymentMethods.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1182,7 +1378,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           disabled={cart.length === 0 || createPending.isPending}
           data-testid="button-checkout"
         >
-          {createPending.isPending ? t("pos.processing") : `${posAction} · ${formatCurrency(total, currency)}`}
+          {createPending.isPending
+            ? t("pos.processing")
+            : `${posAction} · ${formatCurrency(total, currency)}`}
         </Button>
       </div>
     </div>
@@ -1193,60 +1391,58 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
       className="flex gap-5 page-enter"
       style={{ height: isMobile ? "calc(100dvh - 196px)" : "calc(100dvh - 132px)" }}
     >
-
-      {}
-      {showConfetti && (
-        <ConfettiBurst onDone={() => setShowConfetti(false)} />
-      )}
-
-      {}
-      {milestone && createPortal(
-        <div
-          key={milestone.label}
-          className="milestone-banner fixed top-20 left-1/2 -translate-x-1/2 z-[9998]
+      {/* Milestone banner */}
+      {milestone &&
+        createPortal(
+          <div
+            key={milestone.label}
+            className="milestone-banner fixed top-20 left-1/2 -translate-x-1/2 z-[9998]
                      bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
                      px-6 py-3 rounded-2xl shadow-xl shadow-violet-500/30
                      flex items-center gap-3 pointer-events-none select-none"
-        >
-          <span className="text-2xl leading-none">{milestone.emoji}</span>
-          <span className="font-bold text-sm tracking-wide">{milestone.label}</span>
-        </div>,
-        document.body,
-      )}
+          >
+            <span className="text-2xl leading-none">{milestone.emoji}</span>
+            <span className="font-bold text-sm tracking-wide">{milestone.label}</span>
+          </div>,
+          document.body,
+        )}
 
       {}
-      {saleFlash && createPortal(
-        <div
-          key={saleFlash.key}
-          className="sale-flash fixed bottom-24 left-1/2 -translate-x-1/2 z-[9997]
+      {saleFlash &&
+        createPortal(
+          <div
+            key={saleFlash.key}
+            className="sale-flash fixed bottom-24 left-1/2 -translate-x-1/2 z-[9997]
                      pointer-events-none select-none flex flex-col items-center gap-1"
-        >
-          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">Sale</span>
-          <span className="text-4xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums drop-shadow-sm">
-            {saleFlash.amount}
-          </span>
-        </div>,
-        document.body,
-      )}
+          >
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
+              Sale
+            </span>
+            <span className="text-4xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums drop-shadow-sm">
+              {saleFlash.amount}
+            </span>
+          </div>,
+          document.body,
+        )}
 
       {}
-      {lastRemoved && createPortal(
-        <button
-          onClick={undoLastRemove}
-          className="undo-chip fixed bottom-24 left-1/2 z-[9996]
+      {lastRemoved &&
+        createPortal(
+          <button
+            onClick={undoLastRemove}
+            className="undo-chip fixed bottom-24 left-1/2 z-[9996]
                      bg-foreground text-background text-xs font-bold
                      px-4 py-2 rounded-full shadow-lg
                      flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all"
-        >
-          <span>↩</span>
-          <span>Undo remove — {lastRemoved.item.product.name}</span>
-        </button>,
-        document.body,
-      )}
+          >
+            <span>↩</span>
+            <span>Undo remove — {lastRemoved.item.product.name}</span>
+          </button>,
+          document.body,
+        )}
 
       {}
       <div className="flex-1 flex flex-col min-w-0">
-
         {}
         <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
@@ -1262,10 +1458,12 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           {showBarcode && (
             <div className="flex gap-2">
               <div className="relative">
-                <Barcode className={[
-                  "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-150",
-                  scanFlash ? "text-primary" : "text-muted-foreground",
-                ].join(" ")} />
+                <Barcode
+                  className={[
+                    "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-150",
+                    scanFlash ? "text-primary" : "text-muted-foreground",
+                  ].join(" ")}
+                />
                 <Input
                   ref={barcodeRef}
                   placeholder={t("pos.scanBarcode")}
@@ -1274,7 +1472,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                     scanFlash ? "ring-2 ring-primary/30" : "",
                   ].join(" ")}
                   value={barcodeInput}
-                  onChange={e => setBarcodeInput(e.target.value)}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
                   onKeyDown={handleBarcodeKeyDown}
                   data-testid="input-barcode-scan"
                 />
@@ -1300,7 +1498,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
 
         {}
         <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
-          {categories.map(cat => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
@@ -1329,7 +1527,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
             </div>
           ) : (
             <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
-              {rowVirtualizer.getVirtualItems().map(vRow => {
+              {rowVirtualizer.getVirtualItems().map((vRow) => {
                 const startIdx = vRow.index * cols;
                 const rowProducts = filteredProducts.slice(startIdx, startIdx + cols);
                 return (
@@ -1349,7 +1547,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                       paddingBottom: "12px",
                     }}
                   >
-                    {rowProducts.map(product => (
+                    {rowProducts.map((product) => (
                       <ProductCard
                         key={product.id}
                         product={product}
@@ -1376,7 +1574,10 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           <h2 className="text-xl font-black">{t("pos.currentOrder")}</h2>
           {cartCount > 0 && (
             <div className="ml-auto flex items-center gap-2">
-              <span className="bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full animate-badge-pop" key={cartCount}>
+              <span
+                className="bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full animate-badge-pop"
+                key={cartCount}
+              >
                 {cartCount}
               </span>
               <button
@@ -1390,9 +1591,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
             </div>
           )}
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {CartContent}
-        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">{CartContent}</div>
       </div>
 
       {}
@@ -1414,7 +1613,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
               </span>
             </div>
             <div className="flex-1 text-left">
-              <p className="text-xs font-semibold text-muted-foreground leading-none mb-0.5">{cartCount} {cartCount !== 1 ? t("pos.items") : t("pos.item")}</p>
+              <p className="text-xs font-semibold text-muted-foreground leading-none mb-0.5">
+                {cartCount} {cartCount !== 1 ? t("pos.items") : t("pos.item")}
+              </p>
               <p className="text-sm font-black tabular-nums">{formatCurrency(total, currency)}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -1455,9 +1656,17 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
       {}
       <Dialog
         open={!!selectedProduct}
-        onOpenChange={(open) => { if (!open) { setSelectedProduct(null); setTempNote(""); } }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedProduct(null);
+            setTempNote("");
+          }
+        }}
       >
-        <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent
+          className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-5 bg-primary text-white">
             <DialogTitle className="text-xl font-black">{selectedProduct?.name}</DialogTitle>
             <p className="text-white/65 text-xs font-medium mt-1">{t("pos.customizeOrder")}</p>
@@ -1466,7 +1675,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           <div className="p-6 space-y-6">
             {Array.isArray(selectedProduct?.sizes) && selectedProduct.sizes.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t("pos.selectSize")}</h4>
+                <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {t("pos.selectSize")}
+                </h4>
                 <div className="grid grid-cols-3 gap-2">
                   {selectedProduct.sizes.map((s) => (
                     <button
@@ -1480,7 +1691,9 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                       ].join(" ")}
                     >
                       <span className="font-bold text-sm">{s.name}</span>
-                      <span className="text-[10px] font-semibold opacity-60">{formatCurrency(s.price, currency)}</span>
+                      <span className="text-[10px] font-semibold opacity-60">
+                        {formatCurrency(s.price, currency)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1511,7 +1724,7 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
                     selectedProduct.id,
                     (sessionFrequency.current.get(selectedProduct.id) ?? 0) + 1,
                   );
-                  setFreqVersion(v => v + 1);
+                  setFreqVersion((v) => v + 1);
                   setSelectedProduct(null);
                   setTempSize(null);
                   setTempNote("");
@@ -1573,35 +1786,47 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
       {}
       <Dialog open={showCustomerPicker} onOpenChange={setShowCustomerPicker}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>{t("pos.selectCustomer")}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{t("pos.selectCustomer")}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
               <Input
                 value={customerSearch}
-                onChange={e => setCustomerSearch(e.target.value)}
+                onChange={(e) => setCustomerSearch(e.target.value)}
                 placeholder={t("pos.searchCustomer")}
                 className="pl-9 h-10 rounded-xl"
                 data-testid="input-customer-search"
               />
             </div>
             {filteredCustomers.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-6">{t("pos.noCustomers")}</p>
+              <p className="text-center text-sm text-muted-foreground py-6">
+                {t("pos.noCustomers")}
+              </p>
             ) : (
               <div className="space-y-1 max-h-64 overflow-y-auto">
-                {filteredCustomers.map(c => (
+                {filteredCustomers.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => { setSelectedCustomer(c); setShowCustomerPicker(false); setCustomerSearch(""); }}
+                    onClick={() => {
+                      setSelectedCustomer(c);
+                      setShowCustomerPicker(false);
+                      setCustomerSearch("");
+                    }}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary transition-colors text-left"
                     data-testid={`customer-option-${c.id}`}
                   >
                     <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-primary">{c.name[0].toUpperCase()}</span>
+                      <span className="text-sm font-bold text-primary">
+                        {c.name[0].toUpperCase()}
+                      </span>
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold text-sm">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.phone || c.email || t("pos.noContactInfo")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.phone || c.email || t("pos.noContactInfo")}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -1610,7 +1835,6 @@ const handleSplitByItems = useCallback(async (splits: SplitPortion[]) => {
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

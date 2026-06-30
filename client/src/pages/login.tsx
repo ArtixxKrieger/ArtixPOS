@@ -531,8 +531,12 @@ export default function Login() {
       return;
     }
     // Login handler already navigated — don't double-fire
+    // NOTE: do NOT reset loginNavigatedRef here. The login handler may still
+    // be awaiting fetchSettingsFromNetwork() when React re-renders again.
+    // Resetting the flag would let a second render sneak through and call
+    // setLocation("/") before settings are loaded → AppRouter has no data →
+    // redirects back to /login.
     if (loginNavigatedRef.current) {
-      loginNavigatedRef.current = false;
       return;
     }
     const logoutPending = sessionStorage.getItem("artix-logout-pending") === "1";
@@ -745,6 +749,7 @@ export default function Login() {
         queryClient.setQueryData(["auth-me"], null);
       }
     } catch {
+      loginNavigatedRef.current = false;
       setFormError("Network error. Please try again.");
     } finally {
       setFormLoading(false);

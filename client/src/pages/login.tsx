@@ -686,7 +686,7 @@ export default function Login() {
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
         const needsOnboarding = !alreadyOnboarded && !authUser.tenantId;
 
-        setLocation(needsOnboarding ? "/onboarding" : "/");
+        window.location.replace(needsOnboarding ? "/onboarding" : "/");
       } else {
         try {
           localStorage.removeItem("artixpos_auth_me_v1");

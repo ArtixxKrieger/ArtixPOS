@@ -29,8 +29,10 @@ export function tenantContextMiddleware(pool: Pool) {
         await client.query("COMMIT");
         client.release();
       } catch (commitErr) {
-
-console.error("[tenant-ctx] COMMIT failed — rolling back and destroying connection:", commitErr);
+        console.error(
+          "[tenant-ctx] COMMIT failed — rolling back and destroying connection:",
+          commitErr,
+        );
         try {
           await client.query("ROLLBACK");
         } catch (rbErr) {
@@ -42,8 +44,7 @@ console.error("[tenant-ctx] COMMIT failed — rolling back and destroying connec
     };
 
     try {
-
-try {
+      try {
         client = await pool.connect();
       } catch (firstErr: any) {
         const msg: string = firstErr?.message ?? "";
@@ -55,7 +56,7 @@ try {
         }
       }
 
-await client.query(
+      await client.query(
         `BEGIN;
          DO $$
          BEGIN
@@ -65,13 +66,10 @@ await client.query(
          END;
          $$;
          SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS};
-         SET LOCAL lock_timeout = ${LOCK_TIMEOUT_MS};`
+         SET LOCAL lock_timeout = ${LOCK_TIMEOUT_MS};`,
       );
 
-await client.query(
-        `SELECT set_config('app.current_tenant', $1, TRUE)`,
-        [user.tenantId]
-      );
+      await client.query(`SELECT set_config('app.current_tenant', $1, TRUE)`, [user.tenantId]);
 
       const tenantDb = drizzle(client, { schema });
 
@@ -82,7 +80,9 @@ await client.query(
     } catch (err) {
       if (client && !settled) {
         settled = true;
-        try { await client.query("ROLLBACK"); } catch {  }
+        try {
+          await client.query("ROLLBACK");
+        } catch {}
         client.release();
       }
       next(err);
@@ -92,18 +92,24 @@ await client.query(
 
 export async function runAsAdmin<T>(
   pool: Pool,
-  fn: (adminDb: NodePgDatabase<typeof schema>) => Promise<T>
+  fn: (adminDb: NodePgDatabase<typeof schema>) => Promise<T>,
+  opts?: { readOnly?: boolean },
 ): Promise<T> {
   const client = await pool.connect();
+  const readOnly = opts?.readOnly === true;
   try {
-    await client.query("BEGIN");
+    if (!readOnly) await client.query("BEGIN");
     await client.query("SET LOCAL row_security = off");
     const adminDb = drizzle(client, { schema });
     const result = await _tenantStore.run("admin", () => fn(adminDb));
-    await client.query("COMMIT");
+    if (!readOnly) await client.query("COMMIT");
     return result;
   } catch (err) {
-    try { await client.query("ROLLBACK"); } catch {  }
+    if (!readOnly) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+    }
     throw err;
   } finally {
     client.release();

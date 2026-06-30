@@ -7,14 +7,12 @@ import pg from "pg";
 const { Pool } = pg;
 
 const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.SUPABASE_POOLER_URL ||
-  process.env.SUPABASE_DATABASE_URL;
+  process.env.DATABASE_URL || process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL;
 
 if (!connectionString) {
   console.error(
     "[rls] ✗ No database connection string found.\n" +
-    "      Set DATABASE_URL, SUPABASE_POOLER_URL, or SUPABASE_DATABASE_URL."
+      "      Set DATABASE_URL, SUPABASE_POOLER_URL, or SUPABASE_DATABASE_URL.",
   );
   process.exit(1);
 }
@@ -34,6 +32,11 @@ async function run() {
   const client = await pool.connect();
   try {
     console.log("[rls] Connected. Applying policies…\n");
+
+    // CI environments often have tight statement_timeout (5-15s).
+    // RLS policy creation on many tables exceeds that — bump it for this session.
+    await client.query("SET statement_timeout = '120s'");
+    await client.query("SET lock_timeout = '30s'");
 
     // ── 1. App role ────────────────────────────────────────────────────────
     console.log("[rls] 1/9 — artixpos_app role");
@@ -67,13 +70,22 @@ async function run() {
       REVOKE EXECUTE ON FUNCTION public.current_tenant_user_ids() FROM authenticated;
       GRANT  EXECUTE ON FUNCTION public.current_tenant_id()       TO artixpos_app;
       GRANT  EXECUTE ON FUNCTION public.current_tenant_user_ids() TO artixpos_app;
+
+      -- current_tenant_user_ids() scans users WHERE tenant_id = ...
+      -- Without this index every RLS policy check becomes a full table scan.
+      CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON public.users(tenant_id);
     `);
 
     // ── 3. Group A — tenant_id tables (FORCE RLS) ─────────────────────────
     console.log("[rls] 3/9 — Group A: tenant_id tables");
     for (const t of [
-      "branches", "audit_logs", "invite_tokens", "or_sequences",
-      "sales", "role_permissions", "tenant_subscriptions",
+      "branches",
+      "audit_logs",
+      "invite_tokens",
+      "or_sequences",
+      "sales",
+      "role_permissions",
+      "tenant_subscriptions",
       "subscription_payments",
     ]) {
       await client.query(`
@@ -87,24 +99,48 @@ async function run() {
     }
 
     // ── 4. Group B — user_id tables (FORCE RLS) ───────────────────────────
+    // Process one statement per query so no single batch exceeds CI timeout.
     console.log("[rls] 4/9 — Group B: user_id tables");
     for (const t of [
-      "products", "tables", "customers", "expenses", "shifts",
-      "discount_codes", "service_staff", "service_rooms", "appointments",
-      "membership_plans", "memberships", "membership_check_ins", "time_logs",
-      "ingredients", "wifi_vouchers", "payroll_periods", "notifications",
-      "stock_logs", "waste_log", "stock_transfers", "loyalty_tiers",
-      "loyalty_rewards", "loyalty_points_log", "push_subscriptions",
-      "user_branches", "pending_orders", "refunds", "suppliers",
-      "purchase_orders", "user_settings",
+      "products",
+      "tables",
+      "customers",
+      "expenses",
+      "shifts",
+      "discount_codes",
+      "service_staff",
+      "service_rooms",
+      "appointments",
+      "membership_plans",
+      "memberships",
+      "membership_check_ins",
+      "time_logs",
+      "ingredients",
+      "wifi_vouchers",
+      "payroll_periods",
+      "notifications",
+      "stock_logs",
+      "waste_log",
+      "stock_transfers",
+      "loyalty_tiers",
+      "loyalty_rewards",
+      "loyalty_points_log",
+      "push_subscriptions",
+      "user_branches",
+      "pending_orders",
+      "refunds",
+      "suppliers",
+      "purchase_orders",
+      "user_settings",
     ]) {
+      console.log(`[rls]   → ${t}`);
+      await client.query(`ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`);
+      await client.query(`ALTER TABLE public.${t} FORCE  ROW LEVEL SECURITY`);
+      await client.query(`DROP POLICY IF EXISTS tenant_isolation ON public.${t}`);
       await client.query(`
-        ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE public.${t} FORCE  ROW LEVEL SECURITY;
-        DROP POLICY IF EXISTS tenant_isolation ON public.${t};
         CREATE POLICY tenant_isolation ON public.${t}
           USING  (user_id IN (SELECT public.current_tenant_user_ids()))
-          WITH CHECK (user_id IN (SELECT public.current_tenant_user_ids()));
+          WITH CHECK (user_id IN (SELECT public.current_tenant_user_ids()))
       `);
     }
 

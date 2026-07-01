@@ -1,12 +1,11 @@
 import { useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   nativeFetch,
   clearNativeToken,
   NATIVE_TOKEN_KEY,
   setAuthenticatedUserId,
 } from "@/lib/queryClient";
-import { clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { setErrorCaptureUser } from "@/lib/error-capture";
 import type { UserRole } from "@shared/schema";
@@ -135,8 +134,6 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
 }
 
 export function useAuth() {
-  const queryClient = useQueryClient();
-
   const {
     data: user,
     isLoading,
@@ -154,18 +151,18 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Fire-and-forget server call — we clear local state regardless
+      // Tell server to clear its httpOnly cookie — fire-and-forget, don't block
       nativeFetch("/auth/logout", { method: "POST" }).catch(() => {});
     },
-    onMutate: () => {
+    onSuccess: () => {
       clearNativeToken();
       saveCachedAuthUser(null);
-      clearAllCache().catch(() => {});
+      window.location.replace("/login");
     },
-    onSettled: () => {
-      queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
-      queryClient.setQueryData(["auth-me"], null);
-      queryClient.clear();
+    onError: () => {
+      // Server unreachable — clear local state and navigate anyway
+      clearNativeToken();
+      saveCachedAuthUser(null);
       window.location.replace("/login");
     },
   });

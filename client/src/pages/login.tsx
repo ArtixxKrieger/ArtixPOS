@@ -4,7 +4,6 @@ import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
-import { signalPostLoginNav, fetchSettingsFromNetwork } from "@/hooks/use-settings";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { apiRequest, setNativeToken, queryClient, nativeFetch } from "@/lib/queryClient";
 import { detectLocale } from "@/lib/locale-detect";
@@ -661,37 +660,14 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
+        // Save token + user to localStorage so the fresh page load picks them up
+        if (data.token) setNativeToken(data.token);
         localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
 
-        if (data.token) {
-          setNativeToken(data.token);
-        }
-
-        const { setAuthenticatedUserId } = await import("@/lib/api");
-        setAuthenticatedUserId(authUser.id);
-
-        queryClient.setQueryData(["auth-me"], authUser);
-
-        // Prefetch settings in background — don't block navigation
-        fetchSettingsFromNetwork()
-          .then((settings) => {
-            if (settings !== undefined) {
-              queryClient.setQueryData(["/api/settings"], settings);
-            }
-          })
-          .catch(() => {});
-
-        signalPostLoginNav();
-
+        // Hard navigate — the cleanest way to reset all React/query state
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
         const needsOnboarding = !alreadyOnboarded && !authUser.tenantId;
-
         window.location.replace(needsOnboarding ? "/onboarding" : "/");
-      } else {
-        try {
-          localStorage.removeItem("artixpos_auth_me_v1");
-        } catch {}
-        queryClient.setQueryData(["auth-me"], null);
       }
     } catch {
       setFormError("Network error. Please try again.");

@@ -3,10 +3,54 @@ import { storage } from "../storage";
 import { requireAuth, requirePro, requireManagerOrAbove } from "../middleware";
 import { getUserId, getActiveBranchId } from "../lib/route-utils";
 import { db } from "../db";
-import { sales, ingredients, productRecipes, suppliers, supplierProducts } from "@shared/schema";
+import { sales, ingredients, productRecipes, suppliers, supplierProducts, products, stockTransfers } from "@shared/schema";
 import { and, isNull, inArray, sql } from "drizzle-orm";
+import { getTenantUserIds } from "../infrastructure/persistence/base";
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
+
+  app.get("/api/inventory", requireAuth, async (req, res) => {
+    try {
+      const uid = getUserId(req);
+      const userIds = await getTenantUserIds(uid);
+
+      const [ingredientRows, productRows, transferRows] = await Promise.all([
+        db.select({ id: ingredients.id, stockQty: ingredients.stockQty, lowStockThreshold: ingredients.lowStockThreshold })
+          .from(ingredients)
+          .where(and(inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt))),
+        db.select({ id: products.id, stock: products.stock, lowStockThreshold: products.lowStockThreshold, trackStock: products.trackStock })
+          .from(products)
+          .where(and(inArray(products.userId, userIds), isNull(products.deletedAt))),
+        db.select({ id: stockTransfers.id, status: stockTransfers.status })
+          .from(stockTransfers)
+          .where(inArray(stockTransfers.userId, userIds)),
+      ]);
+
+      const trackedProducts = productRows.filter(p => p.trackStock);
+      const lowStockIngredients = ingredientRows.filter(i => {
+        const qty = Number(i.stockQty ?? "0");
+        const thresh = Number(i.lowStockThreshold ?? "0");
+        return thresh > 0 && qty <= thresh;
+      });
+      const lowStockProducts = trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10));
+      const outOfStockIngredients = ingredientRows.filter(i => Number(i.stockQty ?? "0") === 0);
+      const outOfStockProducts = trackedProducts.filter(p => (p.stock ?? 0) === 0);
+      const pendingTransfers = transferRows.filter(t => t.status === "pending" || t.status === "in_transit");
+
+      res.json({
+        ingredientCount: ingredientRows.length,
+        productCount: trackedProducts.length,
+        lowStockIngredients: lowStockIngredients.length,
+        lowStockProducts: lowStockProducts.length,
+        outOfStockIngredients: outOfStockIngredients.length,
+        outOfStockProducts: outOfStockProducts.length,
+        pendingTransfers: pendingTransfers.length,
+      });
+    } catch (err) {
+      console.error("[/api/inventory] error:", err);
+      res.status(500).json({ message: "Failed to load inventory summary" });
+    }
+  });
 
 app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);

@@ -5,7 +5,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency } from "@/lib/format";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
+
+function safeFormatDate(dateStr: string | null | undefined, fmt = "MMM d, yyyy"): string {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr);
+    return isValid(d) ? format(d, fmt) : "—";
+  } catch {
+    return "—";
+  }
+}
 import {
   Package, Trash2, ArrowRightLeft, ShoppingCart, Plus, CheckCircle2,
   XCircle, AlertTriangle, TrendingDown, ChevronRight,
@@ -382,7 +392,7 @@ function WasteTab({ logs, currency, onAdd }: {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                {entry.quantity} {entry.unit ?? "pcs"} · {format(new Date(entry.createdAt), "MMM d, yyyy")}
+                {entry.quantity} {entry.unit ?? "pcs"} · {safeFormatDate(entry.createdAt)}
                 {entry.note && ` · ${entry.note}`}
               </p>
             </div>
@@ -441,7 +451,7 @@ function TransfersTab({ transfers, isLoading: _isLoading, onAdd }: {
                     <span className={["text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0", cfg.color].join(" ")}>{cfg.label}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Branch {t.fromBranchId ?? "?"} → Branch {t.toBranchId ?? "?"} · {format(new Date(t.createdAt), "MMM d, yyyy")}
+                    Branch {t.fromBranchId ?? "?"} → Branch {t.toBranchId ?? "?"} · {safeFormatDate(t.createdAt)}
                   </p>
                   {t.notes && <p className="text-xs text-muted-foreground/70 mt-0.5 italic truncate">{t.notes}</p>}
                 </div>

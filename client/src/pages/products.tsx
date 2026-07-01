@@ -186,9 +186,14 @@ export default function Products() {
     businessSubType === "grocery" ||
     businessSubType === "grocery_enhanced";
 
-  const { data: _ingredients = [] } = useQuery<{ id: number; name: string; unit: string; stockQty: string }[]>({
+  const { data: _ingredients = [] } = useQuery<
+    { data: { id: number; name: string; unit: string; stockQty: string }[]; meta: unknown },
+    Error,
+    { id: number; name: string; unit: string; stockQty: string }[]
+  >({
     queryKey: ["/api/ingredients"],
     enabled: isFoodBeverage,
+    select: (res) => res?.data ?? [],
   });
 
   const [search, setSearch] = useState("");
@@ -206,12 +211,11 @@ export default function Products() {
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const queryClient = useQueryClient();
 
-const handleCatalogScan = (barcode: string) => {
+  const handleCatalogScan = (barcode: string) => {
     const match = products.find((p) => p.barcode === barcode);
     if (match) {
       openEdit(match);
     } else {
-
       setEditingId(null);
       form.reset({
         name: "",
@@ -810,7 +814,9 @@ const handleCatalogScan = (barcode: string) => {
                                   onClick={() => field.onChange(!field.value)}
                                   className={[
                                     "relative h-6 w-11 rounded-full transition-all duration-200 shrink-0",
-                                    field.value ? "bg-primary" : "bg-secondary border border-border",
+                                    field.value
+                                      ? "bg-primary"
+                                      : "bg-secondary border border-border",
                                   ].join(" ")}
                                 >
                                   <span
@@ -833,7 +839,9 @@ const handleCatalogScan = (barcode: string) => {
                             name="stock"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="font-semibold text-sm">Current Stock</FormLabel>
+                                <FormLabel className="font-semibold text-sm">
+                                  Current Stock
+                                </FormLabel>
                                 <FormControl>
                                   <Input
                                     type="number"
@@ -1096,7 +1104,6 @@ const handleCatalogScan = (barcode: string) => {
           </p>
         </div>
       ) : (
-
         <div className="space-y-2.5 stagger-children">
           {filtered.map((product) => (
             <div
@@ -1271,7 +1278,6 @@ const handleCatalogScan = (barcode: string) => {
           </DialogHeader>
 
           {importResult ? (
-
             <div className="flex-1 space-y-4 py-2">
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-500/10 rounded-2xl p-3 text-center">
@@ -1347,7 +1353,6 @@ const handleCatalogScan = (barcode: string) => {
               </Button>
             </div>
           ) : (
-
             <div className="flex-1 flex flex-col gap-4 min-h-0">
               {}
               <button

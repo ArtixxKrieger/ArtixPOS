@@ -251,10 +251,15 @@ app.post("/api/inventory/generate-reorder-po", requireAuth, requirePro, requireM
   });
 
 app.get("/api/waste-log", requireAuth, requirePro, async (req, res) => {
-    const uid = getUserId(req);
-    const branchId = getActiveBranchId(req);
-    const logs = await storage.getWasteLogs(uid, branchId);
-    res.json(logs);
+    try {
+      const uid = getUserId(req);
+      const branchId = getActiveBranchId(req);
+      const logs = await storage.getWasteLogs(uid, branchId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching waste log:", error);
+      res.status(500).json({ message: "Failed to load waste log" });
+    }
   });
 
   app.post("/api/waste-log", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
@@ -270,10 +275,15 @@ app.get("/api/waste-log", requireAuth, requirePro, async (req, res) => {
   });
 
 app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res) => {
-    const uid = getUserId(req);
-    const branchId = getActiveBranchId(req);
-    const transfers = await storage.getStockTransfers(uid, branchId);
-    res.json(transfers);
+    try {
+      const uid = getUserId(req);
+      const branchId = getActiveBranchId(req);
+      const transfers = await storage.getStockTransfers(uid, branchId);
+      res.json(transfers);
+    } catch (error) {
+      console.error("Error fetching stock transfers:", error);
+      res.status(500).json({ message: "Failed to load stock transfers" });
+    }
   });
 
   app.post("/api/stock-transfers", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {

@@ -484,7 +484,7 @@ function TransfersTab({ transfers, isLoading: _isLoading, onAdd }: {
               )}
 
               <div className="flex flex-wrap gap-1.5">
-                {t.items.map(item => (
+                {(t.items ?? []).map(item => (
                   <span key={item.id} className="text-[11px] bg-muted px-2 py-0.5 rounded-full">
                     {item.productName} × {item.quantity}
                   </span>

@@ -196,6 +196,11 @@ export const InventoryRoute = () => (
                 ? "A new version of the app is available. Reload to get the latest update."
                 : "Something went wrong loading this page. Try again or reload."}
             </p>
+            {!isChunk && err && (
+              <p className="text-xs font-mono text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg px-3 py-2 text-left break-all">
+                {(err as Error).name}: {(err as Error).message || "(no message)"}
+              </p>
+            )}
             <div className="flex flex-col gap-2">
               {!isChunk && (
                 <button

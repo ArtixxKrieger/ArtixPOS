@@ -130,6 +130,7 @@ export function signToken(user: TokenUser, rememberMe = false): string {
       role: user.role ?? "owner",
       activeBranchId: user.activeBranchId ?? null,
       emailVerified: user.emailVerified ?? true,
+      rem: rememberMe,
     },
     getJwtSecret(),
     { expiresIn: rememberMe ? "90d" : "7d" },
@@ -194,6 +195,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
         tenantId: payload.tenantId ?? null,
         role: payload.role ?? "owner",
         activeBranchId: payload.activeBranchId ?? null,
+        emailVerified: payload.emailVerified ?? true,
       };
 
       req.tokenJti = payload.jti ?? null;

@@ -408,8 +408,7 @@ export function setupAuth(app: Express) {
         activeBranchId: (created as any).activeBranchId ?? null,
         emailVerified: true,
       };
-      const registerToken = signToken(registerUser);
-      setAuthCookie(res, registerUser);
+      const registerToken = setAuthCookie(res, registerUser);
       logAuthEvent({
         userId: created.id,
         tenantId: (created as any).tenantId ?? null,
@@ -678,9 +677,9 @@ export function setupAuth(app: Express) {
         return res.status(403).json({ banned: true, message: "Account suspended" });
       }
 
-      const rememberMe = req.cookies?.["remember_me"] === "1";
-      setAuthCookie(res, user as any, rememberMe);
-      res.json({ ok: true });
+      const rememberMe = payload.rem === true;
+      const newToken = setAuthCookie(res, user as any, rememberMe);
+      res.json({ ok: true, token: newToken });
     } catch {
       res.status(401).json({ message: "Invalid or expired token" });
     }
@@ -920,6 +919,11 @@ export function setupAuth(app: Express) {
         invalidateTenantCache(wuid);
       }
 
+      const jti = req.tokenJti;
+      const exp = req.tokenExp;
+      if (jti && uid && exp) {
+        await revokeToken(jti, uid, new Date(exp * 1000).toISOString()).catch(() => {});
+      }
       clearAuthCookie(res);
       res.json({ ok: true });
     } catch (err: unknown) {

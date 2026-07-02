@@ -1,11 +1,19 @@
-// ArtixPOS Service Worker v13
+// ArtixPOS Service Worker v14
 // Caching strategies:
 //   HTML/navigation   → network-first (3 s timeout), cache fallback
-//   Hashed assets     → cache-first, immutable
+//   Auth pages         → network-only, never cached
+//   Hashed assets      → cache-first, immutable
 //   Fonts             → cache-first
 //   Images            → stale-while-revalidate
 //   Flag CDN images   → stale-while-revalidate (flagcdn.com, works offline)
 //   API calls         → network-only
+//
+// v14 changes:
+//   Auth paths (/login, /onboarding, /reset-password, etc.) now bypass the
+//   SW entirely for navigation requests.  Previously a slow/failed navigation
+//   to /login would fall back to cached /index.html (the dashboard), which
+//   would detect the user was unauthenticated and redirect back to /login,
+//   creating an infinite redirect loop in the PWA.
 //
 // v13 changes:
 //   Navigation strategy changed from stale-while-revalidate to network-first
@@ -15,7 +23,7 @@
 //   lazyWithRetry reload cycle that was causing 1-2 unexpected reloads after
 //   sign-in on every new production deployment.
 
-const CACHE_VERSION = "v13";
+const CACHE_VERSION = "v14";
 const SHELL_CACHE   = `artix-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `artix-assets-${CACHE_VERSION}`;
 const FONT_CACHE    = `artix-fonts-${CACHE_VERSION}`;
@@ -108,6 +116,28 @@ function isImage(url) {
 
 function isNavigation(req) {
   return req.mode === "navigate";
+}
+
+// Auth / public pages that must NEVER be served from cache.
+// The SW precaches /index.html (the dashboard shell). If a navigation to
+// /login times out and the SW falls back to cached /index.html, the dashboard
+// boots, sees the user is unauthenticated, redirects to /login, and the cycle
+// repeats — trapping the user in a redirect loop.
+//
+// These paths bypass the SW entirely for navigations: always network, never
+// cached, no fallback to shell HTML.
+const AUTH_PATHS = new Set([
+  "/login",
+  "/reset-password",
+  "/verify-email",
+  "/staff-clock-in",
+  "/onboarding",
+  "/terms",
+  "/privacy",
+]);
+
+function isAuthPath(pathname) {
+  return AUTH_PATHS.has(pathname) || pathname.startsWith("/b/");
 }
 
 async function cacheResponse(cacheName, request, response) {
@@ -253,13 +283,22 @@ self.addEventListener("fetch", (event) => {
 
   // 5. Navigation requests — network-first with 3-second timeout, cache fallback
   //
-  // Always try to get fresh HTML from the network so users receive the current
-  // deployment's asset hashes. This eliminates the "stale HTML → stale chunk
-  // URL → CDN 404 → reload" cycle that plagued the previous stale-while-
-  // revalidate strategy. On a Vercel CDN edge the network hop is ~50-150 ms
-  // (well within the 3-second timeout); we still serve from cache when offline
-  // or the server is unreachable.
+  // Auth pages (/login, /onboarding, etc.) ALWAYS go to network — never
+  // cached, never served from shell cache.  Without this, a slow/failed
+  // navigation to /login falls back to cached /index.html (the dashboard),
+  // which detects the user is unauthenticated and redirects back to /login,
+  // creating an infinite redirect loop in the PWA.
+  //
+  // All other navigations: network-first → cache fallback.
   if (isNavigation(req) || (isSameOrigin(req.url) && url.pathname.endsWith(".html"))) {
+    // Auth paths — pass through to network, never cache, never fall back to shell
+    if (isAuthPath(url.pathname)) {
+      event.respondWith(
+        fetch(req).catch(() => offlineFallbackResponse())
+      );
+      return;
+    }
+
     event.respondWith(
       (async () => {
         const cache = await caches.open(SHELL_CACHE);

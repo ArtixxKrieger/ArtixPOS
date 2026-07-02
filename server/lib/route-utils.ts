@@ -5,6 +5,45 @@ import { eq } from "drizzle-orm";
 import { branches as branchesTable } from "@shared/schema";
 import { createAuditLog } from "../admin-storage";
 
+/**
+ * Connection / infrastructure errors that should never be shown verbatim
+ * to end users — they contain internal details (limits, IPs, stack traces).
+ */
+const SENSITIVE_ERROR_PATTERNS: Array<[RegExp, string]> = [
+  [/max client connections/i, "Our servers are temporarily overloaded — please retry in a moment."],
+  [/too many clients/i, "Our servers are temporarily overloaded — please retry in a moment."],
+  [
+    /remaining connection slots/i,
+    "Our servers are temporarily overloaded — please retry in a moment.",
+  ],
+  [/pool is draining/i, "Our servers are temporarily overloaded — please retry in a moment."],
+  [/connection pool/i, "Our servers are temporarily experiencing high demand — please retry."],
+  [/econnrefused/i, "Our servers are temporarily unreachable — please retry in a moment."],
+  [/emaxconn/i, "Our servers are temporarily overloaded — please retry in a moment."],
+  [/connection terminated/i, "The connection was interrupted — please retry."],
+  [/connection timeout/i, "The request timed out — please check your connection and retry."],
+  [/timeout exceeded/i, "The request timed out — please retry."],
+  [/client was closed/i, "The connection was interrupted — please retry."],
+];
+
+/**
+ * Replace infrastructure error messages with user-friendly text.
+ * Returns the original message if no sensitive pattern matches.
+ */
+export function sanitizeUserError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err ?? "Unknown error");
+  for (const [pattern, friendly] of SENSITIVE_ERROR_PATTERNS) {
+    if (pattern.test(raw)) return friendly;
+  }
+  return raw;
+}
+
+/** Short user-safe message for use in URL query params (redirects). */
+export function sanitizeUserErrorForRedirect(err: unknown): string {
+  const msg = sanitizeUserError(err);
+  return msg.length > 120 ? msg.slice(0, 117) + "..." : msg;
+}
+
 export function getUserId(req: Request): string {
   if (!req.user) throw new Error("getUserId() called on unauthenticated request");
   return req.user.id;

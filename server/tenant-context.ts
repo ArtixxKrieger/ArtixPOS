@@ -90,28 +90,66 @@ export function tenantContextMiddleware(pool: Pool) {
   };
 }
 
+/**
+ * Transient connection errors that should be retried rather than
+ * propagated immediately to the caller.
+ */
+function isTransientConnectionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("max client connections") ||
+    lower.includes("too many clients") ||
+    lower.includes("remaining connection slots") ||
+    lower.includes("connection terminated") ||
+    lower.includes("connection timeout") ||
+    lower.includes("timeout exceeded") ||
+    lower.includes("pool is draining") ||
+    lower.includes("client was closed") ||
+    lower.includes("econnrefused") ||
+    lower.includes("emaxconn")
+  );
+}
+
+const RETRY_DELAYS_MS = [400, 1200];
+
 export async function runAsAdmin<T>(
   pool: Pool,
   fn: (adminDb: NodePgDatabase<typeof schema>) => Promise<T>,
   opts?: { readOnly?: boolean },
 ): Promise<T> {
-  const client = await pool.connect();
-  const readOnly = opts?.readOnly === true;
-  try {
-    if (!readOnly) await client.query("BEGIN");
-    await client.query("SET LOCAL row_security = off");
-    const adminDb = drizzle(client, { schema });
-    const result = await _tenantStore.run("admin", () => fn(adminDb));
-    if (!readOnly) await client.query("COMMIT");
-    return result;
-  } catch (err) {
-    if (!readOnly) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {}
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      const delay = RETRY_DELAYS_MS[attempt - 1];
+      console.warn(`[db] Retrying runAsAdmin after ${delay}ms (attempt ${attempt})`);
+      await new Promise((r) => setTimeout(r, delay));
     }
-    throw err;
-  } finally {
-    client.release();
+    try {
+      const client = await pool.connect();
+      const readOnly = opts?.readOnly === true;
+      try {
+        if (!readOnly) await client.query("BEGIN");
+        await client.query("SET LOCAL row_security = off");
+        const adminDb = drizzle(client, { schema });
+        const result = await _tenantStore.run("admin", () => fn(adminDb));
+        if (!readOnly) await client.query("COMMIT");
+        return result;
+      } catch (err) {
+        if (!readOnly) {
+          try {
+            await client.query("ROLLBACK");
+          } catch {}
+        }
+        throw err;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientConnectionError(err)) throw err;
+      // Will retry if attempts remain
+    }
   }
+  throw lastErr;
 }

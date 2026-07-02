@@ -74,6 +74,7 @@ import {
 } from "./oauth";
 import { deleteUsersData, deleteTenantShell } from "./delete-data";
 import jwt from "jsonwebtoken";
+import { sanitizeUserError, sanitizeUserErrorForRedirect } from "../lib/route-utils";
 
 function getClientIp(req: Request): string {
   return (
@@ -263,12 +264,17 @@ export function setupAuth(app: Express) {
       { session: false },
       (err: unknown, user: Express.User | false | null) => {
         if (err) {
-          const msg = String(err instanceof Error ? err.message : err).slice(0, 120);
-          console.error("[auth] Google callback error:", msg);
+          console.error(
+            "[auth] Google callback error:",
+            err instanceof Error ? err.message : String(err),
+          );
+          const friendly = sanitizeUserError(err);
           if (isPopup) {
-            return res.send(popupResultPage({ ok: false, error: msg }));
+            return res.send(popupResultPage({ ok: false, error: friendly }));
           }
-          return res.redirect(`/login?error=google_cb&detail=${encodeURIComponent(msg)}`);
+          return res.redirect(
+            `/login?error=google_cb&detail=${encodeURIComponent(sanitizeUserErrorForRedirect(err))}`,
+          );
         }
         if (!user) {
           console.warn("[auth] Google callback: no user returned");

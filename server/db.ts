@@ -6,7 +6,13 @@ import { _tenantStore } from "./tenant-context";
 
 const isServerless = !!process.env.VERCEL;
 
-const TOTAL_POOL = isServerless ? 15 : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
+// On serverless each instance handles 1 request at a time.
+// A large per-instance pool multiplies across concurrent invocations
+// and easily exhausts the upstream Supabase connection limit (default 200).
+// Keep it small: 2–3 connections per instance is plenty.
+const TOTAL_POOL = isServerless
+  ? parseInt(process.env.DB_POOL_MAX ?? "3", 10)
+  : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
 const CLUSTER_WORKERS_ENV = parseInt(process.env.CLUSTER_WORKERS ?? "0", 10);
 const EFFECTIVE_WORKERS =
   CLUSTER_WORKERS_ENV > 0

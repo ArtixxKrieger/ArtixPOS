@@ -87,6 +87,26 @@ fetchTier(CRITICAL_URLS, 0)
     .catch(() => {});
 }
 
+export async function prefetchCriticalData(): Promise<void> {
+  const queryFn = getQueryFn({ on401: "returnNull" });
+  await Promise.allSettled(
+    CRITICAL_URLS.map((url) =>
+      queryClient
+        .fetchQuery({ queryKey: [url], queryFn })
+        .then((data) => {
+          if (data != null) {
+            import("./offline-db").then(({ setCached }) => {
+              setCached(url, data).catch(() => {});
+            });
+          } else {
+            queryClient.removeQueries({ queryKey: [url], exact: true });
+          }
+        })
+        .catch(() => {}),
+    ),
+  );
+}
+
 export function clearPrefetchCache(): void {
   prefetchedUsers.clear();
   try {

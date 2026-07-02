@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { apiRequest, setNativeToken, queryClient, nativeFetch } from "@/lib/queryClient";
+import { prefetchCriticalData } from "@/lib/prefetch";
 import { detectLocale } from "@/lib/locale-detect";
 import { getPricingByCurrency, formatPrice } from "@/lib/pricing";
 import gsap from "gsap";
@@ -660,9 +661,30 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        // Save token + user to localStorage so the fresh page load picks them up
+        // Store token first so all subsequent requests in this session are authenticated
         if (data.token) setNativeToken(data.token);
-        localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
+
+        // Before redirecting, fetch the full user (includes activeBranch color) and
+        // warm the critical data cache in parallel. When the page reloads the
+        // localStorage placeholder will have activeBranch populated and IndexedDB
+        // will have the critical data — so the app renders with real data instantly
+        // instead of showing stale/empty state until the first network round-trip.
+        try {
+          await Promise.allSettled([
+            nativeFetch("/api/auth/me")
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => {
+                const fullUser = d?.user ?? null;
+                localStorage.setItem(
+                  "artixpos_auth_me_v1",
+                  JSON.stringify(fullUser ?? authUser),
+                );
+              }),
+            prefetchCriticalData(),
+          ]);
+        } catch {
+          localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
+        }
 
         // Hard navigate — the cleanest way to reset all React/query state
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";

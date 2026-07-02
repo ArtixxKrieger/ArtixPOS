@@ -522,6 +522,18 @@ export default function Login() {
 
   useEffect(() => {
     if (isLoading || isPlaceholderData) return;
+
+    // Safety net: if we just logged out (sessionStorage flag set by useAuth),
+    // skip the auto-redirect and let the login page render. Without this, a
+    // race where the server-side cookie clearing doesn't propagate in time
+    // causes fetchMe() to return the user, which triggers an infinite
+    // logout → login → redirect-to-dashboard loop.
+    const justLoggedOut = sessionStorage.getItem("artixpos_just_logged_out");
+    if (justLoggedOut === "1") {
+      sessionStorage.removeItem("artixpos_just_logged_out");
+      return;
+    }
+
     if (isAuthenticated) {
       // Already authenticated — redirect to dashboard
       setLocation("/");
@@ -675,10 +687,7 @@ export default function Login() {
               .then((r) => (r.ok ? r.json() : null))
               .then((d) => {
                 const fullUser = d?.user ?? null;
-                localStorage.setItem(
-                  "artixpos_auth_me_v1",
-                  JSON.stringify(fullUser ?? authUser),
-                );
+                localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(fullUser ?? authUser));
               }),
             prefetchCriticalData(),
           ]);

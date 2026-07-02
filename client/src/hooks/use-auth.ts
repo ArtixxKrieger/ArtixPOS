@@ -5,6 +5,7 @@ import {
   clearNativeToken,
   NATIVE_TOKEN_KEY,
   setAuthenticatedUserId,
+  queryClient,
 } from "@/lib/queryClient";
 import { debugLog } from "@/lib/debug-log";
 import { setErrorCaptureUser } from "@/lib/error-capture";
@@ -151,21 +152,34 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Await server logout so the httpOnly cookie is revoked before we navigate
-      // away. If we fire-and-forget, the cookie is still valid when the Login page
-      // loads and calls /api/auth/me — making isAuthenticated briefly true and
-      // triggering the "already logged in → redirect to /" guard in login.tsx.
-      await nativeFetch("/auth/logout", { method: "POST" }).catch(() => {});
+      // Use raw fetch with credentials: "include" so the httpOnly auth cookie
+      // is sent with the request and the server can properly clear it.
+      // nativeFetch omits credentials when a native token is present, which
+      // prevents the cookie from being sent — the server can't revoke what it
+      // doesn't receive, leaving the session alive on the next page load.
+      const res = await fetch("/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`Logout failed: ${res.status}`);
     },
     onSuccess: () => {
       clearNativeToken();
       saveCachedAuthUser(null);
+      queryClient.setQueryData(["auth-me"], null);
+      queryClient.clear();
+      sessionStorage.setItem("artixpos_just_logged_out", "1");
       window.location.replace("/login");
     },
     onError: () => {
-      // Server unreachable — clear local state and navigate anyway
+      // Server unreachable — clear local state and navigate anyway.
+      // The sessionStorage flag tells the login page to skip the auto-redirect
+      // even if the server-side cookie wasn't cleared.
       clearNativeToken();
       saveCachedAuthUser(null);
+      queryClient.setQueryData(["auth-me"], null);
+      queryClient.clear();
+      sessionStorage.setItem("artixpos_just_logged_out", "1");
       window.location.replace("/login");
     },
   });

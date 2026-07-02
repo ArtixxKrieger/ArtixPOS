@@ -639,10 +639,27 @@ export function setupAuth(app: Express) {
     const uid = req.user?.id;
     const tid = req.user?.tenantId ?? null;
 
+    // Revoke the token used to authenticate this request (Bearer or cookie)
     if (jti && uid && exp) {
       const expiresAt = new Date(exp * 1000).toISOString();
       await revokeToken(jti, uid, expiresAt);
       logAuthEvent({ userId: uid, tenantId: tid, action: "logout" });
+    }
+
+    // Also revoke the cookie token if it has a different JTI.
+    // Client sends Bearer for the logout call, so the cookie's JTI is never
+    // revoked by the block above — leaving a valid session that /api/auth/me
+    // would accept on the next page load.
+    const cookieToken = (req as any).cookies?.[AUTH_COOKIE];
+    if (cookieToken) {
+      try {
+        const cp = jwt.verify(cookieToken, getJwtSecret()) as any;
+        if (cp.jti && cp.jti !== jti) {
+          await revokeToken(cp.jti, cp.id, new Date(cp.exp * 1000).toISOString());
+        }
+      } catch {
+        // cookie token already expired or invalid — nothing to revoke
+      }
     }
 
     clearAuthCookie(res);

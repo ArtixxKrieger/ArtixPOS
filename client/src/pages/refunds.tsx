@@ -5,12 +5,26 @@ import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format } from "date-fns";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
-  RotateCcw, Search, X, Hash, UserCircle2, Calendar, ChevronDown, Check,
+  RotateCcw,
+  Search,
+  X,
+  Hash,
+  UserCircle2,
+  Calendar,
+  ChevronDown,
+  Check,
   Download,
 } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -62,7 +76,9 @@ function DropdownItem({
       onClick={onClick}
       className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-primary/5 transition-colors text-left"
     >
-      <span className={["h-4 w-4 shrink-0", active ? "text-primary" : "text-transparent"].join(" ")}>
+      <span
+        className={["h-4 w-4 shrink-0", active ? "text-primary" : "text-transparent"].join(" ")}
+      >
         <Check className="h-4 w-4" />
       </span>
       <span className={active ? "font-semibold text-primary" : ""}>{children}</span>
@@ -82,7 +98,9 @@ export default function Refunds() {
     queryFn: async () => {
       const res = await nativeFetch("/api/refunds");
       if (!res.ok) return [];
-      return res.json();
+      const json = await res.json();
+      // API returns paginated envelope { data, meta } — extract the array
+      return Array.isArray(json) ? json : (json.data ?? []);
     },
   });
 
@@ -95,27 +113,36 @@ export default function Refunds() {
 
     if (dateFilter === "today") {
       const today = new Date().toDateString();
-      result = result.filter(r => new Date(r.createdAt!).toDateString() === today);
+      result = result.filter((r) => new Date(r.createdAt!).toDateString() === today);
     } else if (dateFilter === "week") {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      result = result.filter(r => new Date(r.createdAt!) >= weekAgo);
+      result = result.filter((r) => new Date(r.createdAt!) >= weekAgo);
     } else if (dateFilter === "month") {
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
-      result = result.filter(r => new Date(r.createdAt!) >= monthAgo);
+      result = result.filter((r) => new Date(r.createdAt!) >= monthAgo);
     }
 
     if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase().replace(/^txn-?/i, "").replace(/^#/i, "").replace(/^ref-?/i, "");
-      result = result.filter(r => {
+      const q = debouncedSearch
+        .toLowerCase()
+        .replace(/^txn-?/i, "")
+        .replace(/^#/i, "")
+        .replace(/^ref-?/i, "");
+      result = result.filter((r) => {
         const refundId = String(r.id);
         const saleId = String(r.saleId);
         const salePadded = saleId.padStart(4, "0");
         const reason = (r.reason || "").toLowerCase();
         const processedBy = (r.processedByName || r.processedByEmail || "").toLowerCase();
-        return refundId.includes(q) || saleId.includes(q) || salePadded.includes(q)
-          || reason.includes(q) || processedBy.includes(q);
+        return (
+          refundId.includes(q) ||
+          saleId.includes(q) ||
+          salePadded.includes(q) ||
+          reason.includes(q) ||
+          processedBy.includes(q)
+        );
       });
     }
 
@@ -126,11 +153,11 @@ export default function Refunds() {
 
   function downloadAuditCsv() {
     nativeFetch("/api/bir/refund-trail/export")
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error("Export failed");
         return r.blob();
       })
-      .then(blob => {
+      .then((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -153,21 +180,28 @@ export default function Refunds() {
 
   return (
     <div className="space-y-4 page-enter">
-
       {}
       <div className="glass-card rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4 flex-wrap">
           <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Refunds</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Total Refunds
+            </p>
             <p className="text-lg font-bold">
               {filtered.length}
-              <span className="text-sm font-normal text-muted-foreground ml-1">{filtered.length === 1 ? "refund" : "refunds"}</span>
+              <span className="text-sm font-normal text-muted-foreground ml-1">
+                {filtered.length === 1 ? "refund" : "refunds"}
+              </span>
             </p>
           </div>
           <div className="w-px h-8 bg-border hidden sm:block" />
           <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Refunded</p>
-            <p className="text-lg font-bold text-rose-500 tabular-nums">{formatCurrency(totalRefunded, currency)}</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Total Refunded
+            </p>
+            <p className="text-lg font-bold text-rose-500 tabular-nums">
+              {formatCurrency(totalRefunded, currency)}
+            </p>
           </div>
         </div>
 
@@ -192,12 +226,15 @@ export default function Refunds() {
             type="text"
             placeholder="Search by TXN ID, reason, staff…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
             data-testid="input-refund-search"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -212,7 +249,7 @@ export default function Refunds() {
             </button>
           }
         >
-          {(["all", "today", "week", "month"] as DateFilter[]).map(f => (
+          {(["all", "today", "week", "month"] as DateFilter[]).map((f) => (
             <DropdownItem key={f} active={dateFilter === f} onClick={() => setDateFilter(f)}>
               {dateFilterLabels[f]}
             </DropdownItem>
@@ -325,7 +362,11 @@ export default function Refunds() {
                         className="text-sm text-foreground/70 truncate block"
                         title={refund.reason || undefined}
                       >
-                        {refund.reason || <span className="text-muted-foreground/60 italic">No reason provided</span>}
+                        {refund.reason || (
+                          <span className="text-muted-foreground/60 italic">
+                            No reason provided
+                          </span>
+                        )}
                       </span>
                     </TableCell>
                   </TableRow>
@@ -341,7 +382,9 @@ export default function Refunds() {
           </div>
           <p className="text-foreground font-semibold">No refunds found</p>
           <p className="text-sm text-muted-foreground/70">
-            {search ? "Try adjusting your search or filters" : "Refunds will appear here once processed"}
+            {search
+              ? "Try adjusting your search or filters"
+              : "Refunds will appear here once processed"}
           </p>
         </div>
       )}

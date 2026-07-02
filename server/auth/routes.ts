@@ -606,8 +606,7 @@ export function setupAuth(app: Express) {
 
       recordSuccessfulLogin(ip);
       recordEmailSuccessfulLogin(normalizedEmail);
-      setAuthCookie(res, user as any, rememberMe === true);
-      const loginToken = signToken(user as any, rememberMe === true);
+      const loginToken = setAuthCookie(res, user as any, rememberMe === true);
       logAuthEvent({
         userId: user.id,
         tenantId: user.tenantId ?? null,
@@ -627,6 +626,7 @@ export function setupAuth(app: Express) {
           role: user.role ?? "owner",
           activeBranchId: (user as any).activeBranchId ?? null,
           activeBranch: null,
+          emailVerified: user.emailVerified ?? true,
         },
       });
     } catch (err) {

@@ -136,13 +136,14 @@ export function signToken(user: TokenUser, rememberMe = false): string {
   );
 }
 
-export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false) {
+export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false): string {
   const token = signToken(user, rememberMe);
-  const maxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000;
+  const maxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
   res.cookie(AUTH_COOKIE, token, {
     ...AUTH_COOKIE_OPTIONS,
     maxAge,
   });
+  return token;
 }
 
 export function clearAuthCookie(res: Response) {

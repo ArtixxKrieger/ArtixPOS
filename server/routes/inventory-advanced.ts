@@ -205,8 +205,8 @@ app.post("/api/inventory/generate-ingredient-po", requireAuth, requirePro, requi
         paymentStatus: "unpaid",
         notes: `Auto-generated ingredient reorder for ${items.length} ingredient(s)`,
         items: items.map((item: any) => ({
-          productId: item.ingredientId,
-          productName: item.ingredientName,
+          productId: null,
+          productName: item.ingredientName || item.productName || "Unknown",
           quantity: item.quantity,
           unitCost: item.unitCost || "0",
           totalCost: (parseFloat(item.unitCost || "0") * item.quantity).toFixed(2),
@@ -271,6 +271,16 @@ app.get("/api/waste-log", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
       const branchId = getActiveBranchId(req);
+      const { itemName, quantity, reason } = req.body;
+      if (!itemName || typeof itemName !== "string" || !itemName.trim()) {
+        return res.status(400).json({ message: "itemName is required" });
+      }
+      if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) {
+        return res.status(400).json({ message: "quantity must be a positive number" });
+      }
+      if (!reason || typeof reason !== "string") {
+        return res.status(400).json({ message: "reason is required" });
+      }
       const entry = await storage.createWasteLog(uid, { ...req.body, branchId });
       res.status(201).json(entry);
     } catch (error) {
@@ -294,6 +304,10 @@ app.get("/api/stock-transfers", requireAuth, requirePro, async (req, res) => {
   app.post("/api/stock-transfers", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const uid = getUserId(req);
+      const { items } = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "At least one item is required" });
+      }
       const transfer = await storage.createStockTransfer(uid, req.body);
       res.status(201).json(transfer);
     } catch (error) {

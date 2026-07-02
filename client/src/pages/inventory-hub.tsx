@@ -173,8 +173,10 @@ export default function InventoryHub() {
 
   const trackedProducts = products.filter((p) => p.trackStock);
   const lowStockCount = isFoodBeverage
-    ? ingredients.filter((i) => Number(i.stockQty || "0") <= Number(i.lowStockThreshold || "0"))
-        .length
+    ? ingredients.filter((i) => {
+        const thresh = Number(i.lowStockThreshold || "0");
+        return thresh > 0 && Number(i.stockQty || "0") <= thresh;
+      }).length
     : trackedProducts.filter((p) => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10)).length;
   const outOfStockCount = isFoodBeverage
     ? ingredients.filter((i) => Number(i.stockQty || "0") === 0).length

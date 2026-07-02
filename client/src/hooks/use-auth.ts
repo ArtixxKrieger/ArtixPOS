@@ -151,8 +151,11 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Tell server to clear its httpOnly cookie — fire-and-forget, don't block
-      nativeFetch("/auth/logout", { method: "POST" }).catch(() => {});
+      // Await server logout so the httpOnly cookie is revoked before we navigate
+      // away. If we fire-and-forget, the cookie is still valid when the Login page
+      // loads and calls /api/auth/me — making isAuthenticated briefly true and
+      // triggering the "already logged in → redirect to /" guard in login.tsx.
+      await nativeFetch("/auth/logout", { method: "POST" }).catch(() => {});
     },
     onSuccess: () => {
       clearNativeToken();

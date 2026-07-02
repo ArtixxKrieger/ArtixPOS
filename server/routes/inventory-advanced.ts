@@ -53,10 +53,15 @@ export function registerInventoryAdvancedRoutes(app: Express): void {
   });
 
 app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (req, res) => {
-    const uid = getUserId(req);
-    const branchId = getActiveBranchId(req);
-    const suggestions = await storage.getReorderSuggestions(uid, branchId);
-    res.json(suggestions);
+    try {
+      const uid = getUserId(req);
+      const branchId = getActiveBranchId(req);
+      const suggestions = await storage.getReorderSuggestions(uid, branchId);
+      res.json(suggestions);
+    } catch (err) {
+      console.error("[/api/inventory/reorder-suggestions] error:", err);
+      res.status(500).json({ message: "Failed to load reorder suggestions" });
+    }
   });
 
 app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro, async (req, res) => {
@@ -64,7 +69,7 @@ app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro
       const uid = getUserId(req);
       const _branchId = getActiveBranchId(req);
 
-      const userIds = await (storage as any).getTenantUserIds(uid);
+      const userIds = await getTenantUserIds(uid);
 
 const lowStockIngredients = await db.select()
         .from(ingredients)

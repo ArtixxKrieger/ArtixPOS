@@ -472,6 +472,7 @@ export default function InventoryHub() {
             suggestions={reorderSuggestions}
             isLoading={reorderLoading}
             currency={currency}
+            isFoodBeverage={isFoodBeverage}
           />
         )}
       </div>
@@ -742,10 +743,12 @@ function ReorderTab({
   suggestions,
   isLoading: _isLoading,
   currency: _currency,
+  isFoodBeverage,
 }: {
   suggestions: ReorderSuggestion[];
   isLoading: boolean;
   currency: string;
+  isFoodBeverage?: boolean;
 }) {
   const { toast } = useToast();
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -777,7 +780,7 @@ function ReorderTab({
         apiRequest("POST", "/api/inventory/generate-reorder-po", {
           supplierId,
           items: group.map((s) => ({
-            productId: s.productId,
+            productId: isFoodBeverage ? null : s.productId,
             productName: s.productName,
             quantity: s.suggestedOrderQty,
             unitCost: s.unitCost ?? "0",
@@ -961,6 +964,15 @@ function WasteLogForm({
     costImpact: "",
     note: "",
   });
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function validate(): string | null {
+    if (form.type === "product" && !form.productId) return "Please select a product";
+    if (form.type === "ingredient" && !form.ingredientId) return "Please select an ingredient";
+    if (form.type === "manual" && !form.itemName.trim()) return "Item name is required";
+    if (!form.quantity || Number(form.quantity) <= 0) return "Quantity must be greater than 0";
+    return null;
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -984,9 +996,13 @@ function WasteLogForm({
         note: form.note || undefined,
       }),
     onSuccess,
+    onError: () => setFormError("Failed to save. Please try again."),
   });
 
-  const set = (key: keyof typeof form, val: string) => setForm((f) => ({ ...f, [key]: val }));
+  const set = (key: keyof typeof form, val: string) => {
+    setFormError(null);
+    setForm((f) => ({ ...f, [key]: val }));
+  };
 
   const selectedProduct = products.find((p) => String(p.id) === form.productId);
   const selectedIngredient = ingredients.find((i) => String(i.id) === form.ingredientId);
@@ -1156,13 +1172,24 @@ function WasteLogForm({
             />
           </div>
 
+          {formError && (
+            <p className="text-xs text-destructive font-medium bg-destructive/10 rounded-lg px-3 py-2">
+              {formError}
+            </p>
+          )}
+
           <div className="flex gap-2 pt-1">
             <Button variant="outline" className="flex-1" onClick={onClose}>
               Cancel
             </Button>
             <Button
               className="flex-1"
-              onClick={() => mutation.mutate()}
+              onClick={() => {
+                const err = validate();
+                if (err) { setFormError(err); return; }
+                setFormError(null);
+                mutation.mutate();
+              }}
               disabled={mutation.isPending}
               data-testid="button-submit-waste"
             >

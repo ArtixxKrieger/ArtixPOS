@@ -168,19 +168,15 @@ export function useAuth() {
       saveCachedAuthUser(null);
       queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();
-      sessionStorage.setItem("artixpos_just_logged_out", "1");
-      window.location.replace("/login");
+      window.location.replace("/login?logout=1");
     },
     onError: () => {
-      // Server unreachable — clear local state and navigate anyway.
-      // The sessionStorage flag tells the login page to skip the auto-redirect
-      // even if the server-side cookie wasn't cleared.
+      // Server unreachable — clear local state and navigate anyway
       clearNativeToken();
       saveCachedAuthUser(null);
       queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();
-      sessionStorage.setItem("artixpos_just_logged_out", "1");
-      window.location.replace("/login");
+      window.location.replace("/login?logout=1");
     },
   });
 

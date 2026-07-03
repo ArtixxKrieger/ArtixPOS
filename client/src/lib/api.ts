@@ -233,6 +233,22 @@ export async function apiRequest(
 return Object.assign(res, { ok: true as const, json: async (): Promise<any> => res.data });
 }
 
+export async function performLogout(): Promise<Response> {
+  // Always send BOTH the httpOnly cookie (credentials: "include") AND the
+  // Bearer token from localStorage (if any) explicitly via the Authorization
+  // header. A browser can carry two separate sessions at once — a cookie
+  // AND a Bearer token — with DIFFERENT jtis (e.g. after email verification,
+  // invite redemption, or native OAuth). nativeFetch() would omit the
+  // cookie whenever a Bearer token exists, and a plain fetch() would omit
+  // the Authorization header — either way leaves one session un-revoked.
+  const token = localStorage.getItem(NATIVE_TOKEN_KEY);
+  return fetch(resolveUrl("/auth/logout"), {
+    method: "POST",
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
 export async function nativeFetch(
   url: string,
   options: RequestInit = {},

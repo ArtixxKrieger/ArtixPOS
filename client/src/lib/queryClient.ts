@@ -13,6 +13,7 @@ export {
   normaliseError,
   setAuthenticatedUserId,
   NATIVE_TOKEN_KEY,
+  performLogout,
 } from "./api";
 
 import { apiGet } from "./api";

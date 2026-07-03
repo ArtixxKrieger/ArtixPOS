@@ -652,19 +652,28 @@ export function setupAuth(app: Express) {
       logAuthEvent({ userId: uid, tenantId: tid, action: "logout" });
     }
 
-    // Also revoke the cookie token if it has a different JTI.
-    // Client sends Bearer for the logout call, so the cookie's JTI is never
-    // revoked by the block above — leaving a valid session that /api/auth/me
-    // would accept on the next page load.
+    // A browser can carry TWO separate sessions at once — a cookie AND a
+    // Bearer token in localStorage (e.g. after email verification, invite
+    // redemption, or native OAuth) — each with its OWN jti. jwtAuthMiddleware
+    // only populates req.tokenJti from ONE of them, so explicitly check both
+    // the cookie and the Authorization header here and revoke whichever
+    // JTI(s) weren't already covered above.
+    const extraTokens: string[] = [];
     const cookieToken = (req as any).cookies?.[AUTH_COOKIE];
-    if (cookieToken) {
+    if (cookieToken) extraTokens.push(cookieToken);
+    const authHeader = req.headers.authorization;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      extraTokens.push(authHeader.slice(7));
+    }
+
+    for (const t of extraTokens) {
       try {
-        const cp = jwt.verify(cookieToken, getJwtSecret()) as any;
+        const cp = jwt.verify(t, getJwtSecret()) as any;
         if (cp.jti && cp.jti !== jti) {
           await revokeToken(cp.jti, cp.id, new Date(cp.exp * 1000).toISOString());
         }
       } catch {
-        // cookie token already expired or invalid — nothing to revoke
+        // token already expired or invalid — nothing to revoke
       }
     }
 

@@ -6,6 +6,7 @@ import {
   NATIVE_TOKEN_KEY,
   setAuthenticatedUserId,
   queryClient,
+  performLogout,
 } from "@/lib/queryClient";
 import { debugLog } from "@/lib/debug-log";
 import { setErrorCaptureUser } from "@/lib/error-capture";
@@ -152,15 +153,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Use raw fetch with credentials: "include" so the httpOnly auth cookie
-      // is sent with the request and the server can properly clear it.
-      // nativeFetch omits credentials when a native token is present, which
-      // prevents the cookie from being sent — the server can't revoke what it
-      // doesn't receive, leaving the session alive on the next page load.
-      const res = await fetch("/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      const res = await performLogout();
       if (!res.ok) throw new Error(`Logout failed: ${res.status}`);
     },
     onSuccess: () => {

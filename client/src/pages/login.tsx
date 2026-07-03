@@ -509,7 +509,8 @@ export default function Login() {
     if (isAuthenticated) {
       (async () => {
         try {
-          await nativeFetch("/auth/logout", { method: "POST" });
+          const { performLogout } = await import("@/lib/queryClient");
+          await performLogout();
         } catch {}
         const { clearNativeToken } = await import("@/lib/queryClient");
         clearNativeToken();

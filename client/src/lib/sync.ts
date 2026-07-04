@@ -366,7 +366,7 @@ export async function refreshAllData(): Promise<void> {
     ["/api/purchase-orders"],
     ["/api/inventory"],
     ["/api/appointments"],
-    ["/api/staff"],
+    ["/api/service-staff"],
     ["/api/shifts"],
   ];
   await Promise.all(

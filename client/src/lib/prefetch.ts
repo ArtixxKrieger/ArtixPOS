@@ -3,19 +3,17 @@ import { getCached, pruneStaleCache } from "./offline-db";
 
 const CRITICAL_URLS: readonly string[] = [
   "/api/settings",
-  "/api/pos-features",
   "/api/products",
-  "/api/categories",
   "/api/customers",
   "/api/pending-orders",
 ];
 
 const OPERATIONAL_URLS: readonly string[] = [
-  "/api/staff",
+  "/api/service-staff",
   "/api/tables",
-  "/api/rooms",
+  "/api/service-rooms",
   "/api/memberships",
-  "/api/loyalty-tiers",
+  "/api/loyalty/tiers",
   "/api/discount-codes",
   "/api/ingredients",
 ];

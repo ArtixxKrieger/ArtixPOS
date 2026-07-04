@@ -143,80 +143,129 @@ export function registerSaleRoutes(app: Express): void {
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-      // Never trust client-computed money fields: re-derive subtotal/tax/total
-      // from canonical DB product prices to close a client-side tampering vector
-      // (product/size/modifier prices are echoed back from the client cart and
-      // are trivially editable via devtools/network interception).
+      // Never trust client-computed money fields for regular POS cart checkouts:
+      // re-derive subtotal/tax/total from canonical DB product prices to close a
+      // client-side tampering vector (product/size/modifier prices are echoed back
+      // from the client cart and are trivially editable via devtools/network
+      // interception). This only applies when every line item references a real
+      // catalog product by id — other sale-creation flows (appointment checkout,
+      // pending-order completion, ad-hoc service/tip lines) don't carry product
+      // ids in their item shape, so they keep the pre-existing behavior of
+      // trusting their own already-computed totals.
       const rawItems = Array.isArray(input.items) ? (input.items as any[]) : [];
-      const catalogProducts = await storage.getProducts(uid);
-      const productMap = new Map(catalogProducts.map((p) => [p.id, p]));
-      const settings = await storage.getSettings(uid);
-      const globalTaxRate = parseFloat(settings?.taxRate || "0");
-
-      const isScPwd = !!input.scPwdId;
-
-      let recomputedSubtotal = 0;
-      let missingProduct = false;
-      const perItem: { itemSubtotal: number; rate: number }[] = [];
-      for (const item of rawItems) {
-        const productId = item?.product?.id;
-        const canonicalProduct = productId != null ? productMap.get(Number(productId)) : undefined;
-        if (!canonicalProduct) {
-          missingProduct = true;
-          break;
-        }
-        let unitPrice = parseFloat(canonicalProduct.price || "0");
-        if (item?.size?.name) {
-          const canonicalSize = (canonicalProduct.sizes || []).find(
-            (s: any) => s.name === item.size.name,
-          );
-          if (!canonicalSize) {
-            missingProduct = true;
-            break;
-          }
-          unitPrice = parseFloat(canonicalSize.price || "0");
-        }
-        let modsPrice = 0;
-        for (const mod of item?.modifiers ?? []) {
-          const canonicalMod = (canonicalProduct.modifiers || []).find(
-            (m: any) => m.name === mod.name,
-          );
-          if (!canonicalMod) {
-            missingProduct = true;
-            break;
-          }
-          modsPrice += parseFloat(canonicalMod.price || "0");
-        }
-        if (missingProduct) break;
-        const quantity = Number(item?.quantity) || 0;
-        const itemSubtotal = (unitPrice + modsPrice) * quantity;
-        recomputedSubtotal += itemSubtotal;
-        const rate =
-          canonicalProduct.taxRate != null && canonicalProduct.taxRate !== ""
-            ? parseFloat(canonicalProduct.taxRate)
-            : globalTaxRate;
-        perItem.push({ itemSubtotal, rate });
-      }
-
-      if (missingProduct || rawItems.length === 0) {
-        return res.status(400).json({
-          message: "One or more items could not be verified against the catalog. Please refresh and try again.",
-        });
-      }
+      const isCatalogCart =
+        rawItems.length > 0 && rawItems.every((item) => item?.product?.id != null);
 
       const saleUser = req.user;
       let requestedDiscount = parseFloat(input.discount || "0");
       const requestedLoyalty = parseFloat((input as any).loyaltyDiscount || "0");
-      if (saleUser?.tenantId && saleUser.role !== "owner") {
-        const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
-        if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
-          const discountAmt = requestedDiscount + requestedLoyalty;
-          if (recomputedSubtotal > 0 && (discountAmt / recomputedSubtotal) * 100 > perm.maxDiscountPercent) {
-            return res
-              .status(403)
-              .json({
-                message: `Discount exceeds your allowed maximum of ${perm.maxDiscountPercent}%`,
-              });
+
+      let overrides: Partial<typeof input> = {};
+
+      if (isCatalogCart) {
+        const catalogProducts = await storage.getProducts(uid);
+        const productMap = new Map(catalogProducts.map((p) => [p.id, p]));
+        const settings = await storage.getSettings(uid);
+        const globalTaxRate = parseFloat(settings?.taxRate || "0");
+        const isScPwd = !!input.scPwdId;
+
+        let recomputedSubtotal = 0;
+        let missingProduct = false;
+        const perItem: { itemSubtotal: number; rate: number }[] = [];
+        for (const item of rawItems) {
+          const canonicalProduct = productMap.get(Number(item.product.id));
+          if (!canonicalProduct) {
+            missingProduct = true;
+            break;
+          }
+          let unitPrice = parseFloat(canonicalProduct.price || "0");
+          if (item?.size?.name) {
+            const canonicalSize = (canonicalProduct.sizes || []).find(
+              (s: any) => s.name === item.size.name,
+            );
+            if (!canonicalSize) {
+              missingProduct = true;
+              break;
+            }
+            unitPrice = parseFloat(canonicalSize.price || "0");
+          }
+          let modsPrice = 0;
+          for (const mod of item?.modifiers ?? []) {
+            const canonicalMod = (canonicalProduct.modifiers || []).find(
+              (m: any) => m.name === mod.name,
+            );
+            if (!canonicalMod) {
+              missingProduct = true;
+              break;
+            }
+            modsPrice += parseFloat(canonicalMod.price || "0");
+          }
+          if (missingProduct) break;
+          const quantity = Number(item?.quantity) || 0;
+          const itemSubtotal = (unitPrice + modsPrice) * quantity;
+          recomputedSubtotal += itemSubtotal;
+          const rate =
+            canonicalProduct.taxRate != null && canonicalProduct.taxRate !== ""
+              ? parseFloat(canonicalProduct.taxRate)
+              : globalTaxRate;
+          perItem.push({ itemSubtotal, rate });
+        }
+
+        if (missingProduct) {
+          return res.status(400).json({
+            message: "One or more items could not be verified against the catalog. Please refresh and try again.",
+          });
+        }
+
+        if (saleUser?.tenantId && saleUser.role !== "owner") {
+          const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
+          if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
+            const discountAmt = requestedDiscount + requestedLoyalty;
+            if (recomputedSubtotal > 0 && (discountAmt / recomputedSubtotal) * 100 > perm.maxDiscountPercent) {
+              return res
+                .status(403)
+                .json({
+                  message: `Discount exceeds your allowed maximum of ${perm.maxDiscountPercent}%`,
+                });
+            }
+          }
+        }
+
+        const effectiveDiscount = isScPwd
+          ? recomputedSubtotal * 0.2
+          : Math.min(Math.max(requestedDiscount, 0), recomputedSubtotal);
+        const discountedSubtotal = Math.max(0, recomputedSubtotal - effectiveDiscount);
+        const discountRatio = recomputedSubtotal > 0 ? discountedSubtotal / recomputedSubtotal : 1;
+        const recomputedTax = isScPwd
+          ? 0
+          : perItem.reduce((acc, { itemSubtotal, rate }) => acc + itemSubtotal * discountRatio * (rate / 100), 0);
+        const clampedLoyalty = Math.min(Math.max(requestedLoyalty, 0), discountedSubtotal + recomputedTax);
+        const recomputedTotal = Math.max(0, discountedSubtotal + recomputedTax - clampedLoyalty);
+
+        const round2 = (n: number) => Math.round(n * 100) / 100;
+
+        overrides = {
+          subtotal: round2(recomputedSubtotal).toFixed(2),
+          tax: round2(recomputedTax).toFixed(2),
+          discount: round2(effectiveDiscount).toFixed(2),
+          loyaltyDiscount: round2(clampedLoyalty).toFixed(2),
+          total: round2(recomputedTotal).toFixed(2),
+        } as Partial<typeof input>;
+      } else {
+        // Non-catalog flow (appointments, pending-order completion, etc.) — keep
+        // the existing permission check against the client-supplied discount.
+        if (saleUser?.tenantId && saleUser.role !== "owner") {
+          const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
+          if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
+            const discountAmt = requestedDiscount + requestedLoyalty;
+            const subtotalAmt = parseFloat(input.subtotal || "0");
+            if (subtotalAmt > 0 && (discountAmt / subtotalAmt) * 100 > perm.maxDiscountPercent) {
+              return res
+                .status(403)
+                .json({
+                  message: `Discount exceeds your allowed maximum of ${perm.maxDiscountPercent}%`,
+                });
+            }
           }
         }
       }
@@ -231,27 +280,10 @@ export function registerSaleRoutes(app: Express): void {
         }
       }
 
-      const effectiveDiscount = isScPwd
-        ? recomputedSubtotal * 0.2
-        : Math.min(Math.max(requestedDiscount, 0), recomputedSubtotal);
-      const discountedSubtotal = Math.max(0, recomputedSubtotal - effectiveDiscount);
-      const discountRatio = recomputedSubtotal > 0 ? discountedSubtotal / recomputedSubtotal : 1;
-      const recomputedTax = isScPwd
-        ? 0
-        : perItem.reduce((acc, { itemSubtotal, rate }) => acc + itemSubtotal * discountRatio * (rate / 100), 0);
-      const clampedLoyalty = Math.min(Math.max(requestedLoyalty, 0), discountedSubtotal + recomputedTax);
-      const recomputedTotal = Math.max(0, discountedSubtotal + recomputedTax - clampedLoyalty);
-
-      const round2 = (n: number) => Math.round(n * 100) / 100;
-
       const enforcedBranch = await resolveBranchId(req);
       const sale = await storage.createSale(uid, {
         ...input,
-        subtotal: round2(recomputedSubtotal).toFixed(2),
-        tax: round2(recomputedTax).toFixed(2),
-        discount: round2(effectiveDiscount).toFixed(2),
-        loyaltyDiscount: round2(clampedLoyalty).toFixed(2),
-        total: round2(recomputedTotal).toFixed(2),
+        ...overrides,
         cashierId: input.cashierId ?? uid,
         branchId: enforcedBranch,
       });

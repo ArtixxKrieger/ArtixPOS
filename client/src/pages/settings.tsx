@@ -246,9 +246,15 @@ export default function Settings() {
     isSubscribed: pushSubscribed,
     permission: pushPermission,
     isLoading: pushLoading,
+    error: pushError,
     subscribe: pushSubscribe,
     unsubscribe: pushUnsubscribe,
   } = usePushNotifications();
+
+  // Show a toast when push subscribe fails
+  useEffect(() => {
+    if (pushError) toast({ title: pushError, variant: "destructive" });
+  }, [pushError]);
 
   const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
 
@@ -1097,18 +1103,26 @@ export default function Settings() {
           <SettingRow
             label="Push Notifications"
             hint={
-              pushPermission === "denied"
-                ? "Blocked by your browser — update site permissions to enable"
-                : pushSubscribed
-                  ? "You'll be alerted for new orders and low stock, even when the app is closed"
-                  : "Get alerted for new orders and low stock, even when the app is closed"
+              pushError
+                ? pushError
+                : pushPermission === "denied"
+                  ? "Blocked by your browser — update site permissions to enable"
+                  : pushSubscribed
+                    ? "You'll be alerted for new orders and low stock, even when the app is closed"
+                    : "Get alerted for new orders and low stock, even when the app is closed"
             }
             icon={pushSubscribed ? Bell : BellOff}
             iconColor={pushSubscribed ? "bg-violet-100 dark:bg-violet-900/30" : "bg-muted/60"}
           >
             <button
               data-testid="toggle-push-notifications"
-              onClick={() => (pushSubscribed ? pushUnsubscribe() : pushSubscribe())}
+              onClick={() => {
+                if (pushSubscribed) {
+                  pushUnsubscribe();
+                } else {
+                  pushSubscribe();
+                }
+              }}
               disabled={pushLoading || pushPermission === "denied"}
               className={[
                 "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",

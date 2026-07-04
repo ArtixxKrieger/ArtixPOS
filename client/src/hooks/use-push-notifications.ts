@@ -5,28 +5,29 @@ const SUBSCRIBED_KEY = "artix_push_subscribed";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw     = atob(base64);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
 export type PushPermission = "default" | "granted" | "denied" | "unsupported";
 
 export interface UsePushNotifications {
-  isSupported:  boolean;
+  isSupported: boolean;
   isSubscribed: boolean;
-  permission:   PushPermission;
-  isLoading:    boolean;
-  subscribe:    () => Promise<void>;
-  unsubscribe:  () => Promise<void>;
+  permission: PushPermission;
+  isLoading: boolean;
+  error: string | null;
+  subscribe: () => Promise<boolean>;
+  unsubscribe: () => Promise<void>;
 }
 
 export function usePushNotifications(): UsePushNotifications {
   const isSupported =
     typeof window !== "undefined" &&
     "serviceWorker" in navigator &&
-    "PushManager"   in window &&
-    "Notification"  in window;
+    "PushManager" in window &&
+    "Notification" in window;
 
   const [isSubscribed, setIsSubscribed] = useState<boolean>(() => {
     if (typeof localStorage === "undefined") return false;
@@ -37,13 +38,17 @@ export function usePushNotifications(): UsePushNotifications {
     return Notification.permission as PushPermission;
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Sync permission on mount
   useEffect(() => {
     if (!isSupported) return;
     setPermission(Notification.permission as PushPermission);
   }, [isSupported]);
 
-useEffect(() => {
+  // If we think we're subscribed but the push subscription is gone
+  // (e.g. user cleared site data, SW updated), reset the flag.
+  useEffect(() => {
     if (!isSupported || !isSubscribed) return;
     navigator.serviceWorker.ready
       .then((reg) => reg.pushManager.getSubscription())
@@ -56,21 +61,49 @@ useEffect(() => {
       .catch(() => {});
   }, [isSupported, isSubscribed]);
 
-  const subscribe = useCallback(async () => {
-    if (!isSupported || isLoading) return;
+  // Auto-detect: if permission was already granted before (e.g. user
+  // enabled notifications, cleared cache, and came back), check for an
+  // existing push subscription and reconcile without re-prompting.
+  useEffect(() => {
+    if (!isSupported || isSubscribed || isLoading) return;
+    if (permission !== "granted") return;
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => {
+        if (sub) {
+          setIsSubscribed(true);
+          localStorage.setItem(SUBSCRIBED_KEY, "1");
+        }
+      })
+      .catch(() => {});
+  }, [isSupported, isSubscribed, permission, isLoading]);
+
+  const subscribe = useCallback(async (): Promise<boolean> => {
+    if (!isSupported || isLoading) return false;
     setIsLoading(true);
+    setError(null);
     try {
       const perm = await Notification.requestPermission();
       setPermission(perm as PushPermission);
-      if (perm !== "granted") return;
+      if (perm !== "granted") {
+        if (perm === "denied") {
+          setError(
+            "Notifications are blocked by your browser. Update your site settings to enable them.",
+          );
+        }
+        return false;
+      }
 
       const keyRes = await nativeFetch("/api/push/vapid-key");
-      if (!keyRes.ok) throw new Error("Push not configured on server");
+      if (!keyRes.ok) {
+        setError("Push notifications are not configured on the server yet.");
+        return false;
+      }
       const { key } = await keyRes.json();
 
       const reg = await navigator.serviceWorker.ready;
       const pushSub = await reg.pushManager.subscribe({
-        userVisibleOnly:      true,
+        userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(key) as Uint8Array<ArrayBuffer>,
       });
 
@@ -82,8 +115,13 @@ useEffect(() => {
 
       setIsSubscribed(true);
       localStorage.setItem(SUBSCRIBED_KEY, "1");
+      setError(null);
+      return true;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to enable push notifications";
+      setError(msg);
       console.error("[push] subscribe error:", err);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -92,8 +130,9 @@ useEffect(() => {
   const unsubscribe = useCallback(async () => {
     if (!isSupported || isLoading) return;
     setIsLoading(true);
+    setError(null);
     try {
-      const reg     = await navigator.serviceWorker.ready;
+      const reg = await navigator.serviceWorker.ready;
       const pushSub = await reg.pushManager.getSubscription();
       const endpoint = pushSub?.endpoint;
       if (pushSub) await pushSub.unsubscribe();
@@ -107,5 +146,5 @@ useEffect(() => {
     }
   }, [isSupported, isLoading]);
 
-  return { isSupported, isSubscribed, permission, isLoading, subscribe, unsubscribe };
+  return { isSupported, isSubscribed, permission, isLoading, error, subscribe, unsubscribe };
 }

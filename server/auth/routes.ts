@@ -575,14 +575,26 @@ export function setupAuth(app: Express) {
           });
       }
 
-      const userId = `email_${crypto.createHash("sha256").update(normalizedEmail).digest("hex").slice(0, 24)}`;
-
+      // Look up by email, not by the "email_<hash>" id we'd construct for a
+      // fresh email/password signup. An account that originally signed up
+      // via Google has an id like "google_<id>" — if it later sets a
+      // password via "Forgot password", that password lives on the SAME
+      // row, keyed by its original google_ id, not an email_ id. Looking up
+      // by id here would silently miss that account and always report
+      // "Invalid email or password" even with the correct password.
       const user = await runAsAdmin(pool, async (adminDb) => {
-        const [row] = await adminDb.select().from(users).where(eq(users.id, userId));
+        const [row] = await adminDb
+          .select()
+          .from(users)
+          .where(eq(users.email, normalizedEmail))
+          .limit(1);
         return row ?? null;
       });
 
-      if (!user || user.provider !== "email" || !user.passwordHash) {
+      // Any account with a passwordHash set can log in with a password,
+      // regardless of which provider it originally signed up with (e.g. a
+      // Google account that later set a password via "Forgot password").
+      if (!user || !user.passwordHash) {
         recordFailedAttempt(ip);
         recordEmailFailedAttempt(normalizedEmail);
         return res.status(401).json({ message: "Invalid email or password." });

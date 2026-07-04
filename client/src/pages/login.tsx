@@ -67,10 +67,6 @@ async function nativeGoogleSignIn(): Promise<string> {
   if (!data.token) throw new Error("Server did not return a session token");
   return data.token;
 }
-function getIsDark(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
 
 const INVITE_STORAGE_KEY = "artixpos_pending_invite";
 const OAUTH_FLOW_KEY = "artixpos_oauth_flow";
@@ -314,7 +310,6 @@ export default function Login() {
   const { t } = useTranslation();
   const { isAuthenticated, isLoading, isPlaceholderData } = useAuth();
   const [, setLocation] = useLocation();
-  const [isDark, setIsDark] = useState(getIsDark);
   const { canInstall, install } = usePwaInstall();
   const [nativeError, setNativeError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -536,14 +531,29 @@ export default function Login() {
     }
   }, [isAuthenticated, isLoading, isPlaceholderData, setLocation]);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
+  // Theme — sync with the shared theme utility so the login page's inline
+  // styles (background, borders, etc.) match the current mode.
+  const [isDark, setIsDark] = useState(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored === "light") return false;
+    if (stored === "dark") return true;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    const handler = () => {
+      const stored = localStorage.getItem("theme");
+      if (stored === "light") setIsDark(false);
+      else if (stored === "dark") setIsDark(true);
+      else setIsDark(mq.matches);
+    };
+    // Re-sync when the theme changes (from settings or system)
+    window.addEventListener("storage", handler);
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      mq.removeEventListener("change", handler);
+    };
   }, []);
   useEffect(() => {
     const handler = () => setDebugEntries(getDebugLogs());

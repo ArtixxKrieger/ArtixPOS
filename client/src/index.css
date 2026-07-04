@@ -3,13 +3,38 @@
 @tailwind utilities;
 
 @keyframes fadeSlideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Smooth theme transitions ──────────────────────────────────────────────
+ * When .theme-transitioning is on <html>, every child element transitions its
+ * colour-related properties over 300 ms.  This class is added momentarily by
+ * applyTheme() in client/src/lib/theme.ts and removed 400 ms later.
+ * Layout properties (width, height, spacing) are excluded to avoid jank.     */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition:
+    color 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    fill 0.3s ease,
+    stroke 0.3s ease,
+    box-shadow 0.3s ease !important;
 }
 
 @layer base {
   :root {
-    --font-sans: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-sans:
+      "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
     /* ── Light mode — Zinc/Blue enterprise, ultra-clean ─────────── */
     --background: 0 0% 98.5%;
@@ -134,11 +159,16 @@
   /* Light — flat zinc-50, subtle top glow */
   body:not(.dark) {
     background-color: #fafafa;
-    background-image:
-      radial-gradient(ellipse 70% 50% at 50% -10%, hsl(217 91% 60% / 0.04) 0%, transparent 70%);
+    background-image: radial-gradient(
+      ellipse 70% 50% at 50% -10%,
+      hsl(217 91% 60% / 0.04) 0%,
+      transparent 70%
+    );
   }
 
-  button, [role="button"], a {
+  button,
+  [role="button"],
+  a {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
@@ -157,12 +187,16 @@
 .glass-card {
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.05);
 }
 .dark .glass-card {
   background: rgba(24, 24, 27, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* Sidebar — zinc-100 on light, #111 on dark */
@@ -174,20 +208,24 @@
 .dark .glass-sidebar {
   background: #111111;
   border-right: 1px solid #27272a;
-  box-shadow: 1px 0 16px rgba(0, 0, 0, 0.40);
+  box-shadow: 1px 0 16px rgba(0, 0, 0, 0.4);
 }
 
 /* Fixed bottom nav */
 .glass-nav {
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid #e4e4e7;
-  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.04), 0 -4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 -4px 20px rgba(0, 0, 0, 0.06);
   transform: translateZ(0);
 }
 .dark .glass-nav {
   background: rgba(9, 9, 11, 0.99);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04), 0 -4px 20px rgba(0, 0, 0, 0.40);
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 -4px 20px rgba(0, 0, 0, 0.4);
   transform: translateZ(0);
 }
 
@@ -195,13 +233,17 @@
 .glass-header {
   background: rgba(250, 250, 250, 0.97);
   border-bottom: 1px solid #e4e4e7;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03), 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.03),
+    0 2px 10px rgba(0, 0, 0, 0.04);
   transform: translateZ(0);
 }
 .dark .glass-header {
   background: rgba(9, 9, 11, 0.98);
   border-bottom: 1px solid #27272a;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 8px rgba(0, 0, 0, 0.30);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03),
+    0 2px 8px rgba(0, 0, 0, 0.3);
   transform: translateZ(0);
 }
 
@@ -210,7 +252,9 @@
   background: rgba(0, 0, 0, 0.04);
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 .glass-btn:hover {
   background: rgba(0, 0, 0, 0.07);
@@ -222,7 +266,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .dark .glass-btn:hover {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.13);
 }
 
@@ -236,7 +280,7 @@
 .dark .glass-cart-bar {
   background: rgba(9, 9, 11, 0.99);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.40);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   will-change: transform;
 }
 
@@ -258,7 +302,9 @@
 
 /* ─── Press / tap animations ─────────────────────────────────────────────── */
 .btn-press {
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
 }
 .btn-press:active {
   transform: scale(0.95);
@@ -280,8 +326,14 @@
 
 /* ─── Page transitions ───────────────────────────────────────────────────── */
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .page-enter {
   animation: slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -289,8 +341,14 @@
 }
 
 @keyframes fade-in-scale {
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .animate-fade-scale {
   animation: fade-in-scale 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -298,12 +356,13 @@
 
 /* Card tap feedback */
 .card-press {
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+  transition:
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.15s ease;
 }
 .card-press:active {
   transform: scale(0.97);
 }
-
 
 /* ─── Phantom-UI skeleton colors ─────────────────────────────────────────── */
 :root {
@@ -315,13 +374,18 @@
   --phantom-ui-hi: hsl(240, 4%, 24%);
 }
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .skeleton-shimmer {
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     var(--shimmer-base) 25%,
-    var(--shimmer-hi)   50%,
+    var(--shimmer-hi) 50%,
     var(--shimmer-base) 75%
   );
   background-size: 200% 100%;
@@ -330,10 +394,18 @@
 
 /* ─── Badge pop ──────────────────────────────────────────────────────────── */
 @keyframes badge-pop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.30); }
-  70%  { transform: scale(0.92); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  70% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .animate-badge-pop {
   animation: badge-pop 0.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
@@ -341,11 +413,21 @@
 
 /* ─── Cart pill bounce (fires when an item is added) ────────────────────── */
 @keyframes cart-pill-bounce {
-  0%   { transform: translateY(0) scale(1); }
-  25%  { transform: translateY(-6px) scale(1.02); }
-  55%  { transform: translateY(2px) scale(0.99); }
-  75%  { transform: translateY(-3px) scale(1.01); }
-  100% { transform: translateY(0) scale(1); }
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-6px) scale(1.02);
+  }
+  55% {
+    transform: translateY(2px) scale(0.99);
+  }
+  75% {
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 .animate-cart-pill-bounce {
   animation: cart-pill-bounce 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
@@ -353,8 +435,14 @@
 
 /* ─── Cart item enter ────────────────────────────────────────────────────── */
 @keyframes item-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .item-enter {
   animation: item-enter 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -362,25 +450,53 @@
 
 /* ─── Number flip ────────────────────────────────────────────────────────── */
 @keyframes num-up {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-num-up {
   animation: num-up 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ─── Stagger — tight delays ─────────────────────────────────────────────── */
-.stagger-children > *:nth-child(1)   { animation-delay:  0ms; }
-.stagger-children > *:nth-child(2)   { animation-delay: 20ms; }
-.stagger-children > *:nth-child(3)   { animation-delay: 40ms; }
-.stagger-children > *:nth-child(4)   { animation-delay: 60ms; }
-.stagger-children > *:nth-child(5)   { animation-delay: 80ms; }
-.stagger-children > *:nth-child(6)   { animation-delay: 100ms; }
-.stagger-children > *:nth-child(7)   { animation-delay: 120ms; }
-.stagger-children > *:nth-child(8)   { animation-delay: 140ms; }
-.stagger-children > *:nth-child(9)   { animation-delay: 160ms; }
-.stagger-children > *:nth-child(10)  { animation-delay: 180ms; }
-.stagger-children > *:nth-child(n+11){ animation-delay: 200ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 20ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 40ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 60ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 80ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 120ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 140ms;
+}
+.stagger-children > *:nth-child(9) {
+  animation-delay: 160ms;
+}
+.stagger-children > *:nth-child(10) {
+  animation-delay: 180ms;
+}
+.stagger-children > *:nth-child(n + 11) {
+  animation-delay: 200ms;
+}
 
 /* ─── Recharts overrides ──────────────────────────────────────────────────── */
 .recharts-wrapper,
@@ -398,11 +514,11 @@
   --sileo-width: 320px;
   --sileo-height: 44px;
   --sileo-duration: 550ms;
-  --sileo-state-info:    oklch(0.62 0.18 245);
-  --sileo-state-action:  oklch(0.62 0.18 245);
-  --sileo-state-success: oklch(0.72 0.20 145);
-  --sileo-state-warning: oklch(0.80 0.18 86);
-  --sileo-state-error:   oklch(0.63 0.23 25);
+  --sileo-state-info: oklch(0.62 0.18 245);
+  --sileo-state-action: oklch(0.62 0.18 245);
+  --sileo-state-success: oklch(0.72 0.2 145);
+  --sileo-state-warning: oklch(0.8 0.18 86);
+  --sileo-state-error: oklch(0.63 0.23 25);
 }
 
 [data-sileo-viewport] {
@@ -443,9 +559,15 @@
 
 /* ─── Animated gradient text (CSS only, GPU composited) ─────────────────── */
 @keyframes gradient-shift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 .animated-gradient-text {
   background-size: 250% auto;
@@ -457,8 +579,12 @@
 
 /* ─── Shiny button shimmer (CSS only, no JS) ─────────────────────────────── */
 @keyframes shimmer-slide {
-  0%   { transform: translateX(-100%) skewX(-15deg); }
-  100% { transform: translateX(300%) skewX(-15deg); }
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(300%) skewX(-15deg);
+  }
 }
 .shiny-btn {
   position: relative;
@@ -466,7 +592,7 @@
   isolation: isolate;
 }
 .shiny-btn::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -481,8 +607,15 @@
 
 /* ─── Dot pulse (feature list dots on login) ─────────────────────────────── */
 @keyframes dot-pulse {
-  0%, 100% { opacity: 1;   transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.75); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.75);
+  }
 }
 .dot-pulse {
   animation: dot-pulse 2.4s ease-in-out infinite;
@@ -490,40 +623,71 @@
 
 /* ─── Orb float (ambient background orbs) ───────────────────────────────── */
 @keyframes orb-float-a {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(30px, -20px) scale(1.04); }
-  66%       { transform: translate(-15px, 15px) scale(0.97); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -20px) scale(1.04);
+  }
+  66% {
+    transform: translate(-15px, 15px) scale(0.97);
+  }
 }
 @keyframes orb-float-b {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(-25px, 18px) scale(1.03); }
-  66%       { transform: translate(20px, -12px) scale(0.98); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-25px, 18px) scale(1.03);
+  }
+  66% {
+    transform: translate(20px, -12px) scale(0.98);
+  }
 }
-.orb-a { animation: orb-float-a 18s ease-in-out infinite; }
-.orb-b { animation: orb-float-b 22s ease-in-out infinite; }
-.orb-c { animation: orb-float-a 14s ease-in-out infinite reverse; }
+.orb-a {
+  animation: orb-float-a 18s ease-in-out infinite;
+}
+.orb-b {
+  animation: orb-float-b 22s ease-in-out infinite;
+}
+.orb-c {
+  animation: orb-float-a 14s ease-in-out infinite reverse;
+}
 
 /* ─── Card glow on hover ─────────────────────────────────────────────────── */
 .glow-hover-card {
-  transition: box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glow-hover-card:hover {
-  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25),
-              0 6px 24px hsl(var(--primary) / 0.10);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.25),
+    0 6px 24px hsl(var(--primary) / 0.1);
   transform: translateY(-1px);
 }
 
 /* ─── Nav item active — blue accent ──────────────────────────────────────── */
 @keyframes nav-left-glow {
-  0%, 100% { box-shadow: inset 2px 0 0 hsl(var(--primary)); }
-  50%       { box-shadow: inset 2px 0 0 hsl(var(--primary)),
-                          0 0 10px hsl(var(--primary) / 0.12); }
+  0%,
+  100% {
+    box-shadow: inset 2px 0 0 hsl(var(--primary));
+  }
+  50% {
+    box-shadow:
+      inset 2px 0 0 hsl(var(--primary)),
+      0 0 10px hsl(var(--primary) / 0.12);
+  }
 }
 .nav-item-active {
-  background: linear-gradient(135deg,
-    hsl(var(--primary) / 0.10) 0%,
-    hsl(var(--primary) / 0.04) 100%);
-  border: 1px solid hsl(var(--primary) / 0.20);
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.1) 0%,
+    hsl(var(--primary) / 0.04) 100%
+  );
+  border: 1px solid hsl(var(--primary) / 0.2);
   color: hsl(var(--primary));
   animation: nav-left-glow 3s ease-in-out infinite;
 }
@@ -539,15 +703,19 @@ tbody tr:hover {
 /* ─── Enhanced input / textarea focus glow (global) ─────────────────────── */
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
 textarea:focus {
-  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.45),
-              0 0 0 3px hsl(var(--primary) / 0.12) !important;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.45),
+    0 0 0 3px hsl(var(--primary) / 0.12) !important;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 }
 
 /* ─── Clickable list row ─────────────────────────────────────────────────── */
 .row-interactive {
-  transition: background-color 0.12s ease,
-              transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 0.12s ease,
+    transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
 }
 .row-interactive:hover {
@@ -560,37 +728,56 @@ textarea:focus {
 /* ─── Stagger-reveal for card grids ─────────────────────────────────────── */
 .stagger-reveal > * {
   opacity: 0;
-  animation: slide-up 0.30s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.stagger-reveal > *:nth-child(1)  { animation-delay:   0ms; }
-.stagger-reveal > *:nth-child(2)  { animation-delay:  55ms; }
-.stagger-reveal > *:nth-child(3)  { animation-delay: 110ms; }
-.stagger-reveal > *:nth-child(4)  { animation-delay: 155ms; }
-.stagger-reveal > *:nth-child(n+5){ animation-delay: 200ms; }
+.stagger-reveal > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-reveal > *:nth-child(2) {
+  animation-delay: 55ms;
+}
+.stagger-reveal > *:nth-child(3) {
+  animation-delay: 110ms;
+}
+.stagger-reveal > *:nth-child(4) {
+  animation-delay: 155ms;
+}
+.stagger-reveal > *:nth-child(n + 5) {
+  animation-delay: 200ms;
+}
 
 /* ─── Section mini-card hover (for stat cells inside glass-card grids) ───── */
 .mini-stat-card {
-  transition: background-color 0.18s ease, border-color 0.18s ease,
-              box-shadow 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .mini-stat-card:hover {
   background-color: hsl(var(--primary) / 0.06) !important;
   border-color: hsl(var(--primary) / 0.22) !important;
-  box-shadow: 0 2px 12px hsl(var(--primary) / 0.10);
+  box-shadow: 0 2px 12px hsl(var(--primary) / 0.1);
   transform: translateY(-1px);
 }
 
 /* ─── POS product card image sweep on hover ─────────────────────────────── */
 @keyframes card-sweep {
-  from { transform: translateX(-130%) skewX(-12deg); opacity: 1; }
-  to   { transform: translateX(220%)  skewX(-12deg); opacity: 1; }
+  from {
+    transform: translateX(-130%) skewX(-12deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(220%) skewX(-12deg);
+    opacity: 1;
+  }
 }
 .pos-card-sweep {
   position: relative;
   overflow: hidden;
 }
 .pos-card-sweep::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -611,13 +798,16 @@ textarea:focus {
 
 /* ─── Checkout button pulse when cart has items ──────────────────────────── */
 @keyframes checkout-ready {
-  0%, 100% {
-    box-shadow: 0 4px 16px hsl(var(--primary) / 0.30),
-                0 0 0 0   hsl(var(--primary) / 0.00);
+  0%,
+  100% {
+    box-shadow:
+      0 4px 16px hsl(var(--primary) / 0.3),
+      0 0 0 0 hsl(var(--primary) / 0);
   }
   55% {
-    box-shadow: 0 6px 28px hsl(var(--primary) / 0.45),
-                0 0 0 7px  hsl(var(--primary) / 0.00);
+    box-shadow:
+      0 6px 28px hsl(var(--primary) / 0.45),
+      0 0 0 7px hsl(var(--primary) / 0);
   }
 }
 .checkout-pulse {
@@ -626,8 +816,9 @@ textarea:focus {
 
 /* ─── Category pill active glow ──────────────────────────────────────────── */
 .cat-pill-active {
-  box-shadow: 0 0 0 1.5px hsl(var(--primary) / 0.40),
-              0 3px 14px  hsl(var(--primary) / 0.20) !important;
+  box-shadow:
+    0 0 0 1.5px hsl(var(--primary) / 0.4),
+    0 3px 14px hsl(var(--primary) / 0.2) !important;
 }
 
 /* ─── POS quantity chip ──────────────────────────────────────────────────── */
@@ -672,8 +863,12 @@ textarea:focus {
 
 /* ─── Pull-to-refresh spinner ────────────────────────────────────────────── */
 @keyframes ptr-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .ptr-spinner {
   animation: ptr-spin 0.7s linear infinite;
@@ -691,10 +886,22 @@ textarea:focus {
 
 /* ─── Sale success flash ──────────────────────────────────────────────────── */
 @keyframes sale-flash {
-  0%   { opacity: 0; transform: scale(0.85) translateY(8px); }
-  15%  { opacity: 1; transform: scale(1.04) translateY(0); }
-  70%  { opacity: 1; transform: scale(1) translateY(0); }
-  100% { opacity: 0; transform: scale(0.96) translateY(-6px); }
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(8px);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.04) translateY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
 }
 .sale-flash {
   animation: sale-flash 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -702,11 +909,24 @@ textarea:focus {
 
 /* ─── Milestone banner ────────────────────────────────────────────────────── */
 @keyframes milestone-in {
-  0%   { opacity: 0; transform: translateY(-20px) scale(0.9); }
-  20%  { opacity: 1; transform: translateY(0)     scale(1.05); }
-  35%  { transform: scale(1); }
-  80%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-12px) scale(0.95); }
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.05);
+  }
+  35% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
 }
 .milestone-banner {
   animation: milestone-in 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -714,8 +934,14 @@ textarea:focus {
 
 /* ─── Cart item entry ─────────────────────────────────────────────────────── */
 @keyframes item-enter {
-  from { opacity: 0; transform: translateX(12px) scale(0.97); }
-  to   { opacity: 1; transform: translateX(0)    scale(1); }
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 .item-enter {
   animation: item-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -723,8 +949,14 @@ textarea:focus {
 
 /* ─── Undo chip ───────────────────────────────────────────────────────────── */
 @keyframes undo-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.95); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 .undo-chip {
   animation: undo-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;

@@ -10,22 +10,80 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  Save, LogOut, Trash2, CreditCard, Plus, X, Banknote, ChevronRight,
-  Globe, Check, Sun, Moon, Monitor, Store,
-  Phone, Mail, MapPin, DollarSign, Palette, Shield,
-  BadgeCheck, Bell, BellOff, Search, PlayCircle, Zap,
-  HelpCircle, ShoppingCart, LayoutDashboard, Package, Boxes, Users, Gift,
-  IdCard, Calendar, UserCheck, Clock, Wallet, Receipt, TrendingUp, Tag,
-  RotateCcw, LayoutGrid, ChefHat, Truck, ClipboardList, FileBarChart,
-  Building2, AlarmClock, Wifi, ChevronDown,
+  Save,
+  LogOut,
+  Trash2,
+  CreditCard,
+  Plus,
+  X,
+  Banknote,
+  ChevronRight,
+  Globe,
+  Check,
+  Sun,
+  Moon,
+  Monitor,
+  Store,
+  Phone,
+  Mail,
+  MapPin,
+  DollarSign,
+  Palette,
+  Shield,
+  BadgeCheck,
+  Bell,
+  BellOff,
+  Search,
+  PlayCircle,
+  Zap,
+  HelpCircle,
+  ShoppingCart,
+  LayoutDashboard,
+  Package,
+  Boxes,
+  Users,
+  Gift,
+  IdCard,
+  Calendar,
+  UserCheck,
+  Clock,
+  Wallet,
+  Receipt,
+  TrendingUp,
+  Tag,
+  RotateCcw,
+  LayoutGrid,
+  ChefHat,
+  Truck,
+  ClipboardList,
+  FileBarChart,
+  Building2,
+  AlarmClock,
+  Wifi,
+  ChevronDown,
 } from "lucide-react";
 import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
+import type { ThemeMode } from "@/lib/theme";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -42,13 +100,27 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
 };
 
 const SUBTYPE_LABELS: Record<string, string> = {
-  cafe: "Cafe / Coffee Shop", restaurant: "Restaurant", bakery: "Bakery",
-  bar: "Bar / Pub", food_truck: "Food Truck", clothing: "Clothing / Fashion",
-  electronics: "Electronics", grocery: "Grocery / Supermarket", bookstore: "Bookstore",
-  salon: "Salon / Barbershop", gym: "Gym / Fitness Center", spa: "Spa / Wellness",
-  clinic: "Clinic / Healthcare", laundry: "Laundry / Dry Cleaning", car_wash: "Car Wash / Auto Detailing",
-  pet_grooming: "Pet Grooming", photography: "Photography / Studio", cleaning: "Cleaning Service",
-  tutoring: "Tutoring / Education", repair: "Repair & Maintenance", other: "Other",
+  cafe: "Cafe / Coffee Shop",
+  restaurant: "Restaurant",
+  bakery: "Bakery",
+  bar: "Bar / Pub",
+  food_truck: "Food Truck",
+  clothing: "Clothing / Fashion",
+  electronics: "Electronics",
+  grocery: "Grocery / Supermarket",
+  bookstore: "Bookstore",
+  salon: "Salon / Barbershop",
+  gym: "Gym / Fitness Center",
+  spa: "Spa / Wellness",
+  clinic: "Clinic / Healthcare",
+  laundry: "Laundry / Dry Cleaning",
+  car_wash: "Car Wash / Auto Detailing",
+  pet_grooming: "Pet Grooming",
+  photography: "Photography / Studio",
+  cleaning: "Cleaning Service",
+  tutoring: "Tutoring / Education",
+  repair: "Repair & Maintenance",
+  other: "Other",
 };
 
 const CURRENCIES = [
@@ -76,7 +148,9 @@ const CURRENCIES = [
 
 const settingsSchema = z.object({
   storeName: z.string().min(1, "Store name is required"),
-  taxRate: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
+  taxRate: z
+    .string()
+    .refine((v) => !isNaN(Number(v)) && Number(v) >= 0, { message: "Must be 0 or greater" }),
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   emailContact: z.union([z.string().email("Enter a valid email"), z.literal(""), z.undefined()]),
@@ -85,23 +159,43 @@ const settingsSchema = z.object({
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
-function SectionLabel({ children, icon: Icon }: { children: React.ReactNode; icon?: React.ElementType }) {
+function SectionLabel({
+  children,
+  icon: Icon,
+}: {
+  children: React.ReactNode;
+  icon?: React.ElementType;
+}) {
   return (
     <div className="flex items-center gap-2 px-1 pt-3 pb-1.5">
       {Icon && <Icon className="h-3 w-3 text-muted-foreground/60" />}
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{children}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+        {children}
+      </p>
     </div>
   );
 }
 
-function SettingRow({ label, hint, icon: Icon, iconColor, children }: {
-  label: string; hint?: string; icon?: React.ElementType; iconColor?: string; children: React.ReactNode;
+function SettingRow({
+  label,
+  hint,
+  icon: Icon,
+  iconColor,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  icon?: React.ElementType;
+  iconColor?: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3 border-b border-border/20 last:border-0">
       <div className="flex items-start gap-3 shrink-0 flex-1 min-w-0">
         {Icon && (
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconColor ?? "bg-muted/60"}`}>
+          <div
+            className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconColor ?? "bg-muted/60"}`}
+          >
             <Icon className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         )}
@@ -110,18 +204,31 @@ function SettingRow({ label, hint, icon: Icon, iconColor, children }: {
           {hint && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{hint}</p>}
         </div>
       </div>
-      <div className="min-w-0 shrink-0 max-w-[52%]">
-        {children}
-      </div>
+      <div className="min-w-0 shrink-0 max-w-[52%]">{children}</div>
     </div>
   );
 }
 
 const LANG_COUNTRY: Record<string, string> = {
-  en: "gb", es: "es", fr: "fr", de: "de", pt: "br",
-  it: "it", nl: "nl", ru: "ru", tr: "tr", ar: "sa",
-  hi: "in", zh: "cn", ja: "jp", ko: "kr", th: "th",
-  vi: "vn", id: "id", ms: "my", tl: "ph",
+  en: "gb",
+  es: "es",
+  fr: "fr",
+  de: "de",
+  pt: "br",
+  it: "it",
+  nl: "nl",
+  ru: "ru",
+  tr: "tr",
+  ar: "sa",
+  hi: "in",
+  zh: "cn",
+  ja: "jp",
+  ko: "kr",
+  th: "th",
+  vi: "vn",
+  id: "id",
+  ms: "my",
+  tl: "ph",
 };
 
 export default function Settings() {
@@ -134,9 +241,16 @@ export default function Settings() {
   const { isPro, isBusiness } = useSubscription();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    permission: pushPermission,
+    isLoading: pushLoading,
+    subscribe: pushSubscribe,
+    unsubscribe: pushUnsubscribe,
+  } = usePushNotifications();
 
-const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
+  const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -151,28 +265,22 @@ const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
   const [countrySearch, setCountrySearch] = useState("");
   const countrySearchRef = useRef<HTMLInputElement>(null);
   const [currentCountry, setCurrentCountry] = useState<CountryData | null>(null);
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(() => {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     const stored = localStorage.getItem("theme");
     if (stored === "dark") return "dark";
     if (stored === "light") return "light";
     return "system";
   });
 
-  const applyTheme = (mode: "light" | "dark" | "system") => {
+  const applyTheme = (mode: ThemeMode) => {
     setThemeMode(mode);
-    if (mode === "system") {
-      localStorage.removeItem("theme");
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.classList.toggle("dark", prefersDark);
-    } else {
-      localStorage.setItem("theme", mode);
-      document.documentElement.classList.toggle("dark", mode === "dark");
-    }
+    // Import and call the shared utility so transitions are consistent
+    import("@/lib/theme").then(({ applyTheme: apply }) => apply(mode));
   };
 
   const DEFAULT_METHODS = [
-    { id: "cash",    label: "Cash",     isCash: true  },
-    { id: "card",    label: "Card",     isCash: false },
+    { id: "cash", label: "Cash", isCash: true },
+    { id: "card", label: "Card", isCash: false },
     { id: "ewallet", label: "E-Wallet", isCash: false },
   ];
 
@@ -190,11 +298,17 @@ const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
     try {
       await apiRequest("DELETE", "/api/auth/account");
       clearNativeToken();
-      try { await clearAllCache(); } catch {}
+      try {
+        await clearAllCache();
+      } catch {}
       queryClient.clear();
       window.location.href = "/login";
     } catch {
-      toast({ title: "Failed to delete account", description: "Please try again.", variant: "destructive" });
+      toast({
+        title: "Failed to delete account",
+        description: "Please try again.",
+        variant: "destructive",
+      });
       setIsDeleting(false);
     }
   };
@@ -202,9 +316,13 @@ const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      storeName: "", taxRate: "0", address: "", phone: "", emailContact: "",
+      storeName: "",
+      taxRate: "0",
+      address: "",
+      phone: "",
+      emailContact: "",
       currency: "₱",
-    }
+    },
   });
 
   useEffect(() => {
@@ -219,18 +337,16 @@ const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
       });
       const savedCountry = (settings as any).country;
       if (savedCountry) {
-        const found = COUNTRY_LIST.find(c => c.code === savedCountry) ?? null;
+        const found = COUNTRY_LIST.find((c) => c.code === savedCountry) ?? null;
         if (found) setCurrentCountry(found);
       }
       const saved = (settings as any).paymentMethods;
       setPmethods(saved?.length ? saved : DEFAULT_METHODS);
     }
-
   }, [settings, form]);
 
   const savePaymentMethods = (updated: PaymentMethod[]) => {
-
-updateSettings.mutate({ paymentMethods: updated } as any, {
+    updateSettings.mutate({ paymentMethods: updated } as any, {
       onSuccess: () => toast({ title: "Payment methods saved" }),
       onError: () => toast({ title: "Saved locally — will sync when online" }),
     });
@@ -239,8 +355,11 @@ updateSettings.mutate({ paymentMethods: updated } as any, {
   const addPaymentMethod = () => {
     const label = newMethodName.trim();
     if (!label || savingMethods) return;
-    const id = label.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-    if (pmethods.find(m => m.id === id)) {
+    const id = label
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+    if (pmethods.find((m) => m.id === id)) {
       toast({ title: "Method already exists", variant: "destructive" });
       return;
     }
@@ -256,13 +375,13 @@ updateSettings.mutate({ paymentMethods: updated } as any, {
       toast({ title: "At least one payment method required", variant: "destructive" });
       return;
     }
-    const updated = pmethods.filter(m => m.id !== id);
+    const updated = pmethods.filter((m) => m.id !== id);
     setPmethods(updated);
     savePaymentMethods(updated);
   };
 
   const togglePaymentCash = (id: string) => {
-    const updated = pmethods.map(m => m.id === id ? { ...m, isCash: !m.isCash } : m);
+    const updated = pmethods.map((m) => (m.id === id ? { ...m, isCash: !m.isCash } : m));
     setPmethods(updated);
     savePaymentMethods(updated);
   };
@@ -272,11 +391,11 @@ updateSettings.mutate({ paymentMethods: updated } as any, {
     const pg = e?.pgError;
     const lines: string[] = [];
     if (e?.message) lines.push(e.message);
-    if (pg?.code)       lines.push(`Code: ${pg.code}`);
-    if (pg?.detail)     lines.push(`Detail: ${pg.detail}`);
-    if (pg?.hint)       lines.push(`Hint: ${pg.hint}`);
-    if (pg?.table)      lines.push(`Table: ${pg.table}`);
-    if (pg?.column)     lines.push(`Column: ${pg.column}`);
+    if (pg?.code) lines.push(`Code: ${pg.code}`);
+    if (pg?.detail) lines.push(`Detail: ${pg.detail}`);
+    if (pg?.hint) lines.push(`Hint: ${pg.hint}`);
+    if (pg?.table) lines.push(`Table: ${pg.table}`);
+    if (pg?.column) lines.push(`Column: ${pg.column}`);
     if (pg?.constraint) lines.push(`Constraint: ${pg.constraint}`);
     const full = lines.join(" | ");
     navigator.clipboard?.writeText(full).catch(() => {});
@@ -302,13 +421,13 @@ updateSettings.mutate({ paymentMethods: updated } as any, {
       onSuccess: () => {
         toast({ title: "Settings saved" });
 
-queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+        queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       },
       onError: showErrorToast,
     });
   };
 
-const handleLanguageChange = (code: string) => {
+  const handleLanguageChange = (code: string) => {
     setCurrentLang(code);
     i18n.changeLanguage(code);
     localStorage.setItem("artixpos_language", code);
@@ -316,13 +435,13 @@ const handleLanguageChange = (code: string) => {
 
   const businessSubType = user?.activeBranch?.businessSubType ?? (settings as any)?.businessSubType;
   const businessType = user?.activeBranch?.businessType ?? (settings as any)?.businessType;
-  const businessLabel = businessSubType && businessSubType !== "other"
-    ? SUBTYPE_LABELS[businessSubType] ?? businessSubType
-    : BUSINESS_TYPE_LABELS[businessType] ?? businessType;
+  const businessLabel =
+    businessSubType && businessSubType !== "other"
+      ? (SUBTYPE_LABELS[businessSubType] ?? businessSubType)
+      : (BUSINESS_TYPE_LABELS[businessType] ?? businessType);
 
   return (
     <div className="page-enter space-y-0.5">
-
       <SectionLabel icon={Palette}>Appearance</SectionLabel>
       <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
         {}
@@ -333,15 +452,17 @@ const handleLanguageChange = (code: string) => {
             </div>
             <div>
               <p className="text-sm font-medium">Theme</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Choose how the interface looks</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Choose how the interface looks
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-1.5 bg-secondary/50 rounded-xl p-1">
-            {([
+            {[
               { mode: "light" as const, icon: Sun, label: "Light" },
               { mode: "dark" as const, icon: Moon, label: "Dark" },
               { mode: "system" as const, icon: Monitor, label: "System" },
-            ]).map(({ mode, icon: Icon, label }) => (
+            ].map(({ mode, icon: Icon, label }) => (
               <button
                 key={mode}
                 onClick={() => applyTheme(mode)}
@@ -371,7 +492,9 @@ const handleLanguageChange = (code: string) => {
               <Globe className="h-3.5 w-3.5 text-primary" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-medium text-foreground leading-none">{t("settings.chooseLanguage")}</p>
+              <p className="text-sm font-medium text-foreground leading-none">
+                {t("settings.chooseLanguage")}
+              </p>
               <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                 {LANG_COUNTRY[currentLang] && (
                   <img
@@ -382,7 +505,7 @@ const handleLanguageChange = (code: string) => {
                     style={{ width: "16px", height: "12px" }}
                   />
                 )}
-                {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName}
+                {SUPPORTED_LANGUAGES.find((l) => l.code === currentLang)?.nativeName}
               </p>
             </div>
           </div>
@@ -390,14 +513,22 @@ const handleLanguageChange = (code: string) => {
         </button>
       </div>
 
-      <Dialog open={showLangPicker} onOpenChange={(open) => { setShowLangPicker(open); if (!open) setLangSearch(""); }}>
+      <Dialog
+        open={showLangPicker}
+        onOpenChange={(open) => {
+          setShowLangPicker(open);
+          if (!open) setLangSearch("");
+        }}
+      >
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
                 <Globe className="h-5 w-5 text-primary" />
               </div>
-              <DialogTitle className="text-lg font-black">{t("settings.chooseLanguage")}</DialogTitle>
+              <DialogTitle className="text-lg font-black">
+                {t("settings.chooseLanguage")}
+              </DialogTitle>
             </div>
           </DialogHeader>
           <div className="px-4 pb-3 shrink-0">
@@ -416,22 +547,31 @@ const handleLanguageChange = (code: string) => {
           <div className="overflow-y-auto px-4 pb-6 space-y-1.5">
             {(() => {
               const q = langSearch.toLowerCase();
-              const filtered = SUPPORTED_LANGUAGES.filter(lang =>
-                !q || lang.name.toLowerCase().includes(q) || lang.nativeName.toLowerCase().includes(q) || lang.code.includes(q)
+              const filtered = SUPPORTED_LANGUAGES.filter(
+                (lang) =>
+                  !q ||
+                  lang.name.toLowerCase().includes(q) ||
+                  lang.nativeName.toLowerCase().includes(q) ||
+                  lang.code.includes(q),
               );
-              if (filtered.length === 0) return (
-                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
-                  <Globe className="h-8 w-8" strokeWidth={1.2} />
-                  <p className="text-sm font-medium">No languages found</p>
-                </div>
-              );
+              if (filtered.length === 0)
+                return (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
+                    <Globe className="h-8 w-8" strokeWidth={1.2} />
+                    <p className="text-sm font-medium">No languages found</p>
+                  </div>
+                );
               return filtered.map((lang) => {
                 const isSelected = currentLang === lang.code;
                 return (
                   <button
                     key={lang.code}
                     data-testid={`button-lang-${lang.code}`}
-                    onClick={() => { handleLanguageChange(lang.code); setShowLangPicker(false); setLangSearch(""); }}
+                    onClick={() => {
+                      handleLanguageChange(lang.code);
+                      setShowLangPicker(false);
+                      setLangSearch("");
+                    }}
                     className={[
                       "w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all text-left",
                       isSelected
@@ -447,7 +587,12 @@ const handleLanguageChange = (code: string) => {
                       style={{ width: "24px", height: "18px" }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>
+                      <p
+                        className={[
+                          "text-sm font-semibold leading-none",
+                          isSelected ? "text-primary" : "text-foreground",
+                        ].join(" ")}
+                      >
                         {lang.nativeName}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{lang.name}</p>
@@ -465,7 +610,13 @@ const handleLanguageChange = (code: string) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCountryPicker} onOpenChange={(open) => { setShowCountryPicker(open); if (!open) setCountrySearch(""); }}>
+      <Dialog
+        open={showCountryPicker}
+        onOpenChange={(open) => {
+          setShowCountryPicker(open);
+          if (!open) setCountrySearch("");
+        }}
+      >
         <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-32px)] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <div className="flex items-center gap-3">
@@ -492,15 +643,16 @@ const handleLanguageChange = (code: string) => {
           <div className="overflow-y-auto px-4 pb-6 space-y-1.5">
             {(() => {
               const q = countrySearch.toLowerCase();
-              const filtered = COUNTRY_LIST.filter(c =>
-                !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+              const filtered = COUNTRY_LIST.filter(
+                (c) => !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
               );
-              if (filtered.length === 0) return (
-                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
-                  <Globe className="h-8 w-8" strokeWidth={1.2} />
-                  <p className="text-sm font-medium">No countries found</p>
-                </div>
-              );
+              if (filtered.length === 0)
+                return (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50 gap-2">
+                    <Globe className="h-8 w-8" strokeWidth={1.2} />
+                    <p className="text-sm font-medium">No countries found</p>
+                  </div>
+                );
               return filtered.map((c) => {
                 const isSelected = currentCountry?.code === c.code;
                 return (
@@ -523,8 +675,17 @@ const handleLanguageChange = (code: string) => {
                   >
                     <span className="text-2xl leading-none shrink-0">{c.flag}</span>
                     <div className="flex-1 min-w-0">
-                      <p className={["text-sm font-semibold leading-none", isSelected ? "text-primary" : "text-foreground"].join(" ")}>{c.name}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{c.currency} · {c.phonePrefix} · {c.timezone}</p>
+                      <p
+                        className={[
+                          "text-sm font-semibold leading-none",
+                          isSelected ? "text-primary" : "text-foreground",
+                        ].join(" ")}
+                      >
+                        {c.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {c.currency} · {c.phonePrefix} · {c.timezone}
+                      </p>
                     </div>
                     {isSelected && (
                       <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -542,20 +703,28 @@ const handleLanguageChange = (code: string) => {
       {isOwner && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-
             {}
             <SectionLabel icon={Store}>Store</SectionLabel>
             <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
-
               <SettingRow label="Store Name" icon={Store} iconColor="bg-primary/10">
-                <FormField control={form.control} name="storeName" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="Store name" data-testid="input-store-name" />
-                    </FormControl>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="storeName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                          placeholder="Store name"
+                          data-testid="input-store-name"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-right text-[10px]" />
+                    </FormItem>
+                  )}
+                />
               </SettingRow>
 
               {businessLabel && (
@@ -576,7 +745,10 @@ const handleLanguageChange = (code: string) => {
               <button
                 type="button"
                 data-testid="button-country-picker"
-                onClick={() => { setShowCountryPicker(true); setTimeout(() => countrySearchRef.current?.focus(), 50); }}
+                onClick={() => {
+                  setShowCountryPicker(true);
+                  setTimeout(() => countrySearchRef.current?.focus(), 50);
+                }}
                 className="w-full flex items-center justify-between gap-3 py-3 border-b border-border/20 hover:bg-secondary/30 transition-colors -mx-4 px-4"
               >
                 <div className="flex items-start gap-3">
@@ -585,7 +757,9 @@ const handleLanguageChange = (code: string) => {
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-medium text-foreground leading-none">Country</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">Sets default currency &amp; timezone</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Sets default currency &amp; timezone
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -601,71 +775,132 @@ const handleLanguageChange = (code: string) => {
                 </div>
               </button>
 
-              <SettingRow label="Tax Rate" hint="Applied at checkout" icon={DollarSign} iconColor="bg-emerald-500/10">
-                <FormField control={form.control} name="taxRate" render={({ field }) => (
-                  <FormItem>
-                    <div className="relative">
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} value={field.value || "0"} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-7" data-testid="input-tax-rate" />
-                      </FormControl>
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">%</span>
-                    </div>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
+              <SettingRow
+                label="Tax Rate"
+                hint="Applied at checkout"
+                icon={DollarSign}
+                iconColor="bg-emerald-500/10"
+              >
+                <FormField
+                  control={form.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="relative">
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            {...field}
+                            value={field.value || "0"}
+                            className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-7"
+                            data-testid="input-tax-rate"
+                          />
+                        </FormControl>
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                          %
+                        </span>
+                      </div>
+                      <FormMessage className="text-right text-[10px]" />
+                    </FormItem>
+                  )}
+                />
               </SettingRow>
 
-              <SettingRow label="Currency" hint="Symbol on receipts & reports" icon={DollarSign} iconColor="bg-amber-500/10">
-                <FormField control={form.control} name="currency" render={({ field }) => (
-                  <FormItem>
-                    <Select value={field.value || "₱"} onValueChange={field.onChange}>
-                      <SelectTrigger className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right" data-testid="select-currency">
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {CURRENCIES.map(c => (
-                          <SelectItem key={c.code} value={c.code} className="text-sm">{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
+              <SettingRow
+                label="Currency"
+                hint="Symbol on receipts & reports"
+                icon={DollarSign}
+                iconColor="bg-amber-500/10"
+              >
+                <FormField
+                  control={form.control}
+                  name="currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select value={field.value || "₱"} onValueChange={field.onChange}>
+                        <SelectTrigger
+                          className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right"
+                          data-testid="select-currency"
+                        >
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {CURRENCIES.map((c) => (
+                            <SelectItem key={c.code} value={c.code} className="text-sm">
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
               </SettingRow>
-
             </div>
 
             {}
             <SectionLabel icon={Phone}>Contact</SectionLabel>
             <div className="bg-card rounded-2xl border border-border/25 px-4 shadow-sm">
               <SettingRow label="Address" icon={MapPin} iconColor="bg-rose-500/10">
-                <FormField control={form.control} name="address" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea {...field} value={field.value || ""} className="text-sm rounded-lg bg-secondary/60 border-none resize-none text-right min-h-[56px] py-1.5 pr-3" rows={2} placeholder="Store address" />
-                    </FormControl>
-                  </FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          value={field.value || ""}
+                          className="text-sm rounded-lg bg-secondary/60 border-none resize-none text-right min-h-[56px] py-1.5 pr-3"
+                          rows={2}
+                          placeholder="Store address"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </SettingRow>
 
               <SettingRow label="Phone" icon={Phone} iconColor="bg-sky-500/10">
-                <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="+63 912 345 6789" />
-                    </FormControl>
-                  </FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                          placeholder="+63 912 345 6789"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </SettingRow>
 
               <SettingRow label="Email" icon={Mail} iconColor="bg-violet-500/10">
-                <FormField control={form.control} name="emailContact" render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input type="email" {...field} value={field.value || ""} className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3" placeholder="hello@store.com" />
-                    </FormControl>
-                    <FormMessage className="text-right text-[10px]" />
-                  </FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="emailContact"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          {...field}
+                          value={field.value || ""}
+                          className="h-8 text-sm rounded-lg bg-secondary/60 border-none text-right pr-3"
+                          placeholder="hello@store.com"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-right text-[10px]" />
+                    </FormItem>
+                  )}
+                />
               </SettingRow>
             </div>
 
@@ -675,7 +910,13 @@ const handleLanguageChange = (code: string) => {
               disabled={updateSettings.isPending}
               data-testid="button-save-settings"
             >
-              {updateSettings.isPending ? "Saving…" : <><Save className="mr-2 h-4 w-4" /> Save Changes</>}
+              {updateSettings.isPending ? (
+                "Saving…"
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" /> Save Changes
+                </>
+              )}
             </Button>
           </form>
         </Form>
@@ -693,7 +934,9 @@ const handleLanguageChange = (code: string) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">POS Features</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Turn features on or off — tables, delivery, loyalty &amp; more</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Turn features on or off — tables, delivery, loyalty &amp; more
+            </p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
         </button>
@@ -709,10 +952,18 @@ const handleLanguageChange = (code: string) => {
                   <Check className="h-3.5 w-3.5 text-violet-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">{isBusiness ? "Business Suite Active" : "Pro Plan Active"}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{isBusiness ? "All features unlocked · up to 10 branches" : "All features unlocked"}</p>
+                  <p className="text-sm font-semibold">
+                    {isBusiness ? "Business Suite Active" : "Pro Plan Active"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {isBusiness
+                      ? "All features unlocked · up to 10 branches"
+                      : "All features unlocked"}
+                  </p>
                 </div>
-                <span className="text-[10px] font-medium border border-violet-500/35 text-violet-500 dark:text-violet-400 px-2 py-0.5 rounded tracking-widest">ACTIVE</span>
+                <span className="text-[10px] font-medium border border-violet-500/35 text-violet-500 dark:text-violet-400 px-2 py-0.5 rounded tracking-widest">
+                  ACTIVE
+                </span>
               </div>
             ) : (
               <button
@@ -725,18 +976,19 @@ const handleLanguageChange = (code: string) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">Upgrade to Pro</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Unlock WiFi vouchers, advanced reports & more</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Unlock WiFi vouchers, advanced reports & more
+                  </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-1" />
               </button>
             )}
-
           </div>
 
           <SectionLabel icon={CreditCard}>Checkout</SectionLabel>
           <div className="bg-card rounded-2xl border border-border/25 shadow-sm overflow-hidden">
             <button
-              onClick={() => setShowPaymentManager(v => !v)}
+              onClick={() => setShowPaymentManager((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/30 transition-colors"
               data-testid="button-open-payment-methods"
             >
@@ -746,16 +998,26 @@ const handleLanguageChange = (code: string) => {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-medium">Payment Methods</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{pmethods.length} method{pmethods.length !== 1 ? "s" : ""} configured</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {pmethods.length} method{pmethods.length !== 1 ? "s" : ""} configured
+                  </p>
                 </div>
               </div>
-              <ChevronRight className={["h-4 w-4 text-muted-foreground/40 transition-transform duration-200", showPaymentManager ? "rotate-90" : ""].join(" ")} />
+              <ChevronRight
+                className={[
+                  "h-4 w-4 text-muted-foreground/40 transition-transform duration-200",
+                  showPaymentManager ? "rotate-90" : "",
+                ].join(" ")}
+              />
             </button>
 
             {showPaymentManager && (
               <div className="border-t border-border/20 px-4 py-3 space-y-2">
-                {pmethods.map(m => (
-                  <div key={m.id} className="flex items-center gap-2 bg-secondary/30 rounded-xl px-3 py-2">
+                {pmethods.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2 bg-secondary/30 rounded-xl px-3 py-2"
+                  >
                     <span className="flex-1 text-sm font-medium">{m.label}</span>
                     <button
                       data-testid={`toggle-cash-${m.id}`}
@@ -784,15 +1046,15 @@ const handleLanguageChange = (code: string) => {
                 <div className="flex gap-2 pt-1.5 border-t border-border/15">
                   <Input
                     value={newMethodName}
-                    onChange={e => setNewMethodName(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && addPaymentMethod()}
+                    onChange={(e) => setNewMethodName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addPaymentMethod()}
                     placeholder="New method name..."
                     className="h-8 text-sm rounded-lg bg-secondary/60 border-none flex-1"
                     data-testid="input-new-payment-method"
                   />
                   <button
                     data-testid="toggle-new-method-cash"
-                    onClick={() => setNewMethodIsCash(v => !v)}
+                    onClick={() => setNewMethodIsCash((v) => !v)}
                     className={[
                       "flex items-center gap-1 px-2.5 rounded-lg text-[10px] font-bold border transition-colors shrink-0",
                       newMethodIsCash
@@ -816,7 +1078,6 @@ const handleLanguageChange = (code: string) => {
               </div>
             )}
           </div>
-
         </>
       )}
 
@@ -829,15 +1090,15 @@ const handleLanguageChange = (code: string) => {
               pushPermission === "denied"
                 ? "Blocked by your browser — update site permissions to enable"
                 : pushSubscribed
-                ? "You'll be alerted for new orders and low stock, even when the app is closed"
-                : "Get alerted for new orders and low stock, even when the app is closed"
+                  ? "You'll be alerted for new orders and low stock, even when the app is closed"
+                  : "Get alerted for new orders and low stock, even when the app is closed"
             }
             icon={pushSubscribed ? Bell : BellOff}
             iconColor={pushSubscribed ? "bg-violet-100 dark:bg-violet-900/30" : "bg-muted/60"}
           >
             <button
               data-testid="toggle-push-notifications"
-              onClick={() => pushSubscribed ? pushUnsubscribe() : pushSubscribe()}
+              onClick={() => (pushSubscribed ? pushUnsubscribe() : pushSubscribe())}
               disabled={pushLoading || pushPermission === "denied"}
               className={[
                 "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
@@ -876,18 +1137,28 @@ const handleLanguageChange = (code: string) => {
         {user && (
           <div className="flex items-center gap-3 px-4 py-4 border-b border-border/20">
             {user.avatar ? (
-              <img src={user.avatar} alt={user.name ?? ""} className="h-10 w-10 rounded-full object-cover shrink-0 ring-2 ring-border/20" />
+              <img
+                src={user.avatar}
+                alt={user.name ?? ""}
+                className="h-10 w-10 rounded-full object-cover shrink-0 ring-2 ring-border/20"
+              />
             ) : (
               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shrink-0 shadow-md">
-                <span className="text-sm font-bold text-white">{(user.name ?? "?")[0].toUpperCase()}</span>
+                <span className="text-sm font-bold text-white">
+                  {(user.name ?? "?")[0].toUpperCase()}
+                </span>
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate leading-none">{user.name ?? "User"}</p>
-              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user.email ?? `via ${user.provider}`}</p>
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                {user.email ?? `via ${user.provider}`}
+              </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] font-medium text-muted-foreground capitalize">{user.role}</span>
+              <span className="text-[10px] font-medium text-muted-foreground capitalize">
+                {user.role}
+              </span>
               {isPro && (
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-500 dark:text-violet-400 whitespace-nowrap">
                   {isBusiness ? "Business" : "Pro"}
@@ -898,7 +1169,11 @@ const handleLanguageChange = (code: string) => {
         )}
 
         <button
-          onClick={() => { setShowHelp(true); setHelpSearch(""); setExpandedHelp(null); }}
+          onClick={() => {
+            setShowHelp(true);
+            setHelpSearch("");
+            setExpandedHelp(null);
+          }}
           data-testid="button-help"
           className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"
         >
@@ -907,7 +1182,9 @@ const handleLanguageChange = (code: string) => {
           </div>
           <div className="text-left flex-1">
             <p className="text-sm font-medium">Help Center</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">How to set up and use each feature</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              How to set up and use each feature
+            </p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
         </button>
@@ -927,19 +1204,25 @@ const handleLanguageChange = (code: string) => {
           </div>
           <div className="text-left flex-1">
             <p className="text-sm font-medium">Replay App Tour</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Walk through the features again</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Walk through the features again
+            </p>
           </div>
         </button>
 
         {isOwner && (
           <button
-            onClick={() => { if (!isLoggingOut) logout(); }}
+            onClick={() => {
+              if (!isLoggingOut) logout();
+            }}
             disabled={isLoggingOut}
             data-testid="button-signout"
             className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-              <LogOut className={`h-3.5 w-3.5 text-muted-foreground ${isLoggingOut ? "animate-pulse" : ""}`} />
+              <LogOut
+                className={`h-3.5 w-3.5 text-muted-foreground ${isLoggingOut ? "animate-pulse" : ""}`}
+              />
             </div>
             {isLoggingOut ? "Signing out…" : "Sign Out"}
           </button>
@@ -947,7 +1230,10 @@ const handleLanguageChange = (code: string) => {
 
         {isOwner && (
           <button
-            onClick={() => { setDeleteConfirmText(""); setShowDeleteConfirm(true); }}
+            onClick={() => {
+              setDeleteConfirmText("");
+              setShowDeleteConfirm(true);
+            }}
             data-testid="button-delete-account"
             className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-destructive hover:bg-destructive/5 transition-colors"
           >
@@ -960,10 +1246,24 @@ const handleLanguageChange = (code: string) => {
       </div>
 
       {}
-      <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">ArtixPOS · Business OS</p>
+      <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">
+        ArtixPOS · Business OS
+      </p>
 
-      <Sheet open={showHelp} onOpenChange={(open) => { setShowHelp(open); if (!open) { setHelpSearch(""); setExpandedHelp(null); } }}>
-        <SheetContent side="bottom" className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
+      <Sheet
+        open={showHelp}
+        onOpenChange={(open) => {
+          setShowHelp(open);
+          if (!open) {
+            setHelpSearch("");
+            setExpandedHelp(null);
+          }
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col"
+        >
           {}
           <div className="flex justify-center pt-3 pb-1 shrink-0">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
@@ -975,7 +1275,9 @@ const handleLanguageChange = (code: string) => {
               </div>
               <div>
                 <SheetTitle className="text-lg font-black leading-tight">Help Center</SheetTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">How to set up and use each feature</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  How to set up and use each feature
+                </p>
               </div>
             </div>
           </SheetHeader>
@@ -986,7 +1288,10 @@ const handleLanguageChange = (code: string) => {
               <input
                 type="text"
                 value={helpSearch}
-                onChange={(e) => { setHelpSearch(e.target.value); setExpandedHelp(null); }}
+                onChange={(e) => {
+                  setHelpSearch(e.target.value);
+                  setExpandedHelp(null);
+                }}
                 placeholder="Search features..."
                 data-testid="input-help-search"
                 className="w-full h-10 pl-10 pr-4 rounded-2xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 focus:bg-secondary/80 transition-all placeholder:text-muted-foreground/40 font-medium"
@@ -1405,38 +1710,51 @@ const handleLanguageChange = (code: string) => {
 
               const q = helpSearch.toLowerCase().trim();
               const filtered = q
-                ? HELP_FEATURES.filter(f =>
-                    f.title.toLowerCase().includes(q) ||
-                    f.tagline.toLowerCase().includes(q) ||
-                    f.steps.some(s => s.toLowerCase().includes(q))
+                ? HELP_FEATURES.filter(
+                    (f) =>
+                      f.title.toLowerCase().includes(q) ||
+                      f.tagline.toLowerCase().includes(q) ||
+                      f.steps.some((s) => s.toLowerCase().includes(q)),
                   )
                 : HELP_FEATURES;
 
-              if (filtered.length === 0) return (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50 gap-2">
-                  <HelpCircle className="h-8 w-8" strokeWidth={1.2} />
-                  <p className="text-sm font-medium">No results for "{helpSearch}"</p>
-                </div>
-              );
+              if (filtered.length === 0)
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50 gap-2">
+                    <HelpCircle className="h-8 w-8" strokeWidth={1.2} />
+                    <p className="text-sm font-medium">No results for "{helpSearch}"</p>
+                  </div>
+                );
 
               return filtered.map((feat) => {
                 const Icon = feat.icon;
                 const isOpen = expandedHelp === feat.id;
                 return (
-                  <div key={feat.id} className="rounded-2xl border border-border/25 bg-card overflow-hidden shadow-sm">
+                  <div
+                    key={feat.id}
+                    className="rounded-2xl border border-border/25 bg-card overflow-hidden shadow-sm"
+                  >
                     <button
                       onClick={() => setExpandedHelp(isOpen ? null : feat.id)}
                       data-testid={`button-help-${feat.id}`}
                       className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 active:bg-secondary/60 transition-colors text-left"
                     >
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${feat.color}`}>
+                      <div
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${feat.color}`}
+                      >
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground leading-none">{feat.title}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{feat.tagline}</p>
+                        <p className="text-sm font-semibold text-foreground leading-none">
+                          {feat.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                          {feat.tagline}
+                        </p>
                       </div>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground/50 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground/50 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                      />
                     </button>
 
                     {isOpen && (
@@ -1470,7 +1788,8 @@ const handleLanguageChange = (code: string) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes your account and <strong>all your data</strong> — products, sales, orders, and settings. Cannot be undone.
+              This permanently deletes your account and <strong>all your data</strong> — products,
+              sales, orders, and settings. Cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-1 pb-1">
@@ -1479,7 +1798,7 @@ const handleLanguageChange = (code: string) => {
             </p>
             <Input
               value={deleteConfirmText}
-              onChange={e => setDeleteConfirmText(e.target.value)}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="Type DELETE"
               autoComplete="off"
               autoCapitalize="characters"
@@ -1489,7 +1808,9 @@ const handleLanguageChange = (code: string) => {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting} onClick={() => setDeleteConfirmText("")}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting} onClick={() => setDeleteConfirmText("")}>
+              Cancel
+            </AlertDialogCancel>
             <Button
               variant="destructive"
               onClick={handleDeleteAccount}

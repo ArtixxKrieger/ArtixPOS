@@ -594,7 +594,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(total, currency)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">Reason (optional)</p>
+              <p className="text-xs text-muted-foreground mb-1.5">Refund Reason <span className="text-rose-500">*</span></p>
               <Textarea
                 placeholder="e.g. Customer requested refund, wrong item ordered…"
                 value={refundReason}
@@ -611,7 +611,7 @@ ${showPoweredBy ? `<p class="center" style="font-size:${fs - 4}px;color:#000;mar
               <Button
                 className="flex-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white"
                 onClick={() => refundMutation.mutate()}
-                disabled={refundMutation.isPending}
+                disabled={refundMutation.isPending || !refundReason.trim()}
                 data-testid="button-confirm-refund"
               >
                 {refundMutation.isPending ? "Processing…" : "Confirm Refund"}

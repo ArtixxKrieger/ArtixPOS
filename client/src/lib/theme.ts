@@ -2,14 +2,13 @@
  * Theme management — light / dark / system.
  *
  * Smooth transitions are applied by adding the `.theme-transitioning` class
- * to <html> before the theme change; it's removed 400ms later (after the
- * CSS transition completes).  The transition only targets colour-related
- * properties so layout is unaffected.
+ * to <html> before the theme change; it's removed after the CSS transition
+ * completes (150 ms + 50 ms buffer = 200 ms).
  */
 
 const STORAGE_KEY = "theme";
 const TRANSITION_CLASS = "theme-transitioning";
-const TRANSITION_DURATION = 400;
+const TRANSITION_DURATION = 200;
 
 export type ThemeMode = "light" | "dark" | "system";
 

@@ -14,21 +14,26 @@
 }
 
 /* ── Smooth theme transitions ──────────────────────────────────────────────
- * When .theme-transitioning is on <html>, every child element transitions its
- * colour-related properties over 300 ms.  This class is added momentarily by
- * applyTheme() in client/src/lib/theme.ts and removed 400 ms later.
- * Layout properties (width, height, spacing) are excluded to avoid jank.     */
-html.theme-transitioning,
-html.theme-transitioning *,
-html.theme-transitioning *::before,
-html.theme-transitioning *::after {
-  transition:
-    color 0.3s ease,
-    background-color 0.3s ease,
-    border-color 0.3s ease,
-    fill 0.3s ease,
-    stroke 0.3s ease,
-    box-shadow 0.3s ease !important;
+ * When .theme-transitioning is on <html>, every element with a class
+ * attribute transitions its colour properties over 150 ms.  We target
+ * [class] instead of * to skip text nodes and unstyled elements, keeping
+ * the transition lightweight.
+ *
+ * Only background-color, border-color, and color are transitioned — fill,
+ * stroke, and box-shadow are excluded because they cause expensive repaints.
+ *
+ * Reduced-motion users get an instant switch (the rule is wrapped in
+ * prefers-reduced-motion: no-preference).                             */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transitioning,
+  html.theme-transitioning [class],
+  html.theme-transitioning [class]::before,
+  html.theme-transitioning [class]::after {
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease !important;
+  }
 }
 
 @layer base {

@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "./db";
 import { and, eq } from "drizzle-orm";
 import { tenantSubscriptions, subscriptionPayments } from "@shared/schema";
-import { requireAuth } from "./middleware";
+import { requireAuth, invalidateSubscriptionCache } from "./middleware";
 
 const PAYMONGO_BASE = "https://api.paymongo.com/v1";
 
@@ -103,6 +103,7 @@ app.get("/api/subscription", requireAuth, async (req: Request, res: Response) =>
       if (!sub) {
 
         await db.insert(tenantSubscriptions).values({ tenantId, plan: "free", status: "active" } as any);
+        invalidateSubscriptionCache(tenantId);
         sub = await getOrCreateSubscription(tenantId);
       }
 
@@ -114,6 +115,7 @@ if (sub && (sub.plan === "pro" || sub.plan === "business") && sub.currentPeriodE
 
             .set({ plan: "free", status: "expired", billingCycle: null, currentPeriodEnd: null, updatedAt: new Date().toISOString() } as any)
             .where(eq(tenantSubscriptions.tenantId, tenantId));
+          invalidateSubscriptionCache(tenantId);
           sub = await getOrCreateSubscription(tenantId);
         }
       }
@@ -304,6 +306,7 @@ const sessionId = pending.paymongoCheckoutId;
             currentPeriodEnd: periodEnd.toISOString(),
           } as any);
         }
+        invalidateSubscriptionCache(tenantId);
 
         return res.json({ success: true, plan: pending.plan ?? "pro", periodEnd: periodEnd.toISOString() });
       }
@@ -326,6 +329,7 @@ app.post("/api/subscription/cancel", requireAuth, async (req: Request, res: Resp
 
         .set({ cancelAtPeriodEnd: true, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
+      invalidateSubscriptionCache(tenantId);
 
       return res.json({ ok: true });
     } catch {
@@ -344,6 +348,7 @@ app.post("/api/subscription/reactivate", requireAuth, async (req: Request, res: 
 
         .set({ cancelAtPeriodEnd: false, updatedAt: new Date().toISOString() } as any)
         .where(eq(tenantSubscriptions.tenantId, tenantId));
+      invalidateSubscriptionCache(tenantId);
 
       return res.json({ ok: true });
     } catch {
@@ -421,6 +426,7 @@ async function activateProForTenant(tenantId: string, billingCycle: "monthly" | 
       currentPeriodEnd: periodEnd.toISOString(),
     } as any);
   }
+  invalidateSubscriptionCache(tenantId);
 
   return periodEnd;
 }
@@ -473,6 +479,7 @@ async function activateRevenueCatPro(tenantId: string, expirationAtMs: number | 
       currentPeriodEnd: periodEnd.toISOString(),
     } as any);
   }
+  invalidateSubscriptionCache(tenantId);
 }
 
 async function revokeRevenueCatPro(tenantId: string) {
@@ -488,6 +495,7 @@ async function revokeRevenueCatPro(tenantId: string) {
       updatedAt: now.toISOString(),
     } as any)
     .where(eq(tenantSubscriptions.tenantId, tenantId));
+  invalidateSubscriptionCache(tenantId);
 }
 
 export function registerRevenueCatWebhookRoutes(app: Express) {

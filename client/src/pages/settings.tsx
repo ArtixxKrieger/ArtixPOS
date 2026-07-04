@@ -673,7 +673,12 @@ export default function Settings() {
                         : "bg-secondary/40 border-transparent hover:bg-secondary/70 hover:border-border/30 active:scale-[0.99]",
                     ].join(" ")}
                   >
-                    <span className="text-2xl leading-none shrink-0">{c.flag}</span>
+                    <img
+                      src={`https://flagcdn.com/w40/${c.code.toLowerCase()}.png`}
+                      srcSet={`https://flagcdn.com/w80/${c.code.toLowerCase()}.png 2x`}
+                      alt={c.code}
+                      className="w-7 h-5 object-cover rounded-[3px] shrink-0 shadow-sm"
+                    />
                     <div className="flex-1 min-w-0">
                       <p
                         className={[
@@ -765,7 +770,12 @@ export default function Settings() {
                 <div className="flex items-center gap-1.5 shrink-0">
                   {currentCountry ? (
                     <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                      <span className="text-base leading-none">{currentCountry.flag}</span>
+                      <img
+                        src={`https://flagcdn.com/w40/${currentCountry.code.toLowerCase()}.png`}
+                        srcSet={`https://flagcdn.com/w80/${currentCountry.code.toLowerCase()}.png 2x`}
+                        alt={currentCountry.code}
+                        className="w-6 h-4 object-cover rounded-[3px] shrink-0 shadow-sm"
+                      />
                       <span>{currentCountry.name}</span>
                     </span>
                   ) : (

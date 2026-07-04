@@ -1,30 +1,97 @@
 import { useState, useEffect, useRef } from "react";
-import { Sparkles, RotateCcw, Copy, ExternalLink, Mail, Globe, Clock, TrendingUp, Users, ShoppingCart, DollarSign, BarChart2, ChevronRight, Info, Percent, Check, Search } from "lucide-react";
+import {
+  Sparkles,
+  RotateCcw,
+  Copy,
+  ExternalLink,
+  Mail,
+  Globe,
+  Clock,
+  TrendingUp,
+  Users,
+  ShoppingCart,
+  DollarSign,
+  BarChart2,
+  ChevronRight,
+  Info,
+  Percent,
+  Check,
+  Search,
+} from "lucide-react";
 import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
 import {
-  Building2, Plus, Pencil, Trash2, Phone, MapPin,
-  CheckCircle, XCircle, Star, Crown, Lock, Sparkles as SparklesIcon,
+  Building2,
+  Plus,
+  Pencil,
+  Trash2,
+  Phone,
+  MapPin,
+  CheckCircle,
+  XCircle,
+  Star,
+  Crown,
+  Lock,
+  Sparkles as SparklesIcon,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  useBranches, useCreateBranch, useUpdateBranch, useDeleteBranch,
-  useSetMainBranch, useSeedBranch, useResetBranch, useDuplicateBranch,
-  useBranchStats, useSwitchBranch,
-  fetchBranchSeedTemplate, type Branch, type BranchSeedTemplate,
+  useBranches,
+  useCreateBranch,
+  useUpdateBranch,
+  useDeleteBranch,
+  useSetMainBranch,
+  useSeedBranch,
+  useResetBranch,
+  useDuplicateBranch,
+  useBranchStats,
+  useSwitchBranch,
+  fetchBranchSeedTemplate,
+  type Branch,
+  type BranchSeedTemplate,
 } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -42,21 +109,41 @@ const DAYS = [
   { key: "sun", label: "Sun" },
 ];
 
-const DEFAULT_OPENING_HOURS: Record<string, { open: string; close: string; closed: boolean }> = Object.fromEntries(
-  DAYS.map(({ key }) => [key, { open: "09:00", close: "18:00", closed: key === "sun" }])
-);
+const DEFAULT_OPENING_HOURS: Record<string, { open: string; close: string; closed: boolean }> =
+  Object.fromEntries(
+    DAYS.map(({ key }) => [key, { open: "09:00", close: "18:00", closed: key === "sun" }]),
+  );
 
 const BRANCH_COLORS = [
-  "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#06b6d4", "#84cc16",
-  "#f97316", "#6366f1",
+  "#8b5cf6",
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+  "#f97316",
+  "#6366f1",
 ];
 
 const TIMEZONES = [
-  "UTC", "America/New_York", "America/Chicago", "America/Denver",
-  "America/Los_Angeles", "America/Toronto", "Europe/London", "Europe/Paris",
-  "Europe/Berlin", "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore",
-  "Asia/Tokyo", "Asia/Manila", "Australia/Sydney", "Pacific/Auckland",
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Asia/Manila",
+  "Australia/Sydney",
+  "Pacific/Auckland",
 ];
 
 const BUSINESS_TYPES: { value: string; label: string }[] = [
@@ -116,30 +203,34 @@ function isOpenNow(openingHours: Branch["openingHours"], timezone?: string | nul
   return nowMins >= openMins && nowMins < closeMins;
 }
 
-const branchSchema = z.object({
-  name: z.string().min(1, "Branch name is required"),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  website: z.string().optional(),
-  description: z.string().optional(),
-  color: z.string().optional(),
-  timezone: z.string().optional(),
-  taxRate: z.string().optional(),
-  openingHours: z.record(z.object({ open: z.string(), close: z.string(), closed: z.boolean() })).optional(),
-  isActive: z.boolean().default(true),
-  businessType: z.string().min(1, "Business type is required"),
-  businessSubType: z.string().optional(),
-}).superRefine((val, ctx) => {
-  const subtypes = BUSINESS_SUBTYPES[val.businessType] ?? [];
-  if (subtypes.length > 0 && !val.businessSubType) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["businessSubType"],
-      message: "Please pick what kind of business this is",
-    });
-  }
-});
+const branchSchema = z
+  .object({
+    name: z.string().min(1, "Branch name is required"),
+    address: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email("Invalid email").optional().or(z.literal("")),
+    website: z.string().optional(),
+    description: z.string().optional(),
+    color: z.string().optional(),
+    timezone: z.string().optional(),
+    taxRate: z.string().optional(),
+    openingHours: z
+      .record(z.object({ open: z.string(), close: z.string(), closed: z.boolean() }))
+      .optional(),
+    isActive: z.boolean().default(true),
+    businessType: z.string().min(1, "Business type is required"),
+    businessSubType: z.string().optional(),
+  })
+  .superRefine((val, ctx) => {
+    const subtypes = BUSINESS_SUBTYPES[val.businessType] ?? [];
+    if (subtypes.length > 0 && !val.businessSubType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["businessSubType"],
+        message: "Please pick what kind of business this is",
+      });
+    }
+  });
 
 const branchEditSchema = z.object({
   name: z.string().min(1),
@@ -151,7 +242,9 @@ const branchEditSchema = z.object({
   color: z.string().optional(),
   timezone: z.string().optional(),
   taxRate: z.string().optional(),
-  openingHours: z.record(z.object({ open: z.string(), close: z.string(), closed: z.boolean() })).optional(),
+  openingHours: z
+    .record(z.object({ open: z.string(), close: z.string(), closed: z.boolean() }))
+    .optional(),
   isActive: z.boolean().default(true),
   businessType: z.string().optional(),
   businessSubType: z.string().optional(),
@@ -174,7 +267,9 @@ function OpeningHoursEditor({
     const mon = value["mon"];
     if (!mon) return;
     const updated = { ...value };
-    DAYS.forEach(({ key }) => { if (key !== "mon") updated[key] = { ...mon }; });
+    DAYS.forEach(({ key }) => {
+      if (key !== "mon") updated[key] = { ...mon };
+    });
     onChange(updated);
   }
 
@@ -251,7 +346,9 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
           className="h-14 w-14 rounded-2xl shrink-0 shadow-lg border-2 border-white/20 flex items-center justify-center"
           style={{ backgroundColor: displayColor }}
         >
-          <span className="text-lg font-black" style={{ color: fg }}>A</span>
+          <span className="text-lg font-black" style={{ color: fg }}>
+            A
+          </span>
         </div>
         <div className="flex-1">
           <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Custom hex code</p>
@@ -276,7 +373,10 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
               <button
                 key={c}
                 type="button"
-                onClick={() => { onChange(c); setHexInput(c); }}
+                onClick={() => {
+                  onChange(c);
+                  setHexInput(c);
+                }}
                 data-testid={`color-swatch-${c.replace("#", "")}`}
                 className="h-11 rounded-xl transition-all duration-150 flex items-center justify-center"
                 style={{
@@ -325,7 +425,9 @@ function contrastColor(hex: string): string {
 function alphaHex(hex: string, alpha: number): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  const a = Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0");
   return `${hex}${a}`;
 }
 
@@ -333,7 +435,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
   const displayColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#8b5cf6";
   const fg = contrastColor(displayColor);
   const bg12 = alphaHex(displayColor, 0.12);
-  const bg20 = alphaHex(displayColor, 0.20);
+  const bg20 = alphaHex(displayColor, 0.2);
   const branchLabel = name || "Branch Name";
 
   return (
@@ -343,10 +445,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
       data-testid="color-preview-panel"
     >
       {}
-      <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{ backgroundColor: displayColor }}
-      >
+      <div className="flex items-center gap-3 px-4 py-3" style={{ backgroundColor: displayColor }}>
         <div
           className="h-8 w-8 rounded-xl flex items-center justify-center text-sm font-black"
           style={{ backgroundColor: "rgba(255,255,255,0.22)", color: fg }}
@@ -354,8 +453,12 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
           {branchLabel.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm truncate" style={{ color: fg }}>{branchLabel}</p>
-          <p className="text-[10px] opacity-75" style={{ color: fg }}>Live preview</p>
+          <p className="font-bold text-sm truncate" style={{ color: fg }}>
+            {branchLabel}
+          </p>
+          <p className="text-[10px] opacity-75" style={{ color: fg }}>
+            Live preview
+          </p>
         </div>
         {}
         <span
@@ -367,10 +470,7 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
       </div>
 
       {}
-      <div
-        className="px-4 py-3 space-y-3"
-        style={{ backgroundColor: bg12 }}
-      >
+      <div className="px-4 py-3 space-y-3" style={{ backgroundColor: bg12 }}>
         {}
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -384,7 +484,11 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
           <button
             type="button"
             className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-bold border"
-            style={{ borderColor: alphaHex(displayColor, 0.5), color: displayColor, backgroundColor: bg20 }}
+            style={{
+              borderColor: alphaHex(displayColor, 0.5),
+              color: displayColor,
+              backgroundColor: bg20,
+            }}
           >
             <TrendingUp className="h-3 w-3" />
             Analytics
@@ -407,16 +511,24 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
             <div
               key={s.label}
               className="rounded-xl p-2 text-center space-y-0.5"
-              style={{ backgroundColor: "rgba(255,255,255,0.08)", border: `1px solid ${alphaHex(displayColor, 0.18)}` }}
+              style={{
+                backgroundColor: "rgba(255,255,255,0.08)",
+                border: `1px solid ${alphaHex(displayColor, 0.18)}`,
+              }}
             >
-              <p className="text-xs font-black" style={{ color: displayColor }}>{s.value}</p>
+              <p className="text-xs font-black" style={{ color: displayColor }}>
+                {s.value}
+              </p>
               <p className="text-[9px] text-muted-foreground font-medium">{s.label}</p>
             </div>
           ))}
         </div>
 
         {}
-        <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ backgroundColor: bg20 }}>
+        <div
+          className="flex items-center gap-2 rounded-xl px-2.5 py-1.5"
+          style={{ backgroundColor: bg20 }}
+        >
           <div className="h-3.5 w-3.5 rounded" style={{ backgroundColor: displayColor }} />
           <span className="text-[10px] font-semibold" style={{ color: displayColor }}>
             Sidebar & nav use this color
@@ -427,7 +539,15 @@ function ColorPreview({ color, name }: { color: string; name: string }) {
   );
 }
 
-function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: () => void; branch?: Branch }) {
+function BranchFormDialog({
+  open,
+  onClose,
+  branch,
+}: {
+  open: boolean;
+  onClose: () => void;
+  branch?: Branch;
+}) {
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const seedBranch = useSeedBranch();
@@ -487,7 +607,7 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       });
 
       if (branch.timezone) {
-        const match = COUNTRY_LIST.find(c => c.timezone === branch.timezone);
+        const match = COUNTRY_LIST.find((c) => c.timezone === branch.timezone);
         setBranchCountry(match ?? null);
       }
     }
@@ -499,7 +619,6 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
       setBranchCountry(null);
       setCountrySearch("");
     }
-
   }, [open, branch]);
 
   function handleClose() {
@@ -583,23 +702,50 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                 <Sparkles className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="font-bold text-sm" data-testid="text-seed-template-label">{seedTemplate.label}</p>
+                <p className="font-bold text-sm" data-testid="text-seed-template-label">
+                  {seedTemplate.label}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">{seedTemplate.description}</p>
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">{seedTemplate.itemCount} items</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    {seedTemplate.itemCount} items
+                  </span>
                   {(seedTemplate.tableCount ?? 0) > 0 && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">{seedTemplate.tableCount} tables</span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      {seedTemplate.tableCount} tables
+                    </span>
                   )}
                 </div>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Pre-load <span className="font-semibold text-foreground">{createdBranch.name}</span> with a starter catalog so you can start selling right away.
+              Pre-load <span className="font-semibold text-foreground">{createdBranch.name}</span>{" "}
+              with a starter catalog so you can start selling right away.
             </p>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={handleClose} disabled={seedBranch.isPending} data-testid="button-skip-seed">Skip for now</Button>
-              <Button type="button" onClick={handleSeed} disabled={seedBranch.isPending} data-testid="button-confirm-seed">
-                {seedBranch.isPending ? "Adding…" : <><Sparkles className="h-4 w-4 mr-2" />Add catalog</>}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleClose}
+                disabled={seedBranch.isPending}
+                data-testid="button-skip-seed"
+              >
+                Skip for now
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSeed}
+                disabled={seedBranch.isPending}
+                data-testid="button-confirm-seed"
+              >
+                {seedBranch.isPending ? (
+                  "Adding…"
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Add catalog
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </div>
@@ -608,204 +754,350 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="w-full grid grid-cols-4 h-9">
-                  <TabsTrigger value="basic" className="text-xs" data-testid="tab-branch-basic">Basic</TabsTrigger>
-                  <TabsTrigger value="details" className="text-xs" data-testid="tab-branch-details">Details</TabsTrigger>
-                  <TabsTrigger value="hours" className="text-xs" data-testid="tab-branch-hours">Hours</TabsTrigger>
-                  <TabsTrigger value="settings" className="text-xs" data-testid="tab-branch-settings">Settings</TabsTrigger>
+                  <TabsTrigger value="basic" className="text-xs" data-testid="tab-branch-basic">
+                    Basic
+                  </TabsTrigger>
+                  <TabsTrigger value="details" className="text-xs" data-testid="tab-branch-details">
+                    Details
+                  </TabsTrigger>
+                  <TabsTrigger value="hours" className="text-xs" data-testid="tab-branch-hours">
+                    Hours
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settings"
+                    className="text-xs"
+                    data-testid="tab-branch-settings"
+                  >
+                    Settings
+                  </TabsTrigger>
                 </TabsList>
 
                 {}
                 <TabsContent value="basic" className="space-y-3 mt-3">
                   {}
-                  <FormField control={form.control} name="color" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Branch Color</FormLabel>
-                      <FormControl>
-                        <ColorPicker value={field.value ?? BRANCH_COLORS[0]} onChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )} />
-
-                  {}
-                  <ColorPreview
-                    color={watchedColor ?? BRANCH_COLORS[0]}
-                    name={watchedName ?? ""}
+                  <FormField
+                    control={form.control}
+                    name="color"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Branch Color</FormLabel>
+                        <FormControl>
+                          <ColorPicker
+                            value={field.value ?? BRANCH_COLORS[0]}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
                   />
 
+                  {}
+                  <ColorPreview color={watchedColor ?? BRANCH_COLORS[0]} name={watchedName ?? ""} />
+
                   {!isEditing && (
-                    <FormField control={form.control} name="name" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Branch Name</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-branch-name" placeholder="Main Branch" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Branch Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              data-testid="input-branch-name"
+                              placeholder="Main Branch"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
 
                   {!isEditing && (
-                    <FormField control={form.control} name="businessType" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Type</FormLabel>
-                        <Select value={field.value ?? ""} onValueChange={(v) => { field.onChange(v); form.setValue("businessSubType", ""); }}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-branch-business-type">
-                              <SelectValue placeholder="What kind of business?" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {BUSINESS_TYPES.map((t) => (
-                              <SelectItem key={t.value} value={t.value} data-testid={`option-business-type-${t.value}`}>{t.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="businessType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Business Type</FormLabel>
+                          <Select
+                            value={field.value ?? ""}
+                            onValueChange={(v) => {
+                              field.onChange(v);
+                              form.setValue("businessSubType", "");
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-branch-business-type">
+                                <SelectValue placeholder="What kind of business?" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {BUSINESS_TYPES.map((t) => (
+                                <SelectItem
+                                  key={t.value}
+                                  value={t.value}
+                                  data-testid={`option-business-type-${t.value}`}
+                                >
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
 
                   {!isEditing && subtypeOptions.length > 0 && (
-                    <FormField control={form.control} name="businessSubType" render={({ field }) => (
-                      <FormItem className="rounded-2xl border border-border/40 bg-secondary/30 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-3.5 w-3.5 text-primary" />
-                          <FormLabel className="text-xs font-bold uppercase tracking-wider text-primary">
-                            What kind of {BUSINESS_TYPES.find(t => t.value === selectedType)?.label.toLowerCase()}?
-                          </FormLabel>
-                        </div>
-                        <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-branch-business-subtype">
-                              <SelectValue placeholder="Pick a type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {subtypeOptions.map((t) => (
-                              <SelectItem key={t.value} value={t.value} data-testid={`option-business-subtype-${t.value}`}>{t.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="businessSubType"
+                      render={({ field }) => (
+                        <FormItem className="rounded-2xl border border-border/40 bg-secondary/30 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-primary">
+                              What kind of{" "}
+                              {BUSINESS_TYPES.find(
+                                (t) => t.value === selectedType,
+                              )?.label.toLowerCase()}
+                              ?
+                            </FormLabel>
+                          </div>
+                          <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-branch-business-subtype">
+                                <SelectValue placeholder="Pick a type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {subtypeOptions.map((t) => (
+                                <SelectItem
+                                  key={t.value}
+                                  value={t.value}
+                                  data-testid={`option-business-subtype-${t.value}`}
+                                >
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
 
-                  <FormField control={form.control} name="isActive" render={({ field }) => (
-                    <FormItem className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-border/30 p-3">
-                      <div className="flex-1">
-                        <FormLabel>Active</FormLabel>
-                        <p className="text-xs text-muted-foreground">Inactive branches are hidden from staff</p>
-                      </div>
-                      <FormControl>
-                        <Switch data-testid="switch-branch-active" checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-border/30 p-3">
+                        <div className="flex-1">
+                          <FormLabel>Active</FormLabel>
+                          <p className="text-xs text-muted-foreground">
+                            Inactive branches are hidden from staff
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            data-testid="switch-branch-active"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </TabsContent>
 
                 {}
                 <TabsContent value="details" className="space-y-3 mt-3">
-                  <FormField control={form.control} name="address" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel><MapPin className="h-3.5 w-3.5 inline mr-1" />Address</FormLabel>
-                      <FormControl>
-                        <Input data-testid="input-branch-address" placeholder="123 Main St, City" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <MapPin className="h-3.5 w-3.5 inline mr-1" />
+                          Address
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            data-testid="input-branch-address"
+                            placeholder="123 Main St, City"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="phone" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel><Phone className="h-3.5 w-3.5 inline mr-1" />Phone</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-branch-phone" placeholder="+1 555 000 0000" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="email" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel><Mail className="h-3.5 w-3.5 inline mr-1" />Email</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-branch-email" placeholder="branch@store.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            <Phone className="h-3.5 w-3.5 inline mr-1" />
+                            Phone
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              data-testid="input-branch-phone"
+                              placeholder="+1 555 000 0000"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            <Mail className="h-3.5 w-3.5 inline mr-1" />
+                            Email
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              data-testid="input-branch-email"
+                              placeholder="branch@store.com"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  <FormField control={form.control} name="website" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel><Globe className="h-3.5 w-3.5 inline mr-1" />Website</FormLabel>
-                      <FormControl>
-                        <Input data-testid="input-branch-website" placeholder="https://yourstore.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="description" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel><Info className="h-3.5 w-3.5 inline mr-1" />Notes / Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          data-testid="input-branch-description"
-                          placeholder="Internal notes about this branch…"
-                          className="resize-none text-sm"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="website"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <Globe className="h-3.5 w-3.5 inline mr-1" />
+                          Website
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            data-testid="input-branch-website"
+                            placeholder="https://yourstore.com"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <Info className="h-3.5 w-3.5 inline mr-1" />
+                          Notes / Description
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            data-testid="input-branch-description"
+                            placeholder="Internal notes about this branch…"
+                            className="resize-none text-sm"
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </TabsContent>
 
                 {}
                 <TabsContent value="hours" className="mt-3 space-y-2">
-                  <p className="text-xs text-muted-foreground">Set when this branch is open. The "Open Now" badge on the card uses these hours.</p>
-                  <FormField control={form.control} name="openingHours" render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <OpeningHoursEditor
-                          value={(field.value ?? DEFAULT_OPENING_HOURS) as Record<string, { open: string; close: string; closed: boolean }>}
-                          onChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )} />
+                  <p className="text-xs text-muted-foreground">
+                    Set when this branch is open. The "Open Now" badge on the card uses these hours.
+                  </p>
+                  <FormField
+                    control={form.control}
+                    name="openingHours"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <OpeningHoursEditor
+                            value={
+                              (field.value ?? DEFAULT_OPENING_HOURS) as Record<
+                                string,
+                                { open: string; close: string; closed: boolean }
+                              >
+                            }
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </TabsContent>
 
                 {}
                 <TabsContent value="settings" className="space-y-3 mt-3">
-
                   {}
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1">
-                      <Globe className="h-3.5 w-3.5 inline mr-0.5" />Country
+                      <Globe className="h-3.5 w-3.5 inline mr-0.5" />
+                      Country
                     </p>
                     <button
                       type="button"
                       data-testid="btn-branch-country-picker"
-                      onClick={() => { setShowCountryPicker(true); setTimeout(() => countrySearchRef.current?.focus(), 50); }}
+                      onClick={() => {
+                        setShowCountryPicker(true);
+                        setTimeout(() => countrySearchRef.current?.focus(), 50);
+                      }}
                       className="flex items-center gap-2 w-full h-10 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-left text-sm transition-colors"
                     >
                       {branchCountry ? (
                         <>
-                          <span className="text-base leading-none">{branchCountry.flag}</span>
+                          <img
+                            src={`https://flagcdn.com/w40/${branchCountry.code.toLowerCase()}.png`}
+                            srcSet={`https://flagcdn.com/w80/${branchCountry.code.toLowerCase()}.png 2x`}
+                            alt={branchCountry.code}
+                            className="w-6 h-4 object-cover rounded-[3px] shrink-0 shadow-sm"
+                          />
                           <span className="flex-1 font-medium">{branchCountry.name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">{branchCountry.currency}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {branchCountry.currency}
+                          </span>
                         </>
                       ) : (
-                        <span className="text-muted-foreground flex-1">Select country (sets timezone)</span>
+                        <span className="text-muted-foreground flex-1">
+                          Select country (sets timezone)
+                        </span>
                       )}
                     </button>
-                    <p className="text-[11px] text-muted-foreground">Choosing a country auto-sets the timezone below.</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Choosing a country auto-sets the timezone below.
+                    </p>
                   </div>
 
                   {}
                   {showCountryPicker && (
-                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCountryPicker(false)}>
-                      <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
+                    <div
+                      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                      onClick={() => setShowCountryPicker(false)}
+                    >
+                      <div
+                        className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="px-4 pt-4 pb-3 border-b border-border/30">
                           <p className="text-sm font-bold text-foreground mb-2">Select Country</p>
                           <div className="relative">
@@ -814,14 +1106,19 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                               ref={countrySearchRef}
                               type="text"
                               value={countrySearch}
-                              onChange={e => setCountrySearch(e.target.value)}
+                              onChange={(e) => setCountrySearch(e.target.value)}
                               placeholder="Search country…"
                               className="w-full h-9 pl-8 pr-3 rounded-xl bg-secondary/60 border border-border/30 text-sm outline-none focus:border-primary/40 transition-all"
                             />
                           </div>
                         </div>
                         <div className="overflow-y-auto py-2">
-                          {COUNTRY_LIST.filter(c => !countrySearch || c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.toLowerCase().includes(countrySearch.toLowerCase())).map(c => (
+                          {COUNTRY_LIST.filter(
+                            (c) =>
+                              !countrySearch ||
+                              c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+                              c.code.toLowerCase().includes(countrySearch.toLowerCase()),
+                          ).map((c) => (
                             <button
                               key={c.code}
                               type="button"
@@ -832,12 +1129,24 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                                 setShowCountryPicker(false);
                                 setCountrySearch("");
                               }}
-                              className={["w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/60 transition-colors text-left", branchCountry?.code === c.code ? "bg-primary/8" : ""].join(" ")}
+                              className={[
+                                "w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/60 transition-colors text-left",
+                                branchCountry?.code === c.code ? "bg-primary/8" : "",
+                              ].join(" ")}
                             >
-                              <span className="text-xl leading-none w-7 text-center">{c.flag}</span>
+                              <img
+                                src={`https://flagcdn.com/w40/${c.code.toLowerCase()}.png`}
+                                srcSet={`https://flagcdn.com/w80/${c.code.toLowerCase()}.png 2x`}
+                                alt={c.code}
+                                className="w-7 h-5 object-cover rounded-[3px] shrink-0 shadow-sm"
+                              />
                               <span className="flex-1 text-sm font-medium">{c.name}</span>
-                              <span className="text-xs text-muted-foreground shrink-0">{c.currency} · {c.phonePrefix}</span>
-                              {branchCountry?.code === c.code && <Check className="h-4 w-4 text-primary shrink-0" />}
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {c.currency} · {c.phonePrefix}
+                              </span>
+                              {branchCountry?.code === c.code && (
+                                <Check className="h-4 w-4 text-primary shrink-0" />
+                              )}
                             </button>
                           ))}
                         </div>
@@ -845,67 +1154,93 @@ function BranchFormDialog({ open, onClose, branch }: { open: boolean; onClose: (
                     </div>
                   )}
 
-                  <FormField control={form.control} name="timezone" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel><Clock className="h-3.5 w-3.5 inline mr-1" />Timezone</FormLabel>
-                      {branchCountry ? (
-                        <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-secondary/50 text-sm text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5 shrink-0" />
-                          <span className="flex-1">{field.value || branchCountry.timezone}</span>
-                          <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded font-medium">Auto</span>
-                        </div>
-                      ) : (
-                        <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-branch-timezone">
-                              <SelectValue placeholder="Select timezone" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {TIMEZONES.map((tz) => (
-                              <SelectItem key={tz} value={tz}>{tz.replace(/_/g, " ")}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        {branchCountry ? `Set automatically from ${branchCountry.name}.` : 'Used to display "Open Now" based on local time.'}
-                      </p>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="taxRate" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel><Percent className="h-3.5 w-3.5 inline mr-1" />Tax Rate (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          data-testid="input-branch-tax-rate"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          placeholder="e.g. 8.5"
-                          {...field}
-                        />
-                      </FormControl>
-                      <p className="text-[11px] text-muted-foreground">Override the default tax rate for this branch specifically.</p>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={form.control}
+                    name="timezone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <Clock className="h-3.5 w-3.5 inline mr-1" />
+                          Timezone
+                        </FormLabel>
+                        {branchCountry ? (
+                          <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-secondary/50 text-sm text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5 shrink-0" />
+                            <span className="flex-1">{field.value || branchCountry.timezone}</span>
+                            <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded font-medium">
+                              Auto
+                            </span>
+                          </div>
+                        ) : (
+                          <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-branch-timezone">
+                                <SelectValue placeholder="Select timezone" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {TIMEZONES.map((tz) => (
+                                <SelectItem key={tz} value={tz}>
+                                  {tz.replace(/_/g, " ")}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {branchCountry
+                            ? `Set automatically from ${branchCountry.name}.`
+                            : 'Used to display "Open Now" based on local time.'}
+                        </p>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="taxRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <Percent className="h-3.5 w-3.5 inline mr-1" />
+                          Tax Rate (%)
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            data-testid="input-branch-tax-rate"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="e.g. 8.5"
+                            {...field}
+                          />
+                        </FormControl>
+                        <p className="text-[11px] text-muted-foreground">
+                          Override the default tax rate for this branch specifically.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </TabsContent>
               </Tabs>
 
               <DialogFooter className="pt-2">
-                <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={handleClose}>
+                  Cancel
+                </Button>
                 <Button
                   data-testid="button-save-branch"
                   type="submit"
                   disabled={createBranch.isPending || updateBranch.isPending || loadingTemplate}
                 >
-                  {createBranch.isPending || loadingTemplate ? (
-                    loadingTemplate ? "Loading…" : "Creating…"
-                  ) : (
-                    isEditing ? "Update" : "Create"
-                  )}
+                  {createBranch.isPending || loadingTemplate
+                    ? loadingTemplate
+                      ? "Loading…"
+                      : "Creating…"
+                    : isEditing
+                      ? "Update"
+                      : "Create"}
                 </Button>
               </DialogFooter>
             </form>
@@ -927,7 +1262,9 @@ function BranchDetailDrawer({
   onClose: () => void;
   onEdit: () => void;
 }) {
-  const { data: stats, isLoading: _statsLoading } = useBranchStats(open && branch ? branch.id : null);
+  const { data: stats, isLoading: _statsLoading } = useBranchStats(
+    open && branch ? branch.id : null,
+  );
   const switchBranch = useSwitchBranch();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -950,18 +1287,22 @@ function BranchDetailDrawer({
   function _handleCopyLink() {
     if (!branch) return;
     const url = `${window.location.origin}/b/${branch.id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      toast({ title: "Link copied!", description: url });
-    }).catch(() => {
-      toast({ title: "Could not copy link", variant: "destructive" });
-    });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        toast({ title: "Link copied!", description: url });
+      })
+      .catch(() => {
+        toast({ title: "Could not copy link", variant: "destructive" });
+      });
   }
 
-  const chartData = stats?.last7Days.map((d) => ({
-    day: new Date(d.day).toLocaleDateString("en-US", { weekday: "short" }),
-    revenue: d.revenue,
-    orders: d.orders,
-  })) ?? [];
+  const chartData =
+    stats?.last7Days.map((d) => ({
+      day: new Date(d.day).toLocaleDateString("en-US", { weekday: "short" }),
+      revenue: d.revenue,
+      orders: d.orders,
+    })) ?? [];
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -974,7 +1315,10 @@ function BranchDetailDrawer({
               <SheetHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0" style={{ backgroundColor: color }}>
+                    <div
+                      className="h-11 w-11 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0"
+                      style={{ backgroundColor: color }}
+                    >
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div>
@@ -982,21 +1326,41 @@ function BranchDetailDrawer({
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         {branch.isMain && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                            <Star className="h-2.5 w-2.5 fill-primary" />Main
+                            <Star className="h-2.5 w-2.5 fill-primary" />
+                            Main
                           </span>
                         )}
-                        <span className={cn(
-                          "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                          branch.isActive ? "bg-emerald-500/10 text-emerald-600" : "bg-secondary text-muted-foreground"
-                        )}>
-                          {branch.isActive ? <><CheckCircle className="h-2.5 w-2.5" />Active</> : <><XCircle className="h-2.5 w-2.5" />Inactive</>}
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                            branch.isActive
+                              ? "bg-emerald-500/10 text-emerald-600"
+                              : "bg-secondary text-muted-foreground",
+                          )}
+                        >
+                          {branch.isActive ? (
+                            <>
+                              <CheckCircle className="h-2.5 w-2.5" />
+                              Active
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-2.5 w-2.5" />
+                              Inactive
+                            </>
+                          )}
                         </span>
                         {openStatus !== null && (
-                          <span className={cn(
-                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                            openStatus ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-500"
-                          )}>
-                            <Clock className="h-2.5 w-2.5" />{openStatus ? "Open Now" : "Closed"}
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                              openStatus
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : "bg-rose-500/10 text-rose-500",
+                            )}
+                          >
+                            <Clock className="h-2.5 w-2.5" />
+                            {openStatus ? "Open Now" : "Closed"}
                           </span>
                         )}
                       </div>
@@ -1004,12 +1368,26 @@ function BranchDetailDrawer({
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {user?.role === "owner" && branch.id !== user?.activeBranchId && (
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleSwitch} disabled={switchBranch.isPending} data-testid="button-switch-branch-drawer">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={handleSwitch}
+                        disabled={switchBranch.isPending}
+                        data-testid="button-switch-branch-drawer"
+                      >
                         {switchBranch.isPending ? "Switching…" : "Switch"}
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onEdit} data-testid="button-edit-branch-drawer">
-                      <Pencil className="h-3 w-3 mr-1" />Edit
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      onClick={onEdit}
+                      data-testid="button-edit-branch-drawer"
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Edit
                     </Button>
                   </div>
                 </div>
@@ -1032,13 +1410,20 @@ function BranchDetailDrawer({
                 {branch.email && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Mail className="h-3.5 w-3.5 shrink-0" />
-                    <a href={`mailto:${branch.email}`} className="hover:underline">{branch.email}</a>
+                    <a href={`mailto:${branch.email}`} className="hover:underline">
+                      {branch.email}
+                    </a>
                   </div>
                 )}
                 {branch.website && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Globe className="h-3.5 w-3.5 shrink-0" />
-                    <a href={branch.website} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                    <a
+                      href={branch.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline flex items-center gap-1"
+                    >
                       {branch.website.replace(/^https?:\/\//, "")}
                       <ExternalLink className="h-2.5 w-2.5" />
                     </a>
@@ -1060,7 +1445,9 @@ function BranchDetailDrawer({
 
               {branch.description && (
                 <div className="rounded-xl bg-secondary/40 border border-border/30 p-3">
-                  <p className="text-xs text-muted-foreground leading-relaxed">{branch.description}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {branch.description}
+                  </p>
                 </div>
               )}
 
@@ -1070,31 +1457,52 @@ function BranchDetailDrawer({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-card rounded-2xl p-3 space-y-1">
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
-                        <DollarSign className="h-3.5 w-3.5 text-emerald-500" />Today's Revenue
+                        <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+                        Today's Revenue
                       </div>
-                      <p className="text-xl font-black text-foreground" data-testid="text-branch-today-revenue">{fmt(stats.today.revenue)}</p>
-                      <p className="text-[11px] text-muted-foreground">{stats.today.orders} orders</p>
+                      <p
+                        className="text-xl font-black text-foreground"
+                        data-testid="text-branch-today-revenue"
+                      >
+                        {fmt(stats.today.revenue)}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {stats.today.orders} orders
+                      </p>
                     </div>
                     <div className="glass-card rounded-2xl p-3 space-y-1">
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
-                        <TrendingUp className="h-3.5 w-3.5 text-blue-500" />This Month
+                        <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                        This Month
                       </div>
-                      <p className="text-xl font-black text-foreground">{fmt(stats.thisMonth.revenue)}</p>
-                      <p className="text-[11px] text-muted-foreground">{stats.thisMonth.orders} orders</p>
+                      <p className="text-xl font-black text-foreground">
+                        {fmt(stats.thisMonth.revenue)}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {stats.thisMonth.orders} orders
+                      </p>
                     </div>
                     <div className="glass-card rounded-2xl p-3 space-y-1">
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
-                        <ShoppingCart className="h-3.5 w-3.5 text-violet-500" />All-Time Orders
+                        <ShoppingCart className="h-3.5 w-3.5 text-violet-500" />
+                        All-Time Orders
                       </div>
-                      <p className="text-xl font-black text-foreground">{stats.allTime.orders.toLocaleString()}</p>
-                      <p className="text-[11px] text-muted-foreground">{fmt(stats.allTime.revenue)} total</p>
+                      <p className="text-xl font-black text-foreground">
+                        {stats.allTime.orders.toLocaleString()}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {fmt(stats.allTime.revenue)} total
+                      </p>
                     </div>
                     <div className="glass-card rounded-2xl p-3 space-y-1">
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
-                        <Users className="h-3.5 w-3.5 text-amber-500" />Staff Assigned
+                        <Users className="h-3.5 w-3.5 text-amber-500" />
+                        Staff Assigned
                       </div>
                       <p className="text-xl font-black text-foreground">{stats.staffCount}</p>
-                      <p className="text-[11px] text-muted-foreground">team member{stats.staffCount !== 1 ? "s" : ""}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        team member{stats.staffCount !== 1 ? "s" : ""}
+                      </p>
                     </div>
                   </div>
 
@@ -1102,11 +1510,17 @@ function BranchDetailDrawer({
                   {chartData.length > 0 && (
                     <div className="glass-card rounded-2xl p-4 space-y-2">
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <BarChart2 className="h-3.5 w-3.5" />Last 7 Days Revenue
+                        <BarChart2 className="h-3.5 w-3.5" />
+                        Last 7 Days Revenue
                       </p>
                       <ResponsiveContainer width="100%" height={120}>
                         <BarChart data={chartData} barSize={20}>
-                          <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <XAxis
+                            dataKey="day"
+                            tick={{ fontSize: 10 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
                           <YAxis hide />
                           <Tooltip
                             formatter={(v) => [`$${Number(v || 0).toFixed(2)}`, "Revenue"]}
@@ -1125,15 +1539,21 @@ function BranchDetailDrawer({
                   {/* Top products */}
                   {stats.topProducts.length > 0 && (
                     <div className="glass-card rounded-2xl p-4 space-y-2">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Products</p>
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Top Products
+                      </p>
                       <div className="space-y-1.5">
                         {stats.topProducts.map((p, i) => (
                           <div key={i} className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-muted-foreground w-4">{i + 1}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground w-4">
+                              {i + 1}
+                            </span>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-medium truncate">{p.name}</span>
-                                <span className="text-[11px] text-muted-foreground shrink-0">{p.qty} sold</span>
+                                <span className="text-[11px] text-muted-foreground shrink-0">
+                                  {p.qty} sold
+                                </span>
                               </div>
                               <div className="mt-1 h-1 rounded-full bg-secondary overflow-hidden">
                                 <div
@@ -1157,7 +1577,8 @@ function BranchDetailDrawer({
               {branch.openingHours && (
                 <div className="glass-card rounded-2xl p-4 space-y-2">
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />Opening Hours
+                    <Clock className="h-3.5 w-3.5" />
+                    Opening Hours
                   </p>
                   <div className="grid grid-cols-2 gap-1">
                     {DAYS.map(({ key, label }) => {
@@ -1165,10 +1586,13 @@ function BranchDetailDrawer({
                       return (
                         <div key={key} className="flex items-center gap-2 text-xs">
                           <span className="w-7 text-muted-foreground font-medium">{label}</span>
-                          {!h || h.closed
-                            ? <span className="text-rose-500 font-medium">Closed</span>
-                            : <span className="text-foreground">{h.open} – {h.close}</span>
-                          }
+                          {!h || h.closed ? (
+                            <span className="text-rose-500 font-medium">Closed</span>
+                          ) : (
+                            <span className="text-foreground">
+                              {h.open} – {h.close}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
@@ -1185,23 +1609,40 @@ function BranchDetailDrawer({
 
 // ─── Seed / Reset dialogs (compact) ──────────────────────────────────────────
 
-function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; open: boolean; onClose: () => void }) {
+function BranchSeedDialog({
+  branch,
+  open,
+  onClose,
+}: {
+  branch: Branch | null;
+  open: boolean;
+  onClose: () => void;
+}) {
   const seedBranch = useSeedBranch();
   const { toast } = useToast();
   const [template, setTemplate] = useState<BranchSeedTemplate | null>(null);
   const [_loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!open || !branch) { setTemplate(null); return; }
+    if (!open || !branch) {
+      setTemplate(null);
+      return;
+    }
     setLoading(true);
-    fetchBranchSeedTemplate(branch.id).then(setTemplate).catch(() => setTemplate({ available: false })).finally(() => setLoading(false));
+    fetchBranchSeedTemplate(branch.id)
+      .then(setTemplate)
+      .catch(() => setTemplate({ available: false }))
+      .finally(() => setLoading(false));
   }, [open, branch]);
 
   async function handleSeed() {
     if (!branch) return;
     try {
       const result = await seedBranch.mutateAsync({ branchId: branch.id });
-      toast({ title: "Starter catalog added", description: `Loaded ${result.productsCreated} items.` });
+      toast({
+        title: "Starter catalog added",
+        description: `Loaded ${result.productsCreated} items.`,
+      });
       onClose();
     } catch (err: any) {
       toast({ title: err?.message ?? "Failed to seed branch", variant: "destructive" });
@@ -1211,11 +1652,19 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Set up catalog</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Set up catalog</DialogTitle>
+        </DialogHeader>
         {!template?.available ? (
           <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">No starter template available for this business type.</p>
-            <DialogFooter><Button onClick={onClose} variant="ghost">Close</Button></DialogFooter>
+            <p className="text-sm text-muted-foreground">
+              No starter template available for this business type.
+            </p>
+            <DialogFooter>
+              <Button onClick={onClose} variant="ghost">
+                Close
+              </Button>
+            </DialogFooter>
           </div>
         ) : (
           <div className="space-y-4">
@@ -1224,18 +1673,45 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
                 <SparklesIcon className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-bold text-sm" data-testid="text-seed-template-label-existing">{template.label}</p>
+                <p className="font-bold text-sm" data-testid="text-seed-template-label-existing">
+                  {template.label}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">{template.itemCount} items</span>
-                  {(template.tableCount ?? 0) > 0 && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">{template.tableCount} tables</span>}
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    {template.itemCount} items
+                  </span>
+                  {(template.tableCount ?? 0) > 0 && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      {template.tableCount} tables
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose} disabled={seedBranch.isPending}>Cancel</Button>
-              <Button type="button" onClick={handleSeed} disabled={seedBranch.isPending} data-testid="button-confirm-seed-existing">
-                {seedBranch.isPending ? "Adding…" : <><SparklesIcon className="h-4 w-4 mr-2" />Add catalog</>}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onClose}
+                disabled={seedBranch.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSeed}
+                disabled={seedBranch.isPending}
+                data-testid="button-confirm-seed-existing"
+              >
+                {seedBranch.isPending ? (
+                  "Adding…"
+                ) : (
+                  <>
+                    <SparklesIcon className="h-4 w-4 mr-2" />
+                    Add catalog
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </div>
@@ -1245,18 +1721,32 @@ function BranchSeedDialog({ branch, open, onClose }: { branch: Branch | null; op
   );
 }
 
-const TEMPLATE_GROUPS = BUSINESS_TYPES
-  .filter(t => (BUSINESS_SUBTYPES[t.value] ?? []).length > 0)
-  .map(t => ({ type: t.value, label: t.label }));
+const TEMPLATE_GROUPS = BUSINESS_TYPES.filter(
+  (t) => (BUSINESS_SUBTYPES[t.value] ?? []).length > 0,
+).map((t) => ({ type: t.value, label: t.label }));
 
-function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; open: boolean; onClose: () => void }) {
+function BranchResetDialog({
+  branch,
+  open,
+  onClose,
+}: {
+  branch: Branch | null;
+  open: boolean;
+  onClose: () => void;
+}) {
   const resetBranch = useResetBranch();
   const { toast } = useToast();
   const [confirmText, setConfirmText] = useState("");
   const [reseed, setReseed] = useState(true);
   const [templateKey, setTemplateKey] = useState("");
 
-  useEffect(() => { if (!open) { setConfirmText(""); setReseed(true); setTemplateKey(""); } }, [open]);
+  useEffect(() => {
+    if (!open) {
+      setConfirmText("");
+      setReseed(true);
+      setTemplateKey("");
+    }
+  }, [open]);
 
   const expected = branch?.name ?? "";
   const canReset = !!branch && confirmText.trim() === expected.trim() && expected.length > 0;
@@ -1264,7 +1754,11 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
   async function handleReset() {
     if (!branch || !canReset) return;
     try {
-      const result = await resetBranch.mutateAsync({ branchId: branch.id, reseed, templateKey: reseed && templateKey ? templateKey : undefined });
+      const result = await resetBranch.mutateAsync({
+        branchId: branch.id,
+        reseed,
+        templateKey: reseed && templateKey ? templateKey : undefined,
+      });
       toast({ title: "Branch reset", description: `Removed ${result.productsDeleted} products.` });
       onClose();
     } catch (err: any) {
@@ -1275,7 +1769,9 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Reset Branch</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Reset Branch</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 py-1">
           <div className="flex items-start gap-3 rounded-2xl bg-rose-500/5 border border-rose-500/20 p-4">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center text-white shrink-0">
@@ -1283,7 +1779,11 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
             </div>
             <div>
               <p className="font-bold text-sm">This will wipe the catalog</p>
-              <p className="text-xs text-muted-foreground mt-1">Every product and table on <span className="font-semibold text-foreground">{branch?.name}</span> will be permanently deleted. Sales history is kept.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Every product and table on{" "}
+                <span className="font-semibold text-foreground">{branch?.name}</span> will be
+                permanently deleted. Sales history is kept.
+              </p>
             </div>
           </div>
 
@@ -1291,22 +1791,39 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <p className="text-sm font-semibold">Re-seed after reset</p>
-                <p className="text-xs text-muted-foreground">Repopulate with a fresh starter catalog.</p>
+                <p className="text-xs text-muted-foreground">
+                  Repopulate with a fresh starter catalog.
+                </p>
               </div>
-              <Switch data-testid="switch-reset-reseed" checked={reseed} onCheckedChange={setReseed} />
+              <Switch
+                data-testid="switch-reset-reseed"
+                checked={reseed}
+                onCheckedChange={setReseed}
+              />
             </div>
             {reseed && (
-              <Select value={templateKey || "auto"} onValueChange={(v) => setTemplateKey(v === "auto" ? "" : v)}>
+              <Select
+                value={templateKey || "auto"}
+                onValueChange={(v) => setTemplateKey(v === "auto" ? "" : v)}
+              >
                 <SelectTrigger data-testid="select-reset-template" className="bg-background">
                   <SelectValue placeholder="Match this branch's business type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">Auto — match branch type</SelectItem>
-                  {TEMPLATE_GROUPS.map(group => (
+                  {TEMPLATE_GROUPS.map((group) => (
                     <SelectGroup key={group.type}>
-                      <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{group.label}</SelectLabel>
-                      {(BUSINESS_SUBTYPES[group.type] ?? []).map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} data-testid={`option-reset-template-${opt.value}`}>{opt.label}</SelectItem>
+                      <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {group.label}
+                      </SelectLabel>
+                      {(BUSINESS_SUBTYPES[group.type] ?? []).map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          data-testid={`option-reset-template-${opt.value}`}
+                        >
+                          {opt.label}
+                        </SelectItem>
                       ))}
                     </SelectGroup>
                   ))}
@@ -1316,14 +1833,37 @@ function BranchResetDialog({ branch, open, onClose }: { branch: Branch | null; o
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Type <span className="font-mono text-foreground">{expected}</span> to confirm</label>
-            <Input data-testid="input-reset-confirm" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={expected} autoComplete="off" />
+            <label className="text-xs font-semibold text-muted-foreground">
+              Type <span className="font-mono text-foreground">{expected}</span> to confirm
+            </label>
+            <Input
+              data-testid="input-reset-confirm"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={expected}
+              autoComplete="off"
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={resetBranch.isPending}>Cancel</Button>
-          <Button type="button" onClick={handleReset} disabled={!canReset || resetBranch.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-reset">
-            {resetBranch.isPending ? "Resetting…" : <><RotateCcw className="h-4 w-4 mr-2" />Reset branch</>}
+          <Button type="button" variant="ghost" onClick={onClose} disabled={resetBranch.isPending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleReset}
+            disabled={!canReset || resetBranch.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            data-testid="button-confirm-reset"
+          >
+            {resetBranch.isPending ? (
+              "Resetting…"
+            ) : (
+              <>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset branch
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1375,11 +1915,14 @@ function BranchCard({
 
   function _handleCopyLink() {
     const url = `${window.location.origin}/b/${branch.id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      toast({ title: "Link copied!", description: url });
-    }).catch(() => {
-      toast({ title: "Could not copy link", variant: "destructive" });
-    });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        toast({ title: "Link copied!", description: url });
+      })
+      .catch(() => {
+        toast({ title: "Could not copy link", variant: "destructive" });
+      });
   }
 
   return (
@@ -1388,7 +1931,7 @@ function BranchCard({
       className={cn(
         "glass-card rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-lg",
         branch.isMain && "ring-2 ring-primary/30",
-        isActive && "ring-2 ring-emerald-500/40"
+        isActive && "ring-2 ring-emerald-500/40",
       )}
     >
       {/* Color stripe */}
@@ -1413,26 +1956,47 @@ function BranchCard({
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {branch.isMain && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                <Star className="h-2.5 w-2.5 fill-primary" />Main
+                <Star className="h-2.5 w-2.5 fill-primary" />
+                Main
               </span>
             )}
             {isActive && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
-                <CheckCircle className="h-2.5 w-2.5" />Viewing
+                <CheckCircle className="h-2.5 w-2.5" />
+                Viewing
               </span>
             )}
-            <span className={cn(
-              "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-              branch.isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-secondary text-muted-foreground"
-            )}>
-              {branch.isActive ? <><CheckCircle className="h-2.5 w-2.5" />Active</> : <><XCircle className="h-2.5 w-2.5" />Inactive</>}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                branch.isActive
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-secondary text-muted-foreground",
+              )}
+            >
+              {branch.isActive ? (
+                <>
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  Active
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-2.5 w-2.5" />
+                  Inactive
+                </>
+              )}
             </span>
             {openStatus !== null && branch.openingHours && (
-              <span className={cn(
-                "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                openStatus ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-500"
-              )}>
-                <Clock className="h-2.5 w-2.5" />{openStatus ? "Open" : "Closed"}
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                  openStatus
+                    ? "bg-emerald-500/10 text-emerald-600"
+                    : "bg-rose-500/10 text-rose-500",
+                )}
+              >
+                <Clock className="h-2.5 w-2.5" />
+                {openStatus ? "Open" : "Closed"}
               </span>
             )}
           </div>
@@ -1494,7 +2058,8 @@ function BranchCard({
                 disabled={switchBranch.isPending}
                 className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl bg-primary/10 hover:bg-primary/15 text-primary text-xs font-semibold transition-colors"
               >
-                <Building2 className="h-3.5 w-3.5" />Switch to
+                <Building2 className="h-3.5 w-3.5" />
+                Switch to
               </button>
             )}
             <button
@@ -1502,7 +2067,8 @@ function BranchCard({
               onClick={onEdit}
               className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground text-xs font-semibold transition-colors"
             >
-              <Pencil className="h-3.5 w-3.5" />Edit
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
             </button>
             <button
               data-testid={`button-delete-branch-${branch.id}`}
@@ -1521,7 +2087,8 @@ function BranchCard({
                 onClick={onSetMain}
                 className="flex items-center gap-1.5 h-7 px-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold transition-colors"
               >
-                <Star className="h-3 w-3" />Set Main
+                <Star className="h-3 w-3" />
+                Set Main
               </button>
             )}
             {branch.businessType && (
@@ -1530,7 +2097,8 @@ function BranchCard({
                 onClick={onSeed}
                 className="flex items-center gap-1.5 h-7 px-2.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 text-[11px] font-semibold transition-colors"
               >
-                <SparklesIcon className="h-3 w-3" />Seed
+                <SparklesIcon className="h-3 w-3" />
+                Seed
               </button>
             )}
             <button
@@ -1538,14 +2106,16 @@ function BranchCard({
               onClick={onDuplicate}
               className="flex items-center gap-1.5 h-7 px-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[11px] font-semibold transition-colors"
             >
-              <Copy className="h-3 w-3" />Duplicate
+              <Copy className="h-3 w-3" />
+              Duplicate
             </button>
             <button
               data-testid={`button-reset-branch-${branch.id}`}
               onClick={onReset}
               className="flex items-center gap-1.5 h-7 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-semibold transition-colors"
             >
-              <RotateCcw className="h-3 w-3" />Reset
+              <RotateCcw className="h-3 w-3" />
+              Reset
             </button>
           </div>
         </div>
@@ -1576,11 +2146,14 @@ function BranchComparisonChart({ branches }: { branches: Branch[] }) {
   const maxRevenue = Math.max(...allRevenues, 1);
   const maxRef = { current: maxRevenue };
 
-  const sorted = [...branches].slice(0, 5).map((b, i) => ({
-    branch: b,
-    revenue: allRevenues[i],
-    orders: [stats1, stats2, stats3, stats4, stats5][i]?.data?.thisMonth.orders ?? 0,
-  })).sort((a, b) => b.revenue - a.revenue);
+  const sorted = [...branches]
+    .slice(0, 5)
+    .map((b, i) => ({
+      branch: b,
+      revenue: allRevenues[i],
+      orders: [stats1, stats2, stats3, stats4, stats5][i]?.data?.thisMonth.orders ?? 0,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
 
   return (
     <div className="glass-card rounded-2xl p-4 space-y-3">
@@ -1593,12 +2166,17 @@ function BranchComparisonChart({ branches }: { branches: Branch[] }) {
           <div key={s.branch.id} className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium truncate flex-1">{s.branch.name}</span>
-              <span className="text-muted-foreground ml-2">{fmt(s.revenue)} · {s.orders} orders</span>
+              <span className="text-muted-foreground ml-2">
+                {fmt(s.revenue)} · {s.orders} orders
+              </span>
             </div>
             <div className="h-2 rounded-full bg-secondary overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${(s.revenue / maxRef.current) * 100}%`, backgroundColor: s.branch.color ?? "#8b5cf6" }}
+                style={{
+                  width: `${(s.revenue / maxRef.current) * 100}%`,
+                  backgroundColor: s.branch.color ?? "#8b5cf6",
+                }}
               />
             </div>
           </div>
@@ -1630,10 +2208,10 @@ export default function Branches() {
 
   function handleAddBranch() {
     const atLimit = !isPro
-      ? branches.length >= 1          // Free: 1 branch
+      ? branches.length >= 1 // Free: 1 branch
       : !isBusiness
-        ? branches.length >= 1        // Pro: 1 branch
-        : branches.length >= 10;      // Business: 10 branches
+        ? branches.length >= 1 // Pro: 1 branch
+        : branches.length >= 10; // Business: 10 branches
     if (atLimit) {
       setShowUpgradeCard(true);
     } else {
@@ -1672,7 +2250,10 @@ export default function Branches() {
   async function handleDuplicate(branch: Branch) {
     try {
       const newBranch = await duplicateBranch.mutateAsync(branch.id);
-      toast({ title: `"${newBranch.name}" created`, description: "Settings copied. The branch is inactive — edit it to activate." });
+      toast({
+        title: `"${newBranch.name}" created`,
+        description: "Settings copied. The branch is inactive — edit it to activate.",
+      });
     } catch (err: any) {
       if (err?.message?.includes("BRANCH_LIMIT")) {
         setShowUpgradeCard(true);
@@ -1699,9 +2280,7 @@ export default function Branches() {
       </div>
 
       {/* Comparison chart (3+ branches) */}
-      {branches.length >= 2 && (
-        <BranchComparisonChart branches={branches} />
-      )}
+      {branches.length >= 2 && <BranchComparisonChart branches={branches} />}
 
       {branches.length === 0 ? (
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center text-center">
@@ -1709,19 +2288,22 @@ export default function Branches() {
             <Building2 className="h-8 w-8 text-blue-500" strokeWidth={1.5} />
           </div>
           <p className="font-semibold text-foreground">No branches yet</p>
-          <p className="text-sm text-muted-foreground mt-1 mb-5">Create your first location to start managing your stores</p>
+          <p className="text-sm text-muted-foreground mt-1 mb-5">
+            Create your first location to start managing your stores
+          </p>
           {isOwner && (
             <button
               onClick={handleAddBranch}
               className="flex items-center gap-2 h-9 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 hover:opacity-90 transition-opacity"
             >
-              <Plus className="h-4 w-4" />Create your first branch
+              <Plus className="h-4 w-4" />
+              Create your first branch
             </button>
           )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {branches.map(branch => (
+          {branches.map((branch) => (
             <BranchCard
               key={branch.id}
               branch={branch}
@@ -1748,21 +2330,32 @@ export default function Branches() {
             <div>
               <div className="flex items-center justify-center gap-1.5 mb-1">
                 <Crown className="h-4 w-4 text-amber-500" />
-                <span className="text-xs font-bold uppercase tracking-widest text-amber-500">Pro Feature</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-amber-500">
+                  Pro Feature
+                </span>
               </div>
               <h2 className="text-lg font-black text-foreground">Multiple Branches</h2>
               <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                The Free plan includes 1 branch. Upgrade to Pro to manage unlimited locations with advanced analytics.
+                The Free plan includes 1 branch. Upgrade to Pro to manage unlimited locations with
+                advanced analytics.
               </p>
             </div>
             <div className="w-full space-y-2">
               <Button
                 className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold shadow-md shadow-orange-500/20 border-0"
-                onClick={() => { setShowUpgradeCard(false); setLocation("/billing"); }}
+                onClick={() => {
+                  setShowUpgradeCard(false);
+                  setLocation("/billing");
+                }}
               >
-                <Crown className="h-4 w-4 mr-2" />Upgrade to Pro
+                <Crown className="h-4 w-4 mr-2" />
+                Upgrade to Pro
               </Button>
-              <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setShowUpgradeCard(false)}>
+              <Button
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                onClick={() => setShowUpgradeCard(false)}
+              >
                 Maybe later
               </Button>
             </div>
@@ -1775,24 +2368,38 @@ export default function Branches() {
         branch={detailBranch}
         open={!!detailBranch}
         onClose={() => setDetailBranch(null)}
-        onEdit={() => { if (detailBranch) handleEdit(detailBranch); }}
+        onEdit={() => {
+          if (detailBranch) handleEdit(detailBranch);
+        }}
       />
 
       <BranchFormDialog open={formOpen} onClose={() => setFormOpen(false)} branch={editingBranch} />
-      <BranchSeedDialog open={!!seedingBranch} onClose={() => setSeedingBranch(null)} branch={seedingBranch} />
-      <BranchResetDialog open={!!resettingBranch} onClose={() => setResettingBranch(null)} branch={resettingBranch} />
+      <BranchSeedDialog
+        open={!!seedingBranch}
+        onClose={() => setSeedingBranch(null)}
+        branch={seedingBranch}
+      />
+      <BranchResetDialog
+        open={!!resettingBranch}
+        onClose={() => setResettingBranch(null)}
+        branch={resettingBranch}
+      />
 
       <AlertDialog open={!!deletingBranchId} onOpenChange={() => setDeletingBranchId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Branch</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the branch and remove all user assignments. This action cannot be undone.
+              This will permanently delete the branch and remove all user assignments. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

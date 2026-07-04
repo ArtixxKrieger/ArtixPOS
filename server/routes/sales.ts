@@ -253,6 +253,11 @@ export function registerSaleRoutes(app: Express): void {
       }
     }
     const voidReason = typeof req.body?.reason === "string" ? req.body.reason.trim() : undefined;
+    if (!voidReason) {
+      return res.status(400).json({
+        message: "A void reason is required to keep the BIR audit trail complete. Please state why this transaction is being voided.",
+      });
+    }
     const id = Number(req.params.id);
     const uid = getUserId(req);
 

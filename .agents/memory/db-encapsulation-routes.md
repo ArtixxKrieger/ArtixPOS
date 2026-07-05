@@ -16,6 +16,11 @@ Drizzle returns `timestamp` columns as `string | null`, not `Date | null`, in th
 ## BIR persistence return types
 `getBirHashVerifyRows`, `getBirRefundTrailRows`, `getBirVoidTrailRows`, `getBirVoidTrailExportRows` all return `Record<string, unknown>[]` (raw Drizzle execute rows). Route handlers must cast each row `as Record<string, any>` before property access.
 
+## Security fixes applied during audit
+- **getExpenseById IDOR**: added `userId` parameter so the query scopes to the tenant; previously a caller could read any expense's description/amount. Update both the persistence signature and IStorage interface together.
+- **Timestamp comparison**: shift-lock checks (`saleTimestamp >= s.openedAt`) must use `new Date(x).getTime()` for numeric comparison — ISO string lexicographic comparison can silently fail if precision differs (e.g. `Z` vs milliseconds).
+- **requirePro gate**: `/api/inventory` (summary endpoint) was missing `requirePro`; all sibling inventory routes have it.
+
 ## Common pitfall: "dead" import audit
 Before removing a `db` import as "unused", grep for `db.` calls in the entire file — the import declaration line can appear unused while actual query calls exist deeper in the file. This burned sales.ts, refunds.ts, and shifts.ts in one session (imports removed, `db.` calls left behind → runtime ReferenceError).
 

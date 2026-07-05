@@ -374,9 +374,11 @@ export function registerSaleRoutes(app: Express): void {
     const saleTimestamp = await getSaleTimestamp(id);
 
     if (saleTimestamp) {
+      const saleMs      = new Date(saleTimestamp).getTime();
       const closedShifts = await getClosedShiftsForUser(uid);
       const lockedByShift = closedShifts.some(
-        (s) => s.openedAt && s.closedAt && saleTimestamp >= s.openedAt && saleTimestamp <= s.closedAt,
+        (s) => s.openedAt && s.closedAt &&
+          saleMs >= new Date(s.openedAt).getTime() && saleMs <= new Date(s.closedAt).getTime(),
       );
       if (lockedByShift) {
         return res.status(409).json({

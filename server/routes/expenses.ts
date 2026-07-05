@@ -49,7 +49,8 @@ export function registerExpenseRoutes(app: Express): void {
   app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
       const id       = Number(req.params.id);
-      const existing = await storage.getExpenseById(id);
+      const uid      = getUserId(req);
+      const existing = await storage.getExpenseById(id, uid);
       await storage.deleteExpense(id, getUserId(req));
       await auditLog(req, "delete", "expense", String(id), {
         description: existing?.description,

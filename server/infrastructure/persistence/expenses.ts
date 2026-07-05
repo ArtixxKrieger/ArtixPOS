@@ -57,8 +57,10 @@ export async function updateExpense(id: number, userId: string, expense: Partial
   }
 }
 
-export async function getExpenseById(id: number): Promise<Expense | undefined> {
-  const [row] = await db.select().from(expenses).where(eq(expenses.id, id));
+export async function getExpenseById(id: number, userId: string): Promise<Expense | undefined> {
+  const userIds = await getTenantUserIds(userId);
+  const cond = userIds.length === 1 ? eq(expenses.userId, userIds[0]) : inArray(expenses.userId, userIds);
+  const [row] = await db.select().from(expenses).where(and(eq(expenses.id, id), cond));
   return row;
 }
 

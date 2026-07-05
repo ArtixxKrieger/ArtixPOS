@@ -105,7 +105,7 @@ export interface IStorage {
   adjustLoyaltyPoints(customerId: number, delta: number, userId: string, opts?: { reason?: string; saleId?: number; rewardId?: number; note?: string }): Promise<Customer | undefined>;
 
   getExpenses(userId: string, branchIdOrOpts?: number | null | { branchId?: number | null; limit?: number; offset?: number }): Promise<Expense[]>;
-  getExpenseById(id: number): Promise<Expense | undefined>;
+  getExpenseById(id: number, userId: string): Promise<Expense | undefined>;
   createExpense(userId: string, expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, userId: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number, userId: string): Promise<void>;

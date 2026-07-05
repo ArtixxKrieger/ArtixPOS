@@ -6,7 +6,7 @@ import { getInventorySummary, getIngredientReorderSuggestions } from "../infrast
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
 
-  app.get("/api/inventory", requireAuth, async (req, res) => {
+  app.get("/api/inventory", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
       const summary = await getInventorySummary(uid);

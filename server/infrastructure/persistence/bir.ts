@@ -7,7 +7,10 @@ export interface BirXReportData {
   discountRows: Record<string, unknown>[];
 }
 
-export async function getBirXReportData(userId: string, startDate: string): Promise<BirXReportData> {
+export async function getBirXReportData(
+  userId: string,
+  startDate: string,
+): Promise<BirXReportData> {
   const [aggResult, pmResult, dtResult] = await Promise.all([
     db.execute(sql`
       SELECT
@@ -22,7 +25,11 @@ export async function getBirXReportData(userId: string, startDate: string): Prom
         MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_min,
         MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_max
       FROM sales
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(
+        SELECT id FROM users WHERE tenant_id = (
+          SELECT tenant_id FROM users WHERE id = ${userId}
+        )
+      )
         AND deleted_at IS NULL
         AND created_at >= ${startDate}
     `),
@@ -32,7 +39,11 @@ export async function getBirXReportData(userId: string, startDate: string): Prom
         COUNT(*)::int                                                      AS count,
         COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8                  AS total
       FROM sales
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(
+        SELECT id FROM users WHERE tenant_id = (
+          SELECT tenant_id FROM users WHERE id = ${userId}
+        )
+      )
         AND deleted_at IS NULL
         AND created_at >= ${startDate}
       GROUP BY payment_method
@@ -44,7 +55,11 @@ export async function getBirXReportData(userId: string, startDate: string): Prom
         COALESCE(SUM(CAST(total    AS NUMERIC)), 0)::float8               AS total,
         COALESCE(SUM(CAST(discount AS NUMERIC)), 0)::float8               AS discount
       FROM sales
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(
+        SELECT id FROM users WHERE tenant_id = (
+          SELECT tenant_id FROM users WHERE id = ${userId}
+        )
+      )
         AND deleted_at IS NULL
         AND created_at >= ${startDate}
       GROUP BY discount_type
@@ -52,9 +67,9 @@ export async function getBirXReportData(userId: string, startDate: string): Prom
   ]);
 
   return {
-    agg:          (aggResult.rows as Record<string, unknown>[])[0] ?? {},
-    paymentRows:  pmResult.rows  as Record<string, unknown>[],
-    discountRows: dtResult.rows  as Record<string, unknown>[],
+    agg: (aggResult.rows as Record<string, unknown>[])[0] ?? {},
+    paymentRows: pmResult.rows as Record<string, unknown>[],
+    discountRows: dtResult.rows as Record<string, unknown>[],
   };
 }
 
@@ -83,7 +98,11 @@ export async function getBirSummaryData(
         MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_min,
         MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_max
       FROM sales
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(
+        SELECT id FROM users WHERE tenant_id = (
+          SELECT tenant_id FROM users WHERE id = ${userId}
+        )
+      )
         AND deleted_at IS NULL
         AND created_at >= ${startDate}
         AND created_at <= ${endDate}
@@ -94,7 +113,11 @@ export async function getBirSummaryData(
         COUNT(*)::int                                                AS count,
         COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8            AS total
       FROM sales
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(
+        SELECT id FROM users WHERE tenant_id = (
+          SELECT tenant_id FROM users WHERE id = ${userId}
+        )
+      )
         AND deleted_at IS NULL
         AND created_at >= ${startDate}
         AND created_at <= ${endDate}
@@ -103,7 +126,7 @@ export async function getBirSummaryData(
   ]);
 
   return {
-    agg:         (aggResult.rows as Record<string, unknown>[])[0] ?? {},
+    agg: (aggResult.rows as Record<string, unknown>[])[0] ?? {},
     paymentRows: pmResult.rows as Record<string, unknown>[],
   };
 }
@@ -122,7 +145,7 @@ export async function getBirOrNumbers(userId: string): Promise<number[]> {
       AND  deleted_at IS NULL
     ORDER  BY n
   `);
-  return (result.rows as any[]).map(r => Number(r.n));
+  return (result.rows as any[]).map((r) => Number(r.n));
 }
 
 /** Returns void-trail rows for the user's tenant (latest 1 000 voided sales). */
@@ -149,7 +172,9 @@ export async function getBirVoidTrailRows(userId: string): Promise<Record<string
 }
 
 /** Same data as getBirVoidTrailRows but with all fields needed for CSV export. */
-export async function getBirVoidTrailExportRows(userId: string): Promise<Record<string, unknown>[]> {
+export async function getBirVoidTrailExportRows(
+  userId: string,
+): Promise<Record<string, unknown>[]> {
   const result = await db.execute(sql`
     SELECT
       s.id, s.or_number, s.receipt_number, s.total, s.void_reason,
@@ -189,7 +214,7 @@ export async function getBirHashVerifyRows(
           )
       AND deleted_at IS NULL
       ${startDate ? sql`AND created_at >= ${startDate}` : sql``}
-      ${endDate   ? sql`AND created_at <= ${endDate}`   : sql``}
+      ${endDate ? sql`AND created_at <= ${endDate}` : sql``}
     ORDER BY id ASC
   `);
   return result.rows as Record<string, unknown>[];

@@ -1,16 +1,26 @@
 
-
 import type { Express } from "express";
 import { z } from "zod";
-import { db } from "../db";
-import { users, timeLogs, userBranches, revokedTokens } from "@shared/schema";
-import { eq, and, isNull, sql, or } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../crypto";
 import jwt from "jsonwebtoken";
 import { AUTH_COOKIE, AUTH_COOKIE_OPTIONS, getJwtSecret } from "../auth";
 import { requireAuth, requireManagerOrAbove } from "../middleware";
 import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "../brute-force";
 import crypto from "crypto";
+import {
+  getStaffRoster,
+  getUserForPin,
+  getUserInTenant,
+  lockUserPin,
+  clearUserPinLock,
+  setUserPin,
+  checkBranchAssignment,
+  getOpenTimeLog,
+  createClockIn,
+  closeTimeLog,
+  revokeJti,
+  autoClockoutStaleLogs,
+} from "../infrastructure/persistence/staff-pin-queries";
 
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCK_MINUTES = 15;
@@ -33,7 +43,7 @@ function _getPinAttempts(userId: string): number {
 }
 
 function incrementPinAttempts(userId: string): number {
-  const now = Date.now();
+  const now   = Date.now();
   const entry = pinAttempts.get(userId) ?? { count: 0, resetAt: now + PIN_LOCK_MINUTES * 60_000 };
   entry.count += 1;
   pinAttempts.set(userId, entry);
@@ -46,48 +56,18 @@ function clearPinAttempts(userId: string): void {
 
 export function registerStaffPinRoutes(app: Express): void {
 
-app.get("/api/staff-pin/roster", async (req, res) => {
+  app.get("/api/staff-pin/roster", async (req, res) => {
     try {
       const branchId = Number(req.query.branchId);
       if (!Number.isInteger(branchId) || branchId <= 0)
         return res.status(400).json({ message: "branchId required" });
 
-const tenantId: string | null =
+      const tenantId: string | null =
         (req.user as any)?.tenantId ?? (req.query.tenantId as string | undefined) ?? null;
       if (!tenantId) return res.status(403).json({ message: "No tenant" });
 
-const rows = await db
-        .select({
-          id: users.id,
-          name: users.name,
-          role: users.role,
-          avatar: users.avatar,
-          hasPin: users.staffPin,
-          pinLockedUntil: users.pinLockedUntil,
-        })
-        .from(users)
-        .where(and(
-          eq(users.tenantId, tenantId),
-          eq(users.isBanned, false),
-          or(
-            eq(users.role, "owner"),
-            sql`EXISTS (
-              SELECT 1 FROM ${userBranches}
-              WHERE ${userBranches.userId} = ${users.id}
-                AND ${userBranches.branchId} = ${branchId}
-            )`
-          )
-        ));
-
-      const now = new Date().toISOString();
-      res.json(rows.map(r => ({
-        id: r.id,
-        name: r.name,
-        role: r.role,
-        avatar: r.avatar,
-        hasPin: !!r.hasPin,
-        isLocked: !!(r.pinLockedUntil && r.pinLockedUntil > now),
-      })));
+      const roster = await getStaffRoster(tenantId, branchId);
+      res.json(roster);
     } catch { res.status(500).json({ message: "Server error" }); }
   });
 
@@ -99,14 +79,14 @@ const rows = await db
         branchId: z.number().int().positive(),
       }).parse(req.body);
 
-const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const user = await getUserForPin(userId);
       if (!user || user.isBanned)
         return res.status(401).json({ message: "Invalid PIN" });
 
-if (user.role === "manager" && !user.staffPin)
+      if (user.role === "manager" && !user.staffPin)
         return res.status(403).json({ message: "Please use the regular login for your account." });
 
-const now = new Date().toISOString();
+      const now = new Date().toISOString();
       if (user.pinLockedUntil && user.pinLockedUntil > now) {
         const unlockAt = new Date(user.pinLockedUntil);
         const minsLeft = Math.ceil((unlockAt.getTime() - Date.now()) / 60_000);
@@ -116,19 +96,19 @@ const now = new Date().toISOString();
         });
       }
 
-if (!user.staffPin) {
+      if (!user.staffPin) {
         return res.status(401).json({ message: "No PIN set. Ask your manager to set one for you." });
       }
 
-const valid = await verifyPassword(pin, user.staffPin);
+      const valid = await verifyPassword(pin, user.staffPin);
       if (!valid) {
         recordFailedAttempt(getIp(req));
-        const attempts = incrementPinAttempts(userId);
+        const attempts  = incrementPinAttempts(userId);
         const remaining = MAX_PIN_ATTEMPTS - attempts;
 
         if (attempts >= MAX_PIN_ATTEMPTS) {
           const lockUntil = new Date(Date.now() + PIN_LOCK_MINUTES * 60_000).toISOString();
-          await db.update(users).set({ pinLockedUntil: lockUntil }).where(eq(users.id, userId));
+          await lockUserPin(userId, lockUntil);
           return res.status(429).json({
             message: `Too many wrong PINs. Locked for ${PIN_LOCK_MINUTES} minutes.`,
             lockedUntil: lockUntil,
@@ -141,65 +121,38 @@ const valid = await verifyPassword(pin, user.staffPin);
         });
       }
 
-recordSuccessfulLogin(getIp(req));
+      recordSuccessfulLogin(getIp(req));
       clearPinAttempts(userId);
       if (user.pinLockedUntil) {
-        await db.update(users).set({ pinLockedUntil: null }).where(eq(users.id, userId));
+        await clearUserPinLock(userId);
       }
 
-if (user.role !== "owner") {
-        const [branchLink] = await db
-          .select()
-          .from(userBranches)
-          .where(and(eq(userBranches.userId, userId), eq(userBranches.branchId, branchId)))
-          .limit(1);
-        if (!branchLink)
+      if (user.role !== "owner") {
+        const assigned = await checkBranchAssignment(userId, branchId);
+        if (!assigned)
           return res.status(403).json({ message: "You are not assigned to this branch." });
       }
 
-const [existingLog] = await db
-        .select()
-        .from(timeLogs)
-        .where(and(eq(timeLogs.userId, userId), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
-        .limit(1);
-
+      const existingLog = await getOpenTimeLog(userId);
       let timeLog = existingLog ?? null;
       if (!existingLog) {
-        const [newLog] = await db
-          .insert(timeLogs)
-          .values({
-            userId,
-            branchId,
-            clockIn: new Date().toISOString(),
-            notes: "PIN clock-in",
-          })
-          .returning();
-        timeLog = newLog;
+        timeLog = await createClockIn(userId, branchId);
       }
 
-const jti = crypto.randomUUID();
+      const jti   = crypto.randomUUID();
       const token = jwt.sign(
         {
           jti,
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar,
-          provider: user.provider,
-          tenantId: user.tenantId,
-          role: user.role,
-          activeBranchId: branchId,
-          pinSession: true,
+          id: user.id, name: user.name, email: user.email,
+          avatar: user.avatar, provider: user.provider,
+          tenantId: user.tenantId, role: user.role,
+          activeBranchId: branchId, pinSession: true,
         },
         getJwtSecret(),
-        { expiresIn: "8h" }
+        { expiresIn: "8h" },
       );
 
-res.cookie(AUTH_COOKIE, token, {
-        ...AUTH_COOKIE_OPTIONS,
-        maxAge: 8 * 60 * 60 * 1000,
-      });
-
+      res.cookie(AUTH_COOKIE, token, { ...AUTH_COOKIE_OPTIONS, maxAge: 8 * 60 * 60 * 1000 });
       res.json({
         user: { id: user.id, name: user.name, role: user.role, avatar: user.avatar },
         timeLog,
@@ -218,12 +171,7 @@ res.cookie(AUTH_COOKIE, token, {
       if (!user?.pinSession)
         return res.status(400).json({ message: "Not a PIN session" });
 
-const [log] = await db
-        .select()
-        .from(timeLogs)
-        .where(and(eq(timeLogs.userId, user.id), isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt)))
-        .limit(1);
-
+      const log = await getOpenTimeLog(user.id);
       if (log) {
         const { notes } = z.object({ notes: z.string().optional() }).parse(req.body);
         const now = new Date();
@@ -233,15 +181,16 @@ const [log] = await db
           const breakMs = now.getTime() - new Date(log.breakStart).getTime();
           finalBreakMinutes += Math.max(0, Math.floor(breakMs / 60000));
         }
-        await db
-          .update(timeLogs)
-          .set({ clockOut: now.toISOString(), clockOutNotes: notes ?? null, breakStart: null, breakMinutes: finalBreakMinutes })
-          .where(eq(timeLogs.id, log.id));
+        await closeTimeLog(log.id, {
+          clockOut:      now.toISOString(),
+          breakMinutes:  finalBreakMinutes,
+          clockOutNotes: notes ?? null,
+        });
       }
 
-const authHeader = req.headers.authorization;
+      const authHeader  = req.headers.authorization;
       const cookieToken = req.cookies?.[AUTH_COOKIE];
-      const token = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
+      const token       = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
       if (token) {
         try {
           const payload = jwt.decode(token) as any;
@@ -249,9 +198,9 @@ const authHeader = req.headers.authorization;
             const exp = payload.exp
               ? new Date(payload.exp * 1000).toISOString()
               : new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-            await db.insert(revokedTokens).values({ jti: payload.jti, userId: user.id, expiresAt: exp }).onConflictDoNothing();
+            await revokeJti(payload.jti, user.id, exp);
           }
-        } catch {  }
+        } catch { }
       }
 
       res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
@@ -266,26 +215,21 @@ const authHeader = req.headers.authorization;
     try {
       const { userId, pin } = z.object({
         userId: z.string(),
-        pin: z.string().min(4).max(6).regex(/^\d+$/, "PIN must be numeric"),
+        pin:    z.string().min(4).max(6).regex(/^\d+$/, "PIN must be numeric"),
       }).parse(req.body);
 
       const requestingUser = req.user as any;
-      const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const target = await getUserInTenant(userId, requestingUser.tenantId);
+      if (!target) return res.status(404).json({ message: "Staff member not found" });
 
-      if (!target || target.tenantId !== requestingUser.tenantId)
-        return res.status(404).json({ message: "Staff member not found" });
-
-if (target.role === "owner" && requestingUser.role !== "owner" && requestingUser.id !== target.id)
+      if (target.role === "owner" && requestingUser.role !== "owner" && requestingUser.id !== target.id)
         return res.status(403).json({ message: "Only the owner can set their own PIN." });
 
-if (requestingUser.role === "manager" && target.role === "manager")
+      if (requestingUser.role === "manager" && target.role === "manager")
         return res.status(403).json({ message: "Managers cannot set PINs for other managers." });
 
       const hashed = await hashPassword(pin);
-      await db.update(users)
-        .set({ staffPin: hashed, pinLockedUntil: null })
-        .where(eq(users.id, userId));
-
+      await setUserPin(userId, hashed);
       clearPinAttempts(userId);
       res.json({ message: "PIN set successfully" });
     } catch (err: any) {
@@ -297,14 +241,12 @@ if (requestingUser.role === "manager" && target.role === "manager")
 
   app.delete("/api/staff-pin/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
-      const userId = req.params.userId as string;
+      const userId         = req.params.userId as string;
       const requestingUser = req.user as any;
+      const target = await getUserInTenant(userId, requestingUser.tenantId);
+      if (!target) return res.status(404).json({ message: "Staff member not found" });
 
-      const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      if (!target || target.tenantId !== requestingUser.tenantId)
-        return res.status(404).json({ message: "Staff member not found" });
-
-      await db.update(users).set({ staffPin: null, pinLockedUntil: null }).where(eq(users.id, userId));
+      await setUserPin(userId, null);
       clearPinAttempts(userId);
       res.json({ message: "PIN removed" });
     } catch (err) {
@@ -313,15 +255,15 @@ if (requestingUser.role === "manager" && target.role === "manager")
     }
   });
 
-app.post("/api/staff-pin/lock-screen", requireAuth, async (req, res) => {
+  app.post("/api/staff-pin/lock-screen", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
       if (!user?.pinSession)
         return res.status(400).json({ message: "Not a PIN session" });
 
-const cookieToken = req.cookies?.[AUTH_COOKIE];
-      const authHeader = req.headers.authorization;
-      const token = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
+      const cookieToken = req.cookies?.[AUTH_COOKIE];
+      const authHeader  = req.headers.authorization;
+      const token       = cookieToken ?? (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
       if (token) {
         try {
           const payload = jwt.decode(token) as any;
@@ -329,9 +271,9 @@ const cookieToken = req.cookies?.[AUTH_COOKIE];
             const exp = payload.exp
               ? new Date(payload.exp * 1000).toISOString()
               : new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-            await db.insert(revokedTokens).values({ jti: payload.jti, userId: user.id, expiresAt: exp }).onConflictDoNothing();
+            await revokeJti(payload.jti, user.id, exp);
           }
-        } catch {  }
+        } catch { }
       }
 
       res.clearCookie(AUTH_COOKIE, AUTH_COOKIE_OPTIONS);
@@ -344,14 +286,12 @@ const cookieToken = req.cookies?.[AUTH_COOKIE];
 
   app.post("/api/staff-pin/unlock/:userId", requireAuth, requireManagerOrAbove, async (req, res) => {
     try {
-      const userId = req.params.userId as string;
+      const userId         = req.params.userId as string;
       const requestingUser = req.user as any;
+      const target = await getUserInTenant(userId, requestingUser.tenantId);
+      if (!target) return res.status(404).json({ message: "Staff member not found" });
 
-      const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      if (!target || target.tenantId !== requestingUser.tenantId)
-        return res.status(404).json({ message: "Staff member not found" });
-
-      await db.update(users).set({ pinLockedUntil: null }).where(eq(users.id, userId));
+      await clearUserPinLock(userId);
       clearPinAttempts(userId);
       res.json({ message: "PIN unlocked" });
     } catch (err) {
@@ -363,34 +303,8 @@ const cookieToken = req.cookies?.[AUTH_COOKIE];
 
 async function runAutoClockout() {
   try {
-    const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-    const now = new Date().toISOString();
-
-const staleLogs = await db
-      .select({ id: timeLogs.id, breakStart: timeLogs.breakStart, breakMinutes: timeLogs.breakMinutes })
-      .from(timeLogs)
-      .where(and(isNull(timeLogs.clockOut), isNull(timeLogs.deletedAt), sql`${timeLogs.clockIn} < ${eightHoursAgo}`));
-
-    if (staleLogs.length > 0) {
-
-for (const log of staleLogs) {
-        let finalBreakMinutes = log.breakMinutes ?? 0;
-        if (log.breakStart) {
-          const breakMs = new Date(now).getTime() - new Date(log.breakStart).getTime();
-          finalBreakMinutes += Math.max(0, Math.floor(breakMs / 60000));
-        }
-        await db
-          .update(timeLogs)
-          .set({
-            clockOut: now,
-            breakStart: null,
-            breakMinutes: finalBreakMinutes,
-            clockOutNotes: "Auto clock-out: shift exceeded 8 hours",
-          })
-          .where(eq(timeLogs.id, log.id));
-      }
-      console.log(`[staff-pin] Auto-closed ${staleLogs.length} stale time log(s)`);
-    }
+    const count = await autoClockoutStaleLogs();
+    if (count > 0) console.log(`[staff-pin] Auto-closed ${count} stale time log(s)`);
   } catch (err) {
     console.error("[staff-pin] Auto clock-out job error:", err);
   }

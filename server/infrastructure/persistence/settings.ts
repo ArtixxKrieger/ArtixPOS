@@ -1,11 +1,13 @@
-import { pool } from "../../db";
+import { db, pool } from "../../db";
 import { runAsAdmin } from "../../tenant-context";
 import {
   userSettings,
+  users,
   type UserSetting,
   type InsertUserSetting,
+  type User,
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export async function getSettings(userId: string): Promise<UserSetting | undefined> {
   try {
@@ -43,5 +45,43 @@ export async function updateSettings(userId: string, settings: Partial<InsertUse
     }
     console.error("Error updating settings:", error);
     throw error;
+  }
+}
+
+// ── Tenant claiming helpers ───────────────────────────────────────────────────
+
+export async function fetchUserById(userId: string): Promise<User | null> {
+  const [user] = await runAsAdmin(pool, adminDb =>
+    adminDb.select().from(users).where(eq(users.id, userId)),
+  );
+  return user ?? null;
+}
+
+/**
+ * Atomically claims a tenant for the user: sets tenant_id only if it's still NULL.
+ * Returns `{ claimed: true }` when this process won the race, or
+ * `{ claimed: false, fallbackTenantId }` when another process beat us.
+ */
+export async function atomicClaimTenant(
+  userId: string,
+  tenantId: string,
+): Promise<{ claimed: true } | { claimed: false; fallbackTenantId: string | null }> {
+  const result = await db.execute(
+    sql`UPDATE users SET tenant_id = ${tenantId} WHERE id = ${userId} AND tenant_id IS NULL`,
+  );
+  const claimed = (result as any).rowCount === 1 || (result as any).rowsAffected === 1;
+  if (claimed) return { claimed: true };
+
+  const [refreshed] = await runAsAdmin(pool, adminDb =>
+    adminDb.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId)),
+  );
+  return { claimed: false, fallbackTenantId: refreshed?.tenantId ?? null };
+}
+
+export async function deleteOrphanedTenant(tenantId: string): Promise<void> {
+  try {
+    await db.execute(sql`DELETE FROM tenants WHERE id = ${tenantId}`);
+  } catch {
+    // Best-effort cleanup — ignore errors
   }
 }

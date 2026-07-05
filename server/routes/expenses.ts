@@ -1,15 +1,13 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { requireAuth, requirePro } from "../middleware";
-import { insertExpenseSchema, expenses } from "@shared/schema";
-import { db } from "../db";
-import { eq } from "drizzle-orm";
+import { insertExpenseSchema } from "@shared/schema";
 import { z } from "zod";
 import { getUserId, getActiveBranchId, resolveBranchId, auditLog, handleZodError } from "../lib/route-utils";
 
 export function registerExpenseRoutes(app: Express): void {
 
-app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
+  app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
     const list = await storage.getExpenses(getUserId(req), {
       branchId: getActiveBranchId(req),
       limit: 500,
@@ -17,7 +15,7 @@ app.get("/api/expenses", requireAuth, requirePro, async (req, res) => {
     res.json(list);
   });
 
-app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
+  app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.extend({ amount: z.coerce.string() }).parse(req.body);
       const branchId = await resolveBranchId(req);
@@ -33,7 +31,7 @@ app.post("/api/expenses", requireAuth, requirePro, async (req, res) => {
     }
   });
 
-app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
+  app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
     try {
       const input = insertExpenseSchema.partial().extend({ amount: z.coerce.string().optional() }).parse(req.body);
       const expense = await storage.updateExpense(Number(req.params.id), getUserId(req), input);
@@ -48,14 +46,14 @@ app.put("/api/expenses/:id", requireAuth, requirePro, async (req, res) => {
     }
   });
 
-app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
+  app.delete("/api/expenses/:id", requireAuth, requirePro, async (req, res, next) => {
     try {
-      const id = Number(req.params.id);
-      const [existing] = await db.select().from(expenses).where(eq(expenses.id, id));
+      const id       = Number(req.params.id);
+      const existing = await storage.getExpenseById(id);
       await storage.deleteExpense(id, getUserId(req));
       await auditLog(req, "delete", "expense", String(id), {
         description: existing?.description,
-        amount: existing?.amount,
+        amount:      existing?.amount,
       });
       res.status(204).end();
     } catch (err) { next(err); }

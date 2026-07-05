@@ -102,6 +102,22 @@ export async function closeShift(id: number, userId: string, closingBalance: str
   }
 }
 
+export async function getShiftById(shiftId: number, userId: string): Promise<Shift | undefined> {
+  const [row] = await db
+    .select()
+    .from(shifts)
+    .where(and(eq(shifts.id, shiftId), eq(shifts.userId, userId)))
+    .limit(1);
+  return row;
+}
+
+export async function getClosedShiftsForUser(userId: string): Promise<{ openedAt: string | null; closedAt: string | null }[]> {
+  return db
+    .select({ openedAt: shifts.openedAt, closedAt: shifts.closedAt })
+    .from(shifts)
+    .where(and(eq(shifts.userId, userId), eq(shifts.status, "closed")));
+}
+
 export async function addCashAdjustment(shiftId: number, userId: string, type: "in" | "out", amount: string, reason: string): Promise<Shift | undefined> {
   try {
     const userIds = await getTenantUserIds(userId);

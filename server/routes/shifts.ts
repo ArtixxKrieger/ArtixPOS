@@ -2,9 +2,8 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { requireAuth, requirePro } from "../middleware";
-import { insertShiftSchema, closeShiftSchema, shifts as shiftsTable } from "@shared/schema";
-import { db } from "../db";
-import { and, eq } from "drizzle-orm";
+import { insertShiftSchema, closeShiftSchema } from "@shared/schema";
+import { getShiftById } from "../infrastructure/persistence/shifts";
 import { getUserId, handleZodError, auditLog } from "../lib/route-utils";
 
 function orNumericRange(orNums: string[]): { orFrom: string | null; orTo: string | null } {
@@ -62,11 +61,7 @@ export function registerShiftRoutes(app: Express): void {
   app.get("/api/shifts/:id/z-report", requireAuth, requirePro, async (req, res) => {
     const shiftId = Number(req.params.id);
     const uid = getUserId(req);
-    const [shift] = await db
-      .select()
-      .from(shiftsTable)
-      .where(and(eq(shiftsTable.id, shiftId), eq(shiftsTable.userId, uid)))
-      .limit(1);
+    const shift = await getShiftById(shiftId, uid);
     if (!shift) return res.status(404).json({ message: "Shift not found" });
 
     const startDate = shift.openedAt!;

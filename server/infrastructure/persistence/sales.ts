@@ -158,3 +158,60 @@ export async function getDeletedSales(userId: string): Promise<Sale[]> {
     return [];
   }
 }
+
+// ── Dashboard aggregates ──────────────────────────────────────────────────────
+
+export interface DashboardAggregates {
+  orderCount: number;
+  gross: number;
+  net: number;
+  refundTotal: number;
+}
+
+/**
+ * Returns all-time aggregated sales totals for a user/tenant + optional branch.
+ * Used by GET /api/dashboard/stats.
+ */
+export async function getSaleTimestamp(saleId: number): Promise<string | null> {
+  const [row] = await db
+    .select({ createdAt: sales.createdAt })
+    .from(sales)
+    .where(eq(sales.id, saleId))
+    .limit(1);
+  return row?.createdAt ?? null;
+}
+
+export async function getDashboardAggregates(
+  userId: string,
+  branchId: number | null,
+): Promise<DashboardAggregates> {
+  // Scope to the full tenant when the user belongs to one
+  const [userRow] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
+  const tenantId = userRow?.tenantId ?? null;
+
+  const userCondition = tenantId
+    ? sql`tenant_id = ${tenantId}`
+    : sql`user_id = ${userId}`;
+  const branchCondition = branchId != null
+    ? sql`AND branch_id = ${branchId}`
+    : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(*)::integer                                                                          AS order_count,
+      COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8                                         AS gross,
+      COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN CAST(total AS NUMERIC) ELSE 0 END), 0)::float8 AS net,
+      COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN CAST(total AS NUMERIC) ELSE 0 END), 0)::float8 AS refund_total
+    FROM sales
+    WHERE ${userCondition}
+    ${branchCondition}
+  `);
+
+  const row = (result.rows as any[])[0] ?? {};
+  return {
+    orderCount:  Number(row.order_count  ?? 0),
+    gross:       Number(row.gross        ?? 0),
+    net:         Number(row.net          ?? 0),
+    refundTotal: Number(row.refund_total ?? 0),
+  };
+}

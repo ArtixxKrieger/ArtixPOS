@@ -1,9 +1,7 @@
 import type { Express } from "express";
 import { requireAuth } from "../middleware";
 import { getUserId } from "../lib/route-utils";
-import { db } from "../db";
-import { pushSubscriptions } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { upsertPushSubscription, deletePushSubscription } from "../infrastructure/persistence/push";
 import { pushConfigured } from "../push";
 
 export function registerPushRoutes(app: Express): void {
@@ -27,13 +25,10 @@ export function registerPushRoutes(app: Express): void {
         return res.status(400).json({ message: "Invalid subscription payload" });
       }
 
-      await db.delete(pushSubscriptions)
-        .where(and(eq(pushSubscriptions.userId, uid), eq(pushSubscriptions.endpoint, endpoint)));
-      await db.insert(pushSubscriptions).values({
-        userId: uid,
+      await upsertPushSubscription(uid, {
         endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
+        p256dh:    keys.p256dh,
+        auth:      keys.auth,
         userAgent: (req.headers["user-agent"] ?? "").slice(0, 255) || null,
       });
       res.status(201).json({ ok: true });
@@ -45,14 +40,9 @@ export function registerPushRoutes(app: Express): void {
 
   app.delete("/api/push/unsubscribe", requireAuth, async (req, res) => {
     try {
-      const uid = getUserId(req);
+      const uid      = getUserId(req);
       const { endpoint } = req.body as { endpoint?: string };
-      if (endpoint) {
-        await db.delete(pushSubscriptions)
-          .where(and(eq(pushSubscriptions.userId, uid), eq(pushSubscriptions.endpoint, endpoint)));
-      } else {
-        await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, uid));
-      }
+      await deletePushSubscription(uid, endpoint);
       res.json({ ok: true });
     } catch (err) {
       console.error("[push] unsubscribe error:", err);

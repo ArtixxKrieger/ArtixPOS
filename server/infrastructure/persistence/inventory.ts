@@ -7,6 +7,9 @@ import {
   stockTransferItems,
   stockLogs,
   products,
+  sales,
+  supplierProducts,
+  suppliers,
   type Ingredient,
   type InsertIngredient,
   type ProductRecipe,
@@ -464,4 +467,169 @@ export async function updateStockTransferStatus(
       stockMap.set(item.productId, newStock);
     }
   }
+}
+
+export interface InventorySummary {
+  ingredientCount: number;
+  productCount: number;
+  lowStockIngredients: number;
+  lowStockProducts: number;
+  outOfStockIngredients: number;
+  outOfStockProducts: number;
+  pendingTransfers: number;
+}
+
+export async function getInventorySummary(userId: string): Promise<InventorySummary> {
+  const userIds = await getTenantUserIds(userId);
+  const userCond = userIds.length === 1 ? eq(ingredients.userId, userIds[0]) : inArray(ingredients.userId, userIds);
+  const prodUserCond = userIds.length === 1 ? eq(products.userId, userIds[0]) : inArray(products.userId, userIds);
+  const xferUserCond = userIds.length === 1 ? eq(stockTransfers.userId, userIds[0]) : inArray(stockTransfers.userId, userIds);
+
+  const [ingredientRows, productRows, transferRows] = await Promise.all([
+    db
+      .select({ id: ingredients.id, stockQty: ingredients.stockQty, lowStockThreshold: ingredients.lowStockThreshold })
+      .from(ingredients)
+      .where(and(userCond, isNull(ingredients.deletedAt))),
+    db
+      .select({ id: products.id, stock: products.stock, lowStockThreshold: products.lowStockThreshold, trackStock: products.trackStock })
+      .from(products)
+      .where(and(prodUserCond, isNull(products.deletedAt))),
+    db
+      .select({ id: stockTransfers.id, status: stockTransfers.status })
+      .from(stockTransfers)
+      .where(xferUserCond),
+  ]);
+
+  const trackedProducts = productRows.filter(p => p.trackStock);
+  const lowStockIng     = ingredientRows.filter(i => {
+    const qty    = Number(i.stockQty ?? "0");
+    const thresh = Number(i.lowStockThreshold ?? "0");
+    return thresh > 0 && qty <= thresh;
+  });
+  const lowStockProd       = trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10));
+  const outOfStockIng      = ingredientRows.filter(i => Number(i.stockQty ?? "0") === 0);
+  const outOfStockProd     = trackedProducts.filter(p => (p.stock ?? 0) === 0);
+  const pendingXfers       = transferRows.filter(t => t.status === "pending" || t.status === "in_transit");
+
+  return {
+    ingredientCount:     ingredientRows.length,
+    productCount:        trackedProducts.length,
+    lowStockIngredients: lowStockIng.length,
+    lowStockProducts:    lowStockProd.length,
+    outOfStockIngredients: outOfStockIng.length,
+    outOfStockProducts:  outOfStockProd.length,
+    pendingTransfers:    pendingXfers.length,
+  };
+}
+
+export interface IngredientReorderSuggestion {
+  ingredient: Ingredient;
+  daysLeft: number;
+  suggestedQty: number;
+  avgDailyConsumption: number;
+  supplierId: number | null;
+  supplierName: string | null;
+  unitCost: string | null;
+}
+
+export async function getIngredientReorderSuggestions(userId: string): Promise<IngredientReorderSuggestion[]> {
+  const userIds = await getTenantUserIds(userId);
+  const userCond = userIds.length === 1 ? eq(ingredients.userId, userIds[0]) : inArray(ingredients.userId, userIds);
+  const salesUserCond = userIds.length === 1 ? eq(sales.userId, userIds[0]) : inArray(sales.userId, userIds);
+
+  const lowStockIng = await db
+    .select()
+    .from(ingredients)
+    .where(and(
+      userCond,
+      sql`CAST(stock_qty AS NUMERIC) <= CAST(low_stock_threshold AS NUMERIC)`,
+      isNull(ingredients.deletedAt),
+    ));
+
+  if (lowStockIng.length === 0) return [];
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [recentSales, allRecipes] = await Promise.all([
+    db
+      .select({ id: sales.id, items: sales.items, createdAt: sales.createdAt })
+      .from(sales)
+      .where(and(salesUserCond, sql`${sales.createdAt} >= ${thirtyDaysAgo}`, isNull(sales.deletedAt))),
+    db
+      .select()
+      .from(productRecipes)
+      .where(inArray(productRecipes.ingredientId, lowStockIng.map(i => i.id))),
+  ]);
+
+  // Build sold-quantity map per product
+  const productSoldMap = new Map<number, number>();
+  for (const sale of recentSales) {
+    const items = (sale.items ?? []) as { productId?: number; id?: number; quantity?: number }[];
+    for (const item of items) {
+      const pid = Number(item.productId ?? item.id);
+      if (!Number.isFinite(pid)) continue;
+      productSoldMap.set(pid, (productSoldMap.get(pid) ?? 0) + Number(item.quantity ?? 1));
+    }
+  }
+
+  // Map ingredient → total consumed (via recipes) in last 30 days
+  const ingredientConsumedMap = new Map<number, number>();
+  for (const recipe of allRecipes) {
+    const productsSold  = productSoldMap.get(recipe.productId) ?? 0;
+    const qtyPerUnit    = parseFloat(recipe.quantity || "0");
+    const consumed      = productsSold * qtyPerUnit;
+    ingredientConsumedMap.set(recipe.ingredientId, (ingredientConsumedMap.get(recipe.ingredientId) ?? 0) + consumed);
+  }
+
+  // Fetch supplier links
+  const ingredientIds = lowStockIng.map(i => i.id);
+  const supplierProds = ingredientIds.length > 0
+    ? await db
+        .select({
+          ingredientId: sql`${supplierProducts.productId}`.as("ingredientId"),
+          supplierId:   supplierProducts.supplierId,
+          unitCost:     supplierProducts.unitCost,
+        })
+        .from(supplierProducts)
+        .where(inArray(supplierProducts.productId, ingredientIds))
+    : [];
+
+  const supplierMap = new Map<number, { supplierId: number; unitCost: string }>();
+  for (const sp of supplierProds) {
+    const ingId = Number((sp as any).ingredientId);
+    if (!supplierMap.has(ingId)) supplierMap.set(ingId, { supplierId: sp.supplierId, unitCost: sp.unitCost });
+  }
+
+  const supplierIds = [...new Set(supplierProds.map(sp => sp.supplierId))];
+  const supplierNameRows = supplierIds.length > 0
+    ? await db
+        .select({ id: suppliers.id, name: suppliers.name })
+        .from(suppliers)
+        .where(and(
+          inArray(suppliers.id, supplierIds),
+          userIds.length === 1 ? eq(suppliers.userId, userIds[0]) : inArray(suppliers.userId, userIds),
+        ))
+    : [];
+
+  const supplierNameMap = new Map(supplierNameRows.map(s => [s.id, s.name]));
+
+  return lowStockIng.map(ing => {
+    const consumed30 = ingredientConsumedMap.get(ing.id) ?? 0;
+    const avgDaily   = consumed30 / 30;
+    const current    = parseFloat(ing.stockQty || "0");
+    const threshold  = parseFloat(ing.lowStockThreshold || "0");
+    const daysLeft   = avgDaily > 0 ? Math.floor(current / avgDaily) : 999;
+    const suggested  = Math.max(threshold, Math.ceil(avgDaily * 14 * 1.2)); // 14-day reorder window, 20% buffer
+
+    const sp = supplierMap.get(ing.id);
+    return {
+      ingredient:          ing,
+      daysLeft,
+      suggestedQty:        suggested,
+      avgDailyConsumption: avgDaily,
+      supplierId:          sp?.supplierId ?? null,
+      supplierName:        sp ? (supplierNameMap.get(sp.supplierId) ?? null) : null,
+      unitCost:            sp?.unitCost ?? null,
+    };
+  });
 }

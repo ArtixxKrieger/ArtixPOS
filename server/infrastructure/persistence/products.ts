@@ -282,3 +282,20 @@ export async function deductProductStockForSale(userId: string, items: any[]): P
     throw e;
   }
 }
+
+// ── SSE / alerts ──────────────────────────────────────────────────────────────
+
+/**
+ * Returns the IDs of products that are currently at or below their
+ * low-stock threshold for the given user. Used by the SSE alert poller.
+ */
+export async function getLowStockProductIdsByUser(userId: string): Promise<number[]> {
+  const result = await db.execute(sql`
+    SELECT id FROM products
+    WHERE user_id = ${userId}
+      AND track_stock = true
+      AND deleted_at IS NULL
+      AND stock <= low_stock_threshold
+  `);
+  return (result.rows as any[]).map(r => r.id as number);
+}

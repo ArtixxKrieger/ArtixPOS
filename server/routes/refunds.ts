@@ -2,10 +2,10 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { requireAuth, requireManagerOrAbove } from "../middleware";
-import { insertRefundSchema, sales as salesTable, shifts as shiftsTable } from "@shared/schema";
+import { insertRefundSchema } from "@shared/schema";
 import { getRolePermissionForRole } from "../admin-storage";
-import { db } from "../db";
-import { eq, and } from "drizzle-orm";
+import { getSaleTimestamp } from "../infrastructure/persistence/sales";
+import { getClosedShiftsForUser } from "../infrastructure/persistence/shifts";
 import {
   getUserId,
   auditLog,
@@ -51,18 +51,11 @@ export function registerRefundRoutes(app: Express): void {
       const sale = await storage.getSaleById(input.saleId, uid);
       if (!sale) return res.status(404).json({ message: "Sale not found" });
 
-      const [saleRow] = await db
-        .select({ createdAt: salesTable.createdAt })
-        .from(salesTable)
-        .where(eq(salesTable.id, input.saleId));
-      if (saleRow?.createdAt) {
-        const closedShifts = await db
-          .select({ openedAt: shiftsTable.openedAt, closedAt: shiftsTable.closedAt })
-          .from(shiftsTable)
-          .where(and(eq(shiftsTable.userId, uid), eq(shiftsTable.status, "closed")));
-        const saleTime = saleRow.createdAt;
+      const saleTimestamp = await getSaleTimestamp(input.saleId);
+      if (saleTimestamp) {
+        const closedShifts = await getClosedShiftsForUser(uid);
         const lockedByShift = closedShifts.some(
-          (s) => s.openedAt && s.closedAt && saleTime >= s.openedAt && saleTime <= s.closedAt,
+          (s) => s.openedAt && s.closedAt && saleTimestamp >= s.openedAt && saleTimestamp <= s.closedAt,
         );
         if (lockedByShift) {
           return res.status(409).json({

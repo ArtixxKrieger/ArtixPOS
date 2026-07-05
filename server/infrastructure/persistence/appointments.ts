@@ -10,7 +10,7 @@ import {
   type Appointment,
   type InsertAppointment,
 } from "@shared/schema";
-import { eq, and, isNull, inArray, desc } from "drizzle-orm";
+import { eq, and, isNull, inArray, desc, lte, gte } from "drizzle-orm";
 import { getTenantUserIds } from "./base";
 
 export async function getServiceStaff(userId: string, branchId?: number | null): Promise<ServiceStaff[]> {
@@ -124,6 +124,47 @@ export async function updateAppointment(id: number, userId: string, appt: Partia
   if (!existing) return undefined;
   const [updated] = await db.update(appointments).set(appt as any).where(eq(appointments.id, id)).returning();
   return updated;
+}
+
+/**
+ * Checks whether a room or staff member is already booked within the given time window.
+ * Returns flags for each conflict type so the route can give a specific error message.
+ */
+export async function checkAppointmentConflict(opts: {
+  roomId?: number | null;
+  staffId?: number | null;
+  startTime: string;
+  endTime: string;
+}): Promise<{ roomConflict: boolean; staffConflict: boolean }> {
+  const { roomId, staffId, startTime, endTime } = opts;
+  const baseConditions = [
+    isNull((appointments as any).deletedAt),
+    lte((appointments as any).startTime, endTime),
+    gte((appointments as any).endTime, startTime),
+  ];
+
+  let roomConflict  = false;
+  let staffConflict = false;
+
+  if (roomId) {
+    const rows = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(and(eq((appointments as any).roomId, roomId), ...baseConditions))
+      .limit(1);
+    roomConflict = rows.length > 0;
+  }
+
+  if (staffId) {
+    const rows = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(and(eq((appointments as any).staffId, staffId), ...baseConditions))
+      .limit(1);
+    staffConflict = rows.length > 0;
+  }
+
+  return { roomConflict, staffConflict };
 }
 
 export async function deleteAppointment(id: number, userId: string): Promise<void> {

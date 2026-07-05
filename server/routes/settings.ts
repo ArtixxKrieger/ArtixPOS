@@ -5,9 +5,10 @@ import { storage } from "../storage";
 import { api } from "@shared/routes";
 import { requireAuth, getSubscription, isProSubscription } from "../middleware";
 import { createTenant, getBranches, createBranch, updateBranch } from "../admin-storage";
-import { db, dbSystem } from "../db";
-import { eq, sql } from "drizzle-orm";
-import { users, tenants, PRO_POS_FEATURE_KEYS } from "@shared/schema";
+import { dbSystem } from "../db";
+import { eq } from "drizzle-orm";
+import { users, PRO_POS_FEATURE_KEYS } from "@shared/schema";
+import { fetchUserById, atomicClaimTenant, deleteOrphanedTenant } from "../infrastructure/persistence/settings";
 import { setAuthCookie } from "../auth";
 import { cache, TTL, settingsCacheKey } from "../cache";
 import { invalidateTenantCache } from "../storage";
@@ -195,30 +196,23 @@ if ((input as any).posFeatures && typeof (input as any).posFeatures === "object"
         });
       }
 
-if (input.onboardingComplete === 1) {
+      if (input.onboardingComplete === 1) {
         try {
           const user = req.user!;
           const branchName =
             (input.storeName as string | undefined) || settings.storeName || "Main Branch";
 
-const [freshUser] = await db.select().from(users).where(eq(users.id, uid));
+          const freshUser = await fetchUserById(uid);
           let currentTenantId = (freshUser?.tenantId as string | null) ?? null;
 
-if (!currentTenantId) {
+          if (!currentTenantId) {
             const newTenant = await createTenant(branchName);
-            const claim = await db.execute(
-              sql`UPDATE users SET tenant_id = ${newTenant.id} WHERE id = ${uid} AND tenant_id IS NULL`,
-            );
-            const claimed = (claim as any).rowCount === 1 || (claim as any).rowsAffected === 1;
-            if (claimed) {
+            const claimResult = await atomicClaimTenant(uid, newTenant.id);
+            if (claimResult.claimed) {
               currentTenantId = newTenant.id;
             } else {
-
-const [refreshed] = await db.select().from(users).where(eq(users.id, uid));
-              currentTenantId = refreshed?.tenantId ?? null;
-              try {
-                await db.delete(tenants).where(eq(tenants.id, newTenant.id));
-              } catch {}
+              currentTenantId = claimResult.fallbackTenantId ?? null;
+              await deleteOrphanedTenant(newTenant.id);
             }
             invalidateTenantCache(uid);
 
@@ -232,7 +226,7 @@ const [refreshed] = await db.select().from(users).where(eq(users.id, uid));
             }
           }
 
-if (currentTenantId) {
+          if (currentTenantId) {
             const existingBranches = await getBranches(currentTenantId);
             const hasMain = existingBranches.some((b: any) => b.isMain);
             if (!hasMain) {
@@ -261,7 +255,7 @@ if (currentTenantId) {
         }
       }
 
-const tenantId = getTenantId(req);
+      const tenantId = getTenantId(req);
       if (tenantId && input.onboardingComplete !== 1) {
         try {
           const branches = await getBranches(tenantId);

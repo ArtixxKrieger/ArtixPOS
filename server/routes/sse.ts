@@ -1,10 +1,9 @@
 
-
 import type { Express, Request, Response } from "express";
 import { verifyToken } from "../auth";
 import { subscribe as subscribeTenantEvent } from "../events";
-import { db } from "../db";
-import { sql } from "drizzle-orm";
+import { getLowStockProductIdsByUser } from "../infrastructure/persistence/products";
+import { getPendingOrderCount } from "../infrastructure/persistence/orders";
 
 function setupSseHeaders(res: Response): void {
   res.setHeader("Content-Type", "text/event-stream");
@@ -28,7 +27,7 @@ function sseWrite(res: Response, event: string, data: Record<string, unknown> = 
 
 export function registerSseRoutes(app: Express): void {
 
-app.get("/api/sse/alerts", async (req: Request, res: Response) => {
+  app.get("/api/sse/alerts", async (req: Request, res: Response) => {
     const user = resolveSseUser(req);
     if (!user) { res.status(401).end(); return; }
 
@@ -36,20 +35,12 @@ app.get("/api/sse/alerts", async (req: Request, res: Response) => {
     setupSseHeaders(res);
     sseWrite(res, "connected", { ts: new Date().toISOString() });
 
-let knownLowStockIds = new Set<number>();
+    let knownLowStockIds  = new Set<number>();
     let knownPendingCount = -1;
 
     async function poll() {
       try {
-
-        const stockRows = await db.execute(sql`
-          SELECT id FROM products
-          WHERE user_id = ${uid}
-            AND track_stock = true
-            AND deleted_at IS NULL
-            AND stock <= low_stock_threshold
-        `);
-        const currentIds = new Set<number>((stockRows.rows as any[]).map(r => r.id as number));
+        const currentIds = new Set<number>(await getLowStockProductIdsByUser(uid));
         let newLow = false;
         for (const id of currentIds) {
           if (!knownLowStockIds.has(id)) { newLow = true; break; }
@@ -57,30 +48,23 @@ let knownLowStockIds = new Set<number>();
         if (newLow) sseWrite(res, "low-stock", { count: currentIds.size });
         knownLowStockIds = currentIds;
 
-const orderRow = await db.execute(sql`
-          SELECT COUNT(*)::int AS cnt
-          FROM   pending_orders
-          WHERE  user_id = ${uid}
-            AND  deleted_at IS NULL
-            AND  status != 'paid'
-        `);
-        const count = Number((orderRow.rows[0] as any)?.cnt ?? 0);
+        const count = await getPendingOrderCount(uid);
         if (knownPendingCount !== -1 && count > knownPendingCount) {
           sseWrite(res, "new-order", { count });
         }
         knownPendingCount = count;
       } catch {
-
+        // Ignore transient polling errors
       }
     }
 
     await poll();
     const pollInterval = setInterval(poll, 15_000);
-    const heartbeat   = setInterval(() => res.write(": heartbeat\n\n"), 30_000);
+    const heartbeat    = setInterval(() => res.write(": heartbeat\n\n"), 30_000);
     req.on("close", () => { clearInterval(pollInterval); clearInterval(heartbeat); });
   });
 
-app.get("/api/sse/kitchen", async (req: Request, res: Response) => {
+  app.get("/api/sse/kitchen", async (req: Request, res: Response) => {
     const user = resolveSseUser(req);
     if (!user) { res.status(401).end(); return; }
 
@@ -93,15 +77,15 @@ app.get("/api/sse/kitchen", async (req: Request, res: Response) => {
     const unsubscribe = subscribeTenantEvent(tid, (event) => {
       if (event.type === "kitchen-update") {
         sseWrite(res, "order-update", {
-          orderId: event.orderId,
+          orderId:       event.orderId,
           kitchenStatus: event.kitchenStatus,
-          orderNumber: event.orderNumber,
+          orderNumber:   event.orderNumber,
         });
       } else if (event.type === "kitchen-new-order") {
         sseWrite(res, "new-order", {
-          orderId: event.orderId,
+          orderId:     event.orderId,
           orderNumber: event.orderNumber,
-          itemCount: event.itemCount,
+          itemCount:   event.itemCount,
         });
       }
     });
@@ -110,7 +94,7 @@ app.get("/api/sse/kitchen", async (req: Request, res: Response) => {
     req.on("close", () => { clearInterval(heartbeat); unsubscribe(); });
   });
 
-app.get("/api/sse/dashboard", async (req: Request, res: Response) => {
+  app.get("/api/sse/dashboard", async (req: Request, res: Response) => {
     const user = resolveSseUser(req);
     if (!user) { res.status(401).end(); return; }
 

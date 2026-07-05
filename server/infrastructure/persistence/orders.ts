@@ -4,7 +4,7 @@ import {
   type PendingOrder,
   type InsertPendingOrder,
 } from "@shared/schema";
-import { eq, and, isNull, inArray, desc, type SQL } from "drizzle-orm";
+import { eq, and, isNull, inArray, desc, sql, type SQL } from "drizzle-orm";
 import { getTenantUserIds } from "./base";
 
 export async function getPendingOrders(
@@ -99,4 +99,21 @@ export async function deletePendingOrder(id: number, userId: string): Promise<vo
     console.error("Error deleting pending order:", error);
     throw error;
   }
+}
+
+// ── SSE / alerts ──────────────────────────────────────────────────────────────
+
+/**
+ * Returns the count of pending (non-paid, non-deleted) orders for a user.
+ * Used by the SSE alert poller.
+ */
+export async function getPendingOrderCount(userId: string): Promise<number> {
+  const result = await db.execute(sql`
+    SELECT COUNT(*)::int AS cnt
+    FROM   pending_orders
+    WHERE  user_id = ${userId}
+      AND  deleted_at IS NULL
+      AND  status != 'paid'
+  `);
+  return Number((result.rows[0] as any)?.cnt ?? 0);
 }

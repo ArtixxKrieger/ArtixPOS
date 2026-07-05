@@ -2,50 +2,15 @@ import type { Express } from "express";
 import { storage } from "../storage";
 import { requireAuth, requirePro, requireManagerOrAbove } from "../middleware";
 import { getUserId, getActiveBranchId } from "../lib/route-utils";
-import { db } from "../db";
-import { sales, ingredients, productRecipes, suppliers, supplierProducts, products, stockTransfers } from "@shared/schema";
-import { and, isNull, inArray, sql } from "drizzle-orm";
-import { getTenantUserIds } from "../infrastructure/persistence/base";
+import { getInventorySummary, getIngredientReorderSuggestions } from "../infrastructure/persistence/inventory";
 
 export function registerInventoryAdvancedRoutes(app: Express): void {
 
   app.get("/api/inventory", requireAuth, async (req, res) => {
     try {
       const uid = getUserId(req);
-      const userIds = await getTenantUserIds(uid);
-
-      const [ingredientRows, productRows, transferRows] = await Promise.all([
-        db.select({ id: ingredients.id, stockQty: ingredients.stockQty, lowStockThreshold: ingredients.lowStockThreshold })
-          .from(ingredients)
-          .where(and(inArray(ingredients.userId, userIds), isNull(ingredients.deletedAt))),
-        db.select({ id: products.id, stock: products.stock, lowStockThreshold: products.lowStockThreshold, trackStock: products.trackStock })
-          .from(products)
-          .where(and(inArray(products.userId, userIds), isNull(products.deletedAt))),
-        db.select({ id: stockTransfers.id, status: stockTransfers.status })
-          .from(stockTransfers)
-          .where(inArray(stockTransfers.userId, userIds)),
-      ]);
-
-      const trackedProducts = productRows.filter(p => p.trackStock);
-      const lowStockIngredients = ingredientRows.filter(i => {
-        const qty = Number(i.stockQty ?? "0");
-        const thresh = Number(i.lowStockThreshold ?? "0");
-        return thresh > 0 && qty <= thresh;
-      });
-      const lowStockProducts = trackedProducts.filter(p => (p.stock ?? 0) <= (p.lowStockThreshold ?? 10));
-      const outOfStockIngredients = ingredientRows.filter(i => Number(i.stockQty ?? "0") === 0);
-      const outOfStockProducts = trackedProducts.filter(p => (p.stock ?? 0) === 0);
-      const pendingTransfers = transferRows.filter(t => t.status === "pending" || t.status === "in_transit");
-
-      res.json({
-        ingredientCount: ingredientRows.length,
-        productCount: trackedProducts.length,
-        lowStockIngredients: lowStockIngredients.length,
-        lowStockProducts: lowStockProducts.length,
-        outOfStockIngredients: outOfStockIngredients.length,
-        outOfStockProducts: outOfStockProducts.length,
-        pendingTransfers: pendingTransfers.length,
-      });
+      const summary = await getInventorySummary(uid);
+      res.json(summary);
     } catch (err) {
       console.error("[/api/inventory] error:", err);
       res.status(500).json({ message: "Failed to load inventory summary" });
@@ -67,114 +32,28 @@ app.get("/api/inventory/reorder-suggestions", requireAuth, requirePro, async (re
 app.get("/api/inventory/ingredient-reorder-suggestions", requireAuth, requirePro, async (req, res) => {
     try {
       const uid = getUserId(req);
-      const _branchId = getActiveBranchId(req);
 
-      const userIds = await getTenantUserIds(uid);
-
-const lowStockIngredients = await db.select()
-        .from(ingredients)
-        .where(and(
-          inArray(ingredients.userId, userIds),
-          sql`CAST(stock_qty AS NUMERIC) <= CAST(low_stock_threshold AS NUMERIC)`,
-          isNull(ingredients.deletedAt)
-        ));
-
-      if (lowStockIngredients.length === 0) {
-        return res.json([]);
-      }
-
-const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const recentSales = await db.select({ id: sales.id, items: sales.items, createdAt: sales.createdAt })
-        .from(sales)
-        .where(and(
-          inArray(sales.userId, userIds),
-          sql`${sales.createdAt} >= ${thirtyDaysAgo}`,
-          isNull(sales.deletedAt)
-        ));
-
-const productSoldMap = new Map<number, number>();
-      for (const sale of recentSales) {
-        const items = (sale.items ?? []) as { productId?: number; id?: number; quantity?: number }[];
-        for (const item of items) {
-          const pid = Number(item.productId ?? item.id);
-          if (!Number.isFinite(pid)) continue;
-          productSoldMap.set(pid, (productSoldMap.get(pid) ?? 0) + Number(item.quantity ?? 1));
-        }
-      }
-
-const allRecipes = await db.select()
-        .from(productRecipes)
-        .where(inArray(productRecipes.ingredientId, lowStockIngredients.map(i => i.id)));
-
-const ingredientConsumedMap = new Map<number, number>();
-      for (const recipe of allRecipes) {
-        const productsSold = productSoldMap.get(recipe.productId) ?? 0;
-        const qtyPerUnit = parseFloat(recipe.quantity || "0");
-        const consumed = productsSold * qtyPerUnit;
-        ingredientConsumedMap.set(
-          recipe.ingredientId,
-          (ingredientConsumedMap.get(recipe.ingredientId) ?? 0) + consumed
-        );
-      }
-
-const ingredientIds = lowStockIngredients.map(i => i.id);
-      const supplierProds = ingredientIds.length > 0
-        ? await db.select({
-            ingredientId: sql`${supplierProducts.productId}`.as('ingredientId'),
-            supplierId: supplierProducts.supplierId,
-            unitCost: supplierProducts.unitCost
-          })
-          .from(supplierProducts)
-          .where(inArray(supplierProducts.productId, ingredientIds))
-        : [];
-
-      const supplierMap = new Map<number, { supplierId: number; unitCost: string }>();
-      for (const sp of supplierProds) {
-        const ingId = Number((sp as any).ingredientId);
-        if (!supplierMap.has(ingId)) {
-          supplierMap.set(ingId, { supplierId: sp.supplierId, unitCost: sp.unitCost });
-        }
-      }
-
-      const supplierIdSet = new Set<number>();
-      for (const sv of supplierMap.values()) supplierIdSet.add(sv.supplierId);
-      const supplierIds = [...supplierIdSet];
-      const supplierNames = supplierIds.length > 0
-        ? await db.select({ id: suppliers.id, name: suppliers.name })
-            .from(suppliers)
-            .where(and(inArray(suppliers.id, supplierIds as number[]), inArray(suppliers.userId, userIds)))
-        : [];
-      const supplierNameMap = new Map(supplierNames.map(s => [s.id, s.name]));
-
-const suggestions = lowStockIngredients.map(ing => {
-        const consumed30 = ingredientConsumedMap.get(ing.id) ?? 0;
-        const avgDaily = consumed30 / 30;
-        const current = parseFloat(ing.stockQty || "0");
-        const threshold = parseFloat(ing.lowStockThreshold || "0");
-        const daysLeft = avgDaily > 0 ? Math.floor(current / avgDaily) : 999;
-
-const reorderDays = 14;
-        const suggested = Math.max(threshold, Math.ceil(avgDaily * reorderDays * 1.2));
-
-        const sp = supplierMap.get(ing.id);
-
+      const rawSuggestions = await getIngredientReorderSuggestions(uid);
+      const suggestions = rawSuggestions.map(s => {
+        const ing      = s.ingredient;
+        const consumed30 = s.avgDailyConsumption * 30;
         return {
-          ingredientId: ing.id,
-          ingredientName: ing.name,
-          productId: ing.id,
-          productName: ing.name,
-          unit: ing.unit,
-          currentStock: current,
-          lowStockThreshold: threshold,
-          consumedLast30Days: Math.round(consumed30 * 100) / 100,
-          avgDailyConsumption: Math.round(avgDaily * 100) / 100,
-          soldLast30Days: Math.round(consumed30 * 100) / 100,
-          avgDailySales: Math.round(avgDaily * 100) / 100,
-          daysOfStockLeft: daysLeft,
-          suggestedOrderQty: suggested,
-          preferredSupplierId: sp?.supplierId ?? null,
-          preferredSupplierName: sp ? (supplierNameMap.get(sp.supplierId) ?? null) : null,
-          unitCost: sp?.unitCost ?? ing.costPerUnit ?? null,
+          ingredientId:          ing.id,
+          ingredientName:        ing.name,
+          productId:             ing.id,
+          productName:           ing.name,
+          unit:                  ing.unit,
+          currentStock:          parseFloat(ing.stockQty || "0"),
+          lowStockThreshold:     parseFloat(ing.lowStockThreshold || "0"),
+          consumedLast30Days:    Math.round(consumed30 * 100) / 100,
+          avgDailyConsumption:   Math.round(s.avgDailyConsumption * 100) / 100,
+          soldLast30Days:        Math.round(consumed30 * 100) / 100,
+          avgDailySales:         Math.round(s.avgDailyConsumption * 100) / 100,
+          daysOfStockLeft:       s.daysLeft,
+          suggestedOrderQty:     s.suggestedQty,
+          preferredSupplierId:   s.supplierId,
+          preferredSupplierName: s.supplierName,
+          unitCost:              s.unitCost ?? (ing as any).costPerUnit ?? null,
         };
       }).sort((a, b) => a.daysOfStockLeft - b.daysOfStockLeft);
 

@@ -5,9 +5,8 @@ import { api } from "@shared/routes";
 import { requireAuth, requireManagerOrAbove } from "../middleware";
 import { emit as emitTenantEvent } from "../events";
 import { getRolePermissionForRole } from "../admin-storage";
-import { db } from "../db";
-import { eq, and } from "drizzle-orm";
-import { sales as salesTable, shifts as shiftsTable } from "@shared/schema";
+import { getSaleTimestamp } from "../infrastructure/persistence/sales";
+import { getClosedShiftsForUser } from "../infrastructure/persistence/shifts";
 import { cache, dashboardCacheKey, salesCacheKey } from "../cache";
 import {
   getUserId,
@@ -372,20 +371,12 @@ export function registerSaleRoutes(app: Express): void {
     const id = Number(req.params.id);
     const uid = getUserId(req);
 
-    const [saleRow] = await db
-      .select({ id: salesTable.id, createdAt: salesTable.createdAt })
-      .from(salesTable)
-      .where(eq(salesTable.id, id));
+    const saleTimestamp = await getSaleTimestamp(id);
 
-    if (saleRow?.createdAt) {
-      const closedShifts = await db
-        .select({ openedAt: shiftsTable.openedAt, closedAt: shiftsTable.closedAt })
-        .from(shiftsTable)
-        .where(and(eq(shiftsTable.userId, uid), eq(shiftsTable.status, "closed")));
-
-      const saleTime = saleRow.createdAt;
+    if (saleTimestamp) {
+      const closedShifts = await getClosedShiftsForUser(uid);
       const lockedByShift = closedShifts.some(
-        (s) => s.openedAt && s.closedAt && saleTime >= s.openedAt && saleTime <= s.closedAt,
+        (s) => s.openedAt && s.closedAt && saleTimestamp >= s.openedAt && saleTimestamp <= s.closedAt,
       );
       if (lockedByShift) {
         return res.status(409).json({

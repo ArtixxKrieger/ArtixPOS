@@ -4,8 +4,15 @@ import type { Express } from "express";
 import { createHash } from "crypto";
 import { storage } from "../storage";
 import { requireAuth, requirePro, requireManagerOrAbove } from "../middleware";
-import { db } from "../db";
-import { sql } from "drizzle-orm";
+import {
+  getBirXReportData,
+  getBirSummaryData,
+  getBirOrNumbers,
+  getBirVoidTrailRows,
+  getBirVoidTrailExportRows,
+  getBirHashVerifyRows,
+  getBirRefundTrailRows,
+} from "../infrastructure/persistence/bir";
 import { getUserId } from "../lib/route-utils";
 
 export function registerBirRoutes(app: Express): void {
@@ -16,66 +23,21 @@ app.get("/api/bir/x-report", requireAuth, requirePro, async (req, res) => {
     if (!openShift) return res.json({ shift: null });
     const startDate = openShift.openedAt!;
 
-const [aggRows, pmRows, dtRows] = await Promise.all([
+    const { agg, paymentRows, discountRows } = await getBirXReportData(uid, startDate);
 
-      db.execute(sql`
-        SELECT
-          COUNT(*)::int                                                                      AS total_txn,
-          COALESCE(SUM(CAST(total              AS NUMERIC)), 0)::float8                     AS gross_sales,
-          COALESCE(SUM(CAST(tax                AS NUMERIC)), 0)::float8                     AS vat_amount,
-          COALESCE(SUM(CAST(discount           AS NUMERIC)), 0)::float8                     AS total_discount,
-          COALESCE(SUM(CAST(loyalty_discount   AS NUMERIC)), 0)::float8                     AS total_loyalty_discount,
-          COALESCE(SUM(CAST(vatable_sales      AS NUMERIC)), 0)::float8                     AS vatable_sales,
-          COALESCE(SUM(CAST(vat_exempt_sales   AS NUMERIC)), 0)::float8                     AS vat_exempt_sales,
-          COALESCE(SUM(CAST(zero_rated_sales   AS NUMERIC)), 0)::float8                     AS zero_rated_sales,
-          MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_min,
-          MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_max
-        FROM sales
-        WHERE user_id = ${uid}
-          AND deleted_at IS NULL
-          AND created_at >= ${startDate}
-      `),
-
-      db.execute(sql`
-        SELECT
-          COALESCE(payment_method, 'cash')                                  AS pm,
-          COUNT(*)::int                                                      AS count,
-          COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8                  AS total
-        FROM sales
-        WHERE user_id = ${uid}
-          AND deleted_at IS NULL
-          AND created_at >= ${startDate}
-        GROUP BY payment_method
-      `),
-
-      db.execute(sql`
-        SELECT
-          COALESCE(discount_type, 'regular')                                AS dt,
-          COUNT(*)::int                                                      AS count,
-          COALESCE(SUM(CAST(total    AS NUMERIC)), 0)::float8               AS total,
-          COALESCE(SUM(CAST(discount AS NUMERIC)), 0)::float8               AS discount
-        FROM sales
-        WHERE user_id = ${uid}
-          AND deleted_at IS NULL
-          AND created_at >= ${startDate}
-        GROUP BY discount_type
-      `),
-    ]);
-
-    const agg = (aggRows.rows as any[])[0] ?? {};
-    const orMin: bigint | null = agg.or_min ?? null;
-    const orMax: bigint | null = agg.or_max ?? null;
+    const orMin: bigint | null = agg.or_min as bigint | null ?? null;
+    const orMax: bigint | null = agg.or_max as bigint | null ?? null;
     const orFrom = orMin !== null ? String(orMin).padStart(7, "0") : "(none)";
     const orTo   = orMax !== null ? String(orMax).padStart(7, "0") : "(none)";
 
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-    for (const r of pmRows.rows as any[]) {
-      paymentBreakdown[r.pm] = { count: Number(r.count), total: Number(r.total) };
+    for (const r of paymentRows) {
+      paymentBreakdown[r.pm as string] = { count: Number(r.count), total: Number(r.total) };
     }
 
     const discountBreakdown: Record<string, { count: number; total: number; discount: number }> = {};
-    for (const r of dtRows.rows as any[]) {
-      discountBreakdown[r.dt] = { count: Number(r.count), total: Number(r.total), discount: Number(r.discount) };
+    for (const r of discountRows) {
+      discountBreakdown[r.dt as string] = { count: Number(r.count), total: Number(r.total), discount: Number(r.discount) };
     }
 
     const gross = Number(agg.gross_sales ?? 0);
@@ -111,51 +73,16 @@ app.get("/api/bir/summary", requireAuth, requirePro, requireManagerOrAbove, asyn
     const endDate   = new Date(`${year}-${monStr}-${lastDayStr}T23:59:59.999+08:00`).toISOString();
     const uid       = getUserId(req);
 
-    const [aggRows, pmRows] = await Promise.all([
+    const { agg, paymentRows } = await getBirSummaryData(uid, startDate, endDate);
 
-      db.execute(sql`
-        SELECT
-          COUNT(*)::int                                                                             AS total_txn,
-          COALESCE(SUM(CAST(total            AS NUMERIC)), 0)::float8                              AS gross_sales,
-          COALESCE(SUM(CAST(tax              AS NUMERIC)), 0)::float8                              AS output_vat,
-          COALESCE(SUM(CAST(vatable_sales    AS NUMERIC)), 0)::float8                              AS vatable_sales,
-          COALESCE(SUM(CAST(vat_exempt_sales AS NUMERIC)), 0)::float8                              AS vat_exempt_sales,
-          COALESCE(SUM(CAST(zero_rated_sales AS NUMERIC)), 0)::float8                              AS zero_rated_sales,
-          COALESCE(SUM(CAST(discount         AS NUMERIC)), 0)::float8                              AS total_discount,
-          (COUNT(*) FILTER (WHERE discount_type IN ('sc','pwd')))::int                              AS sc_pwd_count,
-          COALESCE(SUM(CAST(discount AS NUMERIC)) FILTER (WHERE discount_type IN ('sc','pwd')), 0)::float8 AS sc_pwd_discount,
-          MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_min,
-          MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_max
-        FROM sales
-        WHERE user_id = ${uid}
-          AND deleted_at IS NULL
-          AND created_at >= ${startDate}
-          AND created_at <= ${endDate}
-      `),
-
-      db.execute(sql`
-        SELECT
-          COALESCE(payment_method, 'cash')                             AS pm,
-          COUNT(*)::int                                                AS count,
-          COALESCE(SUM(CAST(total AS NUMERIC)), 0)::float8            AS total
-        FROM sales
-        WHERE user_id = ${uid}
-          AND deleted_at IS NULL
-          AND created_at >= ${startDate}
-          AND created_at <= ${endDate}
-        GROUP BY payment_method
-      `),
-    ]);
-
-    const agg    = (aggRows.rows as any[])[0] ?? {};
-    const orMin: bigint | null = agg.or_min ?? null;
-    const orMax: bigint | null = agg.or_max ?? null;
+    const orMin: bigint | null = agg.or_min as bigint | null ?? null;
+    const orMax: bigint | null = agg.or_max as bigint | null ?? null;
     const orFrom = orMin !== null ? String(orMin).padStart(7, "0") : "(none)";
     const orTo   = orMax !== null ? String(orMax).padStart(7, "0") : "(none)";
 
     const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-    for (const r of pmRows.rows as any[]) {
-      paymentBreakdown[r.pm] = { count: Number(r.count), total: Number(r.total) };
+    for (const r of paymentRows) {
+      paymentBreakdown[r.pm as string] = { count: Number(r.count), total: Number(r.total) };
     }
 
     const gross  = Number(agg.gross_sales ?? 0);
@@ -435,20 +362,7 @@ const CHAIN_SEED_INPUT = `EJOURNAL-GENESIS-${month}`;
 
 app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
     const uid = getUserId(req);
-    const rows = await db.execute(sql`
-      SELECT CAST(or_number AS bigint) AS n
-      FROM   sales
-      WHERE  user_id = ANY(
-               SELECT id FROM users WHERE tenant_id = (
-                 SELECT tenant_id FROM users WHERE id = ${uid}
-               )
-             )
-        AND  or_number ~ '^[0-9]+$'
-        AND  deleted_at IS NULL
-      ORDER  BY n
-    `);
-
-    const orNumbers: number[] = (rows.rows as any[]).map(r => Number(r.n));
+    const orNumbers: number[] = await getBirOrNumbers(uid);
     if (orNumbers.length < 2) {
       return res.json({ gaps: [], totalChecked: orNumbers.length, gapCount: 0 });
     }
@@ -472,28 +386,11 @@ app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
 
   app.get("/api/bir/void-trail", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
-    const rows = await db.execute(sql`
-      SELECT
-        s.id, s.or_number, s.receipt_number, s.invoice_number,
-        s.total, s.subtotal, s.tax, s.discount,
-        s.vatable_sales, s.vat_exempt_sales, s.zero_rated_sales,
-        s.discount_type, s.sale_hash, s.void_reason,
-        s.deleted_at, s.created_at, s.user_id,
-        u.name AS deleted_by_name
-      FROM   sales s
-      LEFT   JOIN users u ON u.id = s.deleted_by
-      WHERE  s.user_id = ANY(
-               SELECT id FROM users
-               WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = ${uid})
-             )
-        AND  s.deleted_at IS NOT NULL
-      ORDER  BY s.deleted_at DESC
-      LIMIT  1000
-    `);
+    const rawRows = await getBirVoidTrailRows(uid);
 
     let tampered = 0, missingHash = 0;
 
-    const entries = (rows.rows as any[]).map(r => {
+    const entries = rawRows.map(r => {
       let hashStatus: "ok" | "tampered" | "missing" = "missing";
       if (r.sale_hash) {
         const payload = [
@@ -529,28 +426,12 @@ app.get("/api/bir/or-gaps", requireAuth, requirePro, async (req, res) => {
 
   app.get("/api/bir/void-trail/export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
-    const rows = await db.execute(sql`
-      SELECT
-        s.id, s.or_number, s.receipt_number, s.total, s.void_reason,
-        s.deleted_at, s.created_at, s.user_id, s.subtotal, s.tax, s.discount,
-        s.vatable_sales, s.vat_exempt_sales, s.zero_rated_sales,
-        s.discount_type, s.sale_hash, s.invoice_number,
-        u.name AS deleted_by_name
-      FROM   sales s
-      LEFT   JOIN users u ON u.id = s.deleted_by
-      WHERE  s.user_id = ANY(
-               SELECT id FROM users
-               WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = ${uid})
-             )
-        AND  s.deleted_at IS NOT NULL
-      ORDER  BY s.deleted_at DESC
-      LIMIT  10000
-    `);
+    const exportRows = await getBirVoidTrailExportRows(uid);
 
     const lines: string[] = [
       "Sale ID,OR Number,Receipt Number,Total,Void Reason,Voided At,Voided By,Sale Date,SHA-256 Hash,Hash Status",
     ];
-    for (const r of rows.rows as any[]) {
+    for (const r of exportRows) {
       let hashStatus = "NO_HASH";
       if (r.sale_hash) {
         const payload = [
@@ -581,27 +462,13 @@ app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, 
     const uid = getUserId(req);
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 
-    const rows = await db.execute(sql`
-      SELECT
-        id, user_id, receipt_number, or_number, invoice_number,
-        subtotal, tax, discount, vatable_sales, vat_exempt_sales, zero_rated_sales,
-        total, discount_type, created_at, sale_hash
-      FROM sales
-      WHERE user_id = ANY(
-              SELECT id FROM users WHERE tenant_id = (
-                SELECT tenant_id FROM users WHERE id = ${uid}
-              )
-            )
-        AND deleted_at IS NULL
-        ${startDate ? sql`AND created_at >= ${startDate}` : sql``}
-        ${endDate   ? sql`AND created_at <= ${endDate}`   : sql``}
-      ORDER BY id ASC
-    `);
+    const hashRows = await getBirHashVerifyRows(uid, { startDate, endDate });
 
     let passed = 0, failed = 0, missing = 0;
     const tamperedRows: { id: number; orNumber: string; createdAt: string }[] = [];
 
-    for (const r of rows.rows as any[]) {
+    for (const _r of hashRows) {
+      const r = _r as Record<string, any>;
       if (!r.sale_hash) { missing++; continue; }
       const payload = [
         r.user_id, r.receipt_number ?? "", r.or_number ?? "", r.invoice_number ?? "",
@@ -614,12 +481,12 @@ app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, 
         passed++;
       } else {
         failed++;
-        tamperedRows.push({ id: r.id, orNumber: r.or_number ?? "", createdAt: r.created_at ?? "" });
+        tamperedRows.push({ id: Number(r.id), orNumber: r.or_number ?? "", createdAt: r.created_at ?? "" });
       }
     }
 
     res.json({
-      totalChecked: rows.rows.length, passed, failed,
+      totalChecked: hashRows.length, passed, failed,
       missingHash: missing, integrityOk: failed === 0,
       tamperedRows: tamperedRows.slice(0, 100),
       checkedAt: new Date().toISOString(),
@@ -628,38 +495,27 @@ app.get("/api/bir/hash-verify", requireAuth, requirePro, requireManagerOrAbove, 
 
   app.get("/api/bir/refund-trail/export", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     const uid = getUserId(req);
-    const rows = await db.execute(sql`
-      SELECT
-        r.id, r.sale_id, r.amount, r.reason, r.created_at,
-        u.name AS processed_by_name,
-        s.or_number, s.receipt_number, s.total AS sale_total
-      FROM refunds r
-      LEFT JOIN users u ON u.id = r.processed_by
-      LEFT JOIN sales s ON s.id = r.sale_id
-      WHERE r.user_id = ANY(
-        SELECT id FROM users
-        WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = ${uid})
-      )
-      ORDER BY r.created_at DESC
-      LIMIT 10000
-    `);
+    const refundRows = await getBirRefundTrailRows(uid);
 
     const headers = [
       "Refund ID", "Sale ID", "OR Number", "Receipt Number",
       "Refund Amount", "Original Total", "Reason", "Processed At", "Processed By"
     ];
 
-    const csvRows = (rows.rows as any[]).map(r => [
-      `REF-${String(r.id).padStart(4, "0")}`,
-      `TXN-${String(r.sale_id).padStart(4, "0")}`,
-      r.or_number || "",
-      r.receipt_number || "",
-      parseFloat(r.amount || "0").toFixed(2),
-      parseFloat(r.sale_total || "0").toFixed(2),
-      r.reason || "",
-      r.created_at ? new Date(r.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : "",
-      r.processed_by_name || ""
-    ]);
+    const csvRows = refundRows.map(_r => {
+      const r = _r as Record<string, any>;
+      return [
+        `REF-${String(r.id).padStart(4, "0")}`,
+        `TXN-${String(r.sale_id).padStart(4, "0")}`,
+        r.or_number || "",
+        r.receipt_number || "",
+        parseFloat(r.amount || "0").toFixed(2),
+        parseFloat(r.sale_total || "0").toFixed(2),
+        r.reason || "",
+        r.created_at ? new Date(String(r.created_at)).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : "",
+        r.processed_by_name || "",
+      ];
+    });
 
     const csv = [
       headers.join(","),

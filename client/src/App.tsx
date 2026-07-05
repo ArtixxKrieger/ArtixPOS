@@ -518,8 +518,7 @@ function PinSessionApp() {
     setClockingOut(true);
     try {
       await apiRequest("POST", "/api/staff-pin/clockout");
-    } catch {
-    }
+    } catch {}
     queryClient.cancelQueries();
     queryClient.removeQueries({ predicate: (q) => (q.queryKey[0] as string) !== "auth-me" });
     await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
@@ -715,10 +714,12 @@ function Router() {
 
 function useGlobalDarkMode() {
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const stored = localStorage.getItem("theme");
-    const isDark = stored === "dark" || (!stored && mq.matches);
-    document.documentElement.classList.toggle("dark", isDark);
+    let unsub: (() => void) | undefined;
+    import("@/lib/theme").then(({ syncTheme, watchSystemTheme }) => {
+      syncTheme();
+      unsub = watchSystemTheme();
+    });
+    return () => unsub?.();
   }, []);
 }
 

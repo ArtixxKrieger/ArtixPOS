@@ -67,6 +67,7 @@ export const Products = lazyWithRetry(() => import("@/pages/products"));
 export const Analytics = lazyWithRetry(() => import("@/pages/analytics"));
 export const PendingOrders = lazyWithRetry(() => import("@/pages/pending-orders"));
 export const Settings = lazyWithRetry(() => import("@/pages/settings"));
+export const NotificationPreferences = lazyWithRetry(() => import("@/pages/notification-preferences"));
 export const Transactions = lazyWithRetry(() => import("@/pages/transactions"));
 export const AdminIndex = lazyWithRetry(() => import("@/pages/admin/index"));
 export const AdminBranches = lazyWithRetry(() => import("@/pages/admin/branches"));

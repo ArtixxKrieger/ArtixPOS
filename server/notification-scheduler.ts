@@ -45,7 +45,7 @@ async function checkOverduePurchaseOrders(): Promise<void> {
         body: `${supplierName} hasn't delivered PO #${po.id} yet (expected ${new Date(po.expectedDeliveryAt!).toLocaleDateString()}).`,
         tag: `po-overdue-${po.id}`,
         url: "/purchases",
-      }).catch(() => {});
+      }, "poOverdueAlerts").catch(() => {});
 
       await db.update(purchaseOrders)
         .set({ overdueAlertedAt: new Date().toISOString() } as any)
@@ -118,7 +118,7 @@ async function checkExpiringProducts(): Promise<void> {
           : `${product.name} expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.`,
         tag: `expiry-${product.id}`,
         url: "/expiry",
-      }).catch(() => {});
+      }, "productExpiryAlerts").catch(() => {});
 
       await db.update(products)
         .set({ expiryAlertedAt: new Date().toISOString() } as any)
@@ -150,7 +150,7 @@ async function checkOfflineBranches(): Promise<void> {
         body: `No activity from this branch in over ${Math.round(BRANCH_OFFLINE_AFTER_MS / 60000)} minutes. Check its connection.`,
         tag: `branch-offline-${branch.id}`,
         url: "/admin/branches",
-      }).catch(() => {});
+      }, "branchOfflineAlerts").catch(() => {});
 
       await db.update(branches)
         .set({ offlineAlertedAt: new Date().toISOString() } as any)

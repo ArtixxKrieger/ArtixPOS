@@ -297,8 +297,16 @@ await client.query(`
     const isConcurrentUpdate =
       err?.code === "XX000" ||
       (typeof err?.message === "string" && err.message.includes("tuple concurrently updated"));
+    // Lock timeout (55P03) can happen if another dev process (e.g. hot-reload
+    // restart) is mid-way through applying the same idempotent policies.
+    // Non-fatal for the same reason as the concurrent-update race above.
+    const isLockTimeout =
+      err?.code === "55P03" ||
+      (typeof err?.message === "string" && err.message.includes("lock timeout"));
     if (isConcurrentUpdate) {
       console.warn("[rls] ⚠  setupRLS skipped: tuple concurrently updated");
+    } else if (isLockTimeout) {
+      console.warn("[rls] ⚠  setupRLS skipped: lock timeout (another process is applying policies)");
     } else {
       console.error("[rls] ✗ Failed to apply RLS policies:", err);
       throw err;

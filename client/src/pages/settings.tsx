@@ -1154,6 +1154,22 @@ export default function Settings() {
             </p>
           </div>
         )}
+        <button
+          onClick={() => setLocation("/settings/notifications")}
+          data-testid="button-notification-preferences"
+          className="w-full flex items-center gap-3 py-3 text-sm hover:bg-muted/30 transition-colors -mx-4 px-4"
+        >
+          <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+            <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          <div className="text-left flex-1">
+            <p className="text-sm font-medium">Notification Preferences</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Choose which alert categories you receive
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        </button>
       </div>
 
       <SectionLabel icon={Shield}>Account</SectionLabel>

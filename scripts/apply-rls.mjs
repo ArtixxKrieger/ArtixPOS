@@ -28,6 +28,32 @@ const pool = new Pool({
   connectionTimeoutMillis: 15_000,
 });
 
+// Production tables (sales, products, etc.) can be under active write load
+// during a deploy. ALTER TABLE / CREATE POLICY need a brief exclusive lock,
+// so a busy table can occasionally blow through lock_timeout. Retry with a
+// growing lock_timeout + backoff instead of failing the whole build on one
+// contended table.
+const LOCK_TIMEOUT_ERROR_CODE = "55P03"; // lock_not_available
+
+async function queryWithRetry(client, sql, { attempts = 4 } = {}) {
+  const lockTimeouts = ["15s", "30s", "60s", "90s"];
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await client.query(`SET lock_timeout = '${lockTimeouts[Math.min(i, lockTimeouts.length - 1)]}'`);
+      return await client.query(sql);
+    } catch (err) {
+      const isLockTimeout =
+        err?.code === LOCK_TIMEOUT_ERROR_CODE ||
+        (typeof err?.message === "string" && err.message.includes("lock timeout"));
+      const isLastAttempt = i === attempts - 1;
+      if (!isLockTimeout || isLastAttempt) throw err;
+      const delayMs = 2_000 * (i + 1);
+      console.warn(`[rls]   ⚠  lock timeout, retrying in ${delayMs / 1000}s (attempt ${i + 2}/${attempts})…`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function run() {
   const client = await pool.connect();
   try {
@@ -88,7 +114,7 @@ async function run() {
       "tenant_subscriptions",
       "subscription_payments",
     ]) {
-      await client.query(`
+      await queryWithRetry(client, `
         ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY;
         ALTER TABLE public.${t} FORCE  ROW LEVEL SECURITY;
         DROP POLICY IF EXISTS tenant_isolation ON public.${t};
@@ -134,10 +160,10 @@ async function run() {
       "user_settings",
     ]) {
       console.log(`[rls]   → ${t}`);
-      await client.query(`ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`);
-      await client.query(`ALTER TABLE public.${t} FORCE  ROW LEVEL SECURITY`);
-      await client.query(`DROP POLICY IF EXISTS tenant_isolation ON public.${t}`);
-      await client.query(`
+      await queryWithRetry(client, `ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`);
+      await queryWithRetry(client, `ALTER TABLE public.${t} FORCE  ROW LEVEL SECURITY`);
+      await queryWithRetry(client, `DROP POLICY IF EXISTS tenant_isolation ON public.${t}`);
+      await queryWithRetry(client, `
         CREATE POLICY tenant_isolation ON public.${t}
           USING  (user_id IN (SELECT public.current_tenant_user_ids()))
           WITH CHECK (user_id IN (SELECT public.current_tenant_user_ids()))
@@ -147,7 +173,7 @@ async function run() {
     // ── 5. Group C — child tables (FORCE RLS) ─────────────────────────────
     console.log("[rls] 5/9 — Group C: child tables");
     for (const t of ["product_sizes", "product_modifiers", "product_recipes"]) {
-      await client.query(`
+      await queryWithRetry(client, `
         ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY;
         ALTER TABLE public.${t} FORCE  ROW LEVEL SECURITY;
         DROP POLICY IF EXISTS tenant_isolation ON public.${t};
@@ -156,7 +182,7 @@ async function run() {
           WITH CHECK (product_id IN (SELECT id FROM public.products WHERE user_id IN (SELECT public.current_tenant_user_ids())));
       `);
     }
-    await client.query(`
+    await queryWithRetry(client, `
       ALTER TABLE public.purchase_order_items ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.purchase_order_items FORCE  ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation ON public.purchase_order_items;
@@ -188,7 +214,7 @@ async function run() {
 
     // ── 6. users (RLS on, NOT forced) ─────────────────────────────────────
     console.log("[rls] 6/9 — users");
-    await client.query(`
+    await queryWithRetry(client, `
       ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation ON public.users;
       CREATE POLICY tenant_isolation ON public.users
@@ -198,7 +224,7 @@ async function run() {
 
     // ── 7. tenants (RLS on, NOT forced) ───────────────────────────────────
     console.log("[rls] 7/9 — tenants");
-    await client.query(`
+    await queryWithRetry(client, `
       ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation ON public.tenants;
       CREATE POLICY tenant_isolation ON public.tenants
@@ -208,7 +234,7 @@ async function run() {
 
     // ── 8. revoked_tokens (RLS on, NOT forced) ────────────────────────────
     console.log("[rls] 8/9 — revoked_tokens");
-    await client.query(`
+    await queryWithRetry(client, `
       ALTER TABLE public.revoked_tokens ENABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation ON public.revoked_tokens;
       CREATE POLICY tenant_isolation ON public.revoked_tokens

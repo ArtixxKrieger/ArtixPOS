@@ -31,6 +31,7 @@ import {
   Analytics,
   PendingOrders,
   Settings,
+  NotificationPreferences,
   KitchenDisplayPage,
   TimeClockPage,
   Onboarding,
@@ -441,6 +442,11 @@ function AppRouter() {
           <Settings />
         </Suspense>
       </PersistentRoute>
+      <Route path="/settings/notifications">
+        <Suspense fallback={pageFallback}>
+          <NotificationPreferences />
+        </Suspense>
+      </Route>
       <PersistentRoute path="/analytics" currentPath={location}>
         <Suspense fallback={pageFallback}>
           <CashierGuard component={Analytics} />

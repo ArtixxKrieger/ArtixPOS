@@ -273,7 +273,7 @@ export async function deductProductStockForSale(userId: string, items: any[]): P
             body: message,
             tag: `stock-${product.id}`,
             url: "/products",
-          });
+          }, "lowStockAlerts");
         } catch {}
       });
     }

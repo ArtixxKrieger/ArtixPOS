@@ -36,6 +36,20 @@ export const PRO_POS_FEATURE_KEYS: (keyof PosFeatures)[] = [
   "loyalty",
 ];
 
+export type NotificationPreferences = {
+  poOverdueAlerts: boolean;
+  productExpiryAlerts: boolean;
+  branchOfflineAlerts: boolean;
+  lowStockAlerts: boolean;
+};
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  poOverdueAlerts: true,
+  productExpiryAlerts: true,
+  branchOfflineAlerts: true,
+  lowStockAlerts: true,
+};
+
 export const DEFAULT_POS_FEATURES: PosFeatures = {
   setupComplete: false,
   takeout: true,
@@ -493,6 +507,7 @@ mikrotikEnabled: integer("mikrotik_enabled").default(0),
   mikrotikUseSsl: integer("mikrotik_use_ssl").default(0),
   country: text("country"),
   posFeatures: jsonb("pos_features").$type<PosFeatures>(),
+  notificationPreferences: jsonb("notification_preferences").$type<NotificationPreferences>(),
 
   tin: text("tin"),
   ptuNumber: text("ptu_number"),
@@ -1147,6 +1162,15 @@ export const insertUserSettingSchema = z.object({
       kitchenDisplay: z.boolean(),
       splitBill: z.boolean(),
       loyalty: z.boolean(),
+    })
+    .optional()
+    .nullable(),
+  notificationPreferences: z
+    .object({
+      poOverdueAlerts: z.boolean(),
+      productExpiryAlerts: z.boolean(),
+      branchOfflineAlerts: z.boolean(),
+      lowStockAlerts: z.boolean(),
     })
     .optional()
     .nullable(),

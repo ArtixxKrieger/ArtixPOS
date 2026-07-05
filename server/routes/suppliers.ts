@@ -121,6 +121,22 @@ export function registerPurchaseOrderRoutes(app: Express): void {
     await auditLog(req, "receive", "purchase_order", String(po.id), {
       totalAmount: po.totalAmount,
     });
+
+    const tid = (req.user as any)?.tenantId as string | null;
+    if (tid) {
+      setImmediate(async () => {
+        try {
+          const { sendPushToTenant } = await import("../push");
+          await sendPushToTenant(tid, {
+            title: `📦 Delivery received: PO #${po.id}`,
+            body: `Stock has been added to inventory (total ${po.totalAmount}).`,
+            tag: `po-received-${po.id}`,
+            url: "/purchases",
+          });
+        } catch {}
+      });
+    }
+
     res.json(po);
   });
 

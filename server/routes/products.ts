@@ -184,6 +184,37 @@ export function registerProductRoutes(app: Express): void {
         auditMeta.newPrice = product.price;
       }
       await auditLog(req, "update", "product", String(product.id), auditMeta);
+
+      if (
+        existing &&
+        input.price !== undefined &&
+        existing.price !== product.price
+      ) {
+        const oldPrice = parseFloat(existing.price || "0");
+        const newPrice = parseFloat(product.price || "0");
+        if (oldPrice > 0) {
+          const pctChange = ((newPrice - oldPrice) / oldPrice) * 100;
+          const PRICE_ALERT_THRESHOLD_PCT = 30;
+          if (Math.abs(pctChange) >= PRICE_ALERT_THRESHOLD_PCT) {
+            const tid = (req.user as any)?.tenantId as string | null;
+            if (tid) {
+              setImmediate(async () => {
+                try {
+                  const { sendPushToTenant } = await import("../push");
+                  const direction = pctChange > 0 ? "up" : "down";
+                  await sendPushToTenant(tid, {
+                    title: `⚠️ Unusual price change: ${product.name}`,
+                    body: `Price moved ${direction} ${Math.abs(Math.round(pctChange))}% (${oldPrice.toFixed(2)} → ${newPrice.toFixed(2)}).`,
+                    tag: `price-${product.id}`,
+                    url: "/products",
+                  });
+                } catch {}
+              });
+            }
+          }
+        }
+      }
+
       res.json(product);
     } catch (err) {
       if (!handleZodError(err, res)) throw err;

@@ -27,6 +27,7 @@ import { setupRLS } from "./rls-setup";
 import { logEmailTransportStatus, startEmailDlqPoller } from "./email";
 import { pool } from "./db";
 import { startCleanupScheduler } from "./cleanup";
+import { startNotificationScheduler } from "./notification-scheduler";
 import { ensurePartitions } from "./partition-manager";
 import { storage } from "./storage";
 import { getAdapter, parseRouterConfig } from "./routers/factory";
@@ -509,6 +510,7 @@ const dbUrl = process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_U
     warmCache().catch(() => {});
     if (!isServerless) {
       startCleanupScheduler();
+      startNotificationScheduler();
     }
 
     if (!isServerless) {

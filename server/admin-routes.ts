@@ -44,6 +44,7 @@ import {
   getRolePermissionForRole,
   getDeletedUsers,
   restoreDeletedUser,
+  recordBranchHeartbeat,
 } from "./admin-storage";
 import { bannedUserIds } from "./auth";
 import { bruteForceGuard, recordFailedAttempt, recordSuccessfulLogin } from "./brute-force";
@@ -790,6 +791,23 @@ export function registerAdminRoutes(app: Express) {
           entityId: String(id),
         });
         res.status(204).end();
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  app.post(
+    "/api/admin/branches/:id/heartbeat",
+    requireAuth,
+    requireTenant,
+    async (req, res, next) => {
+      try {
+        const user = getAuthUser(req);
+        const id = Number(req.params.id);
+        const branch = await recordBranchHeartbeat(id, user.tenantId!);
+        if (!branch) return res.status(404).json({ message: "Branch not found" });
+        res.json({ ok: true, lastHeartbeatAt: branch.lastHeartbeatAt });
       } catch (err) {
         next(err);
       }

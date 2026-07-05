@@ -168,21 +168,9 @@ export function registerPendingOrderRoutes(app: Express): void {
           orderNumber: (order as any).orderNumber ?? null,
           itemCount: Array.isArray(input.items) ? input.items.length : 0,
         });
-        const itemCount = Array.isArray(input.items) ? input.items.length : 1;
-        const orderLabel = (order as any).orderNumber
-          ? `#${(order as any).orderNumber}`
-          : `#${order.id}`;
-        setImmediate(async () => {
-          try {
-            const { sendPushToTenant } = await import("../push");
-            await sendPushToTenant(tid, {
-              title: `🍽️ New Order ${orderLabel}`,
-              body: `${itemCount} item${itemCount !== 1 ? "s" : ""} waiting in the kitchen.`,
-              tag: `order-${order.id}`,
-              url: "/kitchen",
-            });
-          } catch {}
-        });
+        // Push notifications for every new order were removed — too noisy
+        // for the owner. The kitchen display still gets a live update via
+        // the SSE event above.
       }
 
       const responseBody = {

@@ -69,6 +69,8 @@ export const branches = pgTable("branches", {
 
   businessType: text("business_type"),
   businessSubType: text("business_sub_type"),
+  lastHeartbeatAt: text("last_heartbeat_at"),
+  offlineAlertedAt: text("offline_alerted_at"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -172,6 +174,7 @@ export const products = pgTable("products", {
   batchNumber: text("batch_number"),
   requiresPrescription: boolean("requires_prescription").default(false),
   genericName: text("generic_name"),
+  expiryAlertedAt: text("expiry_alerted_at"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -231,6 +234,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   expectedDeliveryAt: text("expected_delivery_at"),
   orderedAt: text("ordered_at").$defaultFn(() => new Date().toISOString()),
   receivedAt: text("received_at"),
+  overdueAlertedAt: text("overdue_alerted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

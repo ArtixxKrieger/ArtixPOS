@@ -45,3 +45,28 @@ export function isEssentialBusinessUrl(
 ): boolean {
   return getEssentialBusinessUrls(businessType, businessSubType).has(url);
 }
+
+const EXPIRY_TRACKING_RETAIL_SUBTYPES = new Set([
+  "pharmacy",
+  "drugstore",
+  "grocery",
+  "grocery_enhanced",
+  "perishable_goods",
+]);
+
+/**
+ * Whether this business type/sub-type tracks product expiry dates
+ * (pharmacies, groceries, and food & beverage businesses). Used to decide
+ * whether to run expiry-related alerts (e.g. "product expiring soon" push
+ * notifications) — irrelevant for services like salons or hotels.
+ */
+export function isExpiryTrackingBusiness(
+  businessType?: string | null,
+  businessSubType?: string | null,
+): boolean {
+  if (businessType === "food_beverage") return true;
+  if (businessType === "retail") {
+    return EXPIRY_TRACKING_RETAIL_SUBTYPES.has(businessSubType ?? "");
+  }
+  return false;
+}

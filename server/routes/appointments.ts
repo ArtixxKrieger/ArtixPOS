@@ -46,23 +46,9 @@ export function registerAppointmentRoutes(app: Express): void {
       const appt = await storage.createAppointment(uid, input);
       await auditLog(req, "create", "appointment", String(appt.id), { title: appt.title, customerId: appt.customerId });
 
-      const tenantId = (req.user as any)?.tenantId as string | null;
-      if (tenantId) {
-        setImmediate(async () => {
-          try {
-            const { sendPushToTenant } = await import("../push");
-            const timeStr = appt.startTime
-              ? new Date(appt.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-              : "";
-            await sendPushToTenant(tenantId, {
-              title: `📅 New Appointment: ${appt.title ?? "Untitled"}`,
-              body:  timeStr ? `Scheduled for ${timeStr}` : "A new appointment has been booked.",
-              tag:   `appt-${appt.id}`,
-              url:   "/appointments",
-            });
-          } catch {}
-        });
-      }
+      // Push notifications for every new appointment were removed — too
+      // noisy for the owner. Appointments still show up live in the
+      // appointments list.
 
       res.status(201).json(appt);
     } catch (err) {

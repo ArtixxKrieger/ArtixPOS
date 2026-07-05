@@ -69,6 +69,15 @@ export async function updateBranch(id: number, tenantId: string, data: Partial<{
   return branch;
 }
 
+export async function recordBranchHeartbeat(id: number, tenantId: string): Promise<Branch | undefined> {
+  const now = new Date().toISOString();
+  const [branch] = await db.update(branches)
+    .set({ lastHeartbeatAt: now, offlineAlertedAt: null } as any)
+    .where(and(eq(branches.id, id), eq(branches.tenantId, tenantId)))
+    .returning();
+  return branch;
+}
+
 export async function deleteBranch(id: number, tenantId: string): Promise<void> {
   await db.delete(userBranches).where(eq(userBranches.branchId, id));
   await db.update(branches)

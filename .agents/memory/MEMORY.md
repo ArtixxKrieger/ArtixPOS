@@ -12,3 +12,4 @@
 - [Clean Architecture layout](clean-arch-layout.md) — storage layer split into domain/repositories (interfaces), application/use-cases (business rules), infrastructure/persistence (Drizzle implementations); server/storage/ is now a thin re-export shim only.
 - [Subscription cache](subscription-cache.md) — 30s in-process TTL cache for getSubscription(); all write paths in subscription-routes.ts call invalidateSubscriptionCache(); per-process only, Redis migration is a follow-up.
 - [DB encapsulation — route layer](db-encapsulation-routes.md) — all route files are now db-free; persistence layer is the only place Drizzle runs; key pitfalls documented.
+- [Push notification scheduler design](push-notification-scheduler.md) — proactive alerts use a polling scheduler + dedup `*AlertedAt` flags, not per-event pushes; branch online state is client-reported via heartbeat.

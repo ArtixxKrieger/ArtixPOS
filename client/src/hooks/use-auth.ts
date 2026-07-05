@@ -181,6 +181,33 @@ export function useAuth() {
     setErrorCaptureUser(u?.id ?? null);
   }, [u?.id]);
 
+  // Periodically ping the server so the branch is known to be online.
+  // Powers "branch offline" push alerts for owners/admins.
+  useEffect(() => {
+    const branchId = u?.activeBranchId;
+    if (!branchId) return;
+
+    const sendHeartbeat = () => {
+      if (!navigator.onLine) return;
+      nativeFetch(`/api/admin/branches/${branchId}/heartbeat`, {
+        method: "POST",
+      }).catch(() => {});
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 5 * 60 * 1000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") sendHeartbeat();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [u?.activeBranchId]);
+
   return {
     user: u,
     isLoading,

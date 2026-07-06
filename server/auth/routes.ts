@@ -414,7 +414,7 @@ export function setupAuth(app: Express) {
         activeBranchId: (created as any).activeBranchId ?? null,
         emailVerified: true,
       };
-      const registerToken = setAuthCookie(res, registerUser, true);
+      const registerToken = setAuthCookie(res, registerUser);
       logAuthEvent({
         userId: created.id,
         tenantId: (created as any).tenantId ?? null,
@@ -491,7 +491,7 @@ export function setupAuth(app: Express) {
         role: user.role ?? "owner",
         activeBranchId: (user as any).activeBranchId ?? null,
         emailVerified: true,
-      }, true);
+      });
 
       logAuthEvent({
         userId: user.id,

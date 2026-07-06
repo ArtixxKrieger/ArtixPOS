@@ -219,7 +219,7 @@ if ((input as any).posFeatures && typeof (input as any).posFeatures === "object"
             if (currentTenantId) {
               const updatedUser = { ...user, tenantId: currentTenantId };
               try {
-                setAuthCookie(res, updatedUser, req.tokenRem ?? false);
+                setAuthCookie(res, updatedUser);
               } catch (cookieErr) {
                 console.error("[onboarding] Failed to re-issue auth cookie:", cookieErr);
               }

@@ -23,9 +23,6 @@ interface User {
 
       tokenExp?: number | null;
 
-      /** Whether the current session was issued with "remember me" (rem claim). */
-      tokenRem?: boolean;
-
       _csrfToken?: string;
 
       requestId?: string;

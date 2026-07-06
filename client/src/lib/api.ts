@@ -13,24 +13,12 @@ export function resolveUrl(url: string): string {
   return url;
 }
 
-/**
- * Store the Bearer token.
- * persistent=true  → localStorage  (survives browser close; used when "remember this device" is checked)
- * persistent=false → sessionStorage (cleared when the tab/browser closes; used otherwise)
- */
-export function setNativeToken(token: string, persistent = true) {
-  if (persistent) {
-    localStorage.setItem(NATIVE_TOKEN_KEY, token);
-    sessionStorage.removeItem(NATIVE_TOKEN_KEY);
-  } else {
-    sessionStorage.setItem(NATIVE_TOKEN_KEY, token);
-    localStorage.removeItem(NATIVE_TOKEN_KEY);
-  }
+export function setNativeToken(token: string) {
+  localStorage.setItem(NATIVE_TOKEN_KEY, token);
 }
 
 export function clearNativeToken() {
   localStorage.removeItem(NATIVE_TOKEN_KEY);
-  sessionStorage.removeItem(NATIVE_TOKEN_KEY);
 }
 
 export function getNativeToken(): string | null {

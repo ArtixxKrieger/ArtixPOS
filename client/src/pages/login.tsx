@@ -330,6 +330,20 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  // Load saved credentials on mount so the form is pre-filled when
+  // the user returns after signing out with "Remember this device" checked.
+  const REMEMBER_ME_CREDS_KEY = "artixpos_remember_me_creds";
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REMEMBER_ME_CREDS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { email: string; password: string };
+      if (saved.email) setFormEmail(saved.email);
+      if (saved.password) setFormPassword(saved.password);
+      setRememberMe(true);
+    } catch {}
+  }, []);
+
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -679,10 +693,20 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        // Store token first so all subsequent requests in this session are authenticated.
-        // persistent=rememberMe: localStorage when remembered, sessionStorage otherwise,
-        // so closing the browser clears the session when "remember this device" is unchecked.
-        if (data.token) setNativeToken(data.token, mode === "signin" ? rememberMe : true);
+        // Save or clear credentials based on "Remember this device"
+        if (mode === "signin") {
+          if (rememberMe) {
+            localStorage.setItem(
+              REMEMBER_ME_CREDS_KEY,
+              JSON.stringify({ email: formEmail, password: formPassword }),
+            );
+          } else {
+            localStorage.removeItem(REMEMBER_ME_CREDS_KEY);
+          }
+        }
+
+        // Store token first so all subsequent requests in this session are authenticated
+        if (data.token) setNativeToken(data.token);
 
         // Before redirecting, fetch the full user (includes activeBranch color) and
         // warm the critical data cache in parallel. When the page reloads the

@@ -200,6 +200,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
 
       req.tokenJti = payload.jti ?? null;
       req.tokenExp = payload.exp ?? null;
+      req.tokenRem = payload.rem === true;
       if (req.path.startsWith("/api/")) {
         updateLastSeen(payload.id).catch(() => {});
       }

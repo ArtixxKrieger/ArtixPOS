@@ -4,6 +4,7 @@ import {
   nativeFetch,
   clearNativeToken,
   getNativeToken,
+  setNativeToken,
   setAuthenticatedUserId,
   queryClient,
   performLogout,
@@ -112,6 +113,12 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     }
     const data = await res.json();
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
+    // If the server silently rotated the token (rem=true session nearing expiry),
+    // store the fresh token so the Bearer header stays valid for another 90 days.
+    if (data.token) {
+      setNativeToken(data.token);
+      debugLog("auth", "fetchMe — rotated token stored");
+    }
     const authUser: AuthUser | null = data.user ?? null;
     saveCachedAuthUser(authUser);
     return authUser;

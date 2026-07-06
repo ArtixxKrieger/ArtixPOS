@@ -23,6 +23,9 @@ interface User {
 
       tokenExp?: number | null;
 
+      /** true when the session JWT carries rem=true ("remember this device"). */
+      tokenRem?: boolean;
+
       _csrfToken?: string;
 
       requestId?: string;

@@ -1051,7 +1051,43 @@ export function setupAuth(app: Express) {
       console.warn("[auth/me] active branch lookup failed:", (err as Error).message);
     }
 
+    // Silent token rotation for "remember this device" sessions.
+    // If the token was issued with rem=true and expires within 30 days,
+    // issue a fresh 90-day token so the user stays logged in indefinitely
+    // as long as they open the app at least once every 60 days.
+    let rotatedToken: string | undefined;
+    if (req.tokenRem && req.tokenExp) {
+      const secsUntilExpiry = req.tokenExp - Math.floor(Date.now() / 1000);
+      const thirtyDaysInSecs = 30 * 24 * 60 * 60;
+      if (secsUntilExpiry < thirtyDaysInSecs) {
+        try {
+          rotatedToken = setAuthCookie(res, {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            avatar: u.avatar,
+            provider: u.provider,
+            tenantId: liveTenantId,
+            role: liveRole,
+            activeBranchId: liveActiveBranchId,
+            emailVerified: liveEmailVerified,
+          }, true);
+          // Revoke the old token so it can't be reused
+          if (req.tokenJti && req.tokenExp) {
+            revokeToken(
+              req.tokenJti,
+              u.id,
+              new Date(req.tokenExp * 1000).toISOString(),
+            ).catch(() => {});
+          }
+        } catch (err) {
+          console.warn("[auth/me] token rotation failed:", (err as Error).message);
+        }
+      }
+    }
+
     res.json({
+      ...(rotatedToken ? { token: rotatedToken } : {}),
       user: {
         id: u.id,
         name: u.name,

@@ -330,16 +330,18 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Load saved credentials on mount so the form is pre-filled when
-  // the user returns after signing out with "Remember this device" checked.
-  const REMEMBER_ME_CREDS_KEY = "artixpos_remember_me_creds";
+  // Load saved email on mount so the form is pre-filled when the user
+  // returns after signing out with "Remember this device" checked.
+  // Only the email is persisted — the password is intentionally NOT stored
+  // in localStorage (plaintext storage is trivially readable by XSS/extensions).
+  // The browser's own encrypted password manager handles password autofill
+  // via the autocomplete="current-password" attribute on the password input.
+  const REMEMBER_ME_KEY = "artixpos_remember_me_email";
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(REMEMBER_ME_CREDS_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { email: string; password: string };
-      if (saved.email) setFormEmail(saved.email);
-      if (saved.password) setFormPassword(saved.password);
+      const savedEmail = localStorage.getItem(REMEMBER_ME_KEY);
+      if (!savedEmail) return;
+      setFormEmail(savedEmail);
       setRememberMe(true);
     } catch {}
   }, []);
@@ -693,15 +695,13 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        // Save or clear credentials based on "Remember this device"
+        // Save or clear the remembered email based on "Remember this device".
+        // Password is never stored — the browser's password manager handles that.
         if (mode === "signin") {
           if (rememberMe) {
-            localStorage.setItem(
-              REMEMBER_ME_CREDS_KEY,
-              JSON.stringify({ email: formEmail, password: formPassword }),
-            );
+            localStorage.setItem(REMEMBER_ME_KEY, formEmail);
           } else {
-            localStorage.removeItem(REMEMBER_ME_CREDS_KEY);
+            localStorage.removeItem(REMEMBER_ME_KEY);
           }
         }
 

@@ -346,6 +346,13 @@ export default function Login() {
     } catch {}
   }, []);
 
+  const LAST_LOGIN_METHOD_KEY = "artixpos_last_login_method";
+  const [lastLoginMethod, setLastLoginMethod] = useState<"google" | "email" | null>(null);
+  useEffect(() => {
+    const saved = localStorage.getItem(LAST_LOGIN_METHOD_KEY) as "google" | "email" | null;
+    if (saved === "google" || saved === "email") setLastLoginMethod(saved);
+  }, []);
+
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -623,6 +630,7 @@ export default function Login() {
       const token = await nativeGoogleSignIn();
       await queryClient.cancelQueries();
       setNativeToken(token);
+      localStorage.setItem(LAST_LOGIN_METHOD_KEY, "google");
       const userFromToken = decodeTokenUser(token);
       if (userFromToken) queryClient.setQueryData(["auth-me"], userFromToken);
       else await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
@@ -647,6 +655,7 @@ export default function Login() {
       const data = event.data;
       if (!data || typeof data !== "object") return;
       if (data.type === "google-auth-ok") {
+        localStorage.setItem(LAST_LOGIN_METHOD_KEY, "google");
         queryClient.invalidateQueries({ queryKey: ["auth-me"] });
         setSigningIn(false);
       } else if (data.type === "google-auth-error") {
@@ -703,6 +712,7 @@ export default function Login() {
           } else {
             localStorage.removeItem(REMEMBER_ME_KEY);
           }
+          localStorage.setItem(LAST_LOGIN_METHOD_KEY, "email");
         }
 
         // Store token first so all subsequent requests in this session are authenticated
@@ -1222,6 +1232,23 @@ export default function Login() {
           <span style={{ flex: 1, textAlign: "center" }}>
             {signingIn ? t("login.signingInGoogle") : t("login.continueWithGoogle")}
           </span>
+          {mode === "signin" && lastLoginMethod === "google" && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "2px 7px",
+                borderRadius: 20,
+                background: "rgba(34,197,94,0.15)",
+                color: "#4ade80",
+                border: "1px solid rgba(34,197,94,0.25)",
+                whiteSpace: "nowrap",
+                letterSpacing: 0.2,
+              }}
+            >
+              Last used
+            </span>
+          )}
         </button>
       </div>
 
@@ -1242,9 +1269,28 @@ export default function Login() {
             fontWeight: 500,
             color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.30)",
             whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
           {mode === "register" ? t("login.orCreateEmail") : t("login.orSignInEmail")}
+          {mode === "signin" && lastLoginMethod === "email" && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "2px 7px",
+                borderRadius: 20,
+                background: "rgba(34,197,94,0.15)",
+                color: "#4ade80",
+                border: "1px solid rgba(34,197,94,0.25)",
+                letterSpacing: 0.2,
+              }}
+            >
+              Last used
+            </span>
+          )}
         </span>
         <div
           style={{

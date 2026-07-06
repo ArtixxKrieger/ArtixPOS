@@ -5,6 +5,7 @@ export {
   resolveUrl,
   setNativeToken,
   clearNativeToken,
+  getNativeToken,
   getCsrfHeaders,
   getCredentials,
   nativeFetch,

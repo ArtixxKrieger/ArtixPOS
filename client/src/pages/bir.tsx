@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NATIVE_TOKEN_KEY, nativeFetch } from "@/lib/queryClient";
+import { getNativeToken, nativeFetch } from "@/lib/queryClient";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, addYears, differenceInDays, startOfMonth, subMonths } from "date-fns";
@@ -227,7 +227,7 @@ const accreditationExpiry = useMemo(() => {
   }
 
   function downloadEsales() {
-    const token = localStorage.getItem(NATIVE_TOKEN_KEY) || "";
+    const token = getNativeToken() || "";
     const url = `/api/bir/esales-export?month=${selectedMonth}`;
     const a = document.createElement("a");
     a.href = url;

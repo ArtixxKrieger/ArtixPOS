@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { queryClient, NATIVE_TOKEN_KEY } from "@/lib/queryClient";
+import { queryClient, getNativeToken } from "@/lib/queryClient";
 
 function getToken(): string {
-  return localStorage.getItem(NATIVE_TOKEN_KEY) ?? "";
+  return getNativeToken() ?? "";
 }
 
 export function useSseAlerts(): { connected: boolean } {

@@ -139,10 +139,11 @@ export function signToken(user: TokenUser, rememberMe = false): string {
 
 export function setAuthCookie(res: Response, user: TokenUser, rememberMe = false): string {
   const token = signToken(user, rememberMe);
-  const maxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
   res.cookie(AUTH_COOKIE, token, {
     ...AUTH_COOKIE_OPTIONS,
-    maxAge,
+    // rememberMe → persistent 90-day cookie; otherwise a session cookie
+    // (no maxAge / expires) so the browser clears it when it closes.
+    ...(rememberMe ? { maxAge: 90 * 24 * 60 * 60 * 1000 } : {}),
   });
   return token;
 }
@@ -200,6 +201,7 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
 
       req.tokenJti = payload.jti ?? null;
       req.tokenExp = payload.exp ?? null;
+      req.tokenRem = payload.rem === true;
       if (req.path.startsWith("/api/")) {
         updateLastSeen(payload.id).catch(() => {});
       }

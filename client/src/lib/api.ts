@@ -13,21 +13,37 @@ export function resolveUrl(url: string): string {
   return url;
 }
 
-export function setNativeToken(token: string) {
-  localStorage.setItem(NATIVE_TOKEN_KEY, token);
+/**
+ * Store the Bearer token.
+ * persistent=true  → localStorage  (survives browser close; used when "remember this device" is checked)
+ * persistent=false → sessionStorage (cleared when the tab/browser closes; used otherwise)
+ */
+export function setNativeToken(token: string, persistent = true) {
+  if (persistent) {
+    localStorage.setItem(NATIVE_TOKEN_KEY, token);
+    sessionStorage.removeItem(NATIVE_TOKEN_KEY);
+  } else {
+    sessionStorage.setItem(NATIVE_TOKEN_KEY, token);
+    localStorage.removeItem(NATIVE_TOKEN_KEY);
+  }
 }
 
 export function clearNativeToken() {
   localStorage.removeItem(NATIVE_TOKEN_KEY);
+  sessionStorage.removeItem(NATIVE_TOKEN_KEY);
+}
+
+export function getNativeToken(): string | null {
+  return localStorage.getItem(NATIVE_TOKEN_KEY) ?? sessionStorage.getItem(NATIVE_TOKEN_KEY);
 }
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem(NATIVE_TOKEN_KEY);
+  const token = getNativeToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export function getCredentials(): "include" | "omit" {
-  return API_BASE || localStorage.getItem(NATIVE_TOKEN_KEY) ? "omit" : "include";
+  return API_BASE || getNativeToken() ? "omit" : "include";
 }
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
@@ -241,7 +257,7 @@ export async function performLogout(): Promise<Response> {
   // invite redemption, or native OAuth). nativeFetch() would omit the
   // cookie whenever a Bearer token exists, and a plain fetch() would omit
   // the Authorization header — either way leaves one session un-revoked.
-  const token = localStorage.getItem(NATIVE_TOKEN_KEY);
+  const token = getNativeToken();
   return fetch(resolveUrl("/auth/logout"), {
     method: "POST",
     credentials: "include",

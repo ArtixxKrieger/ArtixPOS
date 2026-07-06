@@ -679,8 +679,10 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        // Store token first so all subsequent requests in this session are authenticated
-        if (data.token) setNativeToken(data.token);
+        // Store token first so all subsequent requests in this session are authenticated.
+        // persistent=rememberMe: localStorage when remembered, sessionStorage otherwise,
+        // so closing the browser clears the session when "remember this device" is unchecked.
+        if (data.token) setNativeToken(data.token, mode === "signin" ? rememberMe : true);
 
         // Before redirecting, fetch the full user (includes activeBranch color) and
         // warm the critical data cache in parallel. When the page reloads the

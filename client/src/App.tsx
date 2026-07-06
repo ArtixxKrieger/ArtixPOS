@@ -1,5 +1,5 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
-import { queryClient, setNativeToken, NATIVE_TOKEN_KEY, apiRequest } from "./lib/queryClient";
+import { queryClient, setNativeToken, getNativeToken, NATIVE_TOKEN_KEY, apiRequest } from "./lib/queryClient";
 import { LogOut, ShoppingCart } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -111,7 +111,7 @@ function handleAuthDeepLink(url: string) {
 
   debugLog("deeplink", `token received (length=${token.length}) — storing`);
 
-  const previousToken = localStorage.getItem(NATIVE_TOKEN_KEY);
+  const previousToken = getNativeToken();
   const previousPayload = previousToken ? decodeJwtPayload(previousToken) : null;
   const newPayload = decodeJwtPayload(token);
   debugLog(

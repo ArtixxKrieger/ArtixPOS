@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   nativeFetch,
   clearNativeToken,
-  NATIVE_TOKEN_KEY,
+  getNativeToken,
   setAuthenticatedUserId,
   queryClient,
   performLogout,
@@ -60,7 +60,7 @@ export interface AuthUser {
 }
 
 async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthUser | null> {
-  const token = localStorage.getItem(NATIVE_TOKEN_KEY);
+  const token = getNativeToken();
   const isNative = !!API_BASE;
 
   const controller = new AbortController();

@@ -373,14 +373,18 @@ self.addEventListener("notificationclick", (event) => {
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((windowClients) => {
-        for (const client of windowClients) {
-          if ("focus" in client) {
-            client.focus();
-            if ("navigate" in client) client.navigate(targetUrl);
-            return;
-          }
+        // Prefer a window already showing the app; fall back to the first
+        // available window, then open a new one.
+        const target = windowClients.find((c) => c.url.startsWith(self.location.origin))
+          ?? windowClients[0];
+        if (target) {
+          // focus() and navigate() are both async — chain them so
+          // event.waitUntil keeps the SW alive until navigation settles.
+          return target.focus().then(() => {
+            if ("navigate" in target) return target.navigate(targetUrl);
+          });
         }
-        if (clients.openWindow) return clients.openWindow(targetUrl);
+        return clients.openWindow(targetUrl);
       })
   );
 });

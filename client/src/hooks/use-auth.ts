@@ -115,7 +115,8 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
     // If the server silently rotated the token (rem=true session nearing expiry),
     // store the fresh token so the Bearer header stays valid for another 90 days.
-    if (data.token) {
+    // Guard with typeof to prevent localStorage corruption from unexpected payloads.
+    if (typeof data.token === "string" && data.token) {
       setNativeToken(data.token);
       debugLog("auth", "fetchMe — rotated token stored");
     }

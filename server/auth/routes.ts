@@ -1055,8 +1055,10 @@ export function setupAuth(app: Express) {
     // If the token was issued with rem=true and expires within 30 days,
     // issue a fresh 90-day token so the user stays logged in indefinitely
     // as long as they open the app at least once every 60 days.
+    // We require a JTI so we can atomically revoke the old token — never
+    // issue a new token without being able to invalidate the old one.
     let rotatedToken: string | undefined;
-    if (req.tokenRem && req.tokenExp) {
+    if (req.tokenRem && req.tokenExp && req.tokenJti) {
       const secsUntilExpiry = req.tokenExp - Math.floor(Date.now() / 1000);
       const thirtyDaysInSecs = 30 * 24 * 60 * 60;
       if (secsUntilExpiry < thirtyDaysInSecs) {
@@ -1072,16 +1074,19 @@ export function setupAuth(app: Express) {
             activeBranchId: liveActiveBranchId,
             emailVerified: liveEmailVerified,
           }, true);
-          // Revoke the old token so it can't be reused
-          if (req.tokenJti && req.tokenExp) {
-            revokeToken(
-              req.tokenJti,
-              u.id,
-              new Date(req.tokenExp * 1000).toISOString(),
-            ).catch(() => {});
-          }
+          // Revoke old token immediately in-memory, then persist async.
+          // revokeToken adds to _revokedJtis synchronously before awaiting DB,
+          // so the old JTI is blocked from reuse even if DB persistence fails.
+          revokeToken(
+            req.tokenJti,
+            u.id,
+            new Date(req.tokenExp * 1000).toISOString(),
+          ).catch((err) =>
+            console.error("[auth/me] token revocation persistence failed:", err),
+          );
         } catch (err) {
           console.warn("[auth/me] token rotation failed:", (err as Error).message);
+          rotatedToken = undefined; // don't send a partial state
         }
       }
     }

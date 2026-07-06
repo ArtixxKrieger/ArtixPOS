@@ -14,6 +14,8 @@ import {
   handleZodError,
 } from "../lib/route-utils";
 import { cache, dashboardCacheKey } from "../cache";
+import { pool } from "../db";
+import { runAsAdmin } from "../tenant-context";
 
 const IDEM_TTL_MS = 60 * 60 * 1000;
 
@@ -104,7 +106,7 @@ export function registerPendingOrderRoutes(app: Express): void {
           const capturedInput = input;
           const capturedTid = tid;
           const capturedReq = req;
-          setImmediate(async () => {
+          runAsAdmin(pool, async () => {
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
                 await storage.deductProductStockForSale(capturedUid, capturedInput.items as any[]);
@@ -147,7 +149,9 @@ export function registerPendingOrderRoutes(app: Express): void {
                 total: capturedSale.total,
               });
             }
-          });
+          }).catch((e) =>
+            console.error(`[pending-order] runAsAdmin failed for sale ${capturedSale.id}:`, e),
+          );
         } catch (saleErr) {
           console.error("Failed to auto-create sale for paid order:", saleErr);
           return res.status(500).json({

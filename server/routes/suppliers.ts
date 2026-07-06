@@ -10,6 +10,8 @@ import {
   parsePagination,
   paginatedResponse,
 } from "../lib/route-utils";
+import { pool } from "../db";
+import { runAsAdmin } from "../tenant-context";
 
 export function registerSupplierRoutes(app: Express): void {
   app.get("/api/suppliers", requireAuth, requirePro, async (req, res) => {
@@ -124,7 +126,7 @@ export function registerPurchaseOrderRoutes(app: Express): void {
 
     const tid = (req.user as any)?.tenantId as string | null;
     if (tid) {
-      setImmediate(async () => {
+      runAsAdmin(pool, async () => {
         try {
           const { sendPushToTenant } = await import("../push");
           await sendPushToTenant(tid, {
@@ -134,7 +136,7 @@ export function registerPurchaseOrderRoutes(app: Express): void {
             url: "/purchases",
           });
         } catch {}
-      });
+      }).catch((e) => console.error(`[po-received] runAsAdmin failed for PO ${po.id}:`, e));
     }
 
     res.json(po);

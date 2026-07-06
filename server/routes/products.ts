@@ -13,6 +13,8 @@ import {
   auditLog,
   handleZodError,
 } from "../lib/route-utils";
+import { pool } from "../db";
+import { runAsAdmin } from "../tenant-context";
 
 export function registerProductRoutes(app: Express): void {
   app.get(api.products.list.path, requireAuth, async (req, res) => {
@@ -198,7 +200,7 @@ export function registerProductRoutes(app: Express): void {
           if (Math.abs(pctChange) >= PRICE_ALERT_THRESHOLD_PCT) {
             const tid = (req.user as any)?.tenantId as string | null;
             if (tid) {
-              setImmediate(async () => {
+              runAsAdmin(pool, async () => {
                 try {
                   const { sendPushToTenant } = await import("../push");
                   const direction = pctChange > 0 ? "up" : "down";
@@ -209,7 +211,9 @@ export function registerProductRoutes(app: Express): void {
                     url: "/products",
                   });
                 } catch {}
-              });
+              }).catch((e) =>
+                console.error(`[price-alert] runAsAdmin failed for product ${product.id}:`, e),
+              );
             }
           }
         }

@@ -8,6 +8,8 @@ import { getRolePermissionForRole } from "../admin-storage";
 import { getSaleTimestamp } from "../infrastructure/persistence/sales";
 import { getClosedShiftsForUser } from "../infrastructure/persistence/shifts";
 import { cache, dashboardCacheKey, salesCacheKey } from "../cache";
+import { pool } from "../db";
+import { runAsAdmin } from "../tenant-context";
 import {
   getUserId,
   getActiveBranchId,
@@ -287,7 +289,7 @@ export function registerSaleRoutes(app: Express): void {
         branchId: enforcedBranch,
       });
 
-      (async () => {
+      runAsAdmin(pool, async () => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             await storage.deductProductStockForSale(uid, input.items as any[]);
@@ -297,7 +299,7 @@ export function registerSaleRoutes(app: Express): void {
             else console.error(`[stock] deduction failed after 3 attempts for sale ${sale.id}:`, e);
           }
         }
-      })();
+      }).catch((e) => console.error(`[stock] runAsAdmin failed for sale ${sale.id}:`, e));
 
       await auditLog(req, "create", "sale", String(sale.id), {
         total: sale.total,
@@ -317,7 +319,7 @@ export function registerSaleRoutes(app: Express): void {
       if (tid) emitTenantEvent(tid, { type: "stats-update", saleId: sale.id, total: sale.total });
 
       if (input.customerId) {
-        setImmediate(async () => {
+        runAsAdmin(pool, async () => {
           try {
             const { sendReceiptEmail } = await import("../email");
             const customer = await storage.getCustomer(Number(input.customerId), uid);
@@ -347,7 +349,7 @@ export function registerSaleRoutes(app: Express): void {
               );
             }
           } catch {}
-        });
+        }).catch((e) => console.error(`[receipt] runAsAdmin failed for sale ${sale.id}:`, e));
       }
     } catch (err) {
       if (!handleZodError(err, res)) throw err;

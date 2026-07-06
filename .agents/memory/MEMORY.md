@@ -13,3 +13,4 @@
 - [Subscription cache](subscription-cache.md) — 30s in-process TTL cache for getSubscription(); all write paths in subscription-routes.ts call invalidateSubscriptionCache(); per-process only, Redis migration is a follow-up.
 - [DB encapsulation — route layer](db-encapsulation-routes.md) — all route files are now db-free; persistence layer is the only place Drizzle runs; key pitfalls documented.
 - [Push notification scheduler design](push-notification-scheduler.md) — proactive alerts use a polling scheduler + dedup `*AlertedAt` flags, not per-event pushes; branch online state is client-reported via heartbeat.
+- [Tenant db proxy unsafe in deferred callbacks](tenant-db-proxy-deferred-callbacks.md) — setImmediate/background code must use `dbSystem`, not ambient `db` proxy, or it risks querying a connection already released back to the pool.

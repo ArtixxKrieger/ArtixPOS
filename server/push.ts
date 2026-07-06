@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { db } from "./db";
+import { dbSystem } from "./db";
 import { pushSubscriptions, users, userSettings, type NotificationPreferences } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
@@ -31,7 +31,7 @@ async function filterByPreference(
   prefKey: keyof NotificationPreferences,
 ): Promise<string[]> {
   if (userIds.length === 0) return userIds;
-  const rows = await db
+  const rows = await dbSystem
     .select({ userId: userSettings.userId, notificationPreferences: userSettings.notificationPreferences })
     .from(userSettings)
     .where(inArray(userSettings.userId, userIds));
@@ -52,7 +52,7 @@ export async function sendPushToUsers(
   const allowedUserIds = prefKey ? await filterByPreference(userIds, prefKey) : userIds;
   if (allowedUserIds.length === 0) return;
 
-  const subs = await db.select().from(pushSubscriptions)
+  const subs = await dbSystem.select().from(pushSubscriptions)
     .where(inArray(pushSubscriptions.userId, allowedUserIds));
   if (subs.length === 0) return;
 
@@ -75,7 +75,7 @@ export async function sendPushToUsers(
         .catch(async (err: any) => {
 
           if (err?.statusCode === 404 || err?.statusCode === 410) {
-            await db.delete(pushSubscriptions)
+            await dbSystem.delete(pushSubscriptions)
               .where(eq(pushSubscriptions.id, sub.id))
               .catch(() => {});
           }
@@ -90,6 +90,6 @@ export async function sendPushToTenant(
   prefKey?: keyof NotificationPreferences,
 ): Promise<void> {
   if (!pushConfigured) return;
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, tenantId));
+  const rows = await dbSystem.select({ id: users.id }).from(users).where(eq(users.tenantId, tenantId));
   await sendPushToUsers(rows.map((r) => r.id), payload, prefKey);
 }

@@ -50,7 +50,7 @@ if (!isServerless) {
 }
 
 const scriptSrc: string[] = isDevelopment
-  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com", "https://replit.com", "https://*.replit.com", "https://replit-cdn.com", "https://*.replit-cdn.com"]
+  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
   : ["'self'", "https://accounts.google.com", "https://*.google.com"];
 
 const cspDirectives = {
@@ -65,9 +65,7 @@ const cspDirectives = {
     ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io", "https://fonts.googleapis.com", "https://fonts.gstatic.com"]
     : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
   frameSrc: ["https://accounts.google.com"],
-  frameAncestors: isDevelopment
-    ? ["'self'", "https://replit.com", "https://*.replit.com"]
-    : ["'self'"],
+  frameAncestors: ["'self'"],
   objectSrc: ["'none'"],
   baseUri: ["'self'"],
   formAction: ["'self'"],
@@ -566,7 +564,7 @@ if (process.env.VERCEL !== "1") {
     try {
       await initializeApp();
 
-      const port = process.env.PORT || process.env.REPL_PORT || "5000";
+      const port = process.env.PORT || "5000";
       const parsedPort = parseInt(port, 10);
 
       httpServer.listen(parsedPort, "0.0.0.0", () => {

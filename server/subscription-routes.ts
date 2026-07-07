@@ -187,7 +187,7 @@ if (newest.checkoutUrl && newest.paymongoCheckoutId) {
       const planInfo = PLANS[planKey][billingCycle];
       const referenceNumber = `artixpos-${tenantId.slice(0, 8)}-${Date.now()}`;
 
-      const baseUrl = process.env.APP_URL ?? `https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost:5000"}`;
+      const baseUrl = process.env.APP_URL ?? "http://localhost:5000";
       const successUrl = `${baseUrl}/billing?status=success&ref=${referenceNumber}`;
       const cancelUrl  = `${baseUrl}/billing?status=cancel`;
 

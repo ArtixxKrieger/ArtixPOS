@@ -1,6 +1,6 @@
 const REQUIRED: Record<string, string> = {
   SESSION_SECRET:
-    'JWT signing secret — generate with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"',
+    "JWT signing secret — generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"",
 };
 
 const RECOMMENDED: Record<string, string> = {
@@ -23,11 +23,15 @@ export function validateEnv(): void {
     process.exit(1);
   }
 
-const dbUrl = process.env.DATABASE_URL;
+  // db.ts accepts any of these three — validate against the same set
+  const dbUrl =
+    process.env.SUPABASE_POOLER_URL ||
+    process.env.SUPABASE_DATABASE_URL ||
+    process.env.DATABASE_URL;
   if (!dbUrl) {
     const msg =
       "[env] ✗ FATAL — No database connection string found.\n" +
-      "       Set DATABASE_URL in your environment secrets.";
+      "       Set SUPABASE_POOLER_URL, SUPABASE_DATABASE_URL, or DATABASE_URL.";
     console.error(msg);
     if (process.env.VERCEL === "1") {
       throw new Error(msg);
@@ -49,9 +53,7 @@ const dbUrl = process.env.DATABASE_URL;
 
   const missingRec = Object.entries(RECOMMENDED).filter(([k]) => !process.env[k]);
   if (missingRec.length > 0) {
-    console.warn(
-      `[env] ⚠  Optional vars not set: ${missingRec.map(([k]) => k).join(", ")}`,
-    );
+    console.warn(`[env] ⚠  Optional vars not set: ${missingRec.map(([k]) => k).join(", ")}`);
   }
 
   console.log("[env] ✓ Environment validated");

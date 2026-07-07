@@ -5,21 +5,26 @@ import * as schema from "@shared/schema";
 import { _tenantStore } from "./tenant-context";
 
 const isServerless = !!process.env.VERCEL;
+const isContainerPlatform =
+  !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RENDER || !!process.env.FLY_APP_NAME;
 
 // On serverless each instance handles 1 request at a time.
-// A large per-instance pool multiplies across concurrent invocations
-// and easily exhausts the upstream Supabase connection limit (default 200).
-// Keep it small: 2–3 connections per instance is plenty.
+// On container platforms (Railway, Render, Fly.io) you scale by adding containers,
+// not by forking workers — keep pool per-container reasonable.
 const TOTAL_POOL = isServerless
   ? parseInt(process.env.DB_POOL_MAX ?? "3", 10)
-  : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
+  : isContainerPlatform
+    ? parseInt(process.env.DB_POOL_MAX ?? "10", 10)
+    : parseInt(process.env.DB_POOL_MAX ?? "20", 10);
 const CLUSTER_WORKERS_ENV = parseInt(process.env.CLUSTER_WORKERS ?? "0", 10);
 const EFFECTIVE_WORKERS =
   CLUSTER_WORKERS_ENV > 0
     ? CLUSTER_WORKERS_ENV
-    : process.env.NODE_ENV === "production"
-      ? os.cpus().length
-      : 1;
+    : isContainerPlatform
+      ? 1
+      : process.env.NODE_ENV === "production"
+        ? os.cpus().length
+        : 1;
 const POOL_MAX = Math.max(2, Math.floor(TOTAL_POOL / EFFECTIVE_WORKERS));
 
 const connectionString =

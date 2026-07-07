@@ -3,11 +3,16 @@
  * Production build script
  *
  * Steps:
- *   0. Push DB schema (drizzle-kit push)
  *   1. Build frontend with Vite           → dist/public/
  *   2. Bundle server entry (index.ts)     → dist/index.cjs
  *   3. Bundle cluster entry (cluster.ts)  → dist/cluster.cjs
  *   4. Copy migrations
+ *
+ * NOTE: DB schema push (drizzle-kit push) and RLS apply are NOT run here.
+ * Vercel build servers have no network route to the database.
+ * Run those steps separately before deploying:
+ *   npm run db:push          (requires DATABASE_URL in your local env)
+ *   node scripts/apply-rls.mjs
  *
  * Why --packages=external instead of a hand-rolled HEAVY_EXTERNALS list?
  *
@@ -59,39 +64,11 @@ try {
     console.log("✓ drizzle-kit esbuild conflict resolved\n");
   }
 
-  // ── 0. Schema sync ──────────────────────────────────────────────────────────
-  console.log("[0/4] Syncing database schema...");
-  try {
-    execSync("npx drizzle-kit push --force", {
-      stdio: ["ignore", "pipe", "pipe"],
-      cwd: projectRoot,
-    });
-    console.log("✓ Database schema up to date\n");
-  } catch (err) {
-    console.warn(
-      "⚠  db:push failed (continuing):",
-      err.stderr?.toString().trim() || err.message,
-      "\n"
-    );
-  }
-
-  // ── 0b. Re-apply RLS after schema push ─────────────────────────────────────
-  // drizzle-kit push can DROP and RECREATE tables, wiping all RLS policies.
-  // Re-applying here ensures security is restored immediately after every schema sync.
-  console.log("[0b/4] Re-applying RLS policies after schema sync...");
-  try {
-    execSync("node scripts/apply-rls.mjs", {
-      stdio: ["ignore", "pipe", "pipe"],
-      cwd: projectRoot,
-    });
-    console.log("✓ RLS policies applied\n");
-  } catch (err) {
-    console.warn(
-      "⚠  RLS apply failed (continuing):",
-      err.stderr?.toString().trim() || err.message,
-      "\n"
-    );
-  }
+  // NOTE: db:push and apply-rls are intentionally NOT run here.
+  // Vercel build servers have no network route to the database, so both steps
+  // always fail at build time.  Run schema migrations as a separate step
+  // (e.g. `npm run db:push` locally or via a GitHub Actions job that has DB
+  // access) before deploying.
 
   // ── 1. Frontend ─────────────────────────────────────────────────────────────
   console.log("[1/4] Building frontend with Vite...");

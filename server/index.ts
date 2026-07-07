@@ -477,7 +477,7 @@ if (process.env.VERCEL !== "1") {
 
     console.log("[init] step 3b/8 — setupRLS");
     if (process.env.VERCEL === "1") {
-      console.log("[rls] skipped on Vercel — applied via build step & GitHub Actions");
+      console.log("[rls] skipped on Vercel — run 'node scripts/apply-rls.mjs' manually or via a pre-deploy CI step with DB access");
     } else {
       try {
         await setupRLS();
@@ -661,6 +661,18 @@ export default async function handler(req: Request, res: Response) {
   let initializedApp: typeof app | null = null;
   let lastErr: unknown;
 
+  // Distinguish permanent config failures (missing env vars) from transient
+  // ones (cold-start DB hiccups).  Retrying a missing env var wastes the
+  // entire 60-second Vercel function budget and delays the error message.
+  const isPermanentFailure = (err: unknown): boolean => {
+    const msg = err instanceof Error ? err.message : String(err);
+    return (
+      msg.includes("Missing required environment variables") ||
+      msg.includes("No database connection string") ||
+      msg.includes("SESSION_SECRET is too short")
+    );
+  };
+
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
@@ -670,7 +682,14 @@ export default async function handler(req: Request, res: Response) {
       lastErr = error;
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[vercel] Init failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}): ${errMsg}`);
-      // Exponential backoff: 500 ms, 1 s, 2 s, 4 s
+
+      // Don't retry config errors — they will never self-heal.
+      if (isPermanentFailure(error)) {
+        console.error("[vercel] Permanent config failure — skipping retries. Check Vercel environment variables (DATABASE_URL, SESSION_SECRET).");
+        break;
+      }
+
+      // Exponential backoff for transient errors: 500 ms, 1 s, 2 s, 4 s
       if (attempt < MAX_ATTEMPTS - 1) {
         await new Promise<void>((r) => setTimeout(r, Math.min(500 * 2 ** attempt, 4000)));
       }
@@ -679,14 +698,22 @@ export default async function handler(req: Request, res: Response) {
 
   if (!initializedApp) {
     const finalMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
-    console.error("[vercel] All init attempts exhausted:", finalMsg);
+    console.error("[vercel] Init exhausted:", finalMsg);
     if (!res.headersSent) {
       const reqPath = req.url ?? (req as any).path ?? "";
       const isOAuthEntry =
         reqPath.includes("/auth/google") ||
         reqPath.includes("/auth/facebook");
+
+      // Encode a short reason so the login page (and Vercel logs) can explain
+      // the failure without exposing sensitive details to end users.
+      let errorCode = "server_unavailable";
+      if (isPermanentFailure(lastErr)) {
+        errorCode = "server_misconfigured";
+      }
+
       if (isOAuthEntry) {
-        res.redirect(`/login?error=server_unavailable`);
+        res.redirect(`/login?error=${errorCode}`);
       } else {
         res.status(500).json({ error: "Internal Server Error" });
       }

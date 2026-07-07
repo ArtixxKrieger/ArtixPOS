@@ -693,6 +693,7 @@ export default function Login() {
   // (Vercel cold-start). Counts down from 5 and re-triggers the OAuth flow.
   useEffect(() => {
     const urlError = new URLSearchParams(window.location.search).get("error");
+    // server_misconfigured = permanent env-var problem, no point retrying
     if (urlError !== "server_unavailable") return;
     setRetryCountdown(5);
     let count = 5;
@@ -1178,14 +1179,18 @@ export default function Login() {
               ? "Sign-in expired — please try again."
               : error === "google_not_configured"
                 ? "Google sign-in is not configured."
-                : error === "server_unavailable"
-                  ? "Server temporarily unavailable."
-                  : "Sign-in failed"}
+                : error === "server_misconfigured"
+                  ? "Server configuration error."
+                  : error === "server_unavailable"
+                    ? "Server temporarily unavailable."
+                    : "Sign-in failed"}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>
             {error === "state_mismatch"
               ? "Click 'Continue with Google' again."
-              : error === "server_unavailable"
+              : error === "server_misconfigured"
+                ? "Required environment variables (DATABASE_URL, SESSION_SECRET) are missing from the server. Check your Vercel environment settings."
+                : error === "server_unavailable"
                 ? <>
                     {detail ?? "The server is starting up. Retrying automatically\u2026"}
                     {retryCountdown !== null && (

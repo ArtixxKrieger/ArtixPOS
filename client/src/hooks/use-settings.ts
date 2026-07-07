@@ -8,12 +8,35 @@ import { nativeFetch } from "@/lib/queryClient";
 
 const SETTINGS_URL = api.settings.get.path;
 
-let _prewarmedSettings: unknown = undefined;
-let _prewarmDone = false;
+const BOOT_SETTINGS_KEY = "artixpos_settings_boot";
+
+// Called by the login handler right before window.location.replace() so that
+// the very next page load can seed _prewarmedSettings synchronously and skip
+// the AppRouter LoadingScreen gate entirely.
+export function cacheSettingsForBoot(data: unknown): void {
+  try {
+    sessionStorage.setItem(BOOT_SETTINGS_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+// Synchronous read from sessionStorage (written by login handler before hard navigate).
+// Consumed once so subsequent normal refreshes fall back to the IndexedDB path.
+let _bootData: unknown = undefined;
+try {
+  const _raw = sessionStorage.getItem(BOOT_SETTINGS_KEY);
+  if (_raw) {
+    _bootData = JSON.parse(_raw);
+    sessionStorage.removeItem(BOOT_SETTINGS_KEY);
+  }
+} catch {}
+
+let _prewarmedSettings: unknown = _bootData;
+let _prewarmDone = _bootData !== undefined;
 
 getCached(SETTINGS_URL)
   .then((data) => {
-    _prewarmedSettings = data;
+    // Only use IndexedDB value if we didn't already get fresher data from sessionStorage
+    if (_prewarmedSettings == null) _prewarmedSettings = data;
     _prewarmDone = true;
   })
   .catch(() => {

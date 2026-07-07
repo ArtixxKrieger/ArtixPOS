@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { apiRequest, setNativeToken, queryClient, nativeFetch } from "@/lib/queryClient";
 import { prefetchCriticalData } from "@/lib/prefetch";
+import { cacheSettingsForBoot } from "@/hooks/use-settings";
 import { detectLocale } from "@/lib/locale-detect";
 import { getPricingByCurrency, formatPrice } from "@/lib/pricing";
 import gsap from "gsap";
@@ -740,6 +741,11 @@ export default function Login() {
         } catch {
           localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
         }
+
+        // Persist settings to sessionStorage so the next page load can seed
+        // _prewarmedSettings synchronously and skip the AppRouter LoadingScreen.
+        const settingsSnapshot = queryClient.getQueryData<unknown>(["/api/settings"]);
+        if (settingsSnapshot) cacheSettingsForBoot(settingsSnapshot);
 
         // Hard navigate — the cleanest way to reset all React/query state
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";

@@ -59,12 +59,15 @@ for (const url of ALL_PREFETCH_URLS) {
       .catch(() => {});
   }
 
-async function fetchTier(urls: readonly string[], delayMs: number): Promise<void> {
+async function fetchTier(urls: readonly string[], delayMs: number, label: string): Promise<void> {
     if (delayMs > 0) await new Promise<void>((r) => setTimeout(r, delayMs));
+    console.log(`[prefetch ${new Date().toISOString().slice(11, 23)}] fetch ${label} (${urls.length} urls)`);
     await Promise.allSettled(
       urls.map((url) =>
         queryClient
-          .fetchQuery({ queryKey: [url], queryFn })
+          // staleTime:0 forces a network fetch even if IndexedDB data was already
+          // loaded into the cache by the getCached loop above this call.
+          .fetchQuery({ queryKey: [url], queryFn, staleTime: 0 })
           .then((data) => {
             if (data != null) {
               import("./offline-db").then(({ setCached }) => {
@@ -77,11 +80,12 @@ async function fetchTier(urls: readonly string[], delayMs: number): Promise<void
           .catch(() => {}),
       ),
     );
+    console.log(`[prefetch ${new Date().toISOString().slice(11, 23)}] done ${label}`);
   }
 
-fetchTier(CRITICAL_URLS, 0)
-    .then(() => fetchTier(OPERATIONAL_URLS, 200))
-    .then(() => fetchTier(BACKGROUND_URLS, 200))
+fetchTier(CRITICAL_URLS, 0, "critical")
+    .then(() => fetchTier(OPERATIONAL_URLS, 200, "operational"))
+    .then(() => fetchTier(BACKGROUND_URLS, 200, "background"))
     .catch(() => {});
 }
 

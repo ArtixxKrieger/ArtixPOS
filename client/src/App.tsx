@@ -199,6 +199,39 @@ function useNativeDeepLink() {
   }, []);
 }
 
+function _ts() {
+  return new Date().toISOString().slice(11, 23);
+}
+
+function useAuthTracer() {
+  const { isAuthenticated, isLoading, isFetching, isPlaceholderData } = useAuth() as any;
+  const [location] = useLocation();
+  const prev = useRef({ isAuthenticated, isLoading, isFetching, isPlaceholderData, location });
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      console.log(
+        `[tracer ${_ts()}] MOUNT auth=${isAuthenticated} loading=${isLoading} fetching=${isFetching} placeholder=${isPlaceholderData} route=${location}`,
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const p = prev.current;
+    const parts: string[] = [];
+    if (p.isAuthenticated !== isAuthenticated) parts.push(`auth ${p.isAuthenticated}→${isAuthenticated}`);
+    if (p.isLoading !== isLoading) parts.push(`loading ${p.isLoading}→${isLoading}`);
+    if (p.isFetching !== isFetching) parts.push(`fetching ${p.isFetching}→${isFetching}`);
+    if (p.isPlaceholderData !== isPlaceholderData) parts.push(`placeholder ${p.isPlaceholderData}→${isPlaceholderData}`);
+    if (p.location !== location) parts.push(`route "${p.location}"→"${location}"`);
+    if (parts.length) console.log(`[tracer ${_ts()}] ${parts.join(" | ")}`);
+    prev.current = { isAuthenticated, isLoading, isFetching, isPlaceholderData, location };
+  });
+}
+
 function LoadingScreen({ message: _message }: { message?: string }) {
   const [offlineStall, setOfflineStall] = useState(false);
   const [slowStall, setSlowStall] = useState(false);
@@ -385,6 +418,7 @@ function AppRouter() {
   }, [location]);
 
   if (!settingsEverLoaded.current && settingsLoading && !settingsTimedOut) {
+    console.log(`[tracer ${_ts()}] AppRouter→LoadingScreen (settingsLoading=${settingsLoading} everLoaded=${settingsEverLoaded.current})`);
     return <LoadingScreen />;
   }
 
@@ -580,6 +614,7 @@ function PinSessionApp() {
 function ProtectedRouter() {
   const { isAuthenticated, isLoading, isFetching, user } = useAuth();
   const [location] = useLocation();
+  useAuthTracer();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
 
   const prevUserIdRef = useRef<string | null>(null);

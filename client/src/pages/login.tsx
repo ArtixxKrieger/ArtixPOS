@@ -330,6 +330,7 @@ export default function Login() {
   const [formLoading, setFormLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
   // Load saved email on mount so the form is pre-filled when the user
   // returns after signing out with "Remember this device" checked.
@@ -687,6 +688,26 @@ export default function Login() {
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }
+
+  // Auto-retry Google sign-in when the server was temporarily unavailable
+  // (Vercel cold-start). Counts down from 5 and re-triggers the OAuth flow.
+  useEffect(() => {
+    const urlError = new URLSearchParams(window.location.search).get("error");
+    if (urlError !== "server_unavailable") return;
+    setRetryCountdown(5);
+    let count = 5;
+    const id = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(id);
+        setRetryCountdown(null);
+        handleGoogleClick();
+      } else {
+        setRetryCountdown(count);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1165,7 +1186,21 @@ export default function Login() {
             {error === "state_mismatch"
               ? "Click 'Continue with Google' again."
               : error === "server_unavailable"
-                ? (detail ?? "The server is starting up. Please wait a moment and try again.")
+                ? <>
+                    {detail ?? "The server is starting up. Retrying automatically\u2026"}
+                    {retryCountdown !== null && (
+                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ opacity: 0.7 }}>Retrying in {retryCountdown}s</span>
+                        <button
+                          type="button"
+                          onClick={() => { setRetryCountdown(null); handleGoogleClick(); }}
+                          style={{ background: "rgba(248,113,113,0.2)", border: "1px solid rgba(248,113,113,0.4)", borderRadius: 6, padding: "2px 10px", color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
+                        >
+                          Retry now
+                        </button>
+                      </div>
+                    )}
+                  </>
                 : (detail ?? `Error code: ${error}`)}
           </div>
         </div>

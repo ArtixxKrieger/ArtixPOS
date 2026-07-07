@@ -653,24 +653,33 @@ if (process.env.VERCEL !== "1") {
 }
 
 export default async function handler(req: Request, res: Response) {
-  try {
-    const initializedApp = await initializeApp();
-    return initializedApp(req, res);
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("[vercel] Handler init failed:", errMsg);
-    if (!res.headersSent) {
-      const path = req.url ?? req.path ?? "";
-      const isOAuthCallback =
-        path.includes("/auth/google/callback") ||
-        path.includes("/auth/facebook/callback") ||
-        path.includes("/auth/google") ||
-        path.includes("/auth/facebook");
-      if (isOAuthCallback) {
-        res.redirect(`/login?error=server_unavailable`);
-      } else {
-        res.status(500).json({ error: "Internal Server Error" });
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    try {
+      const initializedApp = await initializeApp();
+      return initializedApp(req, res);
+    } catch (error) {
+      lastErr = error;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[vercel] Handler init failed (attempt ${attempt + 1}/3): ${errMsg}`);
+      if (attempt < 2) {
+        await new Promise<void>((r) => setTimeout(r, 600 * (attempt + 1)));
       }
+    }
+  }
+  const finalMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  console.error("[vercel] All init attempts exhausted:", finalMsg);
+  if (!res.headersSent) {
+    const path = req.url ?? req.path ?? "";
+    const isOAuthCallback =
+      path.includes("/auth/google/callback") ||
+      path.includes("/auth/facebook/callback") ||
+      path.includes("/auth/google") ||
+      path.includes("/auth/facebook");
+    if (isOAuthCallback) {
+      res.redirect(`/login?error=server_unavailable`);
+    } else {
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 }

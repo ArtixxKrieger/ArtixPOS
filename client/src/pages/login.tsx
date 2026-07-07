@@ -1157,12 +1157,16 @@ export default function Login() {
               ? "Sign-in expired — please try again."
               : error === "google_not_configured"
                 ? "Google sign-in is not configured."
-                : "Sign-in failed"}
+                : error === "server_unavailable"
+                  ? "Server temporarily unavailable."
+                  : "Sign-in failed"}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>
             {error === "state_mismatch"
               ? "Click 'Continue with Google' again."
-              : (detail ?? `Error code: ${error}`)}
+              : error === "server_unavailable"
+                ? (detail ?? "The server is starting up. Please wait a moment and try again.")
+                : (detail ?? `Error code: ${error}`)}
           </div>
         </div>
       )}

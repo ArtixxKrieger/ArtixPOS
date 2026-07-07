@@ -679,6 +679,10 @@ export default function Login() {
       handleNativeGoogleSignIn();
       return;
     }
+    // Mark "google" as the last login method BEFORE the redirect so it
+    // survives the full-page navigation. The postMessage path (popup) also
+    // writes this, but the web OAuth flow never opens a popup.
+    localStorage.setItem(LAST_LOGIN_METHOD_KEY, "google");
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }

@@ -57,8 +57,16 @@ export async function revokeToken(jti: string, userId: string, expiresAt: string
   }
 }
 
-_loadRevokedTokens();
-setInterval(_pruneRevokedTokens, 60 * 60 * 1000);
+// Called once from _doInit() after the DB pool is ready.
+// Avoids firing DB queries at module-load time (kills Vercel cold starts).
+let _authCacheInitialized = false;
+export function initAuthCache(): void {
+  if (_authCacheInitialized) return;
+  _authCacheInitialized = true;
+  _loadRevokedTokens();
+  _seedBannedUsers();
+  setInterval(_pruneRevokedTokens, 60 * 60 * 1000).unref?.();
+}
 
 let _ephemeralSecret: string | undefined;
 
@@ -151,14 +159,17 @@ export function clearAuthCookie(res: Response) {
 
 export const bannedUserIds = new Set<string>();
 
-db.select({ id: users.id })
-  .from(users)
-  .where(eq(users.isBanned, true))
-  .then((rows) => {
-    rows.forEach((r) => bannedUserIds.add(String(r.id)));
-    if (rows.length > 0) console.log(`[auth] Loaded ${rows.length} banned user(s) into memory`);
-  })
-  .catch((err) => console.error("[auth] Failed to seed banned users from DB:", err));
+// Populated by initAuthCache() — not at module load time.
+export function _seedBannedUsers(): void {
+  db.select({ id: users.id })
+    .from(users)
+    .where(eq(users.isBanned, true))
+    .then((rows) => {
+      rows.forEach((r) => bannedUserIds.add(String(r.id)));
+      if (rows.length > 0) console.log(`[auth] Loaded ${rows.length} banned user(s) into memory`);
+    })
+    .catch((err) => console.error("[auth] Failed to seed banned users from DB:", err));
+}
 
 export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
   let token = req.cookies?.[AUTH_COOKIE];

@@ -10,6 +10,7 @@ import { registerRoutes } from "./routes.js";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, jwtAuthMiddleware } from "./auth";
+import { initAuthCache } from "./auth/core";
 import { ensureIndexes } from "./indexes";
 import { db as _healthDb } from "./db";
 import { sql as _healthSql } from "drizzle-orm";
@@ -489,6 +490,10 @@ if (process.env.VERCEL !== "1") {
     logEmailTransportStatus();
     startEmailDlqPoller();
 
+    // Defer DB queries that used to fire at module load time in auth/core.ts.
+    // Running them here ensures the pool is warmed before any queries fire.
+    initAuthCache();
+
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);
 
@@ -651,35 +656,47 @@ if (process.env.VERCEL !== "1") {
 }
 
 export default async function handler(req: Request, res: Response) {
+  // Phase 1: initialise the app — retry on transient failures (cold-start DB
+  // hiccups, etc.) but do NOT let request-handling errors loop back here.
+  let initializedApp: typeof app | null = null;
   let lastErr: unknown;
-  for (let attempt = 0; attempt <= 2; attempt++) {
+
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
-      const initializedApp = await initializeApp();
-      return initializedApp(req, res);
+      initializedApp = await initializeApp();
+      break; // success — exit the retry loop
     } catch (error) {
       lastErr = error;
       const errMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[vercel] Handler init failed (attempt ${attempt + 1}/3): ${errMsg}`);
-      if (attempt < 2) {
-        await new Promise<void>((r) => setTimeout(r, 600 * (attempt + 1)));
+      console.error(`[vercel] Init failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}): ${errMsg}`);
+      // Exponential backoff: 500 ms, 1 s, 2 s, 4 s
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await new Promise<void>((r) => setTimeout(r, Math.min(500 * 2 ** attempt, 4000)));
       }
     }
   }
-  const finalMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
-  console.error("[vercel] All init attempts exhausted:", finalMsg);
-  if (!res.headersSent) {
-    const path = req.url ?? req.path ?? "";
-    const isOAuthCallback =
-      path.includes("/auth/google/callback") ||
-      path.includes("/auth/facebook/callback") ||
-      path.includes("/auth/google") ||
-      path.includes("/auth/facebook");
-    if (isOAuthCallback) {
-      res.redirect(`/login?error=server_unavailable`);
-    } else {
-      res.status(500).json({ error: "Internal Server Error" });
+
+  if (!initializedApp) {
+    const finalMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    console.error("[vercel] All init attempts exhausted:", finalMsg);
+    if (!res.headersSent) {
+      const reqPath = req.url ?? (req as any).path ?? "";
+      const isOAuthEntry =
+        reqPath.includes("/auth/google") ||
+        reqPath.includes("/auth/facebook");
+      if (isOAuthEntry) {
+        res.redirect(`/login?error=server_unavailable`);
+      } else {
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     }
+    return;
   }
+
+  // Phase 2: handle the request — errors here are Express's responsibility,
+  // not init failures, so they must NOT trigger a retry loop.
+  return initializedApp(req, res);
 }
 
 export { app, httpServer };

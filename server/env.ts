@@ -23,14 +23,11 @@ export function validateEnv(): void {
     process.exit(1);
   }
 
-const dbUrl =
-    process.env.SUPABASE_POOLER_URL ||
-    process.env.SUPABASE_DATABASE_URL ||
-    process.env.DATABASE_URL;
+const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     const msg =
       "[env] ✗ FATAL — No database connection string found.\n" +
-      "       Set DATABASE_URL or SUPABASE_POOLER_URL in your environment secrets.";
+      "       Set DATABASE_URL in your environment secrets.";
     console.error(msg);
     if (process.env.VERCEL === "1") {
       throw new Error(msg);

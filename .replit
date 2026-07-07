@@ -59,6 +59,7 @@ APP_URL = "https://artixpos.com"
 [agent]
 expertMode = true
 stack = "FULLSTACK_JS"
+integrations = ["javascript_database:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"

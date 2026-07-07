@@ -463,21 +463,14 @@ async function _doInit() {
     console.log("[init] step 2/8 — initSentry");
     await initSentry();
 
-const dbUrl = process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || "";
-    const isTransactionPooler = dbUrl.includes(":6543/") || (dbUrl.includes("pooler.supabase.com") && !dbUrl.includes(":5432/"));
-
-    if (process.env.VERCEL !== "1") {
+if (process.env.VERCEL !== "1") {
       console.log("[init] step 3/8 — ensureIndexes");
-      if (isTransactionPooler) {
-        console.log("[indexes] ⚠  Skipped — transaction-mode pooler detected (run migrations via Supabase SQL Editor)");
-      } else {
-        try {
-          await ensureIndexes();
-          await ensurePartitions();
-        } catch (idxErr: unknown) {
-          const msg = idxErr instanceof Error ? idxErr.message : String(idxErr);
-          console.warn("[indexes] ⚠  skipped:", msg);
-        }
+      try {
+        await ensureIndexes();
+        await ensurePartitions();
+      } catch (idxErr: unknown) {
+        const msg = idxErr instanceof Error ? idxErr.message : String(idxErr);
+        console.warn("[indexes] ⚠  skipped:", msg);
       }
     } else {
       console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
@@ -486,8 +479,6 @@ const dbUrl = process.env.SUPABASE_POOLER_URL || process.env.SUPABASE_DATABASE_U
     console.log("[init] step 3b/8 — setupRLS");
     if (process.env.VERCEL === "1") {
       console.log("[rls] skipped on Vercel — applied via build step & GitHub Actions");
-    } else if (isTransactionPooler) {
-      console.log("[rls] ⚠  Skipped — transaction-mode pooler detected (apply RLS via: npm run db:rls using a direct connection)");
     } else {
       try {
         await setupRLS();

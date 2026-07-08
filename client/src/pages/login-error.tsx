@@ -19,14 +19,28 @@ export default function LoginError() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "#09090b", fontFamily: "Inter, system-ui, sans-serif",
-    }}>
-      <div style={{
-        background: "#18181b", borderRadius: 16, padding: 32, maxWidth: 420, width: "100%",
-        margin: 16, textAlign: "center", border: "1px solid #27272a",
-      }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#09090b",
+        fontFamily: "Inter, system-ui, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          background: "#18181b",
+          borderRadius: 16,
+          padding: 32,
+          maxWidth: 420,
+          width: "100%",
+          margin: 16,
+          textAlign: "center",
+          border: "1px solid #27272a",
+        }}
+      >
         <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
         <div style={{ fontWeight: 700, fontSize: 18, color: "#fafafa", marginBottom: 8 }}>
           Sign-in failed
@@ -34,11 +48,19 @@ export default function LoginError() {
         <div style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 20, lineHeight: 1.5 }}>
           {messages[error] ?? "An unexpected error occurred."}
         </div>
-        <a href="/login" style={{
-          display: "inline-block", background: "#3b82f6", color: "#fff",
-          padding: "10px 24px", borderRadius: 8, fontWeight: 600, fontSize: 14,
-          textDecoration: "none",
-        }}>
+        <a
+          href="/login"
+          style={{
+            display: "inline-block",
+            background: "#3b82f6",
+            color: "#fff",
+            padding: "10px 24px",
+            borderRadius: 8,
+            fontWeight: 600,
+            fontSize: 14,
+            textDecoration: "none",
+          }}
+        >
           Try again
         </a>
       </div>

@@ -1,5 +1,11 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
-import { queryClient, setNativeToken, getNativeToken, NATIVE_TOKEN_KEY, apiRequest } from "./lib/queryClient";
+import {
+  queryClient,
+  setNativeToken,
+  getNativeToken,
+  NATIVE_TOKEN_KEY,
+  apiRequest,
+} from "./lib/queryClient";
 import { LogOut, ShoppingCart } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -217,16 +223,18 @@ function useAuthTracer() {
         `[tracer ${_ts()}] MOUNT auth=${isAuthenticated} loading=${isLoading} fetching=${isFetching} placeholder=${isPlaceholderData} route=${location}`,
       );
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const p = prev.current;
     const parts: string[] = [];
-    if (p.isAuthenticated !== isAuthenticated) parts.push(`auth ${p.isAuthenticated}→${isAuthenticated}`);
+    if (p.isAuthenticated !== isAuthenticated)
+      parts.push(`auth ${p.isAuthenticated}→${isAuthenticated}`);
     if (p.isLoading !== isLoading) parts.push(`loading ${p.isLoading}→${isLoading}`);
     if (p.isFetching !== isFetching) parts.push(`fetching ${p.isFetching}→${isFetching}`);
-    if (p.isPlaceholderData !== isPlaceholderData) parts.push(`placeholder ${p.isPlaceholderData}→${isPlaceholderData}`);
+    if (p.isPlaceholderData !== isPlaceholderData)
+      parts.push(`placeholder ${p.isPlaceholderData}→${isPlaceholderData}`);
     if (p.location !== location) parts.push(`route "${p.location}"→"${location}"`);
     if (parts.length) console.log(`[tracer ${_ts()}] ${parts.join(" | ")}`);
     prev.current = { isAuthenticated, isLoading, isFetching, isPlaceholderData, location };
@@ -419,7 +427,9 @@ function AppRouter() {
   }, [location]);
 
   if (!settingsEverLoaded.current && settingsLoading && !settingsTimedOut) {
-    console.log(`[tracer ${_ts()}] AppRouter→LoadingScreen (settingsLoading=${settingsLoading} everLoaded=${settingsEverLoaded.current})`);
+    console.log(
+      `[tracer ${_ts()}] AppRouter→LoadingScreen (settingsLoading=${settingsLoading} everLoaded=${settingsEverLoaded.current})`,
+    );
     return <LoadingScreen />;
   }
 

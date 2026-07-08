@@ -87,59 +87,54 @@ export default function Dashboard() {
   const { t } = useTranslation();
   useDashboardSse();
 
-  const { data: stats, isLoading: _isLoading } = useQuery<DashboardStats>({
+  const {
+    data: stats,
+    isLoading: _isLoading,
+    isError: _statsError,
+    error: _statsErr,
+  } = useQuery<DashboardStats>({
     queryKey: [STATS_URL],
     queryFn: async () => {
       const statsUrl = buildStatsUrl();
 
       const idbData = await getCached<DashboardStats>(STATS_URL);
 
-      if (idbData !== null) {
-        const bgCtrl = new AbortController();
-        const bgTimer = setTimeout(() => bgCtrl.abort(), 8_000);
-
-        nativeFetch(statsUrl, { signal: bgCtrl.signal })
-          .then(async (res) => {
-            clearTimeout(bgTimer);
-            if (!res.ok) return;
-            const fresh: DashboardStats = await res.json();
-
-            const queueCount = await getSalesQueueCount().catch(() => 0);
-            const current = queryClient.getQueryData<DashboardStats>([STATS_URL]);
-            const freshIds = new Set((fresh.todaySales ?? []).map((s: any) => String(s.id)));
-            const offlinePending =
-              queueCount > 0
-                ? (current?.todaySales ?? []).filter(
-                    (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id)),
-                  )
-                : [];
-
-            const merged: DashboardStats =
-              offlinePending.length > 0
-                ? { ...fresh, todaySales: [...offlinePending, ...fresh.todaySales] }
-                : fresh;
-
-            setCached(STATS_URL, merged).catch(() => {});
-            queryClient.setQueryData<DashboardStats>([STATS_URL], merged);
-          })
-          .catch(() => {
-            clearTimeout(bgTimer);
-          });
-
-        return idbData;
-      }
-
+      // Always fetch fresh data — don't return stale cache without trying network first
       try {
-        const res = await nativeFetch(statsUrl);
-        if (!res.ok) throw new Error("Failed to load dashboard");
-        const data: DashboardStats = await res.json();
-        setCached(STATS_URL, data).catch(() => {});
-        return data;
-      } catch (err) {
-        const retry = await getCached<DashboardStats>(STATS_URL);
-        if (retry !== null) return retry;
-        throw err;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 15_000);
+        const res = await nativeFetch(statsUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const fresh: DashboardStats = await res.json();
+
+          const queueCount = await getSalesQueueCount().catch(() => 0);
+          const freshIds = new Set((fresh.todaySales ?? []).map((s: any) => String(s.id)));
+          const offlinePending =
+            queueCount > 0
+              ? (idbData?.todaySales ?? []).filter(
+                  (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id)),
+                )
+              : [];
+
+          const merged: DashboardStats =
+            offlinePending.length > 0
+              ? { ...fresh, todaySales: [...offlinePending, ...fresh.todaySales] }
+              : fresh;
+
+          setCached(STATS_URL, merged).catch(() => {});
+          return merged;
+        }
+        // Non-OK response (401, 500, etc.) — log for debugging
+        console.warn(`[dashboard] stats fetch returned ${res.status}`);
+      } catch (err: any) {
+        console.warn(`[dashboard] stats fetch failed: ${err?.message || err}`);
       }
+
+      // Fall back to cached data only if network failed
+      if (idbData !== null) return idbData;
+      throw new Error("Could not load dashboard data");
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -278,6 +273,19 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 page-enter">
+      {_statsError && (
+        <div className="glass-card rounded-2xl p-4 border-red-500/30 bg-red-500/5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+            <span className="text-sm font-semibold text-red-500">
+              Could not load dashboard data
+            </span>
+          </div>
+          <p className="text-xs text-red-400 mt-1">
+            {(_statsErr as any)?.message || "Check your connection and try refreshing."}
+          </p>
+        </div>
+      )}
       <div
         data-tour="tour-dashboard-hero"
         className="glass-card rounded-3xl p-5 md:p-8 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent border-blue-500/20 dark:border-blue-500/10 relative overflow-hidden"

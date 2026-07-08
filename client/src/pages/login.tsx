@@ -1186,27 +1186,41 @@ export default function Login() {
                     : "Sign-in failed"}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>
-            {error === "state_mismatch"
-              ? "Click 'Continue with Google' again."
-              : error === "server_misconfigured"
-                ? "Required environment variables (DATABASE_URL, SESSION_SECRET) are missing from the server. Check your Vercel environment settings."
-                : error === "server_unavailable"
-                ? <>
-                    {detail ?? "The server is starting up. Retrying automatically\u2026"}
-                    {retryCountdown !== null && (
-                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ opacity: 0.7 }}>Retrying in {retryCountdown}s</span>
-                        <button
-                          type="button"
-                          onClick={() => { setRetryCountdown(null); handleGoogleClick(); }}
-                          style={{ background: "rgba(248,113,113,0.2)", border: "1px solid rgba(248,113,113,0.4)", borderRadius: 6, padding: "2px 10px", color: "#f87171", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
-                        >
-                          Retry now
-                        </button>
-                      </div>
-                    )}
-                  </>
-                : (detail ?? `Error code: ${error}`)}
+            {error === "state_mismatch" ? (
+              "Click 'Continue with Google' again."
+            ) : error === "server_misconfigured" ? (
+              "Required environment variables (DATABASE_URL or SESSION_SECRET) are missing from the server. Check your Vercel environment settings."
+            ) : error === "server_unavailable" ? (
+              <>
+                {detail ?? "The server is starting up. Retrying automatically\u2026"}
+                {retryCountdown !== null && (
+                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ opacity: 0.7 }}>Retrying in {retryCountdown}s</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRetryCountdown(null);
+                        handleGoogleClick();
+                      }}
+                      style={{
+                        background: "rgba(248,113,113,0.2)",
+                        border: "1px solid rgba(248,113,113,0.4)",
+                        borderRadius: 6,
+                        padding: "2px 10px",
+                        color: "#f87171",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Retry now
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              (detail ?? `Error code: ${error}`)
+            )}
           </div>
         </div>
       )}

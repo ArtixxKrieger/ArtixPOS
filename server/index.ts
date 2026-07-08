@@ -51,7 +51,13 @@ if (!isServerless) {
 }
 
 const scriptSrc: string[] = isDevelopment
-  ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com"]
+  ? [
+      "'self'",
+      "'unsafe-inline'",
+      "'unsafe-eval'",
+      "https://accounts.google.com",
+      "https://*.google.com",
+    ]
   : ["'self'", "https://accounts.google.com", "https://*.google.com"];
 
 const cspDirectives = {
@@ -61,10 +67,34 @@ const cspDirectives = {
   fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
   imgSrc: isDevelopment
     ? ["'self'", "data:", "https:", "blob:"]
-    : ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com", "https://graph.facebook.com"],
+    : [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://lh3.googleusercontent.com",
+        "https://graph.facebook.com",
+      ],
   connectSrc: isDevelopment
-    ? ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io", "https://fonts.googleapis.com", "https://fonts.gstatic.com"]
-    : ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://*.sentry.io", "https://*.ingest.sentry.io", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+    ? [
+        "'self'",
+        "ws:",
+        "wss:",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com",
+        "https://*.sentry.io",
+        "https://*.ingest.sentry.io",
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com",
+      ]
+    : [
+        "'self'",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com",
+        "https://*.sentry.io",
+        "https://*.ingest.sentry.io",
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com",
+      ],
   frameSrc: ["https://accounts.google.com"],
   frameAncestors: ["'self'"],
   objectSrc: ["'none'"],
@@ -75,7 +105,7 @@ const cspDirectives = {
   mediaSrc: ["'self'", "blob:", "data:"],
   ...(isDevelopment ? {} : { upgradeInsecureRequests: [] }),
 
-"report-uri": ["/api/csp-report"],
+  "report-uri": ["/api/csp-report"],
 };
 
 app.use(
@@ -137,26 +167,30 @@ app.get("/api/health", async (req, res) => {
       await redisClient.ping();
       redis = { status: "ok", latencyMs: t() - redisStart };
     } catch (err: any) {
-      redis = { status: "error", latencyMs: t() - redisStart, error: err?.message ?? "unreachable" };
+      redis = {
+        status: "error",
+        latencyMs: t() - redisStart,
+        error: err?.message ?? "unreachable",
+      };
     }
   }
 
   // ── DB connection pool stats ──────────────────────────────────────────────
   const poolStats = {
     total: (pool as any).totalCount ?? null,
-    idle:  (pool as any).idleCount  ?? null,
+    idle: (pool as any).idleCount ?? null,
     waiting: (pool as any).waitingCount ?? null,
   };
 
   // ── Overall status ────────────────────────────────────────────────────────
-  const dbOk    = db.status === "ok";
+  const dbOk = db.status === "ok";
   const redisOk = redis.status === "ok" || redis.status === "not_configured";
   const overall: "ok" | "degraded" | "down" = !dbOk ? "down" : !redisOk ? "degraded" : "ok";
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const metricsToken = process.env.METRICS_TOKEN;
-  const authHeader   = req.headers.authorization ?? "";
-  const isAuthed     = metricsToken ? authHeader === `Bearer ${metricsToken}` : false;
+  const authHeader = req.headers.authorization ?? "";
+  const isAuthed = metricsToken ? authHeader === `Bearer ${metricsToken}` : false;
 
   res.setHeader("Cache-Control", "no-store");
 
@@ -170,14 +204,14 @@ app.get("/api/health", async (req, res) => {
 
   // ── Memory ────────────────────────────────────────────────────────────────
   const mem = process.memoryUsage();
-  const mb  = (n: number) => Math.round(n / 1_048_576);
+  const mb = (n: number) => Math.round(n / 1_048_576);
 
   // ── CPU / OS ──────────────────────────────────────────────────────────────
   const os = await import("os");
-  const loadAvg = os.loadavg();                      // 1m, 5m, 15m
+  const loadAvg = os.loadavg(); // 1m, 5m, 15m
   const cpuCount = os.cpus().length;
   const totalMemMb = Math.round(os.totalmem() / 1_048_576);
-  const freeMemMb  = Math.round(os.freemem()  / 1_048_576);
+  const freeMemMb = Math.round(os.freemem() / 1_048_576);
 
   // ── App metrics ───────────────────────────────────────────────────────────
   const metrics = getMetricsSnapshot();
@@ -194,45 +228,45 @@ app.get("/api/health", async (req, res) => {
     env: process.env.NODE_ENV ?? "unknown",
 
     process: {
-      pid:     process.pid,
-      uptime:  Math.floor(process.uptime()),
-      node:    process.version,
+      pid: process.pid,
+      uptime: Math.floor(process.uptime()),
+      node: process.version,
       platform: process.platform,
     },
 
     memory: {
-      heapUsedMb:  mb(mem.heapUsed),
+      heapUsedMb: mb(mem.heapUsed),
       heapTotalMb: mb(mem.heapTotal),
-      rssMb:       mb(mem.rss),
-      externalMb:  mb(mem.external),
-      heapPct:     Math.round((mem.heapUsed / mem.heapTotal) * 100),
+      rssMb: mb(mem.rss),
+      externalMb: mb(mem.external),
+      heapPct: Math.round((mem.heapUsed / mem.heapTotal) * 100),
     },
 
     os: {
-      cpus:        cpuCount,
-      loadAvg1m:   +loadAvg[0].toFixed(2),
-      loadAvg5m:   +loadAvg[1].toFixed(2),
-      loadAvg15m:  +loadAvg[2].toFixed(2),
+      cpus: cpuCount,
+      loadAvg1m: +loadAvg[0].toFixed(2),
+      loadAvg5m: +loadAvg[1].toFixed(2),
+      loadAvg15m: +loadAvg[2].toFixed(2),
       totalMemMb,
       freeMemMb,
-      freeMemPct:  Math.round((freeMemMb / totalMemMb) * 100),
+      freeMemPct: Math.round((freeMemMb / totalMemMb) * 100),
     },
 
     services: {
-      db:    { ...db, pool: poolStats },
+      db: { ...db, pool: poolStats },
       redis,
     },
 
     cache: {
-      entries:   cacheSize,
-      hitRate:   metrics.cache.hitRate,
-      hits:      metrics.cache.hits,
-      misses:    metrics.cache.misses,
+      entries: cacheSize,
+      hitRate: metrics.cache.hitRate,
+      hits: metrics.cache.hits,
+      misses: metrics.cache.misses,
     },
 
     requests: {
-      total:     metrics.requests.total,
-      session:   metrics.requests.session,
+      total: metrics.requests.total,
+      session: metrics.requests.session,
       errors5xx: metrics.requests.errors5xx,
       errorRate: metrics.requests.errorRate,
     },
@@ -262,7 +296,9 @@ app.get("/api/geo", (req, res) => {
 app.get("/api/metrics", (req, res) => {
   const token = process.env.METRICS_TOKEN;
   if (!token) {
-    return res.status(403).json({ message: "Metrics endpoint is disabled. Set METRICS_TOKEN to enable." });
+    return res
+      .status(403)
+      .json({ message: "Metrics endpoint is disabled. Set METRICS_TOKEN to enable." });
   }
   const auth = req.headers.authorization ?? "";
   if (auth !== `Bearer ${token}`) {
@@ -362,9 +398,9 @@ app.post(
   express.json({ type: ["application/json", "application/csp-report"], limit: "32kb" }),
   (req: Request, res: Response) => {
     const report = (req.body as Record<string, unknown>)?.["csp-report"] ?? req.body;
-    const blocked   = (report as Record<string, unknown>)?.["blocked-uri"]        ?? "unknown";
+    const blocked = (report as Record<string, unknown>)?.["blocked-uri"] ?? "unknown";
     const directive = (report as Record<string, unknown>)?.["violated-directive"] ?? "unknown";
-    const doc       = (report as Record<string, unknown>)?.["document-uri"]       ?? "";
+    const doc = (report as Record<string, unknown>)?.["document-uri"] ?? "";
     logger.warn({ blocked, directive, doc }, "[csp] violation");
     res.status(204).end();
   },
@@ -462,7 +498,7 @@ async function _doInit() {
     console.log("[init] step 2/8 — initSentry");
     await initSentry();
 
-if (process.env.VERCEL !== "1") {
+    if (process.env.VERCEL !== "1") {
       console.log("[init] step 3/8 — ensureIndexes");
       try {
         await ensureIndexes();
@@ -477,7 +513,9 @@ if (process.env.VERCEL !== "1") {
 
     console.log("[init] step 3b/8 — setupRLS");
     if (process.env.VERCEL === "1") {
-      console.log("[rls] skipped on Vercel — run 'node scripts/apply-rls.mjs' manually or via a pre-deploy CI step with DB access");
+      console.log(
+        "[rls] skipped on Vercel — run 'node scripts/apply-rls.mjs' manually or via a pre-deploy CI step with DB access",
+      );
     } else {
       try {
         await setupRLS();
@@ -618,41 +656,41 @@ if (process.env.VERCEL !== "1") {
     }
   });
 
-  if (!isServerless) setInterval(async () => {
-    try {
-      const expired = await storage.expireOverdueVouchers();
-      if (!expired.length) return;
-      const byUser: Record<string, typeof expired> = {};
-      for (const v of expired) (byUser[v.userId] ??= []).push(v);
-      for (const [userId, vouchers] of Object.entries(byUser)) {
-        const settings = await storage.getSettings(userId);
-        const routerConfig = parseRouterConfig(settings?.routerConfig);
-        if (!routerConfig || !routerConfig.enabled || !routerConfig.host) continue;
-        try {
-          const adapter = await getAdapter(routerConfig.type);
-          for (const v of vouchers) {
-            if (v.mikrotikUserId) {
-              adapter.removeUser(routerConfig, v.mikrotikUserId).catch(() => {});
+  if (!isServerless)
+    setInterval(async () => {
+      try {
+        const expired = await storage.expireOverdueVouchers();
+        if (!expired.length) return;
+        const byUser: Record<string, typeof expired> = {};
+        for (const v of expired) (byUser[v.userId] ??= []).push(v);
+        for (const [userId, vouchers] of Object.entries(byUser)) {
+          const settings = await storage.getSettings(userId);
+          const routerConfig = parseRouterConfig(settings?.routerConfig);
+          if (!routerConfig || !routerConfig.enabled || !routerConfig.host) continue;
+          try {
+            const adapter = await getAdapter(routerConfig.type);
+            for (const v of vouchers) {
+              if (v.mikrotikUserId) {
+                adapter.removeUser(routerConfig, v.mikrotikUserId).catch(() => {});
+              }
             }
-          }
-        } catch {
-
+          } catch {}
         }
+        console.log(`[voucher-expiry] expired=${expired.length}`);
+      } catch (err: any) {
+        console.warn("[voucher-expiry] cron error:", err?.message);
       }
-      console.log(`[voucher-expiry] expired=${expired.length}`);
-    } catch (err: any) {
-      console.warn("[voucher-expiry] cron error:", err?.message);
-    }
-  }, 5 * 60_000).unref();
+    }, 5 * 60_000).unref();
 
-  if (!isServerless) setInterval(() => {
-    const h = process.memoryUsage();
-    const mb = (n: number) => Math.round(n / 1_048_576);
-    console.log(
-      `[health] heap ${mb(h.heapUsed)}/${mb(h.heapTotal)}MB  rss=${mb(h.rss)}MB  ` +
-        `cache=${cache.size()} entries`,
-    );
-  }, 60_000).unref();
+  if (!isServerless)
+    setInterval(() => {
+      const h = process.memoryUsage();
+      const mb = (n: number) => Math.round(n / 1_048_576);
+      console.log(
+        `[health] heap ${mb(h.heapUsed)}/${mb(h.heapTotal)}MB  rss=${mb(h.rss)}MB  ` +
+          `cache=${cache.size()} entries`,
+      );
+    }, 60_000).unref();
 }
 
 export default async function handler(req: Request, res: Response) {
@@ -685,7 +723,9 @@ export default async function handler(req: Request, res: Response) {
 
       // Don't retry config errors — they will never self-heal.
       if (isPermanentFailure(error)) {
-        console.error("[vercel] Permanent config failure — skipping retries. Check Vercel environment variables (DATABASE_URL, SESSION_SECRET).");
+        console.error(
+          "[vercel] Permanent config failure — skipping retries. Check Vercel environment variables (DATABASE_URL, SESSION_SECRET).",
+        );
         break;
       }
 
@@ -701,9 +741,6 @@ export default async function handler(req: Request, res: Response) {
     console.error("[vercel] Init exhausted:", finalMsg);
     if (!res.headersSent) {
       const reqPath = req.url ?? (req as any).path ?? "";
-      const isOAuthEntry =
-        reqPath.includes("/auth/google") ||
-        reqPath.includes("/auth/facebook");
 
       // Encode a short reason so the login page (and Vercel logs) can explain
       // the failure without exposing sensitive details to end users.
@@ -712,11 +749,12 @@ export default async function handler(req: Request, res: Response) {
         errorCode = "server_misconfigured";
       }
 
-      if (isOAuthEntry) {
-        res.redirect(`/login?error=${errorCode}`);
-      } else {
-        res.status(500).json({ error: "Internal Server Error" });
-      }
+      // Redirect ALL requests to the login page with the error code.
+      // The static login page (served directly by Vercel CDN, not through
+      // this function) will render the error banner so users see what's wrong.
+      // Previously only OAuth callbacks were redirected — API calls got a raw
+      // 500 JSON which caused the React SPA to white-screen.
+      res.redirect(`/login?error=${errorCode}`);
     }
     return;
   }

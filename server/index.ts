@@ -694,42 +694,19 @@ if (process.env.VERCEL !== "1") {
 }
 
 export default async function handler(req: Request, res: Response) {
-  // Phase 1: initialise the app — retry on transient failures (cold-start DB
-  // hiccups, etc.) but do NOT let request-handling errors loop back here.
   let initializedApp: typeof app | null = null;
   let lastErr: unknown;
-
-  // Distinguish permanent config failures (missing env vars) from transient
-  // ones (cold-start DB hiccups).  Retrying a missing env var wastes the
-  // entire 60-second Vercel function budget and delays the error message.
-  const isPermanentFailure = (err: unknown): boolean => {
-    const msg = err instanceof Error ? err.message : String(err);
-    return (
-      msg.includes("Missing required environment variables") ||
-      msg.includes("No database connection string") ||
-      msg.includes("SESSION_SECRET is too short")
-    );
-  };
 
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       initializedApp = await initializeApp();
-      break; // success — exit the retry loop
+      break;
     } catch (error) {
       lastErr = error;
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[vercel] Init failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}): ${errMsg}`);
 
-      // Don't retry config errors — they will never self-heal.
-      if (isPermanentFailure(error)) {
-        console.error(
-          "[vercel] Permanent config failure — skipping retries. Check Vercel environment variables (DATABASE_URL, SESSION_SECRET).",
-        );
-        break;
-      }
-
-      // Exponential backoff for transient errors: 500 ms, 1 s, 2 s, 4 s
       if (attempt < MAX_ATTEMPTS - 1) {
         await new Promise<void>((r) => setTimeout(r, Math.min(500 * 2 ** attempt, 4000)));
       }
@@ -740,27 +717,11 @@ export default async function handler(req: Request, res: Response) {
     const finalMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
     console.error("[vercel] Init exhausted:", finalMsg);
     if (!res.headersSent) {
-      const reqPath = req.url ?? (req as any).path ?? "";
-
-      // Encode a short reason so the login page (and Vercel logs) can explain
-      // the failure without exposing sensitive details to end users.
-      let errorCode = "server_unavailable";
-      if (isPermanentFailure(lastErr)) {
-        errorCode = "server_misconfigured";
-      }
-
-      // Redirect ALL requests to the login page with the error code.
-      // The static login page (served directly by Vercel CDN, not through
-      // this function) will render the error banner so users see what's wrong.
-      // Previously only OAuth callbacks were redirected — API calls got a raw
-      // 500 JSON which caused the React SPA to white-screen.
-      res.redirect(`/login?error=${errorCode}`);
+      res.status(503).json({ error: "Server is starting up. Please retry." });
     }
     return;
   }
 
-  // Phase 2: handle the request — errors here are Express's responsibility,
-  // not init failures, so they must NOT trigger a retry loop.
   return initializedApp(req, res);
 }
 

@@ -15,40 +15,24 @@ export function validateEnv(): void {
 
   if (missing.length > 0) {
     const lines = missing.map(([k, hint]) => `  ${k}\n    → ${hint}`).join("\n");
-    const msg = `[env] ✗ FATAL — Missing required environment variables:\n\n${lines}\n\n[env] Set these via environment secrets before starting the server.`;
-    console.error(msg);
-    if (process.env.VERCEL === "1") {
-      throw new Error(msg);
-    }
-    process.exit(1);
+    const msg = `[env] ⚠  Missing required environment variables:\n\n${lines}`;
+    console.warn(msg);
+    if (process.env.VERCEL !== "1") process.exit(1);
   }
 
-  // db.ts accepts any of these three — validate against the same set
   const dbUrl =
     process.env.SUPABASE_POOLER_URL ||
     process.env.SUPABASE_DATABASE_URL ||
     process.env.DATABASE_URL;
   if (!dbUrl) {
-    const msg =
-      "[env] ✗ FATAL — No database connection string found.\n" +
-      "       Set SUPABASE_POOLER_URL, SUPABASE_DATABASE_URL, or DATABASE_URL.";
-    console.error(msg);
-    if (process.env.VERCEL === "1") {
-      throw new Error(msg);
-    }
-    process.exit(1);
+    console.warn("[env] ⚠  No database connection string found.");
+    if (process.env.VERCEL !== "1") process.exit(1);
   }
 
-  const secret = process.env.SESSION_SECRET!;
-  if (secret.length < 32) {
-    const msg =
-      "[env] ✗ FATAL — SESSION_SECRET is too short (must be ≥ 32 characters).\n" +
-      "       Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"";
-    console.error(msg);
-    if (process.env.VERCEL === "1") {
-      throw new Error(msg);
-    }
-    process.exit(1);
+  const secret = process.env.SESSION_SECRET;
+  if (secret && secret.length < 32) {
+    console.warn("[env] ⚠  SESSION_SECRET is too short (must be ≥ 32 characters).");
+    if (process.env.VERCEL !== "1") process.exit(1);
   }
 
   const missingRec = Object.entries(RECOMMENDED).filter(([k]) => !process.env[k]);

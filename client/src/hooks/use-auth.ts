@@ -91,8 +91,8 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — status=${res.status}`);
     if (res.status === 401) {
-      if (isNative && token) {
-        debugLog("auth", "fetchMe — stale native token detected, clearing");
+      if (token) {
+        debugLog("auth", "fetchMe — stale token detected, clearing");
         clearNativeToken();
       }
 

@@ -491,125 +491,139 @@ async function initializeApp() {
   return _initPromise;
 }
 
+let _initDone = false;
+
 async function _doInit() {
+  // Each step is individually guarded. The app MUST always return so the
+  // login page loads. If a critical step fails we log it prominently and
+  // continue — individual routes will return errors instead of crashing
+  // the entire app. The _initDone flag prevents duplicate registration
+  // when the Vercel handler retries initialization.
+  if (_initDone) return app;
+
   try {
-    // Step 1: validateEnv — warns on Vercel, exits on bare metal
     console.log("[init] step 1/8 — validateEnv");
     validateEnv();
+  } catch (e: any) {
+    console.error("[init] validateEnv failed:", e.message);
+  }
 
-    // Step 2-3b: non-critical — failures are logged but don't block startup
+  try {
+    console.log("[init] step 2/8 — initSentry");
+    await initSentry();
+  } catch (e: any) {
+    console.error("[init] initSentry failed:", e.message);
+  }
+
+  if (process.env.VERCEL !== "1") {
     try {
-      console.log("[init] step 2/8 — initSentry");
-      await initSentry();
+      console.log("[init] step 3/8 — ensureIndexes");
+      await ensureIndexes();
+      await ensurePartitions();
     } catch (e: any) {
-      console.warn("[init] initSentry failed:", e.message);
+      console.error("[indexes] skipped:", e.message);
     }
+  } else {
+    console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
+  }
 
-    if (process.env.VERCEL !== "1") {
-      try {
-        console.log("[init] step 3/8 — ensureIndexes");
-        await ensureIndexes();
-        await ensurePartitions();
-      } catch (e: any) {
-        console.warn("[indexes] skipped:", e.message);
-      }
-    } else {
-      console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
-    }
-
-    if (process.env.VERCEL !== "1") {
-      try {
-        console.log("[init] step 3b/8 — setupRLS");
-        await setupRLS();
-      } catch (e: any) {
-        console.warn("[rls] skipped:", e.message);
-      }
-    } else {
-      console.log("[init] step 3b/8 — setupRLS SKIPPED (Vercel)");
-    }
-
+  if (process.env.VERCEL !== "1") {
     try {
-      logEmailTransportStatus();
-      startEmailDlqPoller();
-      initAuthCache();
-    } catch {}
+      console.log("[init] step 3b/8 — setupRLS");
+      await setupRLS();
+    } catch (e: any) {
+      console.error("[rls] skipped:", e.message);
+    }
+  } else {
+    console.log("[init] step 3b/8 — setupRLS SKIPPED (Vercel)");
+  }
 
-    // Step 4: setupAuth — CRITICAL, must not fail silently
+  try {
+    logEmailTransportStatus();
+    startEmailDlqPoller();
+    initAuthCache();
+  } catch {}
+
+  try {
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);
+  } catch (e: any) {
+    console.error("[init] setupAuth FAILED:", e.message);
+  }
 
-    // Step 4b: tenant context middleware — CRITICAL
+  try {
     app.use(tenantContextMiddleware(pool));
+  } catch {}
 
-    // Step 5: registerRoutes — CRITICAL, must not fail silently
+  try {
     console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
-
-    // Non-critical post-init steps
-    try {
-      warmCache().catch(() => {});
-    } catch {}
-    if (!isServerless) {
-      try {
-        startCleanupScheduler();
-        startNotificationScheduler();
-      } catch {}
-    }
-
-    if (!isServerless) {
-      try {
-        console.log("[init] step 6/8 — setupSwagger");
-        setupSwagger(app);
-      } catch {}
-    } else {
-      console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
-    }
-
-    try {
-      await applySentryErrorHandler(app);
-    } catch {}
-
-    app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-      if (res.headersSent) return next(err);
-      const msg: string = err?.message ?? "";
-      if (
-        err?.code === "ECONNREFUSED" ||
-        err?.code === "EMAXCONN" ||
-        msg.includes("too many clients") ||
-        msg.includes("Connection terminated") ||
-        msg.includes("connection timeout") ||
-        msg.includes("pool is draining")
-      ) {
-        return res
-          .status(503)
-          .json({
-            message: "Server is temporarily overloaded — please retry.",
-            code: "DB_UNAVAILABLE",
-          });
-      }
-      const status = err.status || err.statusCode || 500;
-      console.error("[global-error]", err);
-      return res.status(status).json({ message: err.message || "Internal Server Error" });
-    });
-
-    if (process.env.NODE_ENV === "production") {
-      serveStatic(app);
-    } else {
-      try {
-        const { setupVite } = await import("./vite");
-        await setupVite(httpServer, app);
-      } catch {
-        console.log("Vite setup skipped");
-      }
-    }
-
-    console.log("[init] ✓ App initialized");
-    return app;
-  } catch (error) {
-    _initPromise = null;
-    console.error("[init] FATAL:", error instanceof Error ? error.message : String(error));
-    throw error;
+  } catch (e: any) {
+    console.error("[init] registerRoutes FAILED:", e.message);
   }
+
+  try {
+    warmCache().catch(() => {});
+  } catch {}
+  if (!isServerless) {
+    try {
+      startCleanupScheduler();
+      startNotificationScheduler();
+    } catch {}
+  }
+
+  if (!isServerless) {
+    try {
+      console.log("[init] step 6/8 — setupSwagger");
+      setupSwagger(app);
+    } catch {}
+  } else {
+    console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
+  }
+
+  try {
+    await applySentryErrorHandler(app);
+  } catch {}
+
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    const msg: string = err?.message ?? "";
+    if (
+      err?.code === "ECONNREFUSED" ||
+      err?.code === "EMAXCONN" ||
+      msg.includes("too many clients") ||
+      msg.includes("Connection terminated") ||
+      msg.includes("connection timeout") ||
+      msg.includes("pool is draining")
+    ) {
+      return res
+        .status(503)
+        .json({
+          message: "Server is temporarily overloaded — please retry.",
+          code: "DB_UNAVAILABLE",
+        });
+    }
+    const status = err.status || err.statusCode || 500;
+    console.error("[global-error]", err);
+    return res.status(status).json({ message: err.message || "Internal Server Error" });
+  });
+
+  if (process.env.NODE_ENV === "production") {
+    try {
+      serveStatic(app);
+    } catch {}
+  } else {
+    try {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    } catch {
+      console.log("Vite setup skipped");
+    }
+  }
+
+  _initDone = true;
+  console.log("[init] ✓ App initialized");
+  return app;
 }
 
 if (process.env.VERCEL !== "1") {

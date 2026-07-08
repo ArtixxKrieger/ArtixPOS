@@ -1,8 +1,4 @@
-import axios, {
-  AxiosError,
-  AxiosResponse,
-  InternalAxiosRequestConfig,
-} from "axios";
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
@@ -31,7 +27,13 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export function getCredentials(): "include" | "omit" {
-  return API_BASE || getNativeToken() ? "omit" : "include";
+  // On native platforms (Capacitor), cookies don't work — Bearer token only.
+  if (API_BASE) return "omit";
+  // On web, always send cookies. The Bearer token is also sent via
+  // Authorization header if available — the server uses whichever is valid.
+  // We never omit cookies on web because a stale Bearer token in localStorage
+  // would block a valid auth_token cookie from being sent.
+  return "include";
 }
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
@@ -126,16 +128,18 @@ api.interceptors.response.use(
     // Capture 5xx errors silently — don't await, never block the request chain
     const status = err.response?.status ?? 0;
     if (status >= 500) {
-      import("@/lib/error-capture").then(({ captureError }) => {
-        const url = err.config?.url ?? "unknown";
-        const method = (err.config?.method ?? "GET").toUpperCase();
-        captureError("api_error", `${method} ${url} → ${status}`, undefined, {
-          status,
-          method,
-          url,
-          responseData: err.response?.data,
-        });
-      }).catch(() => {});
+      import("@/lib/error-capture")
+        .then(({ captureError }) => {
+          const url = err.config?.url ?? "unknown";
+          const method = (err.config?.method ?? "GET").toUpperCase();
+          captureError("api_error", `${method} ${url} → ${status}`, undefined, {
+            status,
+            method,
+            url,
+            responseData: err.response?.data,
+          });
+        })
+        .catch(() => {});
     }
 
     if (err.response?.status === 401) {
@@ -167,9 +171,7 @@ api.interceptors.response.use(
 
 export function normaliseError(err: unknown): Error {
   if (err instanceof AxiosError) {
-    const data = err.response?.data as
-      | { message?: string; error?: string }
-      | undefined;
+    const data = err.response?.data as { message?: string; error?: string } | undefined;
     const message =
       data?.message ||
       data?.error ||
@@ -189,10 +191,7 @@ function inflightKey(method: string, url: string, data: unknown): string {
   return `${method}:${url}:${JSON.stringify(data ?? null)}`;
 }
 
-export async function apiGet<T = unknown>(
-  url: string,
-  signal?: AbortSignal,
-): Promise<T> {
+export async function apiGet<T = unknown>(url: string, signal?: AbortSignal): Promise<T> {
   try {
     const res = await api.get<T>(resolveUrl(url), { signal });
     return res.data;
@@ -205,7 +204,6 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown,
-
 ): Promise<AxiosResponse & { ok: true; json: () => Promise<any> }> {
   const m = method.toUpperCase();
   const resolved = resolveUrl(url);
@@ -234,7 +232,7 @@ export async function apiRequest(
     res = await exec();
   }
 
-return Object.assign(res, { ok: true as const, json: async (): Promise<any> => res.data });
+  return Object.assign(res, { ok: true as const, json: async (): Promise<any> => res.data });
 }
 
 export async function performLogout(): Promise<Response> {
@@ -253,10 +251,7 @@ export async function performLogout(): Promise<Response> {
   });
 }
 
-export async function nativeFetch(
-  url: string,
-  options: RequestInit = {},
-): Promise<Response> {
+export async function nativeFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const method = (options.method ?? "GET").toUpperCase();
   const res = await fetch(resolveUrl(url), {
     ...options,

@@ -18,6 +18,7 @@ import { useBranchTheme } from "@/hooks/use-branch-theme";
 import { AppTour } from "@/components/app-tour";
 
 import Login from "@/pages/login";
+import LoginError from "@/pages/login-error";
 import ResetPassword from "@/pages/reset-password";
 import VerifyEmail from "@/pages/verify-email";
 import NotFound from "@/pages/not-found";
@@ -727,7 +728,12 @@ function ProtectedRouter() {
 function Router() {
   return (
     <Switch>
-      <Route path="/login" component={Login} />
+      <Route path="/login">
+        {() => {
+          const params = new URLSearchParams(window.location.search);
+          return params.get("error") ? <LoginError /> : <Login />;
+        }}
+      </Route>
       <Route
         path="/terms"
         component={() => (

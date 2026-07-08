@@ -492,136 +492,124 @@ async function initializeApp() {
 }
 
 async function _doInit() {
-  // Bulletproof init — each step is individually guarded.
-  // If anything fails we log it and continue. The login page
-  // must ALWAYS load; individual features can fail gracefully later.
   try {
+    // Step 1: validateEnv — warns on Vercel, exits on bare metal
     console.log("[init] step 1/8 — validateEnv");
     validateEnv();
-  } catch (e: any) {
-    console.warn("[init] validateEnv failed:", e.message);
-  }
-  try {
-    console.log("[init] step 2/8 — initSentry");
-    await initSentry();
-  } catch (e: any) {
-    console.warn("[init] initSentry failed:", e.message);
-  }
 
-  if (process.env.VERCEL !== "1") {
+    // Step 2-3b: non-critical — failures are logged but don't block startup
     try {
-      console.log("[init] step 3/8 — ensureIndexes");
-      await ensureIndexes();
-      await ensurePartitions();
+      console.log("[init] step 2/8 — initSentry");
+      await initSentry();
     } catch (e: any) {
-      console.warn("[indexes] skipped:", e.message);
+      console.warn("[init] initSentry failed:", e.message);
     }
-  } else {
-    console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
-  }
 
-  if (process.env.VERCEL !== "1") {
+    if (process.env.VERCEL !== "1") {
+      try {
+        console.log("[init] step 3/8 — ensureIndexes");
+        await ensureIndexes();
+        await ensurePartitions();
+      } catch (e: any) {
+        console.warn("[indexes] skipped:", e.message);
+      }
+    } else {
+      console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
+    }
+
+    if (process.env.VERCEL !== "1") {
+      try {
+        console.log("[init] step 3b/8 — setupRLS");
+        await setupRLS();
+      } catch (e: any) {
+        console.warn("[rls] skipped:", e.message);
+      }
+    } else {
+      console.log("[init] step 3b/8 — setupRLS SKIPPED (Vercel)");
+    }
+
     try {
-      console.log("[init] step 3b/8 — setupRLS");
-      await setupRLS();
-    } catch (e: any) {
-      console.warn("[rls] skipped:", e.message);
-    }
-  } else {
-    console.log("[init] step 3b/8 — setupRLS SKIPPED (Vercel)");
-  }
+      logEmailTransportStatus();
+      startEmailDlqPoller();
+      initAuthCache();
+    } catch {}
 
-  try {
-    logEmailTransportStatus();
-  } catch {}
-  try {
-    startEmailDlqPoller();
-  } catch {}
-  try {
-    initAuthCache();
-  } catch {}
-
-  try {
+    // Step 4: setupAuth — CRITICAL, must not fail silently
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);
-  } catch (e: any) {
-    console.warn("[init] setupAuth failed:", e.message);
-  }
 
-  try {
+    // Step 4b: tenant context middleware — CRITICAL
     app.use(tenantContextMiddleware(pool));
-  } catch {}
 
-  try {
+    // Step 5: registerRoutes — CRITICAL, must not fail silently
     console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
-  } catch (e: any) {
-    console.warn("[init] registerRoutes failed:", e.message);
-  }
 
-  try {
-    warmCache().catch(() => {});
-  } catch {}
-  if (!isServerless) {
+    // Non-critical post-init steps
     try {
-      startCleanupScheduler();
+      warmCache().catch(() => {});
     } catch {}
-    try {
-      startNotificationScheduler();
-    } catch {}
-  }
-
-  if (!isServerless) {
-    try {
-      console.log("[init] step 6/8 — setupSwagger");
-      setupSwagger(app);
-    } catch {}
-  } else {
-    console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
-  }
-
-  try {
-    await applySentryErrorHandler(app);
-  } catch {}
-
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-    if (res.headersSent) return next(err);
-    const msg: string = err?.message ?? "";
-    if (
-      err?.code === "ECONNREFUSED" ||
-      err?.code === "EMAXCONN" ||
-      msg.includes("too many clients") ||
-      msg.includes("Connection terminated") ||
-      msg.includes("connection timeout") ||
-      msg.includes("pool is draining")
-    ) {
-      return res
-        .status(503)
-        .json({
-          message: "Server is temporarily overloaded — please retry.",
-          code: "DB_UNAVAILABLE",
-        });
+    if (!isServerless) {
+      try {
+        startCleanupScheduler();
+        startNotificationScheduler();
+      } catch {}
     }
-    const status = err.status || err.statusCode || 500;
-    console.error("[global-error]", err);
-    return res.status(status).json({ message: err.message || "Internal Server Error" });
-  });
 
-  if (process.env.NODE_ENV === "production") {
+    if (!isServerless) {
+      try {
+        console.log("[init] step 6/8 — setupSwagger");
+        setupSwagger(app);
+      } catch {}
+    } else {
+      console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
+    }
+
     try {
+      await applySentryErrorHandler(app);
+    } catch {}
+
+    app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+      if (res.headersSent) return next(err);
+      const msg: string = err?.message ?? "";
+      if (
+        err?.code === "ECONNREFUSED" ||
+        err?.code === "EMAXCONN" ||
+        msg.includes("too many clients") ||
+        msg.includes("Connection terminated") ||
+        msg.includes("connection timeout") ||
+        msg.includes("pool is draining")
+      ) {
+        return res
+          .status(503)
+          .json({
+            message: "Server is temporarily overloaded — please retry.",
+            code: "DB_UNAVAILABLE",
+          });
+      }
+      const status = err.status || err.statusCode || 500;
+      console.error("[global-error]", err);
+      return res.status(status).json({ message: err.message || "Internal Server Error" });
+    });
+
+    if (process.env.NODE_ENV === "production") {
       serveStatic(app);
-    } catch {}
-  } else {
-    try {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
-    } catch {
-      console.log("Vite setup skipped");
+    } else {
+      try {
+        const { setupVite } = await import("./vite");
+        await setupVite(httpServer, app);
+      } catch {
+        console.log("Vite setup skipped");
+      }
     }
-  }
 
-  console.log("[init] ✓ App initialized");
-  return app;
+    console.log("[init] ✓ App initialized");
+    return app;
+  } catch (error) {
+    _initPromise = null;
+    console.error("[init] FATAL:", error instanceof Error ? error.message : String(error));
+    throw error;
+  }
 }
 
 if (process.env.VERCEL !== "1") {

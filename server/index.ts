@@ -492,114 +492,136 @@ async function initializeApp() {
 }
 
 async function _doInit() {
+  // Bulletproof init — each step is individually guarded.
+  // If anything fails we log it and continue. The login page
+  // must ALWAYS load; individual features can fail gracefully later.
   try {
     console.log("[init] step 1/8 — validateEnv");
     validateEnv();
+  } catch (e: any) {
+    console.warn("[init] validateEnv failed:", e.message);
+  }
+  try {
     console.log("[init] step 2/8 — initSentry");
     await initSentry();
+  } catch (e: any) {
+    console.warn("[init] initSentry failed:", e.message);
+  }
 
-    if (process.env.VERCEL !== "1") {
+  if (process.env.VERCEL !== "1") {
+    try {
       console.log("[init] step 3/8 — ensureIndexes");
-      try {
-        await ensureIndexes();
-        await ensurePartitions();
-      } catch (idxErr: unknown) {
-        const msg = idxErr instanceof Error ? idxErr.message : String(idxErr);
-        console.warn("[indexes] ⚠  skipped:", msg);
-      }
-    } else {
-      console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
+      await ensureIndexes();
+      await ensurePartitions();
+    } catch (e: any) {
+      console.warn("[indexes] skipped:", e.message);
     }
+  } else {
+    console.log("[init] step 3/8 — ensureIndexes SKIPPED (Vercel)");
+  }
 
-    console.log("[init] step 3b/8 — setupRLS");
-    if (process.env.VERCEL === "1") {
-      console.log(
-        "[rls] skipped on Vercel — run 'node scripts/apply-rls.mjs' manually or via a pre-deploy CI step with DB access",
-      );
-    } else {
-      try {
-        await setupRLS();
-      } catch (rlsErr: unknown) {
-        const msg = rlsErr instanceof Error ? rlsErr.message : String(rlsErr);
-        console.warn("[rls] ⚠  setupRLS skipped:", msg);
-      }
+  if (process.env.VERCEL !== "1") {
+    try {
+      console.log("[init] step 3b/8 — setupRLS");
+      await setupRLS();
+    } catch (e: any) {
+      console.warn("[rls] skipped:", e.message);
     }
+  } else {
+    console.log("[init] step 3b/8 — setupRLS SKIPPED (Vercel)");
+  }
 
+  try {
     logEmailTransportStatus();
+  } catch {}
+  try {
     startEmailDlqPoller();
-
-    // Defer DB queries that used to fire at module load time in auth/core.ts.
-    // Running them here ensures the pool is warmed before any queries fire.
+  } catch {}
+  try {
     initAuthCache();
+  } catch {}
 
+  try {
     console.log("[init] step 4/8 — setupAuth");
     setupAuth(app);
+  } catch (e: any) {
+    console.warn("[init] setupAuth failed:", e.message);
+  }
 
+  try {
     app.use(tenantContextMiddleware(pool));
+  } catch {}
 
+  try {
     console.log("[init] step 5/8 — registerRoutes");
     await registerRoutes(httpServer, app);
-    warmCache().catch(() => {});
-    if (!isServerless) {
-      startCleanupScheduler();
-      startNotificationScheduler();
-    }
+  } catch (e: any) {
+    console.warn("[init] registerRoutes failed:", e.message);
+  }
 
-    if (!isServerless) {
+  try {
+    warmCache().catch(() => {});
+  } catch {}
+  if (!isServerless) {
+    try {
+      startCleanupScheduler();
+    } catch {}
+    try {
+      startNotificationScheduler();
+    } catch {}
+  }
+
+  if (!isServerless) {
+    try {
       console.log("[init] step 6/8 — setupSwagger");
       setupSwagger(app);
-    } else {
-      console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
-    }
+    } catch {}
+  } else {
+    console.log("[init] step 6/8 — setupSwagger SKIPPED (Vercel)");
+  }
 
+  try {
     await applySentryErrorHandler(app);
+  } catch {}
 
-    app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-      if (res.headersSent) return next(err);
-
-      const msg: string = err?.message ?? "";
-      if (
-        err?.code === "ECONNREFUSED" ||
-        err?.code === "EMAXCONN" ||
-        msg.includes("too many clients") ||
-        msg.includes("max client connections") ||
-        msg.includes("Connection terminated") ||
-        msg.includes("connection timeout") ||
-        msg.includes("timeout exceeded") ||
-        msg.includes("Client was closed") ||
-        msg.includes("pool is draining") ||
-        msg.includes("connection pool") ||
-        msg.includes("remaining connection slots")
-      ) {
-        return res.status(503).json({
-          message: "Server is temporarily overloaded — please retry in a moment.",
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    const msg: string = err?.message ?? "";
+    if (
+      err?.code === "ECONNREFUSED" ||
+      err?.code === "EMAXCONN" ||
+      msg.includes("too many clients") ||
+      msg.includes("Connection terminated") ||
+      msg.includes("connection timeout") ||
+      msg.includes("pool is draining")
+    ) {
+      return res
+        .status(503)
+        .json({
+          message: "Server is temporarily overloaded — please retry.",
           code: "DB_UNAVAILABLE",
         });
-      }
-
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      console.error("[global-error] unhandled error:", err);
-      return res.status(status).json({ message });
-    });
-
-    if (process.env.NODE_ENV === "production") {
-      serveStatic(app);
-    } else {
-      try {
-        const { setupVite } = await import("./vite");
-        await setupVite(httpServer, app);
-      } catch {
-        console.log("Vite setup skipped");
-      }
     }
+    const status = err.status || err.statusCode || 500;
+    console.error("[global-error]", err);
+    return res.status(status).json({ message: err.message || "Internal Server Error" });
+  });
 
-    return app;
-  } catch (error) {
-    _initPromise = null;
-    console.error("Failed to initialize server:", error);
-    throw error;
+  if (process.env.NODE_ENV === "production") {
+    try {
+      serveStatic(app);
+    } catch {}
+  } else {
+    try {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    } catch {
+      console.log("Vite setup skipped");
+    }
   }
+
+  console.log("[init] ✓ App initialized");
+  return app;
 }
 
 if (process.env.VERCEL !== "1") {

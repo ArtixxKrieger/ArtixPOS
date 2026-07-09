@@ -1,6 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
 
-const DB_NAME    = "pos-offline-v1";
+const DB_NAME = "pos-offline-v1";
 const DB_VERSION = 3;
 
 export const SYNC_CHANNEL_NAME = "pos-sync";
@@ -42,8 +42,7 @@ let _db: IDBPDatabase<PosOfflineDB> | null = null;
 async function getDB(): Promise<IDBPDatabase<PosOfflineDB>> {
   if (_db) return _db;
   _db = await openDB<PosOfflineDB>(DB_NAME, DB_VERSION, {
-
-upgrade(db, oldVersion, _newVersion, transaction) {
+    upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         db.createObjectStore("api-cache", { keyPath: "url" });
         const qs = db.createObjectStore("mutation-queue", {
@@ -53,7 +52,7 @@ upgrade(db, oldVersion, _newVersion, transaction) {
         qs.createIndex("by-timestamp", "timestamp");
       }
 
-if (oldVersion < 2) {
+      if (oldVersion < 2) {
         try {
           const qs2 = transaction.objectStore("mutation-queue");
           if (!qs2.indexNames.contains("by-category")) {
@@ -62,17 +61,11 @@ if (oldVersion < 2) {
           if (!qs2.indexNames.contains("by-failed")) {
             qs2.createIndex("by-failed", "permanentlyFailed");
           }
-        } catch {
-
-        }
+        } catch {}
       }
-
-},
-    blocked() {
-
     },
+    blocked() {},
     blocking() {
-
       _db?.close();
       _db = null;
     },
@@ -98,23 +91,22 @@ export interface QueuedMutation {
 
   lastError?: string;
 
-nextRetryAt?: number;
+  nextRetryAt?: number;
 
-offlineId?: string | number;
+  offlineId?: string | number;
 }
 
 export async function getCached<T>(
   url: string,
   maxAgeMs: number = 24 * 60 * 60 * 1000,
 ): Promise<T | null> {
-
   if (!_currentUserId) return null;
   try {
     const db = await getDB();
     const entry = await db.get("api-cache", cacheKey(url));
     if (!entry) return null;
 
-if (entry.timestamp && maxAgeMs !== Infinity && Date.now() - entry.timestamp > maxAgeMs) {
+    if (entry.timestamp && maxAgeMs !== Infinity && Date.now() - entry.timestamp > maxAgeMs) {
       return null;
     }
     return entry.data as T;
@@ -131,10 +123,7 @@ export async function setCached(url: string, data: unknown): Promise<void> {
   } catch {}
 }
 
-export async function patchCached<T>(
-  url: string,
-  updater: (prev: T[]) => T[]
-): Promise<void> {
+export async function patchCached<T>(url: string, updater: (prev: T[]) => T[]): Promise<void> {
   try {
     const current = await getCached<T[]>(url);
     await setCached(url, updater(current ?? []));
@@ -161,8 +150,11 @@ export async function pruneStaleCache(maxAgeMs: number): Promise<void> {
     const cutoff = Date.now() - maxAgeMs;
     const tx = db.transaction("api-cache", "readwrite");
     for (const entry of all) {
-
-      if (entry.timestamp && entry.timestamp < cutoff && entry.url.startsWith(`${_currentUserId}:`)) {
+      if (
+        entry.timestamp &&
+        entry.timestamp < cutoff &&
+        entry.url.startsWith(`${_currentUserId}:`)
+      ) {
         tx.store.delete(entry.url);
       }
     }
@@ -237,9 +229,7 @@ export async function getQueueStats(): Promise<{
       total: all.length,
       failed: all.filter((i) => i.permanentlyFailed).length,
       sales: all.filter(
-        (i) =>
-          (i.category === "sale" || i.category === "pending-order") &&
-          !i.permanentlyFailed,
+        (i) => (i.category === "sale" || i.category === "pending-order") && !i.permanentlyFailed,
       ).length,
     };
   } catch {
@@ -283,17 +273,14 @@ export async function resetFailedQueueItems(): Promise<void> {
             retryCount: 0,
             lastError: undefined,
             nextRetryAt: undefined,
-          })
-        )
+          }),
+        ),
     );
     await tx.done;
   } catch {}
 }
 
-export async function remapQueueItemUrls(
-  oldId: string,
-  newId: string,
-): Promise<void> {
+export async function remapQueueItemUrls(oldId: string, newId: string): Promise<void> {
   if (!oldId || !newId || oldId === newId) return;
   try {
     const db = await getDB();
@@ -312,7 +299,9 @@ export async function remapQueueItemUrls(
       if (item.body !== undefined) {
         const bodyStr = JSON.stringify(item.body);
         if (bodyStr.includes(oldId)) {
-          try { newBody = JSON.parse(bodyStr.split(oldId).join(newId)); } catch {}
+          try {
+            newBody = JSON.parse(bodyStr.split(oldId).join(newId));
+          } catch {}
         }
       }
       tx.store.put({ ...item, url: newUrl, body: newBody });
@@ -363,7 +352,8 @@ export async function discardAllFailedItems(): Promise<void> {
 
 export function isNetworkError(err: unknown): boolean {
   if (err instanceof TypeError) return true;
-  if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) return true;
+  if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError"))
+    return true;
   return false;
 }
 
@@ -402,6 +392,8 @@ export async function clearAllCache(): Promise<void> {
   try {
     const db = await getDB();
     await db.clear("api-cache");
-    await db.clear("mutation-queue");
+    // NEVER clear mutation-queue here — offline sales and pending changes
+    // must survive session expiry. Only explicit logout via performLogout
+    // should drain the queue after syncing.
   } catch {}
 }

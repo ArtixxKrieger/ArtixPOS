@@ -750,18 +750,28 @@ export default function Login() {
         // localStorage placeholder will have activeBranch populated and IndexedDB
         // will have the critical data — so the app renders with real data instantly
         // instead of showing stale/empty state until the first network round-trip.
+        // Always seed the placeholder with the known-good `authUser` from the
+        // login response first. Promise.allSettled never rejects, so if the
+        // /api/auth/me refresh below throws (network hiccup, cold start),
+        // its .then() chain simply never runs and localStorage would
+        // otherwise be left without a fresh value — which, after the hard
+        // reload, makes the app briefly look logged out and can bounce the
+        // user straight back to /login. Only overwrite it if a fuller user
+        // object actually comes back.
+        localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
         try {
           await Promise.allSettled([
             nativeFetch("/api/auth/me")
               .then((r) => (r.ok ? r.json() : null))
               .then((d) => {
                 const fullUser = d?.user ?? null;
-                localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(fullUser ?? authUser));
-              }),
+                if (fullUser) localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(fullUser));
+              })
+              .catch(() => {}),
             prefetchCriticalData(),
           ]);
         } catch {
-          localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
+          // authUser fallback above already covers this.
         }
 
         // Persist settings to sessionStorage so the next page load can seed

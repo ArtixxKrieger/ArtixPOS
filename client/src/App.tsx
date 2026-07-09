@@ -623,7 +623,7 @@ function PinSessionApp() {
 }
 
 function ProtectedRouter() {
-  const { isAuthenticated, isLoading, isFetching, user } = useAuth();
+  const { isAuthenticated, isLoading, isFetching, isPlaceholderData, user } = useAuth();
   const [location] = useLocation();
   useAuthTracer();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
@@ -664,14 +664,24 @@ function ProtectedRouter() {
   }, [isAuthenticated, user?.tenantId]);
 
   useEffect(() => {
-    if (!isAuthenticated && !isLoading) {
+    // Only wipe caches once the unauthenticated state is CONFIRMED — i.e. the
+    // real /api/auth/me network request has settled (isFetching is false) and
+    // isn't just showing an empty placeholder while it's still in flight.
+    // Without the isFetching/isPlaceholderData guard, a fresh login whose
+    // post-login /api/auth/me prefetch didn't populate the localStorage
+    // placeholder in time (e.g. a transient network hiccup) would render one
+    // tick with isAuthenticated=false while the real check was still
+    // pending — nuking the just-warmed IndexedDB/query cache and, if the
+    // in-flight check happened to fail too, bouncing straight back to
+    // /login right after a successful login.
+    if (!isAuthenticated && !isLoading && !isFetching && !isPlaceholderData) {
       queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearAllCache().catch(() => {});
       clearPrefetchCache();
       prevUserIdRef.current = null;
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, isFetching, isPlaceholderData]);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;

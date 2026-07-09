@@ -29,3 +29,9 @@ setLocation("/");                             // logged in, go to app
 `prefetchBootstrapData` is guarded by `prefetchedUsers.has(userId)` so the ProtectedRouter call becomes a no-op — no double-fetch.
 
 **How to apply**: In any login path that calls `setQueryData(["auth-me"], user)`, also fire the prefetch immediately after.
+
+## The guard must be applied everywhere isLoading is used as "settled", not just the redirect
+
+The `isLoading`-is-useless trap above isn't limited to the redirect effect — **any** effect keyed on `!isAuthenticated && !isLoading` (e.g. a "confirmed logged out, wipe caches" cleanup effect in `ProtectedRouter`) has the same bug: it fires on placeholder-empty renders while the real `/api/auth/me` call is still in flight, wiping IndexedDB/query cache (and can cascade into a login→login redirect loop if the in-flight check is also slow/fails). Guard with `!isFetching && !isPlaceholderData` too, mirroring the render-guard pattern (`isLoading || (!isAuthenticated && isFetching)`).
+
+**How to apply**: grep for every `isAuthenticated` + `isLoading` combination in a component before treating one fixed spot as the whole fix — this bug reappeared in a cache-clearing effect months after the redirect effect was already patched.

@@ -8,7 +8,11 @@ import { createTenant, getBranches, createBranch, updateBranch } from "../admin-
 import { dbSystem } from "../db";
 import { eq } from "drizzle-orm";
 import { users, PRO_POS_FEATURE_KEYS } from "@shared/schema";
-import { fetchUserById, atomicClaimTenant, deleteOrphanedTenant } from "../infrastructure/persistence/settings";
+import {
+  fetchUserById,
+  atomicClaimTenant,
+  deleteOrphanedTenant,
+} from "../infrastructure/persistence/settings";
 import { setAuthCookie } from "../auth";
 import { cache, TTL, settingsCacheKey } from "../cache";
 import { invalidateTenantCache } from "../storage";
@@ -19,7 +23,7 @@ export function registerSettingsRoutes(app: Express): void {
     const uid = getUserId(req);
     const cacheKey = settingsCacheKey(uid);
 
-const cached = await cache.getAsync<object>(cacheKey);
+    const cached = await cache.getAsync<object>(cacheKey, TTL.SETTINGS);
     if (cached) {
       const etag = `"s-${createHash("sha1").update(JSON.stringify(cached)).digest("hex").slice(0, 16)}"`;
       if (req.headers["if-none-match"] === etag) return res.status(304).end();
@@ -30,7 +34,6 @@ const cached = await cache.getAsync<object>(cacheKey);
 
     const settings = await storage.getSettings(uid);
     if (!settings) {
-
       return res.json({
         id: 0,
         userId: uid,
@@ -46,7 +49,7 @@ const cached = await cache.getAsync<object>(cacheKey);
       });
     }
 
-if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
+    if (!settings.onboardingComplete && settings.storeName && settings.storeName !== "My Store") {
       storage.updateSettings(uid, { onboardingComplete: 1 }).catch(() => {});
       const healed = { ...settings, onboardingComplete: 1 };
       await cache.setAsync(cacheKey, healed, TTL.SETTINGS);
@@ -54,7 +57,7 @@ if (!settings.onboardingComplete && settings.storeName && settings.storeName !==
       return res.json(healed);
     }
 
-const settingsBusinessType = (settings as any).businessType as string | null | undefined;
+    const settingsBusinessType = (settings as any).businessType as string | null | undefined;
     const settingsBusinessSubType = (settings as any).businessSubType as string | null | undefined;
     if (settingsBusinessType) {
       const tenantIdForHeal = getTenantId(req);
@@ -90,9 +93,9 @@ const settingsBusinessType = (settings as any).businessType as string | null | u
       const input = bodySchema.parse(req.body);
       const uid = getUserId(req);
 
-cache.del(settingsCacheKey(uid));
+      cache.del(settingsCacheKey(uid));
 
-try {
+      try {
         const [existingUser] = await dbSystem
           .select({ id: users.id })
           .from(users)
@@ -102,7 +105,6 @@ try {
           const u = req.user!;
           const isEmailUser = !u.provider || u.provider === "email";
           if (isEmailUser) {
-
             return res.status(401).json({ message: "Account not found. Please log in again." });
           }
           console.warn(
@@ -117,7 +119,6 @@ try {
               avatar: u.avatar ?? null,
               provider: u.provider ?? "email",
               providerId: u.email ?? u.id,
-
             } as any)
             .onConflictDoNothing();
         }
@@ -125,7 +126,7 @@ try {
         console.error("[settings] Failed to ensure user row:", userCheckErr);
       }
 
-const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
+      const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
       if (tenantIdForProCheck) {
         try {
           const sub = await getSubscription(tenantIdForProCheck);
@@ -155,7 +156,7 @@ const tenantIdForProCheck = (req.user as any)?.tenantId ?? null;
               delete (input as any)[field];
             }
 
-if ((input as any).posFeatures && typeof (input as any).posFeatures === "object") {
+            if ((input as any).posFeatures && typeof (input as any).posFeatures === "object") {
               const pf = (input as any).posFeatures as Record<string, unknown>;
               for (const k of PRO_POS_FEATURE_KEYS) pf[k as string] = false;
             }
@@ -279,7 +280,7 @@ if ((input as any).posFeatures && typeof (input as any).posFeatures === "object"
         }
       }
 
-if (input.onboardingComplete !== 1 && tenantId) {
+      if (input.onboardingComplete !== 1 && tenantId) {
         const changed: Record<string, unknown> = {};
         if (input.taxRate !== undefined) changed.taxRate = input.taxRate;
         if (input.loyaltyPointsPerUnit !== undefined)

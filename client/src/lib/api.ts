@@ -47,6 +47,10 @@ export function storeCsrfToken(token: string) {
   if (token) _csrfTokenCache = token;
 }
 
+export function clearCsrfToken() {
+  _csrfTokenCache = "";
+}
+
 function getCsrfToken(): string {
   // Prefer the in-memory value captured from a response header (always reliable).
   if (_csrfTokenCache) return _csrfTokenCache;

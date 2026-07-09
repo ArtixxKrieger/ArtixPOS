@@ -172,28 +172,25 @@ export function _seedBannedUsers(): void {
 }
 
 export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
-  let token = req.cookies?.[AUTH_COOKIE];
-
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice(7);
-    }
+  // Collect all tokens: cookie + Authorization header
+  const tokens: string[] = [];
+  const cookieToken = req.cookies?.[AUTH_COOKIE];
+  if (cookieToken) tokens.push(cookieToken);
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    const bearerToken = authHeader.slice(7);
+    if (!tokens.includes(bearerToken)) tokens.push(bearerToken);
   }
 
-  if (token) {
+  for (const token of tokens) {
     try {
       const payload = jwt.verify(token, getJwtSecret()) as import("jsonwebtoken").JwtPayload;
 
-      if (payload.jti && _revokedJtis.has(payload.jti)) {
-        next();
-        return;
-      }
+      if (payload.jti && _revokedJtis.has(payload.jti)) continue;
 
       if (bannedUserIds.has(payload.id)) {
         req.isBanned = true;
-        next();
-        return;
+        break;
       }
       req.user = {
         id: payload.id,
@@ -213,7 +210,10 @@ export function jwtAuthMiddleware(req: Request, _res: Response, next: NextFuncti
       if (req.path.startsWith("/api/")) {
         updateLastSeen(payload.id).catch(() => {});
       }
-    } catch {}
+      break;
+    } catch {
+      // Token invalid or expired — try the next one
+    }
   }
   next();
 }

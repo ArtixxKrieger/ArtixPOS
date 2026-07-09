@@ -540,7 +540,11 @@ async function _doInit() {
 
   try {
     logEmailTransportStatus();
+  } catch {}
+  try {
     startEmailDlqPoller();
+  } catch {}
+  try {
     initAuthCache();
   } catch {}
 
@@ -596,12 +600,10 @@ async function _doInit() {
       msg.includes("connection timeout") ||
       msg.includes("pool is draining")
     ) {
-      return res
-        .status(503)
-        .json({
-          message: "Server is temporarily overloaded — please retry.",
-          code: "DB_UNAVAILABLE",
-        });
+      return res.status(503).json({
+        message: "Server is temporarily overloaded — please retry.",
+        code: "DB_UNAVAILABLE",
+      });
     }
     const status = err.status || err.statusCode || 500;
     console.error("[global-error]", err);

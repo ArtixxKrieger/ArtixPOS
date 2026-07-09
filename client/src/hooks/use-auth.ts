@@ -8,6 +8,7 @@ import {
   setAuthenticatedUserId,
   queryClient,
   performLogout,
+  clearCsrfToken,
 } from "@/lib/queryClient";
 import { debugLog } from "@/lib/debug-log";
 import { setErrorCaptureUser } from "@/lib/error-capture";
@@ -166,6 +167,7 @@ export function useAuth() {
     },
     onSuccess: () => {
       clearNativeToken();
+      clearCsrfToken();
       saveCachedAuthUser(null);
       queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();
@@ -174,6 +176,7 @@ export function useAuth() {
     onError: () => {
       // Server unreachable — clear local state and navigate anyway
       clearNativeToken();
+      clearCsrfToken();
       saveCachedAuthUser(null);
       queryClient.setQueryData(["auth-me"], null);
       queryClient.clear();

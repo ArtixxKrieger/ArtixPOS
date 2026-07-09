@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { requireAuth } from "../middleware";
 import { storage } from "../storage";
 import { getDashboardAggregates } from "../infrastructure/persistence/sales";
-import { cache, dashboardCacheKey } from "../cache";
+import { cache, dashboardCacheKey, TTL } from "../cache";
 import { getUserId, getActiveBranchId } from "../lib/route-utils";
 
 export function registerDashboardRoutes(app: Express): void {
@@ -11,7 +11,7 @@ export function registerDashboardRoutes(app: Express): void {
     const bid = getActiveBranchId(req);
 
     const cacheKey = dashboardCacheKey(uid, bid);
-    const cached   = await cache.getAsync<object>(cacheKey);
+    const cached = await cache.getAsync<object>(cacheKey, TTL.ANALYTICS);
     if (cached) {
       res.setHeader("Cache-Control", "no-store");
       return res.json(cached);
@@ -26,9 +26,9 @@ export function registerDashboardRoutes(app: Express): void {
 
     const [todaySales, allTime] = await Promise.all([
       storage.getSales(uid, {
-        branchId:  bid ?? undefined,
+        branchId: bid ?? undefined,
         startDate: todayStart,
-        limit:     1000,
+        limit: 1000,
       }),
       getDashboardAggregates(uid, bid),
     ]);
@@ -51,7 +51,7 @@ export function registerDashboardRoutes(app: Express): void {
     res.setHeader("Transfer-Encoding", "chunked");
 
     try {
-      const settings     = await storage.getSettings(uid);
+      const settings = await storage.getSettings(uid);
       const productsList = await storage.getProducts(uid);
 
       res.write("{\n");
@@ -62,33 +62,53 @@ export function registerDashboardRoutes(app: Express): void {
       res.write(`"products":${JSON.stringify(productsList)},\n`);
 
       res.write('"sales":[');
-      let salesOffset = 0, firstSale = true;
+      let salesOffset = 0,
+        firstSale = true;
       while (true) {
-        const batch = await storage.getSales(uid, { branchId: bid ?? undefined, limit: BATCH, offset: salesOffset });
+        const batch = await storage.getSales(uid, {
+          branchId: bid ?? undefined,
+          limit: BATCH,
+          offset: salesOffset,
+        });
         if (batch.length === 0) break;
-        for (const s of batch) { res.write((firstSale ? "" : ",") + JSON.stringify(s)); firstSale = false; }
+        for (const s of batch) {
+          res.write((firstSale ? "" : ",") + JSON.stringify(s));
+          firstSale = false;
+        }
         salesOffset += batch.length;
         if (batch.length < BATCH) break;
       }
       res.write("],\n");
 
       res.write('"customers":[');
-      let custOffset = 0, firstCust = true;
+      let custOffset = 0,
+        firstCust = true;
       while (true) {
-        const batch = await storage.getCustomers(uid, { limit: BATCH, offset: custOffset }).catch(() => [] as any[]);
+        const batch = await storage
+          .getCustomers(uid, { limit: BATCH, offset: custOffset })
+          .catch(() => [] as any[]);
         if (batch.length === 0) break;
-        for (const c of batch) { res.write((firstCust ? "" : ",") + JSON.stringify(c)); firstCust = false; }
+        for (const c of batch) {
+          res.write((firstCust ? "" : ",") + JSON.stringify(c));
+          firstCust = false;
+        }
         custOffset += batch.length;
         if (batch.length < BATCH) break;
       }
       res.write("],\n");
 
       res.write('"expenses":[');
-      let expOffset = 0, firstExp = true;
+      let expOffset = 0,
+        firstExp = true;
       while (true) {
-        const batch = await storage.getExpenses(uid, { branchId: bid ?? undefined, limit: BATCH, offset: expOffset }).catch(() => [] as any[]);
+        const batch = await storage
+          .getExpenses(uid, { branchId: bid ?? undefined, limit: BATCH, offset: expOffset })
+          .catch(() => [] as any[]);
         if (batch.length === 0) break;
-        for (const e of batch) { res.write((firstExp ? "" : ",") + JSON.stringify(e)); firstExp = false; }
+        for (const e of batch) {
+          res.write((firstExp ? "" : ",") + JSON.stringify(e));
+          firstExp = false;
+        }
         expOffset += batch.length;
         if (batch.length < BATCH) break;
       }

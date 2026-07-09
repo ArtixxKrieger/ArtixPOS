@@ -645,12 +645,8 @@ export default function POS() {
             : prev,
         );
 
-        if (!isOfflineId(String((result as any)?.id ?? ""))) {
-          queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-        }
-
+        // Pending orders do NOT update dashboard/sales/customers —
+        // those only update when finalized from the Pending Orders page.
         const newDailyTotal = addToTodayTotal(total);
         checkMilestone(newDailyTotal);
 

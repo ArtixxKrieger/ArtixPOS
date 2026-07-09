@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProducts } from "@/hooks/use-products";
 import { useSettings } from "@/hooks/use-settings";
-import { useCreatePendingOrder } from "@/hooks/use-pending-orders";
+import { useCreatePendingOrder, usePendingOrders } from "@/hooks/use-pending-orders";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { queueMutation, isNetworkError, isOfflineId } from "@/lib/offline-db";
 import { type Product, type Customer } from "@shared/schema";
@@ -57,6 +57,7 @@ import { QuickAddProductDialog } from "@/components/quick-add-product-dialog";
 import { useCart, type CartItem } from "@/hooks/use-cart";
 import { useCartTotals } from "@/hooks/use-cart-totals";
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
+import { useLocation } from "wouter";
 import { DEFAULT_PAYMENT_METHODS, CAFE_STYLE_BUSINESS_SUBTYPES } from "@/constants/pos";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
@@ -179,6 +180,9 @@ export default function POS() {
   const { data: products = [], isLoading: _isLoading } = useProducts();
   const { data: settings } = useSettings();
   const createPending = useCreatePendingOrder();
+  const { data: pendingOrders = [] } = usePendingOrders();
+  const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -1572,6 +1576,16 @@ export default function POS() {
             <ShoppingCart className="text-primary h-4.5 w-4.5" />
           </div>
           <h2 className="text-xl font-black">{t("pos.currentOrder")}</h2>
+          {pendingCount > 0 && (
+            <button
+              onClick={() => setLocation("/pending")}
+              className="ml-auto flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full transition-colors"
+              title={`${pendingCount} active order${pendingCount !== 1 ? "s" : ""} waiting`}
+            >
+              <span className="tabular-nums">{pendingCount > 99 ? "99+" : pendingCount}</span>
+              <span className="hidden sm:inline">active</span>
+            </button>
+          )}
           {cartCount > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span

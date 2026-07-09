@@ -175,7 +175,12 @@ export function useCreateSale() {
       // Optimistically add the new sale to the dashboard stats immediately
       queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
         if (!old || !Array.isArray(old.todaySales)) return old;
-        return { ...old, todaySales: [result, ...old.todaySales] };
+        const updated = { ...old, todaySales: [result, ...old.todaySales] };
+        // Keep the offline cache in sync too, otherwise the invalidation below
+        // re-reads stale IndexedDB data and clobbers this update until the
+        // background network refetch finishes.
+        setCached("/api/dashboard/stats", updated).catch(() => {});
+        return updated;
       });
       // Also invalidate so a fresh fetch happens in the background
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });

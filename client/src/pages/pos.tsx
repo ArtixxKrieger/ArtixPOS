@@ -648,6 +648,7 @@ export default function POS() {
         if (!isOfflineId(String((result as any)?.id ?? ""))) {
           queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
           queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
         }
 
         const newDailyTotal = addToTodayTotal(total);

@@ -1,7 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { type InsertSale } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId } from "@/lib/offline-db";
+import {
+  getCached,
+  setCached,
+  patchCached,
+  queueMutation,
+  makeOfflineId,
+  isOfflineId,
+} from "@/lib/offline-db";
 import { nativeFetch, queryClient as qc } from "@/lib/queryClient";
 
 const BASE_URL = api.sales.list.path;
@@ -33,7 +40,14 @@ function buildCacheKey(url: string, params?: SalesQueryParams): string {
 export function useSales(params?: SalesQueryParams) {
   const url = buildSalesUrl(params);
   const cacheKey = params
-    ? [BASE_URL, params.startDate ?? "", params.endDate ?? "", params.limit ?? 200, params.offset ?? 0, params.includeVoided ? "voided" : ""]
+    ? [
+        BASE_URL,
+        params.startDate ?? "",
+        params.endDate ?? "",
+        params.limit ?? 200,
+        params.offset ?? 0,
+        params.includeVoided ? "voided" : "",
+      ]
     : [BASE_URL];
 
   return useQuery({
@@ -41,7 +55,8 @@ export function useSales(params?: SalesQueryParams) {
     queryFn: async () => {
       const idbKey = buildCacheKey(url, params);
 
-const idbData = await getCached<ReturnType<typeof api.sales.list.responses[200]["parse"]>>(idbKey);
+      const idbData =
+        await getCached<ReturnType<(typeof api.sales.list.responses)[200]["parse"]>>(idbKey);
 
       if (idbData !== null) {
         nativeFetch(url)
@@ -52,11 +67,9 @@ const idbData = await getCached<ReturnType<typeof api.sales.list.responses[200][
             const current = qc.getQueryData<any[]>(cacheKey);
             const freshIds = new Set((fresh ?? []).map((s: any) => String(s.id)));
             const offlinePending = (current ?? []).filter(
-              (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id))
+              (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id)),
             );
-            const merged = offlinePending.length > 0
-              ? [...offlinePending, ...fresh]
-              : fresh;
+            const merged = offlinePending.length > 0 ? [...offlinePending, ...fresh] : fresh;
             setCached(idbKey, fresh).catch(() => {});
             qc.setQueryData(cacheKey, merged);
           })
@@ -64,17 +77,19 @@ const idbData = await getCached<ReturnType<typeof api.sales.list.responses[200][
         return idbData;
       }
 
-try {
+      try {
         const res = await nativeFetch(url);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.sales.list.responses[200].parse(await res.json());
         await setCached(idbKey, data);
         return data;
       } catch (err) {
-        const cached = await getCached<ReturnType<typeof api.sales.list.responses[200]["parse"]>>(idbKey);
+        const cached =
+          await getCached<ReturnType<(typeof api.sales.list.responses)[200]["parse"]>>(idbKey);
         if (cached !== null) return cached;
         if (!params) {
-          const base = await getCached<ReturnType<typeof api.sales.list.responses[200]["parse"]>>(BASE_URL);
+          const base =
+            await getCached<ReturnType<(typeof api.sales.list.responses)[200]["parse"]>>(BASE_URL);
           if (base !== null) return base;
         }
         throw err;
@@ -108,14 +123,8 @@ export function useCreateSale() {
       } catch {
         clearTimeout(timer);
 
-const tempId = makeOfflineId();
-        await queueMutation(
-          "POST",
-          api.sales.create.path,
-          data,
-          "sale",
-          tempId,
-        );
+        const tempId = makeOfflineId();
+        await queueMutation("POST", api.sales.create.path, data, "sale", tempId);
         const optimistic = {
           ...data,
           id: tempId,
@@ -128,11 +137,14 @@ const tempId = makeOfflineId();
           ...(Array.isArray(prev) ? prev : []),
         ]);
 
-const statsPrev = await getCached<any>("/api/dashboard/stats");
+        const statsPrev = await getCached<any>("/api/dashboard/stats");
         if (statsPrev) {
           await setCached("/api/dashboard/stats", {
             ...statsPrev,
-            todaySales: [optimistic, ...(Array.isArray(statsPrev.todaySales) ? statsPrev.todaySales : [])],
+            todaySales: [
+              optimistic,
+              ...(Array.isArray(statsPrev.todaySales) ? statsPrev.todaySales : []),
+            ],
           });
         }
         return optimistic as any;
@@ -144,7 +156,7 @@ const statsPrev = await getCached<any>("/api/dashboard/stats");
         throw new Error((body as any)?.message ?? `Server error ${res.status}`);
       }
 
-let result: ReturnType<typeof api.sales.create.responses[201]["parse"]>;
+      let result: ReturnType<(typeof api.sales.create.responses)[201]["parse"]>;
       try {
         result = api.sales.create.responses[201].parse(await res.json());
       } catch {
@@ -153,7 +165,6 @@ let result: ReturnType<typeof api.sales.create.responses[201]["parse"]>;
       return result;
     },
     onSuccess: (result) => {
-
       queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) => [
         result,
         ...(old ?? []),
@@ -161,12 +172,15 @@ let result: ReturnType<typeof api.sales.create.responses[201]["parse"]>;
       const fresh = queryClient.getQueryData<any[]>([BASE_URL]);
       if (fresh) setCached(BASE_URL, fresh);
 
-if (isOfflineId(String(result.id ?? ""))) {
-        queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
-          if (!old || !Array.isArray(old.todaySales)) return old;
-          return { ...old, todaySales: [result, ...old.todaySales] };
-        });
-      }
+      // Optimistically add the new sale to the dashboard stats immediately
+      queryClient.setQueryData<any>(["/api/dashboard/stats"], (old: any) => {
+        if (!old || !Array.isArray(old.todaySales)) return old;
+        return { ...old, todaySales: [result, ...old.todaySales] };
+      });
+      // Also invalidate so a fresh fetch happens in the background
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
 
       if (Array.isArray(result.items)) {
         const deductions = new Map<number, number>();
@@ -178,11 +192,13 @@ if (isOfflineId(String(result.id ?? ""))) {
         }
         if (deductions.size > 0) {
           queryClient.setQueryData<any[]>(["/api/products"], (old) =>
-            old ? old.map((p: any) => {
-              const sold = deductions.get(p.id);
-              if (!sold || !p.trackStock) return p;
-              return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
-            }) : old
+            old
+              ? old.map((p: any) => {
+                  const sold = deductions.get(p.id);
+                  if (!sold || !p.trackStock) return p;
+                  return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
+                })
+              : old,
           );
         }
       }
@@ -197,7 +213,7 @@ export function useDeleteSale() {
       await queryClient.cancelQueries({ queryKey: [BASE_URL] });
       const previous = queryClient.getQueryData<any[]>([BASE_URL]);
       queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) =>
-        old ? old.filter((s: any) => s.id !== id) : []
+        old ? old.filter((s: any) => s.id !== id) : [],
       );
       return { previous };
     },
@@ -213,11 +229,16 @@ export function useDeleteSale() {
       }
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous)
-        queryClient.setQueriesData({ queryKey: [BASE_URL] }, context.previous);
+      if (context?.previous) queryClient.setQueriesData({ queryKey: [BASE_URL] }, context.previous);
     },
     onSuccess: (_, { id }) => {
-      patchCached(BASE_URL, (prev: any[]) => Array.isArray(prev) ? prev.filter((s: any) => s.id !== id) : []);
+      patchCached(BASE_URL, (prev: any[]) =>
+        Array.isArray(prev) ? prev.filter((s: any) => s.id !== id) : [],
+      );
+      // Voiding a sale affects revenue, stock, and loyalty — refresh all related views
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     },
   });
 }

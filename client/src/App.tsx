@@ -631,24 +631,13 @@ function ProtectedRouter() {
   const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let expiryRetries = 0;
     function handleSessionExpired() {
-      expiryRetries++;
+      // Guard: if we already have no authenticated user in the cache, there is
+      // nothing to expire — skip the invalidation to avoid a spurious refetch
+      // that could race with a fresh login.
       const cached = queryClient.getQueryData(["auth-me"]);
       if (!cached) return;
-      // On the first expiry signal, just invalidate — fetchMe will re-verify.
-      // If the session is genuinely expired, fetchMe returns null and the
-      // !isAuthenticated cleanup runs. If it was a transient 401 (e.g. token
-      // rotation race), fetchMe succeeds and nothing changes.
       queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      // If we get repeated expiry signals quickly, do a hard reload
-      if (expiryRetries > 3) {
-        window.location.reload();
-      }
-      // Reset after 10s of quiet
-      setTimeout(() => {
-        expiryRetries = Math.max(0, expiryRetries - 1);
-      }, 10_000);
     }
     window.addEventListener("auth:session-expired", handleSessionExpired);
     return () => window.removeEventListener("auth:session-expired", handleSessionExpired);
@@ -676,8 +665,6 @@ function ProtectedRouter() {
 
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
-      // Session expired — clean up caches but NEVER destroy the mutation
-      // queue. Offline sales and pending changes must survive session expiry.
       queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearAllCache().catch(() => {});

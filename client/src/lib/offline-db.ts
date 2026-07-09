@@ -392,8 +392,6 @@ export async function clearAllCache(): Promise<void> {
   try {
     const db = await getDB();
     await db.clear("api-cache");
-    // NEVER clear mutation-queue here — offline sales and pending changes
-    // must survive session expiry. Only explicit logout via performLogout
-    // should drain the queue after syncing.
+    await db.clear("mutation-queue");
   } catch {}
 }

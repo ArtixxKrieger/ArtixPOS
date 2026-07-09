@@ -33,7 +33,7 @@ import { useLocation } from "wouter";
 import { SaleDetailModal } from "@/components/sale-detail-modal";
 import { useQuery } from "@tanstack/react-query";
 import { nativeFetch, queryClient } from "@/lib/queryClient";
-import { getCached, setCached, isOfflineId, getSalesQueueCount } from "@/lib/offline-db";
+import { getCached, setCached } from "@/lib/offline-db";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
 
 type DashboardStats = {
@@ -96,45 +96,35 @@ export default function Dashboard() {
     queryKey: [STATS_URL],
     queryFn: async () => {
       const statsUrl = buildStatsUrl();
-
       const idbData = await getCached<DashboardStats>(STATS_URL);
 
-      // Always fetch fresh data — don't return stale cache without trying network first
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 15_000);
-        const res = await nativeFetch(statsUrl, { signal: ctrl.signal });
-        clearTimeout(timer);
-
-        if (res.ok) {
-          const fresh: DashboardStats = await res.json();
-
-          const queueCount = await getSalesQueueCount().catch(() => 0);
-          const freshIds = new Set((fresh.todaySales ?? []).map((s: any) => String(s.id)));
-          const offlinePending =
-            queueCount > 0
-              ? (idbData?.todaySales ?? []).filter(
-                  (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id)),
-                )
-              : [];
-
-          const merged: DashboardStats =
-            offlinePending.length > 0
-              ? { ...fresh, todaySales: [...offlinePending, ...fresh.todaySales] }
-              : fresh;
-
-          setCached(STATS_URL, merged).catch(() => {});
-          return merged;
-        }
-        // Non-OK response (401, 500, etc.) — log for debugging
-        console.warn(`[dashboard] stats fetch returned ${res.status}`);
-      } catch (err: any) {
-        console.warn(`[dashboard] stats fetch failed: ${err?.message || err}`);
+      // Return cached data instantly, refresh in background
+      if (idbData !== null) {
+        nativeFetch(statsUrl)
+          .then(async (res) => {
+            if (!res.ok) return;
+            const fresh: DashboardStats = await res.json();
+            setCached(STATS_URL, fresh).catch(() => {});
+            queryClient.setQueryData<DashboardStats>([STATS_URL], fresh);
+          })
+          .catch(() => {});
+        return idbData;
       }
 
-      // Fall back to cached data only if network failed
-      if (idbData !== null) return idbData;
-      throw new Error("Could not load dashboard data");
+      // No cache — must fetch from network
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15_000);
+      try {
+        const res = await nativeFetch(statsUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const data: DashboardStats = await res.json();
+        setCached(STATS_URL, data).catch(() => {});
+        return data;
+      } catch (err) {
+        clearTimeout(timer);
+        throw err;
+      }
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,

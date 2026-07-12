@@ -45,8 +45,26 @@ getCached(SETTINGS_URL)
 
 // Set by the login handler just before navigation so AppRouter skips the LoadingScreen
 // gate on the very first render after login (consumed once, then resets).
+//
+// IMPORTANT: signalPostLoginNav() must survive window.location.replace() (a full page
+// reload), so we persist to sessionStorage — the same pattern used by cacheSettingsForBoot.
+// A plain module-level variable would be reset before consumeLoadingGateSignal() runs
+// on the new page, making the signal a no-op.
+const POST_LOGIN_NAV_KEY = "artixpos_post_login_nav";
+
 let _skipLoadingGate = false;
-export function signalPostLoginNav(): void { _skipLoadingGate = true; }
+// Read the signal written by the previous page's login handler (if any) and
+// consume it immediately so a normal hard refresh does not skip the gate.
+try {
+  if (sessionStorage.getItem(POST_LOGIN_NAV_KEY) === "1") {
+    _skipLoadingGate = true;
+    sessionStorage.removeItem(POST_LOGIN_NAV_KEY);
+  }
+} catch {}
+
+export function signalPostLoginNav(): void {
+  try { sessionStorage.setItem(POST_LOGIN_NAV_KEY, "1"); } catch {}
+}
 export function consumeLoadingGateSignal(): boolean {
   const v = _skipLoadingGate;
   _skipLoadingGate = false;

@@ -170,11 +170,12 @@ throw new Error("Settings fetch timed out");
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     })
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then((updated) => {
-        setCached(SETTINGS_URL, updated);
-
-})
+        const parsed = api.settings.update.responses[200].parse(updated);
+        setCached(SETTINGS_URL, parsed).catch(() => {});
+        queryClient.setQueryData([SETTINGS_URL], parsed);
+      })
       .catch(() => {});
   }, [query.data, queryClient]);
 
@@ -260,8 +261,8 @@ queryClient.setQueryData([SETTINGS_URL], result);
       }
     },
 
-onSuccess: (data) => {
-      queryClient.setQueryData([SETTINGS_URL], data);
-    },
+    // mutationFn already calls setQueryData with the same value on success —
+    // no need to repeat it here; a second call would trigger a redundant re-render
+    // of every settings consumer.
   });
 }

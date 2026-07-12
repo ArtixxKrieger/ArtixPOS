@@ -570,7 +570,7 @@ function PinSessionApp() {
     try {
       await apiRequest("POST", "/api/staff-pin/clockout");
     } catch {}
-    queryClient.cancelQueries();
+    await queryClient.cancelQueries();
     queryClient.removeQueries({ predicate: (q) => (q.queryKey[0] as string) !== "auth-me" });
     await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     setLocation("/staff-clock-in");

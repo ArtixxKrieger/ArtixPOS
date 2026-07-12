@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { getDebugLogs, clearDebugLogs, type DebugEntry } from "@/lib/debug-log";
 import { apiRequest, setNativeToken, queryClient, nativeFetch } from "@/lib/queryClient";
 import { prefetchCriticalData } from "@/lib/prefetch";
-import { cacheSettingsForBoot } from "@/hooks/use-settings";
+import { cacheSettingsForBoot, signalPostLoginNav } from "@/hooks/use-settings";
 import { detectLocale } from "@/lib/locale-detect";
 import { getPricingByCurrency, formatPrice } from "@/lib/pricing";
 import gsap from "gsap";
@@ -779,9 +779,12 @@ export default function Login() {
         const settingsSnapshot = queryClient.getQueryData<unknown>(["/api/settings"]);
         if (settingsSnapshot) cacheSettingsForBoot(settingsSnapshot);
 
-        // Hard navigate — the cleanest way to reset all React/query state
+        // Hard navigate — the cleanest way to reset all React/query state.
+        // Signal AppRouter to skip the LoadingScreen gate on the first render
+        // after navigation, even if settings weren't prewarmed (e.g. new user).
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
         const needsOnboarding = !alreadyOnboarded && !authUser.tenantId;
+        signalPostLoginNav();
         window.location.replace(needsOnboarding ? "/onboarding" : "/");
       }
     } catch {

@@ -113,11 +113,11 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
       if (isPinSession) return apiRequest("POST", "/api/staff-pin/clockout", { notes });
       return apiRequest("POST", "/api/time-logs/clock-out", { notes });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setShowClockOut(false);
       setClockOutNotes("");
       toast({ title: "Clocked out — great work! See you next shift." });
-      queryClient.cancelQueries();
+      await queryClient.cancelQueries();
       queryClient.clear();
       window.location.replace("/staff-clock-in");
     },
@@ -129,7 +129,7 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
       toast({ title: "Break started — enjoy your rest!" });
       if (isPinSession) {
         try { await apiRequest("POST", "/api/staff-pin/lock-screen", {}); } catch {  }
-        queryClient.cancelQueries();
+        await queryClient.cancelQueries();
         queryClient.clear();
         window.location.replace("/staff-clock-in");
       } else {
@@ -140,7 +140,7 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   });
   const lockScreenMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/staff-pin/lock-screen", {}),
-    onSuccess: () => { queryClient.cancelQueries(); queryClient.clear(); window.location.replace("/staff-clock-in"); },
+    onSuccess: async () => { await queryClient.cancelQueries(); queryClient.clear(); window.location.replace("/staff-clock-in"); },
     onError: () => toast({ title: "Could not lock screen", variant: "destructive" }),
   });
   const breakEndMutation = useMutation({

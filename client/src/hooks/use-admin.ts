@@ -111,6 +111,7 @@ function useUpdateTenant() {
 export function useBranches() {
   return useQuery<Branch[]>({
     queryKey: ["/api/admin/branches"],
+    select: (data) => (Array.isArray(data) ? data : []),
   });
 }
 

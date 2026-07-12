@@ -22,7 +22,8 @@ function BranchColorDot({ color, className }: { color: string | null; className?
 
 export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
-  const { data: branches = [] } = useBranches();
+  const { data: branchData } = useBranches();
+  const branches = branchData ?? [];
   const switchBranch = useSwitchBranch();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);

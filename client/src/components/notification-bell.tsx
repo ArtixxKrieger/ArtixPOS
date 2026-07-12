@@ -24,10 +24,11 @@ export function NotificationBell() {
 
 const { connected: sseConnected } = useSseAlerts();
 
-  const { data: notifs = [] } = useQuery<Notification[]>({
+  const { data: notifsData } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
     refetchInterval: 120_000,
   });
+  const notifs = notifsData ?? [];
 
   const unreadCount = notifs.filter(n => !n.readAt).length;
 

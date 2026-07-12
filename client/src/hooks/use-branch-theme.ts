@@ -72,10 +72,11 @@ function applyBranchColor(hex: string | null) {
 
 export function useBranchTheme() {
   const { user } = useAuth();
-  const { data: branches = [] } = useBranches();
+  const { data: branches } = useBranches();
+  const branchList = branches ?? [];
 
 const authColor = user?.activeBranch?.color ?? null;
-  const branchListColor = branches.find((b) => b.id === user?.activeBranchId)?.color ?? null;
+  const branchListColor = branchList.find((b) => b.id === user?.activeBranchId)?.color ?? null;
   const color = authColor ?? branchListColor;
 
   useEffect(() => {

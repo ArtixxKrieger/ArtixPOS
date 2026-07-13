@@ -1,15 +1,12 @@
-
-
 import { pool } from "./db";
 
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1_000;
 
 async function pruneExpiredTokens(): Promise<void> {
   try {
-    const result = await pool.query(
-      "DELETE FROM revoked_tokens WHERE expires_at < $1",
-      [new Date().toISOString()],
-    );
+    const result = await pool.query("DELETE FROM revoked_tokens WHERE expires_at < $1", [
+      new Date().toISOString(),
+    ]);
     if ((result.rowCount ?? 0) > 0) {
       console.log(`[cleanup] Pruned ${result.rowCount} expired revoked tokens`);
     }
@@ -35,7 +32,6 @@ async function pruneOldNotifications(): Promise<void> {
 }
 
 export function startCleanupScheduler(): void {
-
   pruneExpiredTokens().catch(() => {});
   pruneOldNotifications().catch(() => {});
 
@@ -44,7 +40,7 @@ export function startCleanupScheduler(): void {
     pruneOldNotifications().catch(() => {});
   }, CLEANUP_INTERVAL_MS);
 
-timer.unref();
+  timer.unref();
 
   console.log("[cleanup] Scheduler started — expired tokens + old notifications pruned every 1h");
 }

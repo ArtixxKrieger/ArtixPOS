@@ -8,9 +8,6 @@ const isServerless = !!process.env.VERCEL;
 const isContainerPlatform =
   !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RENDER || !!process.env.FLY_APP_NAME;
 
-// On serverless each instance handles 1 request at a time.
-// On container platforms (Railway, Render, Fly.io) you scale by adding containers,
-// not by forking workers — keep pool per-container reasonable.
 const TOTAL_POOL = isServerless
   ? parseInt(process.env.DB_POOL_MAX ?? "3", 10)
   : isContainerPlatform
@@ -54,9 +51,6 @@ pool.on("error", (err: Error) => {
   console.error("[db] Unexpected pool client error:", err.message);
 });
 
-// Pre-warm the pool so the first request doesn't pay the TCP+TLS
-// handshake cost. On Vercel serverless this is especially critical
-// because cold starts have zero established connections.
 pool
   .connect()
   .then((client: PoolClient) => {

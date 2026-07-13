@@ -2,7 +2,6 @@ import nodemailer from "nodemailer";
 import { getRedis, redisAvailable } from "./redis";
 
 function getResendApiKey(): string | null {
-
   const explicit = process.env.RESEND_API_KEY?.trim();
   if (explicit) return explicit;
 
@@ -30,20 +29,26 @@ export function logEmailTransportStatus(): void {
   }
 }
 
-// SMTP fallback — only used when not using Resend HTTP API
 let _transporter: nodemailer.Transporter | null | undefined = undefined;
 
 function getTransporter(): nodemailer.Transporter | null {
   if (_transporter !== undefined) return _transporter;
   // Don't create an SMTP transporter when we'll use Resend's HTTP API instead
-  if (getResendApiKey()) { _transporter = null; return null; }
+  if (getResendApiKey()) {
+    _transporter = null;
+    return null;
+  }
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) { _transporter = null; return null; }
+  if (!host || !user || !pass) {
+    _transporter = null;
+    return null;
+  }
   _transporter = nodemailer.createTransport({
-    host, port,
+    host,
+    port,
     secure: port === 465,
     auth: { user, pass },
     tls: { rejectUnauthorized: process.env.NODE_ENV === "production" },
@@ -56,7 +61,7 @@ export function resetTransporter(): void {
 }
 
 const MAX_CONCURRENT_SENDS = 5;
-const MAX_QUEUED           = 500;
+const MAX_QUEUED = 500;
 let _activeCount = 0;
 const _waitQueue: Array<() => void> = [];
 
@@ -69,7 +74,10 @@ function _acquireSlot(): Promise<boolean> {
       console.error(`[email] Queue full (${MAX_QUEUED} waiting) — dropping send request`);
       resolve(false);
     } else {
-      _waitQueue.push(() => { _activeCount++; resolve(true); });
+      _waitQueue.push(() => {
+        _activeCount++;
+        resolve(true);
+      });
     }
   });
 }
@@ -80,11 +88,11 @@ function _releaseSlot(): void {
   if (next) next();
 }
 
-const DLQ_KEY          = "artixpos:email:dlq";
-const DLQ_MAX_RETRIES  = 3;
-const DLQ_MAX_AGE_MS   = 24 * 60 * 60 * 1000;
-const DLQ_DELAYS_MS    = [5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
-const DLQ_POLL_MS      = 60_000;
+const DLQ_KEY = "artixpos:email:dlq";
+const DLQ_MAX_RETRIES = 3;
+const DLQ_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const DLQ_DELAYS_MS = [5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
+const DLQ_POLL_MS = 60_000;
 
 interface DlqContext {
   jobId: string;
@@ -111,17 +119,23 @@ return jobs
 `.trim();
 
 async function _enqueueToDlq(
-  opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
+  opts: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+    headers?: Record<string, string>;
+  },
   ctx?: DlqContext,
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
 
-  const dlqRetry  = ctx?.dlqRetry ?? 0;
-  const jobId     = ctx?.jobId    ?? Math.random().toString(36).slice(2, 10);
-  const queuedAt  = ctx?.queuedAt ?? Date.now();
-  const delayMs   = DLQ_DELAYS_MS[dlqRetry] ?? DLQ_DELAYS_MS[DLQ_DELAYS_MS.length - 1];
-  const runAt     = Date.now() + delayMs;
+  const dlqRetry = ctx?.dlqRetry ?? 0;
+  const jobId = ctx?.jobId ?? Math.random().toString(36).slice(2, 10);
+  const queuedAt = ctx?.queuedAt ?? Date.now();
+  const delayMs = DLQ_DELAYS_MS[dlqRetry] ?? DLQ_DELAYS_MS[DLQ_DELAYS_MS.length - 1];
+  const runAt = Date.now() + delayMs;
 
   const job: EmailJob = { ...opts, jobId, dlqRetry, queuedAt };
 
@@ -129,7 +143,7 @@ async function _enqueueToDlq(
     await redis.zadd(DLQ_KEY, { score: runAt, member: JSON.stringify(job) });
     console.warn(
       `[email:dlq] Enqueued job=${jobId} dlqRetry=${dlqRetry} ` +
-      `nextAttempt=+${Math.round(delayMs / 60_000)}min to=${opts.to}`,
+        `nextAttempt=+${Math.round(delayMs / 60_000)}min to=${opts.to}`,
     );
   } catch (err) {
     console.error("[email:dlq] Failed to write job to Redis:", err);
@@ -142,12 +156,8 @@ async function _pollDlq(): Promise<void> {
 
   let claimed: string[] = [];
   try {
-
-    const raw = await redis.eval(
-      _DLQ_CLAIM_SCRIPT,
-      [DLQ_KEY],
-      [String(Date.now()), "10"],
-    ) as string[] | null;
+    const raw = (await redis.eval(_DLQ_CLAIM_SCRIPT, [DLQ_KEY], [String(Date.now()), "10"])) as
+      string[] | null;
     if (!raw || raw.length === 0) return;
     claimed = raw;
   } catch (err) {
@@ -159,10 +169,14 @@ async function _pollDlq(): Promise<void> {
 
   for (const serialised of claimed) {
     let job: EmailJob;
-    try { job = JSON.parse(serialised) as EmailJob; }
-    catch { console.error("[email:dlq] Unparseable job — discarding:", serialised.slice(0, 120)); continue; }
+    try {
+      job = JSON.parse(serialised) as EmailJob;
+    } catch {
+      console.error("[email:dlq] Unparseable job — discarding:", serialised.slice(0, 120));
+      continue;
+    }
 
-if (Date.now() - job.queuedAt > DLQ_MAX_AGE_MS) {
+    if (Date.now() - job.queuedAt > DLQ_MAX_AGE_MS) {
       console.error(`[email:dlq] Job ${job.jobId} expired (>24 h) — discarding to=${job.to}`);
       continue;
     }
@@ -170,7 +184,7 @@ if (Date.now() - job.queuedAt > DLQ_MAX_AGE_MS) {
     const ctx: DlqContext = { jobId: job.jobId, dlqRetry: job.dlqRetry, queuedAt: job.queuedAt };
     console.log(`[email:dlq] Retrying job=${job.jobId} dlqRetry=${job.dlqRetry} to=${job.to}`);
 
-await sendEmail(
+    await sendEmail(
       { to: job.to, subject: job.subject, text: job.text, html: job.html, headers: job.headers },
       ctx,
     );
@@ -179,7 +193,9 @@ await sendEmail(
 
 export function startEmailDlqPoller(): void {
   if (!redisAvailable) {
-    console.warn("[email:dlq] Redis not configured — DLQ disabled (transient failures will not be retried after exhaustion).");
+    console.warn(
+      "[email:dlq] Redis not configured — DLQ disabled (transient failures will not be retried after exhaustion).",
+    );
     return;
   }
   const t = setInterval(_pollDlq, DLQ_POLL_MS);
@@ -197,7 +213,13 @@ const FETCH_TIMEOUT_MS = 10_000;
 async function _attemptResend(
   key: string,
   from: string,
-  opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
+  opts: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+    headers?: Record<string, string>;
+  },
 ): Promise<AttemptResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -205,8 +227,15 @@ async function _attemptResend(
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       signal: controller.signal,
-      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [opts.to], subject: opts.subject, text: opts.text, html: opts.html, headers: opts.headers }),
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: [opts.to],
+        subject: opts.subject,
+        text: opts.text,
+        html: opts.html,
+        headers: opts.headers,
+      }),
     });
     const body = await res.text().catch(() => "(unreadable)");
 
@@ -236,7 +265,13 @@ async function _attemptResend(
 const MAX_ATTEMPTS = 3;
 
 async function sendEmail(
-  opts: { to: string; subject: string; text: string; html: string; headers?: Record<string, string> },
+  opts: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+    headers?: Record<string, string>;
+  },
   _dlqCtx?: DlqContext,
 ): Promise<boolean> {
   const from = (() => {
@@ -247,16 +282,16 @@ async function sendEmail(
   const resendKey = getResendApiKey();
   const transport = resendKey ? "resend-api" : "smtp";
 
-  console.log(`[email] queued transport=${transport} to=${opts.to} subject="${opts.subject}" active=${_activeCount} queue=${_waitQueue.length}`);
+  console.log(
+    `[email] queued transport=${transport} to=${opts.to} subject="${opts.subject}" active=${_activeCount} queue=${_waitQueue.length}`,
+  );
 
   const acquired = await _acquireSlot();
   if (!acquired) return false;
 
   try {
-
     if (resendKey) {
-
-let retryAfterOverrideMs = 0;
+      let retryAfterOverrideMs = 0;
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         if (attempt > 1) {
@@ -265,20 +300,23 @@ let retryAfterOverrideMs = 0;
 
           const delay = Math.max(backoff, retryAfterOverrideMs);
           retryAfterOverrideMs = 0;
-          console.warn(`[email] Resend retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`);
+          console.warn(
+            `[email] Resend retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`,
+          );
           await new Promise<void>((r) => setTimeout(r, delay));
         }
 
         const result = await _attemptResend(resendKey, from, opts);
 
         if (result.ok) {
-          if (attempt > 1) console.log(`[email] Resend succeeded on attempt ${attempt} to=${opts.to}`);
+          if (attempt > 1)
+            console.log(`[email] Resend succeeded on attempt ${attempt} to=${opts.to}`);
           else console.log(`[email] Resend sent to=${opts.to}`);
           return true;
         }
         if (result.permanent) return false;
 
-if (!result.permanent && result.retryAfterMs && result.retryAfterMs > 0) {
+        if (!result.permanent && result.retryAfterMs && result.retryAfterMs > 0) {
           retryAfterOverrideMs = result.retryAfterMs;
         }
       }
@@ -292,12 +330,14 @@ if (!result.permanent && result.retryAfterMs && result.retryAfterMs > 0) {
           queuedAt: _dlqCtx?.queuedAt ?? Date.now(),
         }).catch(() => {});
       } else {
-        console.error(`[email] Job permanently discarded after ${DLQ_MAX_RETRIES} DLQ rounds to=${opts.to}`);
+        console.error(
+          `[email] Job permanently discarded after ${DLQ_MAX_RETRIES} DLQ rounds to=${opts.to}`,
+        );
       }
       return false;
     }
 
-const transporter = getTransporter();
+    const transporter = getTransporter();
     if (!transporter) {
       console.warn("[email] No transport configured — set RESEND_API_KEY or SMTP_HOST/USER/PASS");
       return false;
@@ -306,7 +346,9 @@ const transporter = getTransporter();
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       if (attempt > 1) {
         const delay = Math.min(1000 * 2 ** (attempt - 2) + Math.random() * 200, 8000);
-        console.warn(`[email] SMTP retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`);
+        console.warn(
+          `[email] SMTP retry ${attempt}/${MAX_ATTEMPTS} in ${Math.round(delay)}ms to=${opts.to}`,
+        );
         await new Promise<void>((r) => setTimeout(r, delay));
       }
       try {
@@ -315,7 +357,6 @@ const transporter = getTransporter();
         else console.log(`[email] SMTP sent to=${opts.to}`);
         return true;
       } catch (err: any) {
-
         const code: number = err?.responseCode ?? 0;
         const isPermanent = code >= 400 && code < 500;
         console.error(`[email] SMTP attempt ${attempt} failed (code=${code}):`, err?.message);
@@ -332,7 +373,9 @@ const transporter = getTransporter();
         queuedAt: _dlqCtx?.queuedAt ?? Date.now(),
       }).catch(() => {});
     } else {
-      console.error(`[email] Job permanently discarded after ${DLQ_MAX_RETRIES} DLQ rounds to=${opts.to}`);
+      console.error(
+        `[email] Job permanently discarded after ${DLQ_MAX_RETRIES} DLQ rounds to=${opts.to}`,
+      );
     }
     return false;
   } finally {
@@ -350,9 +393,6 @@ function escHtml(str: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-// ─── Shared email shell ───────────────────────────────────────────────────────
-// All emails wrap their content in this shell. It sets the outer background,
-// max-width, and basic resets. bodyHtml slots in between the outer table rows.
 function emailShell(bodyHtml: string, previewText = ""): string {
   return `
 <!DOCTYPE html>
@@ -436,10 +476,6 @@ function globalFooter(): string {
     </td>
   </tr>`;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HTML generators (exported so dev preview route can call them directly)
-// ─────────────────────────────────────────────────────────────────────────────
 
 export function buildVerificationEmailHtml(verifyUrl: string): string {
   const safeUrl = escHtml(verifyUrl);
@@ -646,16 +682,16 @@ export interface StoreInfo {
 }
 
 export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo): string {
-  const currency    = store.currency ?? "₱";
-  const fmt         = (v: string | null | undefined) => `${currency}${parseFloat(v ?? "0").toFixed(2)}`;
-  const storeName   = escHtml(store.name);
-  const storeAddr   = escHtml(store.address);
-  const storePhone  = escHtml(store.phone);
+  const currency = store.currency ?? "₱";
+  const fmt = (v: string | null | undefined) => `${currency}${parseFloat(v ?? "0").toFixed(2)}`;
+  const storeName = escHtml(store.name);
+  const storeAddr = escHtml(store.address);
+  const storePhone = escHtml(store.phone);
   const storeFooter = escHtml(store.receiptFooter);
-  const storeInit   = escHtml((store.name[0] ?? "S").toUpperCase());
-  const refNum      = escHtml(sale.orNumber ?? sale.receiptNumber ?? "");
-  const customer    = escHtml(sale.customerName ?? "");
-  const pm          = escHtml(sale.paymentMethod);
+  const storeInit = escHtml((store.name[0] ?? "S").toUpperCase());
+  const refNum = escHtml(sale.orNumber ?? sale.receiptNumber ?? "");
+  const customer = escHtml(sale.customerName ?? "");
+  const pm = escHtml(sale.paymentMethod);
 
   const dateStr = new Date(sale.createdAt).toLocaleString("en-PH", {
     dateStyle: "long",
@@ -663,14 +699,20 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
   });
 
   const items = Array.isArray(sale.items) ? (sale.items as any[]) : [];
-  const itemRows = items.map((item: any) => {
-    const name  = escHtml(item?.product?.name ?? item?.name ?? item?.title ?? "Item");
-    const size  = item?.size?.name ? ` <span style="color:#9ca3af;">(${escHtml(item.size.name)})</span>` : "";
-    const qty   = item?.quantity ?? 1;
-    const price = parseFloat(item?.size?.price ?? item?.product?.price ?? item?.price ?? "0");
-    const mods  = (item?.modifiers ?? []).reduce((s: number, m: any) => s + parseFloat(m?.price ?? "0"), 0);
-    const total = (price + mods) * qty;
-    return `
+  const itemRows = items
+    .map((item: any) => {
+      const name = escHtml(item?.product?.name ?? item?.name ?? item?.title ?? "Item");
+      const size = item?.size?.name
+        ? ` <span style="color:#9ca3af;">(${escHtml(item.size.name)})</span>`
+        : "";
+      const qty = item?.quantity ?? 1;
+      const price = parseFloat(item?.size?.price ?? item?.product?.price ?? item?.price ?? "0");
+      const mods = (item?.modifiers ?? []).reduce(
+        (s: number, m: any) => s + parseFloat(m?.price ?? "0"),
+        0,
+      );
+      const total = (price + mods) * qty;
+      return `
     <tr>
       <td style="padding:11px 0;font-size:14px;color:#1f2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;border-bottom:1px solid #f3f4f6;">
         <span style="font-weight:500;">${name}${size}</span>
@@ -678,12 +720,13 @@ export function buildReceiptEmailHtml(sale: ReceiptEmailData, store: StoreInfo):
       </td>
       <td style="padding:11px 0;font-size:14px;font-weight:600;color:#1f2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;">${currency}${total.toFixed(2)}</td>
     </tr>`;
-  }).join("");
+    })
+    .join("");
 
-  const hasTax      = parseFloat(sale.tax ?? "0") > 0;
+  const hasTax = parseFloat(sale.tax ?? "0") > 0;
   const hasDiscount = parseFloat(sale.discount ?? "0") > 0;
 
-const body = `
+  const body = `
   <tr>
     <td style="background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(59,130,246,0.12);">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
@@ -693,7 +736,7 @@ const body = `
           <td align="center" style="background-color:#3b82f6;padding:32px 40px 28px;" class="px-m">
             <div style="display:inline-block;background-color:rgba(255,255,255,0.2);border-radius:16px;width:56px;height:56px;text-align:center;line-height:56px;font-size:26px;font-weight:900;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin-bottom:10px;">${storeInit}</div>
             <p style="margin:0 0 2px;font-size:22px;font-weight:800;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storeName}</p>
-            ${storeAddr  ? `<p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storeAddr}</p>` : ""}
+            ${storeAddr ? `<p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storeAddr}</p>` : ""}
             ${storePhone ? `<p style="margin:3px 0 0;font-size:13px;color:rgba(255,255,255,0.7);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${storePhone}</p>` : ""}
           </td>
         </tr>
@@ -730,11 +773,15 @@ const body = `
         </tr>
 
         <!-- Subtotals -->
-        ${(hasTax || hasDiscount) ? `
+        ${
+          hasTax || hasDiscount
+            ? `
         <tr>
           <td style="padding:12px 40px 0;" class="px-m">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-              ${hasTax ? `
+              ${
+                hasTax
+                  ? `
               <tr>
                 <td style="padding:4px 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Subtotal</td>
                 <td style="padding:4px 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:right;">${fmt(sale.subtotal)}</td>
@@ -742,15 +789,23 @@ const body = `
               <tr>
                 <td style="padding:4px 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Tax</td>
                 <td style="padding:4px 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:right;">${fmt(sale.tax)}</td>
-              </tr>` : ""}
-              ${hasDiscount ? `
+              </tr>`
+                  : ""
+              }
+              ${
+                hasDiscount
+                  ? `
               <tr>
                 <td style="padding:4px 0;font-size:13px;color:#dc2626;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Discount</td>
                 <td style="padding:4px 0;font-size:13px;color:#dc2626;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:right;">-${fmt(sale.discount)}</td>
-              </tr>` : ""}
+              </tr>`
+                  : ""
+              }
             </table>
           </td>
-        </tr>` : ""}
+        </tr>`
+            : ""
+        }
 
         <!-- Total box -->
         <tr>
@@ -779,13 +834,17 @@ const body = `
           </td>
         </tr>
 
-        ${storeFooter ? `
+        ${
+          storeFooter
+            ? `
         <!-- Footer message -->
         <tr>
           <td style="padding:0 40px 24px;text-align:center;border-top:1px dashed #e5e7eb;" class="px-m">
             <p style="margin:20px 0 0;font-size:13px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-style:italic;line-height:1.6;">&ldquo;${storeFooter}&rdquo;</p>
           </td>
-        </tr>` : ""}
+        </tr>`
+            : ""
+        }
 
         <!-- Powered by -->
         <tr>
@@ -800,10 +859,6 @@ const body = `
 
   return emailShell(body, `Thanks for your purchase at ${store.name}! Here's your receipt.`);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Send functions (use the HTML builders above)
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<boolean> {
   return sendEmail({
@@ -825,7 +880,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
       "— The ArtixPOS Team | https://artixpos.com",
     ].join("\n"),
     html: buildVerificationEmailHtml(verifyUrl),
-    headers: { "X-Entity-Ref-ID": `verify-${Date.now()}`, "Precedence": "bulk" },
+    headers: { "X-Entity-Ref-ID": `verify-${Date.now()}`, Precedence: "bulk" },
   });
 }
 
@@ -854,7 +909,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
       "— The ArtixPOS Team | https://artixpos.com",
     ].join("\n"),
     html: buildPasswordResetEmailHtml(resetUrl),
-    headers: { "X-Entity-Ref-ID": `reset-${Date.now()}`, "Precedence": "bulk" },
+    headers: { "X-Entity-Ref-ID": `reset-${Date.now()}`, Precedence: "bulk" },
   });
 }
 
@@ -958,7 +1013,11 @@ export function buildWelcomeEmailHtml(name: string, dashboardUrl: string): strin
   return emailShell(body, `Welcome to ArtixPOS, ${name}!`);
 }
 
-export async function sendWelcomeEmail(to: string, name: string, dashboardUrl: string): Promise<boolean> {
+export async function sendWelcomeEmail(
+  to: string,
+  name: string,
+  dashboardUrl: string,
+): Promise<boolean> {
   return sendEmail({
     to,
     subject: `Welcome to ArtixPOS, ${name}!`,
@@ -983,26 +1042,32 @@ export async function sendWelcomeEmail(to: string, name: string, dashboardUrl: s
       "— The ArtixPOS Team | https://artixpos.com",
     ].join("\n"),
     html: buildWelcomeEmailHtml(name, dashboardUrl),
-    headers: { "X-Entity-Ref-ID": `welcome-${Date.now()}`, "Precedence": "bulk" },
+    headers: { "X-Entity-Ref-ID": `welcome-${Date.now()}`, Precedence: "bulk" },
   });
 }
 
 export async function sendReceiptEmail(
   to: string,
   sale: ReceiptEmailData,
-  store: StoreInfo
+  store: StoreInfo,
 ): Promise<boolean> {
   const currency = store.currency ?? "₱";
   const fmt = (v: string | null | undefined) => `${currency}${parseFloat(v ?? "0").toFixed(2)}`;
   const refNum = sale.orNumber ?? sale.receiptNumber ?? "";
-  const dateStr = new Date(sale.createdAt).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" });
+  const dateStr = new Date(sale.createdAt).toLocaleString("en-PH", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
   const items = Array.isArray(sale.items) ? (sale.items as any[]) : [];
   const itemLines = items.map((item: any) => {
-    const name  = item?.product?.name ?? item?.name ?? item?.title ?? "Item";
-    const size  = item?.size?.name ? ` (${item.size.name})` : "";
-    const qty   = item?.quantity ?? 1;
+    const name = item?.product?.name ?? item?.name ?? item?.title ?? "Item";
+    const size = item?.size?.name ? ` (${item.size.name})` : "";
+    const qty = item?.quantity ?? 1;
     const price = parseFloat(item?.size?.price ?? item?.product?.price ?? item?.price ?? "0");
-    const mods  = (item?.modifiers ?? []).reduce((s: number, m: any) => s + parseFloat(m?.price ?? "0"), 0);
+    const mods = (item?.modifiers ?? []).reduce(
+      (s: number, m: any) => s + parseFloat(m?.price ?? "0"),
+      0,
+    );
     return `  ${name}${size}${qty > 1 ? ` x${qty}` : ""}  ${currency}${((price + mods) * qty).toFixed(2)}`;
   });
   const hasTax = parseFloat(sale.tax ?? "0") > 0;
@@ -1028,12 +1093,12 @@ export async function sendReceiptEmail(
       `Payment:  ${sale.paymentMethod}`,
       "",
       ...(store.address ? [store.address] : []),
-      ...(store.phone   ? [store.phone]   : []),
+      ...(store.phone ? [store.phone] : []),
       ...(store.receiptFooter ? ["", store.receiptFooter] : []),
       "",
       "Powered by ArtixPOS — https://artixpos.com",
     ].join("\n"),
     html: buildReceiptEmailHtml(sale, store),
-    headers: { "X-Entity-Ref-ID": `receipt-${refNum || Date.now()}`, "Precedence": "bulk" },
+    headers: { "X-Entity-Ref-ID": `receipt-${refNum || Date.now()}`, Precedence: "bulk" },
   });
 }

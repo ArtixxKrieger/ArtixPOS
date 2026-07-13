@@ -143,6 +143,7 @@ export default function PendingOrders() {
       return;
     }
 
+    const idempotencyKey = crypto.randomUUID();
     createSale.mutate(
       {
         items: order.items || [],
@@ -158,7 +159,8 @@ export default function PendingOrders() {
         notes: order.notes || null,
         customerId: order.customerId || null,
         tableId: order.tableId || null,
-      },
+        idempotencyKey,
+      } as any,
       {
         onSuccess: () => {
           deleteOrder.mutate(order.id);

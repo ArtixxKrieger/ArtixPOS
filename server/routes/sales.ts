@@ -17,7 +17,10 @@ import {
   auditLog,
   isValidDate,
   handleZodError,
+  getTenantId,
 } from "../lib/route-utils";
+
+const IDEM_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export function registerSaleRoutes(app: Express): void {
   app.get(api.sales.list.path, requireAuth, async (req, res) => {
@@ -132,6 +135,20 @@ export function registerSaleRoutes(app: Express): void {
 
   app.post(api.sales.create.path, requireAuth, async (req, res) => {
     try {
+      // Idempotency guard — prevents the offline-sync queue from creating a
+      // duplicate sale when a request times out on the client but succeeds on
+      // the server.
+      const rawIdemKey =
+        typeof (req.body as Record<string, unknown>).idempotencyKey === "string"
+          ? ((req.body as Record<string, unknown>).idempotencyKey as string)
+          : undefined;
+      const idemTid = getTenantId(req);
+      if (rawIdemKey && idemTid) {
+        const ck = `idem:sale:${idemTid}:${rawIdemKey}`;
+        const hit = cache.get<object>(ck);
+        if (hit) return res.status(201).json(hit);
+      }
+
       const bodySchema = api.sales.create.input.extend({
         subtotal: z.coerce.string(),
         total: z.coerce.string(),
@@ -313,6 +330,12 @@ export function registerSaleRoutes(app: Express): void {
 
       cache.del(dashboardCacheKey(uid, getActiveBranchId(req)));
       cache.delByPrefix(`sales:${uid}`);
+
+      // Store idempotency result so a sync-queue replay returns the same sale
+      if (rawIdemKey && idemTid) {
+        cache.set(`idem:sale:${idemTid}:${rawIdemKey}`, sale, IDEM_TTL_MS);
+      }
+
       res.status(201).json(sale);
 
       const tid = req.user?.tenantId ?? null;

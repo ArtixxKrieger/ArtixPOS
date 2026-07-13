@@ -241,7 +241,7 @@ const NavItem = memo(function NavItem({
 
 const PendingBadge = memo(function PendingBadge({ collapsed }: { collapsed: boolean }) {
   const { data } = usePendingOrders();
-  const count = (data ?? []).filter((o: any) => o.status !== "paid").length;
+  const count = (data ?? []).length;
   if (!count) return null;
   if (collapsed) {
     return (

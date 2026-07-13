@@ -131,15 +131,6 @@ export default function PendingOrders() {
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
 
-    if (order.status === "paid") {
-      deleteOrder.mutate(order.id, {
-        onSuccess: () => {
-          toast({ title: "Order Completed", description: "Order removed from queue." });
-        },
-      });
-      return;
-    }
-
     createSale.mutate(
       {
         items: order.items || [],

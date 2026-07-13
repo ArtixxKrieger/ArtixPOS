@@ -1303,6 +1303,7 @@ export default function Settings() {
         <SheetContent
           side="bottom"
           className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col"
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {}
           <div className="flex justify-center pt-3 pb-1 shrink-0">

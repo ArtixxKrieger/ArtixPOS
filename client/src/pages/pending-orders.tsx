@@ -126,10 +126,22 @@ export default function PendingOrders() {
   };
 
   const currency = settings?.currency || "₱";
+  const isFoodBeverage = (settings as any)?.businessType === "food_beverage";
 
   const handleComplete = (order: PendingOrder) => {
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
+
+    // For non-food-bev paid orders the server already auto-created the sale
+    // at POS checkout time — just clear the queue entry.
+    if (order.status === "paid" && !isFoodBeverage) {
+      deleteOrder.mutate(order.id, {
+        onSuccess: () => {
+          toast({ title: "Order Completed", description: "Order removed from queue." });
+        },
+      });
+      return;
+    }
 
     createSale.mutate(
       {

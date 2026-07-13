@@ -570,6 +570,7 @@ export default function POS() {
         isFoodBeverage && orderType === "delivery" && deliveryAddress.trim()
           ? deliveryAddress.trim()
           : null,
+      deferSale: isFoodBeverage,
     };
 
     const snapshotCart = [...cart];
@@ -789,6 +790,7 @@ export default function POS() {
             paymentMethod,
             orderType: isFoodBeverage ? orderType : null,
             notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
+            deferSale: isFoodBeverage,
           } as any);
           succeeded++;
         } catch {

@@ -68,7 +68,9 @@ export function registerPendingOrderRoutes(app: Express): void {
 
       const tid = getTenantId(req);
 
-      if (input.status === "paid") {
+      const deferSale = (req.body as any).deferSale === true;
+
+      if (input.status === "paid" && !deferSale) {
         try {
           const rawBody = req.body as any;
           const sale = await storage.createSale(uid, {

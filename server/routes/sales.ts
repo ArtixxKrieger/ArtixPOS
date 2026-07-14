@@ -171,8 +171,13 @@ export function registerSaleRoutes(app: Express): void {
       // ids in their item shape, so they keep the pre-existing behavior of
       // trusting their own already-computed totals.
       const rawItems = Array.isArray(input.items) ? (input.items as any[]) : [];
+      // Pending-order completions already had prices server-verified at checkout
+      // time — skip the full catalog re-fetch to avoid the ~500-800 ms round-trip.
+      const fromPendingOrder = (req.body as any).fromPendingOrder === true;
       const isCatalogCart =
-        rawItems.length > 0 && rawItems.every((item) => item?.product?.id != null);
+        !fromPendingOrder &&
+        rawItems.length > 0 &&
+        rawItems.every((item) => item?.product?.id != null);
 
       const saleUser = req.user;
       let requestedDiscount = parseFloat(input.discount || "0");

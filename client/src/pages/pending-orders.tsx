@@ -85,7 +85,7 @@ function makeDummyOrders(count: number): PendingOrder[] {
 export default function PendingOrders() {
   const { data: orders = [], isLoading: _isLoading } = usePendingOrders();
 
-  const displayOrders = orders as PendingOrder[];
+  const displayOrders = (orders as PendingOrder[]).filter((o) => !completingOrders.has(o.id));
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
   const deleteOrder = useDeletePendingOrder();
@@ -94,6 +94,7 @@ export default function PendingOrders() {
   const { toast } = useToast();
   const canVoidOrder = perms?.canVoidOrder !== false;
   const [payments, setPayments] = useState<Record<number, string>>({});
+  const [completingOrders, setCompletingOrders] = useState<Set<number>>(new Set());
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   const staleOrders = (orders as PendingOrder[]).filter((o) => elapsedMin(o.createdAt) >= 15);
@@ -132,12 +133,18 @@ export default function PendingOrders() {
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
 
+    // Optimistically remove the card immediately so the UI feels instant.
+    setCompletingOrders((prev) => new Set([...prev, order.id]));
+
     // For non-food-bev paid orders the server already auto-created the sale
     // at POS checkout time — just clear the queue entry.
     if (order.status === "paid" && !isFoodBeverage) {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {
           toast({ title: "Order Completed", description: "Order removed from queue." });
+        },
+        onError: () => {
+          setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
         },
       });
       return;
@@ -160,6 +167,7 @@ export default function PendingOrders() {
         customerId: order.customerId || null,
         tableId: order.tableId || null,
         idempotencyKey,
+        fromPendingOrder: true,
       } as any,
       {
         onSuccess: () => {
@@ -167,8 +175,10 @@ export default function PendingOrders() {
           toast({ title: "Order Completed", description: "Processed as a sale." });
         },
         onError: (err: any) => {
+          // Restore the card so the user can retry.
+          setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
           toast({
-            title: "Failed to make sale",
+            title: "Failed to complete order",
             description: err?.message ?? "Please try again.",
             variant: "destructive",
           });

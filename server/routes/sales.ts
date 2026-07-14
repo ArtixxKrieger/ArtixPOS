@@ -21,6 +21,17 @@ import {
 } from "../lib/route-utils";
 
 const IDEM_TTL_MS = 60 * 60 * 1000; // 1 hour
+const PERM_CACHE_TTL_MS = 30_000; // 30 s — role permissions change rarely
+
+/** Cached wrapper around getRolePermissionForRole to avoid a DB hit on every sale. */
+async function getRolePermCached(tenantId: string, role: string) {
+  const ck = `roleperm:${tenantId}:${role}`;
+  const hit = cache.get<Awaited<ReturnType<typeof getRolePermissionForRole>>>(ck);
+  if (hit !== undefined) return hit;
+  const perm = await getRolePermissionForRole(tenantId, role);
+  cache.set(ck, perm, PERM_CACHE_TTL_MS);
+  return perm;
+}
 
 export function registerSaleRoutes(app: Express): void {
   app.get(api.sales.list.path, requireAuth, async (req, res) => {
@@ -174,6 +185,10 @@ export function registerSaleRoutes(app: Express): void {
       // Pending-order completions already had prices server-verified at checkout
       // time — skip the full catalog re-fetch to avoid the ~500-800 ms round-trip.
       const fromPendingOrder = (req.body as any).fromPendingOrder === true;
+      const pendingOrderId =
+        typeof (req.body as any).pendingOrderId === "number"
+          ? ((req.body as any).pendingOrderId as number)
+          : null;
       const isCatalogCart =
         !fromPendingOrder &&
         rawItems.length > 0 &&
@@ -241,7 +256,7 @@ export function registerSaleRoutes(app: Express): void {
         }
 
         if (saleUser?.tenantId && saleUser.role !== "owner") {
-          const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
+          const perm = await getRolePermCached(saleUser.tenantId, saleUser.role);
           if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
             const discountAmt = requestedDiscount + requestedLoyalty;
             if (recomputedSubtotal > 0 && (discountAmt / recomputedSubtotal) * 100 > perm.maxDiscountPercent) {
@@ -278,7 +293,7 @@ export function registerSaleRoutes(app: Express): void {
         // Non-catalog flow (appointments, pending-order completion, etc.) — keep
         // the existing permission check against the client-supplied discount.
         if (saleUser?.tenantId && saleUser.role !== "owner") {
-          const perm = await getRolePermissionForRole(saleUser.tenantId, saleUser.role);
+          const perm = await getRolePermCached(saleUser.tenantId, saleUser.role);
           if (perm && perm.maxDiscountPercent != null && perm.maxDiscountPercent < 100) {
             const discountAmt = requestedDiscount + requestedLoyalty;
             const subtotalAmt = parseFloat(input.subtotal || "0");
@@ -311,6 +326,28 @@ export function registerSaleRoutes(app: Express): void {
         branchId: enforcedBranch,
       });
 
+      // If this sale completes a pending order, delete it inline — saves one
+      // full HTTP round-trip vs. the client calling DELETE /api/pending-orders/:id
+      // as a follow-up. Do it before responding so the queue is already cleared
+      // by the time the client re-fetches.
+      if (pendingOrderId) {
+        storage.deletePendingOrder(pendingOrderId, uid).catch((e) =>
+          console.error(`[sale] inline pending-order delete failed for ${pendingOrderId}:`, e),
+        );
+      }
+
+      cache.del(dashboardCacheKey(uid, getActiveBranchId(req)));
+      cache.delByPrefix(`sales:${uid}`);
+
+      // Store idempotency result so a sync-queue replay returns the same sale
+      if (rawIdemKey && idemTid) {
+        cache.set(`idem:sale:${idemTid}:${rawIdemKey}`, sale, IDEM_TTL_MS);
+      }
+
+      // Send the response first — everything below is post-response background work.
+      res.status(201).json(sale);
+
+      // Stock deduction and audit log are fire-and-forget after the response is sent.
       runAsAdmin(pool, async () => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -323,7 +360,7 @@ export function registerSaleRoutes(app: Express): void {
         }
       }).catch((e) => console.error(`[stock] runAsAdmin failed for sale ${sale.id}:`, e));
 
-      await auditLog(req, "create", "sale", String(sale.id), {
+      auditLog(req, "create", "sale", String(sale.id), {
         total: sale.total,
         itemCount: Array.isArray(sale.items) ? sale.items.length : 0,
         paymentMethod: sale.paymentMethod,
@@ -331,17 +368,7 @@ export function registerSaleRoutes(app: Express): void {
         orNumber: (sale as any).orNumber ?? null,
         invoiceNumber: (sale as any).invoiceNumber ?? null,
         discountCode: sale.discountCode,
-      });
-
-      cache.del(dashboardCacheKey(uid, getActiveBranchId(req)));
-      cache.delByPrefix(`sales:${uid}`);
-
-      // Store idempotency result so a sync-queue replay returns the same sale
-      if (rawIdemKey && idemTid) {
-        cache.set(`idem:sale:${idemTid}:${rawIdemKey}`, sale, IDEM_TTL_MS);
-      }
-
-      res.status(201).json(sale);
+      }).catch(() => {});
 
       const tid = req.user?.tenantId ?? null;
       if (tid) emitTenantEvent(tid, { type: "stats-update", saleId: sale.id, total: sale.total });

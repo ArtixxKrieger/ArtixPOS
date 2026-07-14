@@ -94,6 +94,10 @@ export default function PendingOrders() {
   const [payments, setPayments] = useState<Record<number, string>>({});
   const [completingOrders, setCompletingOrders] = useState<Set<number>>(new Set());
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+  // Synchronous guard — React state batching means two rapid taps can both pass
+  // the completingOrders check before the first re-render; a ref is updated
+  // immediately without waiting for a render cycle.
+  const submittingRef = useRef<Set<number>>(new Set());
 
   // Must come after completingOrders is declared to avoid a TDZ crash.
   const displayOrders = (orders as PendingOrder[]).filter((o) => !completingOrders.has(o.id));
@@ -131,22 +135,31 @@ export default function PendingOrders() {
   const isFoodBeverage = (settings as any)?.businessType === "food_beverage";
 
   const handleComplete = (order: PendingOrder) => {
+    // Synchronous guard — prevents duplicate submissions from rapid taps before
+    // React re-renders (state batching would let a second tap through otherwise).
+    if (submittingRef.current.has(order.id)) return;
+    submittingRef.current.add(order.id);
+
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
 
     // Optimistically remove the card immediately so the UI feels instant.
     setCompletingOrders((prev) => new Set([...prev, order.id]));
 
+    const restore = () => {
+      submittingRef.current.delete(order.id);
+      setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
+    };
+
     // For non-food-bev paid orders the server already auto-created the sale
     // at POS checkout time — just clear the queue entry.
     if (order.status === "paid" && !isFoodBeverage) {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {
+          submittingRef.current.delete(order.id);
           toast({ title: "Order Completed", description: "Order removed from queue." });
         },
-        onError: () => {
-          setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
-        },
+        onError: restore,
       });
       return;
     }
@@ -169,15 +182,16 @@ export default function PendingOrders() {
         tableId: order.tableId || null,
         idempotencyKey,
         fromPendingOrder: true,
+        // Server deletes the queue entry inline — no second HTTP round-trip needed.
+        pendingOrderId: order.id,
       } as any,
       {
         onSuccess: () => {
-          deleteOrder.mutate(order.id);
+          submittingRef.current.delete(order.id);
           toast({ title: "Order Completed", description: "Processed as a sale." });
         },
         onError: (err: any) => {
-          // Restore the card so the user can retry.
-          setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
+          restore();
           toast({
             title: "Failed to complete order",
             description: err?.message ?? "Please try again.",
@@ -408,7 +422,7 @@ export default function PendingOrders() {
                     variant="ghost"
                     className="h-12 rounded-none rounded-br-3xl text-primary hover:bg-primary/8 text-xs font-bold tracking-wide"
                     onClick={() => handleComplete(order as any)}
-                    disabled={createSale.isPending}
+                    disabled={completingOrders.has(order.id)}
                     data-testid={`button-finalize-${order.id}`}
                   >
                     <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />

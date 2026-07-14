@@ -282,6 +282,38 @@ export default function POS() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
+  const resetOrderFields = useCallback(() => {
+    setDiscount(0);
+    setAppliedCode(null);
+    setDiscountCodeInput("");
+    setSelectedCustomer(null);
+    setLoyaltyPointsToRedeem(0);
+    setPaymentAmount("");
+    setReceiptName("");
+    setIssueWifi(false);
+    setScPwdType("none");
+    setScPwdId("");
+    setOrderType("dine_in");
+    setDeliveryAddress("");
+    setShowBillSplit(false);
+    setCartOpen(false);
+    setShowNumpad(false);
+    setIsPaymentFocused(false);
+  }, []);
+
+  const hadCartItemsRef = useRef(false);
+  useEffect(() => {
+    if (cart.length > 0) {
+      hadCartItemsRef.current = true;
+      return;
+    }
+
+    if (hadCartItemsRef.current) {
+      hadCartItemsRef.current = false;
+      resetOrderFields();
+    }
+  }, [cart.length, resetOrderFields]);
+
   const paymentMethods: { id: string; label: string; isCash: boolean }[] = (settings as any)
     ?.paymentMethods?.length
     ? (settings as any).paymentMethods
@@ -619,20 +651,7 @@ export default function POS() {
     setSaleFlash({ amount: formatCurrency(Math.max(0, total), currency), key: Date.now() });
 
     clearCart();
-    setDiscount(0);
-    setAppliedCode(null);
-    setDiscountCodeInput("");
-    setSelectedCustomer(null);
-    setLoyaltyPointsToRedeem(0);
-    setPaymentAmount("");
-    setReceiptName("");
-    setIssueWifi(false);
-    setScPwdType("none");
-    setScPwdId("");
-    setOrderType("dine_in");
-    setDeliveryAddress("");
-    setShowBillSplit(false);
-    setCartOpen(false);
+    resetOrderFields();
 
     createPending.mutate({ ...orderData, idempotencyKey } as any, {
       onSuccess: async (result) => {
@@ -757,6 +776,7 @@ export default function POS() {
     orderType,
     deliveryAddress,
     clearCart,
+    resetOrderFields,
     replaceCart,
     createPending,
     toast,

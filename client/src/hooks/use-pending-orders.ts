@@ -9,8 +9,7 @@ const LIST_URL = api.pendingOrders.list.path;
 export function usePendingOrders() {
   return useQuery({
     queryKey: [LIST_URL],
-
-staleTime: 30_000,
+    staleTime: 30_000,
     queryFn: async () => {
 
 const idbData = await getCached<ReturnType<typeof api.pendingOrders.list.responses[200]["parse"]>>(LIST_URL);
@@ -49,6 +48,7 @@ const retry = await getCached<ReturnType<typeof api.pendingOrders.list.responses
         throw err;
       }
     },
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 

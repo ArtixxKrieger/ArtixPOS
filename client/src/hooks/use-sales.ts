@@ -96,6 +96,7 @@ export function useSales(params?: SalesQueryParams) {
       }
     },
     staleTime: 30_000,
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 

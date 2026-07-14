@@ -258,6 +258,7 @@ export function useSetMainBranch() {
 export function useTenantUsers() {
   return useQuery<TenantUser[]>({
     queryKey: ["/api/admin/users"],
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 
@@ -343,6 +344,7 @@ export function useRemoveBranch() {
 export function useBranchAnalytics() {
   return useQuery<BranchAnalytics[]>({
     queryKey: ["/api/admin/analytics"],
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 
@@ -376,6 +378,7 @@ export function useAuditLogs(filters?: AuditLogFilters) {
 export function useRolePermissions() {
   return useQuery<RolePermission[]>({
     queryKey: ["/api/admin/permissions"],
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 
@@ -394,6 +397,7 @@ export function useDeletedUsers(enabled = true) {
   return useQuery<TenantUser[]>({
     queryKey: ["/api/admin/users/deleted"],
     enabled,
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 

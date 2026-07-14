@@ -16,15 +16,13 @@ class ValidationError extends Error {
 export function useProducts() {
   return useQuery({
     queryKey: [LIST_URL],
-
-staleTime: 120_000,
+    staleTime: 120_000,
     queryFn: async () => {
       try {
         const res = await nativeFetch(LIST_URL);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.products.list.responses[200].parse(await res.json());
-
-setCached(LIST_URL, data).catch(() => {});
+        setCached(LIST_URL, data).catch(() => {});
         return data;
       } catch (err) {
         const cached = await getCached<ReturnType<typeof api.products.list.responses[200]["parse"]>>(LIST_URL);
@@ -32,6 +30,7 @@ setCached(LIST_URL, data).catch(() => {});
         throw err;
       }
     },
+    select: (data: any) => (Array.isArray(data) ? data : []),
   });
 }
 

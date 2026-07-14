@@ -84,8 +84,6 @@ function makeDummyOrders(count: number): PendingOrder[] {
 
 export default function PendingOrders() {
   const { data: orders = [], isLoading: _isLoading } = usePendingOrders();
-
-  const displayOrders = (orders as PendingOrder[]).filter((o) => !completingOrders.has(o.id));
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
   const deleteOrder = useDeletePendingOrder();
@@ -96,6 +94,9 @@ export default function PendingOrders() {
   const [payments, setPayments] = useState<Record<number, string>>({});
   const [completingOrders, setCompletingOrders] = useState<Set<number>>(new Set());
   const pendingDiscards = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Must come after completingOrders is declared to avoid a TDZ crash.
+  const displayOrders = (orders as PendingOrder[]).filter((o) => !completingOrders.has(o.id));
 
   const staleOrders = (orders as PendingOrder[]).filter((o) => elapsedMin(o.createdAt) >= 15);
 

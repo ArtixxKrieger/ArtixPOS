@@ -45,11 +45,10 @@ export function prefetchBootstrapData(userId: string): void {
   if (prefetchedUsers.has(userId)) return;
   prefetchedUsers.add(userId);
 
-pruneStaleCache(7 * 24 * 60 * 60 * 1000).catch(() => {});
+  pruneStaleCache(7 * 24 * 60 * 60 * 1000).catch(() => {});
 
-  const queryFn = getQueryFn({ on401: "returnNull" });
-
-for (const url of ALL_PREFETCH_URLS) {
+  // Seed the cache from IndexedDB first so components have data immediately.
+  for (const url of ALL_PREFETCH_URLS) {
     getCached<unknown>(url, Infinity)
       .then((cached) => {
         if (cached != null && queryClient.getQueryData([url]) === undefined) {
@@ -59,53 +58,47 @@ for (const url of ALL_PREFETCH_URLS) {
       .catch(() => {});
   }
 
-async function fetchTier(urls: readonly string[], delayMs: number, label: string): Promise<void> {
+  // Call the query function directly instead of fetchQuery so that a 401 (null)
+  // result never touches the TanStack cache. fetchQuery stores the return value
+  // before our cleanup runs, causing a brief null window that crashes any
+  // component calling .filter()/.map() on the result.
+  const qfn = getQueryFn({ on401: "returnNull" });
+
+  async function fetchTier(urls: readonly string[], delayMs: number, label: string): Promise<void> {
     if (delayMs > 0) await new Promise<void>((r) => setTimeout(r, delayMs));
     console.log(`[prefetch ${new Date().toISOString().slice(11, 23)}] fetch ${label} (${urls.length} urls)`);
     await Promise.allSettled(
-      urls.map((url) =>
-        queryClient
-          // staleTime:0 forces a network fetch even if IndexedDB data was already
-          // loaded into the cache by the getCached loop above this call.
-          .fetchQuery({ queryKey: [url], queryFn, staleTime: 0 })
-          .then((data) => {
-            if (data != null) {
-              import("./offline-db").then(({ setCached }) => {
-                setCached(url, data).catch(() => {});
-              });
-            } else {
-              queryClient.removeQueries({ queryKey: [url], exact: true });
-            }
-          })
-          .catch(() => {}),
-      ),
+      urls.map(async (url) => {
+        try {
+          const data = await qfn({ queryKey: [url], signal: undefined, meta: {} } as any);
+          if (data != null) {
+            // Only write non-null data to the cache — null means 401/unauthed.
+            queryClient.setQueryData([url], data);
+          }
+          // On null: leave the cache untouched (offline seed or undefined stays).
+        } catch {}
+      }),
     );
     console.log(`[prefetch ${new Date().toISOString().slice(11, 23)}] done ${label}`);
   }
 
-fetchTier(CRITICAL_URLS, 0, "critical")
+  fetchTier(CRITICAL_URLS, 0, "critical")
     .then(() => fetchTier(OPERATIONAL_URLS, 200, "operational"))
     .then(() => fetchTier(BACKGROUND_URLS, 200, "background"))
     .catch(() => {});
 }
 
 export async function prefetchCriticalData(): Promise<void> {
-  const queryFn = getQueryFn({ on401: "returnNull" });
+  const qfn = getQueryFn({ on401: "returnNull" });
   await Promise.allSettled(
-    CRITICAL_URLS.map((url) =>
-      queryClient
-        .fetchQuery({ queryKey: [url], queryFn })
-        .then((data) => {
-          if (data != null) {
-            import("./offline-db").then(({ setCached }) => {
-              setCached(url, data).catch(() => {});
-            });
-          } else {
-            queryClient.removeQueries({ queryKey: [url], exact: true });
-          }
-        })
-        .catch(() => {}),
-    ),
+    CRITICAL_URLS.map(async (url) => {
+      try {
+        const data = await qfn({ queryKey: [url], signal: undefined, meta: {} } as any);
+        if (data != null) {
+          queryClient.setQueryData([url], data);
+        }
+      } catch {}
+    }),
   );
 }
 

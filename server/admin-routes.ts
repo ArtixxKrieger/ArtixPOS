@@ -1230,6 +1230,11 @@ export function registerAdminRoutes(app: Express) {
         const dbUser = await getUserById(user.id);
         if (!dbUser) return res.status(404).json({ message: "User not found" });
 
+        // Persist the selected branch to the DB so the next login restores it.
+        await (db.update(users) as any)
+          .set({ activeBranchId: branchId })
+          .where(eq(users.id, user.id));
+
         const token = signToken({
           id: dbUser.id,
           name: dbUser.name,

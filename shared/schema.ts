@@ -116,6 +116,7 @@ export const users = pgTable("users", {
 
   staffPin: text("staff_pin"),
   pinLockedUntil: text("pin_locked_until"),
+  activeBranchId: integer("active_branch_id"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   deletedAt: text("deleted_at"),
 });

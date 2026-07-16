@@ -344,7 +344,10 @@ function LoadingScreen({ message: _message }: { message?: string }) {
   return null;
 }
 
-const PINNED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics", "/products"]);
+// Paths handled by PersistentRoute (keep-alive) or inline {location === "..." && ...} blocks.
+// The Switch/NotFound block must not render for any of these.
+const PINNED_PATHS = new Set(["/pos", "/pending"]);
+const HANDLED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics", "/products"]);
 
 function PersistentRoute({
   path,
@@ -467,11 +470,11 @@ function AppRouter() {
   return (
     <AppLayout>
       <AppTour />
-      <PersistentRoute path="/" currentPath={location}>
+      {location === "/" && (
         <Suspense fallback={pageFallback}>
           <Dashboard />
         </Suspense>
-      </PersistentRoute>
+      )}
       <PersistentRoute path="/pos" currentPath={location}>
         <Suspense fallback={pageFallback}>
           <POSWithSetupGuard />
@@ -482,28 +485,28 @@ function AppRouter() {
           <PendingOrders />
         </Suspense>
       </PersistentRoute>
-      <PersistentRoute path="/settings" currentPath={location}>
+      {location === "/settings" && (
         <Suspense fallback={pageFallback}>
           <Settings />
         </Suspense>
-      </PersistentRoute>
+      )}
       <Route path="/settings/notifications">
         <Suspense fallback={pageFallback}>
           <NotificationPreferences />
         </Suspense>
       </Route>
-      <PersistentRoute path="/analytics" currentPath={location}>
+      {location === "/analytics" && (
         <Suspense fallback={pageFallback}>
           <CashierGuard component={Analytics} />
         </Suspense>
-      </PersistentRoute>
-      <PersistentRoute path="/products" currentPath={location}>
+      )}
+      {location === "/products" && (
         <Suspense fallback={pageFallback}>
           <Products />
         </Suspense>
-      </PersistentRoute>
+      )}
 
-      {!PINNED_PATHS.has(location) && (
+      {!HANDLED_PATHS.has(location) && (
         <Suspense fallback={pageFallback}>
           <Switch>
             <Route path="/transactions" component={TransactionsRoute} />

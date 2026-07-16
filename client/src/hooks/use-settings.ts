@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { api } from "@shared/routes";
 import { type InsertUserSetting } from "@shared/schema";
-import { getCached, setCached, queueMutation } from "@/lib/offline-db";
+import { getCached, setCached } from "@/lib/offline-db";
 import { detectLocale } from "@/lib/locale-detect";
 import { nativeFetch } from "@/lib/queryClient";
 
@@ -216,8 +216,9 @@ setCached(SETTINGS_URL, optimistic).catch(() => {});
 _prewarmedSettings = optimistic;
 
 if (!navigator.onLine) {
-        await queueMutation("PUT", api.settings.update.path, data);
-        return optimistic as any;
+        if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
+        _prewarmedSettings = current;
+        throw new Error("You're offline — connect to save settings.");
       }
 
 const controller = new AbortController();
@@ -249,8 +250,9 @@ if (res.status >= 400 && res.status < 500) {
             if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
             _prewarmedSettings = current;
           } else {
-
-            await queueMutation("PUT", api.settings.update.path, data);
+            // 5xx — revert optimistic; user must retry
+            if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
+            _prewarmedSettings = current;
           }
 
           const err = new Error(
@@ -271,9 +273,9 @@ queryClient.setQueryData([SETTINGS_URL], result);
       } catch (err) {
         clearTimeout(timer);
         if (isNetworkOrTimeoutError(err)) {
-
-          await queueMutation("PUT", api.settings.update.path, data);
-          return optimistic as any;
+          // Network failure — revert optimistic so stale data isn't silently saved
+          if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
+          _prewarmedSettings = current;
         }
         throw err;
       }

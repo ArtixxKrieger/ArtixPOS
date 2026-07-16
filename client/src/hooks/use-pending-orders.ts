@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type PendingOrder, type InsertPendingOrder, type Product } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId } from "@/lib/offline-db";
+import { getCached, setCached, patchCached, queueMutation, makeOfflineId, isOfflineId, isNetworkError } from "@/lib/offline-db";
 import { nativeFetch, queryClient as qc } from "@/lib/queryClient";
 
 const LIST_URL = api.pendingOrders.list.path;
@@ -214,10 +214,9 @@ export function useDeletePendingOrder() {
       let res: Response;
       try {
         res = await nativeFetch(url, { method: api.pendingOrders.delete.method });
-      } catch {
-        await queueMutation("DELETE", url, undefined, "pending-order");
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => Array.isArray(prev) ? prev.filter((o) => o.id !== id) : []);
-        return;
+      } catch (err) {
+        if (isNetworkError(err)) throw new Error("You're offline — connect to delete orders.");
+        throw err;
       }
       if (!res.ok && res.status !== 404) {
         const body = await res.json().catch(() => ({}));
@@ -252,10 +251,9 @@ export function useUpdatePendingOrder() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
-      } catch {
-        await queueMutation("PUT", url, data, "pending-order");
-        await patchCached(LIST_URL, (prev: PendingOrder[]) => Array.isArray(prev) ? prev.map((o) => (o.id === id ? { ...o, ...data } : o)) : []);
-        return { id, ...data } as unknown as PendingOrder;
+      } catch (err) {
+        if (isNetworkError(err)) throw new Error("You're offline — connect to update orders.");
+        throw err;
       }
       if (!res.ok) {
         if (res.status === 404) throw new Error("Order not found");

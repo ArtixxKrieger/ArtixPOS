@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertProduct, type Product } from "@shared/schema";
-import { getCached, setCached, patchCached, queueMutation } from "@/lib/offline-db";
+import { getCached, setCached, patchCached } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
 const LIST_URL = api.products.list.path;
@@ -66,18 +66,7 @@ export function useCreateProduct() {
           body: JSON.stringify(data),
         });
       } catch {
-
-const tempId = Date.now();
-        await queueMutation(
-          "POST",
-          api.products.create.path,
-          data,
-          "product",
-          tempId,
-        );
-        const optimistic = { ...data, id: tempId, sizes: data.sizes ?? [], modifiers: data.modifiers ?? [] };
-        await patchCached(LIST_URL, (prev: any[]) => [...(Array.isArray(prev) ? prev : []), optimistic]);
-        return optimistic as any;
+        throw new Error("You're offline — connect to the internet to add products.");
       }
       if (!res.ok) {
         if (res.status === 400) {
@@ -115,9 +104,7 @@ export function useUpdateProduct() {
           body: JSON.stringify(data),
         });
       } catch {
-        await queueMutation("PUT", url, data, "product");
-        await patchCached(LIST_URL, (prev: any[]) => Array.isArray(prev) ? prev.map((p) => (p.id === id ? { ...p, ...data } : p)) : []);
-        return { id, ...data } as any;
+        throw new Error("You're offline — connect to the internet to update products.");
       }
       if (!res.ok) {
         if (res.status === 404) throw new Error("Product not found");
@@ -155,9 +142,7 @@ export function useDeleteProduct() {
       try {
         res = await nativeFetch(url, { method: api.products.delete.method });
       } catch {
-        await queueMutation("DELETE", url, undefined, "product");
-        await patchCached(LIST_URL, (prev: any[]) => Array.isArray(prev) ? prev.filter((p) => p.id !== id) : []);
-        return;
+        throw new Error("You're offline — connect to the internet to delete products.");
       }
       if (!res.ok && res.status !== 404) {
         const body = await res.json().catch(() => ({}));

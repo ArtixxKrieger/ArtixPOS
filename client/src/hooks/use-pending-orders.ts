@@ -205,7 +205,7 @@ export function useDeletePendingOrder() {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
       const previous = queryClient.getQueryData<PendingOrder[]>([LIST_URL]);
       queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
-        old ? old.filter((o) => o.id !== id) : []
+        Array.isArray(old) ? old.filter((o) => o.id !== id) : []
       );
       return { previous };
     },

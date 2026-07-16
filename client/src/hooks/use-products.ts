@@ -132,7 +132,7 @@ export function useDeleteProduct() {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
       const previous = queryClient.getQueryData<Product[]>([LIST_URL]);
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        old ? old.filter((p) => p.id !== id) : []
+        Array.isArray(old) ? old.filter((p) => p.id !== id) : []
       );
       return { previous };
     },

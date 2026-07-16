@@ -164,12 +164,13 @@ function SupplierDetailSheet({
     queryFn: () =>
       apiRequest("GET", `/api/suppliers/${supplier.id}/products`).then((r) => r.json()),
     enabled: open,
+    select: (d: any) => Array.isArray(d) ? d : [],
   });
 
-  const { data: allProducts = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
+  const { data: allProducts = [] } = useQuery<Product[]>({ queryKey: ["/api/products"], select: (d: any) => Array.isArray(d) ? d : [] });
   const { data: allPOs = [] } = useQuery<{ data: any[]; meta: unknown }, Error, any[]>({
     queryKey: ["/api/purchase-orders"],
-    select: (res) => res?.data ?? [],
+    select: (res: any) => Array.isArray(res?.data) ? res.data : [],
   });
 
   const supplierPOs = allPOs.filter((p: any) => p.supplierId === supplier.id).slice(0, 8);
@@ -720,7 +721,7 @@ export default function SuppliersPage() {
       await queryClient.cancelQueries({ queryKey: ["/api/suppliers"] });
       const previous = queryClient.getQueryData<any[]>(["/api/suppliers"]);
       queryClient.setQueryData<any[]>(["/api/suppliers"], (old) =>
-        old ? old.filter((s) => s.id !== id) : [],
+        Array.isArray(old) ? old.filter((s) => s.id !== id) : [],
       );
       return { previous };
     },

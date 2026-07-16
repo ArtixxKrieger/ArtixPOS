@@ -86,6 +86,7 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
 
   const { data: logs = [], isLoading: logsLoading } = useQuery<TimeLog[]>({
     queryKey: ["/api/time-logs"],
+    select: (d: any) => Array.isArray(d) ? d : [],
   });
   const { data: activeLog, isLoading: activeLoading } = useQuery<TimeLog | null>({
     queryKey: ["/api/time-logs/active"],
@@ -95,6 +96,7 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const { data: teamLogs = [] } = useQuery<any[]>({
     queryKey: ["/api/time-logs/team"],
     enabled: canSeeTeam,
+    select: (d: any) => Array.isArray(d) ? d : [],
   });
 
   function invalidateLogs() {

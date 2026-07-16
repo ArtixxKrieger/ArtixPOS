@@ -178,14 +178,14 @@ export default function StaffPage() {
   const [editing, setEditing] = useState<ServiceStaff | undefined>();
   const [confirmDelete, setConfirmDelete] = useState<ServiceStaff | undefined>();
 
-  const { data: staffList = [], isLoading: _isLoading } = useQuery<ServiceStaff[]>({ queryKey: ["/api/service-staff"] });
+  const { data: staffList = [], isLoading: _isLoading } = useQuery<ServiceStaff[]>({ queryKey: ["/api/service-staff"], select: (d: any) => Array.isArray(d) ? d : [] });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/service-staff/${id}`),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ["/api/service-staff"] });
       const previous = queryClient.getQueryData<any[]>(["/api/service-staff"]);
-      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => old ? old.filter(s => s.id !== id) : []);
+      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => Array.isArray(old) ? old.filter(s => s.id !== id) : []);
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); toast({ title: "Error", description: "Failed to delete", variant: "destructive" }); },

@@ -631,25 +631,29 @@ async function _doInit() {
 if (process.env.VERCEL !== "1") {
   (async () => {
     try {
-      await initializeApp();
-
       const port = process.env.PORT || "5000";
       const parsedPort = parseInt(port, 10);
 
-      httpServer.listen(parsedPort, "0.0.0.0", () => {
-        log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || "development"} mode`);
-        console.log(`Server is ready and listening on port ${parsedPort}`);
+      // Listen first so Replit detects the open port immediately.
+      // initializeApp (which includes slow Vite dev-server startup) runs
+      // after the port is open and continues in the same async chain.
+      await new Promise<void>((resolve, reject) => {
+        httpServer.once("error", (error: any) => {
+          if (error.code === "EADDRINUSE") {
+            console.error(`Port ${parsedPort} is already in use.`);
+            process.exit(1);
+          }
+          reject(error);
+        });
+        httpServer.listen(parsedPort, "0.0.0.0", () => {
+          log(`serving on port ${parsedPort} in ${process.env.NODE_ENV || "development"} mode`);
+          console.log(`Server is listening on port ${parsedPort} — finishing init…`);
+          resolve();
+        });
       });
 
-      httpServer.on("error", (error: any) => {
-        if (error.code === "EADDRINUSE") {
-          console.error(`Port ${parsedPort} is already in use.`);
-          process.exit(1);
-        } else {
-          console.error("Server failed to start:", error);
-          process.exit(1);
-        }
-      });
+      await initializeApp();
+      console.log("Server is ready and listening on port " + parsedPort);
     } catch (error) {
       console.error("Failed to initialize server:", error);
       process.exit(1);

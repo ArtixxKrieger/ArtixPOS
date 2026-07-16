@@ -50,15 +50,20 @@ Server listens on port **5000** (webview).
 
 ## Workflow
 
-- **Start application**: `NODE_ENV=development node node_modules/tsx/dist/cli.cjs server/index.ts` on port 5000
+- **Start application**: `NODE_ENV=development npx tsx server/index.ts` on port 5000
 
-## Environment Variables
+The server opens port 5000 immediately, then finishes initializing (Vite dev server, RLS setup, etc.) in the background. The first page load may be slow while Vite warms up.
 
-### Core (required)
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `SESSION_SECRET` | Yes | JWT signing secret (64+ char random string) |
+## Environment Variables (Replit)
+
+The following secrets are stored in Replit Secrets:
+
+| Secret | Description |
+|---|---|
+| `SUPABASE_DATABASE_URL` | Supabase PostgreSQL connection string (Transaction pooler or Direct) |
+| `SESSION_SECRET` | JWT signing secret |
+
+### Full variable reference
 
 ### Auth (optional)
 | Variable | Description |

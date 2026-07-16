@@ -151,19 +151,6 @@ export default function PendingOrders() {
       setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
     };
 
-    // Determine whether the server already auto-created a sale for this order.
-    //
-    // New orders (created after the fix): the server stamps `saleId` on the
-    // pending-order record immediately when it auto-creates a sale, so we use
-    // that as the authoritative signal — immune to the settings-load race.
-    //
-    // Legacy orders (created before the fix, saleId is null): fall back to the
-    // old heuristic `!isFoodBeverage`. This is safe for the legacy case because:
-    //  - Non-food/bev businesses: `isFoodBeverage` is always false regardless of
-    //    when settings loads, so the guard is reliable.
-    //  - Food/bev businesses with legacy orders: `!isFoodBeverage` is false, so
-    //    the guard won't fire and createSale will run — the correct behaviour for
-    //    the common case where deferSale was true and no auto-sale was created.
     const orderSaleId = (order as any).saleId;
     const autoSaleExists =
       orderSaleId != null || (order.status === "paid" && !isFoodBeverage);

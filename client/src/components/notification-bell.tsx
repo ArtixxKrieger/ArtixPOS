@@ -28,7 +28,7 @@ const { connected: sseConnected } = useSseAlerts();
     queryKey: ["/api/notifications"],
     refetchInterval: 120_000,
   });
-  const notifs = notifsData ?? [];
+  const notifs = Array.isArray(notifsData) ? notifsData : [];
 
   const unreadCount = notifs.filter(n => !n.readAt).length;
 

@@ -22,7 +22,7 @@ const idbData = await getCached<ReturnType<typeof api.pendingOrders.list.respons
 
 const current = qc.getQueryData<PendingOrder[]>([LIST_URL]);
             const freshIds = new Set((fresh ?? []).map((o: any) => String(o.id)));
-            const optimisticPending = (current ?? []).filter(
+            const optimisticPending = (Array.isArray(current) ? current : []).filter(
               (o: any) => isOfflineId(String(o.id ?? "")) && !freshIds.has(String(o.id))
             );
             const merged = optimisticPending.length > 0
@@ -152,7 +152,7 @@ result = { ...data, id: 0, createdAt: new Date().toISOString() } as unknown as P
     onSuccess: (result, _vars, context: any) => {
 
 queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) => {
-        if (!old) return [result];
+        if (!Array.isArray(old)) return [result];
         const filtered = old.filter(
           (o: any) =>
             String(o.id) !== String(context?.tempId) &&

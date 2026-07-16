@@ -149,7 +149,7 @@ export default function Dashboard() {
     );
   }, [products]);
 
-  const todaySales = useMemo(() => stats?.todaySales ?? [], [stats]);
+  const todaySales = useMemo(() => Array.isArray(stats?.todaySales) ? stats!.todaySales : [], [stats]);
   const allTime = stats?.allTime ?? { orderCount: 0, gross: 0, net: 0, refundTotal: 0 };
 
   const {

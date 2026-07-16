@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
-import { useSettings, consumeLoadingGateSignal } from "@/hooks/use-settings";
+import { useSettings, consumeLoadingGateSignal, clearSettingsPrewarm } from "@/hooks/use-settings";
 import { useEffect, useState, useRef, Suspense, ReactNode } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
 import { initRevenueCat } from "@/lib/revenuecat";
@@ -685,6 +685,7 @@ function ProtectedRouter() {
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth-me" });
       clearAllCache().catch(() => {});
       clearPrefetchCache();
+      clearSettingsPrewarm().catch(() => {});
       prevUserIdRef.current = null;
     }
   }, [isAuthenticated, isLoading, isFetching, isPlaceholderData]);

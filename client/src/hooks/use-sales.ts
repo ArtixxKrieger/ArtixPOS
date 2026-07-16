@@ -66,7 +66,7 @@ export function useSales(params?: SalesQueryParams) {
 
             const current = qc.getQueryData<any[]>(cacheKey);
             const freshIds = new Set((fresh ?? []).map((s: any) => String(s.id)));
-            const offlinePending = (current ?? []).filter(
+            const offlinePending = (Array.isArray(current) ? current : []).filter(
               (s: any) => isOfflineId(String(s.id ?? "")) && !freshIds.has(String(s.id)),
             );
             const merged = offlinePending.length > 0 ? [...offlinePending, ...fresh] : fresh;
@@ -219,7 +219,7 @@ export function useDeleteSale() {
       await queryClient.cancelQueries({ queryKey: [BASE_URL] });
       const previous = queryClient.getQueryData<any[]>([BASE_URL]);
       queryClient.setQueriesData({ queryKey: [BASE_URL] }, (old: any[] | undefined) =>
-        old ? old.filter((s: any) => s.id !== id) : [],
+        Array.isArray(old) ? old.filter((s: any) => s.id !== id) : [],
       );
       return { previous };
     },

@@ -103,11 +103,13 @@ export function registerPendingOrderRoutes(app: Express): void {
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
-          // Stamp the pending order with the auto-created sale's id so the
-          // active-orders completion guard can use it as the authoritative
-          // signal instead of the client-side isFoodBeverage flag (which races
-          // with settings load and can cause a second sale to be created).
-          storage.updatePendingOrder(order.id, uid, { saleId: sale.id } as any).catch((e) =>
+          // Stamp the pending order with the auto-created sale's id BEFORE the
+          // response is sent so the client always receives the saleId in the
+          // polling response and can use it as the authoritative guard signal.
+          // Awaited (not fire-and-forget) to close the async race window where
+          // the client could fetch the order list before the UPDATE commits and
+          // see saleId=null, potentially triggering a second sale on completion.
+          await storage.updatePendingOrder(order.id, uid, { saleId: sale.id } as any).catch((e) =>
             console.error(`[pending-order] saleId stamp failed for order ${order.id}:`, e),
           );
 

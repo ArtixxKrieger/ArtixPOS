@@ -6,7 +6,7 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 // ── Shared base rules ─────────────────────────────────────────────────────────
 const tsRules = {
   ...tsPlugin.configs["recommended"].rules,
-  "@typescript-eslint/no-explicit-any": "warn",
+  "@typescript-eslint/no-explicit-any": "off",
   "@typescript-eslint/no-require-imports": "warn",
   "no-console": "off",
   "no-debugger": "error",

@@ -7,8 +7,6 @@ import { db } from "./db";
 const READ_URL = process.env.DATABASE_READ_URL || process.env.SUPABASE_READ_URL || null;
 
 const isServerless = !!process.env.VERCEL;
-const isContainerPlatform =
-  !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RENDER || !!process.env.FLY_APP_NAME;
 
 let _baseDbRead: typeof db;
 

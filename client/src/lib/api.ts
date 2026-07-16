@@ -38,9 +38,8 @@ export function getCredentials(): "include" | "omit" {
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
-// In-memory cache for the CSRF token captured from X-CSRF-Token response headers.
-// This is the primary source — it works even when document.cookie is unavailable
-// (e.g. Chrome 120+ third-party cookie restrictions inside the Replit iframe).
+// In-memory CSRF token from X-CSRF-Token response headers — works even when
+// document.cookie is blocked (e.g. Chrome third-party iframe restrictions).
 let _csrfTokenCache = "";
 
 export function storeCsrfToken(token: string) {
@@ -52,9 +51,7 @@ export function clearCsrfToken() {
 }
 
 function getCsrfToken(): string {
-  // Prefer the in-memory value captured from a response header (always reliable).
   if (_csrfTokenCache) return _csrfTokenCache;
-  // Fall back to reading the cookie directly (works in first-party contexts).
   if (typeof document === "undefined") return "";
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
   return match?.[1] ?? "";
@@ -87,7 +84,6 @@ const BASE_503_DELAY_MS = 1_000;
 
 api.interceptors.response.use(
   (res) => {
-    // Capture CSRF token echoed by the server on every response.
     const echoed = res.headers["x-csrf-token"] as string | undefined;
     if (echoed) storeCsrfToken(echoed);
     return res;
@@ -117,9 +113,8 @@ const NO_REDIRECT_401 = ["/api/auth/", "/api/staff-pin/"];
 
 let _sessionExpiredAt = 0;
 
-// Track whether we currently have an authenticated user so bootstrap-prefetch
-// 401 responses (e.g. a restricted route for a new user) don't fire a false
-// session-expiry that kicks the user out immediately after login.
+// Guards against bootstrap-prefetch 401s (e.g. restricted route for a new user)
+// firing a false session-expiry immediately after login.
 let _authenticatedUserId: string | null = null;
 
 export function setAuthenticatedUserId(id: string | null): void {
@@ -129,7 +124,6 @@ export function setAuthenticatedUserId(id: string | null): void {
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
-    // Capture 5xx errors silently — don't await, never block the request chain
     const status = err.response?.status ?? 0;
     if (status >= 500) {
       import("@/lib/error-capture")

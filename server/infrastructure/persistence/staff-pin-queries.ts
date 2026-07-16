@@ -1,16 +1,6 @@
-/**
- * Staff PIN authentication — persistence layer.
- *
- * All DB operations for PIN login, clock-in/out, PIN management,
- * and the auto-clockout job live here. Business logic (JWT signing,
- * password hashing, brute-force tracking) stays in the route layer.
- */
-
 import { db } from "../../db";
 import { users, timeLogs, userBranches, revokedTokens, type TimeLog } from "@shared/schema";
 import { eq, and, isNull, or, sql } from "drizzle-orm";
-
-// ── Roster ──────────────────────────────────────────────────────────────────
 
 export interface StaffRosterRow {
   id: string;
@@ -56,8 +46,6 @@ export async function getStaffRoster(tenantId: string, branchId: number): Promis
   }));
 }
 
-// ── User lookups ─────────────────────────────────────────────────────────────
-
 export async function getUserForPin(userId: string) {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   return user ?? null;
@@ -73,8 +61,6 @@ export async function getUserInTenant(userId: string, tenantId: string) {
   return user;
 }
 
-// ── PIN management ───────────────────────────────────────────────────────────
-
 export async function lockUserPin(userId: string, until: string): Promise<void> {
   await db.update(users).set({ pinLockedUntil: until }).where(eq(users.id, userId));
 }
@@ -88,8 +74,6 @@ export async function setUserPin(userId: string, hashedPin: string | null): Prom
   await db.update(users).set({ staffPin: hashedPin, pinLockedUntil: null }).where(eq(users.id, userId));
 }
 
-// ── Branch assignment ────────────────────────────────────────────────────────
-
 export async function checkBranchAssignment(userId: string, branchId: number): Promise<boolean> {
   const [row] = await db
     .select({ id: userBranches.userId })
@@ -98,8 +82,6 @@ export async function checkBranchAssignment(userId: string, branchId: number): P
     .limit(1);
   return !!row;
 }
-
-// ── Time logs ────────────────────────────────────────────────────────────────
 
 export async function getOpenTimeLog(userId: string): Promise<TimeLog | null> {
   const [log] = await db
@@ -136,8 +118,6 @@ export async function closeTimeLog(
     .where(eq(timeLogs.id, logId));
 }
 
-// ── Token revocation ─────────────────────────────────────────────────────────
-
 export async function revokeJti(jti: string, userId: string, expiresAt: string): Promise<void> {
   await db
     .insert(revokedTokens)
@@ -145,12 +125,6 @@ export async function revokeJti(jti: string, userId: string, expiresAt: string):
     .onConflictDoNothing();
 }
 
-// ── Auto clock-out job ───────────────────────────────────────────────────────
-
-/**
- * Closes any time-log open for more than 8 hours.
- * Returns the count of logs that were auto-closed.
- */
 export async function autoClockoutStaleLogs(): Promise<number> {
   const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
   const now           = new Date().toISOString();

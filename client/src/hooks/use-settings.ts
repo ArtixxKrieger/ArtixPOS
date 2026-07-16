@@ -10,17 +10,13 @@ const SETTINGS_URL = api.settings.get.path;
 
 const BOOT_SETTINGS_KEY = "artixpos_settings_boot";
 
-// Called by the login handler right before window.location.replace() so that
-// the very next page load can seed _prewarmedSettings synchronously and skip
-// the AppRouter LoadingScreen gate entirely.
+// Pre-seeds settings on the next page load so AppRouter skips the LoadingScreen gate.
 export function cacheSettingsForBoot(data: unknown): void {
   try {
     sessionStorage.setItem(BOOT_SETTINGS_KEY, JSON.stringify(data));
   } catch {}
 }
 
-// Synchronous read from sessionStorage (written by login handler before hard navigate).
-// Consumed once so subsequent normal refreshes fall back to the IndexedDB path.
 let _bootData: unknown = undefined;
 try {
   const _raw = sessionStorage.getItem(BOOT_SETTINGS_KEY);
@@ -35,7 +31,6 @@ let _prewarmDone = _bootData !== undefined;
 
 getCached(SETTINGS_URL)
   .then((data) => {
-    // Only use IndexedDB value if we didn't already get fresher data from sessionStorage
     if (_prewarmedSettings == null) _prewarmedSettings = data;
     _prewarmDone = true;
   })
@@ -43,18 +38,11 @@ getCached(SETTINGS_URL)
     _prewarmDone = true;
   });
 
-// Set by the login handler just before navigation so AppRouter skips the LoadingScreen
-// gate on the very first render after login (consumed once, then resets).
-//
-// IMPORTANT: signalPostLoginNav() must survive window.location.replace() (a full page
-// reload), so we persist to sessionStorage — the same pattern used by cacheSettingsForBoot.
-// A plain module-level variable would be reset before consumeLoadingGateSignal() runs
-// on the new page, making the signal a no-op.
+// Persisted to sessionStorage (not a module variable) so it survives the
+// window.location.replace() full-page reload triggered by the login handler.
 const POST_LOGIN_NAV_KEY = "artixpos_post_login_nav";
 
 let _skipLoadingGate = false;
-// Read the signal written by the previous page's login handler (if any) and
-// consume it immediately so a normal hard refresh does not skip the gate.
 try {
   if (sessionStorage.getItem(POST_LOGIN_NAV_KEY) === "1") {
     _skipLoadingGate = true;
@@ -285,8 +273,5 @@ queryClient.setQueryData([SETTINGS_URL], result);
       }
     },
 
-    // mutationFn already calls setQueryData with the same value on success —
-    // no need to repeat it here; a second call would trigger a redundant re-render
-    // of every settings consumer.
   });
 }

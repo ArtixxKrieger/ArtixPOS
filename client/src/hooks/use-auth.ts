@@ -114,9 +114,7 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     }
     const data = await res.json();
     debugLog("auth", `fetchMe — user=${JSON.stringify(data.user?.id ?? null)}`);
-    // If the server silently rotated the token (rem=true session nearing expiry),
-    // store the fresh token so the Bearer header stays valid for another 90 days.
-    // Guard with typeof to prevent localStorage corruption from unexpected payloads.
+    // Store rotated token if the server issued a fresh one (rem=true session nearing expiry).
     if (typeof data.token === "string" && data.token) {
       setNativeToken(data.token);
       debugLog("auth", "fetchMe — rotated token stored");
@@ -128,18 +126,11 @@ async function fetchMe({ signal }: { signal?: AbortSignal } = {}): Promise<AuthU
     clearTimeout(timeoutId);
     debugLog("auth", `fetchMe — NETWORK ERROR / TIMEOUT: ${err}`);
 
-    // AbortErrors fall into two cases:
-    // 1. Our internal timeout controller fired (name includes "TimeoutError") — rethrow
-    //    so React Query retries (the server may just be slow).
-    // 2. React Query cancelled the request (component unmount / query cancelled).
-    //    Rethrowing here lets React Query handle it cleanly without treating it as
-    //    a "null" response that would wipe the auth cache and redirect to /login.
-    // In both cases: rethrow, never return null from an abort.
+    // Rethrow aborts — both timeout and React Query cancellation — never return
+    // null from an abort, which would wipe the auth cache and redirect to /login.
     if (err instanceof DOMException && err.name === "AbortError") throw err;
 
-    // On genuine network failures (offline, server completely unreachable) return
-    // the last known cached user so the session isn't destroyed by a transient
-    // outage — the user is probably still authenticated.
+    // Network failure: return cached user so a transient outage doesn't kill the session.
     return loadCachedAuthUser();
   }
 }
@@ -186,14 +177,11 @@ export function useAuth() {
 
   const u = user ?? null;
 
-  // Keep the api.ts auth-state tracker and error capture user in sync.
   useEffect(() => {
     setAuthenticatedUserId(u?.id ?? null);
     setErrorCaptureUser(u?.id ?? null);
   }, [u?.id]);
 
-  // Periodically ping the server so the branch is known to be online.
-  // Powers "branch offline" push alerts for owners/admins.
   useEffect(() => {
     const branchId = u?.activeBranchId;
     if (!branchId) return;

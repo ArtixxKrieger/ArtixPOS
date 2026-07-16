@@ -447,6 +447,11 @@ export const pendingOrders = pgTable("pending_orders", {
   deliveryAddress: text("delivery_address"),
   deletedAt: text("deleted_at"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  // Set to the auto-created sale's id when the server creates a sale inline
+  // during pending-order creation (status="paid" && !deferSale). The active-orders
+  // completion guard uses this to decide whether to skip createSale — it is the
+  // source of truth instead of the client-side isFoodBeverage flag, which can race.
+  saleId: integer("sale_id"),
 });
 
 export const userSettings = pgTable("user_settings", {

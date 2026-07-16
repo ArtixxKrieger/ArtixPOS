@@ -103,6 +103,14 @@ export function registerPendingOrderRoutes(app: Express): void {
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
+          // Stamp the pending order with the auto-created sale's id so the
+          // active-orders completion guard can use it as the authoritative
+          // signal instead of the client-side isFoodBeverage flag (which races
+          // with settings load and can cause a second sale to be created).
+          storage.updatePendingOrder(order.id, uid, { saleId: sale.id } as any).catch((e) =>
+            console.error(`[pending-order] saleId stamp failed for order ${order.id}:`, e),
+          );
+
           const capturedSale = sale;
           const capturedUid = uid;
           const capturedInput = input;

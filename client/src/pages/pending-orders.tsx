@@ -151,9 +151,13 @@ export default function PendingOrders() {
       setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
     };
 
-    // For non-food-bev paid orders the server already auto-created the sale
-    // at POS checkout time — just clear the queue entry.
-    if (order.status === "paid" && !isFoodBeverage) {
+    // If the server already auto-created a sale when the pending order was
+    // first placed (status="paid" && !deferSale), it stamps saleId on the
+    // record.  Use that as the authoritative signal instead of the client-side
+    // isFoodBeverage flag, which can race with settings load and cause a
+    // second sale to be created — doubling the revenue.
+    const autoSaleExists = (order as any).saleId != null;
+    if (autoSaleExists) {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {
           submittingRef.current.delete(order.id);

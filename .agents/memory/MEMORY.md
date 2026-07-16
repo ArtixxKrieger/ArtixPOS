@@ -14,3 +14,4 @@
 - [DB encapsulation — route layer](db-encapsulation-routes.md) — all route files are now db-free; persistence layer is the only place Drizzle runs; key pitfalls documented.
 - [Push notification scheduler design](push-notification-scheduler.md) — proactive alerts use a polling scheduler + dedup `*AlertedAt` flags, not per-event pushes; branch online state is client-reported via heartbeat.
 - [Tenant db proxy unsafe in deferred callbacks](tenant-db-proxy-deferred-callbacks.md) — setImmediate/background code must use `dbSystem`, not ambient `db` proxy, or it risks querying a connection already released back to the pool.
+- [Pending order → sale guard (saleId)](pending-order-sale-guard.md) — use `order.saleId != null` not `isFoodBeverage` to decide if auto-sale exists; isFoodBeverage races with settings load → double sale bug.

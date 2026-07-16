@@ -153,6 +153,7 @@ const COLUMN_MIGRATIONS = [
   `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS pos_features jsonb`,
 
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS active_branch_id integer REFERENCES branches(id) ON DELETE SET NULL`,
 ];
 
 export async function ensureIndexes(): Promise<void> {

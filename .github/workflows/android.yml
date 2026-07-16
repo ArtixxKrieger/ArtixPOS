@@ -154,6 +154,7 @@ jobs:
           name: artixpos-debug-${{ github.sha }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
+          if-no-files-found: error
 
       # ── 13b. Post APK download link as PR comment ─────────────────────────
       - name: Comment APK link on PR

@@ -216,7 +216,9 @@ setCached(SETTINGS_URL, optimistic).catch(() => {});
 _prewarmedSettings = optimistic;
 
 if (!navigator.onLine) {
+        // Revert the optimistic write we already pushed to queryClient + IDB
         if (current !== undefined) queryClient.setQueryData([SETTINGS_URL], current);
+        setCached(SETTINGS_URL, current).catch(() => {});
         _prewarmedSettings = current;
         throw new Error("You're offline — connect to save settings.");
       }

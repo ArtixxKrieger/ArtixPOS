@@ -346,8 +346,11 @@ function LoadingScreen({ message: _message }: { message?: string }) {
 
 // Paths handled by PersistentRoute (keep-alive) or inline {location === "..." && ...} blocks.
 // The Switch/NotFound block must not render for any of these.
-const PINNED_PATHS = new Set(["/pos", "/pending"]);
-const HANDLED_PATHS = new Set(["/", "/pos", "/pending", "/settings", "/analytics", "/products"]);
+const HANDLED_PATHS = new Set([
+  "/", "/pos", "/pending",
+  "/settings", "/settings/notifications",
+  "/analytics", "/products",
+]);
 
 function PersistentRoute({
   path,

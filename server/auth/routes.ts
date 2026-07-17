@@ -1135,6 +1135,7 @@ export function setupAuth(app: Express) {
       });
 
       if (!user) {
+        return res.status(404).json({ message: "No account found with that email address." });
       } else {
         const maskedEmail = user.email
           ? user.email.replace(/(.{2})[^@]*(@.*)/, "$1***$2")

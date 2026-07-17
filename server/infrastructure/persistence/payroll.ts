@@ -10,7 +10,7 @@ import {
   type PayrollEntry,
   type UpdatePayrollEntry,
 } from "@shared/schema";
-import { eq, and, inArray, isNotNull, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, isNull, gte, lte, desc, sql } from "drizzle-orm";
 import { getTenantUserIds } from "./base";
 
 export async function getPayrollPeriods(userId: string): Promise<PayrollPeriod[]> {
@@ -39,7 +39,7 @@ export async function createPayrollPeriod(userId: string, data: InsertPayrollPer
     status: "draft",
   } as any).returning();
 
-  const employees = await db.select().from(users).where(inArray(users.id, userIds));
+  const employees = await db.select().from(users).where(and(inArray(users.id, userIds), isNull(users.deletedAt)));
   const start = new Date(data.startDate).toISOString();
   const endInclusive = new Date(new Date(data.endDate).getTime() + 24 * 60 * 60_000 - 1).toISOString();
 

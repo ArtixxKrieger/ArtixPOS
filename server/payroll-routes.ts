@@ -103,7 +103,7 @@ app.get("/api/payroll/staff", requireAuth, requireTenant, async (req, res, next)
           staffGroup: users.staffGroup,
         })
         .from(users)
-        .where(eq(users.tenantId, user.tenantId!));
+        .where(and(eq(users.tenantId, user.tenantId!), isNull(users.deletedAt)));
 
 const userIds = list.map(u => u.id);
       const branchRows = userIds.length
@@ -174,7 +174,7 @@ app.get("/api/payroll/compute", requireAuth, requireTenant, async (req, res, nex
         to: req.query.to ?? new Date().toISOString(),
       });
 
-const tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
+const tenantUsers = await db.select().from(users).where(and(eq(users.tenantId, user.tenantId!), isNull(users.deletedAt)));
       const userIds = tenantUsers.map((u) => u.id);
 
 const logs = userIds.length
@@ -527,7 +527,7 @@ if (!input.force) {
         }
       }
 
-let tenantUsers = await db.select().from(users).where(eq(users.tenantId, user.tenantId!));
+let tenantUsers = await db.select().from(users).where(and(eq(users.tenantId, user.tenantId!), isNull(users.deletedAt)));
       if (input.branchId) {
         const branchRows = await db.select({ userId: userBranches.userId }).from(userBranches).where(eq(userBranches.branchId, input.branchId));
         const branchUserIds = new Set(branchRows.map(r => r.userId));

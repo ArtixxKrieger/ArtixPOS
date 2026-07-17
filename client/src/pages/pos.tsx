@@ -329,8 +329,10 @@ export default function POS() {
   const loyaltyRedemptionRate = parseNumeric(settings?.loyaltyRedemptionRate || "100");
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
 
+  // Guard against division by zero if loyaltyRedemptionRate is misconfigured
+  // as 0 — that would produce Infinity, turning the cart total into -Infinity.
   const loyaltyDiscount =
-    selectedCustomer && loyaltyPointsToRedeem > 0 && !isScPwd
+    selectedCustomer && loyaltyPointsToRedeem > 0 && !isScPwd && loyaltyRedemptionRate > 0
       ? loyaltyPointsToRedeem / loyaltyRedemptionRate
       : 0;
 
@@ -811,6 +813,9 @@ export default function POS() {
             orderType: isFoodBeverage ? orderType : null,
             notes: `Split bill — ${split.personLabel} (${idx + 1} of ${splits.length})`,
             deferSale: isFoodBeverage,
+            // Each split needs its own idempotency key so a network retry
+            // doesn't create duplicate orders for the same person.
+            idempotencyKey: nanoid(),
           } as any);
           succeeded++;
         } catch {

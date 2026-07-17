@@ -18,6 +18,14 @@ type ToastFn = (opts: { title: string; description?: string; variant?: "default"
 export function useCart(toast: ToastFn) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  // Keep a ref in sync so stock-check callbacks can always read the latest
+  // cart without listing `cart` as a dependency.  Listing `cart` as a dep on
+  // addToCart/updateQuantity causes new callback references every time an item
+  // is added, which breaks the ProductCard memo() and forces the entire product
+  // grid to re-render on every add-to-cart.
+  const cartRef = useRef<CartItem[]>(cart);
+  cartRef.current = cart;
+
   const [lastRemoved, setLastRemoved] = useState<{ item: CartItem; index: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -29,7 +37,7 @@ const addToCart = useCallback(
       onAdded?: () => void,
     ) => {
       if (product.trackStock && typeof product.stock === "number") {
-        const totalInCart = cart.reduce(
+        const totalInCart = cartRef.current.reduce(
           (sum, i) => (i.product.id === product.id ? sum + i.quantity : sum),
           0,
         );
@@ -77,15 +85,15 @@ const addToCart = useCallback(
       });
       onAdded?.();
     },
-    [cart, toast],
+    [toast], // cart intentionally omitted — read via cartRef to keep callback stable
   );
 
 const updateQuantity = useCallback(
     (cartId: string, change: number) => {
       if (change > 0) {
-        const item = cart.find((i) => i.cartId === cartId);
+        const item = cartRef.current.find((i) => i.cartId === cartId);
         if (item && item.product.trackStock && typeof item.product.stock === "number") {
-          const totalInCart = cart.reduce(
+          const totalInCart = cartRef.current.reduce(
             (sum, i) => (i.product.id === item.product.id ? sum + i.quantity : sum),
             0,
           );
@@ -115,7 +123,7 @@ const updateQuantity = useCallback(
           .filter((item) => item.quantity > 0),
       );
     },
-    [cart, toast],
+    [toast], // cart intentionally omitted — read via cartRef to keep callback stable
   );
 
 const removeFromCart = useCallback((cartId: string) => {

@@ -79,8 +79,10 @@ export function useCreateProduct() {
       return api.products.create.responses[201].parse(await res.json());
     },
     onSuccess: (result) => {
+      // Guard: if old is undefined the updater returning undefined is a no-op
+      // (cache not loaded yet); returning [result] would clobber the full list.
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        old ? [...old, result] : [result]
+        Array.isArray(old) ? [...old, result] : old
       );
       patchCached(LIST_URL, (prev: any[]) => {
         const list = Array.isArray(prev) ? prev : [];
@@ -114,8 +116,10 @@ export function useUpdateProduct() {
       return api.products.update.responses[200].parse(await res.json());
     },
     onSuccess: (result) => {
+      // Guard: returning [result] when old is undefined replaces the full list
+      // with just the updated product.  Skip the update if data isn't cached.
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        old ? old.map((p) => (p.id === result.id ? result : p)) : [result]
+        Array.isArray(old) ? old.map((p) => (p.id === result.id ? result : p)) : old
       );
       patchCached(LIST_URL, (prev: any[]) => {
         const list = Array.isArray(prev) ? prev : [];
@@ -131,8 +135,11 @@ export function useDeleteProduct() {
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
       const previous = queryClient.getQueryData<Product[]>([LIST_URL]);
+      // Guard: returning [] when old is not loaded means the optimistic removal
+      // shows an empty list and the onError rollback skips the restore (because
+      // context.previous is undefined / falsy).  Return old unchanged instead.
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        Array.isArray(old) ? old.filter((p) => p.id !== id) : []
+        Array.isArray(old) ? old.filter((p) => p.id !== id) : old
       );
       return { previous };
     },

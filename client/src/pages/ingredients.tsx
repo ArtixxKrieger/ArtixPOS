@@ -10,7 +10,6 @@ import {
   Edit2,
   Search,
   AlertTriangle,
-  TrendingUp,
   Check,
   X,
   FlaskConical,
@@ -21,7 +20,6 @@ import {
   DollarSign,
   TriangleAlert,
   CircleSlash,
-  Minus,
   RefreshCw,
   SlidersHorizontal,
 } from "lucide-react";
@@ -586,23 +584,17 @@ export default function Ingredients() {
                 data-testid={`ingredient-row-${ing.id}`}
                 className="bg-card rounded-2xl border border-border/30 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
               >
-                {}
                 <div className="flex items-center gap-3 px-3.5 py-3">
-                  {}
-                  <div
-                    className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${stockBg}`}
-                  >
+                  {/* Status icon */}
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${stockBg}`}>
                     <Package className={`h-5 w-5 ${stockColor} opacity-70`} strokeWidth={1.5} />
                   </div>
 
-                  {}
+                  {/* Name + meta */}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm leading-tight truncate">{ing.name}</p>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] h-4 px-1.5 font-semibold rounded-md"
-                      >
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-semibold rounded-md">
                         {ing.unit}
                       </Badge>
                       {cost > 0 && (
@@ -611,22 +603,18 @@ export default function Ingredients() {
                         </span>
                       )}
                       {threshold > 0 && (
-                        <span className="text-[10px] text-muted-foreground/60">
-                          min&nbsp;{threshold}
-                        </span>
+                        <span className="text-[10px] text-muted-foreground/60">min&nbsp;{threshold}</span>
                       )}
                       <UsedInBadge ingredientId={ing.id} />
                     </div>
                   </div>
 
-                  {}
-                  <div className="text-right shrink-0">
+                  {/* Stock qty */}
+                  <div className="text-right shrink-0 mr-1">
                     <p className={`font-black text-base tabular-nums leading-none ${stockColor}`}>
                       {ing.stockQty}
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
-                      {ing.unit}
-                    </p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{ing.unit}</p>
                     {cost > 0 && (
                       <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                         {formatCurrency(totalValue.toFixed(2), currency)}
@@ -634,80 +622,46 @@ export default function Ingredients() {
                     )}
                     {(isOut || isLow) && (
                       <div className="flex items-center gap-0.5 justify-end mt-0.5">
-                        <AlertTriangle
-                          className={`h-3 w-3 ${isOut ? "text-rose-500" : "text-amber-500"}`}
-                        />
-                        <span
-                          className={`text-[10px] font-bold ${isOut ? "text-rose-500" : "text-amber-500"}`}
-                        >
+                        <AlertTriangle className={`h-3 w-3 ${isOut ? "text-rose-500" : "text-amber-500"}`} />
+                        <span className={`text-[10px] font-bold ${isOut ? "text-rose-500" : "text-amber-500"}`}>
                           {isOut ? "OUT" : "LOW"}
                         </span>
                       </div>
                     )}
                   </div>
-                </div>
 
-                {}
-                <div className="flex items-center border-t border-border/20 px-2 py-1.5 gap-1">
-                  {}
-                  <button
-                    onClick={() => adjustStockMutation.mutate({ id: ing.id, delta: -1 })}
-                    className="flex items-center gap-1 h-8 px-2.5 rounded-xl hover:bg-rose-500/10 hover:text-rose-500 text-muted-foreground/60 transition-colors active:scale-95 text-xs font-medium"
-                    title="Deduct 1"
-                    data-testid={`button-deduct-${ing.id}`}
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                    <span className="hidden xs:inline">−1</span>
-                  </button>
-                  <button
-                    onClick={() => adjustStockMutation.mutate({ id: ing.id, delta: 1 })}
-                    className="flex items-center gap-1 h-8 px-2.5 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-600 text-muted-foreground/60 transition-colors active:scale-95 text-xs font-medium"
-                    title="Add 1"
-                    data-testid={`button-add-stock-${ing.id}`}
-                  >
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    <span className="hidden xs:inline">+1</span>
-                  </button>
-
-                  {}
-                  <button
-                    onClick={() => openAdjust(ing)}
-                    className="flex items-center gap-1 h-8 px-2.5 rounded-xl hover:bg-primary/10 hover:text-primary text-muted-foreground/60 transition-colors active:scale-95 text-xs font-medium"
-                    title="Adjust stock"
-                    data-testid={`button-adjust-${ing.id}`}
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Adjust</span>
-                  </button>
-
-                  <div className="flex-1" />
-
-                  {}
+                  {/* Actions */}
                   {isPendingDelete ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-destructive font-semibold mr-1 hidden xs:inline">
-                        Delete?
-                      </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-[11px] text-destructive font-semibold hidden sm:inline">Delete?</span>
                       <button
                         onClick={() => confirmDelete(ing.id)}
-                        className="h-8 px-3 rounded-xl bg-destructive/10 text-destructive text-xs font-bold hover:bg-destructive/20 transition-colors flex items-center gap-1"
+                        className="h-8 px-2.5 rounded-xl bg-destructive/10 text-destructive text-xs font-bold hover:bg-destructive/20 transition-colors flex items-center gap-1"
                         data-testid={`button-confirm-delete-${ing.id}`}
                       >
                         <Check className="h-3.5 w-3.5" /> Yes
                       </button>
                       <button
                         onClick={cancelDelete}
-                        className="h-8 px-3 rounded-xl hover:bg-muted text-muted-foreground text-xs font-medium transition-colors flex items-center gap-1"
+                        className="h-8 px-2.5 rounded-xl hover:bg-muted text-muted-foreground text-xs font-medium transition-colors flex items-center gap-1"
                         data-testid={`button-cancel-delete-${ing.id}`}
                       >
                         <X className="h-3.5 w-3.5" /> No
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => openAdjust(ing)}
+                        className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground/60 transition-colors active:scale-95"
+                        title="Adjust stock"
+                        data-testid={`button-adjust-${ing.id}`}
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={() => openEdit(ing)}
-                        className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground transition-colors active:scale-95"
+                        className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground/60 transition-colors active:scale-95"
                         title="Edit ingredient"
                         data-testid={`button-edit-${ing.id}`}
                       >

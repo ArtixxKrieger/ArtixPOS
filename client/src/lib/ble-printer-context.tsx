@@ -395,7 +395,11 @@ useEffect(() => {
   const scan = useCallback(async (): Promise<{ device: BluetoothDevice | null; error?: string }> => {
     const ble = (navigator as any).bluetooth;
     if (!ble) {
-      return { device: null, error: "Web Bluetooth is not available. Use Chrome on Android or desktop." };
+      const isLinux = /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+      const error = isLinux
+        ? "Web Bluetooth is not enabled. In Chrome, go to chrome://flags, search for \"Web Bluetooth\", enable it, then relaunch Chrome."
+        : "Web Bluetooth is not available. Use Chrome on Android or desktop.";
+      return { device: null, error };
     }
     setScanning(true);
     try {

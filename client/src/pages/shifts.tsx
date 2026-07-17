@@ -123,6 +123,8 @@ interface ZReportData {
   zeroRatedTotal: number;
   vatAmountTotal: number;
   topItems: { name: string; qty: number; total: number }[];
+  gatBeginning: number;
+  gatEnding: number;
 }
 function useZReport(shiftId: number | null) {
   return useQuery<ZReportData>({
@@ -416,6 +418,11 @@ function printZReportFromData(d: ZReportData) {
     ${denomRows(openDenomJson, "OPENING DENOMINATION")}
     ${denomRows(closeDenomJson, "CLOSING DENOMINATION")}
     ${shVariance !== null ? `<div class="line"></div><div class="row bold"><span>Variance (Over/Short)</span><span>${shVariance >= 0 ? "+" : ""}${currency}${Math.abs(shVariance).toFixed(2)} ${shVariance >= 0 ? "(Over)" : "(Short)"}</span></div>` : ""}
+    <div class="double"></div>
+    <div class="section">— GRAND ACCUMULATED TOTAL (GAT) —</div>
+    <div class="row"><span>Beginning Accum. Total</span><span>${currency}${d.gatBeginning.toFixed(2)}</span></div>
+    <div class="row"><span>Gross Sales This Shift</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
+    <div class="row bold highlight"><span>Ending Accum. Total</span><span>${currency}${d.gatEnding.toFixed(2)}</span></div>
     <div class="double"></div>
     <div class="center small">*** END OF Z-REPORT ***</div>
     <div class="center small">This document is system-generated.</div>

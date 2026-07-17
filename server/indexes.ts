@@ -149,6 +149,8 @@ const COLUMN_MIGRATIONS = [
   `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS denomination_open text`,
   `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS denomination_close text`,
   `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS variance text`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS gat_beginning text DEFAULT '0'`,
+  `ALTER TABLE shifts ADD COLUMN IF NOT EXISTS gat_ending text DEFAULT '0'`,
 
   `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS pos_features jsonb`,
 

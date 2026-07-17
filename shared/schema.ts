@@ -335,6 +335,9 @@ export const shifts = pgTable("shifts", {
   denominationOpen: text("denomination_open"),
   denominationClose: text("denomination_close"),
   variance: text("variance"),
+  /** BIR-required Grand Accumulated Total — running gross-sales counter since POS first use. */
+  gatBeginning: text("gat_beginning").default("0"),
+  gatEnding: text("gat_ending").default("0"),
 });
 
 export const discountCodes = pgTable("discount_codes", {

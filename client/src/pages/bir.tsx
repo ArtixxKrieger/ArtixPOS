@@ -50,6 +50,8 @@ interface ZReportData {
   zeroRatedTotal: number;
   vatAmountTotal: number;
   topItems: { name: string; qty: number; total: number }[];
+  gatBeginning: number;
+  gatEnding: number;
 }
 
 interface MonthlySummary {
@@ -368,6 +370,11 @@ const accreditationExpiry = useMemo(() => {
     <div class="row"><span>VAT-Exempt Sales</span><span>${currency}${d.vatExemptTotal.toFixed(2)}</span></div>
     <div class="row"><span>Zero-Rated Sales</span><span>${currency}${d.zeroRatedTotal.toFixed(2)}</span></div>
     ${topItemRows ? `<div class="line"></div><div class="section">— TOP ITEMS —</div>${topItemRows}` : ""}
+    <div class="double"></div>
+    <div class="section">— GRAND ACCUMULATED TOTAL (GAT) —</div>
+    <div class="row"><span>Beginning Accum. Total</span><span>${currency}${d.gatBeginning.toFixed(2)}</span></div>
+    <div class="row"><span>Gross Sales This Shift</span><span>${currency}${d.grossSales.toFixed(2)}</span></div>
+    <div class="row bold highlight"><span>Ending Accum. Total</span><span>${currency}${d.gatEnding.toFixed(2)}</span></div>
     <div class="double"></div>
     <div class="center small">*** END OF Z-REPORT ***</div>
     <div class="center small">Printed: ${format(new Date(), "MMM d, yyyy h:mm a")}</div>

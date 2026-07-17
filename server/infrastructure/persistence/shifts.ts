@@ -81,6 +81,18 @@ export async function closeShift(id: number, userId: string, closingBalance: str
     );
     const totalExpensesAmount = shiftExpenses.reduce((acc, e) => acc + parseFloat(e.amount || "0"), 0);
 
+    // BIR Grand Accumulated Total (GAT): running gross-sales counter since POS first use.
+    // gatBeginning = the previous closed shift's gatEnding (or 0 for the very first shift).
+    // gatEnding    = gatBeginning + this shift's gross sales.
+    const [lastClosedShift] = await db
+      .select({ gatEnding: shifts.gatEnding })
+      .from(shifts)
+      .where(and(inArray(shifts.userId, userIds), eq(shifts.status, "closed")))
+      .orderBy(desc(shifts.closedAt))
+      .limit(1);
+    const gatBeginning = parseFloat(lastClosedShift?.gatEnding ?? "0");
+    const gatEnding = gatBeginning + totalSalesAmount;
+
     const [updated] = await db.update(shifts)
       .set({
         status: "closed",
@@ -92,6 +104,8 @@ export async function closeShift(id: number, userId: string, closingBalance: str
         notes: notes ?? existing.notes,
         denominationClose: denominationClose ?? null,
         variance: variance ?? null,
+        gatBeginning: gatBeginning.toFixed(2),
+        gatEnding: gatEnding.toFixed(2),
       } as any)
       .where(eq(shifts.id, id))
       .returning();

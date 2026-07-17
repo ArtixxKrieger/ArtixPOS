@@ -119,6 +119,7 @@ export function registerShiftRoutes(app: Express): void {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 8);
 
+    const shiftAny = shift as any;
     res.json({
       shift,
       orFrom,
@@ -141,6 +142,9 @@ export function registerShiftRoutes(app: Express): void {
       zeroRatedTotal,
       vatAmountTotal,
       topItems,
+      // BIR Grand Accumulated Total
+      gatBeginning: parseFloat(shiftAny.gatBeginning ?? "0"),
+      gatEnding: parseFloat(shiftAny.gatEnding ?? "0"),
     });
   });
 

@@ -149,6 +149,9 @@ export default function PendingOrders() {
     // Optimistically remove the card immediately so the UI feels instant.
     setCompletingOrders((prev) => new Set([...prev, order.id]));
 
+    // Snapshot the cache BEFORE removal so restore() can put it back on error.
+    const previousPendingOrders = queryClient.getQueryData<any[]>([api.pendingOrders.list.path]);
+
     // Also remove from the shared query cache immediately so the badge in the
     // sidebar/bottom-nav drops right away for both the deleteOrder and
     // createSale paths.  (deleteOrder.onMutate does this too, but the
@@ -161,6 +164,11 @@ export default function PendingOrders() {
     const restore = () => {
       submittingRef.current.delete(order.id);
       setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
+      // Restore the cache so the badge comes back correctly on error.
+      // For the deleteOrder path useDeletePendingOrder.onError also calls
+      // setQueryData — it fires first (hook-level), then this fires second
+      // (mutate-call-level), so the final state is correctly the original list.
+      queryClient.setQueryData([api.pendingOrders.list.path], previousPendingOrders);
     };
 
     const orderSaleId = (order as any).saleId;

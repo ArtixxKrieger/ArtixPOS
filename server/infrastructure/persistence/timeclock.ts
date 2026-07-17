@@ -381,7 +381,8 @@ export async function getStaffSchedules(
         userEmail: users.email,
       })
       .from(staffSchedules)
-      .leftJoin(users, eq(staffSchedules.userId, users.id))
+      // innerJoin (not leftJoin) so schedules for soft-deleted users are excluded
+      .innerJoin(users, and(eq(staffSchedules.userId, users.id), isNull(users.deletedAt)))
       .where(condition)
       .orderBy(staffSchedules.userId, staffSchedules.dayOfWeek);
     return rows as any;
@@ -397,7 +398,11 @@ export async function getScheduleEmployees(
   try {
     const userIds = await getTenantUserIds(managerId);
     if (userIds.length === 0) return [];
-    const cond = userIds.length === 1 ? eq(users.id, userIds[0]) : inArray(users.id, userIds);
+    // isNull(users.deletedAt) excludes soft-deleted / former employees
+    const cond =
+      userIds.length === 1
+        ? and(eq(users.id, userIds[0]), isNull(users.deletedAt))
+        : and(inArray(users.id, userIds), isNull(users.deletedAt));
     return await db
       .select({ id: users.id, name: users.name, email: users.email, role: users.role })
       .from(users)

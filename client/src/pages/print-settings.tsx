@@ -544,7 +544,7 @@ const autoWidthAppliedRef = useRef<string | null>(null);
               {[...pairedDevices]
                 .sort((a, b) => (a.id === lastPrinterId ? -1 : b.id === lastPrinterId ? 1 : 0))
                 .map(device => {
-                const isActive = blePrinter.name === (device.name || "Bluetooth Printer") && blePrinter.connected;
+                const isActive = device.id === lastPrinterId && blePrinter.connected;
                 const isConnecting = connectingDevice === device.id;
                 const isLastUsed = device.id === lastPrinterId;
                 return (

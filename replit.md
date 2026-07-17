@@ -60,8 +60,9 @@ The following secrets are stored in Replit Secrets:
 
 | Secret | Description |
 |---|---|
-| `SUPABASE_DATABASE_URL` | Supabase PostgreSQL connection string (Transaction pooler or Direct) |
 | `SESSION_SECRET` | JWT signing secret |
+
+`DATABASE_URL` is managed automatically by Replit (built-in PostgreSQL) — do not set it manually.
 
 ### Full variable reference
 

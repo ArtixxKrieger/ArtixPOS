@@ -731,7 +731,18 @@ export default function Login() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        // Server returned a non-JSON response (e.g. Vercel crash page or HTML error)
+        setFormError(
+          res.status >= 500
+            ? "Server error. Please try again in a moment."
+            : "Network error. Please try again.",
+        );
+        return;
+      }
       if (!res.ok) {
         setFormError(data.message ?? "Something went wrong.");
         return;

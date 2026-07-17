@@ -63,7 +63,7 @@ let _authCacheInitialized = false;
 export function initAuthCache(): void {
   if (_authCacheInitialized) return;
   _authCacheInitialized = true;
-  _loadRevokedTokens();
+  _loadRevokedTokens().catch((err) => console.error("[auth] Failed to load revoked tokens:", err));
   _seedBannedUsers();
   setInterval(_pruneRevokedTokens, 60 * 60 * 1000).unref?.();
 }

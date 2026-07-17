@@ -567,7 +567,7 @@ async function _doInit() {
   }
 
   try {
-    warmCache().catch(() => {});
+    if (!isServerless) warmCache().catch(() => {});
   } catch {}
   if (!isServerless) {
     try {

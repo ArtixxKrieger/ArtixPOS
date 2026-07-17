@@ -51,12 +51,14 @@ pool.on("error", (err: Error) => {
   console.error("[db] Unexpected pool client error:", err.message);
 });
 
-pool
-  .connect()
-  .then((client: PoolClient) => {
-    client.release();
-  })
-  .catch(() => {});
+if (!isServerless) {
+  pool
+    .connect()
+    .then((client: PoolClient) => {
+      client.release();
+    })
+    .catch(() => {});
+}
 
 const _baseDb = drizzle(pool, { schema });
 

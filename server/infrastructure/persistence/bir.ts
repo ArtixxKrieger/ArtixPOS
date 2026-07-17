@@ -7,18 +7,6 @@ export interface BirXReportData {
   discountRows: Record<string, unknown>[];
 }
 
-/**
- * Extracts the numeric portion of an OR number for MIN/MAX/ordering.
- * Handles both plain numeric strings ("0000001") and prefixed formats
- * like "SR-0000001" that the system generates, so reports and gap-detection
- * work correctly regardless of the OR number format in use.
- */
-const orNumericExpr = `
-  CASE
-    WHEN or_number ~ '^[0-9]+$'        THEN CAST(or_number AS bigint)
-    WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN CAST(substring(or_number FROM position('-' IN or_number) + 1) AS bigint)
-  END`;
-
 export async function getBirXReportData(
   userId: string,
   startDate: string,

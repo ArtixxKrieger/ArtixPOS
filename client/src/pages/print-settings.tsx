@@ -505,8 +505,8 @@ const autoWidthAppliedRef = useRef<string | null>(null);
               <div className={`h-2 w-2 rounded-full shrink-0 ${blePrinter.connected ? "bg-emerald-500" : "bg-amber-400"}`} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate" data-testid="printer-name-ble">{blePrinter.name}</p>
-                <p className={`text-[11px] mt-0.5 ${blePrinter.connected ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} data-testid="printer-status-ble">
-                  {blePrinter.connected ? "Connected — ready to print" : "Reconnecting…"}
+                <p className={`text-[11px] mt-0.5 ${blePrinter.connected ? "text-emerald-600 dark:text-emerald-400" : blePrinter.reconnecting ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} data-testid="printer-status-ble">
+                  {blePrinter.connected ? "Connected — ready to print" : blePrinter.reconnecting ? "Reconnecting…" : "Disconnected — use Connect below to retry"}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">

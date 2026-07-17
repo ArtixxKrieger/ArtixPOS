@@ -255,6 +255,7 @@ type Protocol = "catprinter" | "escpos" | null;
 type BlePrinterState = {
   name: string | null;
   connected: boolean;
+  reconnecting: boolean;
   protocol: Protocol;
   detectedWidth: "58mm" | "80mm" | null;
 };
@@ -291,6 +292,7 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
   const [printer, setPrinter] = useState<BlePrinterState>({
     name: null,
     connected: false,
+    reconnecting: false,
     protocol: null,
     detectedWidth: null,
   });
@@ -300,9 +302,15 @@ export function BlePrinterProvider({ children }: { children: React.ReactNode }) 
   );
 
 const scheduleReconnect = useCallback((device: BluetoothDevice) => {
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return;
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      // Gave up — let the user retry manually
+      setPrinter(prev => ({ ...prev, reconnecting: false }));
+      return;
+    }
     reconnectAttemptsRef.current++;
     const delay = Math.min(1000 * reconnectAttemptsRef.current, 8000);
+
+    setPrinter(prev => ({ ...prev, connected: false, reconnecting: true }));
 
     if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     reconnectTimerRef.current = setTimeout(async () => {
@@ -311,7 +319,7 @@ const scheduleReconnect = useCallback((device: BluetoothDevice) => {
         if (server?.connected) {
           reconnectAttemptsRef.current = 0;
           const proto = await detectProtocol(server);
-          setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol: proto, detectedWidth: detectPrinterWidth(device.name) });
+          setPrinter({ name: device.name || "Bluetooth Printer", connected: true, reconnecting: false, protocol: proto, detectedWidth: detectPrinterWidth(device.name) });
         } else {
           scheduleReconnect(device);
         }
@@ -328,7 +336,7 @@ const scheduleReconnect = useCallback((device: BluetoothDevice) => {
       device.removeEventListener("gattserverdisconnected", disconnectHandlerRef.current as EventListener);
     }
     const handler = () => {
-      setPrinter(prev => ({ ...prev, connected: false }));
+      setPrinter(prev => ({ ...prev, connected: false, reconnecting: true }));
       scheduleReconnect(device);
     };
     disconnectHandlerRef.current = handler;
@@ -340,7 +348,7 @@ const scheduleReconnect = useCallback((device: BluetoothDevice) => {
       const protocol = await detectProtocol(server);
       deviceRef.current = device;
       reconnectAttemptsRef.current = 0;
-      setPrinter({ name: device.name || "Bluetooth Printer", connected: true, protocol, detectedWidth: detectPrinterWidth(device.name) });
+      setPrinter({ name: device.name || "Bluetooth Printer", connected: true, reconnecting: false, protocol, detectedWidth: detectPrinterWidth(device.name) });
       attachDisconnectListener(device);
 
       localStorage.setItem(LAST_PRINTER_ID_KEY, device.id);
@@ -384,6 +392,9 @@ useEffect(() => {
   }, []);
 
   const reconnectDevice = useCallback(async (device: BluetoothDevice): Promise<void> => {
+    // Reset counter so manual reconnect always gets a fresh attempt
+    reconnectAttemptsRef.current = 0;
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     try {
       const server = await device.gatt?.connect();
       if (server?.connected) {
@@ -414,12 +425,12 @@ useEffect(() => {
           await applyConnected(device, server);
         } else {
           deviceRef.current = device;
-          setPrinter({ name: device.name || "Bluetooth Printer", connected: false, protocol: null, detectedWidth: detectPrinterWidth(device.name) });
+          setPrinter({ name: device.name || "Bluetooth Printer", connected: false, reconnecting: false, protocol: null, detectedWidth: detectPrinterWidth(device.name) });
           attachDisconnectListener(device);
         }
       } catch {
         deviceRef.current = device;
-        setPrinter({ name: device.name || "Bluetooth Printer", connected: false, protocol: null, detectedWidth: detectPrinterWidth(device.name) });
+        setPrinter({ name: device.name || "Bluetooth Printer", connected: false, reconnecting: false, protocol: null, detectedWidth: detectPrinterWidth(device.name) });
         attachDisconnectListener(device);
       }
 
@@ -440,7 +451,7 @@ useEffect(() => {
     try { deviceRef.current?.gatt?.disconnect(); } catch {}
     deviceRef.current = null;
     charCacheRef.current = null;
-    setPrinter({ name: null, connected: false, protocol: null, detectedWidth: null });
+    setPrinter({ name: null, connected: false, reconnecting: false, protocol: null, detectedWidth: null });
     localStorage.removeItem(LAST_PRINTER_ID_KEY);
     setLastPrinterId(null);
   }, []);

@@ -185,13 +185,21 @@ if (result.status === "paid" && Array.isArray(result.items)) {
             deductions.set(pid, (deductions.get(pid) ?? 0) + qty);
         }
         if (deductions.size > 0) {
-          queryClient.setQueryData<Product[]>(["/api/products"], (old) =>
-            old ? old.map((p) => {
-              const sold = deductions.get(p.id);
-              if (!sold || !p.trackStock) return p;
-              return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
-            }) : old
-          );
+          // Guard: if the updater returns undefined React Query v5 removes the
+          // cache entry entirely, causing a full loading flash until the next
+          // refetch.  Only call setQueryData when products are already cached.
+          const cachedProducts = queryClient.getQueryData<Product[]>(["/api/products"]);
+          if (Array.isArray(cachedProducts) && cachedProducts.length > 0) {
+            queryClient.setQueryData<Product[]>(["/api/products"], (old) =>
+              Array.isArray(old)
+                ? old.map((p) => {
+                    const sold = deductions.get(p.id);
+                    if (!sold || !p.trackStock) return p;
+                    return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
+                  })
+                : old
+            );
+          }
         }
       }
     },

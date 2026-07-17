@@ -197,15 +197,21 @@ export function useCreateSale() {
             deductions.set(pid, (deductions.get(pid) ?? 0) + qty);
         }
         if (deductions.size > 0) {
-          queryClient.setQueryData<any[]>(["/api/products"], (old) =>
-            old
-              ? old.map((p: any) => {
-                  const sold = deductions.get(p.id);
-                  if (!sold || !p.trackStock) return p;
-                  return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
-                })
-              : old,
-          );
+          // Guard: returning undefined from the updater removes the cache entry
+          // in React Query v5, causing a full loading flash.  Only patch when
+          // products are already in cache.
+          const cachedProducts = queryClient.getQueryData<any[]>(["/api/products"]);
+          if (Array.isArray(cachedProducts) && cachedProducts.length > 0) {
+            queryClient.setQueryData<any[]>(["/api/products"], (old) =>
+              Array.isArray(old)
+                ? old.map((p: any) => {
+                    const sold = deductions.get(p.id);
+                    if (!sold || !p.trackStock) return p;
+                    return { ...p, stock: Math.max(0, (p.stock ?? 0) - sold) };
+                  })
+                : old,
+            );
+          }
         }
       }
     },

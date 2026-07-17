@@ -23,6 +23,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
 
 interface OrderItem {
   quantity: number;
@@ -86,6 +88,7 @@ export default function PendingOrders() {
   const { data: orders = [], isLoading: _isLoading } = usePendingOrders();
   const { data: settings } = useSettings();
   const { data: perms } = useMyPermissions();
+  const queryClient = useQueryClient();
   const deleteOrder = useDeletePendingOrder();
   const updateOrder = useUpdatePendingOrder();
   const createSale = useCreateSale();
@@ -145,6 +148,15 @@ export default function PendingOrders() {
 
     // Optimistically remove the card immediately so the UI feels instant.
     setCompletingOrders((prev) => new Set([...prev, order.id]));
+
+    // Also remove from the shared query cache immediately so the badge in the
+    // sidebar/bottom-nav drops right away for both the deleteOrder and
+    // createSale paths.  (deleteOrder.onMutate does this too, but the
+    // createSale path has no equivalent optimistic update.)
+    queryClient.setQueryData<any[]>(
+      [api.pendingOrders.list.path],
+      (old) => Array.isArray(old) ? old.filter((o: any) => o.id !== order.id) : old,
+    );
 
     const restore = () => {
       submittingRef.current.delete(order.id);

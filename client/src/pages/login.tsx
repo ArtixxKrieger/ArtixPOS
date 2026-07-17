@@ -332,18 +332,19 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
-  // Load saved email on mount so the form is pre-filled when the user
-  // returns after signing out with "Remember this device" checked.
-  // Only the email is persisted — the password is intentionally NOT stored
-  // in localStorage (plaintext storage is trivially readable by XSS/extensions).
-  // The browser's own encrypted password manager handles password autofill
-  // via the autocomplete="current-password" attribute on the password input.
-  const REMEMBER_ME_KEY = "artixpos_remember_me_email";
+  // Load saved credentials on mount so both email and password are pre-filled
+  // when the user returns after checking "Remember this device".
+  // The password is stored base64-encoded to prevent casual shoulder-surfing
+  // in DevTools; this is a convenience feature appropriate for dedicated POS
+  // devices, not a security boundary.
+  const REMEMBER_ME_KEY = "artixpos_saved_credentials";
   useEffect(() => {
     try {
-      const savedEmail = localStorage.getItem(REMEMBER_ME_KEY);
-      if (!savedEmail) return;
-      setFormEmail(savedEmail);
+      const raw = localStorage.getItem(REMEMBER_ME_KEY);
+      if (!raw) return;
+      const { email, password } = JSON.parse(atob(raw)) as { email: string; password: string };
+      if (email) setFormEmail(email);
+      if (password) setFormPassword(password);
       setRememberMe(true);
     } catch {}
   }, []);
@@ -731,11 +732,14 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        // Save or clear the remembered email based on "Remember this device".
-        // Password is never stored — the browser's password manager handles that.
+        // Save or clear the remembered credentials based on "Remember this device".
+        // Both email and password are stored so the next visit autofills the form.
         if (mode === "signin") {
           if (rememberMe) {
-            localStorage.setItem(REMEMBER_ME_KEY, formEmail);
+            localStorage.setItem(
+              REMEMBER_ME_KEY,
+              btoa(JSON.stringify({ email: formEmail, password: formPassword })),
+            );
           } else {
             localStorage.removeItem(REMEMBER_ME_KEY);
           }

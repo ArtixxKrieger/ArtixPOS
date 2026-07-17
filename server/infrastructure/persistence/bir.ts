@@ -7,6 +7,18 @@ export interface BirXReportData {
   discountRows: Record<string, unknown>[];
 }
 
+/**
+ * Extracts the numeric portion of an OR number for MIN/MAX/ordering.
+ * Handles both plain numeric strings ("0000001") and prefixed formats
+ * like "SR-0000001" that the system generates, so reports and gap-detection
+ * work correctly regardless of the OR number format in use.
+ */
+const orNumericExpr = `
+  CASE
+    WHEN or_number ~ '^[0-9]+$'        THEN CAST(or_number AS bigint)
+    WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN CAST(substring(or_number FROM position('-' IN or_number) + 1) AS bigint)
+  END`;
+
 export async function getBirXReportData(
   userId: string,
   startDate: string,
@@ -22,8 +34,14 @@ export async function getBirXReportData(
         COALESCE(SUM(CAST(vatable_sales      AS NUMERIC)), 0)::float8                     AS vatable_sales,
         COALESCE(SUM(CAST(vat_exempt_sales   AS NUMERIC)), 0)::float8                     AS vat_exempt_sales,
         COALESCE(SUM(CAST(zero_rated_sales   AS NUMERIC)), 0)::float8                     AS zero_rated_sales,
-        MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_min,
-        MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)         AS or_max
+        MIN(CASE
+              WHEN or_number ~ '^[0-9]+$'        THEN CAST(or_number AS bigint)
+              WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN CAST(substring(or_number FROM position('-' IN or_number) + 1) AS bigint)
+            END)                                                                           AS or_min,
+        MAX(CASE
+              WHEN or_number ~ '^[0-9]+$'        THEN CAST(or_number AS bigint)
+              WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN CAST(substring(or_number FROM position('-' IN or_number) + 1) AS bigint)
+            END)                                                                           AS or_max
       FROM sales
       WHERE user_id = ANY(
         SELECT id FROM users WHERE tenant_id = (
@@ -95,8 +113,14 @@ export async function getBirSummaryData(
         COALESCE(SUM(CAST(discount         AS NUMERIC)), 0)::float8                              AS total_discount,
         (COUNT(*) FILTER (WHERE discount_type IN ('sc','pwd')))::int                              AS sc_pwd_count,
         COALESCE(SUM(CAST(discount AS NUMERIC)) FILTER (WHERE discount_type IN ('sc','pwd')), 0)::float8 AS sc_pwd_discount,
-        MIN(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_min,
-        MAX(CASE WHEN or_number ~ '^[0-9]+$' THEN CAST(or_number AS bigint) END)                AS or_max
+        MIN(CASE
+              WHEN or_number ~ '^[0-9]+$'        THEN CAST(or_number AS bigint)
+              WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN CAST(substring(or_number FROM position('-' IN or_number) + 1) AS bigint)
+            END)                                                                                  AS or_min,
+        MAX(CASE
+              WHEN or_number ~ '^[0-9]+$'        THEN CAST(or_number AS bigint)
+              WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN CAST(substring(or_number FROM position('-' IN or_number) + 1) AS bigint)
+            END)                                                                                  AS or_max
       FROM sales
       WHERE user_id = ANY(
         SELECT id FROM users WHERE tenant_id = (
@@ -131,17 +155,32 @@ export async function getBirSummaryData(
   };
 }
 
-/** Returns all numeric OR numbers for the user's tenant, ordered ascending. */
+/**
+ * Returns all numeric OR numbers for the user's tenant, ordered ascending.
+ * Handles both plain numeric strings ("0000001") and the "SR-" prefixed
+ * format the system generates ("SR-0000001"), as well as any other
+ * uppercase-prefix format ("ABC-0000001"), so gap detection works regardless
+ * of which OR number format is in use.
+ */
 export async function getBirOrNumbers(userId: string): Promise<number[]> {
   const result = await db.execute(sql`
-    SELECT CAST(or_number AS bigint) AS n
+    SELECT
+      CAST(
+        CASE
+          WHEN or_number ~ '^[0-9]+$'        THEN or_number
+          WHEN or_number ~ '^[A-Z]+-[0-9]+$' THEN substring(or_number FROM position('-' IN or_number) + 1)
+        END
+      AS bigint) AS n
     FROM   sales
     WHERE  user_id = ANY(
              SELECT id FROM users WHERE tenant_id = (
                SELECT tenant_id FROM users WHERE id = ${userId}
              )
            )
-      AND  or_number ~ '^[0-9]+$'
+      AND  (
+             or_number ~ '^[0-9]+$'
+          OR or_number ~ '^[A-Z]+-[0-9]+$'
+           )
       AND  deleted_at IS NULL
     ORDER  BY n
   `);

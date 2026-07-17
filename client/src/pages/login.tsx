@@ -334,19 +334,25 @@ export default function Login() {
 
   // Load saved credentials on mount so both email and password are pre-filled
   // when the user returns after checking "Remember this device".
-  // The password is stored base64-encoded to prevent casual shoulder-surfing
-  // in DevTools; this is a convenience feature appropriate for dedicated POS
-  // devices, not a security boundary.
+  // Values are stored as base64(encodeURIComponent(JSON)) so that non-ASCII
+  // characters in passwords (accents, symbols) don't crash btoa/atob.
+  // This is a convenience feature for dedicated POS devices, not a security boundary.
   const REMEMBER_ME_KEY = "artixpos_saved_credentials";
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REMEMBER_ME_KEY);
       if (!raw) return;
-      const { email, password } = JSON.parse(atob(raw)) as { email: string; password: string };
+      const parsed = JSON.parse(decodeURIComponent(atob(raw)));
+      // Runtime type + length guards — never trust localStorage blindly
+      const email = typeof parsed?.email === "string" ? parsed.email.slice(0, 320) : "";
+      const password = typeof parsed?.password === "string" ? parsed.password.slice(0, 1024) : "";
       if (email) setFormEmail(email);
       if (password) setFormPassword(password);
       setRememberMe(true);
-    } catch {}
+    } catch {
+      // Corrupt / legacy entry — clear it so the next save is clean
+      try { localStorage.removeItem(REMEMBER_ME_KEY); } catch {}
+    }
   }, []);
 
   const LAST_LOGIN_METHOD_KEY = "artixpos_last_login_method";
@@ -736,12 +742,16 @@ export default function Login() {
         // Both email and password are stored so the next visit autofills the form.
         if (mode === "signin") {
           if (rememberMe) {
-            localStorage.setItem(
-              REMEMBER_ME_KEY,
-              btoa(JSON.stringify({ email: formEmail, password: formPassword })),
-            );
+            try {
+              localStorage.setItem(
+                REMEMBER_ME_KEY,
+                btoa(encodeURIComponent(JSON.stringify({ email: formEmail, password: formPassword }))),
+              );
+            } catch {
+              // Storage quota or encoding edge-case — non-fatal, login already succeeded
+            }
           } else {
-            localStorage.removeItem(REMEMBER_ME_KEY);
+            try { localStorage.removeItem(REMEMBER_ME_KEY); } catch {}
           }
           localStorage.setItem(LAST_LOGIN_METHOD_KEY, "email");
         }

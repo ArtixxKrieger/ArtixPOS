@@ -55,6 +55,7 @@ SMTP_PORT = "587"
 SMTP_USER = "resend"
 SMTP_FROM = "ArtixPOS <noreply@artixpos.com>"
 APP_URL = "https://artixpos.com"
+SUPABASE_POOLER_URL = "postgresql://postgres.oafvcfqjlxroufsxbmve:qKUn$&8Xb77FH,A@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 
 [agent]
 expertMode = true

@@ -17,7 +17,7 @@ export interface TenantSubscription {
 
 export const FREE_LIMITS = {
   branches: 1,
-  products: 100,
+  products: 50,
   staff: 2,
 };
 

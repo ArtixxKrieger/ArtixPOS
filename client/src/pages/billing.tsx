@@ -32,6 +32,7 @@ import {
   BarChart3,
   Briefcase,
   Star,
+  DollarSign,
 } from "lucide-react";
 
 function formatDate(iso?: string | null) {
@@ -51,7 +52,7 @@ const COMPARISON_ROWS: {
   business: string | boolean;
 }[] = [
   { label: "Branches", icon: Building2, free: "1", pro: "1", business: "Up to 10" },
-  { label: "Products", icon: Package, free: "Up to 100", pro: "Unlimited", business: "Unlimited" },
+  { label: "Products", icon: Package, free: "Up to 50", pro: "Unlimited", business: "Unlimited" },
   { label: "Staff accounts", icon: Users, free: "2", pro: "Up to 15", business: "Unlimited" },
   {
     label: "Analytics history",
@@ -60,6 +61,9 @@ const COMPARISON_ROWS: {
     pro: "Unlimited",
     business: "Unlimited",
   },
+  { label: "Ingredients & stock", icon: Package, free: false, pro: true, business: true },
+  { label: "Expense tracking", icon: CreditCard, free: false, pro: true, business: true },
+  { label: "Discount codes", icon: DollarSign, free: false, pro: true, business: true },
   { label: "Customer loyalty", icon: Star, free: false, pro: true, business: true },
   { label: "Appointments", icon: Calendar, free: false, pro: true, business: true },
   { label: "Suppliers & POs", icon: Briefcase, free: false, pro: true, business: true },
@@ -70,10 +74,10 @@ const COMPARISON_ROWS: {
     pro: "Basic",
     business: "Advanced (SSS/PhilHealth/Pag-IBIG)",
   },
+  { label: "Audit log", icon: FileText, free: false, pro: true, business: true },
   { label: "AI business assistant", icon: Bot, free: false, pro: false, business: true },
   { label: "BIR compliance", icon: FileText, free: false, pro: false, business: true },
   { label: "Multi-branch reports", icon: BarChart3, free: false, pro: false, business: true },
-  { label: "Audit log", icon: FileText, free: false, pro: true, business: true },
   { label: "Priority support", icon: Users, free: false, pro: false, business: true },
 ];
 
@@ -396,7 +400,7 @@ const { data: settingsData } = useSettings();
                   `Up to ${FREE_LIMITS.products} products`,
                   `Up to ${FREE_LIMITS.staff} staff accounts`,
                   "Core POS features",
-                  "Cash payments",
+                  "Receipt printing",
                   "7-day analytics",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">

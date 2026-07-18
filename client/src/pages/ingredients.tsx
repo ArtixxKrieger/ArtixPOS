@@ -114,8 +114,13 @@ function StatCard({
 function UsedInBadge({ ingredientId }: { ingredientId: number }) {
   const { data: products = [] } = useQuery<ProductUsage[]>({
     queryKey: ["/api/ingredients", ingredientId, "products"],
-    queryFn: () => nativeFetch(`/api/ingredients/${ingredientId}/products`).then((r) => r.json()),
+    queryFn: () =>
+      nativeFetch(`/api/ingredients/${ingredientId}/products`).then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.json();
+      }),
     staleTime: 60_000,
+    select: (res) => (Array.isArray(res) ? res : []),
   });
   if (products.length === 0) return null;
   return (

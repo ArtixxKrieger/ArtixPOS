@@ -46,7 +46,6 @@ import {
   Bell,
   BellOff,
   Search,
-  PlayCircle,
   Zap,
   HelpCircle,
   ShoppingCart,
@@ -1227,27 +1226,6 @@ export default function Settings() {
             </p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-        </button>
-
-        <button
-          onClick={() => {
-            setLocation("/");
-            setTimeout(() => {
-              window.dispatchEvent(new Event("artix:replay-tour"));
-            }, 850);
-          }}
-          data-testid="button-replay-tour"
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"
-        >
-          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <PlayCircle className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <div className="text-left flex-1">
-            <p className="text-sm font-medium">Replay App Tour</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Walk through the features again
-            </p>
-          </div>
         </button>
 
         {isOwner && (

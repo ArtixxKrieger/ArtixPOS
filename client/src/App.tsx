@@ -21,7 +21,6 @@ import { initUserSession, clearAllCache } from "@/lib/offline-db";
 import { debugLog } from "@/lib/debug-log";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranchTheme } from "@/hooks/use-branch-theme";
-import { AppTour } from "@/components/app-tour";
 
 import Login from "@/pages/login";
 import LoginError from "@/pages/login-error";
@@ -472,7 +471,6 @@ function AppRouter() {
 
   return (
     <AppLayout>
-      <AppTour />
       {location === "/" && (
         <Suspense fallback={pageFallback}>
           <Dashboard />

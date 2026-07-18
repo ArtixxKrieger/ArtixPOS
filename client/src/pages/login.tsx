@@ -332,25 +332,18 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
-  // Load saved credentials on mount so both email and password are pre-filled
-  // when the user returns after checking "Remember this device".
-  // Values are stored as base64(encodeURIComponent(JSON)) so that non-ASCII
-  // characters in passwords (accents, symbols) don't crash btoa/atob.
-  // This is a convenience feature for dedicated POS devices, not a security boundary.
   const REMEMBER_ME_KEY = "artixpos_saved_credentials";
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REMEMBER_ME_KEY);
       if (!raw) return;
       const parsed = JSON.parse(decodeURIComponent(atob(raw)));
-      // Runtime type + length guards — never trust localStorage blindly
       const email = typeof parsed?.email === "string" ? parsed.email.slice(0, 320) : "";
       const password = typeof parsed?.password === "string" ? parsed.password.slice(0, 1024) : "";
       if (email) setFormEmail(email);
       if (password) setFormPassword(password);
       setRememberMe(true);
     } catch {
-      // Corrupt / legacy entry — clear it so the next save is clean
       try { localStorage.removeItem(REMEMBER_ME_KEY); } catch {}
     }
   }, []);
@@ -551,20 +544,14 @@ export default function Login() {
   useEffect(() => {
     if (isLoading || isPlaceholderData) return;
 
-    // If the URL has ?logout=1, stay on the login page no matter what.
-    // The query param survives refreshes (unlike sessionStorage) until the
-    // user manually navigates away or signs in again.
     const params = new URLSearchParams(window.location.search);
     if (params.get("logout") === "1") return;
 
     if (isAuthenticated) {
-      // Already authenticated — redirect to dashboard
       setLocation("/");
     }
   }, [isAuthenticated, isLoading, isPlaceholderData, setLocation]);
 
-  // Theme — sync with the shared theme utility so the login page's inline
-  // styles (background, borders, etc.) match the current mode.
   const [isDark, setIsDark] = useState(() => {
     const stored = localStorage.getItem("theme");
     if (stored === "light") return false;
@@ -579,7 +566,6 @@ export default function Login() {
       else if (stored === "dark") setIsDark(true);
       else setIsDark(mq.matches);
     };
-    // Re-sync when the theme changes (from settings or system)
     window.addEventListener("storage", handler);
     mq.addEventListener("change", handler);
     return () => {
@@ -688,19 +674,13 @@ export default function Login() {
       handleNativeGoogleSignIn();
       return;
     }
-    // Mark "google" as the last login method BEFORE the redirect so it
-    // survives the full-page navigation. The postMessage path (popup) also
-    // writes this, but the web OAuth flow never opens a popup.
     localStorage.setItem(LAST_LOGIN_METHOD_KEY, "google");
     sessionStorage.setItem(OAUTH_FLOW_KEY, "1");
     window.location.href = `${API_BASE}/auth/google`;
   }
 
-  // Auto-retry Google sign-in when the server was temporarily unavailable
-  // (Vercel cold-start). Counts down from 5 and re-triggers the OAuth flow.
   useEffect(() => {
     const urlError = new URLSearchParams(window.location.search).get("error");
-    // server_misconfigured = permanent env-var problem, no point retrying
     if (urlError !== "server_unavailable") return;
     setRetryCountdown(5);
     let count = 5;
@@ -735,7 +715,6 @@ export default function Login() {
       try {
         data = await res.json();
       } catch {
-        // Server returned a non-JSON response (e.g. Vercel crash page or HTML error)
         setFormError(
           res.status >= 500
             ? "Server error. Please try again in a moment."
@@ -749,8 +728,6 @@ export default function Login() {
       }
       const authUser = data.user ?? null;
       if (authUser) {
-        // Save or clear the remembered credentials based on "Remember this device".
-        // Both email and password are stored so the next visit autofills the form.
         if (mode === "signin") {
           if (rememberMe) {
             try {
@@ -759,7 +736,6 @@ export default function Login() {
                 btoa(encodeURIComponent(JSON.stringify({ email: formEmail, password: formPassword }))),
               );
             } catch {
-              // Storage quota or encoding edge-case — non-fatal, login already succeeded
             }
           } else {
             try { localStorage.removeItem(REMEMBER_ME_KEY); } catch {}
@@ -767,22 +743,8 @@ export default function Login() {
           localStorage.setItem(LAST_LOGIN_METHOD_KEY, "email");
         }
 
-        // Store token first so all subsequent requests in this session are authenticated
         if (data.token) setNativeToken(data.token);
 
-        // Before redirecting, fetch the full user (includes activeBranch color) and
-        // warm the critical data cache in parallel. When the page reloads the
-        // localStorage placeholder will have activeBranch populated and IndexedDB
-        // will have the critical data — so the app renders with real data instantly
-        // instead of showing stale/empty state until the first network round-trip.
-        // Always seed the placeholder with the known-good `authUser` from the
-        // login response first. Promise.allSettled never rejects, so if the
-        // /api/auth/me refresh below throws (network hiccup, cold start),
-        // its .then() chain simply never runs and localStorage would
-        // otherwise be left without a fresh value — which, after the hard
-        // reload, makes the app briefly look logged out and can bounce the
-        // user straight back to /login. Only overwrite it if a fuller user
-        // object actually comes back.
         localStorage.setItem("artixpos_auth_me_v1", JSON.stringify(authUser));
         try {
           await Promise.allSettled([
@@ -796,17 +758,11 @@ export default function Login() {
             prefetchCriticalData(),
           ]);
         } catch {
-          // authUser fallback above already covers this.
         }
 
-        // Persist settings to sessionStorage so the next page load can seed
-        // _prewarmedSettings synchronously and skip the AppRouter LoadingScreen.
         const settingsSnapshot = queryClient.getQueryData<unknown>(["/api/settings"]);
         if (settingsSnapshot) cacheSettingsForBoot(settingsSnapshot);
 
-        // Hard navigate — the cleanest way to reset all React/query state.
-        // Signal AppRouter to skip the LoadingScreen gate on the first render
-        // after navigation, even if settings weren't prewarmed (e.g. new user).
         const alreadyOnboarded = localStorage.getItem(`artix-onboarded-${authUser.id}`) === "1";
         const needsOnboarding = !alreadyOnboarded && !authUser.tenantId;
         signalPostLoginNav();
@@ -937,7 +893,6 @@ export default function Login() {
           .lp-section-lazy { content-visibility:visible; }
         }
 
-        /* ── Form elements ── */
         .btn-blue {
           width:100%;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;
           cursor:pointer;border:none;font-family:inherit;
@@ -959,7 +914,6 @@ export default function Login() {
         .btn-social:disabled { opacity:0.6;cursor:not-allowed;transform:none }
         .finput:focus { border-color:rgba(59,130,246,0.55)!important; box-shadow:0 0 0 3px rgba(59,130,246,0.13)!important; }
 
-        /* ── Nav link ── */
         .nav-link {
           color:rgba(255,255,255,0.52);font-size:13.5px;font-weight:500;
           text-decoration:none;cursor:pointer;
@@ -975,7 +929,6 @@ export default function Login() {
         .nav-link:hover { color:#fff; }
         .nav-link:hover::after { transform:scaleX(1); }
 
-        /* ── Header buttons ── */
         .hdr-login {
           padding:8px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
           background:transparent;border:1px solid rgba(59,130,246,0.28);color:#60a5fa;
@@ -992,7 +945,6 @@ export default function Login() {
         }
         .hdr-cta:hover { transform:translateY(-1px) scale(1.03); box-shadow:0 6px 22px rgba(59,130,246,0.46); }
 
-        /* ── Hero CTA ── */
         .hero-primary {
           padding:15px 34px;border-radius:14px;font-size:16px;font-weight:800;
           background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;
@@ -1004,7 +956,6 @@ export default function Login() {
         .hero-primary:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 14px 42px rgba(59,130,246,0.58); animation:none; }
         .hero-primary:active { transform:scale(0.97); animation:none; }
 
-        /* ── Section CTA ── */
         .cta-primary {
           padding:15px 38px;border-radius:14px;font-size:16px;font-weight:800;
           background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;
@@ -1015,21 +966,18 @@ export default function Login() {
         .cta-primary:hover { transform:translateY(-3px) scale(1.025); box-shadow:0 14px 42px rgba(59,130,246,0.54); }
         .cta-primary:active { transform:scale(0.97); }
 
-        /* ── Feature cards ── */
         .fcard {
           transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
           cursor:default;
         }
         .fcard:hover { border-color:rgba(59,130,246,0.42)!important; transform:translateY(-6px) scale(1.015)!important; box-shadow:0 20px 52px rgba(0,0,0,0.45), 0 0 0 1px rgba(59,130,246,0.16)!important; }
 
-        /* ── Device mini-cards ── */
         .dcard {
           transition:border-color 0.26s ease, transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
           cursor:default;
         }
         .dcard:hover { border-color:rgba(59,130,246,0.42)!important; transform:translateY(-4px) scale(1.04)!important; }
 
-        /* ── How it works steps ── */
         .lp-step { transition:transform 0.32s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
         .lp-step:hover { transform:translateY(-8px); }
         .lp-step-circle { transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease; }
@@ -1037,24 +985,20 @@ export default function Login() {
         .lp-step-title { transition:color 0.2s ease; color:rgba(255,255,255,0.85); }
         .lp-step:hover .lp-step-title { color:#fff!important; }
 
-        /* ── Security cards ── */
         .sec-card-pink { border-radius:22px;overflow:hidden; border:1px solid rgba(244,114,182,0.22);background:rgba(244,114,182,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
         .sec-card-pink:hover { border-color:rgba(244,114,182,0.55)!important; transform:translateY(-6px)!important; }
         .sec-card-blue { border-radius:22px;overflow:hidden; border:1px solid rgba(59,130,246,0.22);background:rgba(59,130,246,0.03); transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1); cursor:default; }
         .sec-card-blue:hover { border-color:rgba(59,130,246,0.55)!important; transform:translateY(-6px)!important; }
 
-        /* ── Pricing cards ── */
         .price-card {
           transition:border-color 0.28s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
           cursor:default;
         }
         .price-card:hover { transform:translateY(-6px) scale(1.012); box-shadow:0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.22); border-color:rgba(59,130,246,0.42)!important; }
 
-        /* ── Ambient orbs — very gentle, GPU-only ── */
         .lp-orb   { animation:orb-a 28s ease-in-out infinite; }
         .lp-orb-b { animation:orb-b 36s ease-in-out infinite; }
 
-        /* ── Misc ── */
         .float-mockup { animation:float-slow 9s ease-in-out infinite; }
         .pdot { animation:pulse-dot 2.2s ease-in-out infinite; }
         .stat-num { background:linear-gradient(90deg,#60a5fa,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }

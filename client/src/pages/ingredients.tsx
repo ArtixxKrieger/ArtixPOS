@@ -7,7 +7,6 @@ import { formatCurrency } from "@/lib/format";
 import {
   Plus,
   Trash2,
-  Edit2,
   Search,
   AlertTriangle,
   Check,
@@ -184,7 +183,6 @@ export default function Ingredients() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [deleteTimer, setDeleteTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
@@ -228,26 +226,6 @@ export default function Ingredients() {
     onError: () => toast({ title: "Failed to add ingredient", variant: "destructive" }),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("PUT", `/api/ingredients/${editingId}`, {
-        name: formName.trim(),
-        unit: formUnit,
-        stockQty: formStockQty || "0",
-        lowStockThreshold: formThreshold || "0",
-        costPerUnit: formCostPerUnit || "0",
-        notes: formNotes.trim() || undefined,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
-      resetForm();
-      setIsDialogOpen(false);
-      setEditingId(null);
-      toast({ title: "Ingredient updated" });
-    },
-    onError: () => toast({ title: "Failed to update ingredient", variant: "destructive" }),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/ingredients/${id}`),
     onSuccess: () => {
@@ -280,19 +258,7 @@ export default function Ingredients() {
   };
 
   const openCreate = () => {
-    setEditingId(null);
     resetForm();
-    setIsDialogOpen(true);
-  };
-
-  const openEdit = (ing: Ingredient) => {
-    setEditingId(ing.id);
-    setFormName(ing.name);
-    setFormUnit(ing.unit);
-    setFormStockQty(ing.stockQty);
-    setFormThreshold(ing.lowStockThreshold || "0");
-    setFormCostPerUnit(ing.costPerUnit || "0");
-    setFormNotes(ing.notes || "");
     setIsDialogOpen(true);
   };
 
@@ -373,7 +339,7 @@ export default function Ingredients() {
     });
   }, [ingredients, debouncedSearch, filterTab, sortKey]);
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending;
 
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
     { key: "all", label: "All", count: stats.total },
@@ -660,14 +626,6 @@ export default function Ingredients() {
                         <SlidersHorizontal className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => openEdit(ing)}
-                        className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary flex items-center justify-center text-muted-foreground/60 transition-colors active:scale-95"
-                        title="Edit ingredient"
-                        data-testid={`button-edit-${ing.id}`}
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
                         onClick={() => requestDelete(ing.id)}
                         className="h-8 w-8 rounded-xl hover:bg-destructive/10 hover:text-destructive flex items-center justify-center text-muted-foreground/50 transition-colors active:scale-95"
                         title="Delete ingredient"
@@ -779,10 +737,7 @@ export default function Ingredients() {
         open={isDialogOpen}
         onOpenChange={(v) => {
           setIsDialogOpen(v);
-          if (!v) {
-            resetForm();
-            setEditingId(null);
-          }
+          if (!v) resetForm();
         }}
       >
         <DialogContent className="w-[calc(100vw-24px)] sm:max-w-[460px] max-h-[90dvh] overflow-y-auto rounded-3xl border-none shadow-2xl p-0">
@@ -792,7 +747,7 @@ export default function Ingredients() {
                 <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
                   <FlaskConical className="h-4 w-4 text-primary" />
                 </div>
-                {editingId ? "Edit Ingredient" : "New Ingredient"}
+                New Ingredient
               </DialogTitle>
             </DialogHeader>
           </div>
@@ -905,13 +860,10 @@ export default function Ingredients() {
             <Button
               className="w-full rounded-2xl h-12 font-bold text-sm"
               disabled={isPending || !formName.trim()}
-              onClick={() => {
-                if (editingId) updateMutation.mutate();
-                else createMutation.mutate();
-              }}
+              onClick={() => createMutation.mutate()}
               data-testid="button-submit-ingredient"
             >
-              {isPending ? "Saving…" : editingId ? "Save Changes" : "Add Ingredient"}
+              {isPending ? "Saving…" : "Add Ingredient"}
             </Button>
           </div>
         </DialogContent>

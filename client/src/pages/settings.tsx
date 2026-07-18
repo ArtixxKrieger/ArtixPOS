@@ -72,6 +72,9 @@ import {
   AlarmClock,
   Wifi,
   ChevronDown,
+  MonitorSmartphone,
+  Smartphone,
+  Laptop,
 } from "lucide-react";
 import { COUNTRY_LIST, type CountryData } from "@/lib/locale-detect";
 import type { ThemeMode } from "@/lib/theme";
@@ -90,6 +93,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest, clearNativeToken } from "@/lib/queryClient";
 import { clearAllCache } from "@/lib/offline-db";
 import { useLocation } from "wouter";
+import { useSessions, useRevokeSession, useRevokeAllOtherSessions } from "@/hooks/use-sessions";
+import type { ActiveSession } from "@/hooks/use-sessions";
+import { formatDistanceToNow } from "date-fns";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   food_beverage: "Food & Beverage",
@@ -266,6 +272,10 @@ export default function Settings() {
   const [showHelp, setShowHelp] = useState(false);
   const [helpSearch, setHelpSearch] = useState("");
   const [expandedHelp, setExpandedHelp] = useState<string | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
+  const { data: sessions, isLoading: sessionsLoading } = useSessions();
+  const revokeSession = useRevokeSession();
+  const revokeAllOther = useRevokeAllOtherSessions();
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
   const countrySearchRef = useRef<HTMLInputElement>(null);
@@ -1228,6 +1238,22 @@ export default function Settings() {
           <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
         </button>
 
+        <button
+          onClick={() => setShowSessions(true)}
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium hover:bg-muted/30 transition-colors border-b border-border/20"
+        >
+          <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+            <MonitorSmartphone className="h-3.5 w-3.5 text-blue-500" />
+          </div>
+          <div className="text-left flex-1">
+            <p className="text-sm font-medium">Active Sessions</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Manage where you're logged in
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        </button>
+
         {isOwner && (
           <button
             onClick={() => {
@@ -1267,6 +1293,118 @@ export default function Settings() {
       <p className="text-center text-[10px] text-muted-foreground/40 pt-2 pb-4">
         ArtixPOS · Business OS
       </p>
+
+      {/* Active Sessions Sheet */}
+      <Sheet open={showSessions} onOpenChange={setShowSessions}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-[2rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+          </div>
+          <SheetHeader className="px-6 pt-3 pb-4 shrink-0 text-left">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                <MonitorSmartphone className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <SheetTitle className="text-lg font-black leading-tight">Active Sessions</SheetTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Devices where you're currently logged in
+                </p>
+              </div>
+            </div>
+          </SheetHeader>
+
+          <div className="overflow-y-auto flex-1 px-4 pb-6">
+            {sessionsLoading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+                Loading sessions…
+              </div>
+            ) : !sessions || sessions.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+                No active sessions found
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[...sessions]
+                  .sort((a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0))
+                  .map((session: ActiveSession) => {
+                    const isMobile = /iPhone|iPad|Android/.test(session.deviceName ?? "");
+                    const Icon = isMobile ? Smartphone : Laptop;
+                    return (
+                      <div
+                        key={session.id}
+                        className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl border ${
+                          session.current
+                            ? "bg-blue-500/5 border-blue-500/20"
+                            : "bg-card border-border/25"
+                        }`}
+                      >
+                        <div
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                            session.current ? "bg-blue-500/15" : "bg-muted/50"
+                          }`}
+                        >
+                          <Icon
+                            className={`h-4 w-4 ${
+                              session.current ? "text-blue-500" : "text-muted-foreground"
+                            }`}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold leading-tight truncate">
+                              {session.deviceName ?? "Unknown device"}
+                            </p>
+                            {session.current && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500 whitespace-nowrap">
+                                THIS DEVICE
+                              </span>
+                            )}
+                          </div>
+                          {session.ipAddress && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {session.ipAddress}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                            {session.lastSeenAt
+                              ? `Active ${formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}`
+                              : session.createdAt
+                              ? `Signed in ${formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })}`
+                              : ""}
+                          </p>
+                        </div>
+                        {!session.current && (
+                          <button
+                            onClick={() => revokeSession.mutate(session.id)}
+                            disabled={revokeSession.isPending}
+                            className="shrink-0 text-[11px] font-semibold text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50 mt-0.5 px-2 py-1 rounded-lg hover:bg-destructive/5"
+                          >
+                            Log out
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {sessions && sessions.filter((s: ActiveSession) => !s.current).length > 0 && (
+              <button
+                onClick={() => revokeAllOther.mutate()}
+                disabled={revokeAllOther.isPending}
+                className="mt-4 w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/5 transition-colors disabled:opacity-50"
+              >
+                {revokeAllOther.isPending ? "Signing out…" : "Sign out all other devices"}
+              </button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet
         open={showHelp}

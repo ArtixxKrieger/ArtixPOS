@@ -1501,3 +1501,20 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 });
 
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
+export const userSessions = pgTable("user_sessions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  jti: text("jti").notNull().unique(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  deviceName: text("device_name"),
+  ipAddress: text("ip_address"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  lastSeenAt: text("last_seen_at").$defaultFn(() => new Date().toISOString()),
+  expiresAt: text("expires_at").notNull(),
+});
+
+export type UserSession = typeof userSessions.$inferSelect;

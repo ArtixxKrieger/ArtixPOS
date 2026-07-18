@@ -75,6 +75,15 @@ import {
 import { deleteUsersData, deleteTenantShell } from "./delete-data";
 import jwt from "jsonwebtoken";
 import { sanitizeUserError, sanitizeUserErrorForRedirect } from "../lib/route-utils";
+import { requireAuth } from "../middleware";
+import {
+  createSession,
+  deleteSession,
+  deleteAllOtherSessions,
+  updateSessionJti,
+  listUserSessions,
+  getSessionById,
+} from "./sessions";
 
 function getClientIp(req: Request): string {
   return (
@@ -289,10 +298,12 @@ export function setupAuth(app: Express) {
             return res.redirect(`${NATIVE_APP_SCHEME}://auth?token=${encodeURIComponent(token)}`);
           }
           if (isPopup) {
-            setAuthCookie(res, user, true);
+            const _popupToken = setAuthCookie(res, user, true);
+            createSession(_popupToken, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
             return res.send(popupResultPage({ ok: true }));
           }
-          setAuthCookie(res, user, true);
+          const _oauthToken = setAuthCookie(res, user, true);
+          createSession(_oauthToken, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
           return res.redirect("/");
         } catch (cookieErr: any) {
           console.error("[auth] Cookie error:", cookieErr?.message ?? cookieErr);
@@ -343,6 +354,7 @@ export function setupAuth(app: Express) {
         },
         true,
       );
+      createSession(token, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
       res.json({ token });
     } catch (err) {
       next(err);
@@ -415,6 +427,7 @@ export function setupAuth(app: Express) {
         emailVerified: true,
       };
       const registerToken = setAuthCookie(res, registerUser);
+      createSession(registerToken, created.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
       logAuthEvent({
         userId: created.id,
         tenantId: (created as any).tenantId ?? null,
@@ -481,7 +494,7 @@ export function setupAuth(app: Express) {
           .where(eq(users.id, user.id)),
       );
 
-      setAuthCookie(res, {
+      const _verifyToken = setAuthCookie(res, {
         id: user.id,
         name: user.name ?? null,
         email: user.email ?? null,
@@ -492,6 +505,7 @@ export function setupAuth(app: Express) {
         activeBranchId: (user as any).activeBranchId ?? null,
         emailVerified: true,
       });
+      createSession(_verifyToken, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
 
       logAuthEvent({
         userId: user.id,
@@ -624,6 +638,7 @@ export function setupAuth(app: Express) {
       recordSuccessfulLogin(ip);
       recordEmailSuccessfulLogin(normalizedEmail);
       const loginToken = setAuthCookie(res, user as any, rememberMe === true);
+      createSession(loginToken, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
       logAuthEvent({
         userId: user.id,
         tenantId: user.tenantId ?? null,
@@ -661,6 +676,7 @@ export function setupAuth(app: Express) {
     if (jti && uid && exp) {
       const expiresAt = new Date(exp * 1000).toISOString();
       await revokeToken(jti, uid, expiresAt);
+      deleteSession(jti).catch(() => {});
       logAuthEvent({ userId: uid, tenantId: tid, action: "logout" });
     }
 
@@ -683,6 +699,7 @@ export function setupAuth(app: Express) {
         const cp = jwt.verify(t, getJwtSecret()) as any;
         if (cp.jti && cp.jti !== jti) {
           await revokeToken(cp.jti, cp.id, new Date(cp.exp * 1000).toISOString());
+          deleteSession(cp.jti).catch(() => {});
         }
       } catch {
         // token already expired or invalid — nothing to revoke
@@ -691,6 +708,49 @@ export function setupAuth(app: Express) {
 
     clearAuthCookie(res);
     res.json({ ok: true });
+  });
+
+  // -------------------------------------------------------------------------
+  // Active sessions — list, revoke one, revoke all others
+  // -------------------------------------------------------------------------
+
+  app.get("/api/sessions", requireAuth, async (req, res, next) => {
+    try {
+      const sessions = await listUserSessions(req.user!.id);
+      const currentJti = req.tokenJti;
+      res.json(sessions.map((s) => ({ ...s, current: s.jti === currentJti })));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete("/api/sessions/:id", requireAuth, async (req, res, next) => {
+    try {
+      const session = await getSessionById(String(req.params.id), req.user!.id);
+      if (!session) return res.status(404).json({ message: "Session not found" });
+      if (session.jti === req.tokenJti)
+        return res.status(400).json({ message: "Cannot revoke your current session from here. Use Sign Out instead." });
+      await revokeToken(session.jti, req.user!.id, session.expiresAt);
+      await deleteSession(session.jti);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete("/api/sessions", requireAuth, async (req, res, next) => {
+    try {
+      const currentJti = req.tokenJti ?? "";
+      const sessions = await listUserSessions(req.user!.id);
+      const others = sessions.filter((s) => s.jti !== currentJti);
+      await Promise.all(
+        others.map((s) => revokeToken(s.jti, req.user!.id, s.expiresAt)),
+      );
+      await deleteAllOtherSessions(req.user!.id, currentJti);
+      res.json({ ok: true, revoked: others.length });
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.post("/api/auth/refresh", async (req, res, _next) => {
@@ -723,6 +783,7 @@ export function setupAuth(app: Express) {
 
       const rememberMe = payload.rem === true;
       const newToken = setAuthCookie(res, user as any, rememberMe);
+      createSession(newToken, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
       res.json({ ok: true, token: newToken });
     } catch {
       res.status(401).json({ message: "Invalid or expired token" });
@@ -1074,6 +1135,8 @@ export function setupAuth(app: Express) {
             activeBranchId: liveActiveBranchId,
             emailVerified: liveEmailVerified,
           }, true);
+          // Update the session row to track the new JTI (keeps it visible in "active sessions")
+          updateSessionJti(req.tokenJti, rotatedToken).catch(() => {});
           // Revoke old token immediately in-memory, then persist async.
           // revokeToken adds to _revokedJtis synchronously before awaiting DB,
           // so the old JTI is blocked from reuse even if DB persistence fails.

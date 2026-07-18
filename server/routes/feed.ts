@@ -1,4 +1,4 @@
-/**
+  /**
  * GET /api/feed — cursor-paginated sales feed
  *
  * Cursor strategy: composite (created_at, id)
@@ -15,7 +15,7 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { sql, and, eq } from "drizzle-orm";
+import { sql, and, eq, desc } from "drizzle-orm";
 import { sales } from "@shared/schema";
 import { requireAuth } from "../middleware";
 import { getUserId, getActiveBranchId, sanitizeUserError } from "../lib/route-utils";
@@ -168,7 +168,8 @@ export function registerFeedRoutes(app: Express): void {
         .orderBy(
           // Descending on both columns so newest sales appear first and the
           // composite seek predicate above remains correct.
-          sql`${sales.createdAt} DESC, ${sales.id} DESC`,
+          desc(sales.createdAt),
+          desc(sales.id),
         )
         .limit(limit + 1); // one extra to peek at whether a next page exists
 

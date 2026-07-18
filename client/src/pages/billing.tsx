@@ -76,7 +76,7 @@ const COMPARISON_ROWS: {
   },
   { label: "Audit log", icon: FileText, free: false, pro: true, business: true },
   { label: "AI business assistant", icon: Bot, free: false, pro: false, business: true },
-  { label: "BIR compliance", icon: FileText, free: false, pro: false, business: true },
+  { label: "BIR compliance", icon: FileText, free: false, pro: true, business: true },
   { label: "Multi-branch reports", icon: BarChart3, free: false, pro: false, business: true },
   { label: "Priority support", icon: Users, free: false, pro: false, business: true },
 ];

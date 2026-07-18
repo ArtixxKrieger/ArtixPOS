@@ -17,7 +17,6 @@ export interface SalesQueryParams {
   startDate?: string;
   endDate?: string;
   limit?: number;
-  offset?: number;
   includeVoided?: boolean;
 }
 
@@ -27,7 +26,6 @@ function buildSalesUrl(params?: SalesQueryParams): string {
   if (params.startDate) qs.set("startDate", params.startDate);
   if (params.endDate) qs.set("endDate", params.endDate);
   if (params.limit != null) qs.set("limit", String(params.limit));
-  if (params.offset != null) qs.set("offset", String(params.offset));
   if (params.includeVoided) qs.set("includeVoided", "1");
   const str = qs.toString();
   return str ? `${BASE_URL}?${str}` : BASE_URL;
@@ -45,7 +43,6 @@ export function useSales(params?: SalesQueryParams) {
         params.startDate ?? "",
         params.endDate ?? "",
         params.limit ?? 200,
-        params.offset ?? 0,
         params.includeVoided ? "voided" : "",
       ]
     : [BASE_URL];

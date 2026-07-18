@@ -6,7 +6,6 @@ export interface ISaleRepository {
     opts?: {
       limit?: number;
       offset?: number;
-      beforeId?: number;
       startDate?: string;
       endDate?: string;
       customerId?: number;

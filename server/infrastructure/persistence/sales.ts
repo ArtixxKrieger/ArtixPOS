@@ -12,7 +12,6 @@ export async function getSales(
   opts: {
     limit?: number;
     offset?: number;
-    beforeId?: number;
     startDate?: string;
     endDate?: string;
     customerId?: number;
@@ -24,7 +23,6 @@ export async function getSales(
     const {
       limit = 200,
       offset = 0,
-      beforeId,
       startDate,
       endDate,
       customerId,
@@ -40,16 +38,6 @@ export async function getSales(
     if (endDate) conditions.push(sql`${sales.createdAt} <= ${endDate}`);
     if (customerId) conditions.push(eq(sales.customerId, customerId));
     if (branchId != null) conditions.push(eq(sales.branchId, branchId));
-
-    if (beforeId != null) {
-      conditions.push(sql`${sales.id} < ${beforeId}`);
-      return await dbRead
-        .select()
-        .from(sales)
-        .where(and(...conditions))
-        .orderBy(desc(sales.id))
-        .limit(limit);
-    }
 
     return await dbRead
       .select()

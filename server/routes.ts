@@ -43,7 +43,6 @@ import { registerPushRoutes } from "./routes/push";
 import { registerStaffPinRoutes } from "./routes/staff-pin";
 import { registerScheduleRoutes } from "./routes/schedules";
 import { registerClientErrorRoutes } from "./client-errors";
-import { registerFeedRoutes } from "./routes/feed";
 
 const publicBranchLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -251,7 +250,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerStaffPinRoutes(app);
   registerScheduleRoutes(app);
   registerClientErrorRoutes(app);
-  registerFeedRoutes(app);
 
   // ── API Versioning — /api/v1/* mirrors /api/* ─────────────────────────
   // Rewrites "/api/v1/products" → "/api/products" so all existing route

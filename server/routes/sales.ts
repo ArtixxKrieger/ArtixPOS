@@ -35,7 +35,7 @@ async function getRolePermCached(tenantId: string, role: string) {
 
 export function registerSaleRoutes(app: Express): void {
   app.get(api.sales.list.path, requireAuth, async (req, res) => {
-    const { limit, offset, before, startDate, endDate, includeVoided, status } =
+    const { limit, offset, startDate, endDate, includeVoided, status } =
       req.query as Record<string, string>;
     if (startDate && !isValidDate(startDate))
       return res.status(400).json({ message: "Invalid startDate format" });
@@ -46,11 +46,9 @@ export function registerSaleRoutes(app: Express): void {
 
     // B-pattern: ?status=void is an alias for ?includeVoided=1
     const showVoided = includeVoided === "1" || status === "void";
-    const beforeIdRaw = Number(before);
-    const beforeId = before && Number.isFinite(beforeIdRaw) ? beforeIdRaw : undefined;
     const pageLimit = Math.min(Number(limit) || 200, 1000);
 
-    const tag = `${pageLimit}:${beforeId ?? ""}:${offset || ""}:${startDate || ""}:${endDate || ""}:${showVoided ? "1" : "0"}`;
+    const tag = `${pageLimit}:${offset || ""}:${startDate || ""}:${endDate || ""}:${showVoided ? "1" : "0"}`;
     const ck = salesCacheKey(uid, bid, tag);
     const salesList = await cache.getOrFetch(
       ck,
@@ -58,8 +56,7 @@ export function registerSaleRoutes(app: Express): void {
         storage.getSales(uid, {
           branchId: bid ?? undefined,
           limit: pageLimit,
-          beforeId: beforeId,
-          offset: beforeId == null ? Math.max(Number(offset) || 0, 0) : undefined,
+          offset: Math.max(Number(offset) || 0, 0),
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           includeVoided: showVoided,
@@ -67,10 +64,6 @@ export function registerSaleRoutes(app: Express): void {
       15_000,
     );
 
-    if (salesList.length > 0) {
-      const minId = salesList[salesList.length - 1].id;
-      res.setHeader("X-Next-Cursor", String(minId));
-    }
     res.json(salesList);
   });
 

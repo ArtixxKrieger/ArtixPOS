@@ -1,6 +1,7 @@
 import { useSales } from "@/hooks/use-sales";
 import { useSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
+import { useProducts } from "@/hooks/use-products";
 import { formatCurrency, parseNumeric } from "@/lib/format";
 import { getBusinessFeatures } from "@/lib/business-features";
 import {
@@ -476,6 +477,12 @@ function FreeAnalyticsView({
 export default function Analytics() {
   const { data: sales = [], isLoading: _isLoading } = useSales() as { data: Sale[] | undefined; isLoading: boolean };
   const { data: settings } = useSettings() as { data: UserSetting | null | undefined };
+  const { data: products = [] } = useProducts();
+  const productCategoryMap = useMemo(() => {
+    const m = new Map<number, string>();
+    (products as any[]).forEach((p: any) => { if (p.id != null) m.set(p.id, p.category || "General"); });
+    return m;
+  }, [products]);
   const { isFree } = useSubscription();
   const currency = settings?.currency || "₱";
   const { terminology } = getBusinessFeatures(
@@ -614,7 +621,9 @@ const categoryData = useMemo(() => {
     const cats: Record<string, { revenue: number; orders: number }> = {};
     nonRefundedCurrSales.forEach(s => {
       ((s.items as any[]) || []).forEach(item => {
-        const cat = item.product?.category || item.category || "Uncategorized";
+        const productId = item.product?.id ?? item.productId;
+        const liveCat = productId != null ? productCategoryMap.get(productId) : undefined;
+        const cat = liveCat ?? item.product?.category ?? item.category ?? "Uncategorized";
         if (!cats[cat]) cats[cat] = { revenue: 0, orders: 0 };
         const p = parseNumeric(item.size?.price ?? item.product?.price ?? item.price ?? 0);
         const m = (item.modifiers || []).reduce((a: number, mod: any) => a + parseNumeric(mod.price), 0);
@@ -623,7 +632,7 @@ const categoryData = useMemo(() => {
       });
     });
     return Object.entries(cats).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue);
-  }, [nonRefundedCurrSales]);
+  }, [nonRefundedCurrSales, productCategoryMap]);
 
 const dowData = useMemo(() => {
     const d: Record<number, { revenue: number; orders: number }> = {};

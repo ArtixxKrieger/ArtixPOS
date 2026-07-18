@@ -31,6 +31,31 @@ ArtixPOS is a comprehensive business management system offering:
 - **Mobile**: Capacitor for Android/iOS wrapping
 - **Cache/Rate Limiting**: Upstash Redis (optional, falls back to in-memory)
 
+## Replit Setup (first time)
+
+When importing this project into a new Replit workspace, run these steps once:
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Push the database schema to the Replit-provisioned PostgreSQL
+npm run db:push
+
+# 3. Start the dev server (or use the "Start application" workflow button)
+npm run dev
+```
+
+Required secrets in Replit Secrets:
+- `SESSION_SECRET` — JWT signing secret (already set)
+- `DATABASE_URL` — managed automatically by Replit's built-in PostgreSQL; do not set manually
+
+The app will be available at the Replit webview on port 5000.
+
+> **Database note:** Replit provides a built-in PostgreSQL instance for development. If you prefer to use your own Supabase database, enable the Supabase connector from **Workspace Settings → Connectors**, then reconnect so `DATABASE_URL` is replaced with your Supabase connection string.
+
+---
+
 ## Development
 
 The app runs as a single server that serves both API routes and the Vite dev server (HMR).

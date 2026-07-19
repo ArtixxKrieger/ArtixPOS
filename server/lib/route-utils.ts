@@ -24,6 +24,11 @@ const SENSITIVE_ERROR_PATTERNS: Array<[RegExp, string]> = [
   [/connection timeout/i, "The request timed out — please check your connection and retry."],
   [/timeout exceeded/i, "The request timed out — please retry."],
   [/client was closed/i, "The connection was interrupted — please retry."],
+  // Drizzle ORM wraps raw SQL in its error messages — never expose those to users.
+  [/Failed query:/i, "A database error occurred — please try again."],
+  [/column .+ does not exist/i, "A database error occurred — please try again."],
+  [/relation .+ does not exist/i, "A database error occurred — please try again."],
+  [/syntax error/i, "A database error occurred — please try again."],
 ];
 
 /**

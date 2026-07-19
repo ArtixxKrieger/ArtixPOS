@@ -147,6 +147,9 @@ export function useAuth() {
     placeholderData: loadCachedAuthUser(),
     retry: 2,
     staleTime: Infinity,
+    // Poll every 45 s so a remotely-revoked session is detected quickly
+    // even when no other API call happens to trigger the 401.
+    refetchInterval: 45_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

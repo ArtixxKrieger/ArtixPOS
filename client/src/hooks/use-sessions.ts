@@ -24,7 +24,7 @@ export function useSessions({ enabled = true, refetchInterval }: { enabled?: boo
       return res.data;
     },
     enabled,
-    staleTime: 0,
+    staleTime: 30_000,
     refetchInterval,
     refetchOnWindowFocus: true,
   });

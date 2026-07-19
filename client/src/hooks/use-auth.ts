@@ -185,6 +185,70 @@ export function useAuth() {
     setErrorCaptureUser(u?.id ?? null);
   }, [u?.id]);
 
+  // ── SSE: instant logout when this session is remotely revoked ──────────────
+  useEffect(() => {
+    if (!u) return;
+
+    let cancelled = false;
+    const ctrl = new AbortController();
+
+    async function connectSse() {
+      try {
+        const token = getNativeToken();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE}/api/auth/sse`, {
+          headers,
+          credentials: token ? "omit" : "include",
+          signal: ctrl.signal,
+        });
+
+        if (!res.ok || !res.body) return;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let pendingEvent = "";
+
+        while (!cancelled) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              pendingEvent = line.slice(7).trim();
+            } else if (line === "") {
+              if (pendingEvent === "revoked") {
+                clearNativeToken();
+                clearCsrfToken();
+                saveCachedAuthUser(null);
+                queryClient.setQueryData(["auth-me"], null);
+                queryClient.clear();
+                window.location.replace("/login?reason=revoked");
+                return;
+              }
+              pendingEvent = "";
+            }
+          }
+        }
+      } catch {
+        // Reconnect after 5 s unless the hook is unmounting
+        if (!cancelled) setTimeout(connectSse, 5_000);
+      }
+    }
+
+    connectSse();
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+    };
+  }, [u?.id]);
+
   useEffect(() => {
     const branchId = u?.activeBranchId;
     if (!branchId) return;

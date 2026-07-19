@@ -16,14 +16,17 @@ export interface ActiveSession {
 
 const QK = ["sessions"] as const;
 
-export function useSessions() {
+export function useSessions({ enabled = true, refetchInterval }: { enabled?: boolean; refetchInterval?: number } = {}) {
   return useQuery<ActiveSession[]>({
     queryKey: QK,
     queryFn: async () => {
       const res = await api.get<ActiveSession[]>("/api/sessions");
       return res.data;
     },
-    staleTime: 30_000,
+    enabled,
+    staleTime: 0,
+    refetchInterval,
+    refetchOnWindowFocus: true,
   });
 }
 

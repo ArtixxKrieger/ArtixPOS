@@ -6,6 +6,19 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { updateLastSeen } from "../admin-storage";
 
+// ── SSE connection registry ───────────────────────────────────────────────────
+// Maps JTI → active SSE response so we can push an instant logout event when
+// that session is revoked, without waiting for the client's next poll.
+const _sseConnections = new Map<string, Response>();
+
+export function registerSseConnection(jti: string, res: Response): void {
+  _sseConnections.set(jti, res);
+}
+
+export function unregisterSseConnection(jti: string): void {
+  _sseConnections.delete(jti);
+}
+
 export const AUTH_COOKIE = "auth_token";
 
 export const AUTH_COOKIE_OPTIONS = {
@@ -50,6 +63,14 @@ async function _pruneRevokedTokens(): Promise<void> {
 
 export async function revokeToken(jti: string, userId: string, expiresAt: string): Promise<void> {
   _revokedJtis.add(jti);
+  // Instantly push logout to the device holding this session (if connected via SSE)
+  const sseRes = _sseConnections.get(jti);
+  if (sseRes) {
+    try {
+      sseRes.write("event: revoked\ndata: {}\n\n");
+    } catch {}
+    _sseConnections.delete(jti);
+  }
   try {
     await db.insert(revokedTokens).values({ jti, userId, expiresAt }).onConflictDoNothing();
   } catch (err) {

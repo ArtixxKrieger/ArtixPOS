@@ -13,7 +13,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
-import { clearNativeToken, clearCsrfToken } from "@/lib/api";
 import { useSettings, consumeLoadingGateSignal, clearSettingsPrewarm } from "@/hooks/use-settings";
 import { useEffect, useState, useRef, Suspense, ReactNode } from "react";
 import { BlePrinterProvider } from "@/lib/ble-printer-context";
@@ -640,16 +639,17 @@ function ProtectedRouter() {
   useEffect(() => {
     function handleSessionExpired() {
       // Guard: if we already have no authenticated user in the cache, there is
-      // nothing to expire — skip to avoid a spurious redirect on a fresh login.
+      // nothing to expire — skip the invalidation to avoid a spurious refetch
+      // that could race with a fresh login.
       const cached = queryClient.getQueryData(["auth-me"]);
       if (!cached) return;
-      // Clear all local auth state immediately so the user cannot continue
-      // making requests with a revoked token.
-      clearNativeToken();
-      clearCsrfToken();
-      queryClient.clear();
-      // Navigate first, then show the toast so it appears on the login page.
-      window.location.replace("/login?reason=expired");
+      toast({
+        title: "Session ended",
+        description: "You've been signed out. This can happen if your session was ended from another device.",
+        variant: "destructive",
+        duration: 6000,
+      });
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     }
     window.addEventListener("auth:session-expired", handleSessionExpired);
     return () => window.removeEventListener("auth:session-expired", handleSessionExpired);

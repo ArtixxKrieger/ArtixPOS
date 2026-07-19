@@ -64,8 +64,6 @@ import {
   signToken,
   setAuthCookie,
   clearAuthCookie,
-  registerSseConnection,
-  unregisterSseConnection,
 } from "./core";
 import {
   findOrCreateUser,
@@ -754,39 +752,6 @@ export function setupAuth(app: Express) {
     } catch (err) {
       next(err);
     }
-  });
-
-  // SSE endpoint — holds an open connection per authenticated session so the
-  // server can push an instant "revoked" event when that session is signed out
-  // remotely (instead of waiting for the client's next 45-second poll).
-  app.get("/api/auth/sse", requireAuth, (req, res) => {
-    const jti = req.tokenJti;
-    if (!jti) return res.status(400).end();
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no"); // disable nginx / proxy buffering
-    // Remove any request timeout for this long-lived connection
-    req.socket?.setTimeout(0);
-    res.flushHeaders();
-
-    res.write("event: connected\ndata: {}\n\n");
-    registerSseConnection(jti, res);
-
-    // Keepalive comment every 25 s (proxies drop idle SSE streams after ~30 s)
-    const ping = setInterval(() => {
-      try {
-        res.write(": ping\n\n");
-      } catch {
-        clearInterval(ping);
-      }
-    }, 25_000);
-
-    req.on("close", () => {
-      clearInterval(ping);
-      unregisterSseConnection(jti);
-    });
   });
 
   app.post("/api/auth/refresh", async (req, res, _next) => {

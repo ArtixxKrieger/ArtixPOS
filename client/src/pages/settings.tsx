@@ -273,10 +273,7 @@ export default function Settings() {
   const [helpSearch, setHelpSearch] = useState("");
   const [expandedHelp, setExpandedHelp] = useState<string | null>(null);
   const [showSessions, setShowSessions] = useState(false);
-  const { data: sessions, isLoading: sessionsLoading } = useSessions({
-    // Poll every 8 s while the sheet is open so new logins appear automatically
-    refetchInterval: showSessions ? 8_000 : undefined,
-  });
+  const { data: sessions, isLoading: sessionsLoading } = useSessions();
   const revokeSession = useRevokeSession();
   const revokeAllOther = useRevokeAllOtherSessions();
   const [showCountryPicker, setShowCountryPicker] = useState(false);

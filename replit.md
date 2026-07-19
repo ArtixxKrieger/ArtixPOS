@@ -39,12 +39,19 @@ When importing this project into a new Replit workspace, run these steps once:
 # 1. Install dependencies
 npm install
 
-# 2. Push the database schema to the Replit-provisioned PostgreSQL
-npm run db:push
+# 2. Apply the base schema to the Replit-provisioned PostgreSQL (required on a fresh DB)
+psql "$DATABASE_URL" -f migrations/0000_salty_shape.sql
 
-# 3. Start the dev server (or use the "Start application" workflow button)
+# 3. Apply supplementary column/table migrations (idempotent)
+npm run db:migrate
+
+# 4. Start the dev server (or use the "Start application" workflow button)
 npm run dev
 ```
+
+> **Note:** `npm run db:push` (drizzle-kit) only syncs schema drift on an *existing* database.
+> On a brand-new Replit workspace the database is empty, so you must run steps 2–3 first.
+> The `scripts/post-merge.sh` post-merge hook does this automatically after task-agent merges.
 
 Required secrets in Replit Secrets:
 - `SESSION_SECRET` — JWT signing secret (already set)

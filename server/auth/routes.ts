@@ -740,7 +740,8 @@ export function setupAuth(app: Express) {
 
   app.delete("/api/sessions", requireAuth, async (req, res, next) => {
     try {
-      const currentJti = req.tokenJti ?? "";
+      const currentJti = req.tokenJti;
+      if (!currentJti) return res.status(400).json({ message: "Cannot identify current session" });
       const sessions = await listUserSessions(req.user!.id);
       const others = sessions.filter((s) => s.jti !== currentJti);
       await Promise.all(
@@ -783,7 +784,10 @@ export function setupAuth(app: Express) {
 
       const rememberMe = payload.rem === true;
       const newToken = setAuthCookie(res, user as any, rememberMe);
-      createSession(newToken, user.id, getClientIp(req), req.headers["user-agent"]).catch(() => {});
+      // Update the existing session row to track the new JTI.
+      // createSession would spawn a duplicate; updateSessionJti is correct here
+      // because this endpoint always revokes an old token and issues a replacement.
+      updateSessionJti(payload.jti, newToken).catch(() => {});
       res.json({ ok: true, token: newToken });
     } catch {
       res.status(401).json({ message: "Invalid or expired token" });

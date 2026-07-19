@@ -7,8 +7,7 @@
 import jwt from "jsonwebtoken";
 import { db } from "../db";
 import { userSessions } from "@shared/schema";
-import { and, eq, lt, ne } from "drizzle-orm";
-import { getJwtSecret } from "./core";
+import { and, desc, eq, lt, ne } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Device / UA parsing
@@ -125,7 +124,7 @@ export async function listUserSessions(userId: string) {
     .select()
     .from(userSessions)
     .where(eq(userSessions.userId, userId))
-    .orderBy(userSessions.lastSeenAt);
+    .orderBy(desc(userSessions.lastSeenAt));
 }
 
 /** Look up a single session by its stable id (not jti), scoped to a user. */

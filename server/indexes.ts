@@ -172,7 +172,12 @@ const COLUMN_MIGRATIONS = [
   )`,
 ];
 
-export async function ensureIndexes(): Promise<void> {
+/**
+ * ensureTables — fast, runs on ALL environments including Vercel.
+ * Creates missing tables and columns idempotently (IF NOT EXISTS).
+ * No heavy index creation — safe for serverless cold starts.
+ */
+export async function ensureTables(): Promise<void> {
   const client = await pool.connect();
   try {
     for (const stmt of COLUMN_MIGRATIONS) {
@@ -189,6 +194,19 @@ export async function ensureIndexes(): Promise<void> {
         console.warn("[fk-migrations]", stmt.slice(0, 60), "—", (err as Error)?.message ?? String(err));
       }
     }
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * ensureIndexes — full migration + performance indexes.
+ * Skipped on Vercel (too slow for serverless cold starts).
+ */
+export async function ensureIndexes(): Promise<void> {
+  await ensureTables();
+  const client = await pool.connect();
+  try {
     for (const stmt of INDEXES) {
       try {
         await client.query(stmt);

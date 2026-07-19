@@ -11,7 +11,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, jwtAuthMiddleware } from "./auth";
 import { initAuthCache } from "./auth/core";
-import { ensureIndexes } from "./indexes";
+import { ensureIndexes, ensureTables } from "./indexes";
 import { db as _healthDb } from "./db";
 import { sql as _healthSql } from "drizzle-orm";
 import { logger } from "./logger";
@@ -513,6 +513,14 @@ async function _doInit() {
     await initSentry();
   } catch (e: any) {
     console.error("[init] initSentry failed:", e.message);
+  }
+
+  try {
+    // ensureTables runs on ALL environments — fast DDL only (no indexes).
+    // Creates missing tables and columns so the schema is always in sync.
+    await ensureTables();
+  } catch (e: any) {
+    console.error("[migrations] ensureTables failed:", e.message);
   }
 
   if (process.env.VERCEL !== "1") {

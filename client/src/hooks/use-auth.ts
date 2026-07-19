@@ -204,7 +204,16 @@ export function useAuth() {
           signal: ctrl.signal,
         });
 
-        if (!res.ok || !res.body) return;
+        // 401 means the session is already gone — don't reconnect.
+        // Any other non-OK status is a transient server error — reconnect.
+        if (!res.ok) {
+          if (res.status !== 401 && !cancelled) setTimeout(connectSse, 5_000);
+          return;
+        }
+        if (!res.body) {
+          if (!cancelled) setTimeout(connectSse, 5_000);
+          return;
+        }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -236,8 +245,12 @@ export function useAuth() {
             }
           }
         }
+
+        // Stream closed cleanly (server restart / network drop) — reconnect.
+        if (!cancelled) setTimeout(connectSse, 5_000);
       } catch {
-        // Reconnect after 5 s unless the hook is unmounting
+        // Fetch aborted (component unmounting) or network error — reconnect
+        // only when not intentionally cancelled.
         if (!cancelled) setTimeout(connectSse, 5_000);
       }
     }

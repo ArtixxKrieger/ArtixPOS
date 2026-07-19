@@ -768,7 +768,7 @@ export function setupAuth(app: Express) {
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no"); // disable nginx / proxy buffering
     // Remove any request timeout for this long-lived connection
-    req.socket.setTimeout(0);
+    req.socket?.setTimeout(0);
     res.flushHeaders();
 
     res.write("event: connected\ndata: {}\n\n");

@@ -156,6 +156,20 @@ const COLUMN_MIGRATIONS = [
 
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at text`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS active_branch_id integer REFERENCES branches(id) ON DELETE SET NULL`,
+
+  `CREATE TABLE IF NOT EXISTS user_sessions (
+    id           text        NOT NULL,
+    jti          text        NOT NULL,
+    user_id      text        NOT NULL,
+    device_name  text,
+    ip_address   text,
+    created_at   text,
+    last_seen_at text,
+    expires_at   text        NOT NULL,
+    CONSTRAINT user_sessions_pkey          PRIMARY KEY (id),
+    CONSTRAINT user_sessions_jti_unique    UNIQUE (jti),
+    CONSTRAINT user_sessions_user_id_fk   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
 ];
 
 export async function ensureIndexes(): Promise<void> {

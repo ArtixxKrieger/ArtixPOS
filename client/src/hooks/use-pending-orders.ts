@@ -246,7 +246,7 @@ export function useUpdatePendingOrder() {
       await queryClient.cancelQueries({ queryKey: [LIST_URL] });
       const previous = queryClient.getQueryData<PendingOrder[]>([LIST_URL]);
       queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
-        old ? old.map((o) => (o.id === id ? { ...o, ...data } : o)) : []
+        Array.isArray(old) ? old.map((o) => (o.id === id ? { ...o, ...data } : o)) : []
       );
       return { previous };
     },
@@ -278,7 +278,7 @@ export function useUpdatePendingOrder() {
     },
     onSuccess: (result) => {
       queryClient.setQueryData<PendingOrder[]>([LIST_URL], (old) =>
-        old ? old.map((o) => (o.id === result.id ? result : o)) : []
+        Array.isArray(old) ? old.map((o) => (o.id === result.id ? result : o)) : []
       );
     },
   });

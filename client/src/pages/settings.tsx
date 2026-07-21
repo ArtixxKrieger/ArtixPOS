@@ -1393,7 +1393,7 @@ export default function Settings() {
               </div>
             )}
 
-            {sessions && sessions.filter((s: ActiveSession) => !s.current).length > 0 && (
+            {Array.isArray(sessions) && sessions.filter((s: ActiveSession) => !s.current).length > 0 && (
               <button
                 onClick={() => revokeAllOther.mutate()}
                 disabled={revokeAllOther.isPending}

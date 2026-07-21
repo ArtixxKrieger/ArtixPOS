@@ -264,7 +264,10 @@ export default function POS() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
-  const { data: customers = [] } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    select: (d: any) => (Array.isArray(d) ? d : []),
+  });
 
   const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<{

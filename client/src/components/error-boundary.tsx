@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { queryClient } from "@/lib/queryClient";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -9,6 +10,18 @@ interface ErrorBoundaryState {
   error: Error | null;
   componentStack: string | null;
 }
+
+// Detects errors caused by stale/corrupted cached data returning a non-array
+// where array methods (.filter, .map, .find, .forEach, etc.) are expected.
+// These always resolve after clearing the query cache and reloading.
+const isStaleDataError = (err: Error) => {
+  const msg = String(err?.message ?? "");
+  return (
+    err instanceof TypeError &&
+    /is not a function/.test(msg) &&
+    /\.(filter|map|find|forEach|reduce|some|every|flatMap|includes|indexOf)\s+is not a function/.test(msg)
+  );
+};
 
 const isChunkLoadError = (err: Error) => {
   const msg = String(err?.message ?? "");
@@ -40,6 +53,26 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         (error.stack ?? "") + "\n\nComponent Stack:" + (info.componentStack ?? ""),
       );
     }).catch(() => {});
+
+    // Stale/corrupted cache returning a non-array causes "X.filter is not a function".
+    // Fix: wipe the React Query in-memory cache so the next load fetches fresh data,
+    // then reload once. A sessionStorage guard prevents infinite reload loops.
+    if (isStaleDataError(error)) {
+      const key = "artixpos_stale_reload_at";
+      const last = Number(sessionStorage.getItem(key) ?? "0");
+      if (Date.now() - last > 60_000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        try {
+          queryClient.clear();
+          import("@/lib/offline-db").then(({ clearApiCache }) => {
+            clearApiCache().catch(() => {}).finally(() => window.location.reload());
+          }).catch(() => window.location.reload());
+        } catch {
+          window.location.reload();
+        }
+        return; // don't show UI — page is reloading
+      }
+    }
 
     // Only auto-reload in production. In dev (Vite), chunk errors are transient
     // (HMR reconnects, server restarts) — auto-reloading in dev causes infinite

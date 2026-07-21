@@ -103,9 +103,16 @@ export function registerPendingOrderRoutes(app: Express): void {
           saleReceiptNumber = (sale as any).receiptNumber ?? null;
           saleId = sale.id;
 
-          await storage.updatePendingOrder(order.id, uid, { saleId: sale.id } as any).catch((e) =>
-            console.error(`[pending-order] saleId stamp failed for order ${order.id}:`, e),
-          );
+          // Stamp saleId synchronously before responding — this is the guard that
+          // prevents a second createSale call when the user taps Complete on the
+          // pending-orders page. Fire-and-forget is NOT safe here: if the stamp
+          // fails silently the client re-fetches a null saleId and creates a
+          // duplicate sale.
+          try {
+            await storage.updatePendingOrder(order.id, uid, { saleId: sale.id } as any);
+          } catch (e) {
+            console.error(`[pending-order] saleId stamp failed for order ${order.id}:`, e);
+          }
 
           const capturedSale = sale;
           const capturedUid = uid;

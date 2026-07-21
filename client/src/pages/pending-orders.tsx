@@ -171,9 +171,13 @@ export default function PendingOrders() {
       queryClient.setQueryData([api.pendingOrders.list.path], previousPendingOrders);
     };
 
-    const orderSaleId = (order as any).saleId;
-    const autoSaleExists =
-      orderSaleId != null || (order.status === "paid" && !isFoodBeverage);
+    // Rely only on saleId — the server stamps it synchronously before responding
+    // whenever it auto-creates a sale. The old isFoodBeverage fallback was a
+    // race: if settings hadn't loaded at POS checkout time, isFoodBeverage was
+    // false → deferSale:false → server made a sale, but pending-orders page
+    // (settings now loaded) saw isFoodBeverage:true → fallback false → second
+    // createSale → doubled revenue on the dashboard.
+    const autoSaleExists = (order as any).saleId != null;
     if (autoSaleExists) {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {

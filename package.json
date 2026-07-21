@@ -4,7 +4,7 @@
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
-    "node": "22.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "NODE_ENV=development npx tsx server/index.ts",

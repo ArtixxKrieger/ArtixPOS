@@ -91,19 +91,58 @@ export const queryClient = new QueryClient({
   },
 });
 
+const DAY_KEY = "artixpos_last_seen_date";
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Invalidate all non-auth queries and return true if the calendar day has
+ * rolled over since the last call.  Also refreshes the stored date so the
+ * next call has a fresh baseline.
+ */
+function checkAndHandleDayRollover(): boolean {
+  const today = todayStr();
+  const lastSeen = localStorage.getItem(DAY_KEY);
+  localStorage.setItem(DAY_KEY, today);
+
+  if (!lastSeen || lastSeen === today) return false;
+
+  // Day changed — invalidate everything except auth so all active queries
+  // refetch immediately instead of showing yesterday's data.
+  queryClient.getQueryCache().getAll().forEach((query) => {
+    const key = query.queryKey[0];
+    if (key === "auth-me" || (typeof key === "string" && key.startsWith("/api/auth"))) return;
+    queryClient.invalidateQueries({ queryKey: query.queryKey });
+  });
+
+  return true;
+}
+
 if (typeof document !== "undefined") {
+  // Stamp the date on first load so the next tab-focus can compare.
+  localStorage.setItem(DAY_KEY, todayStr());
+
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
 
-    queryClient
-      .getQueryCache()
-      .getAll()
-      .forEach((query) => {
-        const key = query.queryKey[0];
-        if (key === "auth-me" || (typeof key === "string" && key.startsWith("/api/auth"))) return;
-        if (query.state.status === "error") {
-          queryClient.invalidateQueries({ queryKey: query.queryKey });
-        }
-      });
+    // If the day rolled over while the tab was in the background, invalidate
+    // everything so components refetch fresh data instead of showing stale.
+    const dayChanged = checkAndHandleDayRollover();
+
+    if (!dayChanged) {
+      // Normal focus: only re-fetch queries that previously errored out.
+      queryClient
+        .getQueryCache()
+        .getAll()
+        .forEach((query) => {
+          const key = query.queryKey[0];
+          if (key === "auth-me" || (typeof key === "string" && key.startsWith("/api/auth"))) return;
+          if (query.state.status === "error") {
+            queryClient.invalidateQueries({ queryKey: query.queryKey });
+          }
+        });
+    }
   });
 }

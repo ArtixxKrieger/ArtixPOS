@@ -9,6 +9,7 @@ import {
   makeOfflineId,
   isOfflineId,
 } from "@/lib/offline-db";
+import { statsDayIdbKey } from "@/lib/cache-keys";
 import { nativeFetch, queryClient as qc } from "@/lib/queryClient";
 
 const BASE_URL = api.sales.list.path;
@@ -135,9 +136,9 @@ export function useCreateSale() {
           ...(Array.isArray(prev) ? prev : []),
         ]);
 
-        const statsPrev = await getCached<any>("/api/dashboard/stats");
+        const statsPrev = await getCached<any>(statsDayIdbKey());
         if (statsPrev) {
-          await setCached("/api/dashboard/stats", {
+          await setCached(statsDayIdbKey(), {
             ...statsPrev,
             todaySales: [
               optimistic,
@@ -177,7 +178,7 @@ export function useCreateSale() {
         // Keep the offline cache in sync too, otherwise the invalidation below
         // re-reads stale IndexedDB data and clobbers this update until the
         // background network refetch finishes.
-        setCached("/api/dashboard/stats", updated).catch(() => {});
+        setCached(statsDayIdbKey(), updated).catch(() => {});
         return updated;
       });
       // Also invalidate so a fresh fetch happens in the background

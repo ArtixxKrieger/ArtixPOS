@@ -35,6 +35,7 @@ import { useQuery } from "@tanstack/react-query";
 import { nativeFetch, queryClient } from "@/lib/queryClient";
 import { getCached, setCached } from "@/lib/offline-db";
 import { useDashboardSse } from "@/hooks/use-dashboard-sse";
+import { statsDayIdbKey } from "@/lib/cache-keys";
 
 type DashboardStats = {
   todaySales: any[];
@@ -83,6 +84,7 @@ function buildStatsUrl(): string {
   return `${STATS_URL}?startOfDay=${encodeURIComponent(d.toISOString())}`;
 }
 
+
 export default function Dashboard() {
   const { t } = useTranslation();
   useDashboardSse();
@@ -96,7 +98,8 @@ export default function Dashboard() {
     queryKey: [STATS_URL],
     queryFn: async () => {
       const statsUrl = buildStatsUrl();
-      const idbData = await getCached<DashboardStats>(STATS_URL);
+      const idbKey = statsDayIdbKey();
+      const idbData = await getCached<DashboardStats>(idbKey);
 
       // Return cached data instantly, refresh in background
       if (idbData !== null) {
@@ -104,7 +107,7 @@ export default function Dashboard() {
           .then(async (res) => {
             if (!res.ok) return;
             const fresh: DashboardStats = await res.json();
-            setCached(STATS_URL, fresh).catch(() => {});
+            setCached(idbKey, fresh).catch(() => {});
             queryClient.setQueryData<DashboardStats>([STATS_URL], fresh);
           })
           .catch(() => {});
@@ -119,7 +122,7 @@ export default function Dashboard() {
         clearTimeout(timer);
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data: DashboardStats = await res.json();
-        setCached(STATS_URL, data).catch(() => {});
+        setCached(idbKey, data).catch(() => {});
         return data;
       } catch (err) {
         clearTimeout(timer);

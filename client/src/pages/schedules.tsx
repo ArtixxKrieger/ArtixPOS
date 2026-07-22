@@ -300,13 +300,19 @@ export default function SchedulesPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...BLANK_FORM });
 
-  const { data: employees = [], isLoading: empLoading } = useQuery<Employee[]>({
-    queryKey: ["/api/staff-schedules/employees"],
+  const { data: _combined, isLoading: schedLoading } = useQuery<{
+    employees: Employee[];
+    schedules: Schedule[];
+  }>({
+    queryKey: ["/api/staff-schedules/combined"],
+    select: (d) => ({
+      employees: Array.isArray(d?.employees) ? d.employees : [],
+      schedules: Array.isArray(d?.schedules) ? d.schedules : [],
+    }),
   });
-
-  const { data: schedules = [], isLoading: schedLoading } = useQuery<Schedule[]>({
-    queryKey: ["/api/staff-schedules"],
-  });
+  const employees = _combined?.employees ?? [];
+  const schedules = _combined?.schedules ?? [];
+  const empLoading = schedLoading;
 
   const byEmployee = useMemo(() => {
     const map = new Map<string, Schedule[]>();
@@ -334,7 +340,7 @@ export default function SchedulesPage() {
       return (await apiRequest("POST", "/api/staff-schedules", payload)).json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-schedules/combined"] });
       setShowForm(false);
       setEditingId(null);
       toast({ title: editingId ? "Schedule updated" : "Schedule added" });
@@ -347,7 +353,7 @@ export default function SchedulesPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => (await apiRequest("DELETE", `/api/staff-schedules/${id}`)).json(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-schedules/combined"] });
       setDeletingId(null);
       toast({ title: "Schedule removed" });
     },

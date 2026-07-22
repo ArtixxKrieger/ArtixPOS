@@ -27,6 +27,17 @@ export function registerScheduleRoutes(app: Express): void {
     res.json(schedules);
   });
 
+  // Combined endpoint — returns both employees and schedules in one request so
+  // the Schedules page avoids two sequential HTTP round-trips on every load.
+  app.get("/api/staff-schedules/combined", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
+    const uid = getUserId(req);
+    const [employees, schedules] = await Promise.all([
+      storage.getScheduleEmployees(uid),
+      storage.getStaffSchedules(uid),
+    ]);
+    res.json({ employees, schedules });
+  });
+
   app.post("/api/staff-schedules", requireAuth, requirePro, requireManagerOrAbove, async (req, res) => {
     try {
       const data = scheduleBody.parse(req.body);

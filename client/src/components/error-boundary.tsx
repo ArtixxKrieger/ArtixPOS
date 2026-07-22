@@ -35,6 +35,7 @@ const isChunkLoadError = (err: Error) => {
     name === "ChunkLoadError" ||
     /Loading (chunk|CSS chunk) [\d]+ failed/i.test(msg) ||
     /Failed to fetch dynamically imported module/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
     /Importing a module script failed/i.test(msg)
   );
 };

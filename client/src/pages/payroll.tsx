@@ -135,6 +135,7 @@ const { data: branches = [] } = useBranches();
     queryKey: ["/api/payroll/staff"],
     staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
+    select: (d) => Array.isArray(d) ? d : [],
   });
 
   const { data: payroll, isFetching: payrollFetching } = useQuery<PayrollResponse>({
@@ -152,6 +153,7 @@ const { data: branches = [] } = useBranches();
     queryKey: ["/api/payroll/periods"],
     staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
+    select: (d) => Array.isArray(d) ? d : [],
   });
 
   const { data: periodEntries = [] } = useQuery<PayrollEntry[]>({

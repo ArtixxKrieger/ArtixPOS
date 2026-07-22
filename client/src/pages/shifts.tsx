@@ -104,7 +104,12 @@ function DenomBreakdown({ json, currency }: { json: string | null | undefined; c
   );
 }
 
-function useShifts() { return useQuery<Shift[]>({ queryKey: ["/api/shifts"] }); }
+function useShifts() {
+  return useQuery<Shift[]>({
+    queryKey: ["/api/shifts"],
+    select: (d) => Array.isArray(d) ? d : [],
+  });
+}
 function useOpenShift() { return useQuery<Shift | null>({ queryKey: ["/api/shifts/open"], refetchInterval: 60000 }); }
 
 interface ZReportData {

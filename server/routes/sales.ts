@@ -194,9 +194,11 @@ export function registerSaleRoutes(app: Express): void {
       let overrides: Partial<typeof input> = {};
 
       if (isCatalogCart) {
-        const catalogProducts = await storage.getProducts(uid);
+        const [catalogProducts, settings] = await Promise.all([
+          storage.getProducts(uid),
+          storage.getSettings(uid),
+        ]);
         const productMap = new Map(catalogProducts.map((p) => [p.id, p]));
-        const settings = await storage.getSettings(uid);
         const globalTaxRate = parseFloat(settings?.taxRate || "0");
         const isScPwd = !!input.scPwdId;
 

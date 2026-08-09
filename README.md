@@ -201,7 +201,6 @@ The app is a PWA so it installs like a native app and keeps working when the int
 Sell while offline   →  Saved to device (IndexedDB)
 Back online          →  Queue syncs automatically
 App won't load?      →  Service Worker serves it from cache
-AI goes down?        →  Local model picks up the slack
 ```
 
 <br />

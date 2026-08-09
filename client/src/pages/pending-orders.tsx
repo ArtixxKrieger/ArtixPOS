@@ -138,45 +138,30 @@ export default function PendingOrders() {
   const isFoodBeverage = (settings as any)?.businessType === "food_beverage";
 
   const handleComplete = (order: PendingOrder) => {
-    // Synchronous guard — prevents duplicate submissions from rapid taps before
-    // React re-renders (state batching would let a second tap through otherwise).
     if (submittingRef.current.has(order.id)) return;
     submittingRef.current.add(order.id);
 
     const paidAmount = Number(payments[order.id] ?? order.paymentAmount ?? "0");
     const total = parseNumeric(order.total || "0");
 
-    // Optimistically remove the card immediately so the UI feels instant.
     setCompletingOrders((prev) => new Set([...prev, order.id]));
 
-    // Snapshot the cache BEFORE removal so restore() can put it back on error.
     const previousPendingOrders = queryClient.getQueryData<any[]>([api.pendingOrders.list.path]);
 
-    // Also remove from the shared query cache immediately so the badge in the
-    // sidebar/bottom-nav drops right away for both the deleteOrder and
-    // createSale paths.  (deleteOrder.onMutate does this too, but the
-    // createSale path has no equivalent optimistic update.)
-    queryClient.setQueryData<any[]>(
-      [api.pendingOrders.list.path],
-      (old) => Array.isArray(old) ? old.filter((o: any) => o.id !== order.id) : old,
+    queryClient.setQueryData<any[]>([api.pendingOrders.list.path], (old) =>
+      Array.isArray(old) ? old.filter((o: any) => o.id !== order.id) : old,
     );
 
     const restore = () => {
       submittingRef.current.delete(order.id);
-      setCompletingOrders((prev) => { const s = new Set(prev); s.delete(order.id); return s; });
-      // Restore the cache so the badge comes back correctly on error.
-      // For the deleteOrder path useDeletePendingOrder.onError also calls
-      // setQueryData — it fires first (hook-level), then this fires second
-      // (mutate-call-level), so the final state is correctly the original list.
+      setCompletingOrders((prev) => {
+        const s = new Set(prev);
+        s.delete(order.id);
+        return s;
+      });
       queryClient.setQueryData([api.pendingOrders.list.path], previousPendingOrders);
     };
 
-    // Rely only on saleId — the server stamps it synchronously before responding
-    // whenever it auto-creates a sale. The old isFoodBeverage fallback was a
-    // race: if settings hadn't loaded at POS checkout time, isFoodBeverage was
-    // false → deferSale:false → server made a sale, but pending-orders page
-    // (settings now loaded) saw isFoodBeverage:true → fallback false → second
-    // createSale → doubled revenue on the dashboard.
     const autoSaleExists = (order as any).saleId != null;
     if (autoSaleExists) {
       deleteOrder.mutate(order.id, {

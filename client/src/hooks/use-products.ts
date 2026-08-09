@@ -5,6 +5,24 @@ import { getCached, setCached, patchCached } from "@/lib/offline-db";
 import { nativeFetch } from "@/lib/queryClient";
 
 const LIST_URL = api.products.list.path;
+const SESSION_KEY = "artixpos_products_boot";
+
+// Synchronous sessionStorage read for instant first-render data.
+// Does NOT need _currentUserId — sessionStorage is cleared on tab close.
+function loadBootProducts(): Product[] | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBootProducts(data: Product[]): void {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+  } catch {}
+}
 
 class ValidationError extends Error {
   constructor(message: string) {
@@ -16,16 +34,19 @@ class ValidationError extends Error {
 export function useProducts() {
   return useQuery({
     queryKey: [LIST_URL],
-    staleTime: 120_000,
+    staleTime: 30_000,
+    placeholderData: loadBootProducts as any,
     queryFn: async () => {
       try {
         const res = await nativeFetch(LIST_URL);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = api.products.list.responses[200].parse(await res.json());
         setCached(LIST_URL, data).catch(() => {});
+        saveBootProducts(data as any);
         return data;
       } catch (err) {
-        const cached = await getCached<ReturnType<typeof api.products.list.responses[200]["parse"]>>(LIST_URL);
+        const cached =
+          await getCached<ReturnType<(typeof api.products.list.responses)[200]["parse"]>>(LIST_URL);
         if (cached !== null) return cached;
         throw err;
       }
@@ -82,7 +103,7 @@ export function useCreateProduct() {
       // Guard: if old is undefined the updater returning undefined is a no-op
       // (cache not loaded yet); returning [result] would clobber the full list.
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        Array.isArray(old) ? [...old, result] : old
+        Array.isArray(old) ? [...old, result] : old,
       );
       patchCached(LIST_URL, (prev: any[]) => {
         const list = Array.isArray(prev) ? prev : [];
@@ -119,7 +140,7 @@ export function useUpdateProduct() {
       // Guard: returning [result] when old is undefined replaces the full list
       // with just the updated product.  Skip the update if data isn't cached.
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        Array.isArray(old) ? old.map((p) => (p.id === result.id ? result : p)) : old
+        Array.isArray(old) ? old.map((p) => (p.id === result.id ? result : p)) : old,
       );
       patchCached(LIST_URL, (prev: any[]) => {
         const list = Array.isArray(prev) ? prev : [];
@@ -139,7 +160,7 @@ export function useDeleteProduct() {
       // shows an empty list and the onError rollback skips the restore (because
       // context.previous is undefined / falsy).  Return old unchanged instead.
       queryClient.setQueryData<Product[]>([LIST_URL], (old) =>
-        Array.isArray(old) ? old.filter((p) => p.id !== id) : old
+        Array.isArray(old) ? old.filter((p) => p.id !== id) : old,
       );
       return { previous };
     },
@@ -155,11 +176,12 @@ export function useDeleteProduct() {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as any)?.message ?? `Server error ${res.status}`);
       }
-      await patchCached(LIST_URL, (prev: any[]) => Array.isArray(prev) ? prev.filter((p) => p.id !== id) : []);
+      await patchCached(LIST_URL, (prev: any[]) =>
+        Array.isArray(prev) ? prev.filter((p) => p.id !== id) : [],
+      );
     },
     onError: (_err, _id, context) => {
-      if (context?.previous)
-        queryClient.setQueryData<Product[]>([LIST_URL], context.previous);
+      if (context?.previous) queryClient.setQueryData<Product[]>([LIST_URL], context.previous);
     },
   });
 }

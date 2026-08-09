@@ -117,13 +117,6 @@ Each module uses the correct language for that industry. No renaming workarounds
 - Calendar booking system for salons, clinics, and gyms
 - Push notifications for staff alerts
 
-### 🤖 AI Business Assistant
-- Pulls insights from your actual sales data
-- Ask in plain language: "What sold most this week?"
-- Runs on multiple AI providers with automatic failover
-- Falls back to a local model when there's no internet
-- One tap away from any screen
-
 ### 🔒 Security and Compliance
 - Row-Level Security — tenants are fully isolated at the database level
 - JWT auth with token revocation and brute-force protection

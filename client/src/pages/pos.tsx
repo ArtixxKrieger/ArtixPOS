@@ -284,6 +284,7 @@ export default function POS() {
 
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
 
   const resetOrderFields = useCallback(() => {
     setDiscount(0);
@@ -649,6 +650,7 @@ export default function POS() {
       vatExemptSales: snapshotScPwdType !== "none" ? discountedSubtotal : 0,
     };
     setReceiptData(optimisticReceipt);
+    setAutoPrintReceipt(false);
     setShowReceipt(true);
 
     playCheckout();
@@ -669,6 +671,7 @@ export default function POS() {
               }
             : prev,
         );
+        setAutoPrintReceipt(true);
 
         // Pending orders do NOT update dashboard/sales/customers —
         // those only update when finalized from the Pending Orders page.
@@ -746,6 +749,7 @@ export default function POS() {
         setScPwdId(snapshotScPwdId);
         setShowReceipt(false);
         setReceiptData(null);
+        setAutoPrintReceipt(false);
         toast({
           title: "Failed to place order",
           description: "Something went wrong. Please try again.",
@@ -1422,7 +1426,6 @@ export default function POS() {
       className="flex gap-5 page-enter"
       style={{ height: isMobile ? "calc(100dvh - 196px)" : "calc(100dvh - 132px)" }}
     >
-      {/* Milestone banner */}
       {milestone &&
         createPortal(
           <div
@@ -1790,6 +1793,7 @@ export default function POS() {
         open={showReceipt}
         onClose={() => setShowReceipt(false)}
         receipt={receiptData}
+        autoPrint={autoPrintReceipt}
       />
 
       {}

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { Printer } from "lucide-react";
 import { format } from "date-fns";
+import { useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
@@ -61,12 +62,26 @@ interface ReceiptModalProps {
   open: boolean;
   onClose: () => void;
   receipt: ReceiptData | null;
+  autoPrint?: boolean;
 }
 
-export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
+export function ReceiptModal({ open, onClose, receipt, autoPrint = false }: ReceiptModalProps) {
   const { data: settings } = useSettings();
   const { printer, print } = useBlePrinter();
   const { toast } = useToast();
+  const autoPrintHandledRef = useRef(false);
+  const handlePrintRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (!autoPrint) {
+      autoPrintHandledRef.current = false;
+      return;
+    }
+    if (!open || !receipt || !printer.connected || autoPrintHandledRef.current) return;
+
+    autoPrintHandledRef.current = true;
+    handlePrintRef.current?.();
+  }, [autoPrint, open, receipt, printer.connected]);
 
   if (!receipt) return null;
 
@@ -104,7 +119,8 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
   // BIR receipt fields
   const isScPwd = receipt.discountType === "sc" || receipt.discountType === "pwd";
   const vatableSales = receipt.vatableSales ?? (isScPwd ? 0 : receipt.subtotal - receipt.discount);
-  const vatExemptSales = receipt.vatExemptSales ?? (isScPwd ? receipt.subtotal - receipt.discount : 0);
+  const vatExemptSales =
+    receipt.vatExemptSales ?? (isScPwd ? receipt.subtotal - receipt.discount : 0);
   const zeroRatedSales = receipt.zeroRatedSales ?? 0;
 
   const isCash = receipt.paymentMethod === "cash";
@@ -140,13 +156,13 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         accreditationNumber: accreditationNumber || undefined,
         machineSerialNumber: machineSerialNumber || undefined,
         orNumber: receipt.orNumber,
-        vatRegistered: !!(s.vatRegistered),
+        vatRegistered: !!s.vatRegistered,
         vatableSales,
         vatExemptSales,
         zeroRatedSales,
         discountType: receipt.discountType,
         scPwdId: receipt.scPwdId,
-        items: receipt.items.map(item => ({
+        items: receipt.items.map((item) => ({
           name: item.product.name,
           sizeName: item.size?.name,
           qty: item.quantity,
@@ -180,7 +196,7 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
         energy: printDarkness,
         catReceiptWidth: receiptWidth,
         catFontSize: receiptFontSize,
-      }).then(result => {
+      }).then((result) => {
         if (result.ok) {
           toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });
         } else {
@@ -192,21 +208,28 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
       const fmt = (n: number) => formatCurrency(n, currency);
       const dateStr = format(now, "MMM d, yyyy h:mm a");
 
-      const itemsHtml = receipt.items.map(item => {
-        const basePrice = parseFloat(item.size?.price || String(item.product.price ?? "0") || "0");
-        const modsTotal = (item.modifiers || []).reduce((acc, m) => acc + parseFloat(m.price || "0"), 0);
-        const unitPrice = basePrice + modsTotal;
-        const lineTotal = unitPrice * item.quantity;
-        return `
+      const itemsHtml = receipt.items
+        .map((item) => {
+          const basePrice = parseFloat(
+            item.size?.price || String(item.product.price ?? "0") || "0",
+          );
+          const modsTotal = (item.modifiers || []).reduce(
+            (acc, m) => acc + parseFloat(m.price || "0"),
+            0,
+          );
+          const unitPrice = basePrice + modsTotal;
+          const lineTotal = unitPrice * item.quantity;
+          return `
           <div class="row">
             <span class="item-name">${escHtml(item.product.name)}${item.size ? ` (${escHtml(item.size.name)})` : ""} x${item.quantity}</span>
             <span class="price">${fmt(lineTotal)}</span>
           </div>
           ${showUnitPrice && unitPrice > 0 ? `<div class="muted" style="padding-left:12px">${fmt(unitPrice)} × ${item.quantity}</div>` : ""}
-          ${item.modifiers && item.modifiers.length > 0 ? `<div class="muted" style="padding-left:12px">+ ${item.modifiers.map(m => escHtml(m.name)).join(", ")}</div>` : ""}
+          ${item.modifiers && item.modifiers.length > 0 ? `<div class="muted" style="padding-left:12px">+ ${item.modifiers.map((m) => escHtml(m.name)).join(", ")}</div>` : ""}
           ${item.note ? `<div class="muted" style="padding-left:12px;font-style:italic">Note: ${escHtml(item.note)}</div>` : ""}
         `;
-      }).join("");
+        })
+        .join("");
 
       const paperWidth = receiptWidth === "58mm" ? "58mm" : "80mm";
       const printHtml = `<!DOCTYPE html>
@@ -277,25 +300,33 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
     ${hasDiscount && isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} Discount (20%)</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     ${hasDiscount && !isScPwd ? `<div class="row" style="color:#000;font-size:${fs - 1}px"><span>Discount${receipt.discountCode ? ` (${escHtml(receipt.discountCode)})` : ""}</span><span class="price">-${fmt(receipt.discount)}</span></div>` : ""}
     <div class="line"></div>
-    ${vatRegistered ? `
+    ${
+      vatRegistered
+        ? `
     <div class="row muted" style="font-size:${fs - 2}px"><span>VATable Sales</span><span class="price">${fmt(vatableSales)}</span></div>
     <div class="row muted" style="font-size:${fs - 2}px"><span>VAT Amount (${taxRate}%)</span><span class="price">${fmt(receipt.tax)}</span></div>
     ${vatExemptSales > 0 ? `<div class="row muted" style="font-size:${fs - 2}px"><span>VAT-Exempt Sales</span><span class="price">${fmt(vatExemptSales)}</span></div>` : ""}
     ${zeroRatedSales > 0 ? `<div class="row muted" style="font-size:${fs - 2}px"><span>Zero-Rated Sales</span><span class="price">${fmt(zeroRatedSales)}</span></div>` : ""}
     <div class="line"></div>
-    ` : ""}
+    `
+        : ""
+    }
     ${isScPwd || !vatRegistered ? `<p class="muted" style="text-align:center;font-size:${fs - 4}px;margin-bottom:2px">THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX</p>` : ""}
     <div class="row total-row"><span>TOTAL DUE</span><span class="price">${fmt(receipt.total)}</span></div>
     <div class="row muted"><span>Payment (${escHtml(receipt.paymentMethod.toUpperCase())})</span><span class="price">${fmt(receipt.paymentAmount)}</span></div>
     ${isCash && receipt.changeAmount > 0 ? `<div class="row green"><span>Change</span><span class="price">${fmt(receipt.changeAmount)}</span></div>` : ""}
     ${isScPwd && receipt.scPwdId ? `<div class="row muted" style="font-size:${fs - 2}px;margin-top:4px"><span>${receipt.discountType === "sc" ? "SC" : "PWD"} ID No.</span><span>${escHtml(receipt.scPwdId)}</span></div>` : ""}
-    ${receipt.wifiVoucher ? `<div class="line"></div>
+    ${
+      receipt.wifiVoucher
+        ? `<div class="line"></div>
       <p class="center bold">FREE WIFI VOUCHER</p>
       ${receipt.wifiVoucher.ssid ? `<div class="row muted"><span>Network</span><span>${escHtml(receipt.wifiVoucher.ssid)}</span></div>` : ""}
       ${receipt.wifiVoucher.password ? `<div class="row muted"><span>Password</span><span>${escHtml(receipt.wifiVoucher.password)}</span></div>` : ""}
       <div class="row"><span>Code</span><span class="bold">${escHtml(receipt.wifiVoucher.code)}</span></div>
       <p class="center muted">Valid for ${receipt.wifiVoucher.durationMinutes} min after first use</p>
-    ` : ""}
+    `
+        : ""
+    }
     ${receipt.receiptFooter ? `<div class="line"></div><p class="footer">${escHtml(receipt.receiptFooter)}</p>` : ""}
     <p class="center" style="color:#000;margin-top:6px">Thank you!</p>
     <p class="center" style="color:#000;font-size:${fs - 3}px;margin-top:2px">Powered by ArtixPOS</p>
@@ -308,14 +339,24 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
       // @page CSS. 240px ≈ 58mm at 96dpi; 340px ≈ 80mm.
       const winWidth = receiptWidth === "58mm" ? 260 : 340;
       const win = window.open("", "_blank", `width=${winWidth},height=700`);
-      if (!win) { toast({ title: "Allow pop-ups to print receipts", variant: "destructive" }); return; }
+      if (!win) {
+        toast({ title: "Allow pop-ups to print receipts", variant: "destructive" });
+        return;
+      }
       win.document.write(printHtml);
       win.document.close();
     }
   };
 
+  handlePrintRef.current = handlePrint;
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="max-w-sm w-[calc(100vw-2rem)] sm:w-full rounded-3xl p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
           <DialogTitle className="text-base font-bold">Receipt</DialogTitle>
@@ -331,9 +372,13 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 <p className="text-muted-foreground text-[11px]">{receiptHeaderText}</p>
               )}
               {receiptTitle && (
-                <p className="font-semibold text-muted-foreground mt-0.5 text-[11px]">{receiptTitle}</p>
+                <p className="font-semibold text-muted-foreground mt-0.5 text-[11px]">
+                  {receiptTitle}
+                </p>
               )}
-              <p className="text-muted-foreground mt-0.5 text-[11px]">{format(now, "MMM d, yyyy h:mm a")}</p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                {format(now, "MMM d, yyyy h:mm a")}
+              </p>
               {showAddress && storeAddress && (
                 <p className="text-muted-foreground text-[11px]">{storeAddress}</p>
               )}
@@ -353,10 +398,14 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                 <p className="text-muted-foreground text-[10px]">PTU No.: {ptuNumber}</p>
               )}
               {accreditationNumber && (
-                <p className="text-muted-foreground text-[10px]">Accreditation No.: {accreditationNumber}</p>
+                <p className="text-muted-foreground text-[10px]">
+                  Accreditation No.: {accreditationNumber}
+                </p>
               )}
               {machineSerialNumber && (
-                <p className="text-muted-foreground text-[10px]">Machine S/N: {machineSerialNumber}</p>
+                <p className="text-muted-foreground text-[10px]">
+                  Machine S/N: {machineSerialNumber}
+                </p>
               )}
               {receipt.customerName && (
                 <p className="mt-0.5 text-[11px]">Customer: {receipt.customerName}</p>
@@ -365,7 +414,10 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
             <div className="space-y-0.5 mb-1">
               {receipt.orNumber && (
-                <div className="flex justify-between text-muted-foreground text-[11px]" data-testid="text-or-number">
+                <div
+                  className="flex justify-between text-muted-foreground text-[11px]"
+                  data-testid="text-or-number"
+                >
                   <span>O.R. No.</span>
                   <span className="tabular-nums font-semibold">{receipt.orNumber}</span>
                 </div>
@@ -388,16 +440,23 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
 
             <div className="space-y-1.5">
               {receipt.items.map((item, i) => {
-                const basePrice = parseFloat(item.size?.price || String(item.product.price ?? "0") || "0");
-                const modsTotal = (item.modifiers || []).reduce((s, m) => s + parseFloat(m.price || "0"), 0);
+                const basePrice = parseFloat(
+                  item.size?.price || String(item.product.price ?? "0") || "0",
+                );
+                const modsTotal = (item.modifiers || []).reduce(
+                  (s, m) => s + parseFloat(m.price || "0"),
+                  0,
+                );
                 const unitPrice = basePrice + modsTotal;
                 return (
                   <div key={i}>
                     <div className="flex justify-between text-[13px]">
                       <span className="flex-1 mr-2 font-medium">
                         {item.product.name}
-                        {item.size && <span className="text-muted-foreground"> ({item.size.name})</span>}
-                        {" "}x{item.quantity}
+                        {item.size && (
+                          <span className="text-muted-foreground"> ({item.size.name})</span>
+                        )}{" "}
+                        x{item.quantity}
                       </span>
                       <span className="tabular-nums">
                         {formatCurrency(unitPrice * item.quantity, currency)}
@@ -410,11 +469,13 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                     )}
                     {item.modifiers && item.modifiers.length > 0 && (
                       <div className="pl-3 text-muted-foreground text-[11px]">
-                        {item.modifiers.map(m => `+ ${m.name}`).join(", ")}
+                        {item.modifiers.map((m) => `+ ${m.name}`).join(", ")}
                       </div>
                     )}
                     {item.note && (
-                      <div className="pl-3 text-muted-foreground italic text-[11px]">Note: {item.note}</div>
+                      <div className="pl-3 text-muted-foreground italic text-[11px]">
+                        Note: {item.note}
+                      </div>
                     )}
                   </div>
                 );
@@ -439,13 +500,17 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
               {hasDiscount && isScPwd && (
                 <div className="flex justify-between text-rose-500 text-[12px]">
                   <span>{receipt.discountType === "sc" ? "SC" : "PWD"} Discount (20%)</span>
-                  <span className="tabular-nums">-{formatCurrency(receipt.discount, currency)}</span>
+                  <span className="tabular-nums">
+                    -{formatCurrency(receipt.discount, currency)}
+                  </span>
                 </div>
               )}
               {hasDiscount && !isScPwd && (
                 <div className="flex justify-between text-rose-500 text-[12px]">
                   <span>Discount {receipt.discountCode ? `(${receipt.discountCode})` : ""}</span>
-                  <span className="tabular-nums">-{formatCurrency(receipt.discount, currency)}</span>
+                  <span className="tabular-nums">
+                    -{formatCurrency(receipt.discount, currency)}
+                  </span>
                 </div>
               )}
               {vatRegistered && (
@@ -461,13 +526,17 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
                   {vatExemptSales > 0 && (
                     <div className="flex justify-between text-muted-foreground text-[11px]">
                       <span>VAT-Exempt Sales</span>
-                      <span className="tabular-nums">{formatCurrency(vatExemptSales, currency)}</span>
+                      <span className="tabular-nums">
+                        {formatCurrency(vatExemptSales, currency)}
+                      </span>
                     </div>
                   )}
                   {zeroRatedSales > 0 && (
                     <div className="flex justify-between text-muted-foreground text-[11px]">
                       <span>Zero-Rated Sales</span>
-                      <span className="tabular-nums">{formatCurrency(zeroRatedSales, currency)}</span>
+                      <span className="tabular-nums">
+                        {formatCurrency(zeroRatedSales, currency)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -483,12 +552,16 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
               </div>
               <div className="flex justify-between text-muted-foreground text-[12px]">
                 <span>Payment ({receipt.paymentMethod.toUpperCase()})</span>
-                <span className="tabular-nums">{formatCurrency(receipt.paymentAmount, currency)}</span>
+                <span className="tabular-nums">
+                  {formatCurrency(receipt.paymentAmount, currency)}
+                </span>
               </div>
               {isCash && receipt.changeAmount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-semibold green text-[12px]">
                   <span>Change</span>
-                  <span className="tabular-nums">{formatCurrency(receipt.changeAmount, currency)}</span>
+                  <span className="tabular-nums">
+                    {formatCurrency(receipt.changeAmount, currency)}
+                  </span>
                 </div>
               )}
               {isScPwd && receipt.scPwdId && (
@@ -500,21 +573,28 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             </div>
 
             {receipt.wifiVoucher && (
-              <div className="mt-3 rounded-lg border border-dashed border-border/60 p-3" data-testid="block-wifi-voucher">
+              <div
+                className="mt-3 rounded-lg border border-dashed border-border/60 p-3"
+                data-testid="block-wifi-voucher"
+              >
                 <p className="text-center font-bold text-[12px]">FREE WIFI VOUCHER</p>
                 {receipt.wifiVoucher.ssid && (
                   <div className="flex justify-between text-muted-foreground text-[11px] mt-1">
-                    <span>Network</span><span>{receipt.wifiVoucher.ssid}</span>
+                    <span>Network</span>
+                    <span>{receipt.wifiVoucher.ssid}</span>
                   </div>
                 )}
                 {receipt.wifiVoucher.password && (
                   <div className="flex justify-between text-muted-foreground text-[11px]">
-                    <span>Password</span><span>{receipt.wifiVoucher.password}</span>
+                    <span>Password</span>
+                    <span>{receipt.wifiVoucher.password}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-[12px] mt-1">
                   <span>Code</span>
-                  <span className="font-bold tracking-wider" data-testid="text-wifi-code">{receipt.wifiVoucher.code}</span>
+                  <span className="font-bold tracking-wider" data-testid="text-wifi-code">
+                    {receipt.wifiVoucher.code}
+                  </span>
                 </div>
                 <p className="text-center text-muted-foreground text-[10px] mt-1">
                   Valid for {receipt.wifiVoucher.durationMinutes} min after first use
@@ -525,12 +605,16 @@ export function ReceiptModal({ open, onClose, receipt }: ReceiptModalProps) {
             {receipt.receiptFooter && (
               <>
                 <div className="border-t border-dashed border-border/60 my-2" />
-                <p className="footer text-center text-muted-foreground text-[11px]">{receipt.receiptFooter}</p>
+                <p className="footer text-center text-muted-foreground text-[11px]">
+                  {receipt.receiptFooter}
+                </p>
               </>
             )}
             <p className="text-center text-muted-foreground/50 mt-3 text-[11px]">Thank you!</p>
             {showPoweredBy && (
-              <p className="text-center text-muted-foreground/30 mt-1 pb-4 text-[10px]">Powered by ArtixPOS</p>
+              <p className="text-center text-muted-foreground/30 mt-1 pb-4 text-[10px]">
+                Powered by ArtixPOS
+              </p>
             )}
           </div>
         </div>

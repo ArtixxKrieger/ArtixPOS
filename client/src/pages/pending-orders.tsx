@@ -279,7 +279,6 @@ export default function PendingOrders() {
                 data-testid={`pending-order-${order.id}`}
                 className="bg-card rounded-3xl shadow-md border border-border/30 overflow-hidden flex flex-col hover:shadow-xl transition-shadow duration-300 animate-fade-scale card-press"
               >
-                {/* Card header */}
                 <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3 border-b border-border/30">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
@@ -337,7 +336,6 @@ export default function PendingOrders() {
                   </div>
                 </div>
 
-                {/* Items list */}
                 <div className="px-5 py-3 space-y-2 flex-1 max-h-44 overflow-y-auto scrollbar-hide">
                   {items.map((item, i) => (
                     <div
@@ -369,7 +367,6 @@ export default function PendingOrders() {
                   ))}
                 </div>
 
-                {/* Notes */}
                 {order.notes && (
                   <div className="px-5 pb-3 flex items-start gap-1.5 text-xs text-muted-foreground italic">
                     <FileText className="h-3 w-3 mt-0.5 shrink-0" />
@@ -377,7 +374,6 @@ export default function PendingOrders() {
                   </div>
                 )}
 
-                {/* Payment input */}
                 <div className="px-5 py-3 bg-secondary/20 border-t border-border/30 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -415,7 +411,6 @@ export default function PendingOrders() {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="grid grid-cols-2 border-t border-border/30">
                   <Button
                     variant="ghost"

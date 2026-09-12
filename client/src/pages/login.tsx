@@ -2278,7 +2278,6 @@ export default function Login() {
               overflow: "hidden",
             }}
           >
-            {/* Sidebar */}
             <div
               style={{
                 width: 48,

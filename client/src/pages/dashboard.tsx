@@ -114,7 +114,6 @@ export default function Dashboard() {
         return idbData;
       }
 
-      // No cache — must fetch from network
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 15_000);
       try {

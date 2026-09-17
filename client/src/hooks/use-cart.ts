@@ -13,9 +13,8 @@ export type CartItem = {
   note?: string;
 };
 
-type ToastFn = (opts: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
 
-export function useCart(toast: ToastFn) {
+export function useCart() {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Keep a ref in sync so stock-check callbacks can always read the latest
@@ -42,17 +41,6 @@ const addToCart = useCallback(
           0,
         );
         if (totalInCart >= product.stock) {
-          toast({
-            title:
-              product.stock === 0
-                ? `${product.name} is out of stock`
-                : `Only ${product.stock} in stock`,
-            description:
-              product.stock > 0
-                ? `You already have all ${product.stock} unit${product.stock !== 1 ? "s" : ""} in the cart.`
-                : undefined,
-            variant: "destructive",
-          });
           return;
         }
       }
@@ -85,7 +73,7 @@ const addToCart = useCallback(
       });
       onAdded?.();
     },
-    [toast], // cart intentionally omitted — read via cartRef to keep callback stable
+    [], // cart intentionally omitted — read via cartRef to keep callback stable
   );
 
 const updateQuantity = useCallback(
@@ -98,17 +86,6 @@ const updateQuantity = useCallback(
             0,
           );
           if (totalInCart >= item.product.stock) {
-            toast({
-              title:
-                item.product.stock === 0
-                  ? `${item.product.name} is out of stock`
-                  : `Only ${item.product.stock} in stock`,
-              description:
-                item.product.stock > 0
-                  ? `You already have all ${item.product.stock} unit${item.product.stock !== 1 ? "s" : ""} in the cart.`
-                  : undefined,
-              variant: "destructive",
-            });
             return;
           }
         }
@@ -123,7 +100,7 @@ const updateQuantity = useCallback(
           .filter((item) => item.quantity > 0),
       );
     },
-    [toast], // cart intentionally omitted — read via cartRef to keep callback stable
+    [], // cart intentionally omitted — read via cartRef to keep callback stable
   );
 
 const removeFromCart = useCallback((cartId: string) => {

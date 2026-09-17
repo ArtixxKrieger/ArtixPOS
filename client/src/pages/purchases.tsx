@@ -35,7 +35,6 @@ import {
   Search,
   BarChart3,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
@@ -119,7 +118,6 @@ function StatCard({
 }
 
 export default function PurchasesPage() {
-  const { toast } = useToast();
   const { t } = useTranslation();
   const { data: settings } = useSettings();
   const currency = settings?.currency ?? "₱";
@@ -192,10 +190,9 @@ export default function PurchasesPage() {
     mutationFn: (data: any) => apiRequest("POST", "/api/purchase-orders", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      toast({ title: t("common.success") });
       closeDialog();
     },
-    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
+    onError: () => {},
   });
 
   const receiveMutation = useMutation({
@@ -210,11 +207,9 @@ export default function PurchasesPage() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous);
-      toast({ title: t("common.error"), variant: "destructive" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: t("purchases.statusReceived") });
     },
   });
 
@@ -230,9 +225,8 @@ export default function PurchasesPage() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous);
-      toast({ title: t("common.error"), variant: "destructive" });
     },
-    onSuccess: () => toast({ title: t("purchases.statusCancelled") }),
+    onSuccess: () => undefined,
   });
 
   const paymentMutation = useMutation({
@@ -252,9 +246,8 @@ export default function PurchasesPage() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["/api/purchase-orders"], ctx.previous);
-      toast({ title: t("common.error"), variant: "destructive" });
     },
-    onSuccess: () => toast({ title: t("purchases.payment") }),
+    onSuccess: () => undefined,
   });
 
   function closeDialog() {
@@ -303,13 +296,11 @@ export default function PurchasesPage() {
       totalCost: (c.minOrderQty * parseFloat(c.unitCost)).toFixed(2),
     }));
     setItems(catalogItems);
-    toast({ title: `${t("purchases.fillCatalog")}: ${catalogItems.length} items` });
   }
 
   function handleSubmit() {
     const validItems = items.filter((it) => it.productName.trim() && Number(it.quantity) > 0);
     if (validItems.length === 0) {
-      toast({ title: t("purchases.addItem"), variant: "destructive" });
       return;
     }
     createMutation.mutate({

@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { insertServiceRoomSchema, type ServiceRoom } from "@shared/schema";
 import { DoorOpen, Plus, Edit, Trash2, CheckCircle2, XCircle, Wrench } from "lucide-react";
 
@@ -35,7 +34,6 @@ const formSchema = insertServiceRoomSchema.extend({
 });
 
 function RoomForm({ initial, onClose }: { initial?: ServiceRoom; onClose: () => void }) {
-  const { toast } = useToast();
   const { data: settings } = useSettings();
   const isEdit = !!initial?.id;
 
@@ -62,10 +60,9 @@ function RoomForm({ initial, onClose }: { initial?: ServiceRoom; onClose: () => 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-rooms"] });
-      toast({ title: isEdit ? "Room updated" : "Room added" });
       onClose();
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to save room", variant: "destructive" }),
+    onError: (err: any) => undefined,
   });
 
   return (
@@ -174,7 +171,6 @@ function RoomCard({ room, onEdit, onStatusChange, onDelete }: {
 }
 
 export default function RoomsPage() {
-  const { toast } = useToast();
   const { data: settings } = useSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRoom | undefined>();
@@ -207,7 +203,7 @@ export default function RoomsPage() {
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-rooms"], ctx.previous); },
-    onSuccess: () => { toast({ title: "Removed" }); setConfirmDelete(undefined); },
+    onSuccess: () => { undefined; setConfirmDelete(undefined); },
   });
 
   const available = (rooms as ServiceRoom[]).filter((r) => r.status === "available");

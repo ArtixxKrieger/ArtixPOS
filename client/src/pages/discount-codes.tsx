@@ -12,7 +12,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { insertDiscountCodeSchema, type DiscountCode } from "@shared/schema";
 import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
 import { Tag, Plus, Trash2, Edit, Copy, ToggleLeft, ToggleRight, Percent, DollarSign } from "lucide-react";
 
 const formSchema = insertDiscountCodeSchema.extend({
@@ -31,7 +30,6 @@ function CodeForm({
   onSuccess: () => void;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
   const isEdit = !!initial?.id;
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,10 +50,9 @@ function CodeForm({
         : apiRequest("POST", "/api/discount-codes", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/discount-codes"] });
-      toast({ title: isEdit ? "Code updated" : "Code created" });
       onSuccess();
     },
-    onError: () => toast({ title: "Error saving code" }),
+    onError: () => {},
   });
 
   const typeValue = form.watch("type");
@@ -142,7 +139,6 @@ function CodeForm({
 export default function DiscountCodes() {
   const { data: codes = [], isLoading: _isLoading } = useQuery<DiscountCode[]>({ queryKey: ["/api/discount-codes"] });
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";
 
   const [showForm, setShowForm] = useState(false);
@@ -156,8 +152,8 @@ export default function DiscountCodes() {
       queryClient.setQueryData<any[]>(["/api/discount-codes"], (old) => old ? old.filter(c => c.id !== id) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/discount-codes"], ctx.previous); toast({ title: "Failed to delete code", variant: "destructive" }); },
-    onSuccess: () => { toast({ title: "Code deleted" }); },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/discount-codes"], ctx.previous); },
+    onSuccess: () => { undefined; },
   });
 
   const toggleMutation = useMutation({
@@ -258,7 +254,7 @@ export default function DiscountCodes() {
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button
-                      onClick={() => { navigator.clipboard.writeText(code.code); toast({ title: "Code copied!" }); }}
+                      onClick={() => { navigator.clipboard.writeText(code.code); }}
                       className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/50 transition-colors"
                       title="Copy code"
                       aria-label={`Copy code ${code.code}`}

@@ -51,7 +51,6 @@ import {
   ScanBarcode,
   Camera,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CameraScannerModal } from "@/components/camera-scanner-modal";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
@@ -174,7 +173,6 @@ export default function Products() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
-  const { toast } = useToast();
 
   const { productPlural } = useBusinessTerminology();
   const { businessType, showBarcode: _showInven } = useBranchBusiness();
@@ -234,9 +232,6 @@ export default function Products() {
         genericName: "",
       });
       setIsDialogOpen(true);
-      toast({
-        title: `Barcode ${barcode} not found — fill in the details to create a new product`,
-      });
     }
   };
 
@@ -255,7 +250,6 @@ export default function Products() {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
     onError: (err: Error) => {
-      toast({ title: "Import failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -307,9 +301,8 @@ export default function Products() {
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
     setPendingDeleteId(null);
     deleteProduct.mutate(id, {
-      onSuccess: () => toast({ title: "Product deleted" }),
-      onError: (err) =>
-        toast({ title: "Failed to delete", description: err.message, variant: "destructive" }),
+      onSuccess: () => undefined,
+      onError: () => {},
     });
   };
 
@@ -416,19 +409,9 @@ export default function Products() {
 
   const onSubmit = (data: ProductFormData) => {
     if (!data.name?.trim()) {
-      toast({
-        title: "Name required",
-        description: "Please enter a product name.",
-        variant: "destructive",
-      });
       return;
     }
     if (!data.price?.toString().trim() || isNaN(parseFloat(data.price.toString()))) {
-      toast({
-        title: "Valid price required",
-        description: "Please enter a valid price (e.g. 0.00).",
-        variant: "destructive",
-      });
       return;
     }
     const payload: InsertProduct = {
@@ -458,10 +441,8 @@ export default function Products() {
             setIsDialogOpen(false);
             setEditingId(null);
             form.reset();
-            toast({ title: "Product updated" });
           },
           onError: (err) => {
-            toast({ title: "Failed to update", description: err.message, variant: "destructive" });
           },
         },
       );
@@ -470,14 +451,8 @@ export default function Products() {
         onSuccess: () => {
           setIsDialogOpen(false);
           form.reset();
-          toast({ title: "Product added" });
         },
         onError: (err) => {
-          toast({
-            title: "Failed to add product",
-            description: err.message,
-            variant: "destructive",
-          });
         },
       });
     }

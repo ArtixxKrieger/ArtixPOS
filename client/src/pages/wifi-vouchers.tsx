@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -667,7 +666,6 @@ export default function WifiVouchersPage() {
   const { data: settings, isLoading: settingsLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { isPro } = useSubscription();
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<TabId>("vouchers");
 
@@ -772,9 +770,8 @@ export default function WifiVouchersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/wifi-vouchers"] });
       setIssueCustomer("");
-      toast({ title: "Voucher issued" });
     },
-    onError: () => toast({ title: "Failed to issue voucher", variant: "destructive" }),
+    onError: () => {},
   });
 
   const redeemMutation = useMutation({
@@ -783,30 +780,20 @@ export default function WifiVouchersPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/wifi-vouchers"] });
       setRedeemCode("");
-      toast({
-        title:
-          data.status === "active"
-            ? `Voucher activated — expires ${new Date(data.expiresAt).toLocaleTimeString()}`
-            : "Voucher already used or expired",
-      });
     },
-    onError: () => toast({ title: "Voucher not found", variant: "destructive" }),
+    onError: () => {},
   });
 
   const syncMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/router/sync", {}).then((r) => r.json()),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/wifi-vouchers"] });
-      toast({
-        title: `Sync complete — ${data.expired} expired, ${data.removed} removed from router`,
-      });
     },
-    onError: () => toast({ title: "Sync failed", variant: "destructive" }),
+    onError: () => {},
   });
 
   const handleTestConnection = async () => {
     if (!routerHost.trim()) {
-      toast({ title: "Enter router IP first", variant: "destructive" });
       return;
     }
     setRouterTestStatus("testing");
@@ -832,7 +819,6 @@ export default function WifiVouchersPage() {
 
   const handleSave = () => {
     if (enabled && !ssid.trim()) {
-      toast({ title: "Network name (SSID) is required", variant: "destructive" });
       return;
     }
 
@@ -866,7 +852,7 @@ export default function WifiVouchersPage() {
         wifiActiveProfileId: activeProfileId,
         routerConfig,
       } as any,
-      { onSuccess: () => toast({ title: "Settings saved" }) },
+      { onSuccess: () => undefined },
     );
   };
 

@@ -9,8 +9,6 @@ import {
 import { LogOut, ShoppingCart } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toaster";
-import { useToast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings, consumeLoadingGateSignal, clearSettingsPrewarm } from "@/hooks/use-settings";
@@ -632,7 +630,6 @@ function ProtectedRouter() {
   const [location] = useLocation();
   useAuthTracer();
   const [redeemingInvite, setRedeemingInvite] = useState(false);
-  const { toast } = useToast();
 
   const prevUserIdRef = useRef<string | null>(null);
 
@@ -643,12 +640,6 @@ function ProtectedRouter() {
       // that could race with a fresh login.
       const cached = queryClient.getQueryData(["auth-me"]);
       if (!cached) return;
-      toast({
-        title: "Session ended",
-        description: "You've been signed out. This can happen if your session was ended from another device.",
-        variant: "destructive",
-        duration: 6000,
-      });
       queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     }
     window.addEventListener("auth:session-expired", handleSessionExpired);
@@ -814,7 +805,6 @@ function App() {
         <TooltipProvider>
           <BlePrinterProvider>
             <Router />
-            <Toaster />
           </BlePrinterProvider>
         </TooltipProvider>
       </QueryClientProvider>

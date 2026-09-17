@@ -9,7 +9,6 @@ import { format } from "date-fns";
 import { Receipt, CreditCard, Smartphone, Hash, Tag, FileText, RotateCcw, UserCircle2, ShieldCheck, Printer, Ban, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyPermissions } from "@/hooks/use-admin";
 import { useBlePrinter } from "@/lib/ble-printer-context";
@@ -91,7 +90,6 @@ const PAYMENT_COLORS: Record<string, string> = {
 export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
   const { data: settings, isLoading: _settingsLoading } = useSettings();
   const currency = settings?.currency || "₱";
-  const { toast } = useToast();
   const { isManagerOrAbove } = useAuth();
   const { data: perms, isLoading: permsLoading } = useMyPermissions();
   const { printer: blePrinter, print: blePrint } = useBlePrinter();
@@ -115,12 +113,11 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/refunds"] });
-      toast({ title: "Refund processed successfully" });
       setShowRefund(false);
       setRefundReason("");
       onClose();
     },
-    onError: () => toast({ title: "Refund failed", description: "Could not process the refund." }),
+    onError: () => {},
   });
 
   const deleteSaleMutation = useDeleteSale();
@@ -131,13 +128,11 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-          toast({ title: "Sale voided", description: "The sale has been permanently voided in the audit log." });
           setShowVoid(false);
           setVoidReason("");
           onClose();
         },
         onError: (err) => {
-          toast({ title: "Void failed", description: (err as Error).message, variant: "destructive" });
         },
       }
     );
@@ -237,9 +232,7 @@ export function SaleDetailModal({ sale, open, onClose }: SaleDetailModalProps) {
         catFontSize: fs,
       });
       if (result.ok) {
-        toast({ title: "Receipt reprinted", description: `Sent to ${blePrinter.name}` });
       } else {
-        toast({ title: "Print failed", description: result.error, variant: "destructive" });
       }
       return;
     }

@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, LayoutGrid, Pencil, Trash2, Users, Check, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import type { Table } from "@shared/schema";
 
 const STATUS_CONFIG = {
@@ -23,7 +22,6 @@ interface TableForm { name: string; seats: number; status: TableStatus }
 const DEFAULT_FORM: TableForm = { name: "", seats: 4, status: "available" };
 
 export default function TablesPage() {
-  const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Table | null>(null);
   const [form, setForm] = useState<TableForm>(DEFAULT_FORM);
@@ -33,20 +31,20 @@ export default function TablesPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: TableForm) => apiRequest("POST", "/api/tables", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); toast({ title: "Table created" }); closeDialog(); },
-    onError: () => toast({ title: "Failed to create table", variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); closeDialog(); },
+    onError: () => {},
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<TableForm> }) => apiRequest("PUT", `/api/tables/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); toast({ title: "Table updated" }); closeDialog(); },
-    onError: () => toast({ title: "Failed to update table", variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); closeDialog(); },
+    onError: () => {},
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/tables/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); toast({ title: "Table deleted" }); },
-    onError: () => toast({ title: "Failed to delete table", variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); },
+    onError: () => {},
   });
 
   function openCreate() { setEditing(null); setForm(DEFAULT_FORM); setDialogOpen(true); }
@@ -54,7 +52,7 @@ export default function TablesPage() {
   function closeDialog() { setDialogOpen(false); setEditing(null); setForm(DEFAULT_FORM); }
 
   function handleSubmit() {
-    if (!form.name.trim()) { toast({ title: "Table name is required", variant: "destructive" }); return; }
+    if (!form.name.trim()) { undefined; return; }
     if (editing) updateMutation.mutate({ id: editing.id, data: form });
     else createMutation.mutate(form);
   }

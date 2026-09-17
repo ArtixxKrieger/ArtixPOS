@@ -12,7 +12,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import { getBusinessFeatures } from "@/lib/business-features";
@@ -54,7 +53,6 @@ function CheckoutDialog({
   customers: Customer[];
   onClose: () => void;
 }) {
-  const { toast } = useToast();
   const { data: settings } = useSettings();
   const currency = settings?.currency ?? "₱";
   const { data: rooms = [] } = useQuery<ServiceRoom[]>({ queryKey: ["/api/service-rooms"] });
@@ -121,10 +119,9 @@ function CheckoutDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-      toast({ title: "Payment confirmed!", description: `Sale recorded · ${formatCurrency(total, currency)}` });
       onClose();
     },
-    onError: () => toast({ title: "Error", description: "Could not process payment", variant: "destructive" }),
+    onError: () => {},
   });
 
   const canPay = paymentMethod !== "cash" || (!!cashGiven && Number(cashGiven) >= total);
@@ -313,7 +310,6 @@ function AppointmentForm({
   defaultDate: string;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
   const isEdit = !!initial?.id;
   const { data: staff = [] }     = useQuery<ServiceStaff[]>({ queryKey: ["/api/service-staff"] });
   const { data: customers = [] } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
@@ -390,11 +386,9 @@ const roomAvailability = useMemo(() => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      toast({ title: isEdit ? `${terminology.entry} updated` : `${terminology.entry} booked` });
       onClose();
     },
-    onError: () =>
-      toast({ title: "Error", description: `Failed to save ${terminology.entry.toLowerCase()}`, variant: "destructive" }),
+    onError: () => {},
   });
 
   const activeStaff = (staff as ServiceStaff[]).filter((s) => s.isActive);
@@ -770,7 +764,6 @@ function AppointmentCard({
 }
 
 export default function AppointmentsPage() {
-  const { toast } = useToast();
   const [selectedDate, setSelectedDate]   = useState(format(new Date(), "yyyy-MM-dd"));
   const [dialogOpen, setDialogOpen]       = useState(false);
   const [editing, setEditing]             = useState<Appointment | undefined>();
@@ -818,7 +811,7 @@ export default function AppointmentsPage() {
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/appointments"], ctx.previous); },
-    onSuccess: () => { toast({ title: `${terminology.entry} deleted` }); setConfirmDelete(undefined); },
+    onSuccess: () => { undefined; setConfirmDelete(undefined); },
   });
 
   const parsedDate      = parseISO(selectedDate);

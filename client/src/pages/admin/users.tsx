@@ -26,7 +26,6 @@ import {
 } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription, FREE_LIMITS } from "@/hooks/use-subscription";
-import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +40,6 @@ type AddStaffForm = z.infer<typeof addStaffSchema>;
 function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: branches = [] } = useBranches();
   const createStaff = useCreateStaffUser();
-  const { toast } = useToast();
   const [done, setDone] = useState(false);
   const [hadPin, setHadPin] = useState(false);
 
@@ -57,7 +55,6 @@ function AddStaffDialog({ open, onClose }: { open: boolean; onClose: () => void 
       setHadPin(!!pin);
       setDone(true);
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to add staff member", variant: "destructive" });
     }
   }
 
@@ -253,7 +250,6 @@ function BranchAssignDialog({ user, open, onClose }: { user: TenantUser; open: b
   const { data: branches = [] } = useBranches();
   const assignBranch = useAssignBranch();
   const removeBranch = useRemoveBranch();
-  const { toast } = useToast();
 
   async function toggle(branchId: number, currentlyAssigned: boolean) {
     try {
@@ -263,7 +259,6 @@ function BranchAssignDialog({ user, open, onClose }: { user: TenantUser; open: b
         await assignBranch.mutateAsync({ userId: user.id, branchId });
       }
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to update assignment", variant: "destructive" });
     }
   }
 
@@ -315,7 +310,6 @@ function BranchAssignDialog({ user, open, onClose }: { user: TenantUser; open: b
 // ── PIN Management Dialog ─────────────────────────────────────────────────────
 
 function PinManageDialog({ user, open, onClose }: { user: TenantUser; open: boolean; onClose: () => void }) {
-  const { toast } = useToast();
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
 
@@ -325,11 +319,10 @@ function PinManageDialog({ user, open, onClose }: { user: TenantUser; open: bool
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message ?? "Failed"); }
     },
     onSuccess: () => {
-      toast({ title: "PIN set", description: `${user.name ?? "Staff"} can now clock in with their PIN.` });
       setPin(""); setConfirm("");
       onClose();
     },
-    onError: (e: any) => toast({ title: e.message ?? "Failed to set PIN", variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   const removePin = useMutation({
@@ -338,10 +331,9 @@ function PinManageDialog({ user, open, onClose }: { user: TenantUser; open: bool
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message ?? "Failed"); }
     },
     onSuccess: () => {
-      toast({ title: "PIN removed" });
       onClose();
     },
-    onError: (e: any) => toast({ title: e.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   const unlockPin = useMutation({
@@ -349,8 +341,8 @@ function PinManageDialog({ user, open, onClose }: { user: TenantUser; open: bool
       const res = await apiRequest("POST", `/api/staff-pin/unlock/${user.id}`);
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message ?? "Failed"); }
     },
-    onSuccess: () => toast({ title: "PIN unlocked" }),
-    onError: (e: any) => toast({ title: e.message ?? "Failed", variant: "destructive" }),
+    onSuccess: () => undefined,
+    onError: (e: any) => undefined,
   });
 
   const pinOk = /^\d{4,6}$/.test(pin) && pin === confirm;
@@ -451,7 +443,6 @@ export default function UsersPage() {
   const [branchAssignUser, setBranchAssignUser] = useState<TenantUser | null>(null);
   const [pinManageUser, setPinManageUser] = useState<TenantUser | null>(null);
   const isOwner = currentUser?.role === "owner";
-  const { toast } = useToast();
 
   const staffLimit = isBusiness ? Infinity : isPro ? 15 : FREE_LIMITS.staff;
   const nonOwnerCount = tenantUsers.filter(u => u.role !== "owner").length;
@@ -470,9 +461,7 @@ export default function UsersPage() {
     if (!deletingUserId) return;
     try {
       await deleteUser.mutateAsync(deletingUserId);
-      toast({ title: "Team member removed" });
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to remove user", variant: "destructive" });
     } finally {
       setDeletingUserId(null);
     }
@@ -482,13 +471,10 @@ export default function UsersPage() {
     try {
       if (u.isBanned) {
         await restoreAccess.mutateAsync(u.id);
-        toast({ title: "Access restored", description: `${u.name ?? "User"} can now log in again.` });
       } else {
         await revokeAccess.mutateAsync(u.id);
-        toast({ title: "Access revoked", description: `${u.name ?? "User"} can no longer log in.` });
       }
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to update access", variant: "destructive" });
     } finally {
       setRevokingUserId(null);
     }
@@ -690,9 +676,7 @@ export default function UsersPage() {
                       onValueChange={async (role) => {
                         try {
                           await updateRole.mutateAsync({ id: u.id, role: role as any });
-                          toast({ title: "Role updated" });
                         } catch (err: any) {
-                          toast({ title: err?.message ?? "Failed to update role", variant: "destructive" });
                         }
                       }}
                     >
@@ -880,9 +864,7 @@ export default function UsersPage() {
                     onClick={async () => {
                       try {
                         await restoreDeleted.mutateAsync(u.id);
-                        toast({ title: "Staff member restored", description: `${u.name ?? "User"} has been restored to your team.` });
                       } catch {
-                        toast({ title: "Failed to restore", variant: "destructive" });
                       }
                     }}
                     disabled={restoreDeleted.isPending}

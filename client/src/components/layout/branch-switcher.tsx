@@ -2,7 +2,6 @@ import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useBranches, useSwitchBranch } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +24,6 @@ export function BranchSwitcher({ compact = false }: { compact?: boolean }) {
   const { data: branchData } = useBranches();
   const branches = branchData ?? [];
   const switchBranch = useSwitchBranch();
-  const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
   const activeId = user?.activeBranchId ?? null;
@@ -55,15 +53,9 @@ useEffect(() => {
     }
     try {
       await switchBranch.mutateAsync(branchId);
-      toast({ title: `Switched to ${branches.find((b) => b.id === branchId)?.name}` });
       setOpen(false);
       setTimeout(() => window.location.reload(), 150);
     } catch (err: unknown) {
-      toast({
-        title: "Could not switch branch",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
     }
   };
 

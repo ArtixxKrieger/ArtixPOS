@@ -8,7 +8,6 @@ import { useSettings } from "@/hooks/use-settings";
 import { useBlePrinter } from "@/lib/ble-printer-context";
 import { buildReceiptEscPos } from "@/lib/escpos";
 import { buildReceiptText, catCharsPerLine } from "@/lib/catprinter";
-import { useToast } from "@/hooks/use-toast";
 import { type UserSetting } from "@shared/schema";
 
 function escHtml(str: string | undefined | null): string {
@@ -68,7 +67,6 @@ interface ReceiptModalProps {
 export function ReceiptModal({ open, onClose, receipt, autoPrint = false }: ReceiptModalProps) {
   const { data: settings } = useSettings();
   const { printer, print } = useBlePrinter();
-  const { toast } = useToast();
   const autoPrintHandledRef = useRef(false);
   const handlePrintRef = useRef<(() => void) | null>(null);
 
@@ -198,9 +196,7 @@ export function ReceiptModal({ open, onClose, receipt, autoPrint = false }: Rece
         catFontSize: receiptFontSize,
       }).then((result) => {
         if (result.ok) {
-          toast({ title: "Receipt printed", description: `Sent to ${printer.name}` });
         } else {
-          toast({ title: "Print failed", description: result.error, variant: "destructive" });
         }
       });
     } else {
@@ -340,7 +336,6 @@ export function ReceiptModal({ open, onClose, receipt, autoPrint = false }: Rece
       const winWidth = receiptWidth === "58mm" ? 260 : 340;
       const win = window.open("", "_blank", `width=${winWidth},height=700`);
       if (!win) {
-        toast({ title: "Allow pop-ups to print receipts", variant: "destructive" });
         return;
       }
       win.document.write(printHtml);

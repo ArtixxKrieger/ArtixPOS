@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -47,7 +46,6 @@ const planFormSchema = insertMembershipPlanSchema.extend({
 });
 
 function PlanForm({ initial, onClose }: { initial?: MembershipPlan; onClose: () => void }) {
-  const { toast } = useToast();
   const isEdit = !!initial?.id;
   const { data: settings } = useSettings();
 
@@ -77,10 +75,9 @@ function PlanForm({ initial, onClose }: { initial?: MembershipPlan; onClose: () 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/membership-plans"] });
-      toast({ title: isEdit ? "Plan updated" : "Plan created" });
       onClose();
     },
-    onError: () => toast({ title: "Error", description: "Failed to save plan", variant: "destructive" }),
+    onError: () => {},
   });
 
   return (
@@ -193,7 +190,6 @@ const memberFormSchema = insertMembershipSchema.extend({
 });
 
 function MemberForm({ onClose }: { onClose: () => void }) {
-  const { toast } = useToast();
   const { data: customers = [] } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: plans = [] } = useQuery<MembershipPlan[]>({ queryKey: ["/api/membership-plans"] });
   const { data: settings } = useSettings();
@@ -221,10 +217,9 @@ function MemberForm({ onClose }: { onClose: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/memberships"] });
-      toast({ title: "Member enrolled" });
       onClose();
     },
-    onError: () => toast({ title: "Error", description: "Failed to enroll member", variant: "destructive" }),
+    onError: () => {},
   });
 
   return (
@@ -388,7 +383,6 @@ function MemberCard({ m, onCheckIn, onStatusChange, onDelete }: {
 }
 
 export default function MembershipsPage() {
-  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [planDialog, setPlanDialog] = useState(false);
@@ -408,7 +402,7 @@ export default function MembershipsPage() {
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/membership-plans"], ctx.previous); },
-    onSuccess: () => { setConfirmDelete(undefined); toast({ title: "Plan deleted" }); },
+    onSuccess: () => { setConfirmDelete(undefined); },
   });
 
   const deleteMemberMutation = useMutation({
@@ -420,7 +414,7 @@ export default function MembershipsPage() {
       return { previous };
     },
     onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous); },
-    onSuccess: () => { setConfirmDelete(undefined); toast({ title: "Membership removed" }); },
+    onSuccess: () => { setConfirmDelete(undefined); },
   });
 
   const statusMutation = useMutation({
@@ -436,8 +430,8 @@ export default function MembershipsPage() {
 
   const checkInMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/memberships/${id}/check-in`, {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/memberships"] }); toast({ title: "Check-in recorded!" }); },
-    onError: () => toast({ title: "Check-in failed", variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/memberships"] }); },
+    onError: () => {},
   });
 
   const filteredMembers = (members as MemberWithCustomer[]).filter((m) =>

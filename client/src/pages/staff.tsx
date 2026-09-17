@@ -11,7 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { insertServiceStaffSchema, type ServiceStaff } from "@shared/schema";
 import {
   Users, Plus, Phone, Mail, Edit, Trash2, Search, Palette,
@@ -28,7 +27,6 @@ const formSchema = insertServiceStaffSchema.extend({
 });
 
 function StaffForm({ initial, onClose }: { initial?: ServiceStaff; onClose: () => void }) {
-  const { toast } = useToast();
   const isEdit = !!initial?.id;
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -54,10 +52,9 @@ function StaffForm({ initial, onClose }: { initial?: ServiceStaff; onClose: () =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-staff"] });
-      toast({ title: isEdit ? "Staff updated" : "Staff added" });
       onClose();
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to save staff member", variant: "destructive" }),
+    onError: (err: any) => undefined,
   });
 
   const selectedColor = form.watch("color");
@@ -171,7 +168,6 @@ function StaffCard({ staff, onEdit, onDelete }: { staff: ServiceStaff; onEdit: (
 }
 
 export default function StaffPage() {
-  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -188,8 +184,8 @@ export default function StaffPage() {
       queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => Array.isArray(old) ? old.filter(s => s.id !== id) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); toast({ title: "Error", description: "Failed to delete", variant: "destructive" }); },
-    onSuccess: () => { toast({ title: "Staff member removed" }); setConfirmDelete(undefined); },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); },
+    onSuccess: () => { undefined; setConfirmDelete(undefined); },
   });
 
 const toggleActiveMutation = useMutation({

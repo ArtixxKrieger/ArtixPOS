@@ -2,7 +2,6 @@ import { useLocation } from "wouter";
 import { ChevronLeft, Bell, Truck, PackageX, CalendarClock, Wifi } from "lucide-react";
 import { useSettings, useUpdateSettings } from "@/hooks/use-settings";
 import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
 
 type PrefKey = keyof NotificationPreferences;
 
@@ -47,7 +46,6 @@ export default function NotificationPreferences() {
   const [, setLocation] = useLocation();
   const { data: settings } = useSettings();
   const updateSettings = useUpdateSettings();
-  const { toast } = useToast();
 
   const prefs: NotificationPreferences = {
     ...DEFAULT_NOTIFICATION_PREFERENCES,
@@ -59,9 +57,7 @@ export default function NotificationPreferences() {
     updateSettings.mutate(
       { notificationPreferences: next } as any,
       {
-        onError: () => {
-          toast({ title: "Failed to save preference", variant: "destructive" });
-        },
+        onError: () => {},
       },
     );
   };

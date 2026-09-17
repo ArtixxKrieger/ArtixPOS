@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound, Lock, Pencil, Trash2, Plus, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -61,7 +60,6 @@ function isoToLocal(iso: string): string {
 }
 
 export default function TimeClockPage() {
-  const { toast } = useToast();
   const { user, isManagerOrAbove, isAdminOrAbove } = useAuth();
   const isPinSession = !!(user as any)?.pinSession;
   const [now, setNow] = useState(new Date());
@@ -107,8 +105,8 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
 
   const clockInMutation = useMutation({
     mutationFn: (notes: string) => apiRequest("POST", "/api/time-logs/clock-in", { notes }),
-    onSuccess: () => { invalidateLogs(); toast({ title: "Clocked in — have a great shift!" }); setShowClockIn(false); setClockInNotes(""); },
-    onError: (e: any) => toast({ title: e?.message ?? "Failed to clock in", variant: "destructive" }),
+    onSuccess: () => { invalidateLogs(); setShowClockIn(false); setClockInNotes(""); },
+    onError: (e: any) => undefined,
   });
   const clockOutMutation = useMutation({
     mutationFn: async (notes: string) => {
@@ -118,17 +116,15 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
     onSuccess: async () => {
       setShowClockOut(false);
       setClockOutNotes("");
-      toast({ title: "Clocked out — great work! See you next shift." });
       await queryClient.cancelQueries();
       queryClient.clear();
       window.location.replace("/staff-clock-in");
     },
-    onError: () => toast({ title: "Failed to clock out", variant: "destructive" }),
+    onError: () => {},
   });
   const breakStartMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/time-logs/break-start", {}),
     onSuccess: async () => {
-      toast({ title: "Break started — enjoy your rest!" });
       if (isPinSession) {
         try { await apiRequest("POST", "/api/staff-pin/lock-screen", {}); } catch {  }
         await queryClient.cancelQueries();
@@ -138,38 +134,37 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
         queryClient.invalidateQueries({ queryKey: ["/api/time-logs/active"] });
       }
     },
-    onError: () => toast({ title: "Could not start break", variant: "destructive" }),
+    onError: () => {},
   });
   const lockScreenMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/staff-pin/lock-screen", {}),
     onSuccess: async () => { await queryClient.cancelQueries(); queryClient.clear(); window.location.replace("/staff-clock-in"); },
-    onError: () => toast({ title: "Could not lock screen", variant: "destructive" }),
+    onError: () => {},
   });
   const breakEndMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/time-logs/break-end", {}),
-    onSuccess: () => { invalidateLogs(); toast({ title: "Break ended — welcome back!" }); },
-    onError: () => toast({ title: "Could not end break", variant: "destructive" }),
+    onSuccess: () => { invalidateLogs(); },
+    onError: () => {},
   });
 
 const editLogMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PUT", `/api/time-logs/${id}`, data),
-    onSuccess: () => { invalidateLogs(); toast({ title: "Time log updated" }); setEditingLog(null); },
-    onError: (e: any) => toast({ title: e?.message ?? "Failed to update log", variant: "destructive" }),
+    onSuccess: () => { invalidateLogs(); setEditingLog(null); },
+    onError: (e: any) => undefined,
   });
   const deleteLogMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/time-logs/${id}`, {}),
-    onSuccess: () => { invalidateLogs(); toast({ title: "Time log deleted" }); setDeletingLog(null); },
-    onError: () => toast({ title: "Failed to delete log", variant: "destructive" }),
+    onSuccess: () => { invalidateLogs(); setDeletingLog(null); },
+    onError: () => {},
   });
   const manualEntryMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/time-logs/manual", data),
     onSuccess: () => {
       invalidateLogs();
-      toast({ title: "Manual entry added" });
       setShowManualEntry(false);
       setManualForm({ userId: "", clockIn: "", clockOut: "", breakMinutes: 0, notes: "" });
     },
-    onError: (e: any) => toast({ title: e?.message ?? "Failed to add entry", variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   function openEdit(log: any) {

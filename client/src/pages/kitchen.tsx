@@ -4,7 +4,6 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChefHat, Clock, CheckCircle2, Monitor } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useKitchenSse } from "@/hooks/use-kitchen-sse";
 import { cn } from "@/lib/utils";
 import type { PendingOrder } from "@shared/schema";
@@ -61,7 +60,6 @@ function LiveDot({ connected }: { connected: boolean }) {
 }
 
 export default function KitchenPage() {
-  const { toast } = useToast();
   const [_tick, setTick] = useState(0);
 
   const { connected } = useKitchenSse();
@@ -84,7 +82,7 @@ export default function KitchenPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pending-orders"] });
     },
-    onError: (err: any) => toast({ title: "Failed to update status", description: err?.message ?? "Please try again", variant: "destructive" }),
+    onError: (err: any) => undefined,
   });
 
   function handleStatusChange(order: PendingOrder) {

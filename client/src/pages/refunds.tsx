@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
   RotateCcw,
@@ -89,7 +88,6 @@ function DropdownItem({
 export default function Refunds() {
   const { data: settings } = useSettings();
   const { isOwner, isAdminOrAbove } = useAuth();
-  const { toast } = useToast();
   const { t } = useTranslation();
   const currency = (settings as any)?.currency || "₱";
 
@@ -166,9 +164,8 @@ export default function Refunds() {
         a.click();
         URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast({ title: t("birRefundExport") || "Refund audit log exported" });
       })
-      .catch(() => toast({ title: "Export failed", variant: "destructive" }));
+      .catch(() => undefined);
   }
 
   const dateFilterLabels: Record<DateFilter, string> = {

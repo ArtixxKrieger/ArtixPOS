@@ -86,7 +86,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useQueryClient } from "@tanstack/react-query";
@@ -241,7 +240,6 @@ export default function Settings() {
   const [currentLang, setCurrentLang] = useState(i18n.language || "en");
   const { data: settings, isLoading: _isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
-  const { toast } = useToast();
   const { user, logout, isLoggingOut } = useAuth();
   const { isPro, isBusiness } = useSubscription();
   const [, setLocation] = useLocation();
@@ -256,9 +254,8 @@ export default function Settings() {
     unsubscribe: pushUnsubscribe,
   } = usePushNotifications();
 
-  // Show a toast when push subscribe fails
   useEffect(() => {
-    if (pushError) toast({ title: pushError, variant: "destructive" });
+    if (pushError) undefined;
   }, [pushError]);
 
   const isManagerOrAbove = user?.role === "owner" || user?.role === "manager";
@@ -319,11 +316,6 @@ export default function Settings() {
       queryClient.clear();
       window.location.href = "/login";
     } catch {
-      toast({
-        title: "Failed to delete account",
-        description: "Please try again.",
-        variant: "destructive",
-      });
       setIsDeleting(false);
     }
   };
@@ -362,8 +354,8 @@ export default function Settings() {
 
   const savePaymentMethods = (updated: PaymentMethod[]) => {
     updateSettings.mutate({ paymentMethods: updated } as any, {
-      onSuccess: () => toast({ title: "Payment methods saved" }),
-      onError: () => toast({ title: "Saved locally — will sync when online" }),
+      onSuccess: () => undefined,
+      onError: () => {},
     });
   };
 
@@ -375,7 +367,6 @@ export default function Settings() {
       .replace(/\s+/g, "_")
       .replace(/[^a-z0-9_]/g, "");
     if (pmethods.find((m) => m.id === id)) {
-      toast({ title: "Method already exists", variant: "destructive" });
       return;
     }
     const updated = [...pmethods, { id, label, isCash: newMethodIsCash }];
@@ -387,7 +378,6 @@ export default function Settings() {
 
   const deletePaymentMethod = (id: string) => {
     if (pmethods.length <= 1) {
-      toast({ title: "At least one payment method required", variant: "destructive" });
       return;
     }
     const updated = pmethods.filter((m) => m.id !== id);
@@ -414,12 +404,6 @@ export default function Settings() {
     if (pg?.constraint) lines.push(`Constraint: ${pg.constraint}`);
     const full = lines.join(" | ");
     navigator.clipboard?.writeText(full).catch(() => {});
-    toast({
-      title: "Failed to save settings",
-      description: full,
-      variant: "destructive",
-      duration: 15000,
-    });
   };
 
   const onSubmit = (data: SettingsFormData) => {
@@ -434,7 +418,6 @@ export default function Settings() {
     };
     updateSettings.mutate(payload as any, {
       onSuccess: () => {
-        toast({ title: "Settings saved" });
 
         queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       },

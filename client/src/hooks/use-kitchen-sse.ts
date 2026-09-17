@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { queryClient, getNativeToken } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 function getToken(): string {
   return getNativeToken() ?? "";
@@ -16,7 +15,6 @@ export function useKitchenSse(options?: KitchenSseOptions) {
   const esRef = useRef<EventSource | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryDelay = useRef(2000);
-  const { toast } = useToast();
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -56,7 +54,6 @@ export function useKitchenSse(options?: KitchenSseOptions) {
           if (optionsRef.current?.onNewOrder) {
             optionsRef.current.onNewOrder(data);
           } else if (data.orderNumber) {
-            toast({ title: `New order #${data.orderNumber} arrived`, duration: 4000 });
           }
         } catch {  }
       });

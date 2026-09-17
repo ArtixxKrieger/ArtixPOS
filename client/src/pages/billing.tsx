@@ -12,7 +12,6 @@ import {
 import { useRevenueCat, isNative } from "@/lib/revenuecat";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
-import { useToast } from "@/hooks/use-toast";
 import { getPricingByCurrency, formatPrice } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,7 +103,6 @@ function ComparisonCell({
 export default function BillingPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
-  const { toast } = useToast();
   const {
     subscription,
     plan: currentPlan,
@@ -130,26 +128,11 @@ export default function BillingPage() {
         .then((data) => {
           if (data.success) {
             const planName = data.plan === "business" ? "Business" : "Pro";
-            toast({
-              title: `${planName} activated`,
-              description: `Welcome to ArtixPOS ${planName}.`,
-            });
             queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
           } else {
-            toast({
-              title: "Payment pending",
-              description: "Your payment is being processed. Check back shortly.",
-              variant: "destructive",
-            });
           }
         })
-        .catch(() =>
-          toast({
-            title: "Verification failed",
-            description: "Please contact support if you were charged.",
-            variant: "destructive",
-          }),
-        )
+        .catch(() => {})
         .finally(() => {
           setVerifying(false);
           navigate("/billing", { replace: true });
@@ -169,75 +152,36 @@ export default function BillingPage() {
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
-        toast({
-          title: "Error",
-          description: data.message ?? "Failed to create checkout",
-          variant: "destructive",
-        });
       }
     },
-    onError: () =>
-      toast({
-        title: "Error",
-        description: "Could not start checkout. Please try again.",
-        variant: "destructive",
-      }),
+    onError: () => {},
   });
 
   const reactivateMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/subscription/reactivate", {}).then((r) => r.json()),
     onSuccess: () => {
-      toast({
-        title: "Subscription reactivated",
-        description: "Your plan will continue past the current period.",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
     },
-    onError: () =>
-      toast({
-        title: "Error",
-        description: "Could not reactivate. Please try again.",
-        variant: "destructive",
-      }),
+    onError: () => {},
   });
 
   const handleNativePurchase = async () => {
     if (!rc.monthlyPackage) {
-      toast({
-        title: "Store unavailable",
-        description: "Could not load products from the App Store. Please try again.",
-        variant: "destructive",
-      });
       return;
     }
     try {
       await rc.purchase(rc.monthlyPackage);
-      toast({ title: "Purchase successful", description: "Welcome to ArtixPOS Pro." });
       refetch();
     } catch (e: any) {
       if (e?.userCancelled || e?.code === "1") return;
-      toast({
-        title: "Purchase failed",
-        description: e?.message ?? "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 
   const handleNativeRestore = async () => {
     try {
       await rc.restore();
-      toast({
-        title: "Purchases restored",
-        description: "Your previous purchases have been restored.",
-      });
       refetch();
     } catch (e: any) {
-      toast({
-        title: "Restore failed",
-        description: e?.message ?? "Could not restore purchases. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 

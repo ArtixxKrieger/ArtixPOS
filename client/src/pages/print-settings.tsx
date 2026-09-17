@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Save, Printer, ReceiptText, Bluetooth, Usb, Zap, RefreshCw, WifiOff, Info } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { format } from "date-fns";
 import { useBlePrinter } from "@/lib/ble-printer-context";
@@ -188,7 +187,6 @@ type UsbPrinter = {
 export default function PrintSettings() {
   const { data: settings, isLoading: _isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
-  const { toast } = useToast();
   const { user } = useAuth();
   const { printer: blePrinter, scanning: bleScanning, lastPrinterId, scan: bleScan, disconnect: bleDisconnect, print: blePrint, getPairedDevices, reconnectDevice } = useBlePrinter();
 
@@ -218,10 +216,8 @@ export default function PrintSettings() {
   const handleScanBluetooth = async () => {
     const { device, error } = await bleScan();
     if (error) {
-      toast({ title: "Scan failed", description: error, variant: "destructive" });
     } else if (device) {
       const name = device.name || "Bluetooth Printer";
-      toast({ title: "Printer paired", description: `${name} is connected and ready.` });
       await loadPairedDevices();
     }
   };
@@ -231,12 +227,10 @@ export default function PrintSettings() {
     await reconnectDevice(device);
     setConnectingDevice(null);
     const name = device.name || "Bluetooth Printer";
-    toast({ title: "Reconnected", description: `${name} is connected and ready.` });
   };
 
   const scanUsb = async () => {
     if (!(navigator as any).usb) {
-      toast({ title: "Not supported", description: "WebUSB is not available. Use Chrome on desktop.", variant: "destructive" });
       return;
     }
     setScanningUsb(true);
@@ -253,13 +247,10 @@ export default function PrintSettings() {
         if (device.configuration === null) await device.selectConfiguration(1);
         await device.claimInterface(0);
         setUsbPrinters(prev => prev.map(p => p.name === name ? { ...p, connected: true } : p));
-        toast({ title: "USB Printer connected", description: `${name} is ready.` });
       } catch {
-        toast({ title: "Device found", description: `${name} detected. Use Test Print to connect.` });
       }
     } catch (err: any) {
       if (err.name !== "NotFoundError" && err.name !== "NotAllowedError") {
-        toast({ title: "USB scan failed", description: err.message, variant: "destructive" });
       }
     } finally {
       setScanningUsb(false);
@@ -290,9 +281,7 @@ export default function PrintSettings() {
       catReceiptWidth: receiptWidth,
     });
     if (result.ok) {
-      toast({ title: "Test print sent!", description: `Check your ${blePrinter.name} for the test receipt.` });
     } else {
-      toast({ title: "Print failed", description: result.error, variant: "destructive" });
     }
     setTestingBle(false);
   };
@@ -317,12 +306,9 @@ export default function PrintSettings() {
         } catch {}
       }
       if (sent) {
-        toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
       } else {
-        toast({ title: "Print failed", description: "Could not find a working USB endpoint. Try a different cable or printer driver.", variant: "destructive" });
       }
     } catch (err: any) {
-      toast({ title: "Print failed", description: err.message, variant: "destructive" });
     } finally {
       setTestingUsb(null);
     }
@@ -407,10 +393,6 @@ const autoWidthAppliedRef = useRef<string | null>(null);
     set("receiptWidth", detectedWidth);
 
     updateSettings.mutate({ receiptWidth: detectedWidth } as any);
-    toast({
-      title: `Paper width set to ${detectedWidth}`,
-      description: `Auto-detected from ${name}`,
-    });
 
   }, [blePrinter.detectedWidth, blePrinter.name]);
 
@@ -442,7 +424,6 @@ const autoWidthAppliedRef = useRef<string | null>(null);
       vatRegistered: cfg.vatRegistered ? 1 : 0,
       currency: cfg.currency || "₱",
     } as any);
-    toast({ title: "Print settings saved" });
   };
 
   if (!isOwner) {

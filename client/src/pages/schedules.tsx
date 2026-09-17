@@ -11,7 +11,6 @@ import {
   CalendarDays, Plus, Pencil, Trash2, Clock, ChevronDown, ChevronUp,
   Users, LayoutGrid, List, Copy,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -292,7 +291,6 @@ function ListView({
 
 // ─── Main page ───────────────────────────────────────────────────────
 export default function SchedulesPage() {
-  const { toast } = useToast();
   const [view, setView] = useState<"list" | "grid">("grid");
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
@@ -343,10 +341,8 @@ export default function SchedulesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/staff-schedules/combined"] });
       setShowForm(false);
       setEditingId(null);
-      toast({ title: editingId ? "Schedule updated" : "Schedule added" });
     },
     onError: (e: any) => {
-      toast({ title: "Error", description: e?.message ?? "Failed to save schedule", variant: "destructive" });
     },
   });
 
@@ -355,10 +351,8 @@ export default function SchedulesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff-schedules/combined"] });
       setDeletingId(null);
-      toast({ title: "Schedule removed" });
     },
     onError: (e: any) => {
-      toast({ title: "Error", description: e?.message ?? "Failed to delete", variant: "destructive" });
     },
   });
 
@@ -395,8 +389,8 @@ export default function SchedulesPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.userId) return toast({ title: "Select an employee", variant: "destructive" });
-    if (form.startTime >= form.endTime) return toast({ title: "End time must be after start time", variant: "destructive" });
+    if (!form.userId) return undefined;
+    if (form.startTime >= form.endTime) return undefined;
     createMutation.mutate(form);
   }
 

@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import "sileo/styles.css";
 import "./i18n";
 import { initErrorCapture } from "@/lib/error-capture";
 

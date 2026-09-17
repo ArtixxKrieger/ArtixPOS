@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { type Shift } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
 import {
   Clock, TrendingUp, Play, Square, Receipt, AlertCircle,
   ChevronLeft, ChevronRight, SlidersHorizontal, Printer,
@@ -211,7 +210,6 @@ export default function Shifts() {
   const { data: shifts = [], isLoading: _isLoading } = useShifts();
   const { data: openShift } = useOpenShift();
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";
   const storeName = (settings as any)?.storeName || "Store";
   const tin = (settings as any)?.tin || "";
@@ -271,7 +269,6 @@ const openingBalance = useOpenDenoms ? String(denomTotal(openDenoms)) : openBala
     }),
     onSuccess: () => {
       invalidateShifts();
-      toast({ title: "Shift opened — have a great day!" });
       setShowOpen(false);
       setOpenDenoms(emptyDenoms());
       setOpenBalanceManual("");
@@ -279,7 +276,6 @@ const openingBalance = useOpenDenoms ? String(denomTotal(openDenoms)) : openBala
     },
     onError: async (err: any) => {
       const msg = await err?.response?.json?.().then((d: any) => d.message).catch(() => "Error opening shift");
-      toast({ title: msg || "Error opening shift", variant: "destructive" });
     },
   });
 
@@ -292,13 +288,12 @@ const openingBalance = useOpenDenoms ? String(denomTotal(openDenoms)) : openBala
     }),
     onSuccess: () => {
       invalidateShifts();
-      toast({ title: "Shift closed successfully" });
       setShowClose(false);
       setCloseDenoms(emptyDenoms());
       setCloseBalanceManual("");
       setCloseNotes("");
     },
-    onError: () => toast({ title: "Error closing shift", variant: "destructive" }),
+    onError: () => {},
   });
 
   const adjMutation = useMutation({
@@ -309,12 +304,11 @@ const openingBalance = useOpenDenoms ? String(denomTotal(openDenoms)) : openBala
     }),
     onSuccess: () => {
       invalidateShifts();
-      toast({ title: adjType === "in" ? "Cash added to drawer" : "Cash removed from drawer" });
       setShowAdj(false);
       setAdjAmount("");
       setAdjReason("");
     },
-    onError: () => toast({ title: "Error recording adjustment", variant: "destructive" }),
+    onError: () => {},
   });
 
 const closedShifts = useMemo(() => shifts.filter(s => s.status === "closed"), [shifts]);

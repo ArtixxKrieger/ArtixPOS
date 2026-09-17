@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
   ShoppingCart, Delete, Lock, CheckCircle2,
@@ -141,7 +140,6 @@ function StaffCard({ member, onClick }: { member: RosterMember; onClick: () => v
 
 export default function StaffPinLogin() {
   const { user: ownerUser } = useAuth();
-  const { toast: _toast } = useToast();
   const [, setLocation] = useLocation();
 
   const [phase, setPhase] = useState<"roster" | "pin" | "success">("roster");

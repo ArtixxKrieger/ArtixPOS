@@ -13,7 +13,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { insertCustomerSchema, type Customer, type LoyaltyPointsLog, type LoyaltyReward } from "@shared/schema";
 import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
 import {
   Users, Plus, Search, Phone, Mail, Edit, ShoppingBag, X, Star,
   TrendingUp, TrendingDown, Gift, History, Crown, Medal, Sparkles, Calendar,
@@ -53,7 +52,6 @@ function CustomerForm({ initial, onSuccess, onClose, customers: _customers }: {
   onClose: () => void;
   customers: Customer[];
 }) {
-  const { toast } = useToast();
   const qc = useQueryClient();
   const isEdit = !!initial?.id;
 
@@ -78,10 +76,9 @@ function CustomerForm({ initial, onSuccess, onClose, customers: _customers }: {
     },
     onSuccess: (c) => {
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
-      toast({ title: isEdit ? "Customer updated" : "Customer added" });
       onSuccess(c);
     },
-    onError: () => toast({ title: "Error saving customer", variant: "destructive" }),
+    onError: () => {},
   });
 
   return (
@@ -134,7 +131,6 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
   customer: Customer; onClose: () => void; onEdit: () => void; currency: string;
 }) {
   const qc = useQueryClient();
-  const { toast } = useToast();
   const [customer, setCustomer] = useState(initial);
   const [tab, setTab] = useState<"overview" | "history" | "rewards">("overview");
   const [manualDelta, setManualDelta] = useState("");
@@ -165,9 +161,8 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
       qc.invalidateQueries({ queryKey: ["/api/customers", customer.id, "loyalty-log"] });
       setCustomer(c); setManualDelta(""); setManualNote("");
-      toast({ title: "Points adjusted" });
     },
-    onError: (err: any) => toast({ title: "Failed to adjust points", description: err?.message ?? "Please try again", variant: "destructive" }),
+    onError: (err: any) => undefined,
   });
 
   const redeemReward = useMutation({
@@ -177,9 +172,8 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
       qc.invalidateQueries({ queryKey: ["/api/customers", customer.id, "loyalty-log"] });
       setCustomer(res.customer);
-      toast({ title: `✓ Redeemed: ${res.reward.name}`, description: `−${res.reward.pointsCost} pts deducted` });
     },
-    onError: () => toast({ title: "Cannot redeem", description: "Insufficient points or reward unavailable", variant: "destructive" }),
+    onError: () => {},
   });
 
   const tier = getTier(customer);
@@ -380,7 +374,6 @@ function CustomerProfile({ customer: initial, onClose: _onClose, onEdit, currenc
 export default function Customers() {
   const { data: customers = [], isLoading: _isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const qc = useQueryClient();
   const currency = (settings as any)?.currency || "₱";
 
@@ -398,8 +391,8 @@ const deleteMutation = useMutation({
       qc.setQueryData<any[]>(["/api/customers"], (old) => old ? old.filter(c => c.id !== id) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/customers"], ctx.previous); toast({ title: "Delete failed", variant: "destructive" }); },
-    onSuccess: () => { setProfileCustomer(null); toast({ title: "Customer deleted" }); },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) qc.setQueryData(["/api/customers"], ctx.previous); },
+    onSuccess: () => { setProfileCustomer(null); },
   });
 
   const filtered = customers.filter(c =>

@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Cpu, Usb, ScanBarcode, CheckCircle2, Circle, Zap, Info, Printer, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { buildTestPrintEscPos } from "@/lib/escpos";
 import { useSettings } from "@/hooks/use-settings";
 import { BARCODE_BURST_MS, MIN_BARCODE_LENGTH, GS1_AIM_PREFIXES } from "@/constants/pos";
@@ -277,7 +276,6 @@ type UsbPrinter = { name: string; device: USBDevice; connected: boolean };
 
 function UsbPrinterSection() {
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const [printers, setPrinters] = useState<UsbPrinter[]>([]);
   const [scanning, setScanning] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
@@ -312,13 +310,10 @@ function UsbPrinterSection() {
         if (device.configuration === null) await device.selectConfiguration(1);
         await device.claimInterface(0);
         setPrinters(prev => prev.map(p => p.device === device ? { ...p, connected: true } : p));
-        toast({ title: "Printer connected", description: `${name} is ready to print.` });
       } catch {
-        toast({ title: "Printer added", description: `${name} detected. Press Test Print to verify.` });
       }
     } catch (err: any) {
       if (err.name !== "NotFoundError" && err.name !== "NotAllowedError") {
-        toast({ title: "Could not add printer", description: err.message, variant: "destructive" });
       }
     } finally {
       setScanning(false);
@@ -348,12 +343,9 @@ function UsbPrinterSection() {
       }
       if (sent) {
         setPrinters(prev => prev.map(p => p.device === printer.device ? { ...p, connected: true } : p));
-        toast({ title: "Test print sent!", description: `Check your ${printer.name} for the test receipt.` });
       } else {
-        toast({ title: "Print failed", description: "No working USB endpoint found. Try a different USB cable.", variant: "destructive" });
       }
     } catch (err: any) {
-      toast({ title: "Print failed", description: err.message, variant: "destructive" });
     } finally {
       setTesting(null);
     }

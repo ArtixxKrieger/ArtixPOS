@@ -55,7 +55,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useUpdateSettings } from "@/hooks/use-settings";
-import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import {
   detectLocale,
@@ -327,7 +326,6 @@ export default function Onboarding() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
 
   const updateSettings = useUpdateSettings();
-  const { toast } = useToast();
   const { logout, isLoggingOut } = useAuth();
   const userPickedCountry = useRef(false);
 
@@ -596,31 +594,21 @@ export default function Onboarding() {
 
   async function handleOwnerComplete() {
     if (!storeCountry) {
-      toast({ title: t("onboarding.storeInfo.errorCountry"), variant: "destructive" });
       return;
     }
     if (!storeName.trim()) {
-      toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" });
       return;
     }
     if (!storeAddress.trim()) {
-      toast({ title: t("onboarding.storeInfo.errorAddress"), variant: "destructive" });
       return;
     }
     if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
-      toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" });
       return;
     }
     if (!storeEmail.trim()) {
-      toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" });
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-      toast({
-        title: t("onboarding.storeInfo.errorEmailInvalid"),
-        variant: "destructive",
-        description: t("onboarding.storeInfo.errorEmailInvalidDesc"),
-      });
       return;
     }
     setIsSubmitting(true);
@@ -644,11 +632,6 @@ export default function Onboarding() {
       console.error("[onboarding] handleOwnerComplete failed:", err);
       const msg = err?.message || t("onboarding.storeInfo.errorSomethingWrong");
       setSubmitError(msg);
-      toast({
-        title: t("onboarding.storeInfo.errorSetupFailed"),
-        description: msg,
-        variant: "destructive",
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1006,37 +989,21 @@ export default function Onboarding() {
                 data-testid="btn-finish-setup"
                 onClick={() => {
                   if (!storeCountry) {
-                    toast({
-                      title: t("onboarding.storeInfo.errorCountry"),
-                      variant: "destructive",
-                    });
                     return;
                   }
                   if (!storeName.trim()) {
-                    toast({ title: t("onboarding.storeInfo.errorName"), variant: "destructive" });
                     return;
                   }
                   if (!storeAddress.trim()) {
-                    toast({
-                      title: t("onboarding.storeInfo.errorAddress"),
-                      variant: "destructive",
-                    });
                     return;
                   }
                   if (!hasPhoneDigitsBeyondPrefix(storePhone, storeCountry?.phonePrefix ?? "")) {
-                    toast({ title: t("onboarding.storeInfo.errorPhone"), variant: "destructive" });
                     return;
                   }
                   if (!storeEmail.trim()) {
-                    toast({ title: t("onboarding.storeInfo.errorEmail"), variant: "destructive" });
                     return;
                   }
                   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storeEmail.trim())) {
-                    toast({
-                      title: t("onboarding.storeInfo.errorEmailInvalid"),
-                      description: t("onboarding.storeInfo.errorEmailInvalidDesc"),
-                      variant: "destructive",
-                    });
                     return;
                   }
                   setSubmitError(null);

@@ -53,7 +53,6 @@ import {
   BoxSelect,
   ExternalLink,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "react-i18next";
 import type { Supplier, Product } from "@shared/schema";
@@ -143,7 +142,6 @@ function SupplierDetailSheet({
   onNewOrder: () => void;
   currency: string;
 }) {
-  const { toast } = useToast();
   const { t } = useTranslation();
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -182,25 +180,22 @@ function SupplierDetailSheet({
     mutationFn: (data: any) => apiRequest("POST", `/api/suppliers/${supplier.id}/products`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers", supplier.id, "products"] });
-      toast({ title: t("suppliers.linkProduct") });
       setAddProductOpen(false);
       setAddForm({ productId: "", unitCost: "", minOrderQty: "1", leadDays: "" });
     },
-    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
+    onError: () => {},
   });
 
   const removeProductMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/supplier-products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers", supplier.id, "products"] });
-      toast({ title: t("common.success") });
     },
-    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
+    onError: () => {},
   });
 
   function handleAddProduct() {
     if (!addForm.productId) {
-      toast({ title: t("suppliers.selectProduct"), variant: "destructive" });
       return;
     }
     addProductMutation.mutate({
@@ -667,7 +662,6 @@ function SupplierDetailSheet({
 }
 
 export default function SuppliersPage() {
-  const { toast } = useToast();
   const { t } = useTranslation();
   const { data: settings } = useSettings();
   const currency = settings?.currency ?? "₱";
@@ -698,10 +692,9 @@ export default function SuppliersPage() {
     mutationFn: (data: SupplierForm) => apiRequest("POST", "/api/suppliers", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
-      toast({ title: t("common.success") });
       closeDialog();
     },
-    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
+    onError: () => {},
   });
 
   const updateMutation = useMutation({
@@ -709,10 +702,9 @@ export default function SuppliersPage() {
       apiRequest("PUT", `/api/suppliers/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
-      toast({ title: t("common.success") });
       closeDialog();
     },
-    onError: () => toast({ title: t("common.error"), variant: "destructive" }),
+    onError: () => {},
   });
 
   const deleteMutation = useMutation({
@@ -727,12 +719,10 @@ export default function SuppliersPage() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["/api/suppliers"], ctx.previous);
-      toast({ title: t("common.error"), variant: "destructive" });
     },
     onSuccess: () => {
       setDeleteTarget(null);
       setSelectedSupplier(null);
-      toast({ title: t("common.success") });
     },
   });
 
@@ -761,7 +751,6 @@ export default function SuppliersPage() {
 
   function handleSubmit() {
     if (!form.name.trim()) {
-      toast({ title: t("suppliers.businessName") + " required", variant: "destructive" });
       return;
     }
     const data = {

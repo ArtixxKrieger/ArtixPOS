@@ -94,7 +94,6 @@ import {
   type BranchSeedTemplate,
 } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -551,7 +550,6 @@ function BranchFormDialog({
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const seedBranch = useSeedBranch();
-  const { toast } = useToast();
 
   const [step, setStep] = useState<"form" | "seed">("form");
   const [activeTab, setActiveTab] = useState("basic");
@@ -649,12 +647,10 @@ function BranchFormDialog({
       };
       if (isEditing) {
         await updateBranch.mutateAsync({ id: branch.id, ...(payload as any) });
-        toast({ title: "Branch updated" });
         handleClose();
         return;
       }
       const newBranch = await createBranch.mutateAsync(payload as any);
-      toast({ title: "Branch created" });
       setCreatedBranch(newBranch);
       setLoadingTemplate(true);
       try {
@@ -668,7 +664,6 @@ function BranchFormDialog({
         setLoadingTemplate(false);
       }
     } catch (err: any) {
-      toast({ title: err?.message ?? "Something went wrong", variant: "destructive" });
     }
   }
 
@@ -676,13 +671,8 @@ function BranchFormDialog({
     if (!createdBranch) return;
     try {
       const result = await seedBranch.mutateAsync({ branchId: createdBranch.id });
-      toast({
-        title: "Starter catalog added",
-        description: `Loaded ${result.productsCreated} item${result.productsCreated === 1 ? "" : "s"}${result.tablesCreated ? ` and ${result.tablesCreated} table${result.tablesCreated === 1 ? "" : "s"}` : ""}.`,
-      });
       handleClose();
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to seed branch", variant: "destructive" });
     }
   }
 
@@ -1267,7 +1257,6 @@ function BranchDetailDrawer({
   );
   const switchBranch = useSwitchBranch();
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const openStatus = branch ? isOpenNow(branch.openingHours, branch.timezone) : null;
   const color = branch?.color ?? "#8b5cf6";
@@ -1276,11 +1265,9 @@ function BranchDetailDrawer({
     if (!branch) return;
     try {
       await switchBranch.mutateAsync(branch.id);
-      toast({ title: `Switched to ${branch.name}` });
       onClose();
       setTimeout(() => window.location.reload(), 150);
     } catch {
-      toast({ title: "Could not switch branch", variant: "destructive" });
     }
   }
 
@@ -1290,10 +1277,8 @@ function BranchDetailDrawer({
     navigator.clipboard
       .writeText(url)
       .then(() => {
-        toast({ title: "Link copied!", description: url });
       })
       .catch(() => {
-        toast({ title: "Could not copy link", variant: "destructive" });
       });
   }
 
@@ -1619,7 +1604,6 @@ function BranchSeedDialog({
   onClose: () => void;
 }) {
   const seedBranch = useSeedBranch();
-  const { toast } = useToast();
   const [template, setTemplate] = useState<BranchSeedTemplate | null>(null);
   const [_loading, setLoading] = useState(false);
 
@@ -1639,13 +1623,8 @@ function BranchSeedDialog({
     if (!branch) return;
     try {
       const result = await seedBranch.mutateAsync({ branchId: branch.id });
-      toast({
-        title: "Starter catalog added",
-        description: `Loaded ${result.productsCreated} items.`,
-      });
       onClose();
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to seed branch", variant: "destructive" });
     }
   }
 
@@ -1735,7 +1714,6 @@ function BranchResetDialog({
   onClose: () => void;
 }) {
   const resetBranch = useResetBranch();
-  const { toast } = useToast();
   const [confirmText, setConfirmText] = useState("");
   const [reseed, setReseed] = useState(true);
   const [templateKey, setTemplateKey] = useState("");
@@ -1759,10 +1737,8 @@ function BranchResetDialog({
         reseed,
         templateKey: reseed && templateKey ? templateKey : undefined,
       });
-      toast({ title: "Branch reset", description: `Removed ${result.productsDeleted} products.` });
       onClose();
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to reset branch", variant: "destructive" });
     }
   }
 
@@ -1896,7 +1872,6 @@ function BranchCard({
 }) {
   const { user } = useAuth();
   const switchBranch = useSwitchBranch();
-  const { toast } = useToast();
   const { data: stats } = useBranchStats(branch.id);
 
   const color = branch.color ?? "#8b5cf6";
@@ -1906,10 +1881,8 @@ function BranchCard({
   async function handleSwitch() {
     try {
       await switchBranch.mutateAsync(branch.id);
-      toast({ title: `Switched to ${branch.name}` });
       setTimeout(() => window.location.reload(), 150);
     } catch {
-      toast({ title: "Could not switch", variant: "destructive" });
     }
   }
 
@@ -1918,10 +1891,8 @@ function BranchCard({
     navigator.clipboard
       .writeText(url)
       .then(() => {
-        toast({ title: "Link copied!", description: url });
       })
       .catch(() => {
-        toast({ title: "Could not copy link", variant: "destructive" });
       });
   }
 
@@ -2202,7 +2173,6 @@ export default function Branches() {
   const [detailBranch, setDetailBranch] = useState<Branch | null>(null);
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const isOwner = user?.role === "owner";
-  const { toast } = useToast();
   const { isPro, isBusiness } = useSubscription();
   const [, setLocation] = useLocation();
 
@@ -2230,9 +2200,7 @@ export default function Branches() {
     if (!deletingBranchId) return;
     try {
       await deleteBranch.mutateAsync(deletingBranchId);
-      toast({ title: "Branch deleted" });
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to delete branch", variant: "destructive" });
     } finally {
       setDeletingBranchId(null);
     }
@@ -2241,24 +2209,17 @@ export default function Branches() {
   async function handleSetMain(id: number) {
     try {
       await setMainBranch.mutateAsync(id);
-      toast({ title: "Main branch updated" });
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to set main branch", variant: "destructive" });
     }
   }
 
   async function handleDuplicate(branch: Branch) {
     try {
       const newBranch = await duplicateBranch.mutateAsync(branch.id);
-      toast({
-        title: `"${newBranch.name}" created`,
-        description: "Settings copied. The branch is inactive — edit it to activate.",
-      });
     } catch (err: any) {
       if (err?.message?.includes("BRANCH_LIMIT")) {
         setShowUpgradeCard(true);
       } else {
-        toast({ title: err?.message ?? "Failed to duplicate", variant: "destructive" });
       }
     }
   }

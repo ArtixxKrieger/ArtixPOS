@@ -20,7 +20,6 @@ import {
   ShoppingBag,
   Bell,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -92,7 +91,6 @@ export default function PendingOrders() {
   const deleteOrder = useDeletePendingOrder();
   const updateOrder = useUpdatePendingOrder();
   const createSale = useCreateSale();
-  const { toast } = useToast();
   const canVoidOrder = perms?.canVoidOrder !== false;
   const [payments, setPayments] = useState<Record<number, string>>({});
   const [completingOrders, setCompletingOrders] = useState<Set<number>>(new Set());
@@ -113,25 +111,6 @@ export default function PendingOrders() {
       pendingDiscards.current.delete(orderId);
     }, 4000);
     pendingDiscards.current.set(orderId, timer);
-    const { dismiss } = toast({
-      title: "Order discarded",
-      description: "This order will be removed shortly.",
-      duration: 4000,
-      button: {
-        title: "Cancel",
-        onClick: () => {
-          const t = pendingDiscards.current.get(orderId);
-          if (t) {
-            clearTimeout(t);
-            pendingDiscards.current.delete(orderId);
-            dismiss();
-            setTimeout(() => {
-              toast({ title: "Discard cancelled", description: "The order has been kept." });
-            }, 650);
-          }
-        },
-      },
-    });
   };
 
   const currency = settings?.currency || "₱";
@@ -167,7 +146,6 @@ export default function PendingOrders() {
       deleteOrder.mutate(order.id, {
         onSuccess: () => {
           submittingRef.current.delete(order.id);
-          toast({ title: "Order Completed", description: "Order removed from queue." });
         },
         onError: restore,
       });
@@ -198,15 +176,9 @@ export default function PendingOrders() {
       {
         onSuccess: () => {
           submittingRef.current.delete(order.id);
-          toast({ title: "Order Completed", description: "Processed as a sale." });
         },
         onError: (err: any) => {
           restore();
-          toast({
-            title: "Failed to complete order",
-            description: err?.message ?? "Please try again.",
-            variant: "destructive",
-          });
         },
       },
     );
@@ -224,7 +196,6 @@ export default function PendingOrders() {
       },
       {
         onSuccess: () => {
-          toast({ title: "Payment Updated", description: "Order status updated." });
         },
       },
     );

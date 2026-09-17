@@ -514,54 +514,6 @@
   outline: none !important;
 }
 
-/* ─── Sileo toast theming ────────────────────────────────────────────────── */
-:root {
-  --sileo-width: 320px;
-  --sileo-height: 44px;
-  --sileo-duration: 550ms;
-  --sileo-state-info: oklch(0.62 0.18 245);
-  --sileo-state-action: oklch(0.62 0.18 245);
-  --sileo-state-success: oklch(0.72 0.2 145);
-  --sileo-state-warning: oklch(0.8 0.18 86);
-  --sileo-state-error: oklch(0.63 0.23 25);
-}
-
-[data-sileo-viewport] {
-  z-index: 9999 !important;
-}
-
-@media (max-width: 767px) {
-  [data-sileo-viewport][data-position^="bottom"] {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
-  }
-}
-
-[data-sileo-title] {
-  font-size: 13px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.01em;
-}
-[data-sileo-description] {
-  font-size: 11.5px !important;
-  font-weight: 500 !important;
-}
-
-[data-sileo-viewport] [data-sileo-title] {
-  color: rgba(0, 0, 0, 0.88) !important;
-}
-[data-sileo-viewport] [data-sileo-description] {
-  color: rgba(0, 0, 0, 0.58) !important;
-}
-.dark [data-sileo-viewport] [data-sileo-description] {
-  color: rgba(255, 255, 255, 0.55) !important;
-}
-.dark [data-sileo-viewport] [data-sileo-title] {
-  color: rgba(255, 255, 255, 0.92) !important;
-}
-.dark [data-sileo-viewport] {
-  --sileo-viewport-theme: dark;
-}
-
 /* ─── Animated gradient text (CSS only, GPU composited) ─────────────────── */
 @keyframes gradient-shift {
   0% {
@@ -852,11 +804,6 @@ textarea:focus {
   letter-spacing: 0.02em;
   text-align: center;
   padding: 5px 12px;
-}
-
-/* ─── Sileo toast override ───────────────────────────────────────────────── */
-.dark [data-sileo-root] {
-  --tw-bg-opacity: 1;
 }
 
 /* ─── Fullscreen hide scrollbars ─────────────────────────────────────────── */

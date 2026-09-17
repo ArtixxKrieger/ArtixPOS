@@ -4,7 +4,6 @@ import { nativeFetch } from "@/lib/queryClient";
 import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
 import {
   ShieldCheck, ShieldAlert, Hash, Download, RefreshCw,
   Search, CheckCircle2, XCircle, AlertTriangle, FileText,
@@ -62,7 +61,6 @@ function HashBadge({ status }: { status: VoidEntry["hashStatus"] }) {
 
 export default function BirAuditLogPage() {
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";
 
   const [search, setSearch] = useState("");
@@ -133,15 +131,12 @@ const entries = data?.entries ?? [];
         a.click();
         URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast({ title: "Void audit log exported" });
       })
-      .catch(() => toast({ title: "Export failed", variant: "destructive" }));
+      .catch(() => undefined);
   }
 
   function copyHash(hash: string) {
-    navigator.clipboard.writeText(hash).then(() =>
-      toast({ title: "Hash copied to clipboard", description: hash.slice(0, 16) + "…" })
-    );
+    navigator.clipboard.writeText(hash).then(() => {});
   }
 
   const integrityOk = (data?.tampered ?? 0) === 0;

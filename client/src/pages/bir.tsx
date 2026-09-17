@@ -6,7 +6,6 @@ import { formatCurrency, parseNumeric } from "@/lib/format";
 import { format, addYears, differenceInDays, startOfMonth, subMonths } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
   CheckCircle2, XCircle, AlertTriangle, FileText, Download,
@@ -136,7 +135,6 @@ function StatCard({ label, value, sub, color = "" }: { label: string; value: str
 
 export default function BIRPage() {
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";
 
   const tin = (settings as any)?.tin || "";
@@ -223,9 +221,8 @@ const accreditationExpiry = useMemo(() => {
         a.click();
         URL.revokeObjectURL(objUrl);
         document.body.removeChild(a);
-        toast({ title: `E-Journal downloaded for ${selectedMonth}` });
       })
-      .catch(() => toast({ title: "Download failed", variant: "destructive" }));
+      .catch(() => undefined);
   }
 
   function downloadEsales() {
@@ -244,9 +241,8 @@ const accreditationExpiry = useMemo(() => {
         a.click();
         URL.revokeObjectURL(objUrl);
         document.body.removeChild(a);
-        toast({ title: `eSales CSV downloaded for ${selectedMonth}` });
       })
-      .catch(() => toast({ title: "Download failed", variant: "destructive" }));
+      .catch(() => undefined);
   }
 
   function printXReport(d: XReportData) {

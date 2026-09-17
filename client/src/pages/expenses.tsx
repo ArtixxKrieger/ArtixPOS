@@ -17,7 +17,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { insertExpenseSchema, type Expense } from "@shared/schema";
 import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
 import { Wallet, Plus, Trash2, TrendingDown, Calendar, ChevronDown } from "lucide-react";
 
 const EXPENSE_CATEGORIES = ["General", "Supplies", "Utilities", "Rent", "Salaries", "Marketing", "Maintenance", "Food & Drinks", "Transportation", "Other"];
@@ -29,7 +28,6 @@ const formSchema = insertExpenseSchema.extend({
 });
 
 function ExpenseForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: () => void }) {
-  const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { category: "General", description: "", amount: "" },
@@ -38,10 +36,9 @@ function ExpenseForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: (
     mutationFn: (data: z.infer<typeof formSchema>) => apiRequest("POST", "/api/expenses", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-      toast({ title: "Expense recorded" });
       onSuccess();
     },
-    onError: () => toast({ title: "Error saving expense" }),
+    onError: () => {},
   });
   return (
     <Form {...form}>
@@ -96,7 +93,6 @@ type DateFilter = "all" | "today" | "week" | "month";
 export default function Expenses() {
   const { data: expenses = [], isLoading: _isLoading } = useQuery<Expense[]>({ queryKey: ["/api/expenses"] });
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const currency = (settings as any)?.currency || "₱";
 
   const [showForm, setShowForm] = useState(false);
@@ -112,8 +108,8 @@ export default function Expenses() {
       queryClient.setQueryData<any[]>(["/api/expenses"], (old) => old ? old.filter(e => e.id !== id) : []);
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/expenses"], ctx.previous); toast({ title: "Failed to delete expense", variant: "destructive" }); },
-    onSuccess: () => { setDeleteTarget(null); toast({ title: "Expense deleted" }); },
+    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/expenses"], ctx.previous); },
+    onSuccess: () => { setDeleteTarget(null); },
   });
 
   const filtered = useMemo(() => {

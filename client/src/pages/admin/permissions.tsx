@@ -3,7 +3,6 @@ import { User2, CreditCard, Info } from "lucide-react";
 import { useRolePermissions, useUpdateRolePermission, type RolePermission } from "@/hooks/use-admin";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const ROLE_META: Record<string, { label: string; icon: any; color: string; bg: string; description: string }> = {
@@ -33,7 +32,6 @@ const DEFAULT_PERMS: Omit<RolePermission, "id" | "tenantId" | "role" | "updatedA
 function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermission | undefined }) {
   const meta = ROLE_META[role];
   const updatePerm = useUpdateRolePermission();
-  const { toast } = useToast();
 
   const current = {
     maxDiscountPercent: perm?.maxDiscountPercent ?? DEFAULT_PERMS.maxDiscountPercent,
@@ -47,9 +45,7 @@ function RoleCard({ role, perm }: { role: "manager" | "cashier"; perm: RolePermi
   async function handleUpdate(field: string, value: any) {
     try {
       await updatePerm.mutateAsync({ role, [field]: value } as any);
-      toast({ title: "Permissions updated" });
     } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to update permissions", variant: "destructive" });
     }
   }
 

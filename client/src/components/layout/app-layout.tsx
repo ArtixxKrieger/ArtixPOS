@@ -14,7 +14,6 @@ import { BranchSwitcher } from "./branch-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { OfflineSyncBanner } from "./offline-sync-banner";
 import { SyncConflictDrawer } from "./sync-conflict-drawer";
-import { Toaster, sileo } from "sileo";
 import { useSettings } from "@/hooks/use-settings";
 import { usePendingOrders } from "@/hooks/use-pending-orders";
 import { BottomNav } from "./bottom-nav";
@@ -146,7 +145,6 @@ const SECTION_ID_TO_I18N_KEY: Record<string, string> = {
   tools: "nav.sections.tools",
 };
 
-const TOASTER_OPTIONS = { duration: 3500, roundness: 16 } as const;
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -328,13 +326,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) sileo.clear();
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
 
   useEffect(() => {
     const pageTitle = businessLabels[location] ?? PAGE_TITLES[location];
@@ -368,12 +359,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-dvh w-full bg-background flex overflow-hidden">
-      <Toaster
-        position="top-left"
-        theme={isDark ? "dark" : "light"}
-        offset={{ top: 16, left: 16 }}
-        options={TOASTER_OPTIONS}
-      />
 
       <aside
         className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 glass-sidebar overflow-hidden transition-[width] duration-200 ease-in-out"

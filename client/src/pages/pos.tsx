@@ -46,7 +46,6 @@ import {
 } from "lucide-react";
 import { getBusinessFeatures } from "@/lib/business-features";
 import { useBusinessTerminology } from "@/hooks/use-branch-business";
-import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ReceiptModal } from "@/components/receipt-modal";
@@ -183,7 +182,6 @@ export default function POS() {
   const { data: pendingOrders = [] } = usePendingOrders();
   const pendingCount = (pendingOrders as any[]).filter((o: any) => o.status !== "paid").length;
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const isMobile = useIsMobile();
 
   const { showBarcode } = getBusinessFeatures(
@@ -211,7 +209,7 @@ export default function POS() {
     updateNote,
     replaceCart,
     clearCart,
-  } = useCart(toast);
+  } = useCart();
 
   const [milestone, setMilestone] = useState<{ label: string; emoji: string } | null>(null);
   const [saleFlash, setSaleFlash] = useState<{ amount: string; key: number } | null>(null);
@@ -423,7 +421,6 @@ export default function POS() {
     onSuccess: (product: Product) => {
       handleProductClickRef.current(product);
       setBarcodeInput("");
-      toast({ title: `Added: ${product.name}` });
     },
     onError: (_err, barcode) => {
       setBarcodeInput("");
@@ -458,16 +455,12 @@ export default function POS() {
     onSuccess: (data: any) => {
       setAppliedCode({ code: data.code, discountAmount: data.discountAmount, type: data.type });
       setDiscount(data.discountAmount);
-      toast({
-        title: `Code applied: ${data.discountAmount > 0 ? formatCurrency(data.discountAmount, currency) + " off" : ""}`,
-      });
     },
     onError: async (err: any) => {
       const msg = await err?.response
         ?.json?.()
         .then((d: any) => d.message)
         .catch(() => null);
-      toast({ title: msg || "Invalid discount code" });
     },
   });
 
@@ -539,11 +532,6 @@ export default function POS() {
     }
 
     if (restored.length === 0) {
-      toast({
-        title: "Couldn't reorder",
-        description: "None of those items still exist in your menu.",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -555,25 +543,13 @@ export default function POS() {
     }
 
     setCartOpen(true);
-    toast({
-      title: `Reorder loaded${payload.customerName ? ` for ${payload.customerName}` : ""}`,
-      description:
-        missing > 0
-          ? `${restored.length} item${restored.length !== 1 ? "s" : ""} added — ${missing} not in current menu.`
-          : `${restored.length} item${restored.length !== 1 ? "s" : ""} ready to checkout.`,
-    });
-  }, [products, customers, toast, replaceCart]);
+  }, [products, customers, replaceCart]);
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0) return;
     const actualTotal = Math.max(0, total);
 
     if (isCashPayment && numericPayment < actualTotal) {
-      toast({
-        title: "Insufficient payment amount",
-        description: `Please enter at least ${formatCurrency(actualTotal, currency)}.`,
-        variant: "destructive",
-      });
       return;
     }
 
@@ -692,12 +668,6 @@ export default function POS() {
                   "loyalty",
                 );
               } else {
-                toast({
-                  title: "Loyalty points sync failed",
-                  description:
-                    "Order was saved but loyalty points may not have updated. Please check manually.",
-                  variant: "destructive",
-                });
               }
             });
           }
@@ -750,11 +720,6 @@ export default function POS() {
         setShowReceipt(false);
         setReceiptData(null);
         setAutoPrintReceipt(false);
-        toast({
-          title: "Failed to place order",
-          description: "Something went wrong. Please try again.",
-          variant: "destructive",
-        });
       },
     });
   }, [
@@ -788,7 +753,6 @@ export default function POS() {
     resetOrderFields,
     replaceCart,
     createPending,
-    toast,
     checkMilestone,
   ]);
 
@@ -826,21 +790,13 @@ export default function POS() {
           } as any);
           succeeded++;
         } catch {
-          toast({ title: `Failed to charge ${split.personLabel}`, variant: "destructive" });
         }
       }
       if (succeeded > 0) {
         clearCart();
-        toast({
-          title: "Split bill processed",
-          description:
-            succeeded === splits.length
-              ? `${succeeded} separate bills charged.`
-              : `${succeeded} of ${splits.length} bills charged — ${splits.length - succeeded} failed.`,
-        });
       }
     },
-    [createPending, paymentMethod, orderType, isFoodBeverage, clearCart, toast],
+    [createPending, paymentMethod, orderType, isFoodBeverage, clearCart],
   );
 
   const CartContent = (
@@ -1824,7 +1780,6 @@ export default function POS() {
         onClose={() => setQuickAddBarcode(null)}
         onCreated={(product) => {
           handleProductClickRef.current(product);
-          toast({ title: `${product.name} added to cart` });
         }}
       />
 

@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -178,7 +177,6 @@ function exportToCSV(ingredients: Ingredient[], _currency: string = "") {
 }
 
 export default function Ingredients() {
-  const { toast } = useToast();
   const { data: settings } = useSettings();
   const currency = (settings as { currency?: string })?.currency || "₱";
 
@@ -226,18 +224,16 @@ export default function Ingredients() {
       queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
       resetForm();
       setIsDialogOpen(false);
-      toast({ title: "Ingredient added", description: "Stock tracking started." });
     },
-    onError: () => toast({ title: "Failed to add ingredient", variant: "destructive" }),
+    onError: () => {},
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/ingredients/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
-      toast({ title: "Ingredient deleted" });
     },
-    onError: () => toast({ title: "Failed to delete ingredient", variant: "destructive" }),
+    onError: () => {},
   });
 
   const adjustStockMutation = useMutation({
@@ -248,9 +244,8 @@ export default function Ingredients() {
       setAdjustOpen(false);
       setAdjustTarget(null);
       setAdjustAmt("");
-      toast({ title: "Stock updated" });
     },
-    onError: () => toast({ title: "Failed to adjust stock", variant: "destructive" }),
+    onError: () => {},
   });
 
   const resetForm = () => {

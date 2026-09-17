@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { useBranchBusiness } from "@/hooks/use-branch-business";
 import { formatCurrency } from "@/lib/format";
@@ -142,7 +141,6 @@ export default function InventoryHub() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [showWasteForm, setShowWasteForm] = useState(false);
   const [showTransferForm, setShowTransferForm] = useState(false);
-  const { toast } = useToast();
   const { data: settings } = useSettings();
   const { businessType } = useBranchBusiness();
   const isFoodBeverage = businessType === "food_beverage";
@@ -491,7 +489,6 @@ export default function InventoryHub() {
             queryClient.invalidateQueries({ queryKey: ["/api/waste-log"] });
             queryClient.invalidateQueries({ queryKey: ["/api/products"] });
             queryClient.invalidateQueries({ queryKey: ["/api/ingredients"] });
-            toast({ title: "Waste logged", description: "Stock has been updated." });
           }}
         />
       )}
@@ -505,7 +502,6 @@ export default function InventoryHub() {
             setShowTransferForm(false);
             queryClient.invalidateQueries({ queryKey: ["/api/stock-transfers"] });
             queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-            toast({ title: "Transfer created", description: "Stock deducted from source branch." });
           }}
         />
       )}
@@ -626,7 +622,6 @@ function TransfersTab({
   isLoading: boolean;
   onAdd: () => void;
 }) {
-  const { toast } = useToast();
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
@@ -634,9 +629,8 @@ function TransfersTab({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/stock-transfers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Transfer updated" });
     },
-    onError: () => toast({ title: "Failed to update transfer", variant: "destructive" }),
+    onError: () => {},
   });
 
   return (
@@ -752,7 +746,6 @@ function ReorderTab({
   currency: string;
   isFoodBeverage?: boolean;
 }) {
-  const { toast } = useToast();
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const allSelected = suggestions.length > 0 && selected.size === suggestions.length;
@@ -793,13 +786,9 @@ function ReorderTab({
     },
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
-      toast({
-        title: `${results.length} Purchase Order${results.length !== 1 ? "s" : ""} Created`,
-        description: "Go to Purchases to review and send.",
-      });
       setSelected(new Set());
     },
-    onError: () => toast({ title: "Failed to create PO", variant: "destructive" }),
+    onError: () => {},
   });
 
   const selectedItems = suggestions.filter((s) => selected.has(s.productId));
@@ -1219,7 +1208,6 @@ function TransferForm({
   const [items, setItems] = useState<{ productId: string; quantity: string }[]>([
     { productId: "", quantity: "1" },
   ]);
-  const { toast } = useToast();
 
   const addItem = () => setItems((prev) => [...prev, { productId: "", quantity: "1" }]);
   const removeItem = (i: number) => setItems((prev) => prev.filter((_, idx) => idx !== i));
@@ -1242,8 +1230,7 @@ function TransferForm({
       });
     },
     onSuccess,
-    onError: (e: Error) =>
-      toast({ title: e.message || "Failed to create transfer", variant: "destructive" }),
+    onError: (_e: Error) => {},
   });
 
   return (

@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, nativeFetch } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
@@ -95,7 +94,6 @@ export default function PayrollPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { data: settings } = useSettings();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const currency = (settings as any)?.currency || "$";
   const isOwner = user?.role === "owner";
@@ -186,8 +184,8 @@ const staffHistoryId = paystubTarget?.staff.id ?? null;
 
 const updateWageMutation = useMutation({
     mutationFn: async (v: { id: string; data: typeof wageForm }) => (await apiRequest("PUT", `/api/payroll/staff/${v.id}`, v.data)).json(),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/staff"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/compute"] }); setEditingWage(null); toast({ title: t("payroll.wage.updated") }); },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/staff"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/compute"] }); setEditingWage(null); },
+    onError: (e: any) => undefined,
   });
 
   const quickPayMutation = useMutation({
@@ -212,13 +210,11 @@ const updateWageMutation = useMutation({
       setQuickPayDuplicate(null);
       setQuickPayForce(false);
       setQuickPayReference("");
-      toast({ title: `Pay Day complete! ${data.entryCount} employee${data.entryCount !== 1 ? "s" : ""} paid via ${payMethodLabel(quickPayMethod)}.` });
     },
     onError: (e: any) => {
       if ((e as any).conflict) {
         setQuickPayDuplicate((e as any).conflict);
       } else {
-        toast({ title: t("common.error"), description: e?.message || "Quick Pay failed", variant: "destructive" });
       }
     },
   });
@@ -232,9 +228,8 @@ const updateWageMutation = useMutation({
       setCreatePeriodOpen(false);
       setPeriodForm({ name: "", startDate: startOfMonth(), endDate: todayISO(), notes: "" });
       setExpandedPeriod(p.period?.id ?? p.id ?? null);
-      toast({ title: t("payroll.periods.created_toast") });
     },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   const updateEntryMutation = useMutation({
@@ -244,9 +239,8 @@ const updateWageMutation = useMutation({
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
       setEditingEntry(null);
-      toast({ title: t("payroll.entries.updated") });
     },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   const addEntryMutation = useMutation({
@@ -258,9 +252,8 @@ const updateWageMutation = useMutation({
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
       setAddEntryOpen(false);
       setAddEntryForm({ employeeUserId: "", baseAmount: "0", commissionAmount: "0", tipAmount: "0", bonusAmount: "0", deductionAmount: "0", advanceAmount: "0", hoursWorked: "0", notes: "" });
-      toast({ title: "Employee added to period" });
     },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   const deleteEntryMutation = useMutation({
@@ -269,14 +262,13 @@ const updateWageMutation = useMutation({
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods", expandedPeriod, "entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] });
-      toast({ title: "Entry removed" });
     },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
 
   const finalizeMutation = useMutation({
     mutationFn: async (id: number) => (await apiRequest("POST", `/api/payroll/periods/${id}/finalize`, {})).json(),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); setConfirmAction(null); toast({ title: t("payroll.periods.finalized_toast") }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); setConfirmAction(null); },
   });
   const markPaidMutation = useMutation({
     mutationFn: async (v: { id: number; paymentMethod?: string; paymentReference?: string }) =>
@@ -287,13 +279,12 @@ const updateWageMutation = useMutation({
       setMarkPaidDialog(null);
       setMarkPaidMethod("cash");
       setMarkPaidRef("");
-      toast({ title: t("payroll.periods.paid_toast") });
     },
-    onError: (e: any) => toast({ title: t("common.error"), description: e?.message, variant: "destructive" }),
+    onError: (e: any) => undefined,
   });
   const deletePeriodMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/payroll/periods/${id}`, {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); if (expandedPeriod === confirmAction?.periodId) setExpandedPeriod(null); setConfirmAction(null); toast({ title: t("payroll.periods.deleted_toast") }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/payroll/periods"] }); queryClient.invalidateQueries({ queryKey: ["/api/payroll/analytics"] }); if (expandedPeriod === confirmAction?.periodId) setExpandedPeriod(null); setConfirmAction(null); },
   });
 
 const entriesByUser = useMemo(() => { const m = new Map<string, ComputedEntry>(); payroll?.entries.forEach(e => m.set(e.userId, e)); return m; }, [payroll]);
@@ -342,13 +333,11 @@ function applyPreset(p: string) {
   function exportComputeCSV() {
     if (!payroll) return;
     downloadCSV(`payroll-${from}-to-${to}.csv`, payroll.entries.map(e => ({ Employee: e.name || e.email || e.userId, Role: roleLabel(e.role), WageType: e.wageType, HoursWorked: e.hoursWorked, SalesAmount: e.salesAmount, NetPay: e.payout })));
-    toast({ title: t("payroll.export.csvExported") });
   }
 
   function exportPeriodCSV() {
     if (!periodEntries.length) return;
     downloadCSV(`payroll-period.csv`, periodEntries.map(e => ({ Employee: e.employeeName, WageType: e.wageType, Hours: e.hoursWorked || "0", Base: e.baseAmount, Commission: e.commissionAmount || "0", Tips: e.tipAmount || "0", Bonus: e.bonusAmount || "0", Deductions: e.deductionAmount || "0", Advance: e.advanceAmount || "0", Net: e.netAmount })));
-    toast({ title: t("payroll.export.csvExported") });
   }
 
   function quickPayDates(p: string): { from: string; to: string; label: string } {

@@ -7,8 +7,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, LogIn, LogOut, Timer, Calendar, Coffee, Users, Download, TrendingUp, KeyRound, Lock, Pencil, Trash2, Plus, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Clock,
+  LogIn,
+  LogOut,
+  Timer,
+  Calendar,
+  Coffee,
+  Users,
+  Download,
+  TrendingUp,
+  KeyRound,
+  Lock,
+  Pencil,
+  Trash2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -50,7 +74,9 @@ function getWeekBounds(date = new Date()) {
 }
 function getNetMins(log: TimeLog): number {
   if (!log.clockOut) return 0;
-  const gross = Math.floor((new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) / 60000);
+  const gross = Math.floor(
+    (new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) / 60000,
+  );
   return Math.max(0, gross - (log.breakMinutes ?? 0));
 }
 function isoToLocal(iso: string): string {
@@ -70,12 +96,24 @@ export default function TimeClockPage() {
   const [clockInNotes, setClockInNotes] = useState("");
   const [clockOutNotes, setClockOutNotes] = useState("");
 
-const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [editingLog, setEditingLog] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState({ clockIn: "", clockOut: "", breakMinutes: 0, notes: "", clockOutNotes: "" });
+  const [editForm, setEditForm] = useState({
+    clockIn: "",
+    clockOut: "",
+    breakMinutes: 0,
+    notes: "",
+    clockOutNotes: "",
+  });
   const [deletingLog, setDeletingLog] = useState<any | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
-  const [manualForm, setManualForm] = useState({ userId: "", clockIn: "", clockOut: "", breakMinutes: 0, notes: "" });
+  const [manualForm, setManualForm] = useState({
+    userId: "",
+    clockIn: "",
+    clockOut: "",
+    breakMinutes: 0,
+    notes: "",
+  });
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -84,7 +122,7 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
 
   const { data: logs = [], isLoading: logsLoading } = useQuery<TimeLog[]>({
     queryKey: ["/api/time-logs"],
-    select: (d: any) => Array.isArray(d) ? d : [],
+    select: (d: any) => (Array.isArray(d) ? d : []),
   });
   const { data: activeLog, isLoading: activeLoading } = useQuery<TimeLog | null>({
     queryKey: ["/api/time-logs/active"],
@@ -94,7 +132,7 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const { data: teamLogs = [] } = useQuery<any[]>({
     queryKey: ["/api/time-logs/team"],
     enabled: canSeeTeam,
-    select: (d: any) => Array.isArray(d) ? d : [],
+    select: (d: any) => (Array.isArray(d) ? d : []),
   });
 
   function invalidateLogs() {
@@ -105,7 +143,11 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
 
   const clockInMutation = useMutation({
     mutationFn: (notes: string) => apiRequest("POST", "/api/time-logs/clock-in", { notes }),
-    onSuccess: () => { invalidateLogs(); setShowClockIn(false); setClockInNotes(""); },
+    onSuccess: () => {
+      invalidateLogs();
+      setShowClockIn(false);
+      setClockInNotes("");
+    },
     onError: (e: any) => undefined,
   });
   const clockOutMutation = useMutation({
@@ -126,7 +168,9 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
     mutationFn: () => apiRequest("POST", "/api/time-logs/break-start", {}),
     onSuccess: async () => {
       if (isPinSession) {
-        try { await apiRequest("POST", "/api/staff-pin/lock-screen", {}); } catch {  }
+        try {
+          await apiRequest("POST", "/api/staff-pin/lock-screen", {});
+        } catch {}
         await queryClient.cancelQueries();
         queryClient.clear();
         window.location.replace("/staff-clock-in");
@@ -138,23 +182,36 @@ const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   });
   const lockScreenMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/staff-pin/lock-screen", {}),
-    onSuccess: async () => { await queryClient.cancelQueries(); queryClient.clear(); window.location.replace("/staff-clock-in"); },
+    onSuccess: async () => {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      window.location.replace("/staff-clock-in");
+    },
     onError: () => {},
   });
   const breakEndMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/time-logs/break-end", {}),
-    onSuccess: () => { invalidateLogs(); },
+    onSuccess: () => {
+      invalidateLogs();
+    },
     onError: () => {},
   });
 
-const editLogMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PUT", `/api/time-logs/${id}`, data),
-    onSuccess: () => { invalidateLogs(); setEditingLog(null); },
+  const editLogMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      apiRequest("PUT", `/api/time-logs/${id}`, data),
+    onSuccess: () => {
+      invalidateLogs();
+      setEditingLog(null);
+    },
     onError: (e: any) => undefined,
   });
   const deleteLogMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/time-logs/${id}`, {}),
-    onSuccess: () => { invalidateLogs(); setDeletingLog(null); },
+    onSuccess: () => {
+      invalidateLogs();
+      setDeletingLog(null);
+    },
     onError: () => {},
   });
   const manualEntryMutation = useMutation({
@@ -205,7 +262,7 @@ const editLogMutation = useMutation({
   }
 
   function toggleMemberExpand(userId: string) {
-    setExpandedMembers(prev => {
+    setExpandedMembers((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) next.delete(userId);
       else next.add(userId);
@@ -214,23 +271,31 @@ const editLogMutation = useMutation({
   }
 
   const isClockedIn = !!activeLog;
-  const isOnBreak = !!(activeLog?.breakStart);
+  const isOnBreak = !!activeLog?.breakStart;
   const grossElapsedMs = activeLog ? now.getTime() - new Date(activeLog.clockIn).getTime() : 0;
   const breakAccumMs = (activeLog?.breakMinutes ?? 0) * 60000;
-  const currentBreakMs = isOnBreak && activeLog?.breakStart ? now.getTime() - new Date(activeLog.breakStart).getTime() : 0;
+  const currentBreakMs =
+    isOnBreak && activeLog?.breakStart
+      ? now.getTime() - new Date(activeLog.breakStart).getTime()
+      : 0;
   const netElapsedMs = Math.max(0, grossElapsedMs - breakAccumMs - currentBreakMs);
 
   const today = new Date().toDateString();
-  const todayLogs = logs.filter(l => new Date(l.clockIn).toDateString() === today);
-  const todayNetMins = todayLogs.filter(l => l.clockOut).reduce((s, l) => s + getNetMins(l), 0);
+  const todayLogs = logs.filter((l) => new Date(l.clockIn).toDateString() === today);
+  const todayNetMins = todayLogs.filter((l) => l.clockOut).reduce((s, l) => s + getNetMins(l), 0);
   const todayOTMins = Math.max(0, todayNetMins - OT_THRESHOLD_MINS);
 
   const { start: weekStart, end: weekEnd } = getWeekBounds();
-  const thisWeekLogs = logs.filter(l => { const d = new Date(l.clockIn); return d >= weekStart && d <= weekEnd; });
-  const weekNetMins = thisWeekLogs.filter(l => l.clockOut).reduce((s, l) => s + getNetMins(l), 0);
+  const thisWeekLogs = logs.filter((l) => {
+    const d = new Date(l.clockIn);
+    return d >= weekStart && d <= weekEnd;
+  });
+  const weekNetMins = thisWeekLogs.filter((l) => l.clockOut).reduce((s, l) => s + getNetMins(l), 0);
 
   const weekDayMins = DAY_LABELS.map((_, i) => {
-    return thisWeekLogs.filter(l => new Date(l.clockIn).getDay() === i && l.clockOut).reduce((s, l) => s + getNetMins(l), 0);
+    return thisWeekLogs
+      .filter((l) => new Date(l.clockIn).getDay() === i && l.clockOut)
+      .reduce((s, l) => s + getNetMins(l), 0);
   });
   const maxDayMins = Math.max(...weekDayMins, OT_THRESHOLD_MINS);
 
@@ -247,7 +312,13 @@ const editLogMutation = useMutation({
   const teamByUser = useMemo(() => {
     const map = new Map<string, { userId: string; name: string; email: string; logs: any[] }>();
     for (const log of teamLogs) {
-      if (!map.has(log.userId)) map.set(log.userId, { userId: log.userId, name: log.userName || "Unknown", email: log.userEmail || "", logs: [] });
+      if (!map.has(log.userId))
+        map.set(log.userId, {
+          userId: log.userId,
+          name: log.userName || "Unknown",
+          email: log.userEmail || "",
+          logs: [],
+        });
       map.get(log.userId)!.logs.push(log);
     }
     return Array.from(map.values());
@@ -256,24 +327,40 @@ const editLogMutation = useMutation({
   const teamOtCount = teamByUser.reduce((count, member) => {
     const active = member.logs.find((l: any) => !l.clockOut);
     if (!active) return count;
-    const activeMins = Math.max(0, Math.floor((now.getTime() - new Date(active.clockIn).getTime()) / 60000) - (active.breakMinutes ?? 0));
+    const activeMins = Math.max(
+      0,
+      Math.floor((now.getTime() - new Date(active.clockIn).getTime()) / 60000) -
+        (active.breakMinutes ?? 0),
+    );
     return activeMins > OT_THRESHOLD_MINS ? count + 1 : count;
   }, 0);
 
   function exportCSV() {
     const rows = [
-      ["Date", "Clock In", "Clock Out", "Break (min)", "Net Hours", "Clock-In Notes", "Clock-Out Notes"],
-      ...logs.filter(l => l.clockOut).map(l => [
-        new Date(l.clockIn).toLocaleDateString(),
-        fmtTime(l.clockIn),
-        l.clockOut ? fmtTime(l.clockOut) : "",
-        String(l.breakMinutes ?? 0),
-        (getNetMins(l) / 60).toFixed(2),
-        l.notes ?? "",
-        l.clockOutNotes ?? "",
-      ]),
+      [
+        "Date",
+        "Clock In",
+        "Clock Out",
+        "Break (min)",
+        "Net Hours",
+        "Clock-In Notes",
+        "Clock-Out Notes",
+      ],
+      ...logs
+        .filter((l) => l.clockOut)
+        .map((l) => [
+          new Date(l.clockIn).toLocaleDateString(),
+          fmtTime(l.clockIn),
+          l.clockOut ? fmtTime(l.clockOut) : "",
+          String(l.breakMinutes ?? 0),
+          (getNetMins(l) / 60).toFixed(2),
+          l.notes ?? "",
+          l.clockOutNotes ?? "",
+        ]),
     ];
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -293,7 +380,9 @@ const editLogMutation = useMutation({
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Clock className="h-6 w-6 text-primary" /> Time Clock
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Track shifts, breaks &amp; team hours</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Track shifts, breaks &amp; team hours
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {isPinSession ? (
@@ -328,7 +417,9 @@ const editLogMutation = useMutation({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground text-sm">Launch Staff Kiosk</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Employees tap their name and enter their PIN to clock in or out</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Employees tap their name and enter their PIN to clock in or out
+            </p>
           </div>
           <div className="text-xs font-semibold text-primary shrink-0">Open →</div>
         </button>
@@ -337,12 +428,16 @@ const editLogMutation = useMutation({
       {}
       {canSeeTeam && (
         <div className="flex gap-1 p-1 bg-secondary/40 rounded-2xl border border-border/30">
-          {(["me", "team"] as const).map(t => (
+          {(["me", "team"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={cn("flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-2 rounded-xl transition-all",
-                tab === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-2 rounded-xl transition-all",
+                tab === t
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
               {t === "team" && <Users className="h-3.5 w-3.5" />}
               {t === "me" ? "My Hours" : "Team"}
@@ -363,7 +458,11 @@ const editLogMutation = useMutation({
           <div className="bg-card border border-border rounded-3xl p-6 flex flex-col items-center gap-5 text-center">
             <div>
               <p className="text-5xl font-bold tracking-tight tabular-nums">
-                {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {now.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
@@ -377,7 +476,8 @@ const editLogMutation = useMutation({
                   On Break · {fmtMs(currentBreakMs)}
                 </Badge>
                 <p className="text-[11px] text-muted-foreground">
-                  Shift started at {activeLog && fmtTime(activeLog.clockIn)} · {fmtMs(netElapsedMs)} net
+                  Shift started at {activeLog && fmtTime(activeLog.clockIn)} · {fmtMs(netElapsedMs)}{" "}
+                  net
                 </p>
                 {(activeLog?.breakMinutes ?? 0) > 0 && (
                   <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70">
@@ -409,8 +509,8 @@ const editLogMutation = useMutation({
               </Badge>
             )}
 
-            {!isLoading && (
-              isClockedIn ? (
+            {!isLoading &&
+              (isClockedIn ? (
                 <div className="flex flex-col gap-2.5 w-full max-w-xs">
                   {isOnBreak ? (
                     <Button
@@ -436,27 +536,34 @@ const editLogMutation = useMutation({
                     size="lg"
                     variant="destructive"
                     className="w-full rounded-2xl gap-2"
-                    onClick={() => { setClockOutNotes(""); setShowClockOut(true); }}
+                    onClick={() => {
+                      setClockOutNotes("");
+                      setShowClockOut(true);
+                    }}
                     disabled={isOnBreak || clockOutMutation.isPending}
                     data-testid="button-clock-out"
                   >
                     <LogOut className="h-5 w-5" /> Clock Out
                   </Button>
                   {isOnBreak && (
-                    <p className="text-[11px] text-center text-muted-foreground">End your break before clocking out</p>
+                    <p className="text-[11px] text-center text-muted-foreground">
+                      End your break before clocking out
+                    </p>
                   )}
                 </div>
               ) : (
                 <Button
                   size="lg"
                   className="w-44 rounded-2xl gap-2"
-                  onClick={() => { setClockInNotes(""); setShowClockIn(true); }}
+                  onClick={() => {
+                    setClockInNotes("");
+                    setShowClockIn(true);
+                  }}
                   data-testid="button-clock-in"
                 >
                   <LogIn className="h-5 w-5" /> Clock In
                 </Button>
-              )
-            )}
+              ))}
           </div>
 
           {}
@@ -477,13 +584,31 @@ const editLogMutation = useMutation({
               <p className="text-xl font-bold tabular-nums">{fmtMins(weekNetMins)}</p>
               <p className="text-[10px] text-muted-foreground">net hours</p>
             </div>
-            <div className={cn("border rounded-2xl p-4 transition-colors",
-              todayOTMins > 0 ? "bg-orange-500/10 border-orange-400/30" : "bg-card border-border")}>
+            <div
+              className={cn(
+                "border rounded-2xl p-4 transition-colors",
+                todayOTMins > 0 ? "bg-orange-500/10 border-orange-400/30" : "bg-card border-border",
+              )}
+            >
               <div className="flex items-center gap-1.5 mb-1.5">
-                <TrendingUp className={cn("h-3.5 w-3.5", todayOTMins > 0 ? "text-orange-500" : "text-muted-foreground")} />
-                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Overtime</span>
+                <TrendingUp
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    todayOTMins > 0 ? "text-orange-500" : "text-muted-foreground",
+                  )}
+                />
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Overtime
+                </span>
               </div>
-              <p className={cn("text-xl font-bold tabular-nums", todayOTMins > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground")}>
+              <p
+                className={cn(
+                  "text-xl font-bold tabular-nums",
+                  todayOTMins > 0
+                    ? "text-orange-600 dark:text-orange-400"
+                    : "text-muted-foreground",
+                )}
+              >
                 {todayOTMins > 0 ? fmtMins(todayOTMins) : "—"}
               </p>
               <p className="text-[10px] text-muted-foreground">today</p>
@@ -492,7 +617,9 @@ const editLogMutation = useMutation({
 
           {}
           <div className="bg-card border border-border rounded-2xl p-4">
-            <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-3">This Week</h3>
+            <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-3">
+              This Week
+            </h3>
             <div className="grid grid-cols-7 gap-1">
               {DAY_LABELS.map((day, i) => {
                 const mins = weekDayMins[i];
@@ -503,13 +630,25 @@ const editLogMutation = useMutation({
                   <div key={day} className="flex flex-col items-center gap-1.5">
                     <div className="w-full flex flex-col justify-end" style={{ height: 72 }}>
                       <div
-                        className={cn("w-full rounded-md transition-all",
-                          mins === 0 ? "bg-border/40" : hasOT ? "bg-orange-500/70" : isToday ? "bg-primary" : "bg-primary/50"
+                        className={cn(
+                          "w-full rounded-md transition-all",
+                          mins === 0
+                            ? "bg-border/40"
+                            : hasOT
+                              ? "bg-orange-500/70"
+                              : isToday
+                                ? "bg-primary"
+                                : "bg-primary/50",
                         )}
                         style={{ height: mins > 0 ? `${Math.max(6, pct)}%` : 4 }}
                       />
                     </div>
-                    <span className={cn("text-[10px] font-semibold", isToday ? "text-primary" : "text-muted-foreground")}>
+                    <span
+                      className={cn(
+                        "text-[10px] font-semibold",
+                        isToday ? "text-primary" : "text-muted-foreground",
+                      )}
+                    >
                       {day}
                     </span>
                     <span className="text-[9px] text-muted-foreground tabular-nums">
@@ -523,7 +662,9 @@ const editLogMutation = useMutation({
 
           {}
           <div className="space-y-4">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">History</h2>
+            <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              History
+            </h2>
             {groups.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Clock className="h-9 w-9 mx-auto mb-2 opacity-30" />
@@ -531,7 +672,9 @@ const editLogMutation = useMutation({
               </div>
             ) : (
               groups.map(({ date, ls }) => {
-                const dayNetMins = ls.filter(l => l.clockOut).reduce((s, l) => s + getNetMins(l), 0);
+                const dayNetMins = ls
+                  .filter((l) => l.clockOut)
+                  .reduce((s, l) => s + getNetMins(l), 0);
                 const dayOT = Math.max(0, dayNetMins - OT_THRESHOLD_MINS);
                 return (
                   <div key={date} className="space-y-2">
@@ -547,11 +690,14 @@ const editLogMutation = useMutation({
                         <p className="text-xs text-muted-foreground">{fmtMins(dayNetMins)} net</p>
                       </div>
                     </div>
-                    {ls.map(log => {
+                    {ls.map((log) => {
                       const netMins = getNetMins(log);
                       const brkMins = log.breakMinutes ?? 0;
                       const grossMins = log.clockOut
-                        ? Math.floor((new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) / 60000)
+                        ? Math.floor(
+                            (new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) /
+                              60000,
+                          )
                         : 0;
                       return (
                         <div
@@ -561,18 +707,27 @@ const editLogMutation = useMutation({
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className={cn("h-2 w-2 rounded-full shrink-0",
-                                log.clockOut ? "bg-emerald-500" : "bg-amber-500 animate-pulse")} />
+                              <div
+                                className={cn(
+                                  "h-2 w-2 rounded-full shrink-0",
+                                  log.clockOut ? "bg-emerald-500" : "bg-amber-500 animate-pulse",
+                                )}
+                              />
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold">
-                                  {fmtTime(log.clockIn)} → {log.clockOut ? fmtTime(log.clockOut) : "Active"}
+                                  {fmtTime(log.clockIn)} →{" "}
+                                  {log.clockOut ? fmtTime(log.clockOut) : "Active"}
                                 </p>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                                   {log.notes && (
-                                    <p className="text-xs text-muted-foreground truncate">{log.notes}</p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {log.notes}
+                                    </p>
                                   )}
                                   {log.clockOutNotes && (
-                                    <p className="text-xs text-muted-foreground/70 truncate italic">{log.clockOutNotes}</p>
+                                    <p className="text-xs text-muted-foreground/70 truncate italic">
+                                      {log.clockOutNotes}
+                                    </p>
                                   )}
                                   {brkMins > 0 && (
                                     <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
@@ -581,26 +736,35 @@ const editLogMutation = useMutation({
                                   )}
                                   {(log as any).scheduledStart && (
                                     <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                      <Calendar className="h-2.5 w-2.5" /> sched {fmt12((log as any).scheduledStart)}–{fmt12((log as any).scheduledEnd)}
+                                      <Calendar className="h-2.5 w-2.5" /> sched{" "}
+                                      {fmt12((log as any).scheduledStart)}–
+                                      {fmt12((log as any).scheduledEnd)}
                                     </span>
                                   )}
                                   {((log as any).lateMinutes ?? 0) > 0 && (
                                     <span className="text-[10px] text-red-600 dark:text-red-400 flex items-center gap-0.5 font-semibold">
-                                      <AlertTriangle className="h-2.5 w-2.5" /> Late {fmtMins((log as any).lateMinutes)}
+                                      <AlertTriangle className="h-2.5 w-2.5" /> Late{" "}
+                                      {fmtMins((log as any).lateMinutes)}
                                     </span>
                                   )}
-                                  {log.clockOut && ((log as any).earlyDepartureMinutes ?? 0) > 0 && (
-                                    <span className="text-[10px] text-orange-600 dark:text-orange-400 flex items-center gap-0.5 font-semibold">
-                                      <AlertTriangle className="h-2.5 w-2.5" /> Left early {fmtMins((log as any).earlyDepartureMinutes)}
-                                    </span>
-                                  )}
+                                  {log.clockOut &&
+                                    ((log as any).earlyDepartureMinutes ?? 0) > 0 && (
+                                      <span className="text-[10px] text-orange-600 dark:text-orange-400 flex items-center gap-0.5 font-semibold">
+                                        <AlertTriangle className="h-2.5 w-2.5" /> Left early{" "}
+                                        {fmtMins((log as any).earlyDepartureMinutes)}
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-sm font-bold tabular-nums">{log.clockOut ? fmtMins(netMins) : "—"}</p>
+                              <p className="text-sm font-bold tabular-nums">
+                                {log.clockOut ? fmtMins(netMins) : "—"}
+                              </p>
                               {brkMins > 0 && log.clockOut && (
-                                <p className="text-[10px] text-muted-foreground tabular-nums">{fmtMins(grossMins)} gross</p>
+                                <p className="text-[10px] text-muted-foreground tabular-nums">
+                                  {fmtMins(grossMins)} gross
+                                </p>
                               )}
                             </div>
                           </div>
@@ -625,7 +789,13 @@ const editLogMutation = useMutation({
             <button
               data-testid="button-add-manual-entry"
               onClick={() => {
-                setManualForm({ userId: "", clockIn: isoToLocal(new Date().toISOString()), clockOut: "", breakMinutes: 0, notes: "" });
+                setManualForm({
+                  userId: "",
+                  clockIn: isoToLocal(new Date().toISOString()),
+                  clockOut: "",
+                  breakMinutes: 0,
+                  notes: "",
+                });
                 setShowManualEntry(true);
               }}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
@@ -641,44 +811,65 @@ const editLogMutation = useMutation({
                 <p className="text-sm">No team activity yet</p>
               </div>
             ) : (
-              teamByUser.map(member => {
-                const memberTodayLogs = member.logs.filter((l: any) => new Date(l.clockIn).toDateString() === today);
+              teamByUser.map((member) => {
+                const memberTodayLogs = member.logs.filter(
+                  (l: any) => new Date(l.clockIn).toDateString() === today,
+                );
                 const memberActive = member.logs.find((l: any) => !l.clockOut);
-                const memberActiveTodayMins = memberActive && new Date(memberActive.clockIn).toDateString() === today
-                  ? Math.max(0, Math.floor((now.getTime() - new Date(memberActive.clockIn).getTime()) / 60000) - (memberActive.breakMinutes ?? 0))
-                  : 0;
-                const memberTodayNet = memberTodayLogs
-                  .filter((l: any) => l.clockOut)
-                  .reduce((s: number, l: any) => {
-                    const gross = Math.floor((new Date(l.clockOut).getTime() - new Date(l.clockIn).getTime()) / 60000);
-                    return s + Math.max(0, gross - (l.breakMinutes ?? 0));
-                  }, 0) + memberActiveTodayMins;
-                const memberOnBreak = !!(memberActive?.breakStart);
+                const memberActiveTodayMins =
+                  memberActive && new Date(memberActive.clockIn).toDateString() === today
+                    ? Math.max(
+                        0,
+                        Math.floor(
+                          (now.getTime() - new Date(memberActive.clockIn).getTime()) / 60000,
+                        ) - (memberActive.breakMinutes ?? 0),
+                      )
+                    : 0;
+                const memberTodayNet =
+                  memberTodayLogs
+                    .filter((l: any) => l.clockOut)
+                    .reduce((s: number, l: any) => {
+                      const gross = Math.floor(
+                        (new Date(l.clockOut).getTime() - new Date(l.clockIn).getTime()) / 60000,
+                      );
+                      return s + Math.max(0, gross - (l.breakMinutes ?? 0));
+                    }, 0) + memberActiveTodayMins;
+                const memberOnBreak = !!memberActive?.breakStart;
                 const memberIsOt = memberActiveTodayMins > OT_THRESHOLD_MINS;
                 const isExpanded = expandedMembers.has(member.userId);
                 const recentLogs = member.logs.slice(0, 15);
 
                 return (
-                  <div key={member.userId} className={cn(
-                    "bg-card border rounded-2xl overflow-hidden transition-colors",
-                    memberIsOt ? "border-orange-400/40" : "border-border"
-                  )}>
+                  <div
+                    key={member.userId}
+                    className={cn(
+                      "bg-card border rounded-2xl overflow-hidden transition-colors",
+                      memberIsOt ? "border-orange-400/40" : "border-border",
+                    )}
+                  >
                     {}
                     <div className="p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={cn(
-                            "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
-                            memberOnBreak ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                              : memberIsOt ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
-                              : memberActive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                              : "bg-secondary text-muted-foreground"
-                          )}>
+                          <div
+                            className={cn(
+                              "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                              memberOnBreak
+                                ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                : memberIsOt
+                                  ? "bg-orange-500/20 text-orange-600 dark:text-orange-400"
+                                  : memberActive
+                                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-secondary text-muted-foreground",
+                            )}
+                          >
                             {(member.name || "?")[0].toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-sm truncate">{member.name}</p>
-                            <p className="text-[11px] text-muted-foreground truncate">{member.email}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {member.email}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -688,11 +879,16 @@ const editLogMutation = useMutation({
                               OT +{fmtMins(memberActiveTodayMins - OT_THRESHOLD_MINS)}
                             </Badge>
                           )}
-                          <Badge className={cn("text-[10px] px-2.5 py-0.5 border",
-                            memberOnBreak ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30"
-                              : memberActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30"
-                              : "bg-secondary text-muted-foreground border-border"
-                          )}>
+                          <Badge
+                            className={cn(
+                              "text-[10px] px-2.5 py-0.5 border",
+                              memberOnBreak
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30"
+                                : memberActive
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30"
+                                  : "bg-secondary text-muted-foreground border-border",
+                            )}
+                          >
                             {memberOnBreak ? "On Break" : memberActive ? "Active" : "Off Duty"}
                           </Badge>
                           <button
@@ -700,22 +896,35 @@ const editLogMutation = useMutation({
                             className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors text-muted-foreground"
                             title={isExpanded ? "Collapse" : "View timecards"}
                           >
-                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
                           </button>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-2.5 text-xs text-muted-foreground">
                         <span>
-                          <span className="font-semibold text-foreground">{fmtMins(memberTodayNet)}</span> today
+                          <span className="font-semibold text-foreground">
+                            {fmtMins(memberTodayNet)}
+                          </span>{" "}
+                          today
                         </span>
                         {memberActive && (
                           <span>
-                            since <span className="font-semibold text-foreground">{fmtTime(memberActive.clockIn)}</span>
+                            since{" "}
+                            <span className="font-semibold text-foreground">
+                              {fmtTime(memberActive.clockIn)}
+                            </span>
                           </span>
                         )}
                         {memberOnBreak && memberActive?.breakStart && (
                           <span className="text-amber-600 dark:text-amber-400">
-                            break since <span className="font-semibold">{fmtTime(memberActive.breakStart)}</span>
+                            break since{" "}
+                            <span className="font-semibold">
+                              {fmtTime(memberActive.breakStart)}
+                            </span>
                           </span>
                         )}
                       </div>
@@ -725,42 +934,60 @@ const editLogMutation = useMutation({
                     {isExpanded && (
                       <div className="border-t border-border/60">
                         {recentLogs.length === 0 ? (
-                          <p className="text-xs text-muted-foreground text-center py-4">No entries yet</p>
+                          <p className="text-xs text-muted-foreground text-center py-4">
+                            No entries yet
+                          </p>
                         ) : (
                           <div className="divide-y divide-border/40">
                             {recentLogs.map((log: any) => {
                               const grossMins = log.clockOut
-                                ? Math.floor((new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime()) / 60000)
+                                ? Math.floor(
+                                    (new Date(log.clockOut).getTime() -
+                                      new Date(log.clockIn).getTime()) /
+                                      60000,
+                                  )
                                 : 0;
                               const netMins = Math.max(0, grossMins - (log.breakMinutes ?? 0));
                               return (
                                 <div key={log.id} className="flex items-center gap-3 px-4 py-2.5">
-                                  <div className={cn("h-1.5 w-1.5 rounded-full shrink-0",
-                                    log.clockOut ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
-                                  )} />
+                                  <div
+                                    className={cn(
+                                      "h-1.5 w-1.5 rounded-full shrink-0",
+                                      log.clockOut
+                                        ? "bg-emerald-500"
+                                        : "bg-amber-500 animate-pulse",
+                                    )}
+                                  />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-xs font-semibold">
-                                      {fmtDate(log.clockIn)} · {fmtTime(log.clockIn)} → {log.clockOut ? fmtTime(log.clockOut) : "Active"}
+                                      {fmtDate(log.clockIn)} · {fmtTime(log.clockIn)} →{" "}
+                                      {log.clockOut ? fmtTime(log.clockOut) : "Active"}
                                     </p>
                                     <div className="flex flex-wrap gap-x-3 mt-0.5">
                                       {log.clockOut && (
                                         <span className="text-[10px] text-muted-foreground">
-                                          {fmtMins(netMins)} net{log.breakMinutes ? `, ${log.breakMinutes}m break` : ""}
+                                          {fmtMins(netMins)} net
+                                          {log.breakMinutes ? `, ${log.breakMinutes}m break` : ""}
                                         </span>
                                       )}
                                       {log.notes && (
-                                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[14rem]">{log.notes}</span>
+                                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[14rem]">
+                                          {log.notes}
+                                        </span>
                                       )}
                                       {((log as any).lateMinutes ?? 0) > 0 && (
                                         <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-0.5">
-                                          <AlertTriangle className="h-2.5 w-2.5" /> Late {fmtMins((log as any).lateMinutes)}
+                                          <AlertTriangle className="h-2.5 w-2.5" /> Late{" "}
+                                          {fmtMins((log as any).lateMinutes)}
                                         </span>
                                       )}
-                                      {log.clockOut && ((log as any).earlyDepartureMinutes ?? 0) > 0 && (
-                                        <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold flex items-center gap-0.5">
-                                          <AlertTriangle className="h-2.5 w-2.5" /> Left early {fmtMins((log as any).earlyDepartureMinutes)}
-                                        </span>
-                                      )}
+                                      {log.clockOut &&
+                                        ((log as any).earlyDepartureMinutes ?? 0) > 0 && (
+                                          <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold flex items-center gap-0.5">
+                                            <AlertTriangle className="h-2.5 w-2.5" /> Left early{" "}
+                                            {fmtMins((log as any).earlyDepartureMinutes)}
+                                          </span>
+                                        )}
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
@@ -789,7 +1016,13 @@ const editLogMutation = useMutation({
                         <div className="px-4 py-2.5 border-t border-border/40">
                           <button
                             onClick={() => {
-                              setManualForm({ userId: member.userId, clockIn: isoToLocal(new Date().toISOString()), clockOut: "", breakMinutes: 0, notes: "" });
+                              setManualForm({
+                                userId: member.userId,
+                                clockIn: isoToLocal(new Date().toISOString()),
+                                clockOut: "",
+                                breakMinutes: 0,
+                                notes: "",
+                              });
                               setShowManualEntry(true);
                             }}
                             className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
@@ -819,7 +1052,7 @@ const editLogMutation = useMutation({
             <Textarea
               placeholder="Add a note for this shift (optional)..."
               value={clockInNotes}
-              onChange={e => setClockInNotes(e.target.value)}
+              onChange={(e) => setClockInNotes(e.target.value)}
               className="resize-none rounded-xl text-sm"
               rows={3}
             />
@@ -866,7 +1099,7 @@ const editLogMutation = useMutation({
             <Textarea
               placeholder="End-of-shift notes (optional)..."
               value={clockOutNotes}
-              onChange={e => setClockOutNotes(e.target.value)}
+              onChange={(e) => setClockOutNotes(e.target.value)}
               className="resize-none rounded-xl text-sm"
               rows={3}
             />
@@ -883,7 +1116,12 @@ const editLogMutation = useMutation({
       </Dialog>
 
       {}
-      <Dialog open={!!editingLog} onOpenChange={open => { if (!open) setEditingLog(null); }}>
+      <Dialog
+        open={!!editingLog}
+        onOpenChange={(open) => {
+          if (!open) setEditingLog(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -896,16 +1134,21 @@ const editLogMutation = useMutation({
               <Input
                 type="datetime-local"
                 value={editForm.clockIn}
-                onChange={e => setEditForm(f => ({ ...f, clockIn: e.target.value }))}
+                onChange={(e) => setEditForm((f) => ({ ...f, clockIn: e.target.value }))}
                 className="rounded-xl text-sm"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Clock Out <span className="font-normal text-muted-foreground">(leave blank if still active)</span></Label>
+              <Label className="text-xs font-semibold">
+                Clock Out{" "}
+                <span className="font-normal text-muted-foreground">
+                  (leave blank if still active)
+                </span>
+              </Label>
               <Input
                 type="datetime-local"
                 value={editForm.clockOut}
-                onChange={e => setEditForm(f => ({ ...f, clockOut: e.target.value }))}
+                onChange={(e) => setEditForm((f) => ({ ...f, clockOut: e.target.value }))}
                 className="rounded-xl text-sm"
               />
             </div>
@@ -915,7 +1158,9 @@ const editLogMutation = useMutation({
                 type="number"
                 min={0}
                 value={editForm.breakMinutes}
-                onChange={e => setEditForm(f => ({ ...f, breakMinutes: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, breakMinutes: Number(e.target.value) }))
+                }
                 className="rounded-xl text-sm"
               />
             </div>
@@ -924,7 +1169,7 @@ const editLogMutation = useMutation({
               <Textarea
                 rows={2}
                 value={editForm.notes}
-                onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
                 className="resize-none rounded-xl text-sm"
                 placeholder="Optional"
               />
@@ -934,7 +1179,7 @@ const editLogMutation = useMutation({
               <Textarea
                 rows={2}
                 value={editForm.clockOutNotes}
-                onChange={e => setEditForm(f => ({ ...f, clockOutNotes: e.target.value }))}
+                onChange={(e) => setEditForm((f) => ({ ...f, clockOutNotes: e.target.value }))}
                 className="resize-none rounded-xl text-sm"
                 placeholder="Optional"
               />
@@ -951,7 +1196,12 @@ const editLogMutation = useMutation({
       </Dialog>
 
       {}
-      <Dialog open={!!deletingLog} onOpenChange={open => { if (!open) setDeletingLog(null); }}>
+      <Dialog
+        open={!!deletingLog}
+        onOpenChange={(open) => {
+          if (!open) setDeletingLog(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
@@ -965,10 +1215,15 @@ const editLogMutation = useMutation({
                 <span className="font-semibold text-foreground">
                   {fmtDate(deletingLog.clockIn)} {fmtTime(deletingLog.clockIn)}
                   {deletingLog.clockOut ? ` → ${fmtTime(deletingLog.clockOut)}` : " (active)"}
-                </span>.
+                </span>
+                .
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeletingLog(null)}>
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => setDeletingLog(null)}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -986,7 +1241,12 @@ const editLogMutation = useMutation({
       </Dialog>
 
       {}
-      <Dialog open={showManualEntry} onOpenChange={open => { if (!open) setShowManualEntry(false); }}>
+      <Dialog
+        open={showManualEntry}
+        onOpenChange={(open) => {
+          if (!open) setShowManualEntry(false);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -998,14 +1258,16 @@ const editLogMutation = useMutation({
               <Label className="text-xs font-semibold">Employee</Label>
               <Select
                 value={manualForm.userId}
-                onValueChange={v => setManualForm(f => ({ ...f, userId: v }))}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, userId: v }))}
               >
                 <SelectTrigger className="rounded-xl text-sm">
                   <SelectValue placeholder="Select employee…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamByUser.map(m => (
-                    <SelectItem key={m.userId} value={m.userId}>{m.name}</SelectItem>
+                  {teamByUser.map((m) => (
+                    <SelectItem key={m.userId} value={m.userId}>
+                      {m.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1015,16 +1277,18 @@ const editLogMutation = useMutation({
               <Input
                 type="datetime-local"
                 value={manualForm.clockIn}
-                onChange={e => setManualForm(f => ({ ...f, clockIn: e.target.value }))}
+                onChange={(e) => setManualForm((f) => ({ ...f, clockIn: e.target.value }))}
                 className="rounded-xl text-sm"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Clock Out <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Label className="text-xs font-semibold">
+                Clock Out <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
               <Input
                 type="datetime-local"
                 value={manualForm.clockOut}
-                onChange={e => setManualForm(f => ({ ...f, clockOut: e.target.value }))}
+                onChange={(e) => setManualForm((f) => ({ ...f, clockOut: e.target.value }))}
                 className="rounded-xl text-sm"
               />
             </div>
@@ -1034,7 +1298,9 @@ const editLogMutation = useMutation({
                 type="number"
                 min={0}
                 value={manualForm.breakMinutes}
-                onChange={e => setManualForm(f => ({ ...f, breakMinutes: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setManualForm((f) => ({ ...f, breakMinutes: Number(e.target.value) }))
+                }
                 className="rounded-xl text-sm"
               />
             </div>
@@ -1043,7 +1309,7 @@ const editLogMutation = useMutation({
               <Textarea
                 rows={2}
                 value={manualForm.notes}
-                onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))}
+                onChange={(e) => setManualForm((f) => ({ ...f, notes: e.target.value }))}
                 className="resize-none rounded-xl text-sm"
                 placeholder="Reason for manual entry (optional)"
               />

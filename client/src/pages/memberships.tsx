@@ -9,20 +9,45 @@ import { format, parseISO, isBefore } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSettings } from "@/hooks/use-settings";
 import { formatCurrency } from "@/lib/format";
 import {
-  insertMembershipPlanSchema, insertMembershipSchema,
-  type MembershipPlan, type Membership, type Customer
+  insertMembershipPlanSchema,
+  insertMembershipSchema,
+  type MembershipPlan,
+  type Membership,
+  type Customer,
 } from "@shared/schema";
 import {
-  BadgeCheck, Plus, Edit, Trash2, Search, Users, CreditCard,
-  Calendar, CheckCircle2, QrCode, Clock
+  BadgeCheck,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Users,
+  CreditCard,
+  Calendar,
+  CheckCircle2,
+  QrCode,
+  Clock,
 } from "lucide-react";
 
 const BILLING_LABELS: Record<string, string> = {
@@ -33,10 +58,13 @@ const BILLING_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
+  active:
+    "bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
   expired: "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-500",
-  cancelled: "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400",
-  paused: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400",
+  cancelled:
+    "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400",
+  paused:
+    "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400",
 };
 
 const planFormSchema = insertMembershipPlanSchema.extend({
@@ -66,7 +94,12 @@ function PlanForm({ initial, onClose }: { initial?: MembershipPlan; onClose: () 
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof planFormSchema>) => {
       const { featuresText, ...rest } = data;
-      const features = featuresText ? featuresText.split("\n").map((f) => f.trim()).filter(Boolean) : [];
+      const features = featuresText
+        ? featuresText
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean)
+        : [];
       if (isEdit) {
         await apiRequest("PUT", `/api/membership-plans/${initial!.id}`, { ...rest, features });
       } else {
@@ -83,62 +116,153 @@ function PlanForm({ initial, onClose }: { initial?: MembershipPlan; onClose: () 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-        <FormField control={form.control} name="name" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Plan Name</FormLabel>
-            <FormControl><Input data-testid="input-plan-name" placeholder="e.g. Monthly Premium, Annual VIP" {...field} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="description" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Description</FormLabel>
-            <FormControl><Input data-testid="input-plan-description" placeholder="Brief description of what's included" {...field} value={field.value ?? ""} /></FormControl>
-          </FormItem>
-        )} />
-        <div className="grid grid-cols-2 gap-3">
-          <FormField control={form.control} name="price" render={({ field }) => (
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
             <FormItem>
-              <FormLabel>Price ({settings?.currency ?? "PHP"})</FormLabel>
-              <FormControl><Input data-testid="input-plan-price" type="number" min={0} step={0.01} placeholder="0.00" {...field} /></FormControl>
+              <FormLabel>Plan Name</FormLabel>
+              <FormControl>
+                <Input
+                  data-testid="input-plan-name"
+                  placeholder="e.g. Monthly Premium, Annual VIP"
+                  {...field}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
-          )} />
-          <FormField control={form.control} name="billingCycle" render={({ field }) => (
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
             <FormItem>
-              <FormLabel>Billing</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value ?? "monthly"}>
-                <FormControl><SelectTrigger data-testid="select-plan-billing"><SelectValue /></SelectTrigger></FormControl>
-                <SelectContent>
-                  {Object.entries(BILLING_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Input
+                  data-testid="input-plan-description"
+                  placeholder="Brief description of what's included"
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
             </FormItem>
-          )} />
+          )}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="price"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Price ({settings?.currency ?? "PHP"})</FormLabel>
+                <FormControl>
+                  <Input
+                    data-testid="input-plan-price"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="0.00"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="billingCycle"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Billing</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value ?? "monthly"}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-plan-billing">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.entries(BILLING_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <FormField control={form.control} name="durationDays" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Duration (days)</FormLabel>
-              <FormControl><Input data-testid="input-plan-duration" type="number" min={1} {...field} onChange={(e) => field.onChange(Number(e.target.value))} /></FormControl>
-            </FormItem>
-          )} />
-          <FormField control={form.control} name="maxCheckIns" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Max Check-ins</FormLabel>
-              <FormControl><Input data-testid="input-plan-max-checkins" type="number" min={0} placeholder="Unlimited" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)} /></FormControl>
-            </FormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name="durationDays"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Duration (days)</FormLabel>
+                <FormControl>
+                  <Input
+                    data-testid="input-plan-duration"
+                    type="number"
+                    min={1}
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="maxCheckIns"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Max Check-ins</FormLabel>
+                <FormControl>
+                  <Input
+                    data-testid="input-plan-max-checkins"
+                    type="number"
+                    min={0}
+                    placeholder="Unlimited"
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
         </div>
-        <FormField control={form.control} name="featuresText" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Features (one per line)</FormLabel>
-            <FormControl><Textarea data-testid="input-plan-features" placeholder={"Unlimited classes\nTowel service\nLocker access"} rows={3} {...field} value={field.value ?? ""} /></FormControl>
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="featuresText"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Features (one per line)</FormLabel>
+              <FormControl>
+                <Textarea
+                  data-testid="input-plan-features"
+                  placeholder={"Unlimited classes\nTowel service\nLocker access"}
+                  rows={3}
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
         <div className="flex gap-2 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button type="submit" className="flex-1" disabled={mutation.isPending} data-testid="button-save-plan">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1"
+            disabled={mutation.isPending}
+            data-testid="button-save-plan"
+          >
             {mutation.isPending ? "Saving…" : isEdit ? "Update" : "Create Plan"}
           </Button>
         </div>
@@ -147,36 +271,78 @@ function PlanForm({ initial, onClose }: { initial?: MembershipPlan; onClose: () 
   );
 }
 
-function PlanCard({ plan, onEdit, onDelete }: { plan: MembershipPlan; onEdit: () => void; onDelete: () => void }) {
+function PlanCard({
+  plan,
+  onEdit,
+  onDelete,
+}: {
+  plan: MembershipPlan;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const { data: settings } = useSettings();
   return (
-    <div data-testid={`card-plan-${plan.id}`} className="bg-card border border-border rounded-2xl p-4">
+    <div
+      data-testid={`card-plan-${plan.id}`}
+      className="bg-card border border-border rounded-2xl p-4"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-foreground">{plan.name}</p>
-            {!plan.isActive && <Badge variant="secondary" className="text-[10px]">Inactive</Badge>}
+            {!plan.isActive && (
+              <Badge variant="secondary" className="text-[10px]">
+                Inactive
+              </Badge>
+            )}
           </div>
-          {plan.description && <p className="text-sm text-muted-foreground mt-0.5">{plan.description}</p>}
+          {plan.description && (
+            <p className="text-sm text-muted-foreground mt-0.5">{plan.description}</p>
+          )}
           <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <span className="text-lg font-bold text-primary">{formatCurrency(Number(plan.price), settings?.currency ?? "PHP")}</span>
-            <Badge variant="outline" className="text-xs">{BILLING_LABELS[plan.billingCycle ?? "monthly"]}</Badge>
+            <span className="text-lg font-bold text-primary">
+              {formatCurrency(Number(plan.price), settings?.currency ?? "PHP")}
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {BILLING_LABELS[plan.billingCycle ?? "monthly"]}
+            </Badge>
             <span className="text-xs text-muted-foreground">{plan.durationDays} days</span>
-            {plan.maxCheckIns && <span className="text-xs text-muted-foreground">Max {plan.maxCheckIns} check-ins</span>}
+            {plan.maxCheckIns && (
+              <span className="text-xs text-muted-foreground">
+                Max {plan.maxCheckIns} check-ins
+              </span>
+            )}
           </div>
           {plan.features && (plan.features as string[]).length > 0 && (
             <ul className="mt-2 space-y-0.5">
               {(plan.features as string[]).map((f, i) => (
                 <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />{f}
+                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                  {f}
                 </li>
               ))}
             </ul>
           )}
         </div>
         <div className="flex gap-1 shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} data-testid={`button-edit-plan-${plan.id}`}><Edit className="h-3.5 w-3.5" /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={onDelete} data-testid={`button-delete-plan-${plan.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onEdit}
+            data-testid={`button-edit-plan-${plan.id}`}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={onDelete}
+            data-testid={`button-delete-plan-${plan.id}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
     </div>
@@ -225,91 +391,169 @@ function MemberForm({ onClose }: { onClose: () => void }) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-        <FormField control={form.control} name="customerId" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Customer</FormLabel>
-            <Select onValueChange={(v) => field.onChange(Number(v))} defaultValue={field.value?.toString()}>
-              <FormControl><SelectTrigger data-testid="select-member-customer"><SelectValue placeholder="Select customer" /></SelectTrigger></FormControl>
-              <SelectContent>
-                {(customers as Customer[]).map((c) => (
-                  <SelectItem key={c.id} value={c.id.toString()}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="customerId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Customer</FormLabel>
+              <Select
+                onValueChange={(v) => field.onChange(Number(v))}
+                defaultValue={field.value?.toString()}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid="select-member-customer">
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {(customers as Customer[]).map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>
+                      {c.name}
+                      {c.phone ? ` · ${c.phone}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        <FormField control={form.control} name="planId" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Membership Plan</FormLabel>
-            <Select
-              onValueChange={(v) => {
-                const plan = (plans as MembershipPlan[]).find((p) => p.id === Number(v));
-                field.onChange(Number(v));
-                if (plan) {
-                  form.setValue("planName", plan.name);
-                  form.setValue("totalPaid", plan.price);
-                  const start = form.getValues("startDate");
-                  if (start && plan.durationDays) {
-                    const end = new Date(start);
-                    end.setDate(end.getDate() + plan.durationDays);
-                    form.setValue("endDate", format(end, "yyyy-MM-dd"));
+        <FormField
+          control={form.control}
+          name="planId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Membership Plan</FormLabel>
+              <Select
+                onValueChange={(v) => {
+                  const plan = (plans as MembershipPlan[]).find((p) => p.id === Number(v));
+                  field.onChange(Number(v));
+                  if (plan) {
+                    form.setValue("planName", plan.name);
+                    form.setValue("totalPaid", plan.price);
+                    const start = form.getValues("startDate");
+                    if (start && plan.durationDays) {
+                      const end = new Date(start);
+                      end.setDate(end.getDate() + plan.durationDays);
+                      form.setValue("endDate", format(end, "yyyy-MM-dd"));
+                    }
                   }
-                }
-              }}
-              defaultValue={field.value?.toString()}
-            >
-              <FormControl><SelectTrigger data-testid="select-member-plan"><SelectValue placeholder="Select plan" /></SelectTrigger></FormControl>
-              <SelectContent>
-                {(plans as MembershipPlan[]).filter((p) => p.isActive).map((p) => (
-                  <SelectItem key={p.id} value={p.id.toString()}>{p.name} — {formatCurrency(Number(p.price), settings?.currency ?? "PHP")}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormItem>
-        )} />
+                }}
+                defaultValue={field.value?.toString()}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid="select-member-plan">
+                    <SelectValue placeholder="Select plan" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {(plans as MembershipPlan[])
+                    .filter((p) => p.isActive)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        {p.name} — {formatCurrency(Number(p.price), settings?.currency ?? "PHP")}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
 
         {selectedPlan && (
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm">
             <p className="font-medium text-primary">{selectedPlan.name}</p>
-            <p className="text-muted-foreground text-xs mt-0.5">{selectedPlan.durationDays} days · {BILLING_LABELS[selectedPlan.billingCycle ?? "monthly"]}</p>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              {selectedPlan.durationDays} days ·{" "}
+              {BILLING_LABELS[selectedPlan.billingCycle ?? "monthly"]}
+            </p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <FormField control={form.control} name="startDate" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Start Date</FormLabel>
-              <FormControl><Input data-testid="input-member-start" type="date" {...field} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
-          <FormField control={form.control} name="endDate" render={({ field }) => (
-            <FormItem>
-              <FormLabel>End Date</FormLabel>
-              <FormControl><Input data-testid="input-member-end" type="date" {...field} value={field.value ?? ""} /></FormControl>
-            </FormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name="startDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Start Date</FormLabel>
+                <FormControl>
+                  <Input data-testid="input-member-start" type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="endDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>End Date</FormLabel>
+                <FormControl>
+                  <Input
+                    data-testid="input-member-end"
+                    type="date"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
         </div>
 
-        <FormField control={form.control} name="totalPaid" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount Paid ({settings?.currency ?? "PHP"})</FormLabel>
-            <FormControl><Input data-testid="input-member-paid" type="number" min={0} step={0.01} {...field} value={field.value ?? "0"} /></FormControl>
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="totalPaid"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount Paid ({settings?.currency ?? "PHP"})</FormLabel>
+              <FormControl>
+                <Input
+                  data-testid="input-member-paid"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  {...field}
+                  value={field.value ?? "0"}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
 
-        <FormField control={form.control} name="notes" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Notes</FormLabel>
-            <FormControl><Textarea data-testid="input-member-notes" placeholder="Any notes…" rows={2} {...field} value={field.value ?? ""} /></FormControl>
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea
+                  data-testid="input-member-notes"
+                  placeholder="Any notes…"
+                  rows={2}
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
 
         <div className="flex gap-2 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button type="submit" className="flex-1" disabled={mutation.isPending} data-testid="button-save-member">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1"
+            disabled={mutation.isPending}
+            data-testid="button-save-member"
+          >
             {mutation.isPending ? "Enrolling…" : "Enroll Member"}
           </Button>
         </div>
@@ -318,9 +562,17 @@ function MemberForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-type MemberWithCustomer = Membership & { customerName: string | null; customerPhone: string | null };
+type MemberWithCustomer = Membership & {
+  customerName: string | null;
+  customerPhone: string | null;
+};
 
-function MemberCard({ m, onCheckIn, onStatusChange, onDelete }: {
+function MemberCard({
+  m,
+  onCheckIn,
+  onStatusChange,
+  onDelete,
+}: {
   m: MemberWithCustomer;
   onCheckIn: () => void;
   onStatusChange: (s: string) => void;
@@ -329,29 +581,49 @@ function MemberCard({ m, onCheckIn, onStatusChange, onDelete }: {
   const { data: settings } = useSettings();
   const statusCls = STATUS_COLORS[m.status ?? "active"] ?? STATUS_COLORS.active;
   const isExpired = m.endDate && isBefore(parseISO(m.endDate), new Date());
-  const daysLeft = m.endDate ? Math.ceil((parseISO(m.endDate).getTime() - Date.now()) / 86400000) : null;
+  const daysLeft = m.endDate
+    ? Math.ceil((parseISO(m.endDate).getTime() - Date.now()) / 86400000)
+    : null;
 
   return (
-    <div data-testid={`card-member-${m.id}`} className="bg-card border border-border rounded-2xl p-4">
+    <div
+      data-testid={`card-member-${m.id}`}
+      className="bg-card border border-border rounded-2xl p-4"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-foreground" data-testid={`text-member-name-${m.id}`}>{m.customerName ?? "Unknown"}</p>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statusCls}`}>
+            <p className="font-semibold text-foreground" data-testid={`text-member-name-${m.id}`}>
+              {m.customerName ?? "Unknown"}
+            </p>
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statusCls}`}
+            >
               {m.status?.toUpperCase()}
             </span>
           </div>
-          {m.customerPhone && <p className="text-xs text-muted-foreground mt-0.5">{m.customerPhone}</p>}
+          {m.customerPhone && (
+            <p className="text-xs text-muted-foreground mt-0.5">{m.customerPhone}</p>
+          )}
           <p className="text-sm font-medium text-primary mt-1">{m.planName}</p>
           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-            {m.startDate && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {format(parseISO(m.startDate), "MMM d, yyyy")}</span>}
+            {m.startDate && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> {format(parseISO(m.startDate), "MMM d, yyyy")}
+              </span>
+            )}
             {m.endDate && (
-              <span className={`flex items-center gap-1 ${isExpired ? "text-red-500" : daysLeft && daysLeft <= 7 ? "text-amber-500" : ""}`}>
+              <span
+                className={`flex items-center gap-1 ${isExpired ? "text-red-500" : daysLeft && daysLeft <= 7 ? "text-amber-500" : ""}`}
+              >
                 <Clock className="h-3 w-3" />
                 {isExpired ? "Expired" : `${daysLeft}d left`}
               </span>
             )}
-            <span className="flex items-center gap-1"><QrCode className="h-3 w-3" />{m.checkInsUsed ?? 0} check-ins</span>
+            <span className="flex items-center gap-1">
+              <QrCode className="h-3 w-3" />
+              {m.checkInsUsed ?? 0} check-ins
+            </span>
             {m.totalPaid && Number(m.totalPaid) > 0 && (
               <span>{formatCurrency(Number(m.totalPaid), settings?.currency ?? "PHP")}</span>
             )}
@@ -359,24 +631,41 @@ function MemberCard({ m, onCheckIn, onStatusChange, onDelete }: {
         </div>
         <div className="flex gap-1 shrink-0">
           {m.status === "active" && (
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={onCheckIn} data-testid={`button-checkin-${m.id}`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1"
+              onClick={onCheckIn}
+              data-testid={`button-checkin-${m.id}`}
+            >
               <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Check In
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={onDelete} data-testid={`button-delete-member-${m.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={onDelete}
+            data-testid={`button-delete-member-${m.id}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
       <div className="flex gap-1.5 mt-3 flex-wrap">
-        {["active", "paused", "cancelled", "expired"].map((s) => (
-          s !== m.status && (
-            <button key={s} onClick={() => onStatusChange(s)}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-muted border border-border hover:border-foreground/30 text-muted-foreground hover:text-foreground transition-colors"
-              data-testid={`button-member-status-${s}-${m.id}`}
-            >
-              → {s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          )
-        ))}
+        {["active", "paused", "cancelled", "expired"].map(
+          (s) =>
+            s !== m.status && (
+              <button
+                key={s}
+                onClick={() => onStatusChange(s)}
+                className="text-[11px] px-2 py-0.5 rounded-full bg-muted border border-border hover:border-foreground/30 text-muted-foreground hover:text-foreground transition-colors"
+                data-testid={`button-member-status-${s}-${m.id}`}
+              >
+                → {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ),
+        )}
       </div>
     </div>
   );
@@ -388,21 +677,33 @@ export default function MembershipsPage() {
   const [planDialog, setPlanDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState<MembershipPlan | undefined>();
   const [memberDialog, setMemberDialog] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<{ type: "plan" | "member"; id: number; name: string } | undefined>();
+  const [confirmDelete, setConfirmDelete] = useState<
+    { type: "plan" | "member"; id: number; name: string } | undefined
+  >();
 
-  const { data: plans = [], isLoading: _plansLoading } = useQuery<MembershipPlan[]>({ queryKey: ["/api/membership-plans"] });
-  const { data: members = [], isLoading: _membersLoading } = useQuery<MemberWithCustomer[]>({ queryKey: ["/api/memberships"] });
+  const { data: plans = [], isLoading: _plansLoading } = useQuery<MembershipPlan[]>({
+    queryKey: ["/api/membership-plans"],
+  });
+  const { data: members = [], isLoading: _membersLoading } = useQuery<MemberWithCustomer[]>({
+    queryKey: ["/api/memberships"],
+  });
 
   const deletePlanMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/membership-plans/${id}`),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ["/api/membership-plans"] });
       const previous = queryClient.getQueryData<any[]>(["/api/membership-plans"]);
-      queryClient.setQueryData<any[]>(["/api/membership-plans"], (old) => old ? old.filter(p => p.id !== id) : []);
+      queryClient.setQueryData<any[]>(["/api/membership-plans"], (old) =>
+        old ? old.filter((p) => p.id !== id) : [],
+      );
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/membership-plans"], ctx.previous); },
-    onSuccess: () => { setConfirmDelete(undefined); },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["/api/membership-plans"], ctx.previous);
+    },
+    onSuccess: () => {
+      setConfirmDelete(undefined);
+    },
   });
 
   const deleteMemberMutation = useMutation({
@@ -410,33 +711,47 @@ export default function MembershipsPage() {
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ["/api/memberships"] });
       const previous = queryClient.getQueryData<any[]>(["/api/memberships"]);
-      queryClient.setQueryData<any[]>(["/api/memberships"], (old) => old ? old.filter(m => m.id !== id) : []);
+      queryClient.setQueryData<any[]>(["/api/memberships"], (old) =>
+        old ? old.filter((m) => m.id !== id) : [],
+      );
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous); },
-    onSuccess: () => { setConfirmDelete(undefined); },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous);
+    },
+    onSuccess: () => {
+      setConfirmDelete(undefined);
+    },
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => apiRequest("PUT", `/api/memberships/${id}`, { status }),
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PUT", `/api/memberships/${id}`, { status }),
     onMutate: async ({ id, status }: { id: number; status: string }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/memberships"] });
       const previous = queryClient.getQueryData<any[]>(["/api/memberships"]);
-      queryClient.setQueryData<any[]>(["/api/memberships"], (old) => old ? old.map(m => m.id === id ? { ...m, status } : m) : []);
+      queryClient.setQueryData<any[]>(["/api/memberships"], (old) =>
+        old ? old.map((m) => (m.id === id ? { ...m, status } : m)) : [],
+      );
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous); },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["/api/memberships"], ctx.previous);
+    },
   });
 
   const checkInMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/memberships/${id}/check-in`, {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/memberships"] }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/memberships"] });
+    },
     onError: () => {},
   });
 
-  const filteredMembers = (members as MemberWithCustomer[]).filter((m) =>
-    (m.customerName ?? "").toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    m.planName.toLowerCase().includes(debouncedSearch.toLowerCase())
+  const filteredMembers = (members as MemberWithCustomer[]).filter(
+    (m) =>
+      (m.customerName ?? "").toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      m.planName.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const activeCount = (members as MemberWithCustomer[]).filter((m) => m.status === "active").length;
@@ -446,7 +761,9 @@ export default function MembershipsPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Memberships</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{activeCount} active member{activeCount !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {activeCount} active member{activeCount !== 1 ? "s" : ""}
+          </p>
         </div>
         <Button onClick={() => setMemberDialog(true)} data-testid="button-enroll-member">
           <Plus className="h-4 w-4 mr-1.5" /> Enroll
@@ -455,14 +772,24 @@ export default function MembershipsPage() {
 
       <Tabs defaultValue="members">
         <TabsList className="w-full">
-          <TabsTrigger value="members" className="flex-1" data-testid="tab-members">Members</TabsTrigger>
-          <TabsTrigger value="plans" className="flex-1" data-testid="tab-plans">Plans</TabsTrigger>
+          <TabsTrigger value="members" className="flex-1" data-testid="tab-members">
+            Members
+          </TabsTrigger>
+          <TabsTrigger value="plans" className="flex-1" data-testid="tab-plans">
+            Plans
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="members" className="space-y-4 mt-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input data-testid="input-search-members" className="pl-9" placeholder="Search by name or plan…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              data-testid="input-search-members"
+              className="pl-9"
+              placeholder="Search by name or plan…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
           {filteredMembers.length === 0 ? (
@@ -471,17 +798,24 @@ export default function MembershipsPage() {
                 <Users className="h-7 w-7 text-muted-foreground" />
               </div>
               <p className="font-semibold">No members yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Enroll your first member to get started</p>
-              <Button className="mt-4" onClick={() => setMemberDialog(true)}><Plus className="h-4 w-4 mr-1.5" /> Enroll Member</Button>
+              <p className="text-sm text-muted-foreground mt-1">
+                Enroll your first member to get started
+              </p>
+              <Button className="mt-4" onClick={() => setMemberDialog(true)}>
+                <Plus className="h-4 w-4 mr-1.5" /> Enroll Member
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredMembers.map((m) => (
                 <MemberCard
-                  key={m.id} m={m}
+                  key={m.id}
+                  m={m}
                   onCheckIn={() => checkInMutation.mutate(m.id)}
                   onStatusChange={(s) => statusMutation.mutate({ id: m.id, status: s })}
-                  onDelete={() => setConfirmDelete({ type: "member", id: m.id, name: m.customerName ?? "Member" })}
+                  onDelete={() =>
+                    setConfirmDelete({ type: "member", id: m.id, name: m.customerName ?? "Member" })
+                  }
                 />
               ))}
             </div>
@@ -490,7 +824,14 @@ export default function MembershipsPage() {
 
         <TabsContent value="plans" className="space-y-4 mt-4">
           <div className="flex justify-end">
-            <Button variant="outline" onClick={() => { setEditingPlan(undefined); setPlanDialog(true); }} data-testid="button-add-plan">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingPlan(undefined);
+                setPlanDialog(true);
+              }}
+              data-testid="button-add-plan"
+            >
               <Plus className="h-4 w-4 mr-1.5" /> Add Plan
             </Button>
           </div>
@@ -500,14 +841,23 @@ export default function MembershipsPage() {
                 <CreditCard className="h-7 w-7 text-muted-foreground" />
               </div>
               <p className="font-semibold">No plans yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Create a membership plan to get started</p>
-              <Button className="mt-4" onClick={() => setPlanDialog(true)}><Plus className="h-4 w-4 mr-1.5" /> Create Plan</Button>
+              <p className="text-sm text-muted-foreground mt-1">
+                Create a membership plan to get started
+              </p>
+              <Button className="mt-4" onClick={() => setPlanDialog(true)}>
+                <Plus className="h-4 w-4 mr-1.5" /> Create Plan
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
               {(plans as MembershipPlan[]).map((p) => (
-                <PlanCard key={p.id} plan={p}
-                  onEdit={() => { setEditingPlan(p); setPlanDialog(true); }}
+                <PlanCard
+                  key={p.id}
+                  plan={p}
+                  onEdit={() => {
+                    setEditingPlan(p);
+                    setPlanDialog(true);
+                  }}
                   onDelete={() => setConfirmDelete({ type: "plan", id: p.id, name: p.name })}
                 />
               ))}
@@ -516,7 +866,13 @@ export default function MembershipsPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={planDialog} onOpenChange={(v) => { if (!v) setEditingPlan(undefined); setPlanDialog(v); }}>
+      <Dialog
+        open={planDialog}
+        onOpenChange={(v) => {
+          if (!v) setEditingPlan(undefined);
+          setPlanDialog(v);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -524,7 +880,13 @@ export default function MembershipsPage() {
               {editingPlan ? "Edit Plan" : "Create Membership Plan"}
             </DialogTitle>
           </DialogHeader>
-          <PlanForm initial={editingPlan} onClose={() => { setEditingPlan(undefined); setPlanDialog(false); }} />
+          <PlanForm
+            initial={editingPlan}
+            onClose={() => {
+              setEditingPlan(undefined);
+              setPlanDialog(false);
+            }}
+          />
         </DialogContent>
       </Dialog>
 
@@ -539,19 +901,36 @@ export default function MembershipsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(undefined); }}>
+      <Dialog
+        open={!!confirmDelete}
+        onOpenChange={(v) => {
+          if (!v) setConfirmDelete(undefined);
+        }}
+      >
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Confirm Delete</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Confirm Delete</DialogTitle>
+          </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete <strong>{confirmDelete?.name}</strong>? This cannot be undone.
+            Are you sure you want to delete <strong>{confirmDelete?.name}</strong>? This cannot be
+            undone.
           </p>
           <div className="flex gap-2 mt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(undefined)}>Cancel</Button>
-            <Button variant="destructive" className="flex-1"
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmDelete(undefined)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
               disabled={deletePlanMutation.isPending || deleteMemberMutation.isPending}
               onClick={() => {
                 if (confirmDelete?.type === "plan") deletePlanMutation.mutate(confirmDelete.id);
-                else if (confirmDelete?.type === "member") deleteMemberMutation.mutate(confirmDelete.id);
+                else if (confirmDelete?.type === "member")
+                  deleteMemberMutation.mutate(confirmDelete.id);
               }}
               data-testid="button-confirm-delete"
             >

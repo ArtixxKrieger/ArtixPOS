@@ -5,9 +5,21 @@ import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  ShieldCheck, ShieldAlert, Hash, Download, RefreshCw,
-  Search, CheckCircle2, XCircle, AlertTriangle, FileText,
-  Trash2, Clock, User, Calendar, X,
+  ShieldCheck,
+  ShieldAlert,
+  Hash,
+  Download,
+  RefreshCw,
+  Search,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  FileText,
+  Trash2,
+  Clock,
+  User,
+  Calendar,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/hooks/use-settings";
@@ -73,29 +85,30 @@ export default function BirAuditLogPage() {
     staleTime: 60_000,
   });
 
-const entries = data?.entries ?? [];
+  const entries = data?.entries ?? [];
 
   const filtered = useMemo(() => {
     let list = entries;
 
-    if (hashFilter !== "all") list = list.filter(e => e.hashStatus === hashFilter);
+    if (hashFilter !== "all") list = list.filter((e) => e.hashStatus === hashFilter);
 
     if (dateFrom) {
       const from = startOfDay(parseISO(dateFrom));
-      list = list.filter(e => new Date(e.deletedAt) >= from);
+      list = list.filter((e) => new Date(e.deletedAt) >= from);
     }
     if (dateTo) {
       const to = endOfDay(parseISO(dateTo));
-      list = list.filter(e => new Date(e.deletedAt) <= to);
+      list = list.filter((e) => new Date(e.deletedAt) <= to);
     }
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter(e =>
-        (e.orNumber ?? "").toLowerCase().includes(q) ||
-        (e.receiptNumber ?? "").toLowerCase().includes(q) ||
-        (e.voidReason ?? "").toLowerCase().includes(q) ||
-        (e.deletedByName ?? "").toLowerCase().includes(q)
+      list = list.filter(
+        (e) =>
+          (e.orNumber ?? "").toLowerCase().includes(q) ||
+          (e.receiptNumber ?? "").toLowerCase().includes(q) ||
+          (e.voidReason ?? "").toLowerCase().includes(q) ||
+          (e.deletedByName ?? "").toLowerCase().includes(q),
       );
     }
 
@@ -104,7 +117,7 @@ const entries = data?.entries ?? [];
 
   const totalVoidedAmount = useMemo(
     () => filtered.reduce((sum, e) => sum + parseFloat(e.total || "0"), 0),
-    [filtered]
+    [filtered],
   );
 
   function clearFilters() {
@@ -118,11 +131,11 @@ const entries = data?.entries ?? [];
 
   function downloadCsv() {
     nativeFetch("/api/bir/void-trail/export")
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error("Export failed");
         return r.blob();
       })
-      .then(blob => {
+      .then((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -140,7 +153,9 @@ const entries = data?.entries ?? [];
   }
 
   const integrityOk = (data?.tampered ?? 0) === 0;
-  const verifiedAt = data?.verifiedAt ? format(new Date(data.verifiedAt), "MMM d, yyyy HH:mm:ss") : null;
+  const verifiedAt = data?.verifiedAt
+    ? format(new Date(data.verifiedAt), "MMM d, yyyy HH:mm:ss")
+    : null;
   const verifiedCount = data ? data.totalVoided - (data.tampered + data.missingHash) : 0;
 
   return (
@@ -178,21 +193,36 @@ const entries = data?.entries ?? [];
       </div>
 
       {}
-      <div className={cn(
-        "rounded-2xl border p-4",
-        integrityOk ? "bg-emerald-500/5 border-emerald-500/20" : "bg-rose-500/5 border-rose-500/20"
-      )}>
+      <div
+        className={cn(
+          "rounded-2xl border p-4",
+          integrityOk
+            ? "bg-emerald-500/5 border-emerald-500/20"
+            : "bg-rose-500/5 border-rose-500/20",
+        )}
+      >
         <div className="flex items-center gap-4 flex-wrap">
-          <div className={cn(
-            "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
-            integrityOk ? "bg-emerald-500/10" : "bg-rose-500/10"
-          )}>
-            {integrityOk
-              ? <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              : <ShieldAlert className="h-5 w-5 text-rose-500" />}
+          <div
+            className={cn(
+              "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
+              integrityOk ? "bg-emerald-500/10" : "bg-rose-500/10",
+            )}
+          >
+            {integrityOk ? (
+              <ShieldCheck className="h-5 w-5 text-emerald-500" />
+            ) : (
+              <ShieldAlert className="h-5 w-5 text-rose-500" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={cn("text-sm font-bold", integrityOk ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+            <p
+              className={cn(
+                "text-sm font-bold",
+                integrityOk
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : "text-rose-700 dark:text-rose-400",
+              )}
+            >
               {integrityOk
                 ? "Chain integrity verified — no tampering detected"
                 : `${data?.tampered ?? 0} tampered record${(data?.tampered ?? 0) !== 1 ? "s" : ""} detected`}
@@ -207,23 +237,40 @@ const entries = data?.entries ?? [];
           {}
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <div className="text-center bg-background/60 border border-border/50 rounded-xl px-3 py-1.5 min-w-[64px]">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Voided</p>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                Total Voided
+              </p>
               <p className="text-sm font-bold tabular-nums">{data?.totalVoided ?? "—"}</p>
             </div>
             <div className="text-center bg-background/60 border border-border/50 rounded-xl px-3 py-1.5 min-w-[80px]">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Voided Value</p>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                Voided Value
+              </p>
               <p className="text-sm font-bold tabular-nums">
-                {data ? formatCurrency(entries.reduce((s, e) => s + parseFloat(e.total || "0"), 0), currency) : "—"}
+                {data
+                  ? formatCurrency(
+                      entries.reduce((s, e) => s + parseFloat(e.total || "0"), 0),
+                      currency,
+                    )
+                  : "—"}
               </p>
             </div>
             <div className="text-center bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-1.5 min-w-[64px]">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Verified</p>
-              <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{data ? verifiedCount : "—"}</p>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                Verified
+              </p>
+              <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {data ? verifiedCount : "—"}
+              </p>
             </div>
             {(data?.tampered ?? 0) > 0 && (
               <div className="text-center bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-1.5 min-w-[64px]">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Tampered</p>
-                <p className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">{data?.tampered}</p>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Tampered
+                </p>
+                <p className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                  {data?.tampered}
+                </p>
               </div>
             )}
           </div>
@@ -238,7 +285,7 @@ const entries = data?.entries ?? [];
           <Input
             placeholder="OR number, reason, staff…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-8 h-8 text-xs"
             data-testid="input-void-search"
           />
@@ -250,7 +297,7 @@ const entries = data?.entries ?? [];
           <Input
             type="date"
             value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
+            onChange={(e) => setDateFrom(e.target.value)}
             className="h-8 text-xs w-[130px]"
             data-testid="input-void-date-from"
             placeholder="From"
@@ -259,7 +306,7 @@ const entries = data?.entries ?? [];
           <Input
             type="date"
             value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
+            onChange={(e) => setDateTo(e.target.value)}
             className="h-8 text-xs w-[130px]"
             data-testid="input-void-date-to"
             placeholder="To"
@@ -268,7 +315,7 @@ const entries = data?.entries ?? [];
 
         {}
         <div className="flex items-center gap-1">
-          {(["all", "ok", "tampered", "missing"] as const).map(f => (
+          {(["all", "ok", "tampered", "missing"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setHashFilter(f)}
@@ -277,10 +324,16 @@ const entries = data?.entries ?? [];
                 "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border",
                 hashFilter === f
                   ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-transparent text-muted-foreground border-border/40 hover:bg-muted/40"
+                  : "bg-transparent text-muted-foreground border-border/40 hover:bg-muted/40",
               )}
             >
-              {f === "all" ? "All" : f === "ok" ? "Verified" : f === "tampered" ? "Tampered" : "No Hash"}
+              {f === "all"
+                ? "All"
+                : f === "ok"
+                  ? "Verified"
+                  : f === "tampered"
+                    ? "Tampered"
+                    : "No Hash"}
             </button>
           ))}
         </div>
@@ -313,9 +366,16 @@ const entries = data?.entries ?? [];
           <div className="min-w-[700px]">
             {}
             <div className="grid grid-cols-[90px_90px_100px_1fr_140px_120px] gap-0 border-b border-border/40 bg-muted/30 px-4 py-2.5">
-              {["OR Number", "Receipt", "Total", "Void Reason", "Voided At", "Hash Integrity"].map(h => (
-                <p key={h} className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate">{h}</p>
-              ))}
+              {["OR Number", "Receipt", "Total", "Void Reason", "Voided At", "Hash Integrity"].map(
+                (h) => (
+                  <p
+                    key={h}
+                    className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate"
+                  >
+                    {h}
+                  </p>
+                ),
+              )}
             </div>
 
             {filtered.length === 0 ? (
@@ -327,12 +387,12 @@ const entries = data?.entries ?? [];
               </div>
             ) : (
               <div className="divide-y divide-border/30">
-                {filtered.map(entry => (
+                {filtered.map((entry) => (
                   <div
                     key={entry.id}
                     className={cn(
                       "grid grid-cols-[90px_90px_100px_1fr_140px_120px] gap-0 px-4 py-3 items-center hover:bg-muted/20 transition-colors",
-                      entry.hashStatus === "tampered" && "bg-rose-500/5"
+                      entry.hashStatus === "tampered" && "bg-rose-500/5",
                     )}
                     data-testid={`void-entry-${entry.id}`}
                   >
@@ -344,7 +404,9 @@ const entries = data?.entries ?? [];
                       {entry.deletedByName && (
                         <div className="flex items-center gap-1 mt-0.5">
                           <User className="h-2.5 w-2.5 text-muted-foreground/60 shrink-0" />
-                          <p className="text-[9px] text-muted-foreground truncate">{entry.deletedByName}</p>
+                          <p className="text-[9px] text-muted-foreground truncate">
+                            {entry.deletedByName}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -360,8 +422,13 @@ const entries = data?.entries ?? [];
                     </p>
 
                     {}
-                    <p className="text-xs text-muted-foreground truncate pr-3" title={entry.voidReason ?? ""}>
-                      {entry.voidReason || <span className="italic opacity-40">No reason given</span>}
+                    <p
+                      className="text-xs text-muted-foreground truncate pr-3"
+                      title={entry.voidReason ?? ""}
+                    >
+                      {entry.voidReason || (
+                        <span className="italic opacity-40">No reason given</span>
+                      )}
                     </p>
 
                     {}
@@ -402,7 +469,8 @@ const entries = data?.entries ?? [];
       {}
       {entries.length >= 1000 && (
         <p className="text-[10px] text-amber-600 dark:text-amber-400 text-center font-medium">
-          Showing the 1,000 most recent void records. Use the date range filter to narrow results, or export CSV for the full dataset.
+          Showing the 1,000 most recent void records. Use the date range filter to narrow results,
+          or export CSV for the full dataset.
         </p>
       )}
 
@@ -415,19 +483,30 @@ const entries = data?.entries ?? [];
         <div className="space-y-1.5 text-[11px] text-muted-foreground">
           <div className="flex items-start gap-2">
             <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
-            <span><strong className="text-foreground">VERIFIED</strong> — The SHA-256 hash matches the stored fiscal fields. The record has not been modified since creation.</span>
+            <span>
+              <strong className="text-foreground">VERIFIED</strong> — The SHA-256 hash matches the
+              stored fiscal fields. The record has not been modified since creation.
+            </span>
           </div>
           <div className="flex items-start gap-2">
             <XCircle className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
-            <span><strong className="text-foreground">TAMPERED</strong> — Hash mismatch detected. OR number, totals, or VAT fields may have been modified after initial recording.</span>
+            <span>
+              <strong className="text-foreground">TAMPERED</strong> — Hash mismatch detected. OR
+              number, totals, or VAT fields may have been modified after initial recording.
+            </span>
           </div>
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
-            <span><strong className="text-foreground">NO HASH</strong> — Record was created before hash generation was enabled. Cannot be cryptographically verified.</span>
+            <span>
+              <strong className="text-foreground">NO HASH</strong> — Record was created before hash
+              generation was enabled. Cannot be cryptographically verified.
+            </span>
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground/50 pt-1 border-t border-border/30">
-          Hash covers: user_id · receipt_number · or_number · invoice_number · subtotal · tax · discount · vatable_sales · vat_exempt_sales · zero_rated_sales · total · discount_type · created_at — joined with "|", SHA-256 encoded.
+          Hash covers: user_id · receipt_number · or_number · invoice_number · subtotal · tax ·
+          discount · vatable_sales · vat_exempt_sales · zero_rated_sales · total · discount_type ·
+          created_at — joined with "|", SHA-256 encoded.
         </p>
       </div>
     </div>

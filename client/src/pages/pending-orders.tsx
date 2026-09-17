@@ -195,8 +195,7 @@ export default function PendingOrders() {
         status: paidAmount >= total ? "paid" : "unpaid",
       },
       {
-        onSuccess: () => {
-        },
+        onSuccess: () => {},
       },
     );
   };

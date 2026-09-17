@@ -622,7 +622,6 @@ function TransfersTab({
   isLoading: boolean;
   onAdd: () => void;
 }) {
-
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest("PATCH", `/api/stock-transfers/${id}/status`, { status }),
@@ -1177,7 +1176,10 @@ function WasteLogForm({
               className="flex-1"
               onClick={() => {
                 const err = validate();
-                if (err) { setFormError(err); return; }
+                if (err) {
+                  setFormError(err);
+                  return;
+                }
                 setFormError(null);
                 mutation.mutate();
               }}

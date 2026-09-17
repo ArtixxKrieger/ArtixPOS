@@ -8,18 +8,42 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { insertServiceStaffSchema, type ServiceStaff } from "@shared/schema";
 import {
-  Users, Plus, Phone, Mail, Edit, Trash2, Search, Palette,
-  CheckCircle2, XCircle, User
+  Users,
+  Plus,
+  Phone,
+  Mail,
+  Edit,
+  Trash2,
+  Search,
+  Palette,
+  CheckCircle2,
+  XCircle,
+  User,
 } from "lucide-react";
 
 const COLORS = [
-  "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316",
-  "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#06b6d4",
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f43f5e",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#06b6d4",
 ];
 
 const formSchema = insertServiceStaffSchema.extend({
@@ -62,66 +86,134 @@ function StaffForm({ initial, onClose }: { initial?: ServiceStaff; onClose: () =
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-        <FormField control={form.control} name="name" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Full Name</FormLabel>
-            <FormControl><Input data-testid="input-staff-name" placeholder="e.g. Maria Santos" {...field} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="specialty" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Specialty / Role</FormLabel>
-            <FormControl><Input data-testid="input-staff-specialty" placeholder="e.g. Hair Stylist, Personal Trainer" {...field} value={field.value ?? ""} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full Name</FormLabel>
+              <FormControl>
+                <Input data-testid="input-staff-name" placeholder="e.g. Maria Santos" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="specialty"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Specialty / Role</FormLabel>
+              <FormControl>
+                <Input
+                  data-testid="input-staff-specialty"
+                  placeholder="e.g. Hair Stylist, Personal Trainer"
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="grid grid-cols-2 gap-3">
-          <FormField control={form.control} name="phone" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone</FormLabel>
-              <FormControl><Input data-testid="input-staff-phone" placeholder="+63 9XX XXX XXXX" {...field} value={field.value ?? ""} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
-          <FormField control={form.control} name="email" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl><Input data-testid="input-staff-email" type="email" placeholder="staff@email.com" {...field} value={field.value ?? ""} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <FormControl>
+                  <Input
+                    data-testid="input-staff-phone"
+                    placeholder="+63 9XX XXX XXXX"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input
+                    data-testid="input-staff-email"
+                    type="email"
+                    placeholder="staff@email.com"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
-        <FormField control={form.control} name="color" render={({ field }) => (
-          <FormItem>
-            <FormLabel className="flex items-center gap-2"><Palette className="h-3.5 w-3.5" /> Calendar Color</FormLabel>
-            <div className="flex gap-2 flex-wrap">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => field.onChange(c)}
-                  className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
-                  style={{ backgroundColor: c, borderColor: selectedColor === c ? "#000" : "transparent" }}
-                  data-testid={`color-option-${c}`}
-                />
-              ))}
-            </div>
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="color"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <Palette className="h-3.5 w-3.5" /> Calendar Color
+              </FormLabel>
+              <div className="flex gap-2 flex-wrap">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => field.onChange(c)}
+                    className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: c,
+                      borderColor: selectedColor === c ? "#000" : "transparent",
+                    }}
+                    data-testid={`color-option-${c}`}
+                  />
+                ))}
+              </div>
+            </FormItem>
+          )}
+        />
 
-        <FormField control={form.control} name="notes" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Notes</FormLabel>
-            <FormControl><Textarea data-testid="input-staff-notes" placeholder="Any additional notes..." rows={2} {...field} value={field.value ?? ""} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea
+                  data-testid="input-staff-notes"
+                  placeholder="Any additional notes..."
+                  rows={2}
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex gap-2 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button type="submit" className="flex-1" disabled={mutation.isPending} data-testid="button-save-staff">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1"
+            disabled={mutation.isPending}
+            data-testid="button-save-staff"
+          >
             {mutation.isPending ? "Saving…" : isEdit ? "Update" : "Add Staff"}
           </Button>
         </div>
@@ -130,15 +222,31 @@ function StaffForm({ initial, onClose }: { initial?: ServiceStaff; onClose: () =
   );
 }
 
-function StaffCard({ staff, onEdit, onDelete }: { staff: ServiceStaff; onEdit: () => void; onDelete: () => void }) {
+function StaffCard({
+  staff,
+  onEdit,
+  onDelete,
+}: {
+  staff: ServiceStaff;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <div data-testid={`card-staff-${staff.id}`} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
-      <div className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-md" style={{ backgroundColor: staff.color ?? "#6366f1" }}>
+    <div
+      data-testid={`card-staff-${staff.id}`}
+      className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 hover:shadow-sm transition-shadow"
+    >
+      <div
+        className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-md"
+        style={{ backgroundColor: staff.color ?? "#6366f1" }}
+      >
         {staff.name[0].toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-semibold text-foreground" data-testid={`text-staff-name-${staff.id}`}>{staff.name}</p>
+          <p className="font-semibold text-foreground" data-testid={`text-staff-name-${staff.id}`}>
+            {staff.name}
+          </p>
           <Badge variant={staff.isActive ? "default" : "secondary"} className="text-[10px]">
             {staff.isActive ? "Active" : "Inactive"}
           </Badge>
@@ -149,19 +257,37 @@ function StaffCard({ staff, onEdit, onDelete }: { staff: ServiceStaff; onEdit: (
         <div className="flex items-center gap-3 mt-1">
           {staff.phone && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Phone className="h-3 w-3" />{staff.phone}
+              <Phone className="h-3 w-3" />
+              {staff.phone}
             </span>
           )}
           {staff.email && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Mail className="h-3 w-3" />{staff.email}
+              <Mail className="h-3 w-3" />
+              {staff.email}
             </span>
           )}
         </div>
       </div>
       <div className="flex gap-1.5 shrink-0">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} data-testid={`button-edit-staff-${staff.id}`}><Edit className="h-3.5 w-3.5" /></Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={onDelete} data-testid={`button-delete-staff-${staff.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onEdit}
+          data-testid={`button-edit-staff-${staff.id}`}
+        >
+          <Edit className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          onClick={onDelete}
+          data-testid={`button-delete-staff-${staff.id}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
     </div>
   );
@@ -174,35 +300,50 @@ export default function StaffPage() {
   const [editing, setEditing] = useState<ServiceStaff | undefined>();
   const [confirmDelete, setConfirmDelete] = useState<ServiceStaff | undefined>();
 
-  const { data: staffList = [], isLoading: _isLoading } = useQuery<ServiceStaff[]>({ queryKey: ["/api/service-staff"], select: (d: any) => Array.isArray(d) ? d : [] });
+  const { data: staffList = [], isLoading: _isLoading } = useQuery<ServiceStaff[]>({
+    queryKey: ["/api/service-staff"],
+    select: (d: any) => (Array.isArray(d) ? d : []),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/service-staff/${id}`),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ["/api/service-staff"] });
       const previous = queryClient.getQueryData<any[]>(["/api/service-staff"]);
-      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => Array.isArray(old) ? old.filter(s => s.id !== id) : []);
+      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) =>
+        Array.isArray(old) ? old.filter((s) => s.id !== id) : [],
+      );
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); },
-    onSuccess: () => { undefined; setConfirmDelete(undefined); },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous);
+    },
+    onSuccess: () => {
+      undefined;
+      setConfirmDelete(undefined);
+    },
   });
 
-const toggleActiveMutation = useMutation({
+  const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) =>
       apiRequest("PUT", `/api/service-staff/${id}`, { isActive }),
     onMutate: async ({ id, isActive }: { id: number; isActive: boolean }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/service-staff"] });
       const previous = queryClient.getQueryData<any[]>(["/api/service-staff"]);
-      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) => old ? old.map(s => s.id === id ? { ...s, isActive } : s) : []);
+      queryClient.setQueryData<any[]>(["/api/service-staff"], (old) =>
+        old ? old.map((s) => (s.id === id ? { ...s, isActive } : s)) : [],
+      );
       return { previous };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous); },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["/api/service-staff"], ctx.previous);
+    },
   });
 
-  const filtered = staffList.filter((s) =>
-    s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    (s.specialty ?? "").toLowerCase().includes(debouncedSearch.toLowerCase())
+  const filtered = staffList.filter(
+    (s) =>
+      s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      (s.specialty ?? "").toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const active = filtered.filter((s) => s.isActive);
@@ -215,7 +356,13 @@ const toggleActiveMutation = useMutation({
           <h1 className="text-2xl font-bold text-foreground">Staff</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{staffList.length} team members</p>
         </div>
-        <Button onClick={() => { setEditing(undefined); setDialogOpen(true); }} data-testid="button-add-staff">
+        <Button
+          onClick={() => {
+            setEditing(undefined);
+            setDialogOpen(true);
+          }}
+          data-testid="button-add-staff"
+        >
           <Plus className="h-4 w-4 mr-1.5" /> Add Staff
         </Button>
       </div>
@@ -237,7 +384,9 @@ const toggleActiveMutation = useMutation({
             <Users className="h-7 w-7 text-muted-foreground" />
           </div>
           <p className="font-semibold text-foreground">No staff yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Add your first team member to get started</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Add your first team member to get started
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -245,13 +394,18 @@ const toggleActiveMutation = useMutation({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active ({active.length})</h2>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Active ({active.length})
+                </h2>
               </div>
               {active.map((s) => (
                 <StaffCard
                   key={s.id}
                   staff={s}
-                  onEdit={() => { setEditing(s); setDialogOpen(true); }}
+                  onEdit={() => {
+                    setEditing(s);
+                    setDialogOpen(true);
+                  }}
                   onDelete={() => setConfirmDelete(s)}
                 />
               ))}
@@ -261,13 +415,18 @@ const toggleActiveMutation = useMutation({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <XCircle className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Inactive ({inactive.length})</h2>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Inactive ({inactive.length})
+                </h2>
               </div>
               {inactive.map((s) => (
                 <StaffCard
                   key={s.id}
                   staff={s}
-                  onEdit={() => { setEditing(s); setDialogOpen(true); }}
+                  onEdit={() => {
+                    setEditing(s);
+                    setDialogOpen(true);
+                  }}
                   onDelete={() => setConfirmDelete(s)}
                 />
               ))}
@@ -276,7 +435,15 @@ const toggleActiveMutation = useMutation({
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) { setEditing(undefined); } setDialogOpen(v); }}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setEditing(undefined);
+          }
+          setDialogOpen(v);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -284,19 +451,45 @@ const toggleActiveMutation = useMutation({
               {editing ? "Edit Staff Member" : "Add Staff Member"}
             </DialogTitle>
           </DialogHeader>
-          <StaffForm initial={editing} onClose={() => { setEditing(undefined); setDialogOpen(false); }} />
+          <StaffForm
+            initial={editing}
+            onClose={() => {
+              setEditing(undefined);
+              setDialogOpen(false);
+            }}
+          />
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(undefined); }}>
+      <Dialog
+        open={!!confirmDelete}
+        onOpenChange={(v) => {
+          if (!v) setConfirmDelete(undefined);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Remove Staff Member?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Are you sure you want to remove <strong>{confirmDelete?.name}</strong>? This cannot be undone.</p>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to remove <strong>{confirmDelete?.name}</strong>? This cannot be
+            undone.
+          </p>
           <div className="flex gap-2 mt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(undefined)}>Cancel</Button>
-            <Button variant="destructive" className="flex-1" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(confirmDelete!.id)} data-testid="button-confirm-delete-staff">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmDelete(undefined)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(confirmDelete!.id)}
+              data-testid="button-confirm-delete-staff"
+            >
               {deleteMutation.isPending ? "Removing…" : "Remove"}
             </Button>
           </div>

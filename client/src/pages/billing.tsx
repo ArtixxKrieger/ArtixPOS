@@ -140,7 +140,6 @@ export default function BillingPage() {
     } else if (status === "cancel") {
       navigate("/billing", { replace: true });
     }
-
   }, []);
 
   const checkoutMutation = useMutation({
@@ -181,11 +180,10 @@ export default function BillingPage() {
     try {
       await rc.restore();
       refetch();
-    } catch (e: any) {
-    }
+    } catch (e: any) {}
   };
 
-const { data: settingsData } = useSettings();
+  const { data: settingsData } = useSettings();
   const settingsCurrency = (settingsData as any)?.currency;
   const pricing = getPricingByCurrency(settingsCurrency);
   const sym = pricing.symbol;
@@ -215,7 +213,8 @@ const { data: settingsData } = useSettings();
           <div>
             <p className="font-medium text-sm">Pro plan required</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              The page you tried to access requires a Pro or Business plan. Upgrade below to unlock it.
+              The page you tried to access requires a Pro or Business plan. Upgrade below to unlock
+              it.
             </p>
           </div>
         </div>
@@ -227,7 +226,8 @@ const { data: settingsData } = useSettings();
           <div>
             <p className="font-medium text-sm">Business Suite required</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              The Audit Log is a Business Suite feature. Upgrade to Business to get full activity history, staff restore, and more.
+              The Audit Log is a Business Suite feature. Upgrade to Business to get full activity
+              history, staff restore, and more.
             </p>
           </div>
         </div>

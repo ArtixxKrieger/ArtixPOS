@@ -249,8 +249,7 @@ export default function Products() {
       setImportResult(result);
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
-    onError: (err: Error) => {
-    },
+    onError: (err: Error) => {},
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -442,8 +441,7 @@ export default function Products() {
             setEditingId(null);
             form.reset();
           },
-          onError: (err) => {
-          },
+          onError: (err) => {},
         },
       );
     } else {
@@ -452,8 +450,7 @@ export default function Products() {
           setIsDialogOpen(false);
           form.reset();
         },
-        onError: (err) => {
-        },
+        onError: (err) => {},
       });
     }
   };

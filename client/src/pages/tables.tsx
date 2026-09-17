@@ -5,20 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, LayoutGrid, Pencil, Trash2, Users, Check, X } from "lucide-react";
 import type { Table } from "@shared/schema";
 
 const STATUS_CONFIG = {
-  available: { label: "Available", class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
-  occupied:  { label: "Occupied",  class: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20" },
-  reserved:  { label: "Reserved",  class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20" },
+  available: {
+    label: "Available",
+    class: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+  },
+  occupied: {
+    label: "Occupied",
+    class: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20",
+  },
+  reserved: {
+    label: "Reserved",
+    class: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20",
+  },
 } as const;
 
 type TableStatus = keyof typeof STATUS_CONFIG;
 
-interface TableForm { name: string; seats: number; status: TableStatus }
+interface TableForm {
+  name: string;
+  seats: number;
+  status: TableStatus;
+}
 const DEFAULT_FORM: TableForm = { name: "", seats: 4, status: "available" };
 
 export default function TablesPage() {
@@ -27,32 +52,62 @@ export default function TablesPage() {
   const [form, setForm] = useState<TableForm>(DEFAULT_FORM);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
-  const { data: tables = [], isLoading: _isLoading } = useQuery<Table[]>({ queryKey: ["/api/tables"] });
+  const { data: tables = [], isLoading: _isLoading } = useQuery<Table[]>({
+    queryKey: ["/api/tables"],
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: TableForm) => apiRequest("POST", "/api/tables", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); closeDialog(); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      closeDialog();
+    },
     onError: () => {},
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<TableForm> }) => apiRequest("PUT", `/api/tables/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); closeDialog(); },
+    mutationFn: ({ id, data }: { id: number; data: Partial<TableForm> }) =>
+      apiRequest("PUT", `/api/tables/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      closeDialog();
+    },
     onError: () => {},
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/tables/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tables"] }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+    },
     onError: () => {},
   });
 
-  function openCreate() { setEditing(null); setForm(DEFAULT_FORM); setDialogOpen(true); }
-  function openEdit(t: Table) { setEditing(t); setForm({ name: t.name, seats: t.seats ?? 4, status: (t.status as TableStatus) ?? "available" }); setDialogOpen(true); }
-  function closeDialog() { setDialogOpen(false); setEditing(null); setForm(DEFAULT_FORM); }
+  function openCreate() {
+    setEditing(null);
+    setForm(DEFAULT_FORM);
+    setDialogOpen(true);
+  }
+  function openEdit(t: Table) {
+    setEditing(t);
+    setForm({
+      name: t.name,
+      seats: t.seats ?? 4,
+      status: (t.status as TableStatus) ?? "available",
+    });
+    setDialogOpen(true);
+  }
+  function closeDialog() {
+    setDialogOpen(false);
+    setEditing(null);
+    setForm(DEFAULT_FORM);
+  }
 
   function handleSubmit() {
-    if (!form.name.trim()) { undefined; return; }
+    if (!form.name.trim()) {
+      undefined;
+      return;
+    }
     if (editing) updateMutation.mutate({ id: editing.id, data: form });
     else createMutation.mutate(form);
   }
@@ -72,7 +127,9 @@ export default function TablesPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <LayoutGrid className="h-6 w-6 text-primary" /> Table Management
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{tables.length} table{tables.length !== 1 ? "s" : ""} total</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {tables.length} table{tables.length !== 1 ? "s" : ""} total
+          </p>
         </div>
         <Button onClick={openCreate} data-testid="button-add-table">
           <Plus className="h-4 w-4 mr-1" /> Add Table
@@ -81,8 +138,11 @@ export default function TablesPage() {
 
       {}
       <div className="flex flex-wrap gap-2">
-        {(Object.keys(STATUS_CONFIG) as TableStatus[]).map(s => (
-          <div key={s} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${STATUS_CONFIG[s].class}`}>
+        {(Object.keys(STATUS_CONFIG) as TableStatus[]).map((s) => (
+          <div
+            key={s}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${STATUS_CONFIG[s].class}`}
+          >
             <span className="capitalize">{STATUS_CONFIG[s].label}</span>
             <span className="font-bold">{counts[s]}</span>
           </div>
@@ -110,20 +170,41 @@ export default function TablesPage() {
                 <div className="flex items-start justify-between">
                   <p className="font-semibold text-base leading-tight">{table.name}</p>
                   <div className="flex gap-1">
-                    <button onClick={() => openEdit(table)} className="text-muted-foreground hover:text-foreground transition-colors p-0.5" data-testid={`button-edit-table-${table.id}`}>
+                    <button
+                      onClick={() => openEdit(table)}
+                      className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                      data-testid={`button-edit-table-${table.id}`}
+                    >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     {confirmDeleteId === table.id ? (
                       <>
-                        <button onClick={() => { deleteMutation.mutate(table.id); setConfirmDeleteId(null); }} className="text-destructive hover:bg-destructive/10 rounded p-0.5 transition-colors" data-testid={`button-confirm-delete-table-${table.id}`} title="Confirm delete">
+                        <button
+                          onClick={() => {
+                            deleteMutation.mutate(table.id);
+                            setConfirmDeleteId(null);
+                          }}
+                          className="text-destructive hover:bg-destructive/10 rounded p-0.5 transition-colors"
+                          data-testid={`button-confirm-delete-table-${table.id}`}
+                          title="Confirm delete"
+                        >
                           <Check className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => setConfirmDeleteId(null)} className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors" data-testid={`button-cancel-delete-table-${table.id}`} title="Cancel">
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
+                          data-testid={`button-cancel-delete-table-${table.id}`}
+                          title="Cancel"
+                        >
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </>
                     ) : (
-                      <button onClick={() => setConfirmDeleteId(table.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5" data-testid={`button-delete-table-${table.id}`}>
+                      <button
+                        onClick={() => setConfirmDeleteId(table.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors p-0.5"
+                        data-testid={`button-delete-table-${table.id}`}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -136,16 +217,18 @@ export default function TablesPage() {
                 <Badge className={`${cfg.class} border text-xs w-fit`}>{cfg.label}</Badge>
                 {}
                 <div className="flex gap-1">
-                  {(Object.keys(STATUS_CONFIG) as TableStatus[]).filter(s => s !== status).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => quickStatus(table, s)}
-                      className="flex-1 text-[9px] font-medium py-1 px-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                      data-testid={`button-status-${s}-${table.id}`}
-                    >
-                      {STATUS_CONFIG[s].label}
-                    </button>
-                  ))}
+                  {(Object.keys(STATUS_CONFIG) as TableStatus[])
+                    .filter((s) => s !== status)
+                    .map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => quickStatus(table, s)}
+                        className="flex-1 text-[9px] font-medium py-1 px-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid={`button-status-${s}-${table.id}`}
+                      >
+                        {STATUS_CONFIG[s].label}
+                      </button>
+                    ))}
                 </div>
               </div>
             );
@@ -164,7 +247,7 @@ export default function TablesPage() {
               <Label>Table Name</Label>
               <Input
                 value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Table 1, Booth A"
                 data-testid="input-table-name"
               />
@@ -176,13 +259,16 @@ export default function TablesPage() {
                 min={1}
                 max={50}
                 value={form.seats}
-                onChange={e => setForm(f => ({ ...f, seats: Number(e.target.value) }))}
+                onChange={(e) => setForm((f) => ({ ...f, seats: Number(e.target.value) }))}
                 data-testid="input-table-seats"
               />
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as TableStatus }))}>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((f) => ({ ...f, status: v as TableStatus }))}
+              >
                 <SelectTrigger data-testid="select-table-status">
                   <SelectValue />
                 </SelectTrigger>
@@ -195,7 +281,9 @@ export default function TablesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button variant="outline" onClick={closeDialog}>
+              Cancel
+            </Button>
             <Button
               onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}

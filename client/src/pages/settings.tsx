@@ -418,7 +418,6 @@ export default function Settings() {
     };
     updateSettings.mutate(payload as any, {
       onSuccess: () => {
-
         queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       },
       onError: showErrorToast,
@@ -1293,7 +1292,9 @@ export default function Settings() {
                 <MonitorSmartphone className="h-5 w-5 text-blue-500" />
               </div>
               <div>
-                <SheetTitle className="text-lg font-black leading-tight">Active Sessions</SheetTitle>
+                <SheetTitle className="text-lg font-black leading-tight">
+                  Active Sessions
+                </SheetTitle>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Devices where you're currently logged in
                 </p>
@@ -1357,8 +1358,8 @@ export default function Settings() {
                             {session.lastSeenAt
                               ? `Active ${formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}`
                               : session.createdAt
-                              ? `Signed in ${formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })}`
-                              : ""}
+                                ? `Signed in ${formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })}`
+                                : ""}
                           </p>
                         </div>
                         {!session.current && (
@@ -1376,15 +1377,16 @@ export default function Settings() {
               </div>
             )}
 
-            {Array.isArray(sessions) && sessions.filter((s: ActiveSession) => !s.current).length > 0 && (
-              <button
-                onClick={() => revokeAllOther.mutate()}
-                disabled={revokeAllOther.isPending}
-                className="mt-4 w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/5 transition-colors disabled:opacity-50"
-              >
-                {revokeAllOther.isPending ? "Signing out…" : "Sign out all other devices"}
-              </button>
-            )}
+            {Array.isArray(sessions) &&
+              sessions.filter((s: ActiveSession) => !s.current).length > 0 && (
+                <button
+                  onClick={() => revokeAllOther.mutate()}
+                  disabled={revokeAllOther.isPending}
+                  className="mt-4 w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/5 transition-colors disabled:opacity-50"
+                >
+                  {revokeAllOther.isPending ? "Signing out…" : "Sign out all other devices"}
+                </button>
+              )}
           </div>
         </SheetContent>
       </Sheet>
